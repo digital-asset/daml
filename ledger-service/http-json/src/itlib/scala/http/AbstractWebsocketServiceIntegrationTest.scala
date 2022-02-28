@@ -50,7 +50,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
-//  import HttpServiceTestFixture._
   import WebsocketTestFixture._
 
   override def staticContentConfig: Option[StaticContentConfig] = None

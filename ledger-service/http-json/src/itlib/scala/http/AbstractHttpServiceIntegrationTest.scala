@@ -188,10 +188,8 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerId) => Future[A]
-  ): Future[A] = {
-    println("======> inside withHttpService")
+  ): Future[A] =
     withHttpServiceAndClient((a, b, c, _, ledgerId) => f(a, b, c, ledgerId))
-  }
 
   protected def withHttpServiceOnly[A](ledgerPort: Port)(
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]
