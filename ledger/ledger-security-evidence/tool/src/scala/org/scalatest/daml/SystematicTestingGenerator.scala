@@ -142,28 +142,31 @@ object SystematicTestingGenerator {
     println()
 
     println("Writing security tests inventory..")
-    File("/Users/sergeykisel/git/daml/security-tests.json").write(
+    val securityTestsFilePath = File("security-tests.json").write(
       scalaTestEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
         testSuites,
         SecurityTestEntry,
       ).asJson.spaces2
-    )
+    ).path.toAbsolutePath.toString
+    println(s"Wrote to $securityTestsFilePath")
 
     println("Writing reliability tests inventory..")
-    File("/Users/sergeykisel/git/daml/reliability-tests.json").write(
+    val reliabilityTestsFilePath = File("reliability-tests.json").write(
       scalaTestEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
         testSuites,
         ReliabilityTestEntry,
       ).asJson.spaces2
-    )
+    ).path.toAbsolutePath.toString
+    println(s"Wrote to $reliabilityTestsFilePath")
 
     println("Writing Ledger Api tests inventory..")
-    File("/Users/sergeykisel/git/daml/ledger-api-tests.json").write(
+    val ledgerApiTestsFilePath = File("ledger-api-tests.json").write(
       testEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
         ledgerApiTests,
         SecurityTestEntry,
       ).asJson.spaces2
-    )
+    ).path.toAbsolutePath.toString
+    println(s"Wrote to $ledgerApiTestsFilePath")
 
     sys.exit()
   }
