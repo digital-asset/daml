@@ -287,8 +287,8 @@ Using Claim Tokens
 ^^^^^^^^^^^^^^^^^^
 
 These tokens can be used if the underlying ledger does not support :ref:`user management <user-service>`. For command
-submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at
-least one party in either ``actAs`` or ``readAs``. The application id is mandatory.
+submissions, ``actAs`` must contain at least one party and ``readAs`` can contain any number of parties. Queries
+require at least one party in either ``actAs`` or ``readAs``. The application id is mandatory.
 
 .. note::
 
