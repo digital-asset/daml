@@ -1003,6 +1003,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       jsObject(
         """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
       )
+    // TODO VM(#12922) https://github.com/digital-asset/daml/pull/12922#discussion_r815234434
     logger.info("query returns unknown Template IDs")
     headersWithPartyAuth(uri)(List("UnknownParty")).flatMap(headers =>
       search(List(), query, uri, encoder, headers).map { response =>
