@@ -6,7 +6,7 @@ package nonempty
 
 import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
+import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
@@ -193,6 +193,11 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
+
+  // by requiring Monoid instead of Semigroup, we exclude intersection semigroups,
+  // which are not legitimate for lifting into NonEmpty
+  implicit def semigroup[A](implicit A: Monoid[A]): Semigroup[NonEmpty[A]] =
+    NonEmpty.subst[Lambda[k[_] => Semigroup[k[A]]]](A)
 }
 
 sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
