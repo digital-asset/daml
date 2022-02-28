@@ -3243,7 +3243,7 @@ as described by the ledger model::
 
      'create' @Mod':T v ‖ S   ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdCreateInterface [Daml-LF ≥ 1.dev]
-     'create_interface' @Mod:I ('to_interface' @Mod:I @Mod':T v) ‖ S    ⇓ᵤ  ur
+     'create_interface' @Mod:I ('to_interface' @Mod:I @Mod':T v) ‖ S   ⇓ᵤ  ur
 
      cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
@@ -3454,7 +3454,7 @@ as described by the ledger model::
      cid ∈ dom(st)
      st(cid) = (Mod':T, vₜ, 'active')
      Mod':T  does not implement interface  Mod:I
-   —————————————————————————————————————————————————————————————————————— EvUpdFetchInterfaceDosntImplement [Daml-LF ≥ 1.dev]
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInterfaceDoesntImplement [Daml-LF ≥ 1.dev]
      'fetch_interface' @Mod:I cid ‖ (st; keys)
        ⇓ᵤ
      (Err (Fatal "Fetched contract does not implement interface"), ε)
