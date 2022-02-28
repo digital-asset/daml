@@ -314,12 +314,12 @@ object CommandService {
       message: String,
   ) extends Error
   final case class GrpcError(status: io.grpc.Status) extends Error
-  final case class InternalError(id: Option[Symbol], error: Throwable \/ String) extends Error
+  final case class InternalError(id: Option[Symbol], error: Throwable) extends Error
   object InternalError {
     def apply(id: Option[Symbol], message: String): InternalError =
-      InternalError(id, \/.right(message))
+      InternalError(id, new Exception(message))
     def apply(id: Option[Symbol], error: Throwable): InternalError =
-      InternalError(id, \/.left(error))
+      InternalError(id, error)
   }
 
   private type ET[A] = EitherT[Future, Error, A]

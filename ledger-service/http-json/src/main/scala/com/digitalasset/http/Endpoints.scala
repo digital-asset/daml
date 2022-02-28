@@ -505,9 +505,12 @@ object Endpoints {
     implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
 
     implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
-      case CommandService.InternalError(id, message) =>
+      case CommandService.InternalError(id, reason) =>
         ServerError(
-          s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message"
+          new Exception(
+            s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}${reason.getMessage}",
+            reason,
+          )
         )
       case CommandService.GrpcError(status) =>
         ParticipantServerError(status.getCode, Option(status.getDescription))

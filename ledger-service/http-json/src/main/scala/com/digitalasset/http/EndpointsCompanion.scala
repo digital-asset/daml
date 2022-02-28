@@ -40,7 +40,7 @@ object EndpointsCompanion {
 
   final case class Unauthorized(message: String) extends Error
 
-  final case class ServerError(message: Throwable \/ String) extends Error
+  final case class ServerError(message: Throwable) extends Error
 
   final case class ParticipantServerError(grpcStatus: GrpcCode, description: Option[String])
       extends Error
@@ -48,8 +48,9 @@ object EndpointsCompanion {
   final case class NotFound(message: String) extends Error
 
   object ServerError {
-    def apply(message: String): ServerError = ServerError(\/.right(message))
-    def apply(error: Throwable): ServerError = ServerError(\/.left(error))
+    // We want stack traces also in the case of simple error messages.
+    def apply(message: String): ServerError = ServerError(new Exception(message))
+    def apply(error: Throwable): ServerError = ServerError(error)
   }
 
   object Error {
@@ -57,7 +58,7 @@ object EndpointsCompanion {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
       case ParticipantServerError(s, d) =>
         s"Endpoints.ParticipantServerError: ${s: GrpcCode}${d.cata((": " + _), "")}"
-      case ServerError(e) => s"Endpoints.ServerError: ${e.fold(_.getMessage, identity): String}"
+      case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
@@ -321,10 +322,7 @@ object EndpointsCompanion {
       case ParticipantServerError(grpcStatus, d) =>
         grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
       case ServerError(reason) =>
-        reason.fold(
-          logger.error(s"Internal server error occured", _),
-          msg => logger.error(s"Internal server error occured: $msg"),
-        )
+        logger.error(s"Internal server error occured", reason)
         StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e

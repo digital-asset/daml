@@ -100,10 +100,7 @@ object WebSocketService {
 
     def logHiddenErrors()(implicit lc: LoggingContextOf[InstanceUUID]): Unit =
       errors foreach { case ServerError(reason) =>
-        reason.fold(
-          logger.error(s"while rendering contract (unknown)", _),
-          message => logger.error(s"while rendering contract: ${message: String}"),
-        )
+        logger.error(s"while rendering contract", reason)
       }
 
     def render(implicit lfv: LfVT <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
