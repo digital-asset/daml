@@ -191,7 +191,7 @@ object NamedEntity {
   final case class NInterfaceChoice(
       module: NModDef,
       ifaceName: DottedName,
-      choiceName: ChoiceName
+      choiceName: ChoiceName,
   ) extends NamedEntity {
     def modName: ModuleName = module.name
     val fullyResolvedName: DottedName =
@@ -205,7 +205,7 @@ object NamedEntity {
   final case class NInterfaceMethod(
       module: NModDef,
       ifaceName: DottedName,
-      methodName: MethodName
+      methodName: MethodName,
   ) extends NamedEntity {
     def modName: ModuleName = module.name
     val fullyResolvedName: DottedName =
