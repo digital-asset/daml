@@ -99,7 +99,7 @@ private[index] class IndexServiceImpl(
         )
         .map(_._2)
     }).wireTap(
-      _.transactions
+      _.transactions.view
         .map(transaction =>
           Event(transaction.commandId, TraceIdentifiers.fromTransaction(transaction))
         )
@@ -129,7 +129,7 @@ private[index] class IndexServiceImpl(
         )
         .map(_._2)
     }).wireTap(
-      _.transactions
+      _.transactions.view
         .map(transaction =>
           Event(transaction.commandId, TraceIdentifiers.fromTransactionTree(transaction))
         )
