@@ -1259,12 +1259,6 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.14]
       Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
-
-      ⊢ₑ  τ
-      Γ  ⊢  e  :  τ
-    ——————————————————————————————————————————————————————————————— ExpToAnyException [Daml-LF ≥ 1.14]
-      Γ  ⊢  'to_any_exception' @τ e  :  'AnyException'
-
       'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
       'tpl' (x : T) ↦ { …, 'implements' Mod:I { … }, … } ∈ 〚Ξ〛Mod'
       Γ  ⊢  e  :  Mod':T
