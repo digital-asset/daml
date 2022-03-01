@@ -767,7 +767,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         argument = Value.ValueUnit,
         signatories = List("signatory"),
         observers = List("observer"),
-        key = None,
+        key = Some(Value.ValueUnit),
       )
       val fetchNode = builder.fetch(
         contract = createNode,
