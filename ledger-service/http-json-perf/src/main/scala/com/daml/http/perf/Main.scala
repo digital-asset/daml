@@ -4,19 +4,17 @@
 package com.daml.http.perf
 
 import java.nio.file.{Files, Path}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.dbutils
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
-import com.daml.http.domain.{JwtPayload, LedgerId}
+import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
+import com.daml.http.domain.{JwtPayloadLedgerIdOnly, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
-import com.daml.http.{EndpointsCompanion, HttpService}
-import com.daml.jwt.domain.Jwt
+import com.daml.http.HttpService
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresDatabase
 import com.typesafe.scalalogging.StrictLogging
@@ -27,9 +25,9 @@ import scalaz.std.scalaFuture._
 import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
-
 import Config.QueryStoreIndex
 import com.daml.dbutils.ConnectionPool
+import com.daml.http.EndpointsCompanion.ParsePayload
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
@@ -116,18 +114,13 @@ object Main extends StrictLogging {
     logger.info(s"$config")
 
     val et: ET[ExitCode] = for {
-      ledgerId <- either(
-        getLedgerId(config.jwt).leftMap(_ =>
-          new IllegalArgumentException("Cannot infer Ledger ID from JWT")
-        )
-      ): ET[LedgerId]
 
       _ <- either(
         config.traverse(s => resolveSimulationClass(s))
       ): ET[Config[Class[_ <: Simulation]]]
 
       exitCode <- rightT(
-        main2(ledgerId, config)
+        main2(config)
       ): ET[ExitCode]
 
     } yield exitCode
@@ -135,13 +128,25 @@ object Main extends StrictLogging {
     et.run
   }
 
-  private def main2(ledgerId: LedgerId, config: Config[String])(implicit
+  private def main2(config: Config[String])(implicit
       asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       elg: EventLoopGroup,
-  ): Future[ExitCode] =
+  ): Future[ExitCode] = {
+    // For custom tokens we need to extract the expected ledger id, however for
+    // user tokens we can just choose any ledger id, because it doesn't contain any.
+    val ledgerId: LedgerId = {
+      val customParse = implicitly(ParsePayload[JwtPayloadLedgerIdOnly])
+      HttpService
+        .decodeJwt(config.jwt)
+        .flatMap { decodedJwt =>
+          customParse
+            .parsePayload(decodedJwt)
+        }
+        .fold(_ => LedgerId("perf-runner"), payload => payload.ledgerId)
+    }
     withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _, _) =>
       withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
         withHttpService(
@@ -161,6 +166,7 @@ object Main extends StrictLogging {
         }
       }
     }
+  }
 
   private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: QueryStoreIndex)(
       fn: Option[JdbcConfig] => Future[A]
@@ -267,14 +273,6 @@ object Main extends StrictLogging {
         logger.error(s"Cannot resolve scenario: '$str'", e)
         -\/(e)
     }
-  }
-
-  private def getLedgerId(
-      jwt: Jwt
-  ): EndpointsCompanion.Error \/ LedgerId = {
-    EndpointsCompanion
-      .customDecodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
-      .map { case (_, payload) => payload.ledgerId }
   }
 
   private def runGatlingScenario(
