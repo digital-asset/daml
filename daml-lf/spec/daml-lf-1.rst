@@ -1316,7 +1316,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdCreate
       Γ  ⊢  'create' @Mod:T e  : 'Update' ('ContractId' Mod:T)
 
-      'interface' (x : T) ↦ …  ∈  〚Ξ〛Mod
+      'interface' (x : I) ↦ …  ∈  〚Ξ〛Mod
       Γ  ⊢  e  : Mod:I
     ——————————————————————————————————————————————————————————————— UpdCreateInterface [Daml-LF ≥ 1.dev]
       Γ  ⊢  'create_interface' @Mod:I e  : 'Update' ('ContractId' Mod:I)
@@ -1351,7 +1351,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdFetch
       Γ  ⊢  'fetch' @Mod:T e : 'Update' Mod:T
 
-      'interface' (x : T) ↦ …  ∈  〚Ξ〛Mod
+      'interface' (x : I) ↦ …  ∈  〚Ξ〛Mod
       Γ  ⊢  e  :  'ContractId' Mod:I
     ——————————————————————————————————————————————————————————————— UpdFetchInterface [Daml-LF ≥ 1.dev]
       Γ  ⊢  'fetch_interface' @Mod:I e : 'Update' Mod:I
@@ -1624,6 +1624,7 @@ Note that
    phantom ones.
 5. Interface types are not serializable, but interface contract ids
    are serializable.
+
 
 Well-formed-definitions
 .......................
