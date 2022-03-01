@@ -204,7 +204,7 @@ private[http] object RouteSetup {
   private[http] def handleFutureFailure[A](fa: Future[A])(implicit
       ec: ExecutionContext
   ): Future[Error \/ A] =
-    fa.map { a => \/-(a) }.recover(Error.fromThrowable andThen (-\/(_)))
+    fa.map(a => \/-(a)).recover(Error.fromThrowable andThen (-\/(_)))
 
   private[endpoints] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
       ec: ExecutionContext,
