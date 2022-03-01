@@ -199,7 +199,7 @@ Applications and their operators are expected to allocate and use parties to man
 
 For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
 
-.. _user-service:
+.. _user-management-service:
 
 User management service
 =======================
@@ -267,15 +267,6 @@ Pruning service
 Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
-
-.. _user-management-service:
-
-User Management service
-============================
-
-Use the **user management service** to manage users and their rights on a given participant.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.UserManagementService>`.
 
 .. _metering-report-service:
 
