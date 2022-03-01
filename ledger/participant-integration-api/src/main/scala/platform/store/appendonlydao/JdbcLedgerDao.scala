@@ -581,6 +581,7 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
+      turnOffValidations: Boolean,
   ): LedgerReadDao =
     new MeteredLedgerReadDao(
       new JdbcLedgerDao(
@@ -598,7 +599,8 @@ private[platform] object JdbcLedgerDao {
         enricher,
         SequentialWriteDao.noop,
         participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        dbSupport.storageBackendFactory
+          .readStorageBackend(ledgerEndCache, stringInterning, turnOffValidations),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         errorFactories,
         materializer = materializer,
@@ -625,6 +627,7 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
+      turnOffValidations: Boolean,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -642,7 +645,8 @@ private[platform] object JdbcLedgerDao {
         enricher,
         sequentialWriteDao,
         participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        dbSupport.storageBackendFactory
+          .readStorageBackend(ledgerEndCache, stringInterning, turnOffValidations),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         errorFactories,
         materializer = materializer,

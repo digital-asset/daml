@@ -224,6 +224,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
+                  turnOffValidations = true, // TODO: make this configurable
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,

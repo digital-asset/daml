@@ -36,6 +36,7 @@ private[platform] object JdbcIndex {
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
+      turnOffValidations: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     ReadOnlyLedgerBuilder(
       dbSupport = dbSupport,
@@ -57,6 +58,7 @@ private[platform] object JdbcIndex {
       participantId = participantId,
       maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
       errorFactories = ErrorFactories(),
+      turnOffValidations = turnOffValidations,
     )(mat, loggingContext, servicesExecutionContext)
       .owner()
       .map { ledger =>

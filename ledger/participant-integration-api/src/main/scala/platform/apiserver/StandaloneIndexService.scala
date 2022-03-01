@@ -30,6 +30,7 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      turnOffValidations: Boolean,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -91,6 +92,7 @@ object StandaloneIndexService {
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+          turnOffValidations = turnOffValidations,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
     } yield indexService

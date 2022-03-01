@@ -62,6 +62,7 @@ private[index] case class ReadOnlyLedgerBuilder(
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
     errorFactories: ErrorFactories,
+    turnOffValidations: Boolean,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -72,7 +73,7 @@ private[index] case class ReadOnlyLedgerBuilder(
   def owner(): ResourceOwner[ReadOnlyLedger] = {
     val ledgerEndCache = MutableLedgerEndCache()
     val stringInterningView = createStringInterningView()
-    val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
+    val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView, turnOffValidations)
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
       ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
@@ -299,6 +300,7 @@ private[index] case class ReadOnlyLedgerBuilder(
   private def createLedgerReadDao(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      turnOffValidations: Boolean,
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
@@ -318,5 +320,6 @@ private[index] case class ReadOnlyLedgerBuilder(
       stringInterning = stringInterning,
       errorFactories = errorFactories,
       materializer = mat,
+      turnOffValidations = turnOffValidations,
     )
 }

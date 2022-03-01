@@ -98,6 +98,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
           materializer = materializer,
+          turnOffValidations = false,
         )
       }
   }

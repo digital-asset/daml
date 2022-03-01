@@ -26,8 +26,17 @@ object PostgresStorageBackendFactory
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      turnOffValidations: Boolean,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache, stringInterning)
+    if (turnOffValidations) {
+      new NonValidatingContractStorageBackendTemplate(
+        PostgresQueryStrategy,
+        ledgerEndCache,
+        stringInterning,
+      )
+    } else {
+      new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache, stringInterning)
+    }
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,

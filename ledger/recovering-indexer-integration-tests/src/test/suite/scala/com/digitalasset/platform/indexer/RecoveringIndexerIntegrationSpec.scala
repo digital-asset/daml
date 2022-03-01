@@ -264,6 +264,7 @@ class RecoveringIndexerIntegrationSpec
           errorFactories = errorFactories,
           stringInterning = stringInterning,
           materializer = materializer,
+          turnOffValidations = false,
         ) -> mutableLedgerEndCache
       )
   }

@@ -39,6 +39,7 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      turnOffValidations: Boolean,
   ): ContractStorageBackend =
     new H2ContractStorageBackend(ledgerEndCache, stringInterning)
 

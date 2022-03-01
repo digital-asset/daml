@@ -182,6 +182,7 @@ object SandboxOnXRunner {
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
+            turnOffValidations = true, // TODO: make it configurable
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)

@@ -82,6 +82,7 @@ object IndexMetadata {
           stringInterning =
             new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used
           materializer = materializer,
+          turnOffValidations = false,
         )
       )
   }

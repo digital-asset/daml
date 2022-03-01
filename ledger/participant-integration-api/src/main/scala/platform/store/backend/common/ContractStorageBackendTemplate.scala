@@ -47,7 +47,7 @@ class ContractStorageBackendTemplate(
       validAt = validAt,
     )(connection).getOrElse(KeyUnassigned)
 
-  private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
+  protected val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
     (int("template_id").?
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument").?

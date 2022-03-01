@@ -40,6 +40,7 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      turnOffValidations: Boolean,
   ): ContractStorageBackend =
     new ContractStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache, stringInterning)
 
