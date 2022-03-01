@@ -48,20 +48,18 @@ final class FailureTests
     (uri, encoder, _, client) =>
       for {
         p <- allocateParty(client, "Alice")
-        (status, _) <- postCreateCommand(
-          accountCreateCommand(p, "23"),
-          encoder,
-          uri,
-          headersWithParties(List(p.unwrap)),
+        (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+          postCreateCommand(
+            accountCreateCommand(p, "23"),
+            encoder,
+            uri,
+            _,
+          )
         )
         _ = status shouldBe StatusCodes.OK
         _ = proxy.disable()
-        (status, output) <- postCreateCommand(
-          accountCreateCommand(p, "24"),
-          encoder,
-          uri,
-          headersWithParties(List(p.unwrap)),
-        )
+        (status, output) <- headersWithParties(List(p.unwrap))
+          .flatMap(postCreateCommand(accountCreateCommand(p, "24"), encoder, uri, _))
         _ = status shouldBe StatusCodes.ServiceUnavailable
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.ServiceUnavailable
@@ -79,11 +77,13 @@ final class FailureTests
         // eventually doesn’t handle Futures in the version of scalatest we’re using.
         _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
           for {
-            (status, _) <- postCreateCommand(
-              accountCreateCommand(p, "25"),
-              encoder,
-              uri,
-              headersWithParties(List(p.unwrap)),
+            (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+              postCreateCommand(
+                accountCreateCommand(p, "25"),
+                encoder,
+                uri,
+                _,
+              )
             )
           } yield status shouldBe StatusCodes.OK
         )
@@ -96,11 +96,13 @@ final class FailureTests
     import json.JsonProtocol._
     for {
       p <- allocateParty(client, "Alice")
-      (status, _) <- postCreateCommand(
-        accountCreateCommand(p, "23"),
-        encoder,
-        uri,
-        headersWithParties(List(p.unwrap)),
+      (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "23"),
+          encoder,
+          uri,
+          _,
+        )
       )
       _ = status shouldBe StatusCodes.OK
       // Client -> Server connection
@@ -108,28 +110,34 @@ final class FailureTests
       body <- FutureUtil.toFuture(
         encoder.encodeCreateCommand(accountCreateCommand(p, "24"))
       ): Future[JsValue]
-      (status, output) <- postJsonStringRequestEncoded(
-        uri.withPath(Uri.Path("/v1/create")),
-        body.compactPrint,
-        headersWithParties(List(p.unwrap)),
+      (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+        postJsonStringRequestEncoded(
+          uri.withPath(Uri.Path("/v1/create")),
+          body.compactPrint,
+          _,
+        )
       )
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ =
         output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
       _ = proxy.toxics().get("timeout").remove()
-      (status, _) <- postCreateCommand(
-        accountCreateCommand(p, "25"),
-        encoder,
-        uri,
-        headersWithParties(List(p.unwrap)),
+      (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "25"),
+          encoder,
+          uri,
+          _,
+        )
       )
       _ = status shouldBe StatusCodes.OK
       // Server -> Client connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.DOWNSTREAM, 0)
-      (status, output) <- postJsonStringRequestEncoded(
-        uri.withPath(Uri.Path("/v1/create")),
-        body.compactPrint,
-        headersWithParties(List(p.unwrap)),
+      (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+        postJsonStringRequestEncoded(
+          uri.withPath(Uri.Path("/v1/create")),
+          body.compactPrint,
+          _,
+        )
       )
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ =
@@ -141,15 +149,19 @@ final class FailureTests
     (uri, encoder, _, client) =>
       for {
         p <- allocateParty(client, "Alice")
-        (status, _) <- postCreateCommand(
-          accountCreateCommand(p, "23"),
-          encoder,
-          uri,
-          headersWithParties(List(p.unwrap)),
+        (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+          postCreateCommand(
+            accountCreateCommand(p, "23"),
+            encoder,
+            uri,
+            _,
+          )
         )
-        (status, output) <- getRequest(
-          uri = uri.withPath(Uri.Path("/v1/query")),
-          headersWithParties(List(p.unwrap)),
+        (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+          getRequest(
+            uri = uri.withPath(Uri.Path("/v1/query")),
+            _,
+          )
         )
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("result")) { case Some(JsArray(rs)) =>
@@ -157,9 +169,11 @@ final class FailureTests
           }
         }
         _ = proxy.disable()
-        (status, output) <- getRequest(
-          uri = uri.withPath(Uri.Path("/v1/query")),
-          headersWithParties(List(p.unwrap)),
+        (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+          getRequest(
+            uri = uri.withPath(Uri.Path("/v1/query")),
+            _,
+          )
         )
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("status")) { case Some(JsNumber(code)) =>
@@ -176,18 +190,22 @@ final class FailureTests
     (uri, encoder, _, client) =>
       for {
         p <- allocateParty(client, "Alice")
-        (status, _) <- postCreateCommand(
-          accountCreateCommand(p, "23"),
-          encoder,
-          uri,
-          headersWithParties(List(p.unwrap)),
+        (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+          postCreateCommand(
+            accountCreateCommand(p, "23"),
+            encoder,
+            uri,
+            _,
+          )
         )
         _ = status shouldBe StatusCodes.OK
         query = jsObject("""{"templateIds": ["Account:Account"]}""")
-        (status, output) <- postRequest(
-          uri = uri.withPath(Uri.Path("/v1/query")),
-          query,
-          headersWithParties(List(p.unwrap)),
+        (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+          postRequest(
+            uri = uri.withPath(Uri.Path("/v1/query")),
+            query,
+            _,
+          )
         )
         _ = status shouldBe StatusCodes.OK
         _ <- inside(output) { case JsObject(fields) =>
@@ -196,10 +214,12 @@ final class FailureTests
           }
         }
         _ = proxy.disable()
-        (status, output) <- postRequest(
-          uri = uri.withPath(Uri.Path("/v1/query")),
-          query,
-          headersWithParties(List(p.unwrap)),
+        (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+          postRequest(
+            uri = uri.withPath(Uri.Path("/v1/query")),
+            query,
+            _,
+          )
         )
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("status")) { case Some(JsNumber(code)) =>
@@ -212,10 +232,12 @@ final class FailureTests
         // eventually doesn’t handle Futures in the version of scalatest we’re using.
         _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
           for {
-            (status, output) <- postRequest(
-              uri = uri.withPath(Uri.Path("/v1/query")),
-              query,
-              headersWithParties(List(p.unwrap)),
+            (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+              postRequest(
+                uri = uri.withPath(Uri.Path("/v1/query")),
+                query,
+                _,
+              )
             )
             _ = status shouldBe StatusCodes.OK
             _ <- inside(output) { case JsObject(fields) =>
@@ -231,18 +253,22 @@ final class FailureTests
   "/v1/query POST succeeds after reconnect to DB" in withHttpService { (uri, encoder, _, client) =>
     for {
       p <- allocateParty(client, "Alice")
-      (status, _) <- postCreateCommand(
-        accountCreateCommand(p, "23"),
-        encoder,
-        uri,
-        headersWithParties(List(p.unwrap)),
+      (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "23"),
+          encoder,
+          uri,
+          _,
+        )
       )
       _ = status shouldBe StatusCodes.OK
       query = jsObject("""{"templateIds": ["Account:Account"]}""")
-      (status, output) <- postRequest(
-        uri = uri.withPath(Uri.Path("/v1/query")),
-        query,
-        headersWithParties(List(p.unwrap)),
+      (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+        postRequest(
+          uri = uri.withPath(Uri.Path("/v1/query")),
+          query,
+          _,
+        )
       )
       _ = status shouldBe StatusCodes.OK
       _ <- inside(output) { case JsObject(fields) =>
@@ -251,10 +277,12 @@ final class FailureTests
         }
       }
       _ = dbProxy.disable()
-      (status, output) <- postRequest(
-        uri = uri.withPath(Uri.Path("/v1/query")),
-        query,
-        headersWithParties(List(p.unwrap)),
+      (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+        postRequest(
+          uri = uri.withPath(Uri.Path("/v1/query")),
+          query,
+          _,
+        )
       )
       _ <- inside(output) { case JsObject(fields) =>
         inside(fields.get("status")) { case Some(JsNumber(code)) =>
@@ -274,10 +302,12 @@ final class FailureTests
       // eventually doesn’t handle Futures in the version of scalatest we’re using.
       _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
         for {
-          (status, output) <- postRequest(
-            uri = uri.withPath(Uri.Path("/v1/query")),
-            query,
-            headersWithParties(List(p.unwrap)),
+          (status, output) <- headersWithParties(List(p.unwrap)).flatMap(
+            postRequest(
+              uri = uri.withPath(Uri.Path("/v1/query")),
+              query,
+              _,
+            )
           )
           _ = status shouldBe StatusCodes.OK
           _ <- inside(output) { case JsObject(fields) =>
@@ -335,16 +365,19 @@ final class FailureTests
 
     for {
       p <- allocateParty(client, "p")
-      (status, r) <- postCreateCommand(
-        accountCreateCommand(p, "abc123"),
-        encoder,
-        uri,
-        headers = headersWithParties(List(p.unwrap)),
+      (status, r) <- headersWithParties(List(p.unwrap)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "abc123"),
+          encoder,
+          uri,
+          _,
+        )
       )
       _ = status shouldBe a[StatusCodes.Success]
       cid = getContractId(getResult(r))
+      jwt <- jwtForParties(List(p.unwrap), List(), ledgerId().unwrap)
       r <- (singleClientQueryStream(
-        jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
+        jwt,
         uri,
         query,
       ) via parseResp runWith respBefore(cid)).transform(x => Success(x))
@@ -354,16 +387,19 @@ final class FailureTests
       }
       offset <- offset.future
       _ = proxy.enable()
-      (status, r) <- postCreateCommand(
-        accountCreateCommand(p, "abc456"),
-        encoder,
-        uri,
-        headers = headersWithParties(List(p.unwrap)),
+      (status, r) <- headersWithParties(List(p.unwrap)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "abc456"),
+          encoder,
+          uri,
+          _,
+        )
       )
       cid = getContractId(getResult(r))
       _ = status shouldBe a[StatusCodes.Success]
+      jwt <- jwtForParties(List(p.unwrap), List(), ledgerId().unwrap)
       (stop, source) = singleClientQueryStream(
-        jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
+        jwt,
         uri,
         query,
         Some(offset),
