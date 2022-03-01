@@ -9,7 +9,7 @@ import akka.http.scaladsl.model.StatusCodes
 import com.daml.nonrepudiation.CommandIdString
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-final class NonRepudiationTest extends AbstractNonRepudiationTest {
+abstract class NonRepudiationTest extends AbstractNonRepudiationTest {
 
   import HttpServiceTestFixture._
 
@@ -35,3 +35,7 @@ final class NonRepudiationTest extends AbstractNonRepudiationTest {
   }
 
 }
+
+final class NonRepudiationTestCustomToken
+    extends NonRepudiationTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

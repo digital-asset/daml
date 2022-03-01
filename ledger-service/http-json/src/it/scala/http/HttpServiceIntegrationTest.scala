@@ -16,7 +16,9 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
 
-class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with BeforeAndAfterAll {
+abstract class HttpServiceIntegrationTest
+    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    with BeforeAndAfterAll {
 
   private val staticContent: String = "static"
 
@@ -65,3 +67,7 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
         }: Future[Assertion]
   }
 }
+
+final class HttpServiceIntegrationTestCustomToken
+    extends HttpServiceIntegrationTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

@@ -10,7 +10,9 @@ import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.nonrepudiation.CommandIdString
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-final class NonRepudiationTest extends AbstractNonRepudiationTest {
+final class NonRepudiationTest
+    extends AbstractNonRepudiationTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken {
 
   import HttpServiceTestFixture._
 
