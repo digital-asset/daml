@@ -788,7 +788,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
     jwtForParties(uri)(List("Alice"), List(), testId)
 
-  protected val jwtAdminNoParty: Jwt = {
+  protected lazy val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
       s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
