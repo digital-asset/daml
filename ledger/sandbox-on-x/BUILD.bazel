@@ -269,6 +269,7 @@ da_scala_library(
     deps = [
         ":sandbox-on-x",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
     ],

@@ -63,7 +63,7 @@ object SandboxOnXRunner {
       .map(manipulateConfig)
       .flatMap(owner)
 
-  private def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
+  def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
         val config = BridgeConfigProvider.manipulateConfig(originalConfig)
