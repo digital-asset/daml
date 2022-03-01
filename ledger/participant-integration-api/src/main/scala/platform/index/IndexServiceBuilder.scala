@@ -6,6 +6,7 @@ import akka.stream._
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
@@ -42,7 +43,7 @@ import com.daml.timer.RetryStrategy
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-private[index] case class ReadOnlyLedgerBuilder(
+private[platform] case class IndexServiceBuilder(
     dbSupport: DbSupport,
     initialLedgerId: LedgerId,
     eventsPageSize: Int,
@@ -69,7 +70,7 @@ private[index] case class ReadOnlyLedgerBuilder(
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  def owner(): ResourceOwner[ReadOnlyLedger] = {
+  def owner(): ResourceOwner[IndexService] = {
     val ledgerEndCache = MutableLedgerEndCache()
     val stringInterningView = createStringInterningView()
     val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
@@ -103,13 +104,15 @@ private[index] case class ReadOnlyLedgerBuilder(
         instrumentedSignalNewLedgerHead,
         prefetchingDispatcher,
       )
-    } yield new ReadOnlyLedgerImpl(
+    } yield new IndexServiceImpl(
       ledgerId,
+      participantId,
       ledgerDao,
       transactionsReader,
       contractStore,
       pruneBuffers,
       generalDispatcher,
+      errorFactories,
     )
   }
 
