@@ -89,6 +89,7 @@ private[daml] object ApiServices {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
+      turnOffValidations: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -237,7 +238,16 @@ private[daml] object ApiServices {
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
-        val commandExecutor = new TimedCommandExecutor(
+        val baseExecutor: StoreBackedCommandExecutor = new StoreBackedCommandExecutor(
+          engine,
+          participantId,
+          packagesService,
+          contractStore,
+          metrics,
+        )
+        val delegateExecutor = if (turnOffValidations) {
+          baseExecutor
+        } else {
           new LedgerTimeAwareCommandExecutor(
             new StoreBackedCommandExecutor(
               engine,
@@ -249,9 +259,9 @@ private[daml] object ApiServices {
             contractStore,
             maxRetries = 3,
             metrics,
-          ),
-          metrics,
-        )
+          )
+        }
+        val commandExecutor = new TimedCommandExecutor(delegateExecutor, metrics)
 
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,

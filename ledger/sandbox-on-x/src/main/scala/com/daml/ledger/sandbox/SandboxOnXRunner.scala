@@ -265,6 +265,7 @@ object SandboxOnXRunner {
         ),
       ),
       userManagementConfig = config.userManagementConfig,
+      turnOffValidations = true, // TODO: make it configurable
     )
 
   private def buildIndexerServer(

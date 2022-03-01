@@ -55,6 +55,7 @@ object StandaloneApiServer {
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
+      turnOffValidations: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -112,6 +113,7 @@ object StandaloneApiServer {
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagementConfig,
+        turnOffValidations = turnOffValidations,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

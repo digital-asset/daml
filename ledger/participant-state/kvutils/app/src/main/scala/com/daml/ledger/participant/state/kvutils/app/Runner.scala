@@ -265,6 +265,7 @@ final class Runner[T <: ReadWriteService, Extra](
                     ),
                   ),
                   userManagementConfig = config.userManagementConfig,
+                  turnOffValidations = true, // TODO: make this configurable
                 ).acquire()
               } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>
