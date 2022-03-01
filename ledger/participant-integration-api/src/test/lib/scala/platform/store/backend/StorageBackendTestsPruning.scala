@@ -229,11 +229,14 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     before7 should have size 1
     before8 should have size 1
 
-    // TODO is it intended that the transaction lookups don't see the active contracts?
-    after1 should not be empty
-    after3 shouldBe empty // should not be empty
-    after4 should not be empty
-    after5 shouldBe empty // should not be empty
+    // Note: while the ACS service should still see active contracts, the transaction stream service should not return
+    // any data before the last pruning offset. For pointwise transaction lookups, we check the pruning offset
+    // inside the database query - that's why they do not return any results. For transaction stream lookups, we only
+    // check the pruning offset when starting the stream - that's why those queries still return data here.
+    after1 should not be empty // transaction stream query
+    after3 shouldBe empty // pointwise transaction lookup
+    after4 should not be empty // transaction stream query
+    after5 shouldBe empty // pointwise transaction lookup
     after6 should not be empty
     after7 should have size 1
     after8 should have size 1
