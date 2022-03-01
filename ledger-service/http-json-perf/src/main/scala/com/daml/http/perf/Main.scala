@@ -27,7 +27,11 @@ import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
 import Config.QueryStoreIndex
 import com.daml.dbutils.ConnectionPool
-import com.daml.http.EndpointsCompanion.ParsePayload
+import com.daml.http.EndpointsCompanion.{CreateFromUserToken, ParsePayload}
+import com.daml.ledger.api.auth.{CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.domain.User
+import com.daml.ledger.api.domain.UserRight.CanActAs
+import com.daml.lf.data.Ref.{Party, UserId}
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
@@ -137,17 +141,44 @@ object Main extends StrictLogging {
   ): Future[ExitCode] = {
     // For custom tokens we need to extract the expected ledger id, however for
     // user tokens we can just choose any ledger id, because it doesn't contain any.
-    val ledgerId: LedgerId = {
+    // If we have a user token we also extract it here so we can allocate the user later
+    // after we started the ledger.
+    val (userIdOpt, ledgerId) = {
       val customParse = implicitly(ParsePayload[JwtPayloadLedgerIdOnly])
-      HttpService
-        .decodeJwt(config.jwt)
-        .flatMap { decodedJwt =>
+      (for {
+        decodedJwt <- HttpService
+          .decodeJwt(config.jwt)
+          .leftMap(_.message)
+        res <-
           customParse
             .parsePayload(decodedJwt)
-        }
-        .fold(_ => LedgerId("perf-runner"), payload => payload.ledgerId)
+            .map(it => (None, it.ledgerId))
+            .leftMap(_.toString)
+            .recoverWith[String, (Option[String], LedgerId)] { case _ =>
+              CreateFromUserToken
+                .parseAndDecodeUserToken(decodedJwt)
+                .fold(
+                  error =>
+                    -\/(s"This is neither a custom token nor an user token: ${error.message}"),
+                  {
+                    case StandardJWTPayload(userId, _, _) =>
+                      \/-(Some(userId), LedgerId("perf-runner"))
+                    case CustomDamlJWTPayload(_, _, _, _, _, _, _) =>
+                      -\/(s"This state is impossible")
+                  },
+                )
+            }
+      } yield res)
+        .fold((error: String) => throw new Exception(error), identity)
     }
-    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _, _) =>
+    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, ledgerClient, _) =>
+      // For a user token to work the user has to be created beforehand.
+      userIdOpt.foreach { userId =>
+        ledgerClient.userManagementClient.createUser(
+          User(UserId.assertFromString(userId), None),
+          List(CanActAs(Party.assertFromString("Alice"))),
+        )
+      }
       withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
         withHttpService(
           ledgerId.unwrap,

@@ -69,6 +69,7 @@ perf_runtime_deps = {
             "//libs-scala/db-utils",
             "//libs-scala/gatling-utils",
             "//libs-scala/oracle-testing",
+            "//ledger/ledger-api-auth",
             "//libs-scala/ports",
             "//libs-scala/postgresql-testing",
             "//libs-scala/scala-utils",
