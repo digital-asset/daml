@@ -21,6 +21,13 @@ object Error {
   /** Unhandled exceptions */
   final case class UnhandledException(exceptionType: Ast.Type, value: Value) extends Error
 
+  /** Uncatchable exceptions */
+  final case class UncatchableException(
+      exceptionType: Ast.Type,
+      value: Value,
+      loc: Option[Location],
+  ) extends Error
+
   /** User initiated error, via e.g. 'abort' or 'assert' */
   final case class UserError(message: String) extends Error
 

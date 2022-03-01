@@ -80,6 +80,8 @@ private[speedy] object SExpr1 {
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr
 
+  final case class SEPreventCatch(body: SExpr) extends SExpr
+
   /** This is used only during profiling. When a package is compiled with
     * profiling enabled, the right hand sides of top-level and let bindings,
     * lambdas and some builtins are wrapped into [[SELabelClosure]]. During

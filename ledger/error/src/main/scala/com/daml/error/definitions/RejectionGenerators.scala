@@ -109,6 +109,10 @@ class RejectionGenerators(conformanceMode: Boolean) {
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)
           )
+        case _: LfInterpretationError.UncatchableException =>
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
+            renderedMessage + detailMessage.fold("")(x => ". Details: " + x)
+          )
         case _: LfInterpretationError.UserError =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
             .Error(renderedMessage)

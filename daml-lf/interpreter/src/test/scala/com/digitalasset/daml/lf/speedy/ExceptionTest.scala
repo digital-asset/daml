@@ -17,12 +17,13 @@ import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
+import org.scalatest.Inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 // TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
-class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
   import SpeedyTestLib.loggingContext
@@ -467,11 +468,73 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     }
   }
 
+  "uncatchable exceptions" should {
+    "not be caught" in {
+
+      val pkgs: PureCompiledPackages = typeAndCompile(p"""
+       module M {
+       
+         record @serializable E = { } ;
+         exception E = { message \(e: M:E) -> "E" };
+          
+         record @serializable T = { party: Party }; 
+                  
+         template (this: T) = {
+           precondition True;
+           signatories Cons @Party [M:T {party} this] Nil @Party;
+           observers Nil @Party;
+           agreement "Agreement";
+             choice BodyCrash (self) (u: Unit) : Unit, 
+                 controllers Cons @Party [M:T {party} this] Nil @Party,
+                 observers Nil @Party
+               to upure @Unit (throw @Unit @M:E (M:E {}));
+             choice SignatoriesCrash (self) (u: Unit) : Unit, 
+                 controllers throw @(List Party) @M:E (M:E {}),
+                 observers Nil @Party
+               to upure @Unit ();
+             choice ObserversCrash (self) (u: Unit) : Unit, 
+                 controllers Cons @Party [M:T {party} this] Nil @Party,
+                 observers throw @(List Party) @M:E (M:E {})
+               to upure @Unit ();
+         };
+       }
+      """)
+
+      val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+
+      val testCases = Table[String, Boolean](
+        ("choice", "caught"),
+        ("BodyCrash", true),
+        ("SignatoriesCrash", false),
+        ("ObserversCrash", false),
+      )
+
+      forEvery(testCases) { (choice, caught) =>
+        val expr =
+          e"""\(sig: Party) ->
+              ubind cid : ContractId M:T <- create @M:T (M:T {party = sig}) 
+              in try @Unit (exercise @M:T $choice cid ()) 
+                 catch e -> Some @(Update Unit) (upure @Unit ())
+              """
+
+        val res = Speedy.Machine
+          .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
+          .run()
+        if (caught)
+          res shouldBe SResult.SResultFinalValue(SValue.SValue.Unit)
+        else
+          inside(res) { case SResult.SResultError(SErrorDamlException(err)) =>
+            err shouldBe a[IE.UncatchableException]
+          }
+      }
+    }
+  }
+
   "rollback of creates" should {
 
     val party = Party.assertFromString("Alice")
     val example: Expr = e"M:causeRollback"
-    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+    val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
     "works as expected for a contract version POST-dating exceptions" in {
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)

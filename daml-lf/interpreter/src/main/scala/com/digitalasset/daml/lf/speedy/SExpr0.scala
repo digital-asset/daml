@@ -111,6 +111,8 @@ private[speedy] object SExpr0 {
   /** Exercise scope (begin..end) */
   final case class SEScopeExercise(body: SExpr) extends SExpr
 
+  final case class SEPreventCatch(body: SExpr) extends SExpr
+
   /** Case alternative. If the 'pattern' matches, then the environment is accordingly
     * extended and 'body' is evaluated.
     */
