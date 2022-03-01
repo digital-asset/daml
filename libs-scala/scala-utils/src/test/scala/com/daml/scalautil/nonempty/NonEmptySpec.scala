@@ -11,6 +11,13 @@ import shapeless.test.illTyped
 class NonEmptySpec extends AnyWordSpec with Matchers {
   import scala.{collection => col}, col.{mutable => mut}, col.{immutable => imm}
 
+  "apply" should {
+    "lub arguments" in {
+      val s = NonEmpty(imm.Set, Left(1), Right("hi"))
+      (s: NonEmpty[imm.Set[Either[Int, String]]]) should ===(s)
+    }
+  }
+
   "unapply" should {
     "compile on immutable maps" in {
       val NonEmpty(m) = imm.Map(1 -> 2)
