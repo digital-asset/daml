@@ -59,6 +59,7 @@ final case class Config[Extra](
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
     userManagementConfig: UserManagementConfig,
+    turnOffValidations: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -105,6 +106,7 @@ object Config {
       timeProviderType = TimeProviderType.WallClock,
       tlsConfig = None,
       userManagementConfig = UserManagementConfig.default(enabled = false),
+      turnOffValidations = true,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -692,6 +694,16 @@ object Config {
           .text(
             "Enable/disable stack traces. Default is to disable them. " +
               "Enabling stack traces may have a significant performance impact."
+          )
+
+        opt[Boolean]("turn-off-validations")
+          .hidden()
+          .optional()
+          .action((turnOffValidations, config) =>
+            config.copy(turnOffValidations = turnOffValidations)
+          )
+          .text(
+            "Turn off command submission validations. For testing purposes."
           )
 
         JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(authService = AuthServiceJWT(v)))

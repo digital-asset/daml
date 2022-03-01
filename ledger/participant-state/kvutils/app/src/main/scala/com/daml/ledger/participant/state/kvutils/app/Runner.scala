@@ -224,7 +224,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
-                  turnOffValidations = true, // TODO: make this configurable
+                  turnOffValidations = config.turnOffValidations,
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,
@@ -266,7 +266,7 @@ final class Runner[T <: ReadWriteService, Extra](
                     ),
                   ),
                   userManagementConfig = config.userManagementConfig,
-                  turnOffValidations = true, // TODO: make this configurable
+                  turnOffValidations = config.turnOffValidations,
                 ).acquire()
               } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>

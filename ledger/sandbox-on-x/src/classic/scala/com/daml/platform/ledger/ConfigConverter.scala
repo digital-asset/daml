@@ -92,6 +92,7 @@ object ConfigConverter {
       timeProviderType = sandboxConfig.timeProviderType.getOrElse(DefaultTimeProviderType),
       tlsConfig = sandboxConfig.tlsConfig,
       userManagementConfig = sandboxConfig.userManagementConfig,
+      turnOffValidations = false, // not applicable for "old" sandboxes
     )
   }
 }

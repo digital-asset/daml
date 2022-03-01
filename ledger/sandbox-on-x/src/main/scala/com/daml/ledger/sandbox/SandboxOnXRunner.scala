@@ -182,7 +182,7 @@ object SandboxOnXRunner {
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
-            turnOffValidations = true, // TODO: make it configurable
+            turnOffValidations = config.turnOffValidations,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -266,7 +266,7 @@ object SandboxOnXRunner {
         ),
       ),
       userManagementConfig = config.userManagementConfig,
-      turnOffValidations = true, // TODO: make it configurable
+      turnOffValidations = config.turnOffValidations,
     )
 
   private def buildIndexerServer(
