@@ -151,7 +151,7 @@ object Main extends StrictLogging {
           CreateFromUserToken
             .parseAndDecodeUserToken(decodedJwt)
             .bimap(
-              error => s"This is neither a custom token nor an user token: ${error.message}",
+              error => s"This is neither a custom token nor a user token: ${error.message}",
               {
                 case StandardJWTPayload(userId, _, _) =>
                   (Some(userId), LedgerId("perf-runner"))
