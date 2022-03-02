@@ -41,7 +41,7 @@ cd daml
 
 Our builds require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
 
-#### Linux and Mac
+#### Linux
 
 On Linux and Mac `dev-env` can be installed with:
 
@@ -51,6 +51,31 @@ On Linux and Mac `dev-env` can be installed with:
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
+
+#### Mac
+
+On Mac `dev-env` can be installed with:
+
+1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
+   This is a *multi-user installation* (there is no single-user installation option for macOS). Because of this, you need to configure `/etc/nix/nix.conf` to use Nix caches.
+   You can add the contents of `dev-env/etc/nix.conf` to `/etc/nix/nix.conf`, but keep `build-users-group = nixbld` instead of leaving this empty as is done in `dev-env/etc/nix.conf`. Make sure to restart the `nix-daemon` after you have made changes to `/etc/nix/nix.conf`, for instance by using `sudo launchctl stop org.nixos.nix-daemon`.
+
+2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
+
+If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
+you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
+file, with an option to add more in a `.envrc.private` file.
+
+Note that after a macOS update it can appear as if Nix is not installed. This is because macOS updates can modify shell config files in `/etc`, which the multi-user installation of Nix modifies as well. A workaround for this problem is to add the following to your shell config file in your `$HOME` directory:
+
+```
+# Nix
+if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi
+# End Nix
+```
+See https://github.com/NixOS/nix/issues/3616 for more information about this issue.
 
 #### Windows
 
