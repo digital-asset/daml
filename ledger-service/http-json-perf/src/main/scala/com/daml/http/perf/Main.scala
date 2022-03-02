@@ -143,17 +143,14 @@ object Main extends StrictLogging {
     // user tokens we can just choose any ledger id, because it doesn't contain any.
     // If we have a user token we also extract it here so we can allocate the user later
     // after we started the ledger.
-    val (userIdOpt, ledgerId) = {
-      val customParse = implicitly(ParsePayload[JwtPayloadLedgerIdOnly])
-      (for {
-        decodedJwt <- HttpService
-          .decodeJwt(config.jwt)
-          .leftMap(_.message)
-        res <-
-          customParse
+    val (userIdOpt, ledgerId) =
+      HttpService
+        .decodeJwt(config.jwt)
+        .leftMap(_.message)
+        .flatMap { decodedJwt =>
+          implicitly(ParsePayload[JwtPayloadLedgerIdOnly])
             .parsePayload(decodedJwt)
-            .map(it => (None, it.ledgerId))
-            .leftMap(_.toString)
+            .bimap(_.toString, it => (None, it.ledgerId))
             .recoverWith[String, (Option[String], LedgerId)] { case _ =>
               CreateFromUserToken
                 .parseAndDecodeUserToken(decodedJwt)
@@ -168,9 +165,8 @@ object Main extends StrictLogging {
                   },
                 )
             }
-      } yield res)
+        }
         .fold((error: String) => throw new Exception(error), identity)
-    }
     withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, ledgerClient, _) =>
       // For a user token to work the user has to be created beforehand.
       userIdOpt.foreach { userId =>
