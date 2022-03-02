@@ -231,8 +231,8 @@ waitForHttpServer numTries processHandle sleep url headers = do
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
-tokenFor :: [T.Text] -> T.Text -> T.Text -> T.Text
-tokenFor parties ledgerId applicationId =
+tokenFor :: [T.Text] -> T.Text -> T.Text
+tokenFor parties applicationId =
   JWT.encodeSigned
     (JWT.EncodeHMACSecret "secret")
     mempty
@@ -244,7 +244,6 @@ tokenFor parties ledgerId applicationId =
               , A.Object $
                 KM.fromList
                   [ ("actAs", A.toJSON parties)
-                  , ("ledgerId", A.String ledgerId)
                   , ("applicationId", A.String applicationId)
                   ])
             ]

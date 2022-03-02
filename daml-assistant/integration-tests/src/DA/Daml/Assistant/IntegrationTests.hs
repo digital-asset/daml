@@ -69,7 +69,7 @@ main = do
             ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: String -> T.Text
-hardcodedToken alice = tokenFor [T.pack alice] "sandbox" "AssistantIntegrationTests"
+hardcodedToken alice = tokenFor [T.pack alice] "AssistantIntegrationTests"
 
 authorizationHeaders :: String -> RequestHeaders
 authorizationHeaders alice = [("Authorization", "Bearer " <> T.encodeUtf8 (hardcodedToken alice))]
