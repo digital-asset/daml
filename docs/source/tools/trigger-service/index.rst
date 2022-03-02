@@ -186,12 +186,12 @@ where
 
 - ``triggerName`` contains the identifier for the trigger in the form
   ``${packageId}:${moduleName}:${identifierName}``. You can find the
-  package id using ``daml damlc inspect path/to/trigger.dar | head -1``.
+  package ID using ``daml damlc inspect path/to/trigger.dar | head -1``.
 - ``party`` is the party on behalf of which the trigger is running.
-- ``applicationId`` is an optional field to specify the application id
+- ``applicationId`` is an optional field to specify the application ID
   the trigger will use for command submissions. If omitted, the
   trigger will default to using its random UUID identifier returned in
-  the start request as the application id.
+  the start request as the application ID.
 
 HTTP Response
 -------------

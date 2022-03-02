@@ -54,9 +54,9 @@ For example::
 .. note::
 
     When using user management, the participant operator may have configured their IAM to issue user tokens. The
-    Auth Middleware currently doesn't accept an input parameter specific to user ids. As such, it is up to the
+    Auth Middleware currently doesn't accept an input parameter specific to user IDs. As such, it is up to the
     IAM to map claims request to the required user token. Our recommendation to participant operators is to map the
-    ``applicationId`` claim to the required user id. Application developers should contact their ledger operator to
+    ``applicationId`` claim to the required user ID. Application developers should contact their ledger operator to
     understand how they are supposed to request for a token.
 
 HTTP Response
@@ -155,6 +155,6 @@ These are passed as a URL-encoded, space-separated list of individual claims of 
 - `actAs:<Party Name>`
     Issue commands on behalf of the given party.
 - `applicationId:<Application Id>`
-    Restrict access to commands issued with the given application Id.
+    Restrict access to commands issued with the given application ID.
 
 See :ref:`Access Tokens and Claims <authorization-claims>` for further information on Daml ledger capabilities.
