@@ -36,6 +36,8 @@ import com.daml.lf.data.Ref.{Party, UserId}
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
 import scala.util.{Failure, Success, Try}
+import scalaz.syntax.traverse._
+import scalaz.std.option._
 
 object Main extends StrictLogging {
 
@@ -156,41 +158,40 @@ object Main extends StrictLogging {
                 case StandardJWTPayload(userId, _, _) =>
                   (Some(userId), LedgerId("perf-runner"))
                 case CustomDamlJWTPayload(ledgerId, _, _, _, _, _, _) =>
-                  (
-                    None,
-                    LedgerId(
-                      ledgerId.getOrElse(throw new Exception("No ledger id given in custom token"))
-                    ),
-                  )
+                  (None, LedgerId(ledgerId.getOrElse("perf-runner")))
               },
             )
         }
         .fold((error: String) => throw new Exception(error), identity)
     withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, ledgerClient, _) =>
       // For a user token to work the user has to be created beforehand.
-      userIdOpt.foreach { userId =>
-        ledgerClient.userManagementClient.createUser(
-          User(UserId.assertFromString(userId), None),
-          List(CanActAs(Party.assertFromString("Alice"))),
-        )
-      }
-      withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
-        withHttpService(
-          ledgerId.unwrap,
-          ledgerPort,
-          jsonApiJdbcConfig,
-          None,
-        ) { (uri, _, _, _) =>
-          runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-            .flatMap { case (exitCode, dir) =>
-              toFuture(generateReport(dir))
-                .map { _ =>
-                  logger.info(s"Report directory: ${dir.toAbsolutePath}")
-                  exitCode
-                }
-            }: Future[ExitCode]
+      for {
+        _ <-
+          userIdOpt.traverse { userId =>
+            ledgerClient.userManagementClient
+              .createUser(
+                User(UserId.assertFromString(userId), None),
+                List(CanActAs(Party.assertFromString("Alice"))),
+              )
+          }
+        res <- withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
+          withHttpService(
+            ledgerId.unwrap,
+            ledgerPort,
+            jsonApiJdbcConfig,
+            None,
+          ) { (uri, _, _, _) =>
+            runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
+              .flatMap { case (exitCode, dir) =>
+                toFuture(generateReport(dir))
+                  .map { _ =>
+                    logger.info(s"Report directory: ${dir.toAbsolutePath}")
+                    exitCode
+                  }
+              }: Future[ExitCode]
+          }
         }
-      }
+      } yield res
     }
   }
 
