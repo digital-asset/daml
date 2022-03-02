@@ -1,14 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.index
+package com.daml.platform.store.appendonlydao.events
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, TransactionFilter}
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.daml.ledger.api.v1.value.{Identifier, Record}
+import com.daml.ledger.api.v1.event.{
+  ArchivedEvent => ApiArchivedEvent,
+  CreatedEvent => ApiCreatedEvent,
+  Event => ApiEvent,
+}
+import com.daml.ledger.api.v1.value.{Identifier => ApiIdentifier, Record}
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.store.appendonlydao.events.EventFilter
 import org.scalatest.concurrent.ScalaFutures
@@ -31,8 +35,8 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
   private val templateId1 = mkApiIdent(module1, template1)
   private val templateId2 = mkApiIdent(module2, template2)
 
-  private def mkApiIdent(mod: String, ent: String, pkgId: String = packageId): Identifier =
-    Identifier(
+  private def mkApiIdent(mod: String, ent: String, pkgId: String = packageId): ApiIdentifier =
+    ApiIdentifier(
       Ref.PackageId.assertFromString(pkgId),
       mod,
       ent,
@@ -49,7 +53,7 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
     party2 -> getFilter(Seq(module1 -> template1, module2 -> template2)),
   )
 
-  private val filter = (event: Event) => EventFilter(event)(TransactionFilter(mapping))
+  private val filter = (event: ApiEvent) => EventFilter(event)(TransactionFilter(mapping))
 
   def getFilter(templateIds: Seq[(String, String)]) =
     Filters(InclusiveFilters(templateIds.map { case (mod, ent) =>
@@ -75,7 +79,7 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
 
   private def runTemplateFilterAssertions(
       eventType: String
-  )(createEvent: (Ref.Party, Identifier) => Event): Unit = {
+  )(createEvent: (Ref.Party, ApiIdentifier) => ApiEvent): Unit = {
     val isExercised = eventType == "ExercisedEvent"
     val negateIfRequired = if (isExercised) "not " else ""
 
@@ -106,10 +110,10 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
     }
   }
 
-  private def createdEvent(party: Ref.Party, templateId: Identifier): Event =
-    Event(
-      Event.Event.Created(
-        CreatedEvent(
+  private def createdEvent(party: Ref.Party, templateId: ApiIdentifier): ApiEvent =
+    ApiEvent(
+      ApiEvent.Event.Created(
+        ApiCreatedEvent(
           eventId,
           contractId.coid,
           Some(templateId),
@@ -123,10 +127,10 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
       )
     )
 
-  private def archivedEvent(party: Ref.Party, templateId: Identifier): Event =
-    Event(
-      Event.Event.Archived(
-        ArchivedEvent(
+  private def archivedEvent(party: Ref.Party, templateId: ApiIdentifier): ApiEvent =
+    ApiEvent(
+      ApiEvent.Event.Archived(
+        ApiArchivedEvent(
           eventId,
           contractId.coid,
           Some(templateId),
