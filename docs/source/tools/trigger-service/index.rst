@@ -14,9 +14,9 @@ Trigger Service
 
 The :ref:`running-a-no-op-trigger` section shows a simple method using the ``daml trigger`` command to arrange for the execution of a single trigger. Using this method, a dedicated process is launched to host the trigger.
 
-Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process-per-trigger model becomes unwieldy. The trigger service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
+Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process-per-trigger model becomes unwieldy. The Trigger Service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
 
-The trigger service is a ledger client that acts as an end-user agent. The trigger service intermediates between the ledger and end-users by running triggers on their behalf. The trigger service is an HTTP service. All requests and responses use JSON to encode data.
+The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP service. All requests and responses use JSON to encode data.
 
 Starting the Trigger Service
 ****************************
@@ -38,10 +38,10 @@ alongside a few annotations with regards to the meaning of the configuration key
         "./my-app.dar"
       ]
 
-      // Mandatory. Host address that the trigger service listens on. Defaults to 127.0.0.1.
+      // Mandatory. Host address that the Trigger Service listens on. Defaults to 127.0.0.1.
       address = "127.0.0.1"
 
-      // Mandatory. Trigger service port number. Defaults to 8088.
+      // Mandatory. Trigger Service port number. Defaults to 8088.
       // A port number of 0 will let the system pick an ephemeral port.
       port = 8088
       // Optional. If using 0 as the port number, consider specifying the path to a `port-file` where the chosen port will be saved in textual format.
@@ -120,7 +120,7 @@ alongside a few annotations with regards to the meaning of the configuration key
         // Sets both the internal and external auth URIs.
         //auth-common-uri = "https://oauth2/common-uri"
 
-        // Internal auth URI used by the trigger service to connect directly to the auth middleware.
+        // Internal auth URI used by the Trigger Service to connect directly to the Auth Middleware.
         auth-internal-uri = "https://oauth2/internal-uri"
 
         // External auth URI (the one returned to the browser).
@@ -138,9 +138,9 @@ alongside a few annotations with regards to the meaning of the configuration key
       }
     }
 
-The trigger service can also be started using command line arguments as shown below. The command ``daml trigger-service --help`` lists all available parameters.
+The Trigger Service can also be started using command line arguments as shown below. The command ``daml trigger-service --help`` lists all available parameters.
 
-.. note:: Using the configuration format shown above is the recommended way to configure trigger service, running with command line arguments is now deprecated.
+.. note:: Using the configuration format shown above is the recommended way to configure Trigger Service, running with command line arguments is now deprecated.
 
 .. code-block:: bash
 
@@ -148,7 +148,7 @@ The trigger service can also be started using command line arguments as shown be
                         --ledger-port 6865 \
                         --wall-clock-time
 
-Although, as we'll see, the trigger service exposes an endpoint for end-users to upload DAR files to the service it is sometimes convenient to start the service pre-configured with a specific DAR. To do this, the ``--dar`` option is provided.
+Although, as we'll see, the Trigger Service exposes an endpoint for end-users to upload DAR files to the service it is sometimes convenient to start the service pre-configured with a specific DAR. To do this, the ``--dar`` option is provided.
 
 .. code-block:: bash
 

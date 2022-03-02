@@ -10,14 +10,14 @@ Auth Middleware
    ./oauth2
 
 Daml ledgers only validate authorization tokens. The issuance of those tokens however is something defined by the participant operator and can vary significantly across deployments. This poses a challenge when developing applications that need to be able to acquire and refresh authorization tokens but don’t want to tie themselves to any particular mechanism for token issuance.
-The auth middleware aims to address this problem by providing an API that decouples Daml applications from these details.
-The participant operator can provide an auth middleware that is suitable for their authentication and authorization mechanism.
-Daml includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_. If this implementation is not compatible with your mechanism for token issuance, you can implement your own auth middleware provided it conforms to the same API.
+The Auth Middleware aims to address this problem by providing an API that decouples Daml applications from these details.
+The participant operator can provide an Auth Middleware that is suitable for their authentication and authorization mechanism.
+Daml includes an implementation of an Auth Middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_. If this implementation is not compatible with your mechanism for token issuance, you can implement your own Auth Middleware provided it conforms to the same API.
 
 Features
 ********
 
-The auth middleware is designed to fulfill the following goals:
+The Auth Middleware is designed to fulfill the following goals:
 
 - Be agnostic of the authentication and authorization protocol required by the identity and access management (IAM) system used by the participant operator.
 - Allow fine grained access control via Daml ledger claims.
@@ -26,7 +26,7 @@ The auth middleware is designed to fulfill the following goals:
 Auth Middleware API
 *******************
 
-An implementation of the auth middleware must provide the following API.
+An implementation of the Auth Middleware must provide the following API.
 
 Obtain Access Token
 ===================
@@ -54,7 +54,7 @@ For example::
 .. note::
 
     When using user management, the participant operator may have configured their IAM to issue user tokens. The
-    auth middleware currently doesn't accept an input parameter specific to user ids. As such, it is up to the
+    Auth Middleware currently doesn't accept an input parameter specific to user ids. As such, it is up to the
     IAM to map claims request to the required user token. Our recommendation to participant operators is to map the
     ``applicationId`` claim to the required user id. Application developers should contact their ledger operator to
     understand how they are supposed to request for a token.
