@@ -1,9 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import com.daml.ledger.api.domain.User
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
@@ -13,6 +14,7 @@ import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
+import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
@@ -131,6 +133,66 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
+  sealed abstract class UserRight extends Product with Serializable
+  final case object ParticipantAdmin extends UserRight
+  final case class CanActAs(party: Party) extends UserRight
+  final case class CanReadAs(party: Party) extends UserRight
+
+  object UserRights {
+    import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
+    import scalaz.syntax.traverse._
+    import scalaz.syntax.std.either._
+    import scalaz.syntax.tag._
+
+    def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
+      input.traverse {
+        case ParticipantAdmin => \/.right(LedgerUserRight.ParticipantAdmin)
+        case CanActAs(party) =>
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs).disjunction
+        case CanReadAs(party) =>
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs).disjunction
+      }
+
+    def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
+      .map[domain.UserRight] {
+        case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
+        case LedgerUserRight.CanActAs(party) =>
+          CanActAs(Party(party: String))
+        case LedgerUserRight.CanReadAs(party) =>
+          CanReadAs(Party(party: String))
+      }
+      .toList
+  }
+
+  final case class UserDetails(userId: String, primaryParty: Option[String])
+
+  object UserDetails {
+    def fromUser(user: User) =
+      UserDetails(user.id, user.primaryParty)
+  }
+
+  final case class CreateUserRequest(
+      userId: String,
+      primaryParty: Option[String],
+      rights: Option[List[UserRight]],
+  )
+
+  final case class ListUserRightsRequest(userId: String)
+
+  final case class GrantUserRightsRequest(
+      userId: String,
+      rights: List[UserRight],
+  )
+
+  final case class RevokeUserRightsRequest(
+      userId: String,
+      rights: List[UserRight],
+  )
+
+  final case class GetUserRequest(userId: String)
+
+  final case class DeleteUserRequest(userId: String)
+
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
   final case class CommandMeta(
@@ -223,8 +285,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
     )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
-      import scalaz.syntax.applicative._
-
       @tailrec
       def loop(
           es: Vector[String],
@@ -428,7 +488,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: CreateCommand[A, B]
       )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] = {
-        import scalaz.syntax.applicative._
         ^(f(fab.payload), g(fab.templateId))((c, d) => fab.copy(payload = c, templateId = d))
       }
     }
@@ -439,7 +498,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: ExerciseCommand[A, B]
       )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[C, D]] = {
-        import scalaz.syntax.applicative._
         ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
       }
     }
@@ -480,7 +538,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: ExerciseResponse[A]
       )(f: A => G[B]): G[ExerciseResponse[B]] = {
-        import scalaz.syntax.applicative._
         val gb: G[B] = f(fa.exerciseResult)
         val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
         ^(gb, gbs) { (exerciseResult, events) =>
@@ -523,7 +580,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: SyncResponse[A]
       )(f: A => G[B]): G[SyncResponse[B]] = {
-        import scalaz.syntax.functor._
         val G = implicitly[Applicative[G]]
         fa match {
           case err: ErrorResponse => G.point[SyncResponse[B]](err)

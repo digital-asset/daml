@@ -1,64 +1,57 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
 
-import java.sql.Connection
-
 import anorm.SqlParser.{int, long}
-import anorm.{RowParser, SQL, ~}
+import anorm.{RowParser, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.Conversions.{ledgerString, offset}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.MismatchException
 import com.daml.platform.store.Conversions
+import com.daml.platform.store.Conversions.{ledgerString, offset}
 import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
+import java.sql.Connection
+
 private[backend] object ParameterStorageBackendTemplate extends ParameterStorageBackend {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  private val SQL_UPDATE_LEDGER_END = SQL(
-    """
-      |UPDATE
-      |  parameters
-      |SET
-      |  ledger_end = {ledger_end},
-      |  ledger_end_sequential_id = {ledger_end_sequential_id},
-      |  ledger_end_string_interning_id = {ledger_end_string_interning_id}
-      |""".stripMargin
-  )
 
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd
   )(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_UPDATE_LEDGER_END
-      .on("ledger_end" -> ledgerEnd.lastOffset)
-      .on("ledger_end_sequential_id" -> ledgerEnd.lastEventSeqId)
-      .on("ledger_end_string_interning_id" -> ledgerEnd.lastStringInterningId)
+    SQL"""
+      UPDATE
+        parameters
+      SET
+        ledger_end = ${ledgerEnd.lastOffset},
+        ledger_end_sequential_id = ${ledgerEnd.lastEventSeqId},
+        ledger_end_string_interning_id = ${ledgerEnd.lastStringInterningId}
+      """
       .execute()(connection)
     ()
   }
 
-  private val SQL_GET_LEDGER_END = SQL(
-    """
-      |SELECT
-      |  ledger_end,
-      |  ledger_end_sequential_id,
-      |  ledger_end_string_interning_id
-      |FROM
-      |  parameters
-      |
-      |""".stripMargin
-  )
+  private val SqlGetLedgerEnd =
+    SQL"""
+      SELECT
+        ledger_end,
+        ledger_end_sequential_id,
+        ledger_end_string_interning_id
+      FROM
+        parameters
+      """
 
-  override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
-    SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
+  override def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd =
+    SqlGetLedgerEnd
+      .as(LedgerEndParser.singleOpt)(connection)
+      .getOrElse(ParameterStorageBackend.LedgerEnd.beforeBegin)
 
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
@@ -73,34 +66,31 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndOffsetParser: RowParser[Option[Offset]] =
-    offset(LedgerEndColumnName).?
+  private val LedgerEndOffsetParser: RowParser[Offset] = {
+    // Note: the ledger_end is a non-optional column,
+    // however some databases treat Offset.beforeBegin (the empty string) as NULL
+    offset(LedgerEndColumnName).?.map(_.getOrElse(Offset.beforeBegin))
+  }
 
-  private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
-    long(LedgerEndSequentialIdColumnName).?
+  private val LedgerEndSequentialIdParser: RowParser[Long] =
+    long(LedgerEndSequentialIdColumnName)
 
-  private val LedgerEndStringInterningIdParser: RowParser[Option[Int]] =
-    int(LedgerEndStringInterningIdColumnName).?
+  private val LedgerEndStringInterningIdParser: RowParser[Int] =
+    int(LedgerEndStringInterningIdColumnName)
 
   private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
     LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
       ParameterStorageBackend.IdentityParams(ledgerId, participantId)
     }
 
-  private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
+  private val LedgerEndParser: RowParser[ParameterStorageBackend.LedgerEnd] =
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser map {
-      case Some(lastOffset) ~ Some(lastEventSequentialId) ~ Some(lastStringInterningId) =>
-        Some(
-          ParameterStorageBackend.LedgerEnd(
-            lastOffset,
-            lastEventSequentialId,
-            lastStringInterningId,
-          )
+      case lastOffset ~ lastEventSequentialId ~ lastStringInterningId =>
+        ParameterStorageBackend.LedgerEnd(
+          lastOffset,
+          lastEventSequentialId,
+          lastStringInterningId,
         )
-      case _ =>
-        // Note: offset and event sequential id are always written together.
-        // Cases where only one of them is defined are not handled here.
-        None
     }
 
   override def initializeParameters(
@@ -115,8 +105,22 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
         logger.info(
           s"Initializing new database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
         )
+        import com.daml.platform.store.Conversions.OffsetToStatement
+        val ledgerEnd = ParameterStorageBackend.LedgerEnd.beforeBegin
         discard(
-          SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
+          SQL"""insert into #$TableName(
+              #$LedgerIdColumnName,
+              #$ParticipantIdColumnName,
+              #$LedgerEndColumnName,
+              #$LedgerEndSequentialIdColumnName,
+              #$LedgerEndStringInterningIdColumnName
+            ) values(
+              ${ledgerId.unwrap},
+              ${participantId.unwrap: String},
+              ${ledgerEnd.lastOffset},
+              ${ledgerEnd.lastEventSeqId},
+              ${ledgerEnd.lastStringInterningId}
+            )"""
             .execute()(connection)
         )
       case Some(ParameterStorageBackend.IdentityParams(`ledgerId`, `participantId`)) =>
@@ -149,22 +153,12 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
     SQL"select #$LedgerIdColumnName, #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  private val SQL_UPDATE_MOST_RECENT_PRUNING =
-    SQL("""
-          |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
-          |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
-          |""".stripMargin)
-
-  private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS =
-    SQL("""
-          |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={prune_all_divulged_contracts_up_to_inclusive}
-          |where participant_all_divulged_contracts_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
-          |""".stripMargin)
-
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_UPDATE_MOST_RECENT_PRUNING
-      .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
+    SQL"""
+      update parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
+      where participant_pruned_up_to_inclusive < $prunedUpToInclusive or participant_pruned_up_to_inclusive is null
+      """
       .execute()(connection)
     ()
   }
@@ -173,30 +167,31 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-
-    SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS
-      .on("prune_all_divulged_contracts_up_to_inclusive" -> prunedUpToInclusive)
+    SQL"""
+      update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
+      where participant_all_divulged_contracts_pruned_up_to_inclusive < $prunedUpToInclusive or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+      """
       .execute()(connection)
     ()
   }
 
-  private val SQL_SELECT_MOST_RECENT_PRUNING = SQL(
-    "select participant_pruned_up_to_inclusive from parameters"
-  )
+  private val SqlSelectMostRecentPruning =
+    SQL"select participant_pruned_up_to_inclusive from parameters"
 
   def prunedUpToInclusive(connection: Connection): Option[Offset] =
-    SQL_SELECT_MOST_RECENT_PRUNING
+    SqlSelectMostRecentPruning
       .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
 
-  private val SQL_SELECT_MOST_RECENT_PRUNING_ALL_DIVULGED_CONTRACTS =
-    SQL("select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters")
+  private val SqlSelectMostRecentPruningAllDivulgedContracts =
+    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
   ): Option[Offset] = {
-    SQL_SELECT_MOST_RECENT_PRUNING_ALL_DIVULGED_CONTRACTS
+    SqlSelectMostRecentPruningAllDivulgedContracts
       .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
         connection
       )
   }
+
 }

@@ -1,9 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.MockMessages._
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
@@ -53,10 +52,9 @@ class GrpcCommandServiceSpec
       val grpcCommandService = new GrpcCommandService(
         mockCommandService,
         ledgerId = LedgerId(ledgerId),
-        errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher],
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationTime = () => Some(Duration.ZERO),
+        maxDeduplicationDuration = () => Some(Duration.ZERO),
         generateSubmissionId = () =>
           Ref.SubmissionId.assertFromString(
             s"$submissionIdPrefix${submissionCounter.incrementAndGet()}"

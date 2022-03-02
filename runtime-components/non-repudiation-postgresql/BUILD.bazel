@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -21,7 +21,6 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     visibility = [
         "//:__subpackages__",
@@ -42,7 +41,6 @@ da_scala_test(
         "src/test/resources/logback-test.xml",
     ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_hikari",
         "@maven//:org_typelevel_cats_effect",

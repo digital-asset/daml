@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.postgresql
@@ -19,12 +19,6 @@ private[postgresql] trait PGStringArrayBase[FROM, TO] extends Field[FROM, TO, St
   }
 }
 
-private[postgresql] case class PGStringArray[FROM](
-    extract: StringInterning => FROM => Iterable[String]
-) extends PGStringArrayBase[FROM, Iterable[String]] {
-  override def convert: Iterable[String] => String = convertBase
-}
-
 private[postgresql] case class PGStringArrayOptional[FROM](
     extract: StringInterning => FROM => Option[Iterable[String]]
 ) extends PGStringArrayBase[FROM, Option[Iterable[String]]] {
@@ -33,7 +27,7 @@ private[postgresql] case class PGStringArrayOptional[FROM](
 
 private[postgresql] trait PGIntArrayBase[FROM, TO] extends Field[FROM, TO, String] {
   override def selectFieldExpression(inputFieldName: String): String =
-    s"string_to_array($inputFieldName, '|')::integer[]" // TODO interning consider doing some hex magic here to compress the transport data more
+    s"string_to_array($inputFieldName, '|')::integer[]"
 
   protected def convertBase: Iterable[Int] => String = { in =>
     in.mkString("|")

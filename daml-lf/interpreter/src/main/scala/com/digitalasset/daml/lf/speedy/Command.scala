@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -54,6 +54,7 @@ object Command {
       choiceId: ChoiceName,
       argument: SValue,
   ) extends Command {
+    // TODO https://github.com/digital-asset/daml/issues/12051
     // TODO https://github.com/digital-asset/daml/issues/11342
     //   The actual template id isn't known until run time.
     //   The interface id is the best we've got.

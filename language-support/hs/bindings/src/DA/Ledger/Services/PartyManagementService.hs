@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -19,8 +19,6 @@ import Network.GRPC.HighLevel.Generated
 import qualified Data.Aeson as A
 import Data.Aeson ((.:))
 import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
-
-newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
 
 getParticipantId :: LedgerService ParticipantId
 getParticipantId =

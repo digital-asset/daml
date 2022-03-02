@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.configuration
@@ -8,7 +8,7 @@ import com.daml.ledger.configuration.protobuf.{ledger_configuration => proto}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.compat.java8.DurationConverters._
+import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import org.scalatest.prop.TableDrivenPropertyChecks._
 
@@ -27,7 +27,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some(2.minutes.toProtobuf),
               )
             ),
-            maxDeduplicationTime = None,
+            maxDeduplicationDuration = None,
           )
           .toByteArray
 
@@ -42,7 +42,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 minSkew = 30.seconds.toJava,
                 maxSkew = 2.minutes.toJava,
               ).get,
-              maxDeduplicationTime = 1.day.toJava,
+              maxDeduplicationDuration = 1.day.toJava,
             )
           )
         )
@@ -54,7 +54,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
             version = 1,
             generation = 2,
             timeModel = None,
-            maxDeduplicationTime = None,
+            maxDeduplicationDuration = None,
           )
           .toByteArray
 
@@ -77,7 +77,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some(5.minutes.toProtobuf),
               )
             ),
-            maxDeduplicationTime = Some(6.hours.toProtobuf),
+            maxDeduplicationDuration = Some(6.hours.toProtobuf),
           )
           .toByteArray
 
@@ -92,7 +92,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 minSkew = 20.seconds.toJava,
                 maxSkew = 5.minutes.toJava,
               ).get,
-              maxDeduplicationTime = 6.hours.toJava,
+              maxDeduplicationDuration = 6.hours.toJava,
             )
           )
         )
@@ -106,7 +106,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
             version = 2,
             generation = 4,
             timeModel = None,
-            maxDeduplicationTime = Some(1.day.toProtobuf),
+            maxDeduplicationDuration = Some(1.day.toProtobuf),
           ),
         ),
         (
@@ -121,7 +121,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
               )
             ),
-            maxDeduplicationTime = None,
+            maxDeduplicationDuration = None,
           ),
         ),
         (
@@ -136,7 +136,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
               )
             ),
-            maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
+            maxDeduplicationDuration = Some(com.google.protobuf.duration.Duration.defaultInstance),
           ),
         ),
         (
@@ -151,7 +151,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
               )
             ),
-            maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
+            maxDeduplicationDuration = Some(com.google.protobuf.duration.Duration.defaultInstance),
           ),
         ),
         (
@@ -166,7 +166,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some((-10).seconds.toProtobuf),
               )
             ),
-            maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
+            maxDeduplicationDuration = Some(com.google.protobuf.duration.Duration.defaultInstance),
           ),
         ),
         (
@@ -181,7 +181,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
               )
             ),
-            maxDeduplicationTime = Some((-1).day.toProtobuf),
+            maxDeduplicationDuration = Some((-1).day.toProtobuf),
           ),
         ),
       )
@@ -204,7 +204,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
             version = 3,
             generation = 0,
             timeModel = None,
-            maxDeduplicationTime = None,
+            maxDeduplicationDuration = None,
           )
           .toByteArray
 

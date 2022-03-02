@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.graphql
@@ -575,6 +575,15 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
   val QueryType = ObjectType(
     "Query",
     fields[GraphQLContext, Unit](
+      Field(
+        "parties",
+        ListType(PartyType),
+        arguments = SearchArg :: Nil,
+        resolve = context =>
+          (context.ctx.store ? GetParties(context.arg(SearchArg).getOrElse("")))
+            .mapTo[PartyList]
+            .map(response => Tag.unsubst(response.parties)),
+      ),
       Field(
         "ledgerTime",
         LedgerTimeType,

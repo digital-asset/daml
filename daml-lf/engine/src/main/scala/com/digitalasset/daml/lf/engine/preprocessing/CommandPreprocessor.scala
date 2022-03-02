@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,15 +14,12 @@ import scala.annotation.tailrec
 
 private[lf] final class CommandPreprocessor(
     interface: language.PackageInterface,
-    // See Preprocessor scala doc for more details about the following flags.
-    forbidV0ContractId: Boolean,
     requireV1ContractIdSuffix: Boolean,
 ) {
 
   val valueTranslator =
     new ValueTranslator(
       interface = interface,
-      forbidV0ContractId = forbidV0ContractId,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
 

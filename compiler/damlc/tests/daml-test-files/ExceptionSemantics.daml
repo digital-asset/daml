@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
@@ -188,3 +188,5 @@ tryContext = scenario do
   -- This will result in a partial transaction with ptx.context.info
   -- pointing to a TryContextInfo.
   submit p $ exercise c (UncatchableTry kCid)
+
+-- @ENABLE-SCENARIOS

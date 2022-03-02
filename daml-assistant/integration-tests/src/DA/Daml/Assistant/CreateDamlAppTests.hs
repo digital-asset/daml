@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.CreateDamlAppTests (main) where
 
@@ -6,11 +6,12 @@ import Conduit
 import Control.Exception.Extra
 import Control.Monad
 import Data.Aeson
+import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.KeyMap as KM
 import Data.Aeson.Extra.Merge
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.HashMap.Strict as HMS
 import Data.List.Extra
 import Data.Proxy (Proxy (..))
 import Data.Tagged (Tagged (..))
@@ -43,15 +44,16 @@ main :: IO ()
 main = withTempDir $ \npmCache -> do
     setEnv "npm_config_cache" npmCache True
     limitJvmMemory defaultJvmMemoryLimits
-    npm : node : args <- getArgs
+    npm : node : grpcurl : args <- getArgs
     javaPath <- locateRunfiles "local_jdk/bin"
     oldPath <- getSearchPath
     npmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> npm)
     -- we need node in scope for the post install step of babel
     nodePath <- takeDirectory <$> locateRunfiles (mainWorkspace </> node)
+    grpcurlPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> grpcurl)
     let ingredients = defaultIngredients ++ [includingOptions [Option @ProjectName Proxy]]
     withArgs args (withEnv
-        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : npmPath : nodePath : oldPath))
+        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : npmPath : nodePath : grpcurlPath : oldPath))
         , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMainWithIngredients ingredients tests)
 
@@ -77,7 +79,7 @@ tests =
         -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
           step "Build DAML model for base application"
-          callCommandSilent "daml build"
+          callCommandSilent "daml build --ghc-option=-Werror"
           step "Run JavaScript codegen"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
           -- We patch all package.json files to point to local files for our TypeScript libraries.
@@ -113,7 +115,7 @@ tests =
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
           step "Build the new DAML model"
-          callCommandSilent "daml build"
+          callCommandSilent "daml build --ghc-option=-Werror"
           step "Run JavaScript codegen for new DAML model"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
           genFiles <- listFilesRecursive "ui/daml.js"
@@ -171,24 +173,24 @@ patchTsDependencies uiDir packageJsonFile = do
   packageJson0 <- readJsonFile packageJsonFile
   case packageJson0 of
     Object packageJson ->
-      case HMS.lookup "dependencies" packageJson of
+      case KM.lookup "dependencies" packageJson of
         Just (Object dependencies) -> do
-          let depNames = HMS.keys dependencies
+          let depNames = KM.keys dependencies
           let patchedDeps =
-                HMS.fromList
+                KM.fromList
                   [ (depName, String $ T.pack $ "file:" <> libRelPath)
                   | tsLib <- allTsLibraries
                   , let libName = tsLibraryName tsLib
                   , let libPath = uiDir </> libName
                   , let libRelPath =
                           makeRelative (takeDirectory packageJsonFile) libPath
-                  , let depName = T.pack $ "@" <> replace "-" "/" libName
+                  , let depName = A.fromString $ "@" <> replace "-" "/" libName
                   , depName `elem` depNames
-                  ] `HMS.union`
+                  ] `KM.union`
                 dependencies
           let newPackageJson =
                 Object $
-                HMS.insert "dependencies" (Object patchedDeps) packageJson
+                KM.insert "dependencies" (Object patchedDeps) packageJson
           p <- getPermissions packageJsonFile
           setPermissions packageJsonFile (setOwnerWritable True p)
           BSL.writeFile packageJsonFile (encode newPackageJson)

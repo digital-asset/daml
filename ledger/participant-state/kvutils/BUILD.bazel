@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:proto.bzl", "proto_jars")
@@ -6,7 +6,6 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -24,15 +23,10 @@ load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
@@ -46,10 +40,9 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
+        "//daml-lf/kv-support",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
-        "//daml-lf/transaction:value_proto_java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/caching",
         "//ledger/error",
@@ -58,7 +51,6 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
-        "//ledger/ledger-grpc",
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
@@ -87,15 +79,10 @@ da_scala_library(
         "src/test/lib/scala/**/*.scala",
         "src/test/lib/{}/**/*.scala".format(scala_major_version),
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -115,9 +102,9 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/kv-support",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
@@ -153,15 +140,11 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:model-tests-default.dar",
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -182,6 +165,7 @@ da_scala_test_suite(
         "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
+        "//daml-lf/kv-support",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
@@ -254,33 +238,3 @@ proto_jars(
         "@com_google_protobuf//:timestamp_proto",
     ],
 )
-
-REFERENCE_LEDGER_EXPORT_NAME = "reference-ledger-export"
-
-# Generates a ledger export by running the test tool against a kvutils-based ledger.
-client_server_build(
-    name = REFERENCE_LEDGER_EXPORT_NAME,
-    testonly = True,  # only test targets can depend on this.
-    outs = ["%s.out" % REFERENCE_LEDGER_EXPORT_NAME],
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
-        "--timeout-scale-factor=20",
-        "localhost:%PORT%",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--exclude=HealthServiceIT",  # Does not make sense to run it for the export
-    ],
-    output_env = "KVUTILS_LEDGER_EXPORT",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=export,port=0,port-file=%PORT_FILE%",
-    ],
-    visibility = [":__subpackages__"],
-) if not is_windows else None
-
-# Test for checking the integrity of the ledger export produced above.
-integrity_test(
-    name = "%s-integrity-test" % REFERENCE_LEDGER_EXPORT_NAME,
-    checker = "//ledger/participant-state/kvutils/tools:integrity-check",
-    dump = ":%s" % REFERENCE_LEDGER_EXPORT_NAME,
-) if not is_windows else None

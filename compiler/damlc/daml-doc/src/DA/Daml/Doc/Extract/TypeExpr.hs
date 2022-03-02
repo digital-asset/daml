@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Extract.TypeExpr
@@ -11,18 +11,13 @@ import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Extract.Types
 import DA.Daml.Doc.Extract.Util
 
-import Control.Monad (guard)
-import Data.List.Extra (notNull)
-
 import "ghc-lib-parser" TyCoRep
 import "ghc-lib-parser" TyCon
 import "ghc-lib-parser" Type
 
 -- | Extract context from GHC type. Returns Nothing if there are no constraints.
-typeToContext :: DocCtx -> TyCoRep.Type -> Maybe DDoc.Type
-typeToContext dc ty =
-    let ctx = typeToConstraints dc ty
-    in guard (notNull ctx) >> Just (TypeTuple ctx)
+typeToContext :: DocCtx -> TyCoRep.Type -> DDoc.Context
+typeToContext dc ty = Context (typeToConstraints dc ty)
 
 -- | Is this type a constraint? Constraints are either typeclass constraints,
 -- constraint tuples, or whatever else GHC decides is a constraint.
@@ -89,4 +84,3 @@ typeToType ctx = \case
   where
     -- | Unhandled case.
     unexpected x = error $ "typeToType: found an unexpected " <> x
-

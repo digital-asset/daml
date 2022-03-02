@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:proto.bzl", "proto_jars")
@@ -8,7 +8,6 @@ load(
     "da_scala_test",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
-    "silencer_plugin",
 )
 
 #
@@ -47,12 +46,8 @@ proto_jars(
 da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
@@ -63,7 +58,33 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/nameof",
+        "//libs-scala/safe-proto",
         "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "value-test",
+    srcs = glob([
+        "src/test/**/value/*.scala",
+        "src/test/**/EitherAssertions.scala",
+    ]),
+    max_heap_size = "3g",
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":transaction",
+        ":value_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -74,19 +95,13 @@ da_scala_test(
     srcs = glob([
         "src/test/**/EitherAssertions.scala",
         "src/test/**/crypto/*.scala",
-        "src/test/**/value/*.scala",
         "src/test/**/transaction/*.scala",
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -107,9 +122,6 @@ da_scala_test(
     srcs = glob([
         "src/test/**/validation/*.scala",
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",

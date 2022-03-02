@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,7 +17,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
 
@@ -228,9 +227,7 @@ object SValue {
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
       SMap(
         isTextMap,
-        implicitly[Factory[(SValue, SValue), TreeMap[SValue, SValue]]].fromSpecific(entries.map {
-          case p @ (k, _) => comparable(k); p
-        }),
+        entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
     }
 
@@ -248,6 +245,18 @@ object SValue {
       any match {
         case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
           Some(record)
+        case _ =>
+          None
+      }
+  }
+
+  object SAnyInterface {
+    def apply(tyCon: Ref.TypeConName, record: SRecord): SAny = SAny(TTyCon(tyCon), record)
+
+    def unapply(any: SAny): Option[(TypeConName, SRecord)] =
+      any match {
+        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+          Some(tyCon0, record)
         case _ =>
           None
       }
@@ -282,9 +291,6 @@ object SValue {
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
-  // TODO https://github.com/digital-asset/daml/issues/8719
-  //  try to factorize SNumeric and SBigNumeric
-  //  note it seems that scale is relevant in SNumeric but lost in SBigNumeric
   final case class SNumeric(value: Numeric) extends SPrimLit
   object SNumeric {
     def fromBigDecimal(scale: Numeric.Scale, x: java.math.BigDecimal) =

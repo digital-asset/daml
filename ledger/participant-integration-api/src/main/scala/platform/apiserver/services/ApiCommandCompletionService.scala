@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -8,9 +8,8 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service._
@@ -51,7 +50,7 @@ private[apiserver] final class ApiCommandCompletionService private (
   override def completionStreamSource(
       request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, NotUsed] =
-    Source.future(getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+    Source.future(getLedgerEnd()).flatMapConcat { ledgerEnd =>
       validator
         .validateCompletionStreamRequest(request, ledgerEnd)
         .fold(
@@ -80,7 +79,7 @@ private[apiserver] final class ApiCommandCompletionService private (
         )
     }
 
-  override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
+  override def getLedgerEnd(): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 }
 
@@ -90,7 +89,6 @@ private[apiserver] object ApiCommandCompletionService {
       ledgerId: LedgerId,
       completionsService: IndexCompletionsService,
       metrics: Metrics,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -100,7 +98,6 @@ private[apiserver] object ApiCommandCompletionService {
     val validator = new CompletionServiceRequestValidator(
       ledgerId,
       PartyNameChecker.AllowAllParties,
-      errorCodesVersionSwitcher,
     )
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService, validator, metrics)

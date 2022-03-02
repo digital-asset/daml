@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources.akka
@@ -9,13 +9,16 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Releasabl
 
 import scala.concurrent.Future
 
-class BoundedSourceQueueResourceOwner[T, Context: HasExecutionContext](
-    queueGraph: RunnableGraph[BoundedSourceQueue[T]]
+final class BoundedSourceQueueResourceOwner[Mat, T, Context: HasExecutionContext](
+    queueGraph: RunnableGraph[Mat],
+    toSourceQueue: Mat => BoundedSourceQueue[T],
+    toDone: Mat => Future[Unit],
 )(implicit
     materializer: Materializer
-) extends AbstractResourceOwner[Context, BoundedSourceQueue[T]] {
-  override def acquire()(implicit context: Context): Resource[Context, BoundedSourceQueue[T]] =
-    ReleasableResource(Future(queueGraph.run())) { queue =>
-      Future(queue.complete())
+) extends AbstractResourceOwner[Context, Mat] {
+  override def acquire()(implicit context: Context): Resource[Context, Mat] =
+    ReleasableResource(Future(queueGraph.run())) { value =>
+      toSourceQueue(value).complete()
+      toDone(value)
     }
 }

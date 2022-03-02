@@ -1,13 +1,12 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.interning
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class DomainStringIterators(
     val parties: Iterator[String],
@@ -100,7 +99,7 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
       Future.unit
     } else {
       loadPrefixedEntries(raw.lastId, lastStringInterningId)(loggingContext)
-        .map(updateView)(DirectExecutionContext)
+        .map(updateView)(ExecutionContext.parasitic)
     }
 
   private def updateView(newEntries: Iterable[(Int, String)]): Unit = synchronized {

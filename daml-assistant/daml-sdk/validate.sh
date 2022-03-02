@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # --- begin runfiles.bash initialization v2 ---
@@ -18,19 +18,6 @@ set -eou pipefail
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 SDK_CE=$(rlocation "$TEST_WORKSPACE/$2")
 SDK_EE=$(rlocation "$TEST_WORKSPACE/$3")
-
-for cmd in sandbox sandbox-classic; do
-    ret=0
-    $JAVA -jar $SDK_CE $cmd --help | grep -q profile-dir || ret=$?
-    if [[ $ret -eq 0 ]]; then
-        echo "Unexpected profile-dir option in CE"
-        exit 1
-    fi
-done
-
-for cmd in sandbox sandbox-classic; do
-    $JAVA -jar $SDK_EE $cmd --help | grep -q profile-dir
-done
 
 if ! ($JAVA -jar $SDK_EE trigger-service --help | grep -q oracle); then
   exit 1

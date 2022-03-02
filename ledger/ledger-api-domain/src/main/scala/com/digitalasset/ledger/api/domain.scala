@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api
@@ -13,6 +13,7 @@ import com.daml.lf.data.logging._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
+import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
@@ -203,14 +204,8 @@ object domain {
       override val description: String = "DuplicateKey: contract key is not unique"
     }
 
-    final case class PartiesNotKnownOnLedger(parties: Set[String]) extends RejectionReason {
-      override val description: String = "Some parties are unallocated"
-    }
-
     /** The ledger time of the submission violated some constraint on the ledger time. */
     final case class InvalidLedgerTime(description: String) extends RejectionReason
-
-    final case class LedgerConfigNotFound(description: String) extends RejectionReason
 
     /** The transaction relied on contracts being active that were no longer
       * active at the point where it was sequenced.
@@ -287,17 +282,13 @@ object domain {
   type LedgerId = String @@ LedgerIdTag
   val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
 
+  def optionalLedgerId(raw: String): Option[LedgerId] =
+    if (raw.isEmpty) None else Some(LedgerId(raw))
+
   sealed trait ParticipantIdTag
 
   type ParticipantId = Ref.ParticipantId @@ ParticipantIdTag
   val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
-
-  sealed trait ApplicationIdTag
-
-  /** Identifiers for applications connecting to the Ledger API.
-    */
-  type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
-  val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
   sealed trait SubmissionIdTag
 
@@ -305,9 +296,9 @@ object domain {
   val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
 
   case class Commands(
-      ledgerId: LedgerId,
+      ledgerId: Option[LedgerId],
       workflowId: Option[WorkflowId],
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       commandId: CommandId,
       submissionId: Option[SubmissionId],
       actAs: Set[Ref.Party],
@@ -324,9 +315,10 @@ object domain {
     implicit val `Timestamp to LoggingValue`: ToLoggingValue[Timestamp] =
       ToLoggingValue.ToStringToLoggingValue
 
-    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands =>
+    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands => {
+      val maybeString: Option[String] = commands.ledgerId.map(Tag.unwrap)
       LoggingValue.Nested.fromEntries(
-        "ledgerId" -> commands.ledgerId,
+        "ledgerId" -> OfString(maybeString.getOrElse("<empty-ledger-id>")),
         "workflowId" -> commands.workflowId,
         "applicationId" -> commands.applicationId,
         "commandId" -> commands.commandId,
@@ -335,6 +327,7 @@ object domain {
         "submittedAt" -> commands.submittedAt,
         "deduplicationPeriod" -> commands.deduplicationPeriod,
       )
+    }
   }
 
   /** Represents a party with additional known information.
@@ -405,5 +398,10 @@ object domain {
     final case object ParticipantAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
+  }
+
+  sealed abstract class Feature extends Product with Serializable
+  object Feature {
+    case object UserManagement extends Feature
   }
 }

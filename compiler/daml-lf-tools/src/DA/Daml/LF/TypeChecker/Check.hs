@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -47,6 +47,7 @@ import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
+import qualified Data.Text as T
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
@@ -115,7 +116,6 @@ kindOfDataType = foldr (KArrow . snd) KStar . dataParams
 kindOfBuiltin :: BuiltinType -> Kind
 kindOfBuiltin = \case
   BTInt64 -> KStar
-  BTDecimal -> KStar
   BTNumeric -> KNat `KArrow` KStar
   BTText -> KStar
   BTTimestamp -> KStar
@@ -207,7 +207,6 @@ expandSynApp tsyn args = do
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
-  BEDecimal _        -> pure TDecimal
   BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
@@ -233,13 +232,7 @@ typeOfBuiltin = \case
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BETextToParty    -> pure $ TText :-> TOptional TParty
   BETextToInt64    -> pure $ TText :-> TOptional TInt64
-  BETextToDecimal  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
-  BEAddDecimal       -> pure $ tBinop TDecimal
-  BESubDecimal       -> pure $ tBinop TDecimal
-  BEMulDecimal       -> pure $ tBinop TDecimal
-  BEDivDecimal       -> pure $ tBinop TDecimal
-  BERoundDecimal     -> pure $ TInt64 :-> TDecimal :-> TDecimal
   BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
@@ -273,8 +266,6 @@ typeOfBuiltin = \case
   BEDivInt64         -> pure $ tBinop TInt64
   BEModInt64         -> pure $ tBinop TInt64
   BEExpInt64         -> pure $ tBinop TInt64
-  BEInt64ToDecimal   -> pure $ TInt64 :-> TDecimal
-  BEDecimalToInt64   -> pure $ TDecimal :-> TInt64
   BEExplodeText      -> pure $ TText :-> TList TText
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
@@ -774,10 +765,31 @@ typeOf' = \case
       throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
     checkExpr expr (TCon requiredIface)
     pure (TOptional (TCon requiringIface))
+  EInterfaceTemplateTypeRep iface expr -> do
+    void $ inWorld (lookupInterface iface)
+    checkExpr expr (TCon iface)
+    pure TTypeRep
+  ESignatoryInterface iface expr -> do
+    void $ inWorld (lookupInterface iface)
+    checkExpr expr (TCon iface)
+    pure (TList TParty)
+  EObserverInterface iface expr -> do
+    void $ inWorld (lookupInterface iface)
+    checkExpr expr (TCon iface)
+    pure (TList TParty)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
-  EExperimental _ ty -> pure ty
+  EExperimental name ty -> do
+    checkFeature featureExperimental
+    checkExperimentalType name ty
+    pure ty
+
+checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
+checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
+checkExperimentalType "TYPEREP_TYCON_NAME" (TTypeRep :-> TOptional TText) = pure ()
+checkExperimentalType name ty =
+  throwWithContext (EUnknownExperimental name ty)
 
 typeOf :: MonadGamma m => Expr -> m Type
 typeOf expr = do
@@ -895,7 +907,6 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBin
   introExprVar param paramType $ checkExpr controllers (TList TParty)
   introExprVar param paramType $ do
     whenJust mbObservers $ \observers -> do
-      _checkFeature featureChoiceObservers
       checkExpr observers (TList TParty)
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
@@ -943,8 +954,8 @@ checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} 
       Just InterfaceMethod{ifmType} ->
         checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
 
-_checkFeature :: MonadGamma m => Feature -> m ()
-_checkFeature feature = do
+checkFeature :: MonadGamma m => Feature -> m ()
+checkFeature feature = do
     version <- getLfVersion
     unless (version `supports` feature) $
         throwWithContext $ EUnsupportedFeature feature

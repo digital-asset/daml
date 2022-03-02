@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -6,7 +6,6 @@ package com.daml.platform.apiserver.services.admin
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.stream.scaladsl.Source
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -36,7 +35,6 @@ class ApiPartyManagementServiceSpec
     with AkkaBeforeAndAfterAll {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
 
   "ApiPartyManagementService" should {
     "propagate trace context" in {
@@ -62,7 +60,6 @@ class ApiPartyManagementServiceSpec
         mockIndexTransactionsService,
         TestWritePartyService,
         Duration.ZERO,
-        errorCodesVersionSwitcher,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
@@ -76,7 +73,6 @@ class ApiPartyManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
-          verifyZeroInteractions(errorCodesVersionSwitcher)
           succeed
         }
     }

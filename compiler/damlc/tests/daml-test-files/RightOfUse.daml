@@ -54,3 +54,5 @@ example = scenario do
 
     -- Fails because it lacks Betina Beakley's authorization
     submit scroogeMcDuck do exercise offer Accept
+
+-- @ENABLE-SCENARIOS

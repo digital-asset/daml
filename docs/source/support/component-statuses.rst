@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Feature and Component Statuses
@@ -29,22 +29,6 @@ Ledger API
      - Stable, Deprecated
      - 2021-06-16
 
-Integration Components
-**********************
-
-.. list-table::
-   :widths: 80 10 10
-   :header-rows: 1
-
-   * - Component/Feature
-     - Status
-     - Deprecated on
-   * - :doc:`Integration Kit Components </daml-integration-kit/index>`
-     - Labs
-     -
-   * - CLI and test names of :doc:`/tools/ledger-api-test-tool/index`
-     - Beta
-     -
 
 .. _runtime-components:
 
@@ -58,6 +42,33 @@ Runtime components
    * - Component / Feature
      - Status
      - Deprecated on
+   * - **Canton**
+     -
+     -
+   * - Canton Application and Console
+     - Stable
+     -
+   * - Canton Administrative APIs for participant and domain nodes
+     - Stable
+     -
+   * - Canton Protocol
+     - Stable
+     -
+   * - Sequencer for PostgreSQL
+     - Stable
+     -
+   * - Sequencer for Oracle DB
+     - Stable
+     -
+   * - Sequencer for Hyperledger Fabric
+     - Beta
+     -
+   * - Sequencer for Hyperledger Besu
+     - Beta
+     -
+   * - Support for connecting a single participant to multiple domains
+     - Alpha
+     -
    * - **JSON API**
      - 
      -
@@ -74,19 +85,19 @@ Runtime components
      -
      -
    * - :doc:`Daml API of individual Triggers </triggers/index>`
-     - Stable (Since SDK 1.10.0)
+     - Stable
      -
    * - :doc:`Development CLI to start individual triggers in dev environment </triggers/index>` (``daml trigger``)
-     - Stable (Since SDK 1.10.0)
+     - Stable
      -
    * - :doc:`/tools/trigger-service/index` (``daml trigger-service``)
-     - Stable (Since SDK 1.10.0)
+     - Stable
      -
-   * - **Extractor**
+   * - **Non-repudiation**
      -
      -
-   * - :doc:`/tools/extractor` (``daml extractor``)
-     - Labs
+   * - :doc:`/tools/non-repudiation`
+     - Alpha
      -
 
 .. _libraries:
@@ -101,15 +112,6 @@ Libraries
    * - Component / Feature
      - Status
      - Deprecated on
-   * - **Scala Ledger API Bindings**
-     -
-     -
-   * - ``daml codegen scala`` :doc:`CLI and generated code </app-dev/bindings-scala/index>`
-     - Stable, Deprecated
-     - 2020-10-14
-   * - ``bindings-scala_2.12`` :doc:`library and its public API </app-dev/bindings-scala/index>`
-     - Stable, Deprecated
-     - 2020-10-14
    * - **Java Ledger API Bindings**
      - 
      -
@@ -119,12 +121,9 @@ Libraries
    * - ``bindings-java`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>` *excluding* the reactive components in package ``com.daml.ledger.rxjava.components``.
+   * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - Java Reactive Components in the ``com.daml.ledger.rxjava.components`` package of ``bindings-rxjava``.
-     - Stable, Deprecated
-     - 2020-10-14
    * - Maven artifact ``daml-lf-1.6-archive-java-proto``
      - Stable
      -
@@ -137,12 +136,6 @@ Libraries
    * - Maven artifact ``daml-lf-dev-archive-java-proto``
      - Alpha
      -
-   * - **Node.js Ledger API Bindings**
-     -
-     -
-   * - ``@digital-asset/bindings-js`` :doc:`Node.js library </app-dev/bindings-js>`
-     - Stable, Deprecated
-     - 2020-10-14
    * - **JavaScript Client Libraries**
      -
      -
@@ -209,7 +202,7 @@ Developer Tools
    * - ``daml deploy`` :doc:`helper command and associated CLI </deploy/generic_ledger>` (``daml deploy --help``)
      - Stable
      -
-   * - Assistant commands to start Runtime Components: ``daml json-api``, ``daml trigger``, ``daml trigger-service``, and ``daml extractor``.
+   * - Assistant commands to start Runtime Components: ``daml json-api``, ``daml trigger``, and ``daml trigger-service``.
      - See :ref:`runtime-components`.
      -
    * - **Daml Projects**
@@ -242,16 +235,7 @@ Developer Tools
    * - ``daml sandbox`` assistant command and documented CLI under ``daml sandbox --help``.
      - Stable
      -
-   * - Daml Sandbox in Memory (ie without the ``--sql-backend-jdbcurl`` flag)
-     - Stable
-     -
-   * - Daml Sandbox on Postgres (ie with the ``--sql-backend-jdbcurl`` flag)
-     - Stable, Deprecated
-     - 2020-12-16
-   * - Daml Sandbox Classic and associated CLIs ``daml sandbox-classic``, ``daml start --sandbox-classic``
-     - Stable, Deprecated
-     - 2020-04-09
-   * - Daml Profiler ``daml sandbox --profile-dir``
+   * - Daml Profiler in Sandbox
      - Stable
      -
    * - **Daml Compiler**
@@ -296,11 +280,8 @@ Developer Tools
    * - ``daml doctest``
      - Labs
      -
-   * - **Scenarios and Script**
+   * - **Script**
      -
-     -
-   * - Scenario Daml API
-     - Stable
      -
    * - :doc:`Script Daml API </daml-script/index>`
      - Stable
@@ -317,11 +298,11 @@ Developer Tools
    * - ``daml test`` in-memory Script and Scenario test CLI
      - Stable
      -
-   * - ``daml test-script`` Sandbox-based Script Testing
-     - Stable
-     -
    * - ``daml script`` :doc:`CLI to run Scripts against live ledgers. </daml-script/index>`
      - Stable
+     -
+   * - ``daml ledger export script`` :doc:`CLI extract Daml Script from ledgers. </tools/export/index>`
+     - Alpha
      -
    * - **Navigator**
      -

@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Simplifier(
@@ -82,7 +82,6 @@ safetyStep = \case
   EBuiltinF b ->
     case b of
       BEInt64 _           -> Safe 0
-      BEDecimal _         -> Safe 0
       BENumeric _         -> Safe 0
       BEText _            -> Safe 0
       BETimestamp _       -> Safe 0
@@ -105,11 +104,6 @@ safetyStep = \case
       BEToText _          -> Safe 1
       BEContractIdToText  -> Safe 1
       BECodePointsToText  -> Safe 1
-      BEAddDecimal        -> Safe 1
-      BESubDecimal        -> Safe 1
-      BEMulDecimal        -> Safe 1
-      BEDivDecimal        -> Safe 1
-      BERoundDecimal      -> Safe 1
       BEEqualNumeric      -> Safe 2
       BELessNumeric       -> Safe 2
       BELessEqNumeric     -> Safe 2
@@ -141,8 +135,6 @@ safetyStep = \case
       BEDivInt64          -> Safe 1
       BEModInt64          -> Safe 1
       BEExpInt64          -> Safe 1
-      BEInt64ToDecimal    -> Safe 1
-      BEDecimalToInt64    -> Safe 0 -- crash if the decimal doesn't fit
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
       BETextMapEmpty      -> Safe 0
@@ -172,7 +164,6 @@ safetyStep = \case
       BEPartyToQuotedText -> Safe 1
       BETextToParty -> Safe 1
       BETextToInt64 -> Safe 1
-      BETextToDecimal -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
       BETextToUpper -> Safe 1
@@ -220,6 +211,9 @@ safetyStep = \case
   ECallInterfaceF _ _ _ -> Unsafe
   EToRequiredInterfaceF _ _ s -> s <> Safe 0
   EFromRequiredInterfaceF _ _ s -> s <> Safe 0
+  EInterfaceTemplateTypeRepF _ s -> s <> Safe 0
+  ESignatoryInterfaceF _ s -> s <> Safe 0
+  EObserverInterfaceF _ s -> s <> Safe 0
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -15,7 +15,6 @@ import scala.annotation.tailrec
 
 import com.daml.scalautil.Statement.discard
 
-import scala.collection.compat._
 import scala.collection.immutable.{IndexedSeq, Iterable, LinearSeq}
 
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state
@@ -54,7 +53,7 @@ private[trigger] sealed abstract class UnfoldState[T, A] {
       }
     }
 
-  final def runTo[FA](implicit factory: Factory[A, FA]): (FA, T) = {
+  final def runTo[FA](implicit factory: collection.Factory[A, FA]): (FA, T) = {
     val b = factory.newBuilder
     val t = foreach(a => discard(b += a))
     (b.result(), t)

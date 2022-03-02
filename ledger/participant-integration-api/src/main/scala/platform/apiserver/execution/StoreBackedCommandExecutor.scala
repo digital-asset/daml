@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
@@ -77,7 +77,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
           CommandExecutionResult(
             submitterInfo = state.SubmitterInfo(
               commands.actAs.toList,
-              commands.applicationId.unwrap,
+              commands.readAs.toList,
+              commands.applicationId,
               commands.commandId.unwrap,
               commands.deduplicationPeriod,
               commands.submissionId.map(_.unwrap),

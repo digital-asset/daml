@@ -1,8 +1,10 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module Snippets where
+
+import Daml.Script
 import DA.Time
 import DA.Date
 
@@ -17,7 +19,7 @@ doubled =
 -- END_LET_EXPRESSION
 
 -- BEGIN_LET_IN_DO
-blah = scenario
+blah = script
   do
     let
       x = 1
@@ -55,41 +57,16 @@ template FullfillTaskWithinTimeWindow
 -- Lists example.
 -- BEGIN_LISTS_EXAMPLE
 twoEquivalentListConstructions =
-  scenario do
+  script do
     assert ( [1, 2, 3] == 1 :: 2 :: 3 :: [] )
 -- END_LISTS_EXAMPLE
 
 -- Folding example.
 -- BEGIN_SUM_LIST_EXAMPLE
 sumList =
-  scenario do
+  script do
     assert (foldl (+) 0 [1, 2, 3] == 6)
 -- END_SUM_LIST_EXAMPLE
-
--- PassTime example.
--- BEGIN_TIME_TRAVEL_EXAMPLE
-timeTravel =
-  scenario do
-    -- Get current ledger effective time
-    t1 <- getTime
-    assert (t1 == datetime 1970 Jan 1 0 0 0)
-
-    -- Pass 1 day
-    pass (days 1)
-
-    -- Get new ledger effective time
-    t2 <- getTime
-    assert (t2 == datetime 1970 Jan 2 0 0 0)
--- END_TIME_TRAVEL_EXAMPLE
-
-
-
-
-
-
-
-
-
 
 -- A let block in a template
 -- BEGIN_LET_IN_TEMPLATE

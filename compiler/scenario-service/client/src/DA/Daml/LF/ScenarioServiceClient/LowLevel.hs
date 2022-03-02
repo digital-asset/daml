@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -42,6 +42,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
+import DA.Daml.Options.Types (EnableScenarios (..))
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -55,7 +56,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
-import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..))
+import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import qualified Proto3.Suite as Proto
 import System.Directory
 import System.Environment
@@ -76,6 +77,7 @@ data Options = Options
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
+  , optEnableScenarios :: EnableScenarios
   }
 
 type TimeoutSeconds = Int
@@ -205,7 +207,13 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava
-  cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  cp <- javaProc $ concat
+    [ optJvmOptions
+    , ["-jar" , optServerJar]
+    , ["--max-inbound-message-size=" <> show size | Just size <- [optGrpcMaxMessageSize]]
+    , ["--enable-scenarios=" <> show b | EnableScenarios b <- [optEnableScenarios]]
+    ]
+
   exitExpected <- newIORef False
   let closeStdin hdl = do
           atomicWriteIORef exitExpected True
@@ -245,7 +253,13 @@ withScenarioService opts@Options{..} f = do
             liftIO $ optLogDebug $ "Scenario service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
-            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
+            let grpcConfig = ClientConfig
+                  { clientServerHost = Host "127.0.0.1"
+                  , clientServerPort = Port port
+                  , clientArgs = MaxReceiveMessageLength . fromIntegral <$> maybeToList optGrpcMaxMessageSize
+                  , clientSSLConfig = Nothing
+                  , clientAuthority = Nothing
+                  }
             withGRPCClient grpcConfig $ \client -> do
                 ssClient <- SS.scenarioServiceClient client
                 f Handle

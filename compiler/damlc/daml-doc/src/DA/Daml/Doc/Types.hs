@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -53,6 +53,10 @@ data Type = TypeApp !(Maybe Reference) !Typename [Type] -- ^ Type application
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
           | TypeLit Text -- ^ a literal (e.g. "foo") appearing at the type level
+  deriving (Eq, Ord, Show, Generic)
+
+-- | Function/class context (appears on left-hand-side of "=>").
+newtype Context = Context [Type]
   deriving (Eq, Ord, Show, Generic)
 
 getTypeAppAnchor :: Type -> Maybe Anchor
@@ -110,8 +114,6 @@ data ModuleDoc = ModuleDoc
 data TemplateDoc = TemplateDoc
   { td_anchor  :: Maybe Anchor
   , td_name    :: Typename
-  , td_super   :: Maybe Type
-  , td_args    :: [Text]
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
@@ -136,7 +138,7 @@ data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
   , cl_name :: Typename
   , cl_descr :: Maybe DocText
-  , cl_super :: Maybe Type
+  , cl_super :: Context
   , cl_args :: [Text]
   , cl_methods :: [ClassMethodDoc]
   , cl_instances :: Maybe [InstanceDoc] -- relevant instances
@@ -161,7 +163,7 @@ data ClassMethodDoc = ClassMethodDoc
         --
         -- The former method would have 'cm_isDefault' set to 'False',
         -- the latter would have 'cm_isDefault' set to 'True'.
-    , cm_localContext :: Maybe Type
+    , cm_localContext :: Context
         -- ^ Context of class method inside typeclass declaration.
         -- For example, 'fold' from @'Foldable' t@:
         --
@@ -171,8 +173,8 @@ data ClassMethodDoc = ClassMethodDoc
         --         ...
         -- @
         --
-        -- Would have the 'cm_contextLocal' of @('Monoid' m)@.
-    , cm_globalContext :: Maybe Type
+        -- Would have the 'cm_localContext' of @('Monoid' m)@.
+    , cm_globalContext :: Context
         -- ^ Context of class method outside typeclass declaration.
         -- Following the previous example, 'fold' from @'Foldable' t@
         -- would have the 'cm_globalContext' of @('Foldable' t, 'Monoid' m)@.
@@ -232,6 +234,7 @@ data ChoiceDoc = ChoiceDoc
 data MethodDoc = MethodDoc
   { mtd_name :: Typename
   , mtd_type :: Type
+  , mtd_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
 
@@ -251,18 +254,18 @@ data FieldDoc = FieldDoc
 data FunctionDoc = FunctionDoc
   { fct_anchor :: Maybe Anchor
   , fct_name  :: Fieldname
-  , fct_context :: Maybe Type
+  , fct_context :: Context
   , fct_type  :: Type
   , fct_descr :: Maybe DocText
-  }
-  deriving (Eq, Show, Generic)
+  } deriving (Eq, Show, Generic)
 
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
     { id_type :: Type
     , id_module :: Modulename
-    , id_context :: Maybe Type
+    , id_context :: Context
     , id_isOrphan :: Bool
+    , id_descr :: Maybe DocText
     } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------
@@ -278,6 +281,12 @@ instance ToJSON Type where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON Type where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON Context where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON Context where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON FunctionDoc where

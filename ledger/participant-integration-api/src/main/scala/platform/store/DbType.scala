@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -51,7 +51,6 @@ object DbType {
       sys.error(s"JDBC URL doesn't match any supported databases (h2, pg, oracle)")
   }
 
-  // TODO append-only: adapt AsyncCommit related configuration here
   sealed trait AsyncCommitMode {
     def setting: String
   }

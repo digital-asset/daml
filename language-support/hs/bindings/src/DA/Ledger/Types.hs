@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -55,7 +55,9 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     SubmissionId(..),
     LL.Duration(..),
     LL.Status(..),
-    DeduplicationPeriod(..)
+    DeduplicationPeriod(..),
+    ParticipantId(..),
+    IsoTime(..),
     ) where
 
 import qualified Data.Aeson as A
@@ -67,6 +69,9 @@ import Prelude hiding(Enum)
 import qualified Data.Text.Lazy as Text(unpack)
 import qualified Google.Protobuf.Duration as LL
 import qualified Google.Rpc.Status as LL
+import qualified Data.Time.Format.ISO8601 as ISO8601
+import qualified Data.Time.Clock as Clock
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 -- commands.proto
 
@@ -105,6 +110,7 @@ data Command
 
 data DeduplicationPeriod
     = DeduplicationDuration LL.Duration
+    | DeduplicationOffset AbsOffset
   deriving (Eq, Ord, Show)
 
 -- ledger_offset.proto
@@ -258,7 +264,7 @@ data Timestamp = Timestamp
     deriving (Eq,Ord,Show)
 
 data LedgerConfiguration = LedgerConfiguration
-    { maxDeduplicationTime :: LL.Duration
+    { maxDeduplicationDuration :: LL.Duration
     }
     deriving (Eq,Ord,Show)
 
@@ -271,6 +277,7 @@ newtype DaysSinceEpoch = DaysSinceEpoch { unDaysSinceEpoch :: Int}
 newtype TemplateId = TemplateId Identifier deriving (Eq,Ord,Show)
 
 newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,Ord,Show)
+newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
 newtype CommandId = CommandId { unCommandId :: Text } deriving (Eq,Ord,Show)
 newtype ConstructorId = ConstructorId { unConstructorId :: Text } deriving (Eq,Ord,Show)
 newtype ContractId = ContractId { unContractId :: Text } deriving (Eq,Ord,Show)
@@ -293,3 +300,9 @@ instance A.FromJSON Party where
   parseJSON v = Party <$> A.parseJSON v
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
+
+-- A wrapped UTCTime the can be read in ISO8601 format
+newtype IsoTime = IsoTime { unIsoTime :: Clock.UTCTime } deriving Show
+
+instance Read IsoTime where
+  readsPrec _ = ReadP.readP_to_S $ fmap IsoTime $ ISO8601.formatReadP ISO8601.iso8601Format

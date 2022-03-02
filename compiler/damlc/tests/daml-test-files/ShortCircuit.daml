@@ -13,3 +13,5 @@ main = scenario do
   assert $ not (False && error "conj")
   when False (error "when")
   unless True (error "unless")
+
+-- @ENABLE-SCENARIOS

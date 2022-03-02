@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DataKinds #-}
@@ -113,7 +113,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
         , concat [ ["--max-inbound-message-size", show (getMaxInboundMessageSize size)] | Just size <- [optMaxInboundMessageSize] ]
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
-      port <- readPortFile maxRetries portFile
+      port <- readPortFile ph maxRetries portFile
       let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
       threadDelay 1000000
       withGRPCClient grpcConfig $ \client -> do

@@ -15,3 +15,5 @@ add (S x) y = add x (S y)
 
 main = scenario do
     add (S (S Z)) (S Z) === S (S (S Z))
+
+-- @ENABLE-SCENARIOS

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -15,8 +15,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
 import scalaz.Tag
@@ -39,7 +38,10 @@ object IndexMetadata {
       for {
         ledgerId <- dao.lookupLedgerId()
         participantId <- dao.lookupParticipantId()
-        ledgerEnd <- dao.lookupInitialLedgerEnd()
+        ledgerEnd <- ledgerId match {
+          case Some(_) => dao.lookupLedgerEnd().map(x => Some(x.lastOffset))
+          case None => Future.successful(None)
+        }
       } yield metadata(ledgerId, participantId, ledgerEnd)
     }
 
@@ -51,32 +53,31 @@ object IndexMetadata {
       loggingContext: LoggingContext,
       materializer: Materializer,
   ) = {
-    val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
     val metrics = new Metrics(new MetricRegistry)
-    DbDispatcher
+    DbSupport
       .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.ReadIndexMetadata,
         connectionPoolSize = 1,
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map(dbDispatcher =>
+      .map(dbSupport =>
         JdbcLedgerDao.read(
-          dbDispatcher = dbDispatcher,
+          dbSupport = dbSupport,
           eventsPageSize = 1000,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 20000,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
+          acsIdQueueLimit = 1000000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
           errorFactories = errorFactories,
-          storageBackendFactory = storageBackendFactory,
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning =
             new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used

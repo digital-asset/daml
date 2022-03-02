@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=main&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=main)
 
-Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the Daml repository!
@@ -41,7 +41,7 @@ cd daml
 
 Our builds require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
 
-#### Linux and Mac
+#### Linux
 
 On Linux and Mac `dev-env` can be installed with:
 
@@ -51,6 +51,31 @@ On Linux and Mac `dev-env` can be installed with:
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
+
+#### Mac
+
+On Mac `dev-env` can be installed with:
+
+1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
+   This is a *multi-user installation* (there is no single-user installation option for macOS). Because of this, you need to configure `/etc/nix/nix.conf` to use Nix caches.
+   You can add the contents of `dev-env/etc/nix.conf` to `/etc/nix/nix.conf`, but keep `build-users-group = nixbld` instead of leaving this empty as is done in `dev-env/etc/nix.conf`. Make sure to restart the `nix-daemon` after you have made changes to `/etc/nix/nix.conf`, for instance by using `sudo launchctl stop org.nixos.nix-daemon`.
+
+2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
+
+If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
+you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
+file, with an option to add more in a `.envrc.private` file.
+
+Note that after a macOS update it can appear as if Nix is not installed. This is because macOS updates can modify shell config files in `/etc`, which the multi-user installation of Nix modifies as well. A workaround for this problem is to add the following to your shell config file in your `$HOME` directory:
+
+```
+# Nix
+if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi
+# End Nix
+```
+See https://github.com/NixOS/nix/issues/3616 for more information about this issue.
 
 #### Windows
 
@@ -88,7 +113,7 @@ On Windows:
 bazel build //release:sdk-release-tarball
 tar -vxf .\bazel-bin\release\sdk-release-tarball-ce.tar.gz
 cd sdk-*
-daml\daml.exe install . --activate
+daml\daml.exe install . --install-assistant=yes
 ```
 
 That should tell you what to put in the path, something along the lines of `C:\Users\admin\AppData\Roaming\daml\bin`.

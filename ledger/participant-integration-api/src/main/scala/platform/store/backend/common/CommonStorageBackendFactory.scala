@@ -1,16 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
 
-import com.daml.platform.store.backend.{
-  ConfigurationStorageBackend,
-  IntegrityStorageBackend,
-  PackageStorageBackend,
-  ParameterStorageBackend,
-  StorageBackendFactory,
-  StringInterningStorageBackend,
-}
+import com.daml.platform.store.backend._
 import com.daml.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
@@ -20,6 +13,9 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createParameterStorageBackend: ParameterStorageBackend =
     ParameterStorageBackendTemplate
+
+  override val createMeteringParameterStorageBackend: MeteringParameterStorageBackend =
+    MeteringParameterStorageBackendTemplate
 
   override def createConfigurationStorageBackend(
       ledgerEndCache: LedgerEndCache
@@ -31,4 +27,17 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createStringInterningStorageBackend: StringInterningStorageBackend =
     StringInterningStorageBackendTemplate
+
+  override val createUserManagementStorageBackend: UserManagementStorageBackend =
+    UserManagementStorageBackendTemplate
+
+  override def createMeteringStorageReadBackend(
+      ledgerEndCache: LedgerEndCache
+  ): MeteringStorageReadBackend =
+    MeteringStorageBackendReadTemplate
+
+  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend = {
+    MeteringStorageBackendWriteTemplate
+  }
+
 }

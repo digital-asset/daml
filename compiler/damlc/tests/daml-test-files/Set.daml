@@ -102,3 +102,5 @@ testFoldable = scenario do
   Foldable.foldl (-) 0 (S.fromList [1,2]) === -3
   Foldable.foldr (-) 0 (S.fromList [1,2]) === -1
   Foldable.foldMap (:: []) (S.fromList [1,2,3]) === [1,2,3]
+
+-- @ENABLE-SCENARIOS

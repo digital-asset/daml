@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Main (main) where
 
@@ -8,14 +8,16 @@ import Control.Monad
 import DA.Test.Process
 import DA.Test.Tar
 import DA.Test.Util
+import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Extra as Aeson
+import qualified Data.Aeson.Key as AK
+import qualified Data.Aeson.KeyMap as KM
 import Data.Conduit ((.|), runConduitRes)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit.Combinators as Conduit
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.Conduit.Zlib as Zlib
-import qualified Data.HashMap.Strict as HMS
 import Data.Maybe
 import Data.Proxy
 import Data.Tagged
@@ -161,6 +163,10 @@ main :: IO ()
 main = withTempDir $ \npmCache -> do
   setEnv "npm_config_cache" npmCache True
   setEnv "TASTY_NUM_THREADS" "1" True
+  -- We disable user management since older ledgers do not support it.
+  -- We might eventually want to enable it when running against > 1.18 but for now
+  -- this also acts as a nice test for running without user management.
+  setEnv "REACT_APP_SUPPORTS_USERMANAGEMENT" "false" True
   let options =
         [ Option @DamlOption Proxy
         , Option @DamlLedgerOption Proxy
@@ -259,12 +265,12 @@ patchTsDependencies uiDir packageJsonFile = do
   packageJson0 <- readJsonFile packageJsonFile
   case packageJson0 of
     Aeson.Object packageJson ->
-      case HMS.lookup "dependencies" packageJson of
+      case KM.lookup "dependencies" packageJson of
         Just (Aeson.Object dependencies) -> do
-          let depNames = HMS.keys dependencies
+          let depNames = KM.keys dependencies
           -- patch dependencies to point to local files if they are present in the package.json
           let patchedDeps =
-                HMS.fromList
+                KM.fromList
                   ([ ( "@daml.js/create-daml-app"
                      , Aeson.String $
                        T.pack $
@@ -277,13 +283,13 @@ patchTsDependencies uiDir packageJsonFile = do
                    , let libPath = uiDir </> libName
                    , let libRelPath =
                            makeRelative (takeDirectory packageJsonFile) libPath
-                   , let depName = T.replace "-" "/" $ T.pack $ "@" <> libName
+                   , let depName = AK.fromText $ T.replace "-" "/" $ T.pack $ "@" <> libName
                    , depName `elem` depNames
-                   ]) `HMS.union`
+                   ]) `KM.union`
                 dependencies
           let newPackageJson =
                 Aeson.Object $
-                HMS.insert "dependencies" (Aeson.Object patchedDeps) packageJson
+                KM.insert "dependencies" (Aeson.Object patchedDeps) packageJson
           -- Make sure we have write permissions before writing
           p <- getPermissions packageJsonFile
           setPermissions packageJsonFile (setOwnerWritable True p)

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index.v2
@@ -26,11 +26,37 @@ trait ContractStore {
       loggingContext: LoggingContext
   ): Future[Option[ContractId]]
 
-  /** @return The maximum ledger effective time of all contracts in ids, fails as follows:
-    *         - if ids is empty or not all the non-divulged ids can be found, a failed [[Future]]
-    *         - if all ids are found but each refer to a divulged contract, a successful [[None]]
+  /** This method serves two purposes:
+    *   1 - Verify that none of the specified contracts are archived (archival of divulged contracts also count)
+    *   2 - Calculate the maximum ledger time of all the specified contracts (divulged contracts do not contribute)
+    * Important note: existence of the contracts is not checked, only the fact of archival.
+    *
+    * @return NotAvailable, if none of the specified contracts are archived, and all of them are divulged contracts (no ledger-time available)
+    *         NotAvailable, if the specified set is empty.
+    *         Max, if none of the specified contracts are archived, and the maximum ledger-time of all specified non-divulged contracts is known
+    *         Archived, if there was at least one contract specified which is archived (this list is not necessarily exhaustive)
     */
-  def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+  def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]]
+  ): Future[MaximumLedgerTime]
+}
+
+/** The outcome of determining the maximum ledger time of a set of contracts.
+  * Note that the ledger time may not be known for divulged contracts.
+  */
+sealed trait MaximumLedgerTime
+
+object MaximumLedgerTime {
+
+  /** None of the contracts is archived, but none has a known ledger time (also when no contracts specified). */
+  case object NotAvailable extends MaximumLedgerTime
+
+  /** None of the contracts is archived, and this is the maximum of the known ledger times. */
+  final case class Max(ledgerTime: Timestamp) extends MaximumLedgerTime
+
+  /** The given contracts are archived. The remaining contracts may or may not have a known ledger time. */
+  final case class Archived(contracts: Set[ContractId]) extends MaximumLedgerTime
+
+  def from(optionalMaximumLedgerTime: Option[Timestamp]): MaximumLedgerTime =
+    optionalMaximumLedgerTime.map[MaximumLedgerTime](Max).getOrElse(NotAvailable)
 }

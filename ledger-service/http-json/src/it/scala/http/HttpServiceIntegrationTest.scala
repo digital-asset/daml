@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -16,7 +16,9 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
 
-class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with BeforeAndAfterAll {
+abstract class HttpServiceIntegrationTest
+    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    with BeforeAndAfterAll {
 
   private val staticContent: String = "static"
 
@@ -64,17 +66,8 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
           }
         }: Future[Assertion]
   }
-
-  "Forwarded" - {
-    import Endpoints.Forwarded
-    "can 'parse' sample" in {
-      Forwarded("for=192.168.0.1;proto=http;by=192.168.0.42").proto should ===(Some("http"))
-    }
-
-    "can 'parse' quoted sample" in {
-      Forwarded("for=192.168.0.1;proto = \"https\" ;by=192.168.0.42").proto should ===(
-        Some("https")
-      )
-    }
-  }
 }
+
+final class HttpServiceIntegrationTestCustomToken
+    extends HttpServiceIntegrationTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

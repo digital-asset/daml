@@ -1,10 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -15,18 +14,13 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.appendonlydao.{
-  DbDispatcher,
-  JdbcLedgerDao,
-  LedgerDao,
-  SequentialWriteDao,
-}
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.{Await, Future}
@@ -59,6 +53,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      acsIdQueueLimit: Int,
       errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
@@ -66,17 +61,17 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     val metrics = new Metrics(new MetricRegistry)
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
-    DbDispatcher
-      .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+    DbSupport
+      .migratedOwner(
+        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = dbType.maxSupportedWriteConnections(16),
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map { dbDispatcher =>
+      .map { dbSupport =>
         JdbcLedgerDao.write(
-          dbDispatcher = dbDispatcher,
+          dbSupport = dbSupport,
           sequentialWriteDao = SequentialWriteDao(
             participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
             lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -93,12 +88,12 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
           acsGlobalParallelism = acsGlobalParallelism,
+          acsIdQueueLimit = acsIdQueueLimit,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = Some(new ValueEnricher(new Engine())),
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-          storageBackendFactory = storageBackendFactory,
           errorFactories = errorFactories,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
@@ -113,9 +108,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
-  private val errorFactories = ErrorFactories(
-    new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
-  )
+  private val errorFactories = ErrorFactories()
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -125,9 +118,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     stringInterningView = new StringInterningView((_, _) => _ => Future.successful(Nil))
     resource = newLoggingContext { implicit loggingContext =>
       for {
-        _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl).migrate()
-        )
         dao <- daoOwner(
           eventsPageSize = 100,
           eventsProcessingParallelism = 4,
@@ -135,6 +125,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
+          acsIdQueueLimit = 1000000,
           errorFactories,
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))

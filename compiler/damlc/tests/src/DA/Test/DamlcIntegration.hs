@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Test driver for DAML-GHC CompilerService.
@@ -154,20 +154,35 @@ uniqueUniques = HUnit.testCase "Uniques" $
         let n = length $ nubOrd $ concat results
         n @?= 10000
 
+getDamlTestFiles :: FilePath -> IO [(String, FilePath, [Ann])]
+getDamlTestFiles location = do
+    -- test files are declared as data in BUILD.bazel
+    testsLocation <- locateRunfiles $ mainWorkspace </> location
+    files <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    forM files $ \file -> do
+        anns <- readFileAnns file
+        pure (makeRelative testsLocation file, file, anns)
+
+getBondTradingTestFiles :: IO [(String, FilePath, [Ann])]
+getBondTradingTestFiles = do
+    -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
+    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
+    let file = bondTradingLocation </> "Test.daml"
+    anns <- readFileAnns file
+    pure [("bond-trading/Test.daml", file, anns)]
+
 getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
 getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
-    -- test files are declared as data in BUILD.bazel
-    testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
-    damlTestFiles <-
-        map (\f -> (makeRelative testsLocation f, f)) .
-        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
-    -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
-    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
-    let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
-    let (generatedFiles, nongeneratedFiles) = partition (\(f, _) -> takeFileName f == "ProposalDesugared.daml") allTestFiles
+    damlTests <-
+        (<>)
+            <$> getDamlTestFiles "compiler/damlc/tests/daml-test-files"
+            <*> getBondTradingTestFiles
+
+    let (scenariosEnabledTests, plainTests) =
+            partition (\(_, _, anns) -> any isEnableScenariosYes anns) damlTests
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -185,17 +200,28 @@ getIntegrationTests registerTODO scenarioService = do
                 , optDlintUsage = DlintEnabled dlintDataDir False
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
+              mkIde options = do
+                damlEnv <- mkDamlEnv options (Just scenarioService)
+                initialise
+                  (mainRule options)
+                  (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
+                  IdeLogger.noLogging
+                  noopDebouncer
+                  damlEnv
+                  (toCompileOpts options)
+                  vfs
           in
-          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts) vfs)
-          shutdown $ \service ->
+            (mkIde opts)
+            shutdown
+            $ \service ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True }) vfs)
-          shutdown $ \serviceGenerated ->
+            (mkIde opts { optEnableScenarios = EnableScenarios True })
+            shutdown
+            $ \serviceScenariosEnabled ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-            map (testCase version service outdir registerTODO) nongeneratedFiles <>
-            map (testCase version serviceGenerated outdir registerTODO) generatedFiles
+            map (testCase version service outdir registerTODO) plainTests <>
+            map (testCase version serviceScenariosEnabled outdir registerTODO) scenariosEnabledTests
 
     pure tree
 
@@ -213,10 +239,9 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
-testCase version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
+testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
+testCase version getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
   service <- getService
-  anns <- readFileAnns file
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported DAML-LF version in UNTIL-LF annotation")
   else if any (ignoreVersion version) anns
@@ -235,7 +260,7 @@ testCase version getService outdir registerTODO (name, file) = singleTest name .
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log version outdir file [q | QueryLF q <- anns]
+      resQueries <- runJqQuery log outdir file [q | QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -247,18 +272,15 @@ testCase version getService outdir registerTODO (name, file) = singleTest name .
       UntilLF maxVersion -> version >= maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> LF.Version -> FilePath -> FilePath -> [String] -> IO [Maybe String]
-runJqQuery log version outdir file qs = do
+runJqQuery :: (String -> IO ()) -> FilePath -> FilePath -> [String] -> IO [Maybe String]
+runJqQuery log outdir file qs = do
   let proj = takeBaseName file
   forM qs $ \q -> do
     log $ "running jq query: " ++ q
     let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
     jq <- locateRunfiles $ mainWorkspace </> jqKey
     queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-    let queryLfMod
-            | version `supports` featureStringInterning = "query-lf-interned"
-            | otherwise = "query-lf-non-interned"
-    let fullQuery = "import \"./" ++ queryLfMod ++ "\" as lf; . as $pkg | " ++ q
+    let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
     out <- readProcess jq ["-L", queryLfDir, fullQuery, outdir </> proj <.> "json"] ""
     case trim out of
       "true" -> pure Nothing
@@ -324,7 +346,12 @@ data Ann
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String                     -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
+    | EnableScenariosYes                 -- Run this test with --enable-scenarios=yes
 
+isEnableScenariosYes :: Ann -> Bool
+isEnableScenariosYes = \case
+    EnableScenariosYes -> True
+    _ -> False
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -334,6 +361,7 @@ readFileAnns file = do
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
+            ("ENABLE-SCENARIOS",_) -> Just EnableScenariosYes
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x

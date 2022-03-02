@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.error
@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
+import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   BaseError,
   ContextualizedErrorLogger,
@@ -15,6 +16,7 @@ import com.daml.error.{
   ErrorCategory,
   ErrorClass,
   ErrorCode,
+  ErrorsAssertions,
 }
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.ServerAdapter
@@ -25,26 +27,27 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import com.daml.platform.testing.StreamConsumer
+import com.daml.platform.testing.{LogCollectorAssertions, StreamConsumer}
 import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition, _}
-import org.scalatest.{Assertion, Checkpoints}
+import org.scalatest.{Assertion, Assertions, Checkpoints}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
-// TODO error codes: Assert also on what is logged?
 final class ErrorInterceptorSpec
     extends AsyncFreeSpec
     with AkkaBeforeAndAfterAll
     with Matchers
     with Eventually
     with TestResourceContext
-    with Checkpoints {
+    with Checkpoints
+    with LogCollectorAssertions
+    with ErrorsAssertions {
 
   import ErrorInterceptorSpec._
 
@@ -77,7 +80,7 @@ final class ErrorInterceptorSpec
           exerciseUnaryFutureEndpoint(useSelfService = true, insideFuture = true)
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
-                actualError = t,
+                actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error inside a Future",
               )
             }
@@ -87,7 +90,7 @@ final class ErrorInterceptorSpec
           exerciseUnaryFutureEndpoint(useSelfService = true, insideFuture = false)
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
-                actualError = t,
+                actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error outside a Future",
               )
             }
@@ -118,7 +121,7 @@ final class ErrorInterceptorSpec
           exerciseStreamingAkkaEndpoint(useSelfService = true, insideStream = true)
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
-                actualError = t,
+                actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error inside a Stream",
               )
             }
@@ -128,7 +131,7 @@ final class ErrorInterceptorSpec
           exerciseStreamingAkkaEndpoint(useSelfService = true, insideStream = false)
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
-                actualError = t,
+                actual = t,
                 expectedMsg = "Non-Status.INTERNAL self-service error outside a Stream",
               )
             }
@@ -177,26 +180,29 @@ final class ErrorInterceptorSpec
     }
   }
 
-  private def assertSecuritySanitizedError(actualError: StatusRuntimeException): Assertion = {
-    val actualStatus = actualError.getStatus
-    val actual = (actualStatus.getCode, actualStatus.getDescription)
-    val expected = (
-      Status.Code.INTERNAL,
-      "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
+  private def assertSecuritySanitizedError(actual: StatusRuntimeException): Assertion = {
+    assertError(
+      actual,
+      expectedCode = Status.Code.INTERNAL,
+      expectedMessage =
+        "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
+      expectedDetails = Seq(),
     )
-    actual shouldBe expected
-    // TODO error-codes: Assert also on error's metadata.
+    Assertions.succeed
   }
 
   private def assertFooMissingError(
-      actualError: StatusRuntimeException,
+      actual: StatusRuntimeException,
       expectedMsg: String,
   ): Assertion = {
-    val actualStatus = actualError.getStatus
-    val actual = (actualStatus.getCode, actualStatus.getDescription)
-    val expectedDescription = s"FOO_MISSING_ERROR_CODE(11,0): Foo is missing: $expectedMsg"
-    val expected = (FooMissingErrorCode.category.grpcCode.get, expectedDescription)
-    actual shouldBe expected
+    assertError(
+      actual,
+      expectedCode = FooMissingErrorCode.category.grpcCode.get,
+      expectedMessage = s"FOO_MISSING_ERROR_CODE(11,0): Foo is missing: $expectedMsg",
+      expectedDetails =
+        Seq(ErrorDetails.ErrorInfoDetail("FOO_MISSING_ERROR_CODE", Map("category" -> "11"))),
+    )
+    Assertions.succeed
   }
 
 }
@@ -235,24 +241,10 @@ object ErrorInterceptorSpec {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       )(ErrorClass.root()) {
 
-    case class Error(msg: String)(implicit
+    case class Error(_msg: String)(implicit
         override val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
-          cause = s"Foo is missing: $msg"
-        )
-
-  }
-
-  object FooUnknownErrorCode
-      extends ErrorCode(
-        id = "FOO_UNKNOWN_ERROR_CODE",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      )(ErrorClass.root()) {
-
-    case class Error(msg: String)(implicit
-        override val loggingContext: ContextualizedErrorLogger
-    ) extends BaseError.Impl(
-          cause = s"Foo is unknown: $msg"
+          cause = s"Foo is missing: ${_msg}"
         )
 
   }
@@ -272,7 +264,7 @@ object ErrorInterceptorSpec {
     override def fails(request: HelloRequest): Future[HelloResponse] = ??? // not used in this test
   }
 
-  /** @param useSelfService       - whether to use self service error codes or a "rouge" exception
+  /** @param useSelfService      - whether to use self service error codes or a "rogue" exception
     * @param insideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
     */
   // TODO error codes: Extend a HelloService generated by our Akka streaming scalapb plugin. (~HelloServiceAkkaGrpc)

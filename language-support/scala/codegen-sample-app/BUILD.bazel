@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "da_scala_test",
     "kind_projector_plugin",
-    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -46,22 +45,14 @@ da_scala_library(
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
-        silencer_plugin,
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = [
-        "-P:silencer:checkUnused",
-        # codegen eliminates the vast majority of potential unused warnings. For example,
-        # it checks whether tparams are phantom or not and requires evidence only if they
-        # are not. It misses the case where a tparam is used in ContractId position, which
-        # is essentially phantom for the typeclasses.  The fix requires recurring into
-        # referenced types, and only occurs here in this source tree, so I don't consider
-        # it worth fixing for now. -SC
-        "-P:silencer:lineContentFilters=ContractIdNT (Value|LfEncodable).*?implicit .?ev",
-        "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+        "-Wconf:cat=unused-imports&site=com\\.daml\\.sample\\..*:s",
+        "-Wconf:msg=parameter value ev.. in method ContractIdNT (Value)|(LfEncodable) is never used:s",
+        "-Wconf:msg=Wrap `enum` in backticks to use it as an identifier:s",
     ],
     visibility = [
         "//visibility:public",
@@ -156,7 +147,6 @@ da_scala_test(
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-classic",
         "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",

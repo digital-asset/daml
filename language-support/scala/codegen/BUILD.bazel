@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,7 +7,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "silencer_plugin",
 )
 
 common_scalacopts = [
@@ -28,12 +27,10 @@ da_scala_library(
         ),
     plugins = [
         kind_projector_plugin,
-        silencer_plugin,
     ],
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = common_scalacopts,
     tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
@@ -64,7 +61,11 @@ da_scala_binary(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:codegen-scala-main:__VERSION__",
+        "no_scala_version_suffix",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -81,11 +82,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",

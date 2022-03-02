@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.scenario
@@ -11,13 +11,13 @@ import java.util.logging.{Level, Logger}
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
-
 import com.daml.lf.archive
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
+import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
@@ -28,46 +28,85 @@ import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-object ScenarioServiceMain extends App {
+private final case class ScenarioServiceConfig(
+    maxInboundMessageSize: Int,
+    enableScenarios: Boolean,
+)
+
+private object ScenarioServiceConfig {
   // default to 128MB
-  val maxMessageSize = args.headOption.map(_.toInt).getOrElse(128 * 1024 * 1024)
+  val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
 
-  // Needed for the akka Ledger bindings used by Daml Script.
-  val system = ActorSystem("ScriptService")
-  implicit val sequencer: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool("ScriptServicePool")(system)
-  implicit val materializer: Materializer = Materializer(system)
-  implicit val ec: ExecutionContext = system.dispatcher
+  val parser = new scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
+    head("scenario-service")
 
-  val server =
-    NettyServerBuilder
-      .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-      .addService(new ScenarioService())
-      .maxInboundMessageSize(maxMessageSize)
-      .build
-  server.start()
-  // Print the allocated port for the client
-  println("PORT=" + server.getPort.toString)
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
+      )
 
-  // Bump up the log level
-  Logger.getLogger("io.grpc").setLevel(Level.ALL)
+    opt[Boolean]("enable-scenarios")
+      .optional()
+      .action((x, c) => c.copy(enableScenarios = x))
+      .text(
+        "Enable/disable support for running scenarios. Defaults to true."
+      )
+  }
 
-  // Start a thread to watch stdin and terminate
-  // if it closes. This makes sure we do not leave
-  // this process running if the parent exits.
-  new Thread(new Runnable {
-    def run(): Unit = {
-      while (System.in.read >= 0) {}
-      System.err.println("ScenarioService: stdin closed, terminating server.")
-      server.shutdown()
-      system.terminate()
-      ()
-    }
-  }).start()
+  def parse(args: Array[String]): Option[ScenarioServiceConfig] =
+    parser.parse(
+      args,
+      ScenarioServiceConfig(
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        enableScenarios = true,
+      ),
+    )
+}
 
-  println("Server started.")
-  server.awaitTermination()
+object ScenarioServiceMain extends App {
+  ScenarioServiceConfig.parse(args) match {
+    case None => sys.exit(1)
+    case Some(config) =>
+      // Needed for the akka Ledger bindings used by Daml Script.
+      val system = ActorSystem("ScriptService")
+      implicit val sequencer: ExecutionSequencerFactory =
+        new AkkaExecutionSequencerPool("ScriptServicePool")(system)
+      implicit val materializer: Materializer = Materializer(system)
+      implicit val ec: ExecutionContext = system.dispatcher
+      LoggingContext.newLoggingContext { implicit lc: LoggingContext =>
+        val server =
+          NettyServerBuilder
+            .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
+            .addService(new ScenarioService(config.enableScenarios))
+            .maxInboundMessageSize(config.maxInboundMessageSize)
+            .build
+        server.start()
+        // Print the allocated port for the client
+        println("PORT=" + server.getPort.toString)
 
+        // Bump up the log level
+        Logger.getLogger("io.grpc").setLevel(Level.ALL)
+
+        // Start a thread to watch stdin and terminate
+        // if it closes. This makes sure we do not leave
+        // this process running if the parent exits.
+        new Thread(new Runnable {
+          def run(): Unit = {
+            while (System.in.read >= 0) {}
+            System.err.println("ScenarioService: stdin closed, terminating server.")
+            server.shutdown()
+            system.terminate()
+            ()
+          }
+        }).start()
+
+        println("Server started.")
+        server.awaitTermination()
+
+      }
+  }
 }
 
 object ScenarioService {
@@ -75,10 +114,13 @@ object ScenarioService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
-class ScenarioService(implicit
+class ScenarioService(
+    enableScenarios: Boolean
+)(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
+    lc: LoggingContext,
 ) extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   import ScenarioService._
@@ -91,14 +133,20 @@ class ScenarioService(implicit
   override def runScenario(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
-  ): Unit =
-    run(
-      req,
-      respObs,
-      { case (ctx, pkgId, name) =>
-        Future.successful(ctx.interpretScenario(pkgId, name))
-      },
-    )
+  ): Unit = {
+    if (enableScenarios) {
+      run(
+        req,
+        respObs,
+        { case (ctx, pkgId, name) =>
+          Future.successful(ctx.interpretScenario(pkgId, name))
+        },
+      )
+    } else {
+      log("Rejected scenario gRPC request.")
+      respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
+    }
+  }
 
   override def runScript(
       req: RunScenarioRequest,

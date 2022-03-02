@@ -1,4 +1,4 @@
-import * as OpaqueTypes from '@da/ui-core/lib/api/OpaqueTypes'
+import * as OpaqueTypes from "@da/ui-core/lib/api/OpaqueTypes";
 /* tslint:disable */
 /* eslint-disable */
 // @generated

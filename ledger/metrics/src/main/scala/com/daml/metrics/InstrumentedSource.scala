@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -21,6 +21,8 @@ object InstrumentedSource {
       delegate.complete()
       capacityCounter.dec(bufferSize.toLong)
     }
+
+    override def size(): Int = bufferSize
 
     override def fail(ex: Throwable): Unit = delegate.fail(ex)
 

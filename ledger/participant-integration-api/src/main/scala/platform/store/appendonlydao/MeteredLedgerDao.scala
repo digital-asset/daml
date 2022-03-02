@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.appendonlydao
@@ -6,24 +6,21 @@ package com.daml.platform.store.appendonlydao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
@@ -43,11 +40,6 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
-
-  override def lookupInitialLedgerEnd()(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Offset]] =
-    Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupInitialLedgerEnd())
 
   override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
 
@@ -103,33 +95,6 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override val completions: LedgerDaoCommandCompletionsReader = ledgerDao.completions
 
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    Timed.future(
-      metrics.daml.index.db.deduplicateCommand,
-      ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
-    )
-
-  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    Timed.future(
-      metrics.daml.index.db.removeExpiredDeduplicationData,
-      ledgerDao.removeExpiredDeduplicationData(currentTime),
-    )
-
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    Timed.future(
-      metrics.daml.index.db.stopDeduplicatingCommand,
-      ledgerDao.stopDeduplicatingCommand(commandId, submitters),
-    )
-
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
@@ -137,6 +102,18 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       metrics.daml.index.db.prune,
       ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
+
+  /** Returns all TransactionMetering records matching given criteria */
+  override def meteringReportData(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
+    Timed.future(
+      metrics.daml.index.db.prune,
+      ledgerDao.meteringReportData(from, to, applicationId),
+    )
+  }
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
@@ -156,23 +133,11 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerDao.storeRejection(completionInfo, recordTime, offset, reason),
     )
 
-  override def storeInitialState(
-      ledgerEntries: Vector[(Offset, LedgerEntry)],
-      newLedgerEnd: Offset,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    Timed.future(
-      metrics.daml.index.db.storeInitialState,
-      ledgerDao.storeInitialState(ledgerEntries, newLedgerEnd),
-    )
-
   override def initialize(
       ledgerId: LedgerId,
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.initialize(ledgerId, participantId)
-
-  override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledgerDao.reset()
 
   override def storePartyEntry(
       offset: Offset,

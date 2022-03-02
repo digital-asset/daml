@@ -28,3 +28,5 @@ main = scenario do
   fromAnyTemplate @T2 (toAnyTemplate t1) === None
   fromAnyTemplate @T2 (toAnyTemplate t2) === Some t2
   fromAnyTemplate @T1 (toAnyTemplate t2) === None
+
+-- @ENABLE-SCENARIOS

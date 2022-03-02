@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,12 +14,10 @@ import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 import shapeless.{Coproduct => HSum}
 
-import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 class HashSpec extends AnyWordSpec with Matchers {
 
-  @nowarn("msg=dead code following this construct")
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   private val complexRecordT =
@@ -379,8 +377,8 @@ class HashSpec extends AnyWordSpec with Matchers {
           VA.contractId.inj(ContractId.V1 assertFromString str)
         }
 
-      val enumT1 = VA.enum("Color", List("Red", "Green"))._2
-      val enumT2 = VA.enum("ColorBis", List("Red", "Green"))._2
+      val enumT1 = VA.enumeration("Color", List("Red", "Green"))._2
+      val enumT2 = VA.enumeration("ColorBis", List("Red", "Green"))._2
 
       val enums = List(
         enumT1.inj(enumT1.get("Red").get),

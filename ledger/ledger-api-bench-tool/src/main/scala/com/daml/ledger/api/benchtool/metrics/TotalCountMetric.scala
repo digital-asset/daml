@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
@@ -21,6 +21,8 @@ final case class TotalCountMetric[T](
 
   override def finalValue(totalDuration: Duration): Value =
     Value(totalCount = counter)
+
+  override def violatedFinalObjectives(totalDuration: Duration): List[(Objective, Value)] = Nil
 }
 
 object TotalCountMetric {

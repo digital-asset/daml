@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 JavaScript Client Libraries
@@ -24,4 +24,3 @@ and `@daml/ledger <daml-ledger/index.html>`_ libraries.
    daml-react
    daml-ledger
    daml-types
-   testing

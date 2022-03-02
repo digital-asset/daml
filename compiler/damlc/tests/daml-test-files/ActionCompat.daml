@@ -1,0 +1,7 @@
+-- @WARN use 'forA_' instead of 'forM_'
+module ActionCompat where
+
+import DA.Foldable
+
+test : Update ()
+test = forM_ [0..3] $ \i -> debug i

@@ -20,3 +20,5 @@ bugCons = scenario do
     let v2 = ["expected"]
     let f = (hd v2::)
     f [] === ["expected"]
+
+-- @ENABLE-SCENARIOS

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Daml SDK'
-copyright = u'Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
+copyright = u'Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -102,7 +102,7 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Don't show "powered by sphinx"
 html_show_sphinx = False
@@ -156,8 +156,6 @@ latex_elements = {
         \usepackage{eso-pic}
         \usepackage{lipsum}
 
-        \usepackage{footnotebackref} %%link at the footnote to go to the place of footnote in the text
-
         %% spacing between line
         \usepackage{setspace}
         %%%%\onehalfspacing
@@ -189,10 +187,10 @@ latex_elements = {
         %\fancyhead[LE]{\small \nouppercase{\leftmark}}
 
         %% for oneside: change footer at right side. If you want to use Left and right then use same as header defined above.
-        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
+        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
 
         %%% Alternating Footer for two side
-        %\fancyfoot[RO, RE]{\scriptsize Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.}
+        %\fancyfoot[RO, RE]{\scriptsize Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.}
 
         %%% page number
         \fancyfoot[CO, CE]{\thepage}
@@ -271,7 +269,7 @@ latex_elements = {
 
             %% \vfill adds at the bottom
             \vfill
-            \small \textit{Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
+            \small \textit{Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
         \end{titlepage}
 
         \clearpage
@@ -332,6 +330,7 @@ texinfo_documents = [
 
 rst_prolog = """
 .. _installer: https://github.com/digital-asset/daml/releases/download/v{release}/daml-sdk-{release}-windows.exe
+.. _Artifactory: https://digitalasset.jfrog.io/ui/repos/tree/General/sdk-ee
 .. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
 .. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
 """.format(release = release)
@@ -339,6 +338,6 @@ rst_prolog = """
 # Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
-    sphinx.add_lexer("daml", DAMLLexer())
+    sphinx.add_lexer("daml", DAMLLexer)
     from typescript import TypeScriptLexer
-    sphinx.add_lexer("tsx", TypeScriptLexer())
+    sphinx.add_lexer("tsx", TypeScriptLexer)

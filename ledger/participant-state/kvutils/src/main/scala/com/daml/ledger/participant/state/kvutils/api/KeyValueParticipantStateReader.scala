@@ -1,11 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.error.ValueSwitch
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
@@ -29,11 +28,9 @@ import com.daml.metrics.{Metrics, Timed}
 class KeyValueParticipantStateReader private[api] (
     reader: LedgerReader,
     metrics: Metrics,
-    enableSelfServiceErrorCodes: Boolean,
     logEntryToUpdate: (
         DamlLogEntryId,
         DamlLogEntry,
-        ValueSwitch,
         Option[Timestamp],
     ) => LoggingContext => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
@@ -41,8 +38,6 @@ class KeyValueParticipantStateReader private[api] (
 ) extends ReadService {
 
   import KeyValueParticipantStateReader._
-
-  private val errorVersionSwitch = new ValueSwitch(enableSelfServiceErrorCodes)
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
@@ -65,7 +60,6 @@ class KeyValueParticipantStateReader private[api] (
                     logEntryToUpdate(
                       logEntryId,
                       logEntry,
-                      errorVersionSwitch,
                       timeUpdatesProvider(),
                     )(loggingContext)
                   val updatesWithOffsets =
@@ -102,14 +96,12 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
-      enableSelfServiceErrorCodes: Boolean,
       timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
       failOnUnexpectedEvent: Boolean = true,
   ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
-      enableSelfServiceErrorCodes,
       KeyValueConsumption.logEntryToUpdate,
       timeUpdatesProvider,
       failOnUnexpectedEvent,

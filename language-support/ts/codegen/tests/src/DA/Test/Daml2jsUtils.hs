@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.Daml2jsUtils (
     TsLibrary (..),
@@ -14,6 +14,7 @@ import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Directory
 import Data.Aeson
+import qualified Data.Aeson.Key as Aeson
 import System.FilePath
 
 data TsLibrary
@@ -47,7 +48,7 @@ setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
         [ "private" .= True
         , "workspaces" .= workspaces
         , "resolutions" .= object
-            [ pkgName .= ("file:./" ++ name)
+            [ Aeson.fromText pkgName .= ("file:./" ++ name)
             | tsLib <- tsLibs
             , let name = tsLibraryName tsLib
             , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)

@@ -1,22 +1,19 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.validation.Validation
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -507,22 +504,14 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
 object SpeedyTest {
 
+  import SpeedyTestLib.loggingContext
+
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
     evalSExpr(packages.compiler.unsafeCompile(e), packages)
 
   private def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromPureSExpr(packages, e)
-    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
-    try {
-      val value = machine.run() match {
-        case SResultFinalValue(v) => v
-        case SResultError(err) => throw Goodbye(err)
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-      Right(value)
-    } catch {
-      case Goodbye(err) => Left(err)
-    }
+    SpeedyTestLib.run(machine)
   }
 
   private def evalApp(
@@ -539,14 +528,6 @@ object SpeedyTest {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
-  }
-
-  private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(language.PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private def intList(xs: Long*): String =

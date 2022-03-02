@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
@@ -92,18 +92,10 @@ private[backend] case class SmallintOptional[FROM](extract: StringInterning => F
   override def convert: Option[Int] => java.lang.Integer = _.map(Int.box).orNull
 }
 
-private[backend] case class BooleanField[FROM](extract: StringInterning => FROM => Boolean)
-    extends TrivialField[FROM, Boolean]
-
 private[backend] case class BooleanOptional[FROM](
     extract: StringInterning => FROM => Option[Boolean]
 ) extends Field[FROM, Option[Boolean], java.lang.Boolean] {
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
-}
-
-private[backend] case class StringArray[FROM](extract: StringInterning => FROM => Iterable[String])
-    extends Field[FROM, Iterable[String], Array[String]] {
-  override def convert: Iterable[String] => Array[String] = _.toArray
 }
 
 private[backend] case class StringArrayOptional[FROM](

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
@@ -32,6 +32,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateValue,
 }
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -56,7 +57,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
   private val txBuilder = TransactionBuilder()
 
   private val conflictingKey = {
-    val aCreateNode = newCreateNodeWithFixedKey("#dummy")
+    val aCreateNode = newCreateNodeWithFixedKey(Value.ContractId.V1(Hash.hashPrivateKey("#dummy")))
     Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
   }
 
@@ -101,8 +102,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
     "return DuplicateKeys when two local contracts conflict" in {
       val builder = TransactionBuilder()
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(conflictingKey -> None)
 
@@ -116,9 +117,9 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
     "return DuplicateKeys when a local contract conflicts with a global contract" in {
       val builder = TransactionBuilder()
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val transaction = builder.buildSubmitted()
-      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#$freshContractId"))
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(freshContractId.coid))
       val result = validate(context, transaction)
       result shouldBe a[StepStop]
       val rejectionReason =
@@ -127,31 +128,31 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     }
 
     "succeeds when a global contract gets archived before a local contract gets created" in {
-      val globalCid = s"#$freshContractId"
+      val globalCid = freshContractId
       val globalCreate = newCreateNodeWithFixedKey(globalCid)
       val context = createCommitContext(
         recordTime = None,
         inputs = Map(
-          makeContractIdStateKey(globalCid) -> Some(makeContractIdStateValue()),
-          contractStateKey(conflictingKey) -> Some(contractKeyStateValue(globalCid)),
+          makeContractIdStateKey(globalCid.coid) -> Some(makeContractIdStateValue()),
+          contractStateKey(conflictingKey) -> Some(contractKeyStateValue(globalCid.coid)),
         ),
       )
       val builder = TransactionBuilder()
       builder.add(archive(globalCreate, Set("Alice")))
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val transaction = builder.buildSubmitted()
       val result = validate(context, transaction)
       result shouldBe a[StepContinue[_]]
     }
 
     "succeeds when a local contract gets archived before another local contract gets created" in {
-      val localCid = s"#$freshContractId"
+      val localCid = freshContractId
       val context = commitContextWithContractStateKeys(conflictingKey -> None)
       val builder = TransactionBuilder()
       val localCreate = newCreateNodeWithFixedKey(localCid)
       builder.add(localCreate)
       builder.add(archive(localCreate, Set("Alice")))
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val transaction = builder.buildSubmitted()
       val result = validate(context, transaction)
       result shouldBe a[StepContinue[_]]
@@ -160,9 +161,9 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     "return DuplicateKeys when a create in a rollback conflicts with a global key" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      builder.add(newCreateNodeWithFixedKey(freshContractId), rollback)
       val transaction = builder.buildSubmitted()
-      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#$freshContractId"))
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(freshContractId.coid))
 
       val result = validate(context, transaction)
       result shouldBe a[StepStop]
@@ -175,8 +176,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     "not return DuplicateKeys between local contracts if first create is rolled back" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId), rollback)
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
 
       val transaction = builder.buildSubmitted()
 
@@ -187,9 +188,9 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
     "return DuplicateKeys between local contracts even if second create is rolled back" in {
       val builder = TransactionBuilder()
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val rollback = builder.add(builder.rollback())
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"), rollback)
+      builder.add(newCreateNodeWithFixedKey(freshContractId), rollback)
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(conflictingKey -> None)
 
@@ -203,11 +204,11 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
     "return DuplicateKeys between local contracts even if the first one was archived in a rollback" in {
       val builder = TransactionBuilder()
-      val create = newCreateNodeWithFixedKey(s"#$freshContractId")
+      val create = newCreateNodeWithFixedKey(freshContractId)
       builder.add(create)
       val rollback = builder.add(builder.rollback())
       builder.add(archive(create, Set("Alice")), rollback)
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val transaction = builder.buildSubmitted()
       val context = commitContextWithContractStateKeys(conflictingKey -> None)
 
@@ -221,12 +222,12 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
     "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
       val builder = TransactionBuilder()
-      val globalCid = s"#$freshContractId"
+      val globalCid = freshContractId
       val rollback = builder.add(builder.rollback())
       builder.add(archive(globalCid, Set("Alice")), rollback)
-      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      builder.add(newCreateNodeWithFixedKey(freshContractId))
       val transaction = builder.buildSubmitted()
-      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid.coid))
 
       val result = validate(context, transaction)
       result shouldBe a[StepStop]
@@ -239,12 +240,12 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     }
 
     "fail if a contract is not active anymore" in {
-      val globalCid = s"#$freshContractId"
+      val globalCid = freshContractId
       val globalCreate = newCreateNodeWithFixedKey(globalCid)
       val context = createCommitContext(
         recordTime = None,
         inputs = Map(
-          makeContractIdStateKey(globalCid) -> Some(
+          makeContractIdStateKey(globalCid.coid) -> Some(
             makeContractIdStateValue().toBuilder
               .setContractState(
                 DamlContractState.newBuilder().setArchivedAt(Timestamp.getDefaultInstance)
@@ -268,7 +269,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       inRollback: Boolean,
   ): SubmittedTransaction = {
     val lookup =
-      txBuilder.lookupByKey(newCreateNodeWithFixedKey(contractId = s"#$freshContractId"), found)
+      txBuilder.lookupByKey(newCreateNodeWithFixedKey(contractId = freshContractId), found)
     val builder = TransactionBuilder()
     if (inRollback) {
       val rollback = builder.add(txBuilder.rollback())
@@ -279,7 +280,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     builder.buildSubmitted()
   }
 
-  private def newCreateNodeWithFixedKey(contractId: String): Node.Create =
+  private def newCreateNodeWithFixedKey(contractId: Value.ContractId): Node.Create =
     create(contractId, signatories = Set("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
   private def create(
@@ -326,8 +327,8 @@ object TransactionConsistencyValidatorSpec {
   private val aKey = "key"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
 
-  private def freshContractId: String =
-    s"testContractId-${UUID.randomUUID().toString.take(10)}"
+  private def freshContractId: Value.ContractId =
+    Value.ContractId.V1(Hash.hashPrivateKey(UUID.randomUUID.toString))
 
   private def commitContextWithContractStateKeys(
       contractKeyIdPairs: (DamlContractKey, Option[String])*

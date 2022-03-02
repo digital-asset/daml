@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer.ha
@@ -39,6 +39,7 @@ object IndexerStabilityTestFixture {
       updatesPerSecond: Int,
       indexerCount: Int,
       jdbcUrl: String,
+      lockIdSeed: Int,
       materializer: Materializer,
   ): ResourceOwner[Indexers] = new ResourceOwner[Indexers] {
     override def acquire()(implicit context: ResourceContext): Resource[Indexers] = {
@@ -46,6 +47,7 @@ object IndexerStabilityTestFixture {
         updatesPerSecond = updatesPerSecond,
         indexerCount = indexerCount,
         jdbcUrl = jdbcUrl,
+        lockIdSeed = lockIdSeed,
       )(context, materializer)
     }
   }
@@ -54,11 +56,16 @@ object IndexerStabilityTestFixture {
       updatesPerSecond: Int,
       indexerCount: Int,
       jdbcUrl: String,
+      lockIdSeed: Int,
   )(implicit resourceContext: ResourceContext, materializer: Materializer): Resource[Indexers] = {
     val indexerConfig = IndexerConfig(
       participantId = EndlessReadService.participantId,
       jdbcUrl = jdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
+      haConfig = HaConfig(
+        indexerLockId = lockIdSeed,
+        indexerWorkerLockId = lockIdSeed + 1,
+      ),
     )
 
     newLoggingContext { implicit loggingContext =>
@@ -91,7 +98,6 @@ object IndexerStabilityTestFixture {
                   indexing <- new StandaloneIndexerServer(
                     readService = readService,
                     config = indexerConfig,
-                    servicesExecutionContext = servicesExecutionContext,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
                   ).acquire()

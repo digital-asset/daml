@@ -1,10 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
@@ -37,7 +37,7 @@ class LedgerConfigurationServiceValidation(
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
   ): Unit =
     fieldValidations
-      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .fold(
         t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
         _ => service.getLedgerConfiguration(request, responseObserver),

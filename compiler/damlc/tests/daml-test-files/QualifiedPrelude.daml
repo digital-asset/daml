@@ -28,3 +28,5 @@ foo a b f = do
   x <- a
   y <- b
   f x y
+
+-- @ENABLE-SCENARIOS

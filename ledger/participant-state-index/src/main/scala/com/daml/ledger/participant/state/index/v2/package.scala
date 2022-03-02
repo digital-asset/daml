@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index
@@ -7,9 +7,9 @@ import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.api.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
-import com.daml.ledger.api.domain._
 
 package v2 {
 
@@ -54,7 +54,7 @@ package v2 {
     */
   final case class SubmitterInfo(
       submitter: Ref.Party,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       commandId: CommandId,
   )
 
@@ -90,7 +90,7 @@ package v2 {
       workflowId: WorkflowId,
   )
 
-  final case class LedgerConfiguration(maxDeduplicationTime: Duration)
+  final case class LedgerConfiguration(maxDeduplicationDuration: Duration)
 
   /** Meta-data of a Daml-LF package
     *
@@ -107,13 +107,4 @@ package v2 {
       knownSince: Timestamp,
       sourceDescription: Option[String],
   )
-
-  sealed abstract class CommandDeduplicationResult extends Product with Serializable
-
-  /** This is the first time the command was submitted. */
-  case object CommandDeduplicationNew extends CommandDeduplicationResult
-
-  /** This command was submitted before. */
-  final case class CommandDeduplicationDuplicate(deduplicateUntil: Timestamp)
-      extends CommandDeduplicationResult
 }

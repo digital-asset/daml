@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -21,35 +21,40 @@ import spray.json._
 
 private[export] object Encode {
 
-  def encodeArgs(export: Export): JsObject = {
+  def encodeArgs(scriptExport: Export): JsObject = {
     JsObject(
-      "parties" -> JsObject(export.partyMap.keys.map { case Party(party) =>
+      "parties" -> JsObject(scriptExport.partyMap.keys.map { case Party(party) =>
         party -> JsString(party)
       }.toMap),
-      "contracts" -> JsObject(export.unknownCids.map { case ContractId(c) =>
+      "contracts" -> JsObject(scriptExport.unknownCids.map { case ContractId(c) =>
         c -> JsString(c)
       }.toMap),
     )
   }
 
-  def encodeExport(export: Export): Doc = {
+  def encodeExport(scriptExport: Export): Doc = {
     Doc.intercalate(
       Doc.line + Doc.hardLine,
       Seq(
-        encodeModuleHeader(export.moduleRefs),
+        encodeModuleHeader(scriptExport.moduleRefs),
         encodePartyType(),
         encodeLookupParty(),
-        encodeAllocateParties(export.partyMap),
+        encodeAllocateParties(scriptExport.partyMap),
         encodeContractsType(),
         encodeLookupContract(),
         encodeArgsType(),
         encodeTestExport(),
-        encodeExportActions(export),
-      ) ++ export.missingInstances.map { case (tplId, spec) => encodeMissingInstances(tplId, spec) },
+        encodeExportActions(scriptExport),
+      ) ++ scriptExport.missingInstances.map { case (tplId, spec) =>
+        encodeMissingInstances(tplId, spec)
+      },
     )
   }
 
-  private[export] def encodeMissingInstances(tplId: TemplateId, spec: TemplateInstanceSpec): Doc = {
+  private[export] def encodeMissingInstances(
+      tplId: TemplateId,
+      spec: TemplateInstanceSpec,
+  ): Doc = {
     val tplIdDoc = encodeTemplateId(tplId)
     def primInstance(name: String, parms: Doc): Doc = {
       val cls = Doc.text(s"Has${name.capitalize}")
@@ -79,20 +84,23 @@ private[export] object Encode {
     Doc.stack(Seq(header) ++ tplInstances ++ keyInstances ++ choiceInstances)
   }
 
-  private def encodeExportActions(export: Export): Doc = {
+  private def encodeExportActions(scriptExport: Export): Doc = {
     Doc.text("-- | The Daml ledger export.") /
       Doc.text("export : Args -> Script ()") /
       (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
-          export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
-            encodeAction(
-              export.partyMap,
-              export.cidMap,
-              export.cidRefs,
-              export.missingInstances.keySet,
-              _,
-            )
-          ) :+ Doc.text("pure ()")
+          scriptExport.partyMap
+            .map(Function.tupled(encodePartyBinding))
+            .toSeq ++ scriptExport.actions
+            .map(
+              encodeAction(
+                scriptExport.partyMap,
+                scriptExport.cidMap,
+                scriptExport.cidRefs,
+                scriptExport.missingInstances.keySet,
+                _,
+              )
+            ) :+ Doc.text("pure ()")
         )).hang(2)
   }
 

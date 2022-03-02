@@ -1,8 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.services
 
+import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.active_contracts_service._
@@ -14,11 +15,14 @@ import scala.concurrent.Future
 final class ActiveContractsService(
     channel: Channel,
     ledgerId: String,
+    authorizationToken: Option[String],
 ) {
 
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: ActiveContractsServiceGrpc.ActiveContractsServiceStub =
-    ActiveContractsServiceGrpc.stub(channel)
+    AuthorizationHelper.maybeAuthedService(authorizationToken)(
+      ActiveContractsServiceGrpc.stub(channel)
+    )
 
   def getActiveContracts[Result](
       config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,

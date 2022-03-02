@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -77,11 +77,8 @@ object Hash {
 
   implicit val order: Order[Hash] = Order.fromScalaOrdering
 
-  private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
-    case cid @ Value.ContractId.V1(_, _) =>
-      cid.toBytes
-    case Value.ContractId.V0(s) =>
-      Utf8.getBytes(s)
+  private[lf] val aCid2Bytes: Value.ContractId => Bytes = { case cid @ Value.ContractId.V1(_, _) =>
+    cid.toBytes
   }
 
   private[lf] val noCid2String: Value.ContractId => Nothing =

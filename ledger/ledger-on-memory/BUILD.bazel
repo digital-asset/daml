@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
@@ -18,7 +18,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
-    tags = ["maven_coordinates=com.daml:ledger-on-memory:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -96,11 +95,9 @@ da_scala_library(
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
     scala_deps = [
-        "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
-    tags = ["maven_coordinates=com.daml:ledger-on-memory-app:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":ledger-on-memory",
@@ -108,11 +105,11 @@ da_scala_library(
         "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger/caching",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
@@ -137,58 +134,6 @@ da_scala_binary(
     ],
 )
 
-# Full conformance test (single node setup)
-conformance_test(
-    name = "conformance-test",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
-    ],
-    test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
-        "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-# Full conformance test asserting the Ledger API returning legacy error codes
-conformance_test(
-    name = "conformance-test-legacy-error-codes",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--use-pre-1.18-error-codes",
-    ],
-    test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
-        "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
 # Full conformance test (two participant setup)
 conformance_test(
     name = "conformance-test-multi-participant",
@@ -199,20 +144,12 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--mutable-contract-state-cache",
         "--participant=participant-id=example1,port=6865",
         "--participant=participant-id=example2,port=6866",
     ],
     test_tool_args = [
         "--verbose",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
-        "--additional=KVCommandDeduplicationIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -226,38 +163,11 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--mutable-contract-state-cache",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
     ],
     test_tool_args = [
         "--verbose",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "benchmark-performance-envelope",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
-        "--perf-tests=PerformanceEnvelope.Latency.1000ms",
-        "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )

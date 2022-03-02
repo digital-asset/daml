@@ -1,11 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import Button from '../Button';
-import { Section } from '../Guide';
-import Modal, {Props} from '../Modal';
-import styled from '../theme';
+import * as React from "react";
+import Button from "../Button";
+import { Section } from "../Guide";
+import Modal, { Props } from "../Modal";
+import styled from "../theme";
 
 const description = `
 The content of the modal is specified using the 'content'
@@ -22,23 +22,26 @@ const ModalContent = styled.div`
   width: 350px;
   min-height: 30px;
   padding: 1px 1.33em;
-`
+`;
 
 const CenteredDiv = styled.div`
   display: flex;
   justify-content: center;
   overflow: hidden;
-`
+`;
 
 const modalContent = (onClose: () => void) => (
   <ModalContent>
     <div>
       <h4>Modal title</h4>
       <p>
-        Lorem ipsum dolor sit amet, consectetur adipisicing elit,
-        sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+        Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua.
       </p>
-      <Button onClick={() => { onClose(); }}>
+      <Button
+        onClick={() => {
+          onClose();
+        }}>
         Close
       </Button>
       <br />
@@ -70,14 +73,9 @@ export default class ModalGuide extends React.Component<{}, State> {
 
   render(): JSX.Element {
     return (
-      <Section
-        title="Modal"
-        description={description}
-      >
+      <Section title="Modal" description={description}>
         <CenteredDiv>
-          <Button onClick={() => this.open()}>
-            Click to open
-          </Button>
+          <Button onClick={() => this.open()}>Click to open</Button>
         </CenteredDiv>
         <Modal {...this.state} />
       </Section>

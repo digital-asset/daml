@@ -1,10 +1,10 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml Documentation
 ==================
 
-Getting started
+Getting Started
 ---------------
 
 .. toctree::
@@ -15,6 +15,7 @@ Getting started
    Building Your App <getting-started/index>
    getting-started/app-architecture
    getting-started/first-feature
+   getting-started/testing
    Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 Writing Daml
@@ -24,11 +25,8 @@ Writing Daml
    :titlesonly:
    :maxdepth: 2
 
-   daml/intro/0_Intro.rst
-   daml/reference/index
-   daml/stdlib/index
+   writing-daml
    daml/troubleshooting
-   /daml/patterns
 
 Building applications
 ---------------------
@@ -37,17 +35,7 @@ Building applications
    :titlesonly:
    :maxdepth: 2
 
-   app-dev/app-arch
-   app-dev/bindings-ts/index
-   json-api/index
-   Daml Script <daml-script/index>
-   Daml REPL <daml-repl/index>
-   upgrade/index
-   app-dev/authorization
-   app-dev/ledger-api
-   triggers/index
-   tools/trigger-service/index
-   tools/auth-middleware/index
+   building-applications
 
 Deploying to Daml ledgers
 -------------------------
@@ -56,9 +44,7 @@ Deploying to Daml ledgers
    :titlesonly:
    :maxdepth: 2
 
-   deploy/index
-   deploy/generic_ledger
-   deploy/ledger-topologies
+   deploying
 
 Operating Daml
 --------------
@@ -67,9 +53,7 @@ Operating Daml
    :titlesonly:
    :maxdepth: 2
 
-   ops/requirements
-   ops/pruning
-   ops/connect/index
+   operating-daml
 
 Developer Tools
 ---------------
@@ -78,12 +62,7 @@ Developer Tools
    :titlesonly:
    :maxdepth: 2
 
-   tools/assistant
-   daml/daml-studio
-   tools/sandbox
-   tools/navigator/index
-   tools/codegen
-   tools/profiler
+   tools
 
 Background concepts
 -------------------
@@ -114,12 +93,11 @@ Early Access Features
    :titlesonly:
    :maxdepth: 2
 
-   tools/extractor
    tools/export/index
-   daml-integration-kit/index
    tools/visual
    concepts/interoperability
    tools/non-repudiation
+   ops/connect/index
 
 Daml Ecosystem
 --------------

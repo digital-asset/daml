@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.oracle
@@ -7,9 +7,8 @@ import java.sql.Connection
 import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
 private[oracle] object OracleTable {
-  private def idempotentBatchedInsertBase[FROM](
-      insertStatement: String,
-      keyFieldIndex: Int,
+  private def idempotentInsertBase[FROM](
+      insertStatement: String
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
     new BaseTable[FROM](fields) {
       override def executeUpdate: Array[Array[_]] => Connection => Unit =
@@ -18,26 +17,20 @@ private[oracle] object OracleTable {
             Table.ifNonEmpty(data) {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
-                fields(keyFieldIndex)._2.prepareData(
-                  preparedStatement,
-                  1,
-                  data(keyFieldIndex)(dataIndex),
-                )
                 fields.indices.foreach { fieldIndex =>
                   fields(fieldIndex)._2.prepareData(
                     preparedStatement,
-                    fieldIndex + 2,
+                    fieldIndex + 1,
                     data(fieldIndex)(dataIndex),
                   )
                 }
-                preparedStatement.addBatch()
+                preparedStatement.execute()
               }
-              preparedStatement.executeBatch()
               preparedStatement.close()
             }
     }
 
-  private def idempotentBatchedInsertStatement(
+  private def idempotentInsertStatement(
       tableName: String,
       fields: Seq[(String, Field[_, _, _])],
       keyFieldIndex: Int,
@@ -51,18 +44,18 @@ private[oracle] object OracleTable {
       field.selectFieldExpression("?")
     }
     val keyFieldName = fields(keyFieldIndex)._1
-    val keyFieldSelectExpression = fields(keyFieldIndex)._2.selectFieldExpression("?")
-    s"""MERGE INTO $tableName USING DUAL on ($keyFieldName = $keyFieldSelectExpression)
-       |WHEN NOT MATCHED THEN INSERT ($tableFields)
-       |VALUES ($selectFields)
+    s"""
+       |INSERT /*+ IGNORE_ROW_ON_DUPKEY_INDEX ( $tableName ( $keyFieldName ) ) */ INTO $tableName
+       |   ($tableFields)
+       | VALUES
+       |   ($selectFields)
        |""".stripMargin
   }
 
-  def idempotentBatchedInsert[FROM](tableName: String, keyFieldIndex: Int)(
+  def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
-    idempotentBatchedInsertBase(
-      idempotentBatchedInsertStatement(tableName, fields, keyFieldIndex),
-      keyFieldIndex,
+    idempotentInsertBase(
+      idempotentInsertStatement(tableName, fields, keyFieldIndex)
     )(fields)
 }

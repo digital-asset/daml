@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.definitions
@@ -161,7 +161,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
     def handleLfEnginePackageError(err: Error.Package.Error)(implicit
         loggingContext: ContextualizedErrorLogger
     ): LoggingPackageServiceError = err match {
-      case Error.Package.Internal(nameOfFunc, msg) =>
+      case Error.Package.Internal(nameOfFunc, msg, _) =>
         PackageServiceError.InternalError.Validation(nameOfFunc, msg)
       case Error.Package.Validation(validationError) =>
         ValidationError.Error(validationError)

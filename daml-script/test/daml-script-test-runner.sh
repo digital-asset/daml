@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -19,9 +19,29 @@ DAR_FILE=$(rlocation $TEST_WORKSPACE/$2)
 DIFF=$3
 GREP=$4
 SED=$5
+SANDBOX=$(rlocation $TEST_WORKSPACE/$6)
+
+PORTFILE_DIR=$(mktemp -d)
+PORTFILE=$PORTFILE_DIR/port-file
+$SANDBOX --port=0 --port-file $PORTFILE --static-time $DAR_FILE &
+SANDBOX_PID=$!
+
+cleanup() {
+    kill $SANDBOX_PID || true
+    rm -rf $PORTFILE_DIR
+}
+
+trap cleanup EXIT
+
+while [ ! -f $PORTFILE ]
+do
+  sleep 0.5
+done
+
+PORT=$(cat $PORTFILE)
 
 set +e
-TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
+TEST_OUTPUT="$($TEST_RUNNER --all --static-time --dar=$DAR_FILE --max-inbound-message-size 41943040 --ledger-host localhost --ledger-port $PORT 2>&1)"
 TEST_RESULT=$?
 set -e
 
@@ -40,16 +60,17 @@ EXPECTED="$(cat <<'EOF'
 MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
+ScriptExample:allocateParties SUCCESS
 ScriptExample:initializeFixed SUCCESS
-ScriptExample:initializeFromQuery SUCCESS
-ScriptExample:queryParties SUCCESS
+ScriptExample:initializeUser SUCCESS
 ScriptExample:test SUCCESS
-ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
+ScriptTest:clearUsers SUCCESS
+ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:multiPartySubmission SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
-ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
+ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS
@@ -63,8 +84,9 @@ ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
-ScriptTest:testUserManagement FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command listUsers failed: UNIMPLEMENTED: Method not found: com.daml.ledger.api.v1.admin.UserManagementService/ListUsers
-ScriptTest:testUserRightManagement FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command createUser failed: UNIMPLEMENTED: Method not found: com.daml.ledger.api.v1.admin.UserManagementService/CreateUser
+ScriptTest:testUserListPagination SUCCESS
+ScriptTest:testUserManagement SUCCESS
+ScriptTest:testUserRightManagement SUCCESS
 ScriptTest:traceOrder SUCCESS
 ScriptTest:tree SUCCESS
 ScriptTest:tupleKey SUCCESS

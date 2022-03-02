@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.grpc
@@ -6,11 +6,7 @@ package com.daml.platform.server.api.services.grpc
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -32,7 +28,6 @@ import scala.util.{Failure, Success, Try}
 
 class GrpcHealthService(
     healthChecks: HealthChecks,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     maximumWatchFrequency: FiniteDuration = 1.second,
 )(implicit
     protected val esf: ExecutionSequencerFactory,
@@ -45,7 +40,7 @@ class GrpcHealthService(
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   import errorFactories.invalidArgumentWasNotFound
 
@@ -66,9 +61,7 @@ class GrpcHealthService(
       .collect {
         case component if !healthChecks.hasComponent(component) =>
           Failure(
-            invalidArgumentWasNotFound(None)(
-              s"Component $component does not exist."
-            )(errorLogger)
+            invalidArgumentWasNotFound(s"Component $component does not exist.")(errorLogger)
           )
       }
       .getOrElse {

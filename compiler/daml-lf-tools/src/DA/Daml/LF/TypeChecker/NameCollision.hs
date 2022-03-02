@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.NameCollision
@@ -30,6 +30,7 @@ data Name
     -- This is used to check that you do not have a type B
     -- in a module A and a module A.B.C at the same time,
     -- even if you don't have a module A.B.
+    -- Note that for now this is not enforced on the Scala side.
     | NRecordType ModuleName TypeConName
     | NVariantType ModuleName TypeConName
     | NEnumType ModuleName TypeConName
@@ -40,12 +41,8 @@ data Name
     | NChoice ModuleName TypeConName ChoiceName
     | NChoiceViaInterface ModuleName TypeConName ChoiceName (Qualified TypeConName)
     | NInterface ModuleName TypeConName
-
--- | Helper method so we can turn collisions with virtual modules into warnings
--- instead of errors for now.
-isVirtual :: Name -> Bool
-isVirtual NVirtualModule{} = True
-isVirtual _ = False
+    | NInterfaceChoice ModuleName TypeConName ChoiceName
+    | NInterfaceMethod ModuleName TypeConName MethodName
 
 -- | Display a name in a super unambiguous way.
 displayName :: Name -> T.Text
@@ -74,6 +71,10 @@ displayName = \case
         T.concat ["choice ", dot m, ":", dot t, ".", c, " (via interface ", dot imod, ":", dot ityp, ")"]
     NInterface (ModuleName m) (TypeConName t) ->
         T.concat ["interface ", dot m, ":", dot t]
+    NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        T.concat ["interface choice ", dot m, ":", dot t, ".", c]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
+        T.concat ["interface method ", dot m, ":", dot t, ".", f]
   where
     dot = T.intercalate "."
 
@@ -132,6 +133,10 @@ fullyResolve = FRName . map T.toLower . \case
         m ++ t ++ [c]
     NInterface (ModuleName m) (TypeConName t) ->
         m ++ t
+    NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        m ++ t ++ [c]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
+        m ++ t ++ [f]
 
 -- | State of the name collision checker. This is a
 -- map from fully resolved names within a package to their
@@ -158,14 +163,7 @@ addName name (NCState nameMap)
     | otherwise =
         let err = EForbiddenNameCollision (displayName name) (map displayName badNames)
             diag = toDiagnostic DsError err
-        -- If name is virtual or all badNames are virtual, we demote it to a
-        -- warning for now.
-        in Left $ if all isVirtual badNames || isVirtual name
-               then diag
-                        { _severity = Just DsWarning
-                        , _message = _message diag <> " This breaks `daml codegen js` and will become an error in a future SDK version."
-                        }
-               else diag
+        in Left diag
   where
     frName = fullyResolve name
     oldNames = fromMaybe [] (M.lookup frName nameMap)
@@ -212,6 +210,13 @@ checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
 checkSynonym moduleName DefTypeSyn{..} =
     checkName (NTypeSynonym moduleName synName)
 
+checkInterface :: ModuleName -> DefInterface -> NCMonad ()
+checkInterface moduleName DefInterface{..} = do
+    forM_ intFixedChoices $ \TemplateChoice{..} ->
+        checkName (NInterfaceChoice moduleName intName chcName)
+    forM_ intMethods $ \InterfaceMethod{..} ->
+        checkName (NInterfaceMethod moduleName intName ifmName)
+
 checkModuleName :: Module -> NCMonad ()
 checkModuleName m =
     checkName (NModule (moduleName m))
@@ -228,6 +233,8 @@ checkModuleBody m = do
         checkTemplate (moduleName m) tpl
     forM_ (moduleSynonyms m) $ \synonym ->
         checkSynonym (moduleName m) synonym
+    forM_ (moduleInterfaces m) $ \iface ->
+        checkInterface (moduleName m) iface
 
 checkModule :: Module -> NCMonad ()
 checkModule m = do

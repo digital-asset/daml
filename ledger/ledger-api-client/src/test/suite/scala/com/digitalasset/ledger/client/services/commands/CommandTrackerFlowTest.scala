@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands
@@ -14,7 +14,6 @@ import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
 import com.daml.concurrent.ExecutionContext
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.Commands
@@ -39,12 +38,10 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.DurationLong
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-@nowarn("msg=deprecated")
 class CommandTrackerFlowTest
     extends AsyncWordSpec
     with Matchers
@@ -105,7 +102,7 @@ class CommandTrackerFlowTest
         startOffset: LedgerOffset,
     )
 
-    private implicit val ec: ExecutionContext[Nothing] = DirectExecutionContext
+    private implicit val ec: ExecutionContext[Nothing] = ExecutionContext.parasitic
     private val stateRef = new AtomicReference[Promise[State]](Promise[State]())
 
     def createCompletionsSource(

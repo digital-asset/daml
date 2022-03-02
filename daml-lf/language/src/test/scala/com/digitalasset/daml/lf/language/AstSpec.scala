@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -10,8 +10,9 @@ import com.daml.lf.language.Util._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import scala.collection.immutable.VectorMap
 
-// TODO https://github.com/digital-asset/daml/issues/10810
+// TODO https://github.com/digital-asset/daml/issues/12051
 //  Test Interface logic
 
 class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
@@ -57,7 +58,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       observers = eParties,
       key = None,
-      implements = Map.empty,
+      implements = VectorMap.empty,
     )
     def exception = DefException(
       message = eText
@@ -224,6 +225,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       List("choice1", "choice2", "choice3").map(Name.assertFromString)
 
     "catch implements interface repetition " ignore {
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/10917
       // implement
     }
@@ -266,10 +268,12 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "GenDefInterface.build " should {
     "catch duplicate choices" ignore {
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/10917
       // implement
     }
     "catch duplicate method" ignore {
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/10917
       // implement
     }

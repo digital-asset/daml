@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -11,24 +11,24 @@
  * advanced JavaScript language features, and uses a simple alert() to notify the user.
  */
 
-import Modernizr from 'modernizr';
+import Modernizr from "modernizr";
 
 // List of required features.
 // Note that the properties on the Modernizr object have different names than
 // in the `../modernizr-config.json` object.
 const features = [
-  'csscalc',
-  'flexbox',
-  'nthchild',
-  'es5array',
-  'es5date',
-  'es5function',
-  'es5object',
-  'strictmode',
-  'es5string',
+  "csscalc",
+  "flexbox",
+  "nthchild",
+  "es5array",
+  "es5date",
+  "es5function",
+  "es5object",
+  "strictmode",
+  "es5string",
   // 'promises', - we use a polyfill for this
-  'history',
-  'json',
+  "history",
+  "json",
   // 'fetch', - we use a polyfill for this
   /* These checks are not supported in strict mode and webpack doesn’t
   provide a reasonable way to exclude modernizr from strict mode.
@@ -41,7 +41,7 @@ const features = [
 // Find all features from above list that are not supported in current browser
 const missingFeatures = [];
 for (let i = 0; i < features.length; ++i) {
-  const feature = features[i]
+  const feature = features[i];
   if (!Modernizr[feature]) {
     missingFeatures.push(feature);
   }
@@ -54,5 +54,5 @@ if (missingFeatures.length > 0) {
 
   You may proceed using the app at your own risk.
 
-  Missing features: ${missingFeatures.join(', ')}`);
+  Missing features: ${missingFeatures.join(", ")}`);
 }

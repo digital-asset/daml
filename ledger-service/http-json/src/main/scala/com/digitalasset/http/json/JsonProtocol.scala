@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -12,6 +12,7 @@ import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
+import spray.json.derived.Discriminator
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -70,8 +71,38 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit def `List reader only`[A: JsonReader]: JsonReaderList[A] = new JsonReaderList
 
+  implicit val userDetails: JsonFormat[domain.UserDetails] =
+    jsonFormat2(domain.UserDetails.apply)
+
+  import spray.json.derived.semiauto._
+
+  // For whatever reason the annotation detection for the deriveFormat is not working correctly.
+  // This fixes it.
+  private implicit def annotationFix[T]: shapeless.Annotation[Option[Discriminator], T] =
+    shapeless.Annotation.mkAnnotation(None)
+
+  implicit val userRight: JsonFormat[domain.UserRight] = deriveFormat[domain.UserRight]
+
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
+
+  implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
+    jsonFormat3(domain.CreateUserRequest)
+
+  implicit val ListUserRightsRequest: JsonFormat[domain.ListUserRightsRequest] =
+    jsonFormat1(domain.ListUserRightsRequest)
+
+  implicit val GrantUserRightsRequest: JsonFormat[domain.GrantUserRightsRequest] =
+    jsonFormat2(domain.GrantUserRightsRequest)
+
+  implicit val RevokeUserRightsRequest: JsonFormat[domain.RevokeUserRightsRequest] =
+    jsonFormat2(domain.RevokeUserRightsRequest)
+
+  implicit val GetUserRequest: JsonFormat[domain.GetUserRequest] =
+    jsonFormat1(domain.GetUserRequest)
+
+  implicit val DeleteUserRequest: JsonFormat[domain.DeleteUserRequest] =
+    jsonFormat1(domain.DeleteUserRequest)
 
   implicit val AllocatePartyRequest: JsonFormat[domain.AllocatePartyRequest] =
     jsonFormat2(domain.AllocatePartyRequest)

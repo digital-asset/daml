@@ -1,11 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
 import java.util.UUID
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.CompletionInfo
@@ -15,7 +14,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 
 object UpdateToDbDto {
@@ -34,13 +33,7 @@ object UpdateToDbDto {
             rejection_status_message = Some(u.reasonTemplate.message),
             rejection_status_details =
               Some(StatusDetails.of(u.reasonTemplate.status.details).toByteArray),
-          ),
-          DbDto.CommandDeduplication(
-            DeduplicationKeyMaker.make(
-              domain.CommandId(u.completionInfo.commandId),
-              u.completionInfo.actAs,
-            )
-          ),
+          )
         )
 
       case u: ConfigurationChanged =>
@@ -131,10 +124,6 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
-        // TODO append-only:
-        //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
-        //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
-        //   Investigate possibility to encapsulate this logic in a common place
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(
@@ -179,8 +168,7 @@ object UpdateToDbDto {
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
                   create_key_hash = create.key
-                    .map(convertLfValueKey(create.templateId, _))
-                    .map(_.hash.bytes.toHexString),
+                    .map(key => Key.assertBuild(create.templateId, key.key).hash.bytes.toHexString),
                   create_argument_compression = compressionStrategy.createArgumentCompression.id,
                   create_key_value_compression =
                     compressionStrategy.createKeyValueCompression.id.filter(_ =>

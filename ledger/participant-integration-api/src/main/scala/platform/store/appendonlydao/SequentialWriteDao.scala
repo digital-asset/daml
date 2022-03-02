@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.appendonlydao
@@ -85,7 +85,7 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      val ledgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+      val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
       lastEventSeqId = ledgerEnd.lastEventSeqId
       lastStringInterningId = ledgerEnd.lastStringInterningId
       lastEventSeqIdInitialized = true

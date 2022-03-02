@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.definitions
@@ -168,7 +168,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
         detailMessage: Option[String],
     ): BaseError =
       err match {
-        case Interpretation.Internal(location, message) =>
+        case Interpretation.Internal(location, message, _) =>
           LedgerApiErrors.InternalError.Interpretation(location, message, detailMessage)
         case m @ Interpretation.DamlException(error) =>
           processDamlException(error, m.message, detailMessage)

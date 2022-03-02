@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -15,6 +15,7 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.command._
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.Inside._
@@ -321,6 +322,8 @@ class InterfacesTest
 }
 
 object InterfacesTest {
+
+  private implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")

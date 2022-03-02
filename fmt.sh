@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Run formatters and linter, anything platform-independent and quick
@@ -19,8 +19,13 @@ diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
 security_update_args=()
+prettier_args="--write"
 
 ## Functions ##
+
+run_pprettier() {
+    yarn pprettier $@
+}
 
 log() {
   echo "fmt.sh: $*" >&2
@@ -74,6 +79,7 @@ USAGE
       dade_copyright_arg=check
       buildifier_target=//:buildifier
       security_update_args+=(--test)
+      prettier_args="--check"
       ;;
     --diff)
       shift
@@ -122,6 +128,10 @@ echo "\
 ──██────▐█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▌
 "
 
+# Make sure the current packages are installed so we can call pprettier
+# via yarn because calling it via bazel results in very bad performance.
+run yarn install --silent
+
 # update security evidence
 run security/update.sh ${security_update_args[@]:-}
 
@@ -133,6 +143,7 @@ run dade-copyright-headers "$dade_copyright_arg" .
 if [ "$diff_mode" = "true" ]; then
   check_diff $merge_base '\.hs$' hlint -j4
   check_diff $merge_base '\.java$' javafmt "${javafmt_args[@]:-}"
+  check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
 else
   run hlint -j4 --git
   java_files=$(find . -name "*.java")
@@ -141,6 +152,7 @@ else
     exit 1
   fi
   run javafmt "${javafmt_args[@]:-}" ${java_files[@]:-}
+  run run_pprettier ${prettier_args[@]:-} './**/*.{ts,tsx}'
 fi
 
 # check for scala code style

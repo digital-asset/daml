@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
@@ -18,26 +18,25 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
+import com.daml.lf.kv.contracts.ContractConversions
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.google.protobuf.Duration
+import com.google.protobuf.{ByteString, Duration}
 import org.mockito.MockitoSugar
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
-@nowarn("msg=deprecated")
 class TransactionCommitterSpec
     extends AnyWordSpec
     with Matchers
@@ -163,6 +162,30 @@ class TransactionCommitterSpec
         case StepStop(_) => fail("should be StepContinue")
       }
     }
+
+    "fail on a non-parsable transaction" in {
+      val context = createCommitContext(recordTime = None)
+      val brokenEntry =
+        aDamlTransactionEntry.toBuilder.setRawTransaction(ByteString.copyFromUtf8("wrong")).build()
+
+      an[Err.DecodeError] should be thrownBy transactionCommitter.trimUnnecessaryNodes(
+        context,
+        DamlTransactionEntrySummary(brokenEntry),
+      )
+    }
+
+    "fail on a transaction with invalid roots" in {
+      val context = createCommitContext(recordTime = None)
+      val brokenEntry = aDamlTransactionEntry.toBuilder
+        .setRawTransaction(
+          aRichNodeTreeTransaction.toBuilder.addRoots("non-existent").build().toByteString
+        )
+        .build()
+      an[Err.InternalError] should be thrownBy transactionCommitter.trimUnnecessaryNodes(
+        context,
+        DamlTransactionEntrySummary(brokenEntry),
+      )
+    }
   }
 
   "buildLogEntry" should {
@@ -249,7 +272,7 @@ class TransactionCommitterSpec
               )
 
           actualDivulgencesList should contain theSameElementsAs {
-            Vector((cid.coid, Set("ChoiceObserver"), expectedRawContractInstance))
+            Vector((cid.coid, Set("ChoiceObserver"), expectedRawContractInstance.byteString))
           }
 
           val actualDisclosureList =
@@ -325,7 +348,7 @@ object TransactionCommitterSpec {
         .setConfiguration(Configuration.encode(theDefaultConfig))
     )
     .build
-  private val aRichTransactionTreeSummary = {
+  private val aRichNodeTreeTransaction = {
     val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
     val nodes: Seq[TransactionOuterClass.Node] = Seq(
       createNode("Fetch-1")(_.setFetch(fetchNodeBuilder)),
@@ -359,14 +382,15 @@ object TransactionCommitterSpec {
       createNode("RollbackChild-1")(_.setCreate(createNodeBuilder)),
       createNode("RollbackChild-2")(_.setFetch(fetchNodeBuilder)),
     )
-    val tx = TransactionOuterClass.Transaction
+    TransactionOuterClass.Transaction
       .newBuilder()
       .addAllRoots(roots.asJava)
       .addAllNodes(nodes.asJava)
       .build()
-    val outTx = aDamlTransactionEntry.toBuilder.setRawTransaction(tx.toByteString).build()
-    DamlTransactionEntrySummary(outTx)
   }
+  private val aRichTransactionTreeSummary = DamlTransactionEntrySummary(
+    aDamlTransactionEntry.toBuilder.setRawTransaction(aRichNodeTreeTransaction.toByteString).build()
+  )
 
   private def txEntryWithDivulgedContract(
       builder: TransactionBuilder,
@@ -395,7 +419,7 @@ object TransactionCommitterSpec {
     builder.add(createNode)
     builder.add(exerciseNode)
 
-    val expectedRawContractInstance = Conversions
+    val expectedRawContractInstance = ContractConversions
       .encodeContractInstance(
         Value.VersionedContractInstance(
           version = TransactionVersion.StableVersions.max,
@@ -404,7 +428,7 @@ object TransactionCommitterSpec {
           agreementText = "",
         )
       )
-      .bytes
+      .getOrElse(throw Err.EncodeError("ContractInstance", "Should not happen"))
 
     expectedRawContractInstance -> createTransactionEntry(
       List("aSubmitter"),

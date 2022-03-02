@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
@@ -69,27 +69,7 @@ data Feature = Feature
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
-featureNumeric :: Feature
-featureNumeric = Feature
-    { featureName = "Numeric type"
-    , featureMinVersion = version1_7
-    , featureCppFlag = Just "DAML_NUMERIC"
-    }
-
-featureAnyType :: Feature
-featureAnyType = Feature
-   { featureName = "Any type"
-   , featureMinVersion = version1_7
-   , featureCppFlag = Just "DAML_ANY_TYPE"
-   }
-
-featureTypeRep :: Feature
-featureTypeRep = Feature
-    { featureName = "TypeRep type"
-    , featureMinVersion = version1_7
-    , featureCppFlag = Just "DAML_TYPE_REP"
-    }
-
+-- | Kept for serialization of stable packages.
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
@@ -97,31 +77,11 @@ featureStringInterning = Feature
     , featureCppFlag = Nothing
     }
 
-featureGenericComparison :: Feature
-featureGenericComparison = Feature
-    { featureName = "Generic order relation"
+-- | Kept for serialization of stable packages.
+featureTypeInterning :: Feature
+featureTypeInterning = Feature
+    { featureName = "Type interning"
     , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_GENERIC_COMPARISON"
-    }
-
-featureGenMap :: Feature
-featureGenMap = Feature
-    { featureName = "Generic map"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_GENMAP"
-    }
-
-featureTypeSynonyms :: Feature
-featureTypeSynonyms = Feature
-    { featureName = "LF type synonyms"
-    , featureMinVersion = version1_8
-    , featureCppFlag = Nothing
-    }
-
-featurePackageMetadata :: Feature
-featurePackageMetadata = Feature
-    { featureName = "Package metadata"
-    , featureMinVersion = version1_8
     , featureCppFlag = Nothing
     }
 
@@ -133,27 +93,6 @@ featureUnstable = Feature
     { featureName = "Unstable, experimental features"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_UNSTABLE"
-    }
-
-featureToTextContractId :: Feature
-featureToTextContractId = Feature
-    { featureName = "CONTRACT_ID_TO_TEXT primitive"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_CONTRACT_ID_TO_TEXT"
-    }
-
-featureChoiceObservers :: Feature
-featureChoiceObservers = Feature
-    { featureName = "Choice observers"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_CHOICE_OBSERVERS"
-    }
-
-featureTypeInterning :: Feature
-featureTypeInterning = Feature
-    { featureName = "Type interning"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Nothing
     }
 
 featureBigNumeric :: Feature
@@ -193,23 +132,14 @@ featureExperimental = Feature
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureNumeric
-    , featureAnyType
-    , featureTypeRep
-    , featureTypeSynonyms
-    , featureStringInterning
-    , featureGenericComparison
-    , featureGenMap
-    , featurePackageMetadata
-    , featureUnstable
-    , featureToTextContractId
-    , featureChoiceObservers
+    [ featureStringInterning
     , featureTypeInterning
     , featureBigNumeric
     , featureExceptions
     , featureNatSynonyms
-    , featureExperimental
     , featureInterfaces
+    , featureUnstable
+    , featureExperimental
     ]
 
 featureVersionMap :: MS.Map T.Text Version

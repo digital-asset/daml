@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -65,12 +65,4 @@ object Raw {
   type LogEntry = (LogEntryId, Envelope)
 
   type StateEntry = (StateKey, Envelope)
-
-  final case class Transaction(override val bytes: ByteString) extends Bytes
-
-  object Transaction extends Companion[Transaction]
-
-  final case class ContractInstance(override val bytes: ByteString) extends Bytes
-
-  object ContractInstance extends Companion[ContractInstance]
 }

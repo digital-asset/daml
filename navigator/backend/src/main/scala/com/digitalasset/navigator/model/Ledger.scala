@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.model
@@ -7,7 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.data.DatabaseActions
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.collection.compat.immutable.LazyList
+import scala.collection.immutable.LazyList
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */

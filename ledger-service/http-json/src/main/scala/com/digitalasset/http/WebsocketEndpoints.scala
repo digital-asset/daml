@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Flow
 import com.daml.jwt.domain.Jwt
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-import scalaz.\/
+import scalaz.{EitherT, \/}
 
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
@@ -18,10 +18,13 @@ import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
 import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
+import com.daml.ledger.client.services.admin.UserManagementClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable.Seq
+import scalaz.std.scalaFuture._
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -40,19 +43,33 @@ object WebsocketEndpoints {
       decodeJwt: ValidateJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
-  ): Err \/ (Jwt, JwtPayload) =
+      userManagementClient: UserManagementClient,
+      ledgerIdentityClient: LedgerIdentityClient,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      ec: ExecutionContext,
+  ): EitherT[Future, Err, (Jwt, JwtPayload)] =
     for {
-      _ <- req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(
-        s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
-      ): Err)
-      jwt0 <- findJwtFromSubProtocol[Err](req)
-      payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt)
+      _ <- EitherT.either(
+        req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(
+          s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
+        ): Err)
+      )
+      jwt0 <- EitherT.either(findJwtFromSubProtocol[Err](req))
+      payload <- decodeAndParsePayload[JwtPayload](
+        jwt0,
+        decodeJwt,
+        userManagementClient,
+        ledgerIdentityClient,
+      ).leftMap(it => it: Err)
     } yield payload
 }
 
 class WebsocketEndpoints(
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
+    userManagementClient: UserManagementClient,
+    ledgerIdentityClient: LedgerIdentityClient,
 )(implicit ec: ExecutionContext) {
 
   import WebsocketEndpoints._
@@ -69,43 +86,55 @@ class WebsocketEndpoints(
       case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
         (
             implicit lc =>
-              Future.successful(
-                (for {
-                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
+              (for {
+                upgradeReq <- EitherT.either(
+                  req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
                     "Cannot upgrade client's connection to websocket"
                   ): Error)
-                  _ = logger.info(s"GOT $wsProtocol")
+                )
+                _ = logger.info(s"GOT $wsProtocol")
 
-                  payload <- preconnect[Error](decodeJwt, upgradeReq, wsProtocol)
-                  (jwt, jwtPayload) = payload
-                } yield handleWebsocketRequest[domain.SearchForeverRequest](
-                  jwt,
-                  jwtPayload,
+                payload <- preconnect[Error](
+                  decodeJwt,
                   upgradeReq,
                   wsProtocol,
-                ))
-                  .valueOr(httpResponseError)
-              )
+                  userManagementClient,
+                  ledgerIdentityClient,
+                )
+                (jwt, jwtPayload) = payload
+              } yield handleWebsocketRequest[domain.SearchForeverRequest](
+                jwt,
+                jwtPayload,
+                upgradeReq,
+                wsProtocol,
+              ))
+                .valueOr(httpResponseError)
         )
 
       case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
         (
             implicit lc =>
-              Future.successful(
-                (for {
-                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
+              (for {
+                upgradeReq <- EitherT.either(
+                  req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
                     s"Cannot upgrade client's connection to websocket"
                   ): Error)
-                  payload <- preconnect[Error](decodeJwt, upgradeReq, wsProtocol)
-                  (jwt, jwtPayload) = payload
-                } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
-                  jwt,
-                  jwtPayload,
+                )
+                payload <- preconnect[Error](
+                  decodeJwt,
                   upgradeReq,
                   wsProtocol,
-                ))
-                  .valueOr(httpResponseError)
-              )
+                  userManagementClient,
+                  ledgerIdentityClient,
+                )
+                (jwt, jwtPayload) = payload
+              } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
+                jwt,
+                jwtPayload,
+                upgradeReq,
+                wsProtocol,
+              ))
+                .valueOr(httpResponseError)
         )
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._

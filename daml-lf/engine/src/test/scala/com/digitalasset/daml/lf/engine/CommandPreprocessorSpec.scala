@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -72,7 +72,8 @@ class CommandPreprocessorSpec
 
   "preprocessCommand" should {
 
-    val defaultPreprocessor = new CommandPreprocessor(compiledPackage.interface, true, false)
+    val defaultPreprocessor =
+      new CommandPreprocessor(compiledPackage.interface, requireV1ContractIdSuffix = false)
 
     "reject improperly typed commands" in {
 
@@ -233,7 +234,6 @@ class CommandPreprocessorSpec
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.interface,
-        forbidV0ContractId = false,
         requireV1ContractIdSuffix = false,
       )
 
@@ -245,7 +245,6 @@ class CommandPreprocessorSpec
           ),
         ContractId.V1
           .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty),
-        ContractId.V0.assertFromString("#a V0 Contract ID"),
       )
 
       cids.foreach(cid =>
@@ -256,35 +255,10 @@ class CommandPreprocessorSpec
 
     }
 
-    "reject V0 Contract IDs when requireV1ContractId flag is true" in {
-
-      val cmdPreprocessor = new CommandPreprocessor(
-        compiledPackage.interface,
-        forbidV0ContractId = true,
-        requireV1ContractIdSuffix = false,
-      )
-
-      val List(aLegalCid, anotherLegalCid) =
-        List("a legal Contract ID", "another legal Contract ID").map(s =>
-          ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
-        )
-      val illegalCid = ContractId.V0.assertFromString("#illegal Contract ID")
-      val failure = Failure(Error.Preprocessing.IllegalContractId.V0ContractId(illegalCid))
-
-      forEvery(contractIdTestCases(aLegalCid, anotherLegalCid))(cmd =>
-        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
-      )
-
-      forEvery(contractIdTestCases(illegalCid, aLegalCid))(cmd =>
-        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe failure
-      )
-    }
-
     "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.interface,
-        forbidV0ContractId = true,
         requireV1ContractIdSuffix = true,
       )
       val List(aLegalCid, anotherLegalCid) =

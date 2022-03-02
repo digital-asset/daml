@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -31,16 +31,16 @@ import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, OneAnd, OptionT, Show, Tag, \/, \/-}
+import scalaz.{~>, -\/, OneAnd, OptionT, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import scalaz.std.scalaFuture._
 
 import com.codahale.metrics.Timer
 import doobie.free.{connection => fconn}
+import fconn.ConnectionIO
 
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -320,7 +320,6 @@ class ContractsService(
             metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => otemplateId, ledgerId}
-          import scalaz.Scalaz._
           val dbQueried = for {
             templateId <- OptionT(Future.successful(otemplateId))
             resolved <- OptionT(
@@ -328,6 +327,9 @@ class ContractsService(
             )
             res <- OptionT(unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
+              // a single contractId is either present or not; we would only need
+              // to fetchAndPersistBracket if we were looking up multiple cids
+              // in the same HTTP request, and they would all have to be bracketed once -SC
               timed(
                 metrics.daml.HttpJsonApi.Db.fetchByIdFetch,
                 fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
@@ -356,6 +358,13 @@ class ContractsService(
             resolved <- resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
             found <- unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
+              // it is possible for the contract under a given key to have been
+              // replaced concurrently with a contract unobservable by parties, i.e.
+              // the DB contains two contracts with the same key.  However, this doesn't
+              // ever yield an _inconsistent_ result, merely one that is slightly back-in-time,
+              // which is true of all json-api responses.  Again, if we were checking for
+              // multiple template/contract-key pairs in a single request, they would all
+              // have to be contained within a single fetchAndPersistBracket -SC
               timed(
                 metrics.daml.HttpJsonApi.Db.fetchByKeyFetch,
                 fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
@@ -414,15 +423,21 @@ class ContractsService(
           import doobie.implicits._
           import ctx.{jwt, parties, templateIds, ledgerId}
           for {
-            _ <- timed(
-              metrics.daml.HttpJsonApi.Db.searchFetch,
-              fetch.fetchAndPersist(jwt, ledgerId, parties, templateIds.toList),
-            )
-            cts <- timed(
-              metrics.daml.HttpJsonApi.Db.searchQuery,
-              templateIds.toVector
-                .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
-            )
+            cts <- fetch.fetchAndPersistBracket(
+              jwt,
+              ledgerId,
+              parties,
+              templateIds.toList,
+              Lambda[ConnectionIO ~> ConnectionIO](
+                timed(metrics.daml.HttpJsonApi.Db.searchFetch, _)
+              ),
+            ) { _ =>
+              timed(
+                metrics.daml.HttpJsonApi.Db.searchQuery,
+                templateIds.toVector
+                  .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+              )
+            }
           } yield cts.flatten
         }
 
@@ -557,7 +572,7 @@ class ContractsService(
     val contractsAndBoundary = startOffset.cata(
       so =>
         Source
-          .single(Tag unsubst AbsoluteBookmark(so.offset))
+          .single(AbsoluteBookmark(so.offset))
           .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
       source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
     )

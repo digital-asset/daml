@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
@@ -7,6 +7,7 @@ import akka.actor.{Cancellable, CoordinatedShutdown}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
+import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Response
 import com.daml.ledger.api.benchtool.util.ReportFormatter
 import org.slf4j.LoggerFactory
 
@@ -36,7 +37,8 @@ case class MetricsManager[T](
             finalReport = response,
           )
         )
-        if (response.metricsData.exists(_.violatedObjective.isDefined))
+        val atLeastOneObjectiveViolated = response.metricsData.exists(_.violatedObjectives.nonEmpty)
+        if (atLeastOneObjectiveViolated)
           StreamResult.ObjectivesViolated
         else
           StreamResult.Ok
@@ -56,13 +58,15 @@ case class MetricsManager[T](
       implicit val timeout: Timeout = Timeout(logInterval)
       collector
         .ask(MetricsCollector.Message.PeriodicReportRequest)
-        .map { response =>
-          logger.info(
-            ReportFormatter.formatPeriodicReport(
-              streamName = streamName,
-              periodicReport = response,
+        .collect {
+          case Response.ReportNotReady => ()
+          case response: Response.PeriodicReport =>
+            logger.info(
+              ReportFormatter.formatPeriodicReport(
+                streamName = streamName,
+                periodicReport = response,
+              )
             )
-          )
         }(system.executionContext)
       ()
     })(system.executionContext)

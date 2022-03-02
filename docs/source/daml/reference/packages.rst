@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 
@@ -20,7 +20,7 @@ You can specify a different path for the Daml archive by using the ``-o`` flag:
 
   daml build -o foo.dar
 
-For details on how to upload a Daml archive to the ledger, see the :ref:`deploy documentation <deploy-ref_overview>`. The rest of this page will focus on how to import a Daml package in other Daml projects.
+For details on how to upload a Daml archive to the ledger, see the :doc:`deploy documentation </deploying>`. The rest of this page will focus on how to import a Daml package in other Daml projects.
 
 .. _inspecting_dars:
 

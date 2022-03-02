@@ -53,32 +53,27 @@ file, which defines external dependencies. The workspace contains several
 file. Each package holds multiple *targets*. Targets are either *files* under
 the package directory or *rules* defined in the `BUILD.bazel` file. You can
 address a target by a *label* of the form `//path/to/package:target`. For
-example, `//ledger/sandbox:sandbox`. Here `sandbox` is a target in the package
-`ledger/sandbox`. It is defined in the file `ledger/sandbox/BUILD.bazel`
+example, `//ledger/sandbox-on-x:sandbox-on-x`. Here `sandbox-on-x` is a target in the package
+`ledger/sandbox-on-x`. It is defined in the file `ledger/sandbox-on-x/BUILD.bazel`
 using `da_scala_library` as shown below.
 
 ```
 da_scala_library(
-    name = "sandbox",
+    name = "sandbox-on-x",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources =
-        glob(
-            ["src/main/resources/**/*"],
-            # Do not include logback.xml into the library: let the user
-            # of the sandbox-as-a-library decide how to log.
-            exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:MVN_VERSION",
-        ],
-    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
+    deps = [
+        ...list of deps
     ],
-    deps = compileDependencies,
 )
 ```
 
@@ -139,8 +134,12 @@ proceed to the IntelliJ integration.
 ### Setup
 
 If you use the IntelliJ IDE you should install the [Bazel integration plugin
-provided by Google][intellij_plugin]. Follow the [installation
-instructions][intellij_plugin_install] in the official documentation. In short:
+provided by Google][intellij_plugin]. 
+
+Not every version of Intellij works with the Bazel plugin. Intellij IDEA 2021.2.4 has been verified to work correctly with the Bazel plugin.
+It is advisable to use the JetBrains Toolbox to manage installations of Intellij IDEA.
+
+Follow the [installation instructions][intellij_plugin_install] in the official documentation. In short:
 Install the plugin from within the IDE (`Settings > Plugins > Marketplace`, and
 search for 'Bazel'). Multiple Bazel plugins exist, make sure to select the Bazel
 plugin referencing [ij.bazel.build][intellij_plugin].
@@ -149,6 +148,8 @@ If the correct plugin does not exist in the list, then your IntelliJ version
 might be too recent, and the Bazel plugin might not have been upgraded to
 support it, yet. Check for version compatibility on the [JetBrains plugin
 page][intellij_plugin_jetbrains].
+
+Set the Bazel binary in the Bazel plugin settings, at `Preferences -> Bazel Settings -> Bazel binary location` to point to the Bazel binary in the `dev-env/bin` directory.
 
 [intellij_plugin]: https://ij.bazel.build/
 [intellij_plugin_install]: https://ij.bazel.build/docs/bazel-plugin.html#getting-started
@@ -203,6 +204,7 @@ Make sure to add Scala, or other languages that you require, to the
 `additional_languages` section. The section will be pre-populated with a list
 of comments specifying the automatically detected supported languages.
 
+Also ensure that you install and setup the Scala plugin.
 If you'd like to work with all directories, we recommend the following project
 view configuration, which stops IntelliJ from indexing the Bazel cache, and
 avoids rebuilding the documentation:
@@ -395,7 +397,7 @@ detailed information.
 - Build an individual target
 
     ```
-    bazel build //ledger/sandbox:sandbox
+    bazel build //ledger/sandbox-on-x:app
     ```
 
 ### Running Tests
@@ -409,13 +411,13 @@ detailed information.
 - Execute a test suite
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests
+    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests
     ```
 
 - Show test output
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests --test_output=streamed
+    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests --test_output=streamed
     ```
 
     Test outputs are also available in log files underneath the convenience
@@ -424,7 +426,7 @@ detailed information.
 - Do not cache test results
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests --nocache_test_results
+    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests --nocache_test_results
     ```
 
 - Execute a specific Scala test-suite class
@@ -458,13 +460,13 @@ detailed information.
 - Run an executable target
 
     ```
-    bazel run //ledger/sandbox:sandbox-binary
+    bazel run //ledger/sandbox-on-x:app
     ```
 
 - Pass arguments to an executable target
 
     ```
-    bazel run //ledger/sandbox:sandbox-binary -- --help
+    bazel run //ledger/sandbox-on-x:app -- --help
     ```
 
 ### Running a REPL
@@ -523,7 +525,7 @@ expressions can be combined using set operations like `intersect` or `union`.
 - List all Scala library dependencies of a target
 
     ```
-    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox:sandbox))'
+    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox-on-x:app))'
     ```
 
 - Find available 3rd party dependencies
@@ -540,7 +542,7 @@ query includes. These can then be rendered using Graphviz.
 - Graph all Scala library dependencies of a target
 
     ```
-    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox:sandbox))' --output graph > graph.in
+    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox-on-x:app))' --output graph > graph.in
     dot -Tpng < graph.in > graph.png
     ```
 
@@ -579,7 +581,7 @@ it will watch these files for changes and rerun the command on file change. For
 example:
 
 ```
-ibazel test //ledger/sandbox:sandbox-scala-tests
+ibazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests
 ```
 
 Note, that this interacts well with Bazel's test result caching (which is

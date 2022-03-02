@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -30,7 +30,6 @@ da_scala_library(
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
-        "//language-support/scala/codegen:codegen-main",
     ],
 )
 
@@ -50,7 +49,6 @@ da_scala_binary(
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
-        "//language-support/scala/codegen:codegen-main",
     ],
 )
 

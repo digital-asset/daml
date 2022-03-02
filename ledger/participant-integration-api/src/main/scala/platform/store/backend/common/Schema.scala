@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
@@ -20,75 +20,66 @@ private[backend] object AppendOnlySchema {
   type Batch = Array[Array[Array[_]]]
 
   private[backend] trait FieldStrategy {
-    def string[FROM, _](extractor: StringInterning => FROM => String): Field[FROM, String, _] =
+    def string[FROM](extractor: StringInterning => FROM => String): Field[FROM, String, _] =
       StringField(extractor)
 
-    def stringOptional[FROM, _](
+    def stringOptional[FROM](
         extractor: StringInterning => FROM => Option[String]
     ): Field[FROM, Option[String], _] =
       StringOptional(extractor)
 
-    def stringArray[FROM, _](
-        extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
-      StringArray(extractor)
-
-    def stringArrayOptional[FROM, _](
+    def stringArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       StringArrayOptional(extractor)
 
-    def intArray[FROM, _](
+    def intArray[FROM](
         extractor: StringInterning => FROM => Iterable[Int]
     ): Field[FROM, Iterable[Int], _] =
       IntArray(extractor)
 
-    def intArrayOptional[FROM, _](
+    def intArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[Int]]
     ): Field[FROM, Option[Iterable[Int]], _] =
       IntArrayOptional(extractor)
 
-    def bytea[FROM, _](
+    def bytea[FROM](
         extractor: StringInterning => FROM => Array[Byte]
     ): Field[FROM, Array[Byte], _] =
       Bytea(extractor)
 
-    def byteaOptional[FROM, _](
+    def byteaOptional[FROM](
         extractor: StringInterning => FROM => Option[Array[Byte]]
     ): Field[FROM, Option[Array[Byte]], _] =
       ByteaOptional(extractor)
 
-    def bigint[FROM, _](extractor: StringInterning => FROM => Long): Field[FROM, Long, _] =
+    def bigint[FROM](extractor: StringInterning => FROM => Long): Field[FROM, Long, _] =
       Bigint(extractor)
 
-    def bigintOptional[FROM, _](
+    def bigintOptional[FROM](
         extractor: StringInterning => FROM => Option[Long]
     ): Field[FROM, Option[Long], _] =
       BigintOptional(extractor)
 
-    def smallintOptional[FROM, _](
+    def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
-    def int[FROM, _](extractor: StringInterning => FROM => Int): Field[FROM, Int, _] =
+    def int[FROM](extractor: StringInterning => FROM => Int): Field[FROM, Int, _] =
       Integer(extractor)
 
-    def intOptional[FROM, _](
+    def intOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
 
-    def boolean[FROM, _](extractor: StringInterning => FROM => Boolean): Field[FROM, Boolean, _] =
-      BooleanField(extractor)
-
-    def booleanOptional[FROM, _](
+    def booleanOptional[FROM](
         extractor: StringInterning => FROM => Option[Boolean]
     ): Field[FROM, Option[Boolean], _] =
       BooleanOptional(extractor)
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
-    def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
     def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM]
@@ -283,11 +274,6 @@ private[backend] object AppendOnlySchema {
         "deduplication_start" -> fieldStrategy.bigintOptional(_ => _.deduplication_start),
       )
 
-    val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
-      fieldStrategy.delete("participant_command_submissions")(
-        "deduplication_key" -> fieldStrategy.string(_ => _.deduplication_key)
-      )
-
     val stringInterningTable: Table[DbDto.StringInterningDto] =
       fieldStrategy.insert("string_interning")(
         "internal_id" -> fieldStrategy.int(_ => _.internalId),
@@ -305,6 +291,14 @@ private[backend] object AppendOnlySchema {
         ),
       )
 
+    val transactionMetering: Table[DbDto.TransactionMetering] =
+      fieldStrategy.insert("transaction_metering")(
+        fields = "application_id" -> fieldStrategy.string(_ => _.application_id),
+        "action_count" -> fieldStrategy.int(_ => _.action_count),
+        "metering_timestamp" -> fieldStrategy.bigint(_ => _.metering_timestamp),
+        "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
+      )
+
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
       eventsDivulgence.executeUpdate,
       eventsCreate.executeUpdate,
@@ -315,9 +309,9 @@ private[backend] object AppendOnlySchema {
       packages.executeUpdate,
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
-      commandSubmissionDeletes.executeUpdate,
       stringInterningTable.executeUpdate,
       createFilter.executeUpdate,
+      transactionMetering.executeUpdate,
     )
 
     new Schema[DbDto] {
@@ -341,9 +335,9 @@ private[backend] object AppendOnlySchema {
           packages.prepareData(collect[Package], stringInterning),
           partyEntries.prepareData(collect[PartyEntry], stringInterning),
           commandCompletions.prepareData(collect[CommandCompletion], stringInterning),
-          commandSubmissionDeletes.prepareData(collect[CommandDeduplication], stringInterning),
           stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
           createFilter.prepareData(collect[CreateFilter], stringInterning),
+          transactionMetering.prepareData(collect[TransactionMetering], stringInterning),
         )
       }
 

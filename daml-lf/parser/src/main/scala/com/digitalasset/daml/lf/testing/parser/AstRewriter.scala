@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -135,6 +135,12 @@ private[daml] class AstRewriter(
           EToRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
         case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
+        case EInterfaceTemplateTypeRep(ifaceId, body) =>
+          EInterfaceTemplateTypeRep(apply(ifaceId), apply(body))
+        case ESignatoryInterface(ifaceId, body) =>
+          ESignatoryInterface(apply(ifaceId), apply(body))
+        case EObserverInterface(ifaceId, body) =>
+          EObserverInterface(apply(ifaceId), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -322,12 +328,6 @@ private[daml] class AstRewriter(
   def apply(x: DefException): DefException =
     x match {
       case DefException(message) => DefException(apply(message))
-    }
-
-  def apply(x: InterfaceChoice): InterfaceChoice =
-    x match {
-      case InterfaceChoice(name, consuming, argType, returnType) =>
-        InterfaceChoice(name, consuming, apply(argType), returnType = apply(returnType))
     }
 
   def apply(x: InterfaceMethod): InterfaceMethod =

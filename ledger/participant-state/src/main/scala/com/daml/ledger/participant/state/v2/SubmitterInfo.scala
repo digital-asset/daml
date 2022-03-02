@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v2
@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v2
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
+import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Collects context information for a submission.
@@ -14,6 +15,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   * Ledger API.
   *
   * @param actAs                the non-empty set of parties that submitted the change.
+  * @param readAs               the parties on whose behalf (in addition to all parties listed in [[actAs]]) contracts can be retrieved.
   * @param applicationId        an identifier for the Daml application that
   *                             submitted the command. This is used for monitoring, command
   *                             deduplication, and to allow Daml applications subscribe to their own
@@ -29,6 +31,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
+    readAs: List[Ref.Party],
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
@@ -39,20 +42,31 @@ final case class SubmitterInfo(
   /** The ID for the ledger change */
   val changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
-  def toCompletionInfo: CompletionInfo = CompletionInfo(
-    actAs,
-    applicationId,
-    commandId,
-    Some(deduplicationPeriod),
-    submissionId,
-  )
+  def toCompletionInfo(statistics: Option[TransactionNodeStatistics] = None): CompletionInfo =
+    CompletionInfo(
+      actAs,
+      applicationId,
+      commandId,
+      Some(deduplicationPeriod),
+      submissionId,
+      statistics,
+    )
 }
 
 object SubmitterInfo {
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
-    case SubmitterInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
+    case SubmitterInfo(
+          actAs,
+          readAs,
+          applicationId,
+          commandId,
+          deduplicationPeriod,
+          submissionId,
+          _,
+        ) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
+        "readAs" -> readAs,
         "applicationId " -> applicationId,
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,

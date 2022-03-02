@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml Assistant (``daml``)
@@ -13,7 +13,7 @@ Daml Assistant (``daml``)
 
   This builds the Daml project according to the project config file ``daml.yaml`` (see `Configuration files`_ below).
 
-  In particular, it will download and install the specified version of the Daml Connect SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the Daml project.
+  In particular, it will download and install the specified version of the Daml SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the Daml project.
 
 - Launch the tools in the SDK:
 
@@ -24,7 +24,6 @@ Daml Assistant (``daml``)
     ``--sandbox-option=opt``, ``--navigator-option=opt`` and ``--json-api-option=opt``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
-  - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
   - Launch the :doc:`/json-api/index`: ``daml json-api``
   - Run :doc:`Daml codegen </tools/codegen>`: ``daml codegen``
 
@@ -62,7 +61,7 @@ By default it's blank, and you usually won't need to edit it. It recognizes the 
    This setting is only used to inform you when an update is available.
 
    Set ``update-check: <number>`` to check for new versions every N seconds. Set ``update-check: never`` to never check for new versions.
-- ``artifactory-api-key``: If you have a license for Daml Connect EE,
+- ``artifactory-api-key``: If you have a license for Daml EE,
   you can use this to specify the Artifactory API key displayed in
   your user profile. The assistant will use this to download the EE
   edition.
@@ -88,10 +87,9 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
 .. code-block:: yaml
 
     sdk-version: __VERSION__
-    platform-version: __VERSION__
     name: __PROJECT_NAME__
     source: daml
-    scenario: Main:setup
+    init-script: Main:setup
     parties:
       - Alice
       - Bob
@@ -101,7 +99,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     dependencies:
       - daml-prim
       - daml-stdlib
-    scenario-service:
+    script-service:
       grpc-max-message-size: 134217728
       grpc-timeout: 60
       jvm-options: []
@@ -118,20 +116,8 @@ Here is what each field means:
    external project that you want to build with a specific version.
 
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
-- ``platform-version``: Optional SDK version of platform components. Not setting this
-  is equivalent to setting it to the same version as ``sdk-version``. At the moment this includes
-  Sandbox, Sandbox classic and the HTTP JSON API both when invoked directly via ``daml sandbox``
-  as well as when invoked via ``daml start``. Changing the platform version is useful if you deploy
-  to a ledger that is running on a different SDK version than you use locally and you want to make
-  sure that you catch any issues during testing. E.g., you might compile your Daml code using
-  SDK 1.3.0 so you get improvements in Daml Studio but deploy to Daml Hub which could still be running
-  a ledger and the JSON API from SDK 1.2.0. In that case, you can set ``sdk-version: 1.3.0``
-  and ``platform-version: 1.2.0``.
-  It is possible to override the platform version by setting the ``DAML_PLATFORM_VERSION``
-  environment variable.
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
 - ``source``: the root folder of your Daml source code files relative to the project root.
-- ``scenario``: the name of the scenario to run when using ``daml start``.
 - ``init-script``: the name of the Daml script to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
@@ -140,15 +126,15 @@ Here is what each field means:
 - ``dependencies``: library-dependencies of this project. See :doc:`/daml/reference/packages`.
 - ``data-dependencies``: Cross-SDK dependencies of this project See :doc:`/daml/reference/packages`.
 - ``module-prefixes``: Prefixes for all modules in package See :doc:`/daml/reference/packages`.
-- ``scenario-service``: settings for the scenario service
+- ``script-service``: settings for the script service
 
   - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.
     If unspecified this defaults to 128MB (134217728 bytes). Unless you get
     errors, there should be no reason to modify this.
   - ``grpc-timeout``: This option controls the timeout used for communicating
-    with the scenario service. If unspecified this defaults to 60s. Unless you get
+    with the script service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
-  - ``jvm-options``: A list of options passed to the JVM when starting the scenario
+  - ``jvm-options``: A list of options passed to the JVM when starting the script
     service. This can be used to limit maximum heap size via the ``-Xmx`` flag.
 
 - ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
@@ -224,7 +210,7 @@ Managing releases
 
 You can manage SDK versions manually by using ``daml install``.
 
-To download and install SDK of the latest stable Daml Connect version::
+To download and install SDK of the latest stable Daml version::
 
   daml install latest
 
@@ -238,9 +224,9 @@ To install the SDK version specified in the project config, run::
 
   daml install project
 
-To install a specific SDK version, for example version ``1.7.0``, run::
+To install a specific SDK version, for example version ``2.0.0``, run::
 
-  daml install 1.7.0
+  daml install 2.0.0
 
 Rarely, you might need to install an SDK release from a downloaded SDK release tarball. **This is an advanced feature**: you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone else's. To do this, run::
 

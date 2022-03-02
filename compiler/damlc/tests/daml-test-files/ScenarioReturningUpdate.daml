@@ -19,3 +19,5 @@ f p = do
 s = scenario do
   p <- getParty "P"
   f p
+
+-- @ENABLE-SCENARIOS

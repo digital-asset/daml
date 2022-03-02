@@ -28,40 +28,41 @@ import sys
 # skip: Optional prefix for lines to skip when adding header initially.
 
 filetypes = \
-  { 'daml'   : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
-    'hs'     : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '', 'skip' : '#!'  } ,
-    'lhs'    : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
-    'chs'    : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
-    'js'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'ts'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'tsx'    : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'java'   : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'scala'  : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'rst'    : { 'start' : ''       , 'line' : '..'   , 'end' : ''    , 'empty_line' : '' } ,
-    'tex'    : { 'start' : '%' * 80 , 'line' : '%'    , 'end' : ''    , 'empty_line' : '' } ,
-    'py'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip' : '#!' } ,
-    'proto'  : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'c'      : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'cpp'    : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'cc'     : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'h'      : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'hpp'    : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'hh'     : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'groovy' : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
-    'sql'    : { 'start' : '/*'     , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
-    'sh'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip' : '#!' } ,
+  { 'bat'    : { 'start' : '::'     , 'line' : '::'   , 'end' : ''    , 'empty_line' : '' } ,
     'bats'   : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip' : '#!' } ,
-    'html'   : { 'start' : '<!--'   , 'line' : ''     , 'end' : '-->' , 'skip' : '<!' } ,
-    'bat'    : { 'start' : '::'     , 'line' : '::'   , 'end' : ''    , 'empty_line' : '' } ,
-    'cmd'    : { 'start' : '::'     , 'line' : '::'   , 'end' : ''    , 'empty_line' : '' } ,
     'bazel'  : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip': '#!' } ,
     'bzl'    : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip': '#!' } ,
-    'rb'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
-    'tf'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
+    'c'      : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'cc'     : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'chs'    : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
+    'cmd'    : { 'start' : '::'     , 'line' : '::'   , 'end' : ''    , 'empty_line' : '' } ,
+    'cpp'    : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
     'css'    : { 'start' : '/*'     , 'line' : ''     , 'end' : ' */' } ,
+    'daml'   : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
+    'groovy' : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'h'      : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'hh'     : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'hpp'    : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'hs'     : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '', 'skip' : '#!'  } ,
+    'html'   : { 'start' : '<!--'   , 'line' : ''     , 'end' : '-->' , 'skip' : '<!' } ,
+    'java'   : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'js'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'lf'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'lhs'    : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
+    'proto'  : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'py'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip' : '#!' } ,
+    'rb'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
+    'rst'    : { 'start' : ''       , 'line' : '..'   , 'end' : ''    , 'empty_line' : '' } ,
+    'scala'  : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
     'scss'   : { 'start' : '/*'     , 'line' : ''     , 'end' : ' */' } ,
-    'yml'    : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
+    'sh'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip' : '#!' } ,
+    'sql'    : { 'start' : '/*'     , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
+    'tex'    : { 'start' : '%' * 80 , 'line' : '%'    , 'end' : ''    , 'empty_line' : '' } ,
+    'tf'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
+    'ts'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'tsx'    : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
     'yaml'   : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
+    'yml'    : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
   }
 
 #########################
@@ -146,7 +147,7 @@ def process_file(filename, check_only):
         state='notice'
 
         if line != notice_lines[0]+"\n":
-            print("{0}: notice text mismatch:\n  actual: {1}\n  expected: {2}" \
+            print("{0}: notice text mismatch:\n  actual  : {1}\n  expected: {2}" \
                   .format(filename, line.strip(), notice_lines[index].strip()))
             state='find_end_and_fail'
         else:
@@ -178,7 +179,7 @@ def process_file(filename, check_only):
           state='ok'
 
       elif line != notice_lines[index]+"\n":
-        print("{0}: notice text mismatch:\n  actual: {1}\n  expected: {2}" \
+        print("{0}: notice text mismatch:\n  actual  : {1}\n  expected: {2}" \
           .format(filename, line.strip(), notice_lines[index].strip()))
         state='find_end_and_fail'
 

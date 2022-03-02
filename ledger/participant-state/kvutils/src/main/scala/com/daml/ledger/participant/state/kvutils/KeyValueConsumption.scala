@@ -1,9 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ValueSwitch}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
@@ -23,9 +23,11 @@ import com.daml.ledger.participant.state.kvutils.store.{
 }
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.kv.transactions.RawTransaction
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.common.io.BaseEncoding
@@ -50,7 +52,6 @@ object KeyValueConsumption {
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
-    * @param errorVersionSwitch: Decides between v1 and v2 (self-service) errors.
     * @return [[Update]]s constructed from log entry.
     */
   // TODO(BH): add participantId to ensure participant id matches in DamlLogEntry
@@ -58,7 +59,6 @@ object KeyValueConsumption {
   def logEntryToUpdate(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      errorVersionSwitch: ValueSwitch,
       recordTimeForUpdate: Option[Timestamp] = None,
   )(loggingContext: LoggingContext): List[Update] = {
     implicit val logContext: LoggingContext = loggingContext
@@ -73,7 +73,7 @@ object KeyValueConsumption {
         val pue = entry.getPackageUploadEntry
         List(
           Update.PublicPackageUpload(
-            pue.getArchivesList.asScala.toList,
+            pue.getArchivesList.asScala.toList.map(ArchiveParser.assertFromByteString),
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
@@ -216,7 +216,6 @@ object KeyValueConsumption {
           transactionRejectionEntryToUpdate(
             recordTime,
             rejectionEntry,
-            errorVersionSwitch,
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
 
@@ -224,7 +223,6 @@ object KeyValueConsumption {
         outOfTimeBoundsEntryToUpdate(
           recordTime,
           entry.getOutOfTimeBoundsEntry,
-          errorVersionSwitch,
         ).toList
 
       case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
@@ -249,9 +247,8 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Update = {
-    val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
+    val reason = Conversions.decodeTransactionRejectionEntry(rejEntry)
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(recordTime, rejEntry.getSubmitterInfo),
@@ -265,8 +262,8 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Update.TransactionAccepted = {
-    val rawTransaction = Raw.Transaction(txEntry.getRawTransaction)
-    val transaction = Conversions.decodeTransaction(rawTransaction)
+    val rawTransaction = RawTransaction(txEntry.getRawTransaction)
+    val transaction = Conversions.assertDecodeTransaction(rawTransaction)
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
@@ -321,7 +318,7 @@ object KeyValueConsumption {
       Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
           divulgedContractsIndex.view.map { case (contractId, rawContractInstance) =>
-            val contractInstance = Conversions.decodeContractInstance(rawContractInstance)
+            val contractInstance = Conversions.assertDecodeContractInstance(rawContractInstance)
             DivulgedContract(contractId, contractInstance)
           }.toList
         case Left(missingContractIds) =>
@@ -348,7 +345,6 @@ object KeyValueConsumption {
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: LoggingContext): Option[Update] = {
     val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
     val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)
@@ -364,7 +360,6 @@ object KeyValueConsumption {
           duplicateCommandsRejectionUpdate(
             recordTime,
             rejectionEntry,
-            errorVersionSwitch,
             None, // Not available for historical entries
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
@@ -381,7 +376,6 @@ object KeyValueConsumption {
             timeBounds.tooEarlyUntil,
             timeBounds.tooLateFrom,
             rejectionEntry,
-            errorVersionSwitch,
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
 

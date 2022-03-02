@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # shellcheck disable=SC2174
@@ -40,7 +40,7 @@ step "Building dev-env dependencies"
 NIX_FAILED=0
 for i in `seq 10`; do
     NIX_FAILED=0
-    nix-build nix -A tools -A ci-cached 2>&1 | tee nix_log || NIX_FAILED=1
+    nix-build --no-out-link nix -A tools -A ci-cached 2>&1 | tee nix_log || NIX_FAILED=1
     # It should be in the last line but let’s use the last 3 and wildcards
     # to be robust against slight changes.
     if [[ $NIX_FAILED -ne 0 ]] &&

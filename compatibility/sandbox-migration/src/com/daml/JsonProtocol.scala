@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -6,7 +6,7 @@ package com.daml
 import java.nio.file.{Files, Path}
 
 import com.daml.ledger.api.v1.value.Record
-import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.api.validation.{NoLoggingValueValidator => ValueValidator}
 import com.daml.lf.value.json.ApiCodecCompressed
 import spray.json._
 
@@ -20,7 +20,7 @@ object JsonProtocol extends DefaultJsonProtocol {
       throw cannotReadDamlLf()
     override def write(record: Record): JsValue =
       ApiCodecCompressed.apiValueToJsValue(
-        ValueValidator.validateRecord(record).fold(err => throw err, identity).mapContractId(_.coid)
+        ValueValidator.validateRecord(record).fold(err => throw err, identity)
       )
   }
 

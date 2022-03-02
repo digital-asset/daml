@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -6,6 +6,7 @@ package com.daml.http
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -23,6 +24,7 @@ import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -85,9 +87,13 @@ object HttpService {
       applicationId = ApplicationId.unwrap(DummyApplicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client(),
-      maxInboundMessageSize = maxInboundMessageSize,
     )
+
+    val clientChannelConfiguration =
+      LedgerClientChannelConfiguration(
+        sslContext = tlsConfig.client(),
+        maxInboundMessageSize = maxInboundMessageSize,
+      )
 
     import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
@@ -97,6 +103,7 @@ object HttpService {
           ledgerHost,
           ledgerPort,
           clientConfig,
+          clientChannelConfiguration,
           startSettings.nonRepudiation,
         )
       ): ET[DamlLedgerClient]
@@ -105,8 +112,9 @@ object HttpService {
         ledgerClient(
           ledgerHost,
           ledgerPort,
-          packageMaxInboundMessageSize.fold(clientConfig)(size =>
-            clientConfig.copy(maxInboundMessageSize = size)
+          clientConfig,
+          packageMaxInboundMessageSize.fold(clientChannelConfiguration)(size =>
+            clientChannelConfiguration.copy(maxInboundMessageSize = size)
           ),
           startSettings.nonRepudiation,
         )
@@ -170,6 +178,8 @@ object HttpService {
         encoder,
         decoder,
         logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
+        client.userManagementClient,
+        client.identityClient,
       )
 
       websocketService = new WebSocketService(
@@ -183,11 +193,13 @@ object HttpService {
       websocketEndpoints = new WebsocketEndpoints(
         validateJwt,
         websocketService,
+        client.userManagementClient,
+        client.identityClient,
       )
 
       defaultEndpoints =
         concat(
-          jsonEndpoints.all,
+          jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )
 
@@ -275,6 +287,7 @@ object HttpService {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
@@ -286,6 +299,7 @@ object HttpService {
         ledgerHost,
         ledgerPort,
         clientConfig,
+        clientChannelConfig,
         nonRepudiationConfig,
         MaxInitialLedgerConnectRetryAttempts,
       )

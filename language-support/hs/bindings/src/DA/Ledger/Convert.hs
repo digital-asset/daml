@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
@@ -17,7 +17,9 @@ module DA.Ledger.Convert (
     raiseGetTimeResponse,
     raiseTimestamp,
     raisePackageId,
-    RaiseFailureReason,
+    raiseApplicationId,
+    raiseParticipantId,
+    RaiseFailureReason(..),
     ) where
 
 import Prelude hiding(Enum)
@@ -83,6 +85,8 @@ lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPerio
 lowerDeduplicationPeriod = \case
     DeduplicationDuration t ->
         LL.CommandsDeduplicationPeriodDeduplicationTime t
+    DeduplicationOffset o ->
+        LL.CommandsDeduplicationPeriodDeduplicationOffset (unAbsOffset o)
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case
@@ -231,8 +235,8 @@ raiseGetLedgerConfigurationResponse x =
 raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
 raiseLedgerConfiguration = \case
     LL.LedgerConfiguration{..} -> do
-        maxDeduplicationTime <- perhaps "max_deduplication_time" ledgerConfigurationMaxDeduplicationTime
-        return $ LedgerConfiguration {maxDeduplicationTime}
+        maxDeduplicationDuration <- perhaps "max_deduplication_duration" ledgerConfigurationMaxDeduplicationDuration
+        return $ LedgerConfiguration {maxDeduplicationDuration}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case
@@ -482,6 +486,12 @@ raiseChoice = fmap Choice . raiseText "Choice"
 
 raiseParty :: Text -> Perhaps Party
 raiseParty = fmap Party . raiseText "Party"
+
+raiseApplicationId :: Text -> Perhaps ApplicationId
+raiseApplicationId = fmap ApplicationId . raiseText "ApplicationId"
+
+raiseParticipantId :: Text -> Perhaps ParticipantId
+raiseParticipantId = fmap ParticipantId . raiseText "ParticipantId"
 
 raisePackageId :: Text -> Perhaps PackageId
 raisePackageId = fmap PackageId . raiseText "PackageId"

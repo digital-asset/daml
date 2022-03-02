@@ -1,10 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import scala.collection.immutable.VectorMap
 
 object Ast {
   //
@@ -85,16 +86,10 @@ object Ast {
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
   /** Struct projection. */
-  final case class EStructProj(field: FieldName, struct: Expr) extends Expr {
-    // The actual index is filled in by the type checker.
-    private[lf] var fieldIndex: Option[Int] = None
-  }
+  final case class EStructProj(field: FieldName, struct: Expr) extends Expr
 
-  /** Non-destructive struct update. */
-  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr {
-    // The actual index is filled in by the type checker.
-    private[lf] var fieldIndex: Option[Int] = None
-  }
+  /** Struct update. */
+  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
 
   /** Expression application. Function can be an abstraction or a builtin function. */
   final case class EApp(fun: Expr, arg: Expr) extends Expr
@@ -180,6 +175,24 @@ object Ast {
   /** Invoke an interface method */
   final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
       extends Expr
+
+  /** Obtain the type representation of a contract's template through an interface. */
+  final case class EInterfaceTemplateTypeRep(
+      ifaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
+  /** Obtain the signatories of a contract through an interface. */
+  final case class ESignatoryInterface(
+      ifaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
+  /** Obtain the observers of a contract through an interface. */
+  final case class EObserverInterface(
+      ifaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
 
   //
   // Kinds
@@ -599,7 +612,7 @@ object Ast {
       cons: DataCons,
   ) extends GenDefinition[Nothing]
   object DDataType {
-    val Interface = DDataType(true, ImmArray.empty, DataInterface)
+    val Interface = DDataType(false, ImmArray.empty, DataInterface)
   }
 
   final case class GenDValue[E](
@@ -720,14 +733,6 @@ object Ast {
   type DefInterfaceSignature = GenDefInterface[Unit]
   val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
 
-  final case class InterfaceChoice(
-      name: ChoiceName,
-      consuming: Boolean,
-      argType: Type,
-      returnType: Type,
-      // TODO interfaces Should observers or controllers be part of the interface?
-  )
-
   final case class InterfaceMethod(
       name: MethodName,
       returnType: Type,
@@ -741,7 +746,9 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
-      implements: Map[TypeConName, GenTemplateImplements[E]],
+      implements: VectorMap[TypeConName, GenTemplateImplements[
+        E
+      ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
   ) {
     lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
       implements.flatMap { case (iface, impl) =>
@@ -772,7 +779,7 @@ object Ast {
         ),
         observers = observers,
         key = key,
-        implements = toMapWithoutDuplicate(
+        implements = toVectorMapWithoutDuplicate(
           implements.map(i => i.interfaceId -> i),
           (ifaceId: TypeConName) =>
             PackageError(s"repeated interface implementation ${ifaceId.toString}"),
@@ -787,7 +794,7 @@ object Ast {
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: Map[TypeConName, GenTemplateImplements[E]],
+        implements: VectorMap[TypeConName, GenTemplateImplements[E]],
     ) = GenTemplate(
       param = param,
       precond = precond,
@@ -808,7 +815,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          Map[TypeConName, GenTemplateImplements[E]],
+          VectorMap[TypeConName, GenTemplateImplements[E]],
       )
     ] = Some(
       (
@@ -996,6 +1003,17 @@ object Ast {
       error: Key => PackageError,
   ): Map[Key, Value] =
     xs.foldLeft(Map.empty[Key, Value]) { case (acc, (key, value)) =>
+      if (acc.contains(key))
+        throw error(key)
+      else
+        acc.updated(key, value)
+    }
+
+  private[this] def toVectorMapWithoutDuplicate[Key, Value](
+      xs: Iterable[(Key, Value)],
+      error: Key => PackageError,
+  ): VectorMap[Key, Value] =
+    xs.foldRight(VectorMap.empty[Key, Value]) { case ((key, value), acc) =>
       if (acc.contains(key))
         throw error(key)
       else

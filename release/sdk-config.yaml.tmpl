@@ -46,20 +46,12 @@ commands:
   completion: true
 - name: sandbox
   path: daml-helper/daml-helper
-  desc: "Launch Sandbox"
-  args: ["run-platform-jar", "--logback-config=sandbox-logback.xml", "sandbox"]
-- name: sandbox-classic
-  path: daml-helper/daml-helper
-  desc: "Deprecated. Launch Sandbox Classic (the default Sandbox implementation for SDK <= 0.13.55)"
-  args: ["run-platform-jar", "--logback-config=sandbox-logback.xml", "sandbox-classic"]
+  desc: "Launch Canton Sandbox"
+  args: ["sandbox"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Launch the Navigator"
   args: ["run-jar", "--logback-config=daml-sdk/navigator-logback.xml", "daml-sdk/daml-sdk.jar", "navigator"]
-- name: extractor
-  path: daml-helper/daml-helper
-  desc: "Launch the Extractor (early access)"
-  args: ["run-jar", "--logback-config=daml-sdk/extractor-logback.xml", "daml-sdk/daml-sdk.jar", "extractor"]
 - name: ledger
   path: daml-helper/daml-helper
   desc: "Interact with a Daml ledger"
@@ -86,7 +78,7 @@ commands:
 - name: json-api
   path: daml-helper/daml-helper
   desc: "Launch the HTTP JSON API"
-  args: ["run-platform-jar", "--logback-config=json-api-logback.xml", "json-api"]
+  args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
 - name: trigger-service
   path: daml-helper/daml-helper
   desc: "Launch the trigger service"
@@ -103,14 +95,11 @@ commands:
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]
   desc: "Run a Daml script"
-- name: test-script
-  path: daml-helper/daml-helper
-  args: ["run-jar", "--logback-config=daml-sdk/test-script-logback.xml", "daml-sdk/daml-sdk.jar", "test-script"]
-  desc: "Run all Daml script tests in a DAR"
 - name: repl
   path: damlc/damlc
   args: ["repl"]
   desc: "Launch the Daml REPL"
-- name: canton-sandbox
+- name: canton-console
   path: daml-helper/daml-helper
-  args: ["canton-sandbox"]
+  desc: "Launch the Canton Sandbox Console"
+  args: ["canton-console"]

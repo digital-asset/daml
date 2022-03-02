@@ -1,10 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
 
-import scala.collection.compat._
-import scala.collection.mutable
+import scala.collection.{Factory, mutable}
 
 private[resources] final class UnitCanBuildFrom[T, C[_]] extends Factory[T, Unit] {
   override def fromSpecific(it: IterableOnce[T]) = ()

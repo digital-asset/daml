@@ -1,10 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v2
 
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.lf.data.Ref
+import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Information about a completion for a submission.
@@ -42,13 +43,14 @@ case class CompletionInfo(
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: Option[Ref.SubmissionId],
+    statistics: Option[TransactionNodeStatistics],
 ) {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }
 
 object CompletionInfo {
   implicit val `CompletionInfo to LoggingValue`: ToLoggingValue[CompletionInfo] = {
-    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId) =>
+    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
         "applicationId " -> applicationId,

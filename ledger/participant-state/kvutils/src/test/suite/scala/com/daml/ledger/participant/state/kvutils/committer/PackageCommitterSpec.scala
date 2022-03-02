@@ -1,14 +1,14 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.UUID
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
   DamlPackageUploadEntry,
   DamlPackageUploadRejectionEntry,
@@ -19,6 +19,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.logging.LoggingContext
@@ -122,17 +123,17 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     }
   }
 
-  private[this] def buildSubmission(archives: DamlLf.Archive*) =
+  private[this] def buildSubmission(archives: DamlLf.Archive*) = {
+    val packageUploadEntryBuilder = DamlPackageUploadEntry
+      .newBuilder()
+      .setSubmissionId(UUID.randomUUID().toString)
+      .setParticipantId(participantId)
+    archives.foreach(archive => packageUploadEntryBuilder.addArchives(archive.toByteString))
     DamlSubmission
       .newBuilder()
-      .setPackageUploadEntry(
-        DamlPackageUploadEntry
-          .newBuilder()
-          .setSubmissionId(UUID.randomUUID().toString)
-          .setParticipantId(participantId)
-          .addAllArchives(archives.asJava)
-      )
+      .setPackageUploadEntry(packageUploadEntryBuilder)
       .build()
+  }
 
   private[this] val emptyState = Compat.wrapMap(Map.empty[DamlStateKey, DamlStateValue])
 
@@ -172,11 +173,32 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
-    archives.iterator().asScala.map(_.getHash).toSet shouldBe committedPackages.toSet[String]
+    val packageIds = archives
+      .iterator()
+      .asScala
+      .map { archive =>
+        ArchiveConversions.parsePackageId(RawArchive(archive)).fold(error => throw error, identity)
+      }
+      .toSet
+    packageIds shouldBe committedPackages.toSet[String]
   }
 
   "PackageCommitter" should {
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
+
+    "reject non-readable archives" in {
+      val packageUploadEntryBuilder = DamlPackageUploadEntry
+        .newBuilder()
+        .setSubmissionId(UUID.randomUUID().toString)
+        .setParticipantId(participantId)
+      packageUploadEntryBuilder.addArchives(ByteString.copyFromUtf8("invalid package"))
+      val submission = DamlSubmission
+        .newBuilder()
+        .setPackageUploadEntry(packageUploadEntryBuilder)
+        .build()
+      val output = newCommitter.packageCommitter.run(None, submission, participantId, emptyState)
+      shouldFailWith(output, INVALID_PACKAGE, "Cannot parse package ID")
+    }
 
     // Don't need to run the below test cases for all instances of PackageCommitter.
     "set record time in log entry if record time is available" in {
@@ -307,7 +329,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         newCommitter.submit(submission),
         INVALID_PACKAGE,
-        "Invalid hash: non expected character",
+        "Cannot parse package ID",
       )
 
       // when archive2 is known
@@ -321,7 +343,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val archive = archive2.toBuilder.setPayload(ByteString.EMPTY).build()
       val submission = buildSubmission(archive1, archive, archive3)
 
-      //when archive2 is unknown
+      // when archive2 is unknown
       shouldFailWith(committer.submit(submission), INVALID_PACKAGE, pkgId2)
 
       // when archive2 is known
@@ -341,7 +363,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val archiveWithImproperHash = archive3.toBuilder.setHash(pkgId2).build()
       val submission = buildSubmission(archive1, archiveWithImproperHash, archive3)
 
-      //when archive2 is unknown
+      // when archive2 is unknown
       shouldFailWith(
         committer.submit(submission),
         INVALID_PACKAGE,
@@ -509,6 +531,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
     val anEmptyResult = PackageCommitter.Result(
       DamlPackageUploadEntry.newBuilder.setSubmissionId("an ID").setParticipantId("a participant"),
+      Iterable.empty,
       Map.empty,
     )
 

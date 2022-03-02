@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.config
@@ -12,17 +12,15 @@ import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  InitialLedgerConfiguration,
-  SubmissionConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
+import com.daml.platform.usermanagement.UserManagementConfig
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
@@ -37,21 +35,19 @@ final case class SandboxConfig(
     timeProviderType: Option[TimeProviderType],
     configurationLoadTimeout: Duration,
     maxDeduplicationDuration: Option[Duration],
+    // TODO Consider removing once sandbox-next is gone
     delayBeforeSubmittingLedgerConfiguration: Duration,
     timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
-    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
-    scenario: Option[String],
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     databaseConnectionPoolSize: Int,
     databaseConnectionTimeout: FiniteDuration,
-    eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
-    seeding: Option[Seeding],
+    seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: FiniteDuration,
     maxParallelSubmissions: Int, // only used by Sandbox Classic
@@ -61,6 +57,7 @@ final case class SandboxConfig(
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
+    acsIdQueueLimit: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -69,18 +66,23 @@ final case class SandboxConfig(
     managementServiceTimeout: Duration,
     sqlStartMode: Option[PostgresStartupMode],
     enableCompression: Boolean,
-    enableSelfServiceErrorCodes: Boolean,
+    userManagementConfig: UserManagementConfig,
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
 
+  def withUserManagementConfig(
+      modify: UserManagementConfig => UserManagementConfig
+  ): SandboxConfig =
+    copy(userManagementConfig = modify(userManagementConfig))
+
   lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
     InitialLedgerConfiguration(
       Configuration.reasonableInitialConfiguration.copy(
         timeModel = timeModel,
-        maxDeduplicationTime = maxDeduplicationDuration.getOrElse(
-          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
         ),
       ),
       delayBeforeSubmittingLedgerConfiguration,
@@ -101,6 +103,7 @@ object SandboxConfig {
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
+  val DefaultAcsIdQueueLimit: Int = 10000000
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
@@ -135,18 +138,15 @@ object SandboxConfig {
         maxSkew = Duration.ofSeconds(120L),
       ).get,
       commandConfig = CommandConfiguration.default,
-      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
-      scenario = None,
       implicitPartyAllocation = true,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       databaseConnectionPoolSize = DefaultDatabaseConnectionPoolSize,
       databaseConnectionTimeout = DefaultDatabaseConnectionTimeout,
-      eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,
-      seeding = Some(Seeding.Strong),
+      seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = 10.seconds,
       maxParallelSubmissions = 512,
@@ -156,6 +156,7 @@ object SandboxConfig {
       acsIdFetchingParallelism = DefaultAcsIdFetchingParallelism,
       acsContractFetchingParallelism = DefaultAcsContractFetchingParallelism,
       acsGlobalParallelism = DefaultAcsGlobalParallelism,
+      acsIdQueueLimit = DefaultAcsIdQueueLimit,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
@@ -164,7 +165,7 @@ object SandboxConfig {
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
-      enableSelfServiceErrorCodes = true,
+      userManagementConfig = UserManagementConfig.default(true),
     )
 
   sealed abstract class EngineMode extends Product with Serializable

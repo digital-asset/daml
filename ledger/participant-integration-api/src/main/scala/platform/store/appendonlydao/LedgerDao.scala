@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.appendonlydao
@@ -6,7 +6,7 @@ package com.daml.platform.store.appendonlydao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -18,7 +18,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -26,12 +27,7 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractStateEvent, FilterRelation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
 
 import scala.concurrent.Future
@@ -119,9 +115,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd]
 
-  /** Looks up the current external ledger end offset */
-  def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
-
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -170,50 +163,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed]
 
-  /** Deduplicates commands.
-    *
-    * @param commandId The command Id
-    * @param submitters The submitting parties
-    * @param submittedAt The time when the command was submitted
-    * @param deduplicateUntil The time until which the command should be deduplicated
-    * @return whether the command is a duplicate or not
-    */
-  def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
-
-  /** Remove all expired deduplication entries. This method has to be called
-    * periodically to ensure that the deduplication cache does not grow unboundedly.
-    *
-    * @param currentTime The current time. This should use the same source of time as
-    *                    the `deduplicateUntil` argument of [[deduplicateCommand]].
-    *
-    * @return when DAO has finished removing expired entries. Clients do not
-    *         need to wait for the operation to finish, it is safe to concurrently
-    *         call deduplicateCommand().
-    */
-  def removeExpiredDeduplicationData(
-      currentTime: Timestamp
-  )(implicit loggingContext: LoggingContext): Future[Unit]
-
-  /** Stops deduplicating the given command. This method should be called after
-    * a command is rejected by the submission service, or after a transaction is
-    * rejected by the ledger. Without removing deduplication entries for failed
-    * commands, applications would have to wait for the end of the (long) deduplication
-    * window before they could send a retry.
-    *
-    * @param commandId The command Id
-    * @param submitters The submitting parties
-    * @return
-    */
-  def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit]
-
   /** Prunes participant events and completions in archived history and remembers largest
     * pruning offset processed thus far.
     *
@@ -223,8 +172,17 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit]
+
+  /** Returns all TransactionMetering records matching given criteria */
+  def meteringReportData(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[Ref.ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[ReportData]
 }
 
+// TODO sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
+//                                It should be removed when the assertions in that suite are covered by other suites
 private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   /** Initializes the database with the given ledger identity.
@@ -251,19 +209,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
-
-  /** !!! Please kindly not use this.
-    * !!! This method is solely for supporting sandbox-classic. Targeted for removal as soon sandbox classic is removed.
-    * Stores the initial ledger state, e.g., computed by the scenario loader.
-    * Must be called at most once, before any call to storeLedgerEntry.
-    *
-    * @param ledgerEntries the list of LedgerEntries to save
-    * @return Ok when the operation was successful
-    */
-  def storeInitialState(
-      ledgerEntries: Vector[(Offset, LedgerEntry)],
-      newLedgerEnd: Offset,
-  )(implicit loggingContext: LoggingContext): Future[Unit]
 
   /** Stores a party allocation or rejection thereof.
     *
@@ -292,9 +237,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
-
-  /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
-  def reset()(implicit loggingContext: LoggingContext): Future[Unit]
 
   /** This is a combined store transaction method to support sandbox-classic and tests
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed

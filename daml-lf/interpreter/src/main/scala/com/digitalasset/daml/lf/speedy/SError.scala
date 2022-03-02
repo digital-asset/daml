@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,7 +20,7 @@ object SError {
     * hence we do not have separate errors for e.g. unknown values.
     */
   final case class SErrorCrash(location: String, reason: String) extends SError {
-    override def toString = "CRASH: " + reason
+    override def getMessage: String = s"CRASH ($location): $reason"
   }
 
   /** Daml exceptions that should be reported to the user. */

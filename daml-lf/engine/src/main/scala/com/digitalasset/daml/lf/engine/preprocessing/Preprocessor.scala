@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -31,16 +31,12 @@ import scala.annotation.tailrec
   *   Daml-LF package definitions against the command should
   *   resolved/typechecked. It is updated dynamically each time the
   *   [[ResultNeedPackage]] continuation is called.
-  * @param forbidV0ContractId when `true` the preprocessor will reject
-  *   any value/command/transaction that contains V0 Contract IDs
-  *   without suffixed.
   * @param requireV1ContractIdSuffix when `true` the preprocessor will reject
   *   any value/command/transaction that contains V1 Contract IDs
   *   without suffixed.
   */
 private[engine] final class Preprocessor(
     compiledPackages: MutableCompiledPackages,
-    forbidV0ContractId: Boolean = true,
     requireV1ContractIdSuffix: Boolean = true,
 ) {
 
@@ -51,7 +47,6 @@ private[engine] final class Preprocessor(
   val commandPreprocessor =
     new CommandPreprocessor(
       interface = interface,
-      forbidV0ContractId = forbidV0ContractId,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
@@ -125,7 +120,11 @@ private[engine] final class Preprocessor(
               // We assume that getDependencies is always given serializable types
               ResultError(
                 Error.Preprocessing
-                  .Internal(NameOf.qualifiedNameOfCurrentFunc, s"unserializable type ${typ.pretty}")
+                  .Internal(
+                    NameOf.qualifiedNameOfCurrentFunc,
+                    s"unserializable type ${typ.pretty}",
+                    None,
+                  )
               )
           }
         case Nil =>

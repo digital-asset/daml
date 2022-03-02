@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -65,11 +65,9 @@ maybeReferenceLink = maybe RenderPlain RenderLink
 instance RenderDoc TemplateDoc where
     renderDoc TemplateDoc{..} = mconcat
         [ renderDoc td_anchor
-        , RenderParagraph . renderUnwords . concat $
-            [ [RenderStrong "template"]
-            , renderContext td_super
-            , [maybeAnchorLink td_anchor (unTypename td_name)]
-            , map RenderPlain td_args
+        , RenderParagraph . renderUnwords $
+            [ RenderStrong "template"
+            , maybeAnchorLink td_anchor (unTypename td_name)
             ]
         , RenderBlock $ mconcat
             [ renderDoc td_descr
@@ -105,6 +103,7 @@ instance RenderDoc ImplDoc where
 instance RenderDoc MethodDoc where
     renderDoc MethodDoc {..} = mconcat
       [ RenderParagraph $ RenderStrong ("Method " <> unTypename mtd_name <> " : ") <> renderType mtd_type
+      , renderDoc mtd_descr
       ]
 
 instance RenderDoc ChoiceDoc where
@@ -256,19 +255,24 @@ renderTypePrec prec = \case
             $ map (renderTypePrec 1) ts
     TypeList t ->
         renderEnclose "[" "]" (renderTypePrec 0 t)
-    TypeTuple [t] ->
-        renderTypePrec prec t
     TypeTuple ts ->
-        renderInParens
-            . renderIntercalate ", "
-            $ map (renderTypePrec 0) ts
+        renderTypeTuplePrec prec ts
     TypeLit lit ->
         RenderPlain lit
 
+renderTypeTuplePrec :: Int -> [Type] -> RenderText
+renderTypeTuplePrec prec = \case
+    [t] -> renderTypePrec prec t
+    ts -> renderInParens
+            . renderIntercalate ", "
+            $ map (renderTypePrec 0) ts
+
 -- | Render type context as a list of words. Nothing is rendered as [],
 -- and Just t is rendered as [render t, "=>"].
-renderContext :: Maybe Type -> [RenderText]
-renderContext = maybe [] (\x -> [renderTypePrec 1 x, RenderPlain "=>"])
+renderContext :: Context -> [RenderText]
+renderContext = \case
+    Context [] -> []
+    Context ts -> [renderTypeTuplePrec 1 ts, RenderPlain "=>"]
 
 renderInParens :: RenderText -> RenderText
 renderInParens = renderEnclose "(" ")"

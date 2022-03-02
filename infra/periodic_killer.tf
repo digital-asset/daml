@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file defines a machine meant to destroy/recreate all our CI nodes every
@@ -31,9 +31,10 @@ locals {
 }
 
 resource "google_project_iam_member" "periodic-killer" {
-  count  = length(local.accounts_that_can_kill_machines)
-  role   = google_project_iam_custom_role.periodic-killer.id
-  member = local.accounts_that_can_kill_machines[count.index]
+  count   = length(local.accounts_that_can_kill_machines)
+  project = local.project
+  role    = google_project_iam_custom_role.periodic-killer.id
+  member  = local.accounts_that_can_kill_machines[count.index]
 }
 
 resource "google_compute_instance" "periodic-killer" {

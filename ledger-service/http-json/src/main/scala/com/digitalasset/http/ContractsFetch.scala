@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -38,7 +38,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.\/
+import scalaz.{~>, \/, NaturalTransformation}
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -65,6 +65,7 @@ private class ContractsFetch(
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
+      tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -78,7 +79,7 @@ private class ContractsFetch(
         fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
-      bb <- fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd)
+      bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
       a <- within(bb)
       // fetchTemplateIds can be a subset of templateIds (or even empty),
       // but we only get away with that by checking _all_ of templateIds,
@@ -291,9 +292,9 @@ private class ContractsFetch(
     val startOffset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
-      GraphDSL.create(
+      GraphDSL.createGraph(
         Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[BeginBookmark[String]],
+        Sink.last[BeginBookmark[domain.Offset]],
       )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
@@ -319,7 +320,7 @@ private class ContractsFetch(
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(startOffset))
+            stepsAndOffset.in <~ Source.single(startOffset)
             (
               (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
               stepsAndOffset.out1,
@@ -343,9 +344,7 @@ private class ContractsFetch(
     for {
       _ <- sinkCioSequence_(acsQueue)
       offset0 <- connectionIOFuture(lastOffsetFuture)
-      offsetOrError <- (domain.Offset.tag.subst(offset0) max AbsoluteBookmark(
-        absEnd.toDomain
-      )) match {
+      offsetOrError <- offset0 max AbsoluteBookmark(absEnd.toDomain) match {
         case ab @ AbsoluteBookmark(newOffset) =>
           ContractDao
             .updateOffset(parties, templateId, newOffset, offsets)

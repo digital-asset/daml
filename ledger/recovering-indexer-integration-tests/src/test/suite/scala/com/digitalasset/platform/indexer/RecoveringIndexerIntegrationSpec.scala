@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -33,11 +33,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -47,7 +46,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -81,7 +80,7 @@ class RecoveringIndexerIntegrationSpec
                 displayName = Some("Alice"),
                 submissionId = randomSubmissionId(),
               )
-              .toScala
+              .asScala
             _ <- eventuallyPartiesShouldBe("Alice")(materializer)
           } yield ()
         }
@@ -107,21 +106,21 @@ class RecoveringIndexerIntegrationSpec
                   displayName = Some("Alice"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- participantState
                 .allocateParty(
                   hint = Some(Ref.Party.assertFromString("bob")),
                   displayName = Some("Bob"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- participantState
                 .allocateParty(
                   hint = Some(Ref.Party.assertFromString("carol")),
                   displayName = Some("Carol"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- eventuallyPartiesShouldBe("Alice", "Bob", "Carol")(materializer)
             } yield ()
           }
@@ -156,7 +155,7 @@ class RecoveringIndexerIntegrationSpec
                   displayName = Some("Alice"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- eventually { (_, _) =>
                 Future.fromTry(
                   Try(
@@ -197,9 +196,6 @@ class RecoveringIndexerIntegrationSpec
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      servicesExecutionContext <- ResourceOwner
-        .forExecutorService(() => Executors.newWorkStealingPool())
-        .map(ExecutionContext.fromExecutorService)
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState._1,
@@ -209,7 +205,6 @@ class RecoveringIndexerIntegrationSpec
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       )(materializer, loggingContext)
@@ -241,31 +236,30 @@ class RecoveringIndexerIntegrationSpec
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val errorFactories: ErrorFactories = mock[ErrorFactories]
-    val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
     val metrics = new Metrics(new MetricRegistry)
-    DbDispatcher
+    DbSupport
       .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map(dbDispatcher =>
+      .map(dbSupport =>
         JdbcLedgerDao.read(
-          dbDispatcher = dbDispatcher,
+          dbSupport = dbSupport,
           eventsPageSize = 100,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 20000,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
+          acsIdQueueLimit = 1000000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
-          storageBackendFactory = storageBackendFactory,
           ledgerEndCache = mutableLedgerEndCache,
           errorFactories = errorFactories,
           stringInterning = stringInterning,
@@ -319,7 +313,6 @@ object RecoveringIndexerIntegrationSpec {
         KeyValueParticipantStateReader(
           reader = reader,
           metrics = metrics,
-          enableSelfServiceErrorCodes = true,
         ),
         new KeyValueParticipantStateWriter(
           writer = writer,

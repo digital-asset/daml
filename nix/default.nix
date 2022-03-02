@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem
+{ system ? import ./system.nix
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
 
@@ -109,9 +109,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    license-checker =
-      (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
-
     chromedriver = pkgs.chromedriver;
 
     # Python development
@@ -128,10 +125,10 @@ in rec {
       python3 = python3;
     };
 
-    sphinx-build      = sphinx183;
-    sphinx-quickstart = sphinx183;
+    sphinx-build      = sphinx;
+    sphinx-quickstart = sphinx;
 
-    sphinx183 = bazel_dependencies.sphinx183-exts;
+    sphinx = bazel_dependencies.sphinx-exts;
 
     convert = bazel_dependencies.imagemagick;
 
@@ -178,6 +175,7 @@ in rec {
     jq = bazel_dependencies.jq;
     sed = pkgs.gnused;
     sha1sum = pkgs.coreutils;
+    sha256sum = pkgs.coreutils;
     xargs = pkgs.findutils;
     xmlstarlet = pkgs.xmlstarlet;
 
@@ -198,13 +196,14 @@ in rec {
 
     # Cloud tools
     aws = pkgs.awscli;
+    az = pkgs.azure-cli;
     gcloud = pkgs.google-cloud-sdk;
     bq = gcloud;
     gsutil = gcloud;
     docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    terraform = pkgs.terraform_0_12.withPlugins (p: with p; [
+    terraform = pkgs.terraform_1.withPlugins (p: with p; [
       google
       google-beta
       random

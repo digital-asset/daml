@@ -1,33 +1,39 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { gql } from '@apollo/client';
-import { withMutation, withQuery } from '@apollo/client/react/hoc';
-import { Dispatch } from '@da/ui-core';
-import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
-import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
-import * as React from 'react';
-import { connect } from 'react-redux';
+import { gql } from "@apollo/client";
+import { withMutation, withQuery } from "@apollo/client/react/hoc";
+import { Dispatch } from "@da/ui-core";
+import { DamlLfValue } from "@da/ui-core/lib/api/DamlLfValue";
+import * as LedgerWatcher from "@da/ui-core/lib/ledger-watcher";
+import * as React from "react";
+import { connect } from "react-redux";
 import {
   ContractDetailsById,
   ContractDetailsById_node_Contract,
   ContractDetailsByIdVariables,
   ContractExercise,
-} from '../../api/Queries';
-import * as App from '../app';
-import ContractComponent from './ContractComponent';
+} from "../../api/Queries";
+import * as App from "../app";
+import ContractComponent from "./ContractComponent";
 
-export type Action
-  = { type: 'SET_CHOICE', choice?: string }
-  | { type: 'SET_CHOICE_LOADING', choiceLoading: boolean }
-  | { type: 'SET_ERROR', error: string }
+export type Action =
+  | { type: "SET_CHOICE"; choice?: string }
+  | { type: "SET_CHOICE_LOADING"; choiceLoading: boolean }
+  | { type: "SET_ERROR"; error: string };
 
-export const setChoice = (choice?: string): Action =>
-  ({ type: 'SET_CHOICE', choice });
-export const setChoiceLoading = (choiceLoading: boolean): Action =>
-  ({ type: 'SET_CHOICE_LOADING', choiceLoading });
-export const setError = (error: string): Action =>
-  ({ type: 'SET_ERROR', error });
+export const setChoice = (choice?: string): Action => ({
+  type: "SET_CHOICE",
+  choice,
+});
+export const setChoiceLoading = (choiceLoading: boolean): Action => ({
+  type: "SET_CHOICE_LOADING",
+  choiceLoading,
+});
+export const setError = (error: string): Action => ({
+  type: "SET_ERROR",
+  error,
+});
 
 export interface State {
   id: string;
@@ -36,18 +42,22 @@ export interface State {
   error?: string;
 }
 
-export const init = (id: string, choice?: string): State =>
-  ({ id, choice, choiceLoading: false });
+export const init = (id: string, choice?: string): State => ({
+  id,
+  choice,
+  choiceLoading: false,
+});
 
 export const reduce = (state: State, action: Action): State => {
   switch (action.type) {
-    case 'SET_CHOICE': return { ...state, choice: action.choice };
-    case 'SET_CHOICE_LOADING':
+    case "SET_CHOICE":
+      return { ...state, choice: action.choice };
+    case "SET_CHOICE_LOADING":
       return { ...state, choiceLoading: action.choiceLoading };
-    case 'SET_ERROR':
+    case "SET_ERROR":
       return { ...state, error: action.error };
   }
-}
+};
 
 export type Contract = ContractDetailsById_node_Contract;
 
@@ -64,22 +74,28 @@ interface QueryProps {
   isLoading: boolean;
 }
 interface MutationProps {
-  exercise?(contractId: string, choiceId: string, argument?: DamlLfValue):
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Promise<any>;
+  exercise?(
+    contractId: string,
+    choiceId: string,
+    argument?: DamlLfValue,
+  ): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Promise<any>;
 }
 
 type Props = OwnProps & ReduxProps & QueryProps & MutationProps;
 
 class Component extends React.Component<Props, {}> {
-
   constructor(props: Props) {
     super(props);
     this.exercise = this.exercise.bind(this);
     this.gotoParent = this.gotoParent.bind(this);
   }
 
-  componentWillUnmount(): void { this.gotoParent = () => { return; }; }
+  componentWillUnmount(): void {
+    this.gotoParent = () => {
+      return;
+    };
+  }
 
   /**
    * This component deals with displaying a form for exercising a choice and
@@ -105,7 +121,10 @@ class Component extends React.Component<Props, {}> {
     dispatch(toSelf(setChoice()));
   }
 
-  exercise(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void {
+  exercise(
+    e: React.MouseEvent<HTMLButtonElement>,
+    argument?: DamlLfValue,
+  ): void {
     e.preventDefault();
     const {
       exercise,
@@ -122,7 +141,8 @@ class Component extends React.Component<Props, {}> {
         .then(({ data }) => {
           dispatch(toWatcher(LedgerWatcher.registerCommand(data.exercise)));
           this.gotoParent();
-        }).catch((error: Error) => {
+        })
+        .catch((error: Error) => {
           dispatch(toSelf(setChoiceLoading(false)));
           dispatch(toSelf(setError(error.message)));
         });
@@ -131,8 +151,9 @@ class Component extends React.Component<Props, {}> {
 
   render() {
     const { state, contract, isLoading } = this.props;
-    if (!contract || isLoading) { return <p>Loading</p>; }
-    else {
+    if (!contract || isLoading) {
+      return <p>Loading</p>;
+    } else {
       return (
         <ContractComponent
           contract={contract}
@@ -150,7 +171,8 @@ const query = gql`
   query ContractDetailsById($id: ID!) {
     node(id: $id, typename: "Contract") {
       ... on Contract {
-        id argument
+        id
+        argument
         archiveEvent {
           id
         }
@@ -159,8 +181,12 @@ const query = gql`
         observers
         key
         template {
-          id topLevelDecl
-          choices { name parameter }
+          id
+          topLevelDecl
+          choices {
+            name
+            parameter
+          }
         }
       }
     }
@@ -168,7 +194,11 @@ const query = gql`
 `;
 
 const mutation = gql`
-  mutation ContractExercise($contractId: ID!, $choiceId: ID!, $argument: DamlLfValue) {
+  mutation ContractExercise(
+    $contractId: ID!
+    $choiceId: ID!
+    $argument: DamlLfValue
+  ) {
     exercise(contractId: $contractId, choiceId: $choiceId, argument: $argument)
   }
 `;
@@ -185,28 +215,39 @@ const mutation = gql`
 // generally confusing to say the least, but works out with a bit of care and
 // thinking about the ordering and what each connect function adds.
 
-const _withMutation =
-  withMutation<OwnProps, ContractExercise, {}, MutationProps>(mutation,
-    {
-      props: ({mutate}): MutationProps => ({
-        exercise: mutate && ((contractId: string, choiceId: string, argument?: DamlLfValue) =>
-          mutate({variables: { contractId, choiceId, argument}})
-      )}),
-    },
-    );
+const _withMutation = withMutation<
+  OwnProps,
+  ContractExercise,
+  {},
+  MutationProps
+>(mutation, {
+  props: ({ mutate }): MutationProps => ({
+    exercise:
+      mutate &&
+      ((contractId: string, choiceId: string, argument?: DamlLfValue) =>
+        mutate({ variables: { contractId, choiceId, argument } })),
+  }),
+});
 
-const _withQuery =
-  withQuery<OwnProps & MutationProps, ContractDetailsById, ContractDetailsByIdVariables, QueryProps>(query, {
-    props: ({ data }) => {
-      const node = data?.node;
-      const contract = (node && node.__typename === 'Contract') ? node : null;
-      return {
-        isLoading: data ? data.loading : false,
-        contract,
-      }
-    },
-    options: ({ state: { id } }: OwnProps) => ({ variables: { id } as ContractDetailsByIdVariables}),
-  });
+const _withQuery = withQuery<
+  OwnProps & MutationProps,
+  ContractDetailsById,
+  ContractDetailsByIdVariables,
+  QueryProps
+>(query, {
+  props: ({ data }) => {
+    const node = data?.node;
+    const contract = node && node.__typename === "Contract" ? node : null;
+    return {
+      isLoading: data ? data.loading : false,
+      contract,
+    };
+  },
+  options: ({ state: { id } }: OwnProps) => ({
+    variables: { id } as ContractDetailsByIdVariables,
+  }),
+});
 
-export const UI: React.ComponentClass<OwnProps> =
-  _withMutation(_withQuery(connect()(Component)));
+export const UI: React.ComponentClass<OwnProps> = _withMutation(
+  _withQuery(connect()(Component)),
+);

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
@@ -15,17 +14,11 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
-        silencer_plugin,
     ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
-    ],
-    scalacopts = [
-        # Forced upon us by scalatest
-        "-P:silencer:lineContentFilters=Stream",
     ],
     visibility = [
         "//visibility:public",
@@ -86,9 +79,6 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ) + glob(["src/test/{}/scala/**/*.scala".format(scala_major_version)]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
@@ -97,7 +87,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [

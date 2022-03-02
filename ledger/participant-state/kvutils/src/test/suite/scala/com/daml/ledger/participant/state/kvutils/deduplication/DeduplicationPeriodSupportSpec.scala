@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.deduplication
@@ -8,15 +8,14 @@ import java.time.{Duration, Instant}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
-import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -26,52 +25,58 @@ class DeduplicationPeriodSupportSpec
     extends AsyncWordSpec
     with MockitoSugar
     with Matchers
-    with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll
     with TestLoggers
     with ArgumentMatchersSugar {
-  private val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
-  private val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
-  private val errorFactories: ErrorFactories = mock[ErrorFactories]
-  private val service = new DeduplicationPeriodSupport(
-    periodConverter,
-    periodValidator,
-    errorFactories,
-  )
-  private val maxDeduplicationDuration = Duration.ofSeconds(5)
-  private val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationid"))
-  private val submittedAt = Instant.now()
-  private val statusRuntimeException = new StatusRuntimeException(Status.OK)
-  private val deduplicationPeriodOffset =
-    Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
-  private val offset = deduplicationPeriodOffset.toHexString
-
-  override protected def afterEach(): Unit = reset(periodConverter, periodValidator, errorFactories)
 
   "using deduplication duration" should {
-    "passthrough without validation" in {
-      val period = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
-      callServiceWithDeduplicationPeriod(period)
+    "validate and return success" in {
+      val fixture = getFixture
+      import fixture._
+      when(
+        periodValidator.validate(any[DeduplicationPeriod], any[Duration])(
+          any[ContextualizedErrorLogger]
+        )
+      ).thenReturn(Right(durationPeriod))
+      callServiceWithDeduplicationPeriod(durationPeriod)
         .map { result =>
           verifyNoMoreInteractions(periodConverter)
-          verifyNoMoreInteractions(periodValidator)
-          result shouldBe period
+          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
+          result shouldBe durationPeriod
+        }
+    }
+
+    "validate and return failure" in {
+      val fixture = getFixture
+      import fixture._
+      when(
+        periodValidator.validate(any[DeduplicationPeriod], any[Duration])(
+          any[ContextualizedErrorLogger]
+        )
+      ).thenReturn(Left(statusRuntimeException))
+      recoverToExceptionIf[StatusRuntimeException](
+        callServiceWithDeduplicationPeriod(durationPeriod)
+      )
+        .map { result =>
+          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
+          result shouldBe statusRuntimeException
         }
     }
   }
 
   "using deduplication offset" should {
     "convert offset and validate result" in {
+      val fixture = getFixture
+      import fixture._
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
-      val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
       when(
         periodConverter.convertOffsetToDuration(
           offset,
           applicationId,
           Set.empty,
-          submittedAt,
+          maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(Future.successful(Right(durationPeriod.duration)))
       when(periodValidator.validate(durationPeriod, maxDeduplicationDuration))
@@ -82,7 +87,7 @@ class DeduplicationPeriodSupportSpec
             offset,
             applicationId,
             Set.empty,
-            submittedAt,
+            maxRecordTimeFromSubmissionTime,
           )
           verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
           result shouldBe durationPeriod
@@ -90,16 +95,17 @@ class DeduplicationPeriodSupportSpec
     }
 
     "convert offset and return validation failure" in {
+      val fixture = getFixture
+      import fixture._
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
-      val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
       when(
         periodConverter.convertOffsetToDuration(
           offset,
           applicationId,
           Set.empty,
-          submittedAt,
+          maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(Future.successful(Right(durationPeriod.duration)))
       when(periodValidator.validate(durationPeriod, maxDeduplicationDuration))
@@ -110,7 +116,7 @@ class DeduplicationPeriodSupportSpec
             offset,
             applicationId,
             Set.empty,
-            submittedAt,
+            maxRecordTimeFromSubmissionTime,
           )
           verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
           result shouldBe statusRuntimeException
@@ -118,6 +124,8 @@ class DeduplicationPeriodSupportSpec
     }
 
     "fail to convert offset and return failure" in {
+      val fixture = getFixture
+      import fixture._
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
@@ -126,16 +134,14 @@ class DeduplicationPeriodSupportSpec
           offset,
           applicationId,
           Set.empty,
-          submittedAt,
+          maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(
         Future.successful(Left(DeduplicationConversionFailure.CompletionOffsetNotMatching))
       )
       when(
-        errorFactories.invalidDeduplicationDuration(
+        errorFactories.invalidDeduplicationPeriod(
           any[String],
-          any[String],
-          any[Option[Boolean]],
           any[Option[Duration]],
         )(any[ContextualizedErrorLogger])
       ).thenReturn(statusRuntimeException)
@@ -143,11 +149,14 @@ class DeduplicationPeriodSupportSpec
         .map { result =>
           verify(
             periodConverter
-          ).convertOffsetToDuration(offset, applicationId, Set.empty, submittedAt)
-          verify(errorFactories).invalidDeduplicationDuration(
+          ).convertOffsetToDuration(
+            offset,
+            applicationId,
+            Set.empty,
+            maxRecordTimeFromSubmissionTime,
+          )
+          verify(errorFactories).invalidDeduplicationPeriod(
             any[String],
-            any[String],
-            any[Option[Boolean]],
             any[Option[Duration]],
           )(any[ContextualizedErrorLogger])
           result shouldBe statusRuntimeException
@@ -156,14 +165,37 @@ class DeduplicationPeriodSupportSpec
 
   }
 
-  private def callServiceWithDeduplicationPeriod(
-      offsetPeriod: DeduplicationPeriod
-  ) = service
-    .supportedDeduplicationPeriod(
-      deduplicationPeriod = offsetPeriod,
-      maxDeduplicationDuration,
-      applicationId,
-      Set.empty,
-      submittedAt,
+  private def getFixture = new {
+    val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
+    val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
+    val errorFactories: ErrorFactories = mock[ErrorFactories]
+    val service = new DeduplicationPeriodSupport(
+      periodConverter,
+      periodValidator,
+      errorFactories,
     )
+    val maxDeduplicationDuration = Duration.ofSeconds(5)
+    val ledgerTimeModel = LedgerTimeModel.reasonableDefault
+    val applicationId = Ref.ApplicationId.assertFromString("applicationid")
+    val submittedAt = Instant.now()
+    val maxRecordTimeFromSubmissionTime =
+      ledgerTimeModel.maxRecordTime(Time.Timestamp.assertFromInstant(submittedAt)).toInstant
+    val statusRuntimeException = new StatusRuntimeException(Status.OK)
+    val deduplicationPeriodOffset =
+      Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
+    val offset = deduplicationPeriodOffset.toHexString
+    val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
+
+    def callServiceWithDeduplicationPeriod(
+        offsetPeriod: DeduplicationPeriod
+    ) = service
+      .supportedDeduplicationPeriod(
+        deduplicationPeriod = offsetPeriod,
+        maxDeduplicationDuration,
+        ledgerTimeModel,
+        applicationId,
+        Set.empty,
+        submittedAt,
+      )
+  }
 }

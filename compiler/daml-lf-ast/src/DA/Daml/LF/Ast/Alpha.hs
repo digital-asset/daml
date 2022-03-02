@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Alpha equivalence of types and expressions.
@@ -245,6 +245,21 @@ alphaExpr' env = \case
             -> alphaTypeCon t1a t2a
             && alphaTypeCon t1b t2b
             && alphaExpr' env e1 e2
+        _ -> False
+    EInterfaceTemplateTypeRep ty1 expr1 -> \case
+        EInterfaceTemplateTypeRep ty2 expr2
+            -> alphaTypeCon ty1 ty2
+            && alphaExpr' env expr1 expr2
+        _ -> False
+    ESignatoryInterface ty1 expr1 -> \case
+        ESignatoryInterface ty2 expr2
+            -> alphaTypeCon ty1 ty2
+            && alphaExpr' env expr1 expr2
+        _ -> False
+    EObserverInterface ty1 expr1 -> \case
+        EObserverInterface ty2 expr2
+            -> alphaTypeCon ty1 ty2
+            && alphaExpr' env expr1 expr2
         _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2

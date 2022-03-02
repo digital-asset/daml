@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -52,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Daml SDK'
-copyright = u'Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
+copyright = u'Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -120,6 +120,8 @@ html_scaled_image_link = False
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'DigitalAssetSDKdoc'
 
+html4_writer = True
+
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -181,6 +183,6 @@ rst_prolog = """
 # Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
-    sphinx.add_lexer("daml", DAMLLexer())
+    sphinx.add_lexer("daml", DAMLLexer)
     from typescript import TypeScriptLexer
-    sphinx.add_lexer("tsx", TypeScriptLexer())
+    sphinx.add_lexer("tsx", TypeScriptLexer)

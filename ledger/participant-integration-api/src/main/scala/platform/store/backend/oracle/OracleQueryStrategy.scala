@@ -1,25 +1,19 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.oracle
 
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.QueryStrategy
-import com.daml.platform.store.interning.StringInterning
 
 object OracleQueryStrategy extends QueryStrategy {
 
   override def arrayIntersectionNonEmptyClause(
       columnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
+      internedParties: Set[Int],
   ): CompositeSql = {
-    val internedParties =
-      parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
-    if (internedParties.isEmpty) cSQL"1 = 0"
-    else
-      cSQL"(EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties)))"
+    require(internedParties.nonEmpty, "internedParties must be non-empty")
+    cSQL"(EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties)))"
   }
 
   override def columnEqualityBoolean(column: String, value: String): String =

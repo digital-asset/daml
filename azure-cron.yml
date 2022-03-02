@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -60,7 +60,7 @@ jobs:
 
           eval "$(dev-env/bin/dade-assist)"
           HEAD=$(git rev-parse HEAD)
-          while ! nix-build -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
+          while ! nix-build --no-out-link -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
 
           trap 'rm -rf ~/.docker' EXIT
           echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
@@ -154,11 +154,13 @@ jobs:
           if [[ "$GITHUB" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c v$GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout v$GITHUB
+            cp LICENSE compiler/daml-extension
+            trap "rm -rf $PWD/compiler/daml-extension/LICENSE" EXIT
             cd compiler/daml-extension
             sed -i "s/__VERSION__/$GITHUB/" package.json
             # This produces out/src/extension.js
-            bazel run @nodejs//:yarn
-            bazel run @nodejs//:yarn compile
+            bazel run --run_under="cd $PWD &&" @nodejs//:yarn install
+            bazel run --run_under="cd $PWD &&" @nodejs//:yarn compile
             bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
           else
             if [[ "$GITHUB" == "$MARKET" ]]; then

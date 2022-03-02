@@ -1,8 +1,8 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _ledger-api-services:
-   
+
 The Ledger API services
 #######################
 
@@ -22,7 +22,7 @@ The API is structured as two separate data streams:
 
 Commands are the only way an application can cause the state of the ledger to change, and events are the only mechanism to read those changes.
 
-For an application, the most important consequence of these architectural decisions and implementation is that the ledger API is asynchronous. This means:
+For an application, the most important consequence of these architectural decisions and implementation is that the Ledger API is asynchronous. This means:
 
 -  The outcome of commands is only known some time after they are submitted.
 -  The application must deal with successful and erroneous command completions separately from command submission.
@@ -41,7 +41,7 @@ Glossary
 - A ``completion`` indicates the success or failure of a ``submission``.
 
 .. _ledger-api-submission-services:
-  
+
 Submitting commands to the ledger
 *********************************
 
@@ -61,16 +61,20 @@ The on-ledger effect of the command execution will be reported via the `transact
 Change ID
 ---------
 
-Each intended ledger change is identified by its **change ID**, consisting of of the submitting parties (i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`), :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>` and :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`.
+Each intended ledger change is identified by its **change ID**, consisting of the following three components:
+
+- The submitting parties, i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`
+- the :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>`
+- The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`
 
 Application-specific IDs
 ------------------------
 
 The following application-specific IDs, all of which are included in completion events, can be set in commands:
 
-- A :ref:`submissionId <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
-- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
-- A :ref:`workflowId <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
+- A :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
+- A :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
+- A :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
 
@@ -79,37 +83,14 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Command deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`:
+The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`.
 
-- Applications can provide a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` for each command. If this parameter is not set, the default maximum deduplication period is used.
-- A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
+- Applications can provide a deduplication period for each command. If this parameter is not set, the default maximum deduplication duration is used.
+- A command submission is considered a duplicate submission if the Ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
 - A command resubmission will generate a rejection until the original submission was rejected (i.e. the command failed and resulted in a rejected transaction) or until the effective deduplication period has elapsed since the completion of the original command, whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
-- A command submission will return:
 
-  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication period of a previous command with the same :ref:`change ID <change-id>` on the same participant.
-  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same :ref:`change ID <change-id>`.
-
-- If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
-
-  - At this time, only `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__ supports command deduplication across participants.
-
-For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
-
-.. note::
-
-  - The ledger may extend the deduplication period specified in the request arbitrarily, even beyond the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
-    The deduplication period chosen by the ledger is the *effective deduplication period*.
-
-  - Regardless, the deduplication period specified in the request is always checked against the configured maximum deduplication duration.
-
-  - A command submission is considered a duplicate submission if the ledger is aware of another command within the *effective* deduplication period and with the same :ref:`change ID <change-id>`.
-
-  - The following ledger integrations always extend the deduplication period to the configured maximum deduplication duration:
-
-    - `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
-
-    - :ref:`Daml Sandbox <sandbox-manual>`
+For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
 
 .. _command-completion-service:
 
@@ -118,7 +99,7 @@ Command completion service
 
 Use the **command completion service** to find out the completion status of commands you have submitted.
 
-Completions contain the ``commandId`` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
+Completions contain the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandCompletionService>`.
 
@@ -145,7 +126,7 @@ Use the **transaction service** to listen to changes in the ledger state, report
 
 Transactions detail the changes on the ledger, and contains all the events (create, exercise, archive of contracts) that had an effect in that transaction.
 
-Transactions contain a :ref:`transactionId <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the ``workflowId``, the ``commandId``, and the events in the transaction.
+Transactions contain a :ref:`transaction ID <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, and the events in the transaction.
 
 Subscribe to the transaction service to read events from an arbitrary point on the ledger. This arbitrary point is specified by the ledger offset. This is important when starting or restarting and application, and to work in conjunction with the `active contracts service <#active-contract-service>`__.
 
@@ -176,7 +157,7 @@ Active contracts service
 
 Use the **active contracts service** to obtain a party-specific view of all contracts that are active on the ledger at the time of the request.
 
-The active contracts service returns its response as a stream of batches of the created events that would re-create the state being reported (the size of these batches is left to the ledger implementation). As part of the last message message, the offset at which the reported active contract set was valid is included. This offset can be used to subscribe to the "flat transactions" stream to keep a consistent view of the active contract set without querying the active contract service further.
+The active contracts service returns its response as a stream of batches of the created events that would re-create the state being reported (the size of these batches is left to the ledger implementation). As part of the last message, the offset at which the reported active contract set was valid is included. This offset can be used to subscribe to the "flat transactions" stream to keep a consistent view of the active contract set without querying the active contract service further.
 
 This is most important at application start, if the application needs to synchronize its initial state with a known view of the ledger. Without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger, which can be prohibitively expensive with a large ledger.
 
@@ -212,7 +193,28 @@ Party management service
 
 Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
 
-Allocating parties is necessary to interact with the ledger. For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+Parties govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
+and :ref:`authorization rules <da-ledgers-authorization-rules>`.
+Applications and their operators are expected to allocate and use parties to manage on-ledger access control as per their business requirements.
+
+For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+
+.. _user-service:
+
+User management service
+=======================
+
+Use the **user management service** to manage the set of users on a participant node and their :ref:`access rights <authorization-claims>` to that node's Ledger API services.
+
+In contrast to parties, users are local to a participant node.
+The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
+a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
+
+For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about limits of the user management service, e.g., the maximum number of rights per user.
+The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
+
+Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
 
 .. _package-service:
 
@@ -227,12 +229,13 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _ledger-identity-service:
 
-Ledger identity service
-=======================
+Ledger identity service (DEPRECATED)
+=====================================
 
 Use the **ledger identity service** to get the identity string of the ledger that your application is connected to.
 
-You need to include this identity string when submitting commands. Commands with an incorrect identity string are rejected.
+Including identity string is optional for all Ledger API requests.
+If you include it, commands with an incorrect identity string will be rejected.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerIdentityService>`.
 
@@ -252,11 +255,11 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Version service
 ============================
 
-Use the **version service** to retrieve information about the Ledger API version.
+Use the **version service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
 
-.. _ledger-api-testing-services:
+.. _pruning-service:
 
 Pruning service
 ============================
@@ -265,7 +268,25 @@ Use the **pruning service** to prune archived contracts and transactions before 
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
 
-.. _pruning-service:
+.. _user-management-service:
+
+User Management service
+============================
+
+Use the **user management service** to manage users and their rights on a given participant.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.UserManagementService>`.
+
+.. _metering-report-service:
+
+Metering Report service
+============================
+
+Use the **metering report service** to retrieve a participant metering report.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.MeteringReportService>`.
+
+.. _ledger-api-testing-services:
 
 Testing services
 ****************
@@ -280,19 +301,3 @@ Time service
 Use the **time service** to obtain the time as known by the ledger server.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.testing.TimeService>`.
-
-.. _reset-service:
-
-Reset service
-=============
-
-Use the **reset service** to reset the ledger state, as a quicker alternative to restarting the whole ledger application.
-
-This resets all state in the ledger, *including the ledger ID*, so clients will have to re-fetch the ledger ID from the identity service after hitting this endpoint.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.testing.ResetService>`.
-
-Services diagram
-****************
-
-.. image:: ./images/services.svg

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth.services
@@ -11,6 +11,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
+import scalapb.lenses.Lens
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -30,7 +31,7 @@ private[daml] final class CommandServiceAuthorization(
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
-      applicationId = request.commands.map(_.applicationId),
+      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
       call = service.submitAndWait,
     )(request)
   }
@@ -42,7 +43,7 @@ private[daml] final class CommandServiceAuthorization(
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
-      applicationId = request.commands.map(_.applicationId),
+      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
       call = service.submitAndWaitForTransaction,
     )(request)
   }
@@ -54,7 +55,7 @@ private[daml] final class CommandServiceAuthorization(
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
-      applicationId = request.commands.map(_.applicationId),
+      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
       call = service.submitAndWaitForTransactionId,
     )(request)
   }
@@ -66,7 +67,7 @@ private[daml] final class CommandServiceAuthorization(
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
-      applicationId = request.commands.map(_.applicationId),
+      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
       call = service.submitAndWaitForTransactionTree,
     )(request)
   }

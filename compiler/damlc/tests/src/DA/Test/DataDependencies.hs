@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
@@ -12,7 +12,7 @@ import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
-import Data.List (sort, (\\))
+import Data.List (intercalate, sort, (\\))
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
@@ -135,10 +135,10 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               ]
           callProcessSilent damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", projb
             , "--target", LF.renderVersion targetLfVer
-            , "-o", projb </> "projb.dar"
-            ]
+            , "-o", projb </> "projb.dar" ]
           step "Validating DAR"
           validate $ projb </> "projb.dar"
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
@@ -150,6 +150,140 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               - numStablePackagesForVersion depLfVer ) + -- new stable packages
               1 + -- projb
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
+    [ testCaseSteps ("Cross DAML-LF version with stdlib orphan instances: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [ "module A where"
+              , "f : ()"
+              , "f = ()"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+          projaPkgIds <- darPackageIds (proja </> "proja.dar")
+          -- daml-stdlib, daml-prim and proja
+          length projaPkgIds @?= numStablePackagesForVersion depLfVer + 2 + 1
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A qualified"
+              , "f : ()"
+              , "f = A.f"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projb </> "projb.dar" ]
+          step "Validating DAR"
+          validate $ projb </> "projb.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
+    [ testCaseSteps ("Cross DAML-LF version with custom orphan instance: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+          let projc = tmpDir </> "projc"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "AC.daml") $ unlines
+              [ "module AC where"
+              , "class AC a where"
+              , "  ac : a -> a"
+              ]
+          writeFileUTF8 (proja </> "src" </> "AT.daml") $ unlines
+              [ "module AT where"
+              , "data AT"
+              ]
+          writeFileUTF8 (proja </> "src" </> "AI.daml") $ unlines
+              [ "module AI where"
+              , "import AC"
+              , "import AT"
+              , "instance AC AT where"
+              , "  ac a = a"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import AI ()"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+            ["build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion depLfVer
+            , "-o", projb </> "projb.dar"
+            ]
+
+          step "Build projc"
+          createDirectoryIfMissing True (projc </> "src")
+          writeFileUTF8 (projc </> "src" </> "C.daml") $ unlines
+              [ "module C where"
+              , "import B ()"
+              ]
+          writeFileUTF8 (projc </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projc"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (projb </> "projb.dar") <> "]"
+              ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projc
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projc </> "projc.dar" ]
+          step "Validating DAR"
+          validate $ projc </> "projc.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
@@ -492,12 +626,19 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             [projDir </> "simple-dalf-1.0.0.dalf"]
         callProcess damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", projDir
             , "--target=1.dev"
-            , "--generated-src"]
+            , "--generated-src" ]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
-        callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
+        callProcessSilent damlc
+            [ "test"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--target=1.dev"
+            , "--project-root"
+            , projDir
+            , "--generated-src" ]
     | withArchiveChoice <- [False, True]
     ] <>
     [ testCaseSteps ("Typeclasses and instances from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
@@ -512,7 +653,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               , "{-# LANGUAGE DataKinds #-}"
               , "module A where"
               , "import DA.Record"
-              , "import DA.Generics"
               , "import DA.Validation"
               -- test typeclass export
               , "class Foo t where"
@@ -559,20 +699,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               , "usesHasField = getField @\"a_field\""
               , "usesHasFieldEmpty : (HasField \"\" a b) => a -> b"
               , "usesHasFieldEmpty = getField @\"\""
-              -- Test that deriving Generic doesn't blow everything up
-              , "data X t = X t deriving Generic"
-              -- Test that indirect references to an erased type don't
-              -- stick around with a dangling reference, including via
-              -- typeclass specializations.
-              , "class MyGeneric t where"
-              , "class MyGeneric t => YourGeneric t where"
-              , "instance {-# OVERLAPPABLE #-} DA.Generics.Generic t rep => MyGeneric t"
-              , "instance {-# OVERLAPPABLE #-} Generic Int (D1 ('MetaData ('MetaData0 \"\" \"\" \"\" 'True)) (K1 R ())) where"
-              , "  from = error \"\""
-              , "  to = error \"\""
-              , "instance YourGeneric Int"
-                  -- ^ tests detection of Generic reference via
-                  -- specialization of MyGeneric instance
 
               -- [Issue #7256] Tests that orphan superclass instances are dependended on correctly.
               -- E.g. Applicative Validation is an orphan instance implemented in DA.Validation.
@@ -688,14 +814,13 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               ]
           callProcessSilent damlc
               [ "build"
+              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
               , "--project-root", projb
               , "--target=" <> LF.renderVersion targetLfVer
-              , "-o", projb </> "projb.dar"
-              ]
+              , "-o", projb </> "projb.dar" ]
           validate $ projb </> "projb.dar"
 
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
-    , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
     ] <>
     [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
           writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
@@ -1153,6 +1278,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             ]
         callProcessSilent damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "dep"
             , "-o", tmpDir </> "dep" </> "dep.dar" ]
         Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (tmpDir </> "dep" </> "dep.dar")
@@ -1190,7 +1316,11 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "import Foo"
             , "g = f"
             ]
-        callProcessSilent damlc [ "build", "--project-root", tmpDir </> "proj" ]
+        callProcessSilent damlc
+            [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , tmpDir </> "proj" ]
 
     , dataDependenciesTest "Using orphan instances transitively"
         -- This test checks that orphan instances are imported
@@ -1390,6 +1520,247 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "x = e"
         ]
 
+    , dataDependenciesTestOptions "implement interface from data-dependency"
+        [ "--target=1.dev" ]
+        [   (,) "Lib.daml"
+            [ "module Lib where"
+
+            , "interface Token where"
+            , "  getOwner : Party -- ^ A method comment."
+            , "  getAmount : Int"
+            , "  setAmount : Int -> Token"
+
+            , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
+            , "  transferImpl : Party -> Update (ContractId Token)"
+            , "  noopImpl : () -> Update ()"
+
+            , "  ensure (getAmount this >= 0)"
+
+            , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
+            , "    with"
+            , "      splitAmount : Int -- ^ A choice field comment."
+            , "    controller getOwner this"
+            , "    do"
+            , "      splitImpl this splitAmount"
+
+            , "  choice Transfer : ContractId Token"
+            , "    with"
+            , "      newOwner : Party"
+            , "    controller getOwner this, newOwner"
+            , "    do"
+            , "      transferImpl this newOwner"
+
+            , "  nonconsuming choice Noop : ()"
+            , "    with"
+            , "      nothing : ()"
+            , "    controller getOwner this"
+            , "    do"
+            , "      noopImpl this nothing"
+
+            , "  choice GetRich : ContractId Token"
+            , "    with"
+            , "      byHowMuch : Int"
+            , "    controller getOwner this"
+            , "    do"
+            , "        assert (byHowMuch > 0)"
+            , "        create $ setAmount this (getAmount this + byHowMuch)"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Lib"
+            , "import DA.Assert"
+
+            , "template Asset"
+            , "  with"
+            , "    issuer : Party"
+            , "    owner : Party"
+            , "    amount : Int"
+            , "  where"
+            , "    signatory issuer, owner"
+            , "    implements Token where"
+            , "      getOwner = owner"
+            , "      getAmount = amount"
+            , "      setAmount x = toInterface @Token (this with amount = x)"
+
+            , "      splitImpl splitAmount = do"
+            , "        assert (splitAmount < amount)"
+            , "        cid1 <- create this with amount = splitAmount"
+            , "        cid2 <- create this with amount = amount - splitAmount"
+            , "        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+
+            , "      transferImpl newOwner = do"
+            , "        cid <- create this with owner = newOwner"
+            , "        pure (toInterfaceContractId @Token cid)"
+
+            , "      noopImpl nothing = do"
+            , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "        pure ()"
+
+            , "main = scenario do"
+            , "  p <- getParty \"Alice\""
+            , "  p `submitMustFail` do"
+            , "    create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = -1"
+            , "  p `submit` do"
+            , "    cidAsset1 <- create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = 15"
+            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "    _ <- exercise cidToken1 (Noop ())"
+            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
+            , "    token2 <- fetch cidToken2"
+            , "    -- Party is duplicated because p is both observer & issuer"
+            , "    signatory token2 === [p, p]"
+            , "    getAmount token2 === 10"
+            , "    case fromInterface token2 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 10"
+            , "    token3 <- fetch cidToken3"
+            , "    getAmount token3 === 5"
+            , "    case fromInterface token3 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 5"
+
+            , "    cidToken4 <- exercise cidToken3 (GetRich 20)"
+            , "    token4 <- fetch cidToken4"
+            , "    getAmount token4 === 25"
+            , "    case fromInterface token4 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 25"
+
+            , "    pure ()"
+            ]
+        ]
+
+    , dataDependenciesTestOptions "use interface from data-dependency"
+        [ "--target=1.dev" ]
+        [   (,) "Lib.daml"
+            [ "module Lib where"
+            , "import DA.Assert"
+
+            , "interface Token where"
+            , "  getOwner : Party -- ^ A method comment."
+            , "  getAmount : Int"
+            , "  setAmount : Int -> Token"
+
+            , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
+            , "  transferImpl : Party -> Update (ContractId Token)"
+            , "  noopImpl : () -> Update ()"
+
+            , "  ensure (getAmount this >= 0)"
+
+            , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
+            , "    with"
+            , "      splitAmount : Int -- ^ A choice field comment."
+            , "    controller getOwner this"
+            , "    do"
+            , "      splitImpl this splitAmount"
+
+            , "  choice Transfer : ContractId Token"
+            , "    with"
+            , "      newOwner : Party"
+            , "    controller getOwner this, newOwner"
+            , "    do"
+            , "      transferImpl this newOwner"
+
+            , "  nonconsuming choice Noop : ()"
+            , "    with"
+            , "      nothing : ()"
+            , "    controller getOwner this"
+            , "    do"
+            , "      noopImpl this nothing"
+
+            , "  choice GetRich : ContractId Token"
+            , "    with"
+            , "      byHowMuch : Int"
+            , "    controller getOwner this"
+            , "    do"
+            , "        assert (byHowMuch > 0)"
+            , "        create $ setAmount this (getAmount this + byHowMuch)"
+
+            , "template Asset"
+            , "  with"
+            , "    issuer : Party"
+            , "    owner : Party"
+            , "    amount : Int"
+            , "  where"
+            , "    signatory issuer, owner"
+            , "    implements Token where"
+            , "      getOwner = owner"
+            , "      getAmount = amount"
+            , "      setAmount x = toInterface @Token (this with amount = x)"
+
+            , "      splitImpl splitAmount = do"
+            , "        assert (splitAmount < amount)"
+            , "        cid1 <- create this with amount = splitAmount"
+            , "        cid2 <- create this with amount = amount - splitAmount"
+            , "        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+
+            , "      transferImpl newOwner = do"
+            , "        cid <- create this with owner = newOwner"
+            , "        pure (toInterfaceContractId @Token cid)"
+
+            , "      noopImpl nothing = do"
+            , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "        pure ()"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Lib"
+            , "import DA.Assert"
+
+            , "main = scenario do"
+            , "  p <- getParty \"Alice\""
+            , "  p `submitMustFail` do"
+            , "    create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = -1"
+            , "  p `submit` do"
+            , "    cidAsset1 <- create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = 15"
+            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "    _ <- exercise cidToken1 (Noop ())"
+            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
+            , "    token2 <- fetch cidToken2"
+            , "    -- Party is duplicated because p is both observer & issuer"
+            , "    signatory token2 === [p, p]"
+            , "    getAmount token2 === 10"
+            , "    case fromInterface token2 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 10"
+            , "    token3 <- fetch cidToken3"
+            , "    getAmount token3 === 5"
+            , "    case fromInterface token3 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 5"
+
+            , "    cidToken4 <- exercise cidToken3 (GetRich 20)"
+            , "    token4 <- fetch cidToken4"
+            , "    getAmount token4 === 25"
+            , "    case fromInterface token4 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 25"
+
+            , "    pure ()"
+            ]
+        ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
@@ -1556,11 +1927,13 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
            ]
         callProcessSilent damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
     ]
@@ -1570,13 +1943,17 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         dataDependenciesTest title [("Lib.daml", lib)] [("Main.daml", main)]
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTest title libModules mainModules =
+    dataDependenciesTest title = dataDependenciesTestOptions title []
+
+    dataDependenciesTestOptions :: String -> [String] -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
+    dataDependenciesTestOptions title buildOptions libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building project to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
                 , "name: lib"
+                , "build-options: [" <> intercalate ", " buildOptions <> "]"
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [daml-prim, daml-stdlib]"
@@ -1585,14 +1962,16 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , "--project-root", tmpDir </> "lib"
-                , "-o", tmpDir </> "lib" </> "lib.dar"]
+                , "-o", tmpDir </> "lib" </> "lib.dar" ]
 
             step "building project that imports it via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "main")
             writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
                 , "name: main"
+                , "build-options: [" <> intercalate ", " buildOptions <> "]"
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [daml-prim, daml-stdlib]"
@@ -1601,4 +1980,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
                 ]
             forM_ mainModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
-            callProcessSilent damlc ["build", "--project-root", tmpDir </> "main"]
+            callProcessSilent damlc
+                [ "build"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root"
+                , tmpDir </> "main" ]

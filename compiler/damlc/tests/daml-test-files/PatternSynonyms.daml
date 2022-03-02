@@ -27,3 +27,5 @@ main = scenario do
   let f : Int -> Text = show
   mapOptional f Empty === Empty
   mapOptional f (Filled 1) === Filled "1"
+
+-- @ENABLE-SCENARIOS

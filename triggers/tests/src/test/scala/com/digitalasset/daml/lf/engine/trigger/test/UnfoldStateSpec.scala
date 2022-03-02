@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -87,7 +87,7 @@ class UnfoldStateSpec
         val newSum = sum + ns.sum
         (newSum, (ns, newSum))
       }
-      val graph = GraphDSL.create(Sink.seq[Int], Sink.seq[Int])(Keep.both) {
+      val graph = GraphDSL.createGraph(Sink.seq[Int], Sink.seq[Int])(Keep.both) {
         implicit gb => (nsOut, stOut) =>
           import GraphDSL.Implicits._
           val fmc = gb add flatMapConcatNode { (sum: Int, ns: List[Int]) =>

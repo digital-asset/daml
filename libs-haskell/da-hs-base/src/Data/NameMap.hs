@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -67,12 +67,13 @@ import           Data.Functor.Identity
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.HashSet as HS
+import           Data.Kind (Type)
 import           GHC.Generics
 import           GHC.Stack (HasCallStack)
 
 -- | Type class for things that have a name.
 class (Eq (Name a), Hashable (Name a), Show (Name a)) => Named a where
-  type Name a :: *
+  type Name a :: Type
   name :: a -> Name a
 
 -- NOTE(MH): We want to be able to convert to the underlying list without a

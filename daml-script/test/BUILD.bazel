@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -24,6 +24,15 @@ genrule(
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
+initializeFixed : Script ()
+initializeFixed = do
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+  let parties = LedgerParties{{..}}
+  initialize parties
+EOF
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -144,15 +153,15 @@ da_scala_library(
         "//ledger/ledger-on-memory",
         "//ledger/ledger-on-memory:ledger-on-memory-app",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils/app",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:com_auth0_java_jwt",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -201,16 +210,16 @@ da_scala_test_suite(
         "//ledger/ledger-api-common",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils/app",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-classic-server",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
@@ -228,15 +237,17 @@ sh_test(
     name = "test_daml_script_test_runner",
     srcs = [":daml-script-test-runner.sh"],
     args = [
-        "$(rootpath //daml-script/runner:test-runner)",
+        "$(rootpath //daml-script/runner:daml-script-binary)",
         "$(rootpath :script-test.dar)",
         "$(POSIX_DIFF)",
         "$(POSIX_GREP)",
         "$(POSIX_SED)",
+        "$(rootpath //ledger/sandbox-classic:sandbox-classic-binary)",
     ],
     data = [
         ":script-test.dar",
-        "//daml-script/runner:test-runner",
+        "//daml-script/runner:daml-script-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = ["@bazel_tools//tools/bash/runfiles"],

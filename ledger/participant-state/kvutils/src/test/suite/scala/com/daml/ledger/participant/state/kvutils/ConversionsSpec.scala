@@ -1,14 +1,14 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorResource, ValueSwitch}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorResource}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
-import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, Identifier}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
@@ -17,28 +17,21 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
   DamlTransactionRejectionEntry,
-  Disputed,
   Duplicate,
-  Inconsistent,
-  InvalidLedgerTime,
-  PartyNotKnownOnLedger,
-  ResourcesExhausted,
-  SubmitterCannotActViaParticipant,
 }
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Party, QualifiedName}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 import com.daml.lf.engine.Error
+import com.daml.lf.kv.contracts.RawContractInstance
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.{ErrorInfo, ResourceInfo}
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
@@ -49,7 +42,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.Duration
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 @nowarn("msg=deprecated")
@@ -123,113 +115,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     "encode/decode rejections" should {
 
       val submitterInfo = DamlSubmitterInfo.newBuilder().build()
-      val now = LfTimestamp.now()
-
-      "convert rejection to proto models and back to expected grpc v1 code" in {
-        forAll(
-          Table[Rejection, Code, Map[String, String]](
-            ("Rejection", "Expected Code", "Expected Additional Details"),
-            (
-              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.InternallyInconsistentTransaction.InconsistentKeys,
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.InternallyInconsistentTransaction.DuplicateKeys,
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.InvalidParticipantState(Err.InternalError("error")),
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.InvalidParticipantState(
-                Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
-              ),
-              Code.INVALID_ARGUMENT,
-              Map("package_id" -> "id"),
-            ),
-            (
-              Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
-              Code.INVALID_ARGUMENT,
-              Map("contract_id" -> "id"),
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
-              Code.ABORTED,
-              Map(
-                "minimum_record_time" -> LfTimestamp.Epoch.toString,
-                "maximum_record_time" -> LfTimestamp.Epoch.toString,
-              ),
-            ),
-            (
-              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.CausalMonotonicityViolated,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.PartiesNotKnownOnLedger(Seq.empty),
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.MissingInputState(partyStateKey("party")),
-              Code.ABORTED,
-              Map("key" -> "party: \"party\"\n"),
-            ),
-            (
-              Rejection.SubmittingPartyNotKnownOnLedger(party0),
-              Code.INVALID_ARGUMENT,
-              Map("submitter_party" -> party0),
-            ),
-            (
-              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
-              Code.INVALID_ARGUMENT,
-              Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
-            ),
-          )
-        ) { (rejection, expectedCode, expectedAdditionalDetails) =>
-          checkErrors(
-            v1ErrorSwitch,
-            submitterInfo,
-            rejection,
-            expectedCode,
-            expectedAdditionalDetails,
-          )
-        }
-      }
 
       "convert rejection to proto models and back to expected grpc v2 code" in {
         forAll(
@@ -241,8 +126,10 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               "Expected Resources",
             ),
             (
-              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INTERNAL,
+              Rejection.ValidationFailure(
+                Error.Package(Error.Package.Internal("ERROR", "ERROR", None))
+              ),
+              Code.FAILED_PRECONDITION,
               Map.empty,
               Map.empty,
             ),
@@ -356,141 +243,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           )
         ) { (rejection, expectedCode, expectedAdditionalDetails, expectedResources) =>
           checkErrors(
-            v2ErrorSwitch,
             submitterInfo,
             rejection,
             expectedCode,
             expectedAdditionalDetails,
             expectedResources,
           )
-        }
-      }
-
-      "produce metadata that can be easily parsed" in {
-        forAll(
-          Table[Rejection, String, String => Any, Any](
-            ("rejection", "metadata key", "metadata parser", "expected parsed metadata"),
-            (
-              Rejection.MissingInputState(partyStateKey("party")),
-              "key",
-              TextFormat.parse(_, classOf[DamlStateKey]),
-              partyStateKey("party"),
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
-              "minimum_record_time",
-              LfTimestamp.assertFromString,
-              LfTimestamp.Epoch,
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
-              "maximum_record_time",
-              LfTimestamp.assertFromString,
-              LfTimestamp.Epoch,
-            ),
-            (
-              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
-              "parties",
-              jsonString => {
-                val objectMapper = new ObjectMapper
-                objectMapper.readValue(jsonString, classOf[java.util.List[_]]).asScala
-              },
-              mutable.Buffer(party0, party1),
-            ),
-          )
-        ) { (rejection, metadataKey, metadataParser, expectedParsedMetadata) =>
-          val encodedEntry = Conversions
-            .encodeTransactionRejectionEntry(
-              submitterInfo,
-              rejection,
-            )
-            .build()
-          val finalReason = Conversions
-            .decodeTransactionRejectionEntry(encodedEntry, v1ErrorSwitch)
-          finalReason.definiteAnswer shouldBe false
-          val actualDetails = finalReasonDetails(finalReason).toMap
-          metadataParser(actualDetails(metadataKey)) shouldBe expectedParsedMetadata
-        }
-      }
-
-      "convert v1 rejections" should {
-
-        "handle with expected status codes" in {
-          forAll(
-            Table[
-              DamlTransactionRejectionEntry.Builder => DamlTransactionRejectionEntry.Builder,
-              Code,
-              Map[String, String],
-            ](
-              ("rejection builder", "code", "expected additional details"),
-              (
-                _.setInconsistent(Inconsistent.newBuilder()),
-                Code.ABORTED,
-                Map.empty,
-              ),
-              (
-                _.setDisputed(Disputed.newBuilder()),
-                Code.INVALID_ARGUMENT,
-                Map.empty,
-              ),
-              (
-                _.setResourcesExhausted(ResourcesExhausted.newBuilder()),
-                Code.ABORTED,
-                Map.empty,
-              ),
-              (
-                _.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
-                Code.INVALID_ARGUMENT,
-                Map.empty,
-              ),
-              (
-                _.setDuplicateCommand(Duplicate.newBuilder().setSubmissionId("not_used")),
-                Code.ALREADY_EXISTS,
-                Map(),
-              ),
-              (
-                _.setSubmitterCannotActViaParticipant(
-                  SubmitterCannotActViaParticipant
-                    .newBuilder()
-                    .setSubmitterParty("party")
-                    .setParticipantId("id")
-                ),
-                Code.PERMISSION_DENIED,
-                Map(
-                  "submitter_party" -> "party",
-                  "participant_id" -> "id",
-                ),
-              ),
-              (
-                _.setInvalidLedgerTime(
-                  InvalidLedgerTime
-                    .newBuilder()
-                    .setLowerBound(Timestamp.newBuilder().setSeconds(1L))
-                    .setLedgerTime(Timestamp.newBuilder().setSeconds(2L))
-                    .setUpperBound(Timestamp.newBuilder().setSeconds(3L))
-                ),
-                Code.ABORTED,
-                Map(
-                  "lower_bound" -> "seconds: 1\n",
-                  "ledger_time" -> "seconds: 2\n",
-                  "upper_bound" -> "seconds: 3\n",
-                ),
-              ),
-            )
-          ) { (rejectionBuilder, code, expectedAdditionalDetails) =>
-            {
-              val finalReason = Conversions
-                .decodeTransactionRejectionEntry(
-                  rejectionBuilder(DamlTransactionRejectionEntry.newBuilder())
-                    .build(),
-                  v1ErrorSwitch,
-                )
-              finalReason.code shouldBe code.value()
-              finalReason.definiteAnswer shouldBe false
-              val actualDetails = finalReasonDetails(finalReason)
-              actualDetails should contain allElementsOf expectedAdditionalDetails
-            }
-          }
         }
       }
     }
@@ -501,8 +259,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           DamlTransactionRejectionEntry
             .newBuilder()
             .setDuplicateCommand(Duplicate.newBuilder().setSubmissionId("submissionId"))
-            .build(),
-          v2ErrorSwitch,
+            .build()
         )
       finalReason.code shouldBe Code.ALREADY_EXISTS.value()
       finalReason.definiteAnswer shouldBe false
@@ -557,15 +314,119 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           .DeduplicationDuration(Duration.ofSeconds(30))
       }
     }
+
+    "encode/decode Identifiers" should {
+      "successfully encode various names" in {
+        forAll(
+          Table[Ref.ModuleName, Ref.DottedName, Seq[String], Seq[String]](
+            ("Module Name", "Name", "Expected Modules", "Expected Names"),
+            (
+              Ref.ModuleName.assertFromString("module"),
+              Ref.DottedName.assertFromString("name"),
+              Seq("module"),
+              Seq("name"),
+            ),
+            (
+              Ref.ModuleName.assertFromString("module.name"),
+              Ref.DottedName.assertFromString("dotted.name"),
+              Seq("module", "name"),
+              Seq("dotted", "name"),
+            ),
+          )
+        ) { (moduleName, name, expectedModules, expectedNames) =>
+          val id = Ref.Identifier(
+            Ref.PackageId.assertFromString("packageId"),
+            QualifiedName(moduleName, name),
+          )
+
+          val actual = Conversions.encodeIdentifier(id)
+          actual.getPackageId shouldBe "packageId"
+          actual.getModuleNameList.asScala shouldBe expectedModules
+          actual.getNameList.asScala shouldBe expectedNames
+        }
+      }
+
+      "decode various Identifiers" in {
+        forAll(
+          Table[Identifier, Either[Err.DecodeError, Ref.Identifier]](
+            ("Identifier", "Expected Error or Ref.Identifier"),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName("module")
+                .addName("name")
+                .build(),
+              Right(
+                Ref.Identifier(
+                  Ref.PackageId.assertFromString("packageId"),
+                  QualifiedName(
+                    Ref.ModuleName.assertFromString("module"),
+                    Ref.DottedName.assertFromString("name"),
+                  ),
+                )
+              ),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName("module")
+                .addModuleName("name")
+                .addName("dotted")
+                .addName("name")
+                .build(),
+              Right(
+                Ref.Identifier(
+                  Ref.PackageId.assertFromString("packageId"),
+                  QualifiedName(
+                    Ref.ModuleName.assertFromString("module.name"),
+                    Ref.DottedName.assertFromString("dotted.name"),
+                  ),
+                )
+              ),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .addModuleName("module")
+                .addName("name")
+                .build(),
+              Left(Err.DecodeError("Identifier", "Invalid package ID: ''")),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName(">>>")
+                .addName("name")
+                .build(),
+              Left(Err.DecodeError("Identifier", "Invalid module segments: '>>>'")),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName("module")
+                .addName("???")
+                .build(),
+              Left(Err.DecodeError("Identifier", "Invalid name segments: '???'")),
+            ),
+          )
+        ) { (identifier, expectedErrorOrRefIdentifier) =>
+          val actual = Conversions.decodeIdentifier(identifier)
+          actual shouldBe expectedErrorOrRefIdentifier
+        }
+      }
+    }
   }
 
   private def checkErrors(
-      errorVersionSwitch: ValueSwitch,
       submitterInfo: DamlSubmitterInfo,
       rejection: Rejection,
       expectedCode: Code,
       expectedAdditionalDetails: Map[String, String],
-      expectedResources: Map[ErrorResource, String] = Map.empty,
+      expectedResources: Map[ErrorResource, String],
   ) = {
     val encodedEntry = Conversions
       .encodeTransactionRejectionEntry(
@@ -574,7 +435,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build()
     val finalReason = Conversions
-      .decodeTransactionRejectionEntry(encodedEntry, errorVersionSwitch)
+      .decodeTransactionRejectionEntry(encodedEntry)
     finalReason.code shouldBe expectedCode.value()
     finalReason.definiteAnswer shouldBe false
     val actualDetails = finalReasonDetails(finalReason)
@@ -592,12 +453,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   private def newDivulgenceEntry(
       contractId: String,
       parties: List[String],
-      rawContractInstance: Raw.ContractInstance,
+      rawContractInstance: RawContractInstance,
   ) =
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
-      .setRawContractInstance(rawContractInstance.bytes)
+      .setRawContractInstance(rawContractInstance.byteString)
       .build
 
   private lazy val party0: Party = Party.assertFromString("party0")
@@ -648,9 +509,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build
 
-  private lazy val v1ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = false)
-  private lazy val v2ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = true)
-
   private[this] val txVersion = TransactionVersion.StableVersions.max
 
   private def deduplicationKeyBytesFor(parties: List[String]): Array[Byte] = {
@@ -683,7 +541,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           )
       )
       .build()
-    Raw.ContractInstance(contractInstance.toByteString)
+    RawContractInstance(contractInstance.toByteString)
   }
 
   private def finalReasonDetails(

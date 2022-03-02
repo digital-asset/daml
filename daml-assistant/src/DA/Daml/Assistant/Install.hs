@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
@@ -503,12 +503,12 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
     if exists then do
         when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
             hPutStr stderr . unlines $
-                [ "Cannot uninstall currently activated SDK version."
-                , "Please activate a different SDK version and try again."
-                , "To activate a different version, run:"
+                [ "Cannot uninstall SDK version of current daml assistant."
+                , "Please switch to a different version of daml assistant and try again."
+                , "To switch to a different version of daml assistant, use:"
                 , ""
-                , "    daml install VERSION --activate"
-                ] -- TODO (FAFM): suggest a version that will work.
+                , "    daml install VERSION --install-assistant=yes"
+                ] -- TODO: suggest a version that will work.
             exitFailure
 
         requiredIO "Failed to set write permission for SDK files to remove." $ do

@@ -28,3 +28,5 @@ test = scenario do
     foo RoundingHalfDown === 6
     foo RoundingHalfEven === 7
     foo RoundingUnnecessary === 8
+
+-- @ENABLE-SCENARIOS

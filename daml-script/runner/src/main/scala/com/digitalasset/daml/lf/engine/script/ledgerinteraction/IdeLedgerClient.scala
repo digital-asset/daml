@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -13,7 +13,14 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Versioned}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  IncompleteTransaction,
+  Node,
+  NodeId,
+  Transaction,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.ConverterException
@@ -23,7 +30,6 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
-import scala.collection.compat.immutable.LazyList
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -47,7 +53,6 @@ class IdeLedgerClient(
   private[this] val preprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.interface,
-      forbidV0ContractId = true,
       requireV1ContractIdSuffix = false,
     )
 
@@ -57,9 +62,6 @@ class IdeLedgerClient(
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
   private val userManagementStore = new ide.UserManagementStore()
-
-  private def handleUserManagement[T](r: ide.UserManagementStore.Result[T]): Future[T] =
-    r.fold(err => Future.failed(scenario.Error.UserManagement(err)), Future.successful(_))
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
@@ -136,25 +138,53 @@ class IdeLedgerClient(
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
     ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
-  ] =
-    Future {
+  ] = Future {
+    val unallocatedSubmitters: Set[Party] =
+      (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
+    if (unallocatedSubmitters.nonEmpty) {
+      ScenarioRunner.SubmissionError(
+        scenario.Error.PartiesNotAllocated(unallocatedSubmitters),
+        IncompleteTransaction(
+          transaction = Transaction(Map.empty, ImmArray.empty),
+          locationInfo = Map.empty,
+        ),
+      )
+    } else {
+
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
-      val result = ScenarioRunner.submit(
-        compiledPackages,
-        ledgerApi,
-        actAs.toSet,
-        readAs,
-        translated,
-        optLocation,
-        nextSeed(),
-        traceLog,
-        warningLog,
-      )
-      result
+      val result =
+        ScenarioRunner.submit(
+          compiledPackages,
+          ledgerApi,
+          actAs.toSet,
+          readAs,
+          translated,
+          optLocation,
+          nextSeed(),
+          traceLog,
+          warningLog,
+        )(Script.DummyLoggingContext)
+      result match {
+        case err: ScenarioRunner.SubmissionError => err
+        case commit: ScenarioRunner.Commit[_] =>
+          val referencedParties: Set[Party] =
+            commit.result.richTransaction.blindingInfo.disclosure.values
+              .foldLeft(Set.empty[Party])(_ union _)
+          val unallocatedParties = referencedParties -- allocatedParties.values.map(_.party)
+          if (unallocatedParties.nonEmpty) {
+            ScenarioRunner.SubmissionError(
+              scenario.Error.PartiesNotAllocated(unallocatedParties),
+              commit.tx,
+            )
+          } else {
+            commit
+          }
+      }
     }
+  }
 
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
@@ -250,17 +280,11 @@ class IdeLedgerClient(
     }
   }
 
-  // All parties known to the ledger. This may include parties that were not
-  // allocated explicitly, e.g. parties created by `partyFromText`.
-  private def getLedgerParties(): Iterable[Ref.Party] = {
-    ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
-  }
-
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ) = {
-    val usedNames = getLedgerParties().toSet ++ allocatedParties.keySet
+    val usedNames = allocatedParties.keySet
     Future.fromTry(for {
       name <-
         if (partyIdHint != "") {
@@ -289,10 +313,7 @@ class IdeLedgerClient(
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    val ledgerParties: Map[String, PartyDetails] = getLedgerParties()
-      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
-      .toMap
-    Future.successful((ledgerParties ++ allocatedParties).values.toList)
+    Future.successful(allocatedParties.values.toList)
   }
 
   override def getStaticTime()(implicit
@@ -322,32 +343,29 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User] =
-    handleUserManagement(userManagementStore.createUser(user, rights.toSet)).map(_ => user)
+  ): Future[Option[Unit]] =
+    Future.successful(userManagementStore.createUser(user, rights.toSet))
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    userManagementStore.getUser(id) match {
-      case Left(scenario.Error.UserManagementError.UserNotFound(_)) => Future.successful(None)
-      case a => handleUserManagement(a).map(Some(_))
-    }
+    Future.successful(userManagementStore.getUser(id))
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
-    handleUserManagement(userManagementStore.deleteUser(id))
+  ): Future[Option[Unit]] =
+    Future.successful(userManagementStore.deleteUser(id))
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[User]] =
-    handleUserManagement(userManagementStore.listUsers())
+    Future.successful(userManagementStore.listUsers())
 
   override def grantUserRights(
       id: UserId,
@@ -356,8 +374,8 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    handleUserManagement(userManagementStore.grantRights(id, rights.toSet)).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    Future.successful(userManagementStore.grantRights(id, rights.toSet).map(_.toList))
 
   override def revokeUserRights(
       id: UserId,
@@ -366,13 +384,13 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    handleUserManagement(userManagementStore.revokeRights(id, rights.toSet)).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    Future.successful(userManagementStore.revokeRights(id, rights.toSet).map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    handleUserManagement(userManagementStore.listUserRights(id)).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    Future.successful(userManagementStore.listUserRights(id).map(_.toList))
 }

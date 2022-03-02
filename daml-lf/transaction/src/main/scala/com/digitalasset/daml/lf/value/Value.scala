@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -212,19 +212,6 @@ object Value {
   }
 
   object ContractId {
-    final case class V0(coid: Ref.ContractIdString) extends ContractId {
-      override def toString: String = s"ContractId($coid)"
-    }
-
-    object V0 {
-      def fromString(s: String): Either[String, V0] =
-        Ref.ContractIdString.fromString(s).map(V0(_))
-
-      def assertFromString(s: String): V0 = assertRight(fromString(s))
-
-      implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
-    }
-
     final case class V1 private (discriminator: crypto.Hash, suffix: Bytes)
         extends ContractId
         with data.NoCopy {
@@ -281,26 +268,19 @@ object Value {
     def fromString(s: String): Either[String, ContractId] =
       V1.fromString(s)
         .left
-        .flatMap(_ => V0.fromString(s))
-        .left
         .map(_ => s"""cannot parse ContractId "$s"""")
 
     def assertFromString(s: String): ContractId =
       assertRight(fromString(s))
 
     implicit val `Cid Order`: Order[ContractId] = new Order[ContractId] {
-      import scalaz.Ordering._
       override def order(a: ContractId, b: ContractId) =
         (a, b) match {
-          case (a: V0, b: V0) => a ?|? b
           case (a: V1, b: V1) => a ?|? b
-          case (_: V0, _: V1) => LT
-          case (_: V1, _: V0) => GT
         }
 
       override def equal(a: ContractId, b: ContractId) =
         (a, b).match2 {
-          case a: V0 => { case b: V0 => a === b }
           case V1(discA, suffA) => { case V1(discB, suffB) =>
             discA == discB && suffA.toByteString == suffB.toByteString
           }

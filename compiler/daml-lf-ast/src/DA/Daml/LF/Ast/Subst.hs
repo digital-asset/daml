@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Substitution in LF expressions.
@@ -201,6 +201,12 @@ applySubstInExpr subst@Subst{..} = \case
     EToRequiredInterface t1 t2 e -> EToRequiredInterface t1 t2
         (applySubstInExpr subst e)
     EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2
+        (applySubstInExpr subst e)
+    EInterfaceTemplateTypeRep ty e -> EInterfaceTemplateTypeRep ty
+        (applySubstInExpr subst e)
+    ESignatoryInterface ty e -> ESignatoryInterface ty
+        (applySubstInExpr subst e)
+    EObserverInterface ty e -> EObserverInterface ty
         (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)

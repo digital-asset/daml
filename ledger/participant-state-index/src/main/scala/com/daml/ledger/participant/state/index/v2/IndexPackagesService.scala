@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index.v2
@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast.Package
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
@@ -24,11 +23,6 @@ trait IndexPackagesService {
   def getLfArchive(
       packageId: PackageId
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]]
-
-  /** Like [[getLfArchive]], but already parsed. */
-  def getLfPackage(
-      packageId: PackageId
-  )(implicit loggingContext: LoggingContext): Future[Option[Package]]
 
   def packageEntries(
       startExclusive: Option[LedgerOffset.Absolute]

@@ -1,0 +1,81 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "MeteringReportOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+import "google/protobuf/timestamp.proto";
+
+
+// Experimental API to retrieve metering reports.
+//
+// Metering reports aim to provide the information necessary for billing participant
+// and application operators.
+//
+service MeteringReportService {
+
+    // Retrieve a metering report.
+    rpc GetMeteringReport (GetMeteringReportRequest) returns (GetMeteringReportResponse);
+
+}
+
+// Authorized if and only if the authenticated user is a participant admin.
+message GetMeteringReportRequest {
+
+    // The from timestamp (inclusive).
+    // Required.
+    google.protobuf.Timestamp from = 1;
+
+    // The to timestamp (exclusive).
+    // If not provided, the server will default to its current time.
+    google.protobuf.Timestamp to = 2;
+
+    // If set to a non-empty value, then the report will only be generated for that application.
+    // Optional.
+    string application_id = 3;
+}
+
+message GetMeteringReportResponse {
+
+    // The actual request that was executed.
+    GetMeteringReportRequest request = 1;
+
+    // The computed report.
+    ParticipantMeteringReport participant_report = 2;
+
+    // The time at which the report was computed.
+    google.protobuf.Timestamp report_generation_time = 3;
+}
+
+
+// Report representation
+////////////////////////
+
+message ParticipantMeteringReport {
+
+    // The reporting participant
+    string participant_id = 1;
+
+    // If the report is final it has been generated based on aggregated data
+    // so will never change in the future.
+    bool is_final = 2;
+
+    // Per application reports.
+    repeated ApplicationMeteringReport application_reports = 3;
+
+}
+
+message ApplicationMeteringReport {
+
+    // The application Id
+    string application_id = 1;
+
+    // The event count for the application; i.e., the number of fetch, lookup-by-key, create, and exercise events
+    // in transactions issued by this application.
+    int64 event_count = 2;
+}

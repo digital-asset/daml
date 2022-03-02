@@ -1,12 +1,12 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import UntypedIcon from '../Icon';
-import { default as styled, hardcodedStyle, ThemeInterface } from '../theme';
-import Truncate from '../Truncate';
-export { StyledComponent } from 'styled-components';
-import { StyledComponent } from 'styled-components';
+import * as React from "react";
+import UntypedIcon from "../Icon";
+import { default as styled, hardcodedStyle, ThemeInterface } from "../theme";
+import Truncate from "../Truncate";
+export { StyledComponent } from "styled-components";
+import { StyledComponent } from "styled-components";
 
 // This is a bit messy and is probably possible to clean up, but the idea is
 // that we export a component factory that takes the outer component (usually a
@@ -34,19 +34,22 @@ const Count = styled.span`
   background-color: ${({ theme }) => theme.colorSecondary[0]};
 `;
 
-const Underline = (props: {isActive?: boolean, className?: string}) =>
-  (<div className={props.className}/>);
+const Underline = (props: { isActive?: boolean; className?: string }) => (
+  <div className={props.className} />
+);
 
 const StyledUnderline = styled(Underline)`
-  border-bottom: ${(props) => props.isActive ? '2px solid' : '2px solid transparent'};
+  border-bottom: ${props =>
+    props.isActive ? "2px solid" : "2px solid transparent"};
   height: 0;
   width: 100%;
   position: relative;
   top: 0.25rem;
-`
+`;
 
-export function makeTabLink<P>(Link: React.ComponentClass<P>): StyledComponent<React.FC<Props & P>, ThemeInterface, Props & P> {
-
+export function makeTabLink<P>(
+  Link: React.ComponentClass<P>,
+): StyledComponent<React.FC<Props & P>, ThemeInterface, Props & P> {
   // First create the component with the required API. This uses the Link
   // component as the outer wrapper.
 
@@ -64,15 +67,16 @@ export function makeTabLink<P>(Link: React.ComponentClass<P>): StyledComponent<R
           <Truncate>{title}</Truncate>
           {countEl}
         </Group>
-        <StyledUnderline isActive={isActive}/>
+        <StyledUnderline isActive={isActive} />
       </Link>
     );
   };
 
   // Then style this (note that we're using isActive for conditional styling).
-  const B: StyledComponent<typeof A, ThemeInterface, Props & P> =
-    styled(A)<Props & P>`
-    color: ${({theme}) => theme.colorPrimary[1]};
+  const B: StyledComponent<typeof A, ThemeInterface, Props & P> = styled(A)<
+    Props & P
+  >`
+    color: ${({ theme }) => theme.colorPrimary[1]};
     margin-right: calc(7 * ${hardcodedStyle.actionBarElementMargin});
   `;
 

@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Interfaces where
@@ -21,7 +21,7 @@ template T1
   where
     signatory owner1
     implements I1 where
-      let getOwner1 = owner1
+      getOwner1 = owner1
     choice OwnChoice : ()
       controller owner1
       do pure ()
@@ -32,6 +32,6 @@ template T2
   where
     signatory owner2
     implements I1 where
-      let getOwner1 = owner2
+      getOwner1 = owner2
     implements I2 where
-      let getOwner2 = owner2
+      getOwner2 = owner2

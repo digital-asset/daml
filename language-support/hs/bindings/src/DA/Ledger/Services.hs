@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Ledger.Services (module X) where
@@ -12,6 +12,6 @@ import DA.Ledger.Services.LedgerIdentityService as X
 import DA.Ledger.Services.PackageManagementService as X
 import DA.Ledger.Services.PartyManagementService as X
 import DA.Ledger.Services.PackageService as X
-import DA.Ledger.Services.ResetService as X
 import DA.Ledger.Services.TimeService as X
 import DA.Ledger.Services.TransactionService as X
+import DA.Ledger.Services.MeteringReportService as X

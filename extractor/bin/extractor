@@ -1,8 +1,0 @@
-#!/usr/bin/env sh
-
-CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-for filename in $CURRENT_DIR/../*.jar; do
-      java -jar $filename "$@"
-      break
-done

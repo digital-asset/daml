@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,6 +26,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -73,6 +74,7 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -109,6 +111,7 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/contextualized-logging",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -135,17 +138,16 @@ da_scala_test(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-on-memory",
-        "//ledger/ledger-on-memory:ledger-on-memory-app",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state/kvutils/app",
+        "//ledger/sandbox-on-x",
         "//ledger/test-common:dar-files-1.14-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_netty_netty_handler",
     ],
 )

@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _recommended-architecture:
@@ -10,10 +10,8 @@ This section describes our recommended design of a full-stack Daml application.
 
 .. image:: ./recommended_architecture.svg
 
-The above image shows the recommended architecture. Of course there are many ways how you can change
-the architecture and technology stack to fit your needs, which we'll mention in the corresponding
-sections. Note that the Participant Node is integrated into the Daml drivers in some cases rather
-than being part of the Application Backend. See :doc:`/support/overview` for more details.
+The above image shows the recommended architecture. Of course there are many ways that the architecture and technology 
+stack can be changed to fit your needs which we'll mention in the corresponding sections.
 
 To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
@@ -40,17 +38,16 @@ endpoints to interact with the ledger via GET/POST requests. However, if you pre
 use the :ref:`gRPC Ledger API <grpc>` directly.
 
 When you use the ``create-daml-app`` template application, you can start a Daml Sandbox together
-with a JSON API server by running
+with a JSON API server by running the following command in the root of the project.
 
 .. code-block:: bash
 
   daml start --start-navigator=no
 
-in the root of the project. Daml Sandbox exposes the same Daml Ledger API a Participant Node would
+Daml Sandbox exposes the same Daml Ledger API a Participant Node would
 expose without requiring a fully-fledged Daml network to back the application. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and Daml artifacts of your project to a production Daml network. See
-:ref:`Deploying to Daml Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
+your frontend and Daml artifacts of your project to a production Daml network.
 
 Frontend
 ********
@@ -58,8 +55,7 @@ Frontend
 We recommended building your frontend with the `React <https://reactjs.org>`_ framework. However,
 you can choose virtually any language for your frontend and interact with the ledger via
 :ref:`HTTP JSON <json-api>` endpoints. In addition, we provide support libraries for
-:ref:`Java <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the
-:ref:`gRPC Ledger API <grpc>` directly.
+:ref:`Java <java-bindings>` and you can also interact with the :ref:`gRPC Ledger API <grpc>` directly.
 
 
 We provide two libraries to build your React frontend for a Daml application.
@@ -126,8 +122,6 @@ Together, these features can provide you with very tight feedback loops while de
 
 See :doc:`Your First Feature </getting-started/first-feature>` for a more detailed walkthrough of these steps.
 
-.. _command-deduplication:
-
 Command deduplication
 =====================
 
@@ -135,24 +129,14 @@ The interaction of a Daml application with the ledger is inherently asynchronous
 
 There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
 
-If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
-Daml ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
+If you want to make sure that a command is not executed twice, your application needs to robustly handle all failure scenarios.
+Daml ledgers provide a mechanism for :doc:`command deduplication <command-deduplication>` to help deal with this problem.
 
-For each command the application provides a command ID and an optional parameter that specifies the deduplication period. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication period.
+For each command the application provides a command ID and an optional parameter that specifies the deduplication period.
+If the latter parameter is not specified in the command submission itself, the ledger will use the configured maximum deduplication duration.
 The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will generate a rejection within the effective deduplication period.
 
-To use command deduplication, you should:
-
-- Use generous values for the deduplication duration. It should be large enough such that you can assume the command was permanently lost if the effective deduplication period has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
-- Make sure you set command IDs deterministically, that is to say: the "same" command must use the same command ID. This is useful for the recovery procedure after an application crash/restart, in which the application inspects the state of the ledger (e.g. via the :ref:`Active contracts service <active-contract-service>`) and sends commands to the ledger. When using deterministic command IDs, any commands that had been sent before the application restart will be discarded by the ledger to avoid duplicate submissions.
-- If you are not sure whether a command was submitted successfully, just resubmit it with the same deduplication duration. If the new command was submitted within the effective deduplication period, the duplicate submission will anyway generate a rejection. If the effective deduplication period has passed, you can assume the command was lost or rejected and a new submission is justified.
-
-.. note:: Effective deduplication period
-
-  The effective deduplication period may be longer than the one specified in the command, but it never is shorter.
-  To learn more, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
-
-For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
+For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
 
 
 .. _dealing-with-failures:

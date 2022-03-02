@@ -57,3 +57,5 @@ testUnstableSplitOn = scenario do
   T.unstableSplitOn "\\." "4."            === [ "4." ]
   T.unstableSplitOn "\\." "4.0"           === [ "4.0" ]
   T.unstableSplitOn "\\." "4.3.2.1."      === [ "4.3.2.1." ]
+
+-- @ENABLE-SCENARIOS

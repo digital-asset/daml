@@ -68,6 +68,7 @@ common_nix_file_deps = [
     "@daml//nix:nixpkgs.nix",
     "@daml//nix:nixpkgs/default.nix",
     "@daml//nix:nixpkgs/default.src.json",
+    "@daml//nix:system.nix",
 ]
 
 dev_env_nix_repos = {
@@ -80,6 +81,7 @@ nixpkgs_local_repository(
     nix_file_deps = [
         "@daml//nix:nixpkgs/default.nix",
         "@daml//nix:nixpkgs/default.src.json",
+        "@daml//nix:system.nix",
     ],
 )
 
@@ -108,7 +110,7 @@ filegroup(
 
 haskell_register_ghc_bindists(
     compiler_flags = [],
-    version = "8.10.7",
+    version = "9.0.2",
 ) if is_windows else None
 
 haskell_register_ghc_nixpkgs(
@@ -118,7 +120,7 @@ haskell_register_ghc_nixpkgs(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-    version = "8.10.7",
+    version = "9.0.2",
 )
 
 nixpkgs_python_configure(repository = "@nixpkgs")
@@ -236,7 +238,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs-12.17.0",
+    win_tool = "nodejs",
 )
 
 node_repositories(
@@ -282,6 +284,7 @@ daml_sdk_head(
     daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
     ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_deploy.jar",
     os_name = os_name,
+    sandbox_on_x = "@head_sdk//:sandbox-on-x_deploy.jar",
     sdk_tarball = "@head_sdk//:sdk-release-tarball-ce.tar.gz",
 )
 

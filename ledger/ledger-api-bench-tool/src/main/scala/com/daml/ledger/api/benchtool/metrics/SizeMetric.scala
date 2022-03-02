@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
@@ -34,6 +34,8 @@ final case class SizeMetric[T](
     }
     Value(value)
   }
+
+  override def violatedFinalObjectives(totalDuration: Duration): List[(Objective, Value)] = Nil
 
   private def periodicSizeRate(periodDuration: Duration): Double =
     (currentSizeBytesBucket.toDouble / periodDuration.toMillis) * 1000.0 / (1024 * 1024)

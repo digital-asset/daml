@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -eou pipefail
@@ -47,6 +47,7 @@ DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
 SDK_VERSION=${10}
 UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${11}")
+GRPCURL=$(rlocation "$TEST_WORKSPACE/${12}" | xargs dirname)
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
@@ -62,6 +63,7 @@ cd $TMP_DIR
 
 # Call daml2js.
 PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
+PATH=$PATH:$GRPCURL
 
 # Build, lint, test.
 cd build-and-lint-test

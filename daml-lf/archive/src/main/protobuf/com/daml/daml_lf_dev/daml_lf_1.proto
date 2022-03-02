@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // .proto representation of the first version of the Daml-LF language,
@@ -951,6 +951,31 @@ message Expr {
     Expr interface_expr = 3;
   }
 
+  // Obtain the type representation of a contract through an interface
+  // *Available in versions >= 1.dev*
+  message InterfaceTemplateTypeRep {
+    // interface type
+    TypeConName interface = 1;
+    // interface argument
+    Expr expr = 2;
+  }
+
+  // Obtain the signatories of a contract through an interface
+  message SignatoryInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
+  // Obtain the observers of a contract through an interface
+  message ObserverInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -1077,6 +1102,15 @@ message Expr {
     // *Available in versions >= 1.dev*
     ToRequiredInterface to_required_interface = 39;
     FromRequiredInterface from_required_interface = 40;
+
+    // Obtain the type representation of a contract's template through an interface.
+    // *Available in versions >= 1.dev*
+    InterfaceTemplateTypeRep interface_template_type_rep = 41;
+
+    // Obtain a contract's signatories/observers through an interface.
+    // *Available in versions >= 1.dev*
+    SignatoryInterface signatory_interface = 42;
+    ObserverInterface observer_interface = 43;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }

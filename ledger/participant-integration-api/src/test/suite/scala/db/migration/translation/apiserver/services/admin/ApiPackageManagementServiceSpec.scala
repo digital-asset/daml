@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -9,7 +9,6 @@ import java.util.zip.ZipInputStream
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -49,7 +48,6 @@ class ApiPackageManagementServiceSpec
   import ApiPackageManagementServiceSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
 
   "ApiPackageManagementService $suffix" should {
     "propagate trace context" in {
@@ -65,7 +63,6 @@ class ApiPackageManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
-          verifyZeroInteractions(errorCodesVersionSwitcher)
           succeed
         }
     }
@@ -99,7 +96,6 @@ class ApiPackageManagementServiceSpec
       TestWritePackagesService,
       Duration.ZERO,
       mockEngine,
-      errorCodesVersionSwitcher,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
     )

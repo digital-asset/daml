@@ -1,9 +1,10 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test_suite",
     "lf_scalacopts",
 )
 
@@ -21,5 +22,32 @@ da_scala_library(
     deps = [
         "//ledger-service/jwt",
         "@maven//:com_auth0_java_jwt",
+    ],
+)
+
+da_scala_test_suite(
+    name = "cli-opts-tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":cli-opts",
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
+        "//ledger/test-common",
+        "//libs-scala/fs-utils",
+        "//libs-scala/resources",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:org_bouncycastle_bcpkix_jdk15on",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )

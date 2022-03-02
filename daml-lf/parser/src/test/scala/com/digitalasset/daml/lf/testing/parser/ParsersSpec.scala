@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -13,6 +13,7 @@ import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import scala.collection.immutable.VectorMap
 
 import scala.language.implicitConversions
 
@@ -343,6 +344,18 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromInterface(T.tycon, I.tycon, e"body"),
         "from_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
           EFromInterface(T.tycon, I.tycon, e"body"),
+        "interface_template_type_rep @Mod:I body" ->
+          EInterfaceTemplateTypeRep(I.tycon, e"body"),
+        "interface_template_type_rep @'-pkgId-':Mod:I body" ->
+          EInterfaceTemplateTypeRep(I.tycon, e"body"),
+        "signatory_interface @Mod:I body" ->
+          ESignatoryInterface(I.tycon, e"body"),
+        "signatory_interface @'-pkgId-':Mod:I body" ->
+          ESignatoryInterface(I.tycon, e"body"),
+        "observer_interface @Mod:I body" ->
+          EObserverInterface(I.tycon, e"body"),
+        "observer_interface @'-pkgId-':Mod:I body" ->
+          EObserverInterface(I.tycon, e"body"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -622,7 +635,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ),
           observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
           key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
-          implements = Map(
+          implements = VectorMap(
             human ->
               TemplateImplements(
                 human,
@@ -861,6 +874,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     "catch",
     "to_interface",
     "from_interface",
+    "interface_template_type_rep",
+    "signatory_interface",
+    "observer_interface",
   )
 
   private val modName = DottedName.assertFromString("Mod")

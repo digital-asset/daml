@@ -1,10 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.optionalLedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
@@ -37,7 +38,7 @@ class ActiveContractsServiceValidation(
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit =
     fieldValidations
-      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .fold(
         t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
         _ => service.getActiveContracts(request, responseObserver),

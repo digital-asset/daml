@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -19,18 +19,19 @@ object Request {
     def write(id: Identifier): JsValue = JsString(id.toString)
   }
 
-  private[Request] implicit val PartyFormat: JsonFormat[Party] =
+  private[trigger] implicit val PartyFormat: JsonFormat[Party] =
     Tag.subst(implicitly[JsonFormat[String]])
 
   final case class StartParams(
       triggerName: Identifier,
       party: Party,
       applicationId: Option[ApplicationId],
+      readAs: Option[List[Party]],
   )
   object StartParams {
     implicit val applicationIdFormat: JsonFormat[ApplicationId] =
       Tag.subst(implicitly[JsonFormat[String]])
-    implicit val startParamsFormat: RootJsonFormat[StartParams] = jsonFormat3(StartParams.apply)
+    implicit val startParamsFormat: RootJsonFormat[StartParams] = jsonFormat4(StartParams.apply)
   }
 
   final case class ListParams(party: Party)

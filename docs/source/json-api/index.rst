@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _json-api:
@@ -49,7 +49,7 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
     daml new my_project --template quickstart-java
     cd my_project
     daml build
-    daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
@@ -63,11 +63,127 @@ The most basic way to start the JSON API is with the command:
 
 .. code-block:: shell
 
-    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+    daml json-api --config json-api-app.conf
+
+where a corresponding minimal config file is
+
+.. code-block:: none
+
+    {
+      server {
+        address = "localhost"
+        port = 7575
+      }
+      ledger-api {
+        address = "localhost"
+        port = 6865
+      }
+    }
 
 This will start the JSON API on port 7575 and connect it to a ledger running on ``localhost:6865``.
 
 .. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
+
+The full set of configurable options that can be specified via config file is listed below
+
+.. code-block:: none
+
+    {
+      server {
+        //IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
+        address = "127.0.0.1"
+        //HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port.
+        port = 7575
+      }
+      ledger-api {
+        address = "127.0.0.1"
+        port = 6865
+        tls {
+            enabled = "true"
+            // the certificate to be used by the server
+            cert-chain-file = "cert-chain.crt"
+            // private key of the server
+            private-key-file = "pvt-key.pem"
+            // trust collection, which means that all client certificates will be verified using the trusted
+            // certificates in this store. if omitted, the JVM default trust store is used.
+            trust-collection-file = "root-ca.crt"
+        }
+      }
+
+      query-store {
+        base-config {
+          user = "postgres"
+          password = "password"
+          driver = "org.postgresql.Driver"
+          url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
+
+          // prefix for table names to avoid collisions, empty by default
+          table-prefix = "foo"
+
+          // max pool size for the database connection pool
+          pool-size = 12
+          //specifies the min idle connections for database connection pool.
+          min-idle = 4
+          //specifies the idle timeout for the database connection pool.
+          idle-timeout = 12s
+          //specifies the connection timeout for database connection pool.
+          connection-timeout = 90s
+        }
+        // option setting how the schema should be handled.
+        // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
+        start-mode = "start-only"
+      }
+
+
+
+      // Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+      package-reload-interval = 5s
+      //Optional max inbound message size in bytes. Defaults to 4194304.
+      max-inbound-message-size = 4194304
+      //Optional max inbound message size in bytes used for uploading and downloading package updates. Defaults to the `max-inbound-message-size` setting.
+      package-max-inbound-message-size = 4194304
+      //Optional max cache size in entries for storing surrogate template id mappings. Defaults to None
+      max-template-id-cache-entries = 1000
+      //health check timeout in seconds
+      health-timeout-seconds = 5
+
+      //Optional websocket configuration parameters
+      websocket-config {
+        //Maximum websocket session duration
+        max-duration = 120m
+        //Server-side heartbeat interval duration
+        heartbeat-period = 5s
+        //akka stream throttle-mode one of either `shaping` or `enforcing`
+        mode = "shaping"
+      }
+
+      metrics {
+        //Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
+        reporter = "console"
+        //Set metric reporting interval , examples : 1s, 30s, 1m, 1h
+        reporting-interval = 30s
+      }
+
+      // DEV MODE ONLY (not recommended for production)
+      // Allow connections without a reverse proxy providing HTTPS.
+      allow-insecure-tokens = false
+      // Optional static content configuration string. Contains comma-separated key-value pairs, where:
+      // prefix -- URL prefix,
+      // directory -- local directory that will be mapped to the URL prefix.
+      // Example: "prefix=static,directory=./static-content"
+      static-content {
+        prefix = "static"
+        directory = "static-content-dir"
+      }
+    }
+
+
+.. note:: You can also start JSON API using CLI args (example below) however this is now deprecated
+
+.. code-block:: shell
+
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+
 
 Standalone JAR
 --------------
@@ -84,9 +200,9 @@ start the standalone JAR, you can use the following command:
 
 .. code-block:: shell
 
-    java -jar http-json-1.5.0.jar --ledger-host localhost --ledger-port 6865 --http-port 7575
+    java -jar http-json-2.0.0.jar --config json-api-app.conf
 
-Replace the version number ``1.5.0`` by the version of the SDK you are
+Replace the version number ``2.0.0`` by the version of the SDK you are
 using.
 
 With Query Store
@@ -99,10 +215,37 @@ your query every time so it is generally not recommended to rely on
 this in production. Note that the PostgreSQL backend acts purely as a
 cache. It is safe to reinitialize the database at any time.
 
-To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
+To enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+
+.. code-block:: none
+
+    query-store {
+      base-config {
+        user = "postgres"
+        password = "password"
+        driver = "org.postgresql.Driver"
+        url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
+
+        // prefix for table names to avoid collisions, empty by default
+        table-prefix = "foo"
+
+        // max pool size for the database connection pool
+        pool-size = 12
+        //specifies the min idle connections for database connection pool.
+        min-idle = 4
+        //specifies the idle timeout for the database connection pool.
+        idle-timeout = 12s
+        //specifies the connection timeout for database connection pool.
+        connection-timeout = 90s
+      }
+      // option setting how the schema should be handled.
+      // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
+      start-mode = "create-if-needed-and-start"
+    }
 
 .. note:: When you use the Query Store you'll want to use ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
 
+you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an example of which is below.
 
 .. code-block:: shell
 
@@ -110,6 +253,8 @@ To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` f
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=create-if-needed-and-start"
 
 .. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
+
+.. _json-api-access-tokens:
 
 Access Tokens
 =============
@@ -121,12 +266,36 @@ The JSON API essentially performs two separate tasks:
 
 .. note:: By default, the Daml Sandbox does not does not require access tokens. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
-Party-specific Access Tokens
-----------------------------
+Party-specific Requests
+-----------------------
 
-Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the format :doc:`described in the Token Payload section here </tools/sandbox>`. For command submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at least one party in either ``actAs`` or ``readAs`` (note that before SDK 1.7.0, every request required exactly one party and before SDK 1.8.0 actAs was limited to exactly one party). In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+Party-specific requests, i.e., command submissions and queries, are subject to additional restrictions. For command
+submissions the token must provide a proof that the bearer can act on behalf of at least one party (and possibly read
+on behalf of any number of parties). For queries the token must provide a proof that the bearer can either act and/or
+read of at least one party. This happens regardless of the used :ref:`access token format<access-token-formats>`. The
+following paragraphs provide guidance as to how different token formats are used by the HTTP JSON API in this regard.
 
-.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
+Using User Tokens
+^^^^^^^^^^^^^^^^^
+
+If the underlying ledger supports :ref:`user management <user-service>` (this includes Canton and the sandbox), you are
+recommended to use user tokens. For command submissions, the user of the bearer should have ``actAs`` rights for at
+least one party and ``readAs`` rights for any number of parties. Queries require the bearer's user to have at least
+one ``actAs`` or ``readAs`` user right. The application id of the Ledger API request will be the user id.
+
+Using Claim Tokens
+^^^^^^^^^^^^^^^^^^
+
+These tokens can be used if the underlying ledger does not support :ref:`user management <user-service>`. For command
+submissions, ``actAs`` must contain at least one party and ``readAs`` can contain any number of parties. Queries
+require at least one party in either ``actAs`` or ``readAs``. The application id is mandatory.
+
+.. note::
+
+    While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it,
+    and all data contained within the request, on to the Ledger API's AuthService which will then determine if the
+    token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id
+    and party so it requires that you use :ref:`a valid Daml ledger access token format<access-token-formats>`.
 
 For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.atGiYNc9HfBFbm8s9j5vvMv2sJUlVprFiRmLeoUpJeY>`_ (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
@@ -1088,6 +1257,401 @@ HTTP Response
         "displayName": "Carol & Co. LLC",
         "isLocal": true
       },
+      "status": 200
+    }
+
+
+Creating a New User
+********************
+
+This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/create``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "primaryParty": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>` documentation for information about the meaning of the fields.
+
+Only the userId fields in the request is required, this means that an JSON object containing only it is a valid request to create a new user.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {},
+      "status": 200
+    }
+
+
+Get Authenticated User Information
+**********************************
+
+This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>`.
+
+The user ID will always be filled out with the user specified via the currently used user token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "userId": "Carol",
+        "primaryParty": "Carol",
+      },
+      "status": 200
+    }
+
+
+Get Specific User Information
+*****************************
+
+This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+
+Please refer to :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "userId": "Carol",
+        "primaryParty": "Carol",
+      },
+      "status": 200
+    }
+
+Delete Specific User
+********************
+
+This endpoint exposes the Ledger API's :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.DeleteUserRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/delete``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+
+Please refer to :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.DeleteUserRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {},
+      "status": 200
+    }
+
+List Users
+**********
+
+This endpoint exposes the Ledger API's :ref:`ListUsers RPC <com.daml.ledger.api.v1.admin.ListUsersRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/users``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+            "userId": "Carol",
+            "primaryParty": "Carol",
+        },
+        {
+            "userId": "Bob",
+            "primaryParty": "Bob",
+        }
+      ],
+      "status": 200
+    }
+
+Grant User Rights
+*****************
+
+This endpoint exposes the Ledger API's :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.GrantUserRightsRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights/grant``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.GrantUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+Returns the rights that were newly granted.
+
+Revoke User Rights
+******************
+
+This endpoint exposes the Ledger API's :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.RevokeUserRightsRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights/revoke``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.RevokeUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+Returns the rights that were actually granted.
+
+List Authenticated User Rights
+******************************
+
+This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>`.
+
+The user ID will always be filled out with the user specified via the currently used user token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+List Specific User Rights
+*************************
+
+This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+Please refer to :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
       "status": 200
     }
 

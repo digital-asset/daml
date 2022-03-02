@@ -1,23 +1,23 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import Button, { Props as ButtonProps} from '../Button';
-import UntypedIcon from '../Icon';
-import Link, { Props as LinkProps} from '../Link';
-import SearchInput, { Props as SearchInputProps} from '../SearchInput';
-import styled, { hardcodedStyle } from '../theme';
-import Truncate from '../Truncate';
+import * as React from "react";
+import Button, { Props as ButtonProps } from "../Button";
+import UntypedIcon from "../Icon";
+import Link, { Props as LinkProps } from "../Link";
+import SearchInput, { Props as SearchInputProps } from "../SearchInput";
+import styled, { hardcodedStyle } from "../theme";
+import Truncate from "../Truncate";
 
-export {makeTabLink} from './TabLink';
+export { makeTabLink } from "./TabLink";
 
 // ------------------------------------------------------------------------------------------------
 // The action bar
 // ------------------------------------------------------------------------------------------------
 
-export const TableActionBar
-  : React.FC<React.HTMLProps<HTMLDivElement>>
-  = styled.div`
+export const TableActionBar: React.FC<
+  React.HTMLProps<HTMLDivElement>
+> = styled.div`
   height: ${hardcodedStyle.pageHeaderHeight};
   display: flex;
   border-top-left-radius: ${({ theme }) => theme.radiusBorder};
@@ -34,18 +34,16 @@ export const TableActionBar
 // ------------------------------------------------------------------------------------------------
 
 /** Simple spacing element */
-export const TableActionBarSpace
-  = styled.div`
+export const TableActionBarSpace = styled.div`
   flex: 1;
 `;
 
 /** Simple spacing element */
-export const TableActionBarSideMargin
-  = styled.div`
+export const TableActionBarSideMargin = styled.div`
   width: ${hardcodedStyle.tableSideMargin};
 `;
 
-const StyledSearchIcon = styled(UntypedIcon).attrs({name: 'search'})`
+const StyledSearchIcon = styled(UntypedIcon).attrs({ name: "search" })`
   font-size: 1.75rem;
   color: ${({ theme }) => theme.colorSecondary[1]};
   background-color: ${({ theme }) => theme.colorSecondary[0]};
@@ -54,9 +52,9 @@ const StyledSearchIcon = styled(UntypedIcon).attrs({name: 'search'})`
 `;
 
 /** A generic action bar search input */
-export const RawTableActionBarSearchInput
-  : React.FC<SearchInputProps & {width?: string}>
-  = styled(SearchInput)<SearchInputProps & {width?: string}>`
+export const RawTableActionBarSearchInput: React.FC<
+  SearchInputProps & { width?: string }
+> = styled(SearchInput)<SearchInputProps & { width?: string }>`
   border-width: 0;
   height: 100%;
   flex: 1;
@@ -75,22 +73,25 @@ export const RawTableActionBarSearchInput
   }
 `;
 
-export const UnstyledTableActionBarSearchInput: React.FC<SearchInputProps & {with? : string ,className?: string}> =
-  (props: SearchInputProps & {width?: string; className?: string}) => {
-    const {className, ...rest} = props;
-    return (
-      <div className={className}>
-          <RawTableActionBarSearchInput {...rest} />
-          <StyledSearchIcon name="search" />
-      </div>
-    );
+export const UnstyledTableActionBarSearchInput: React.FC<
+  SearchInputProps & { with?: string; className?: string }
+> = (props: SearchInputProps & { width?: string; className?: string }) => {
+  const { className, ...rest } = props;
+  return (
+    <div className={className}>
+      <RawTableActionBarSearchInput {...rest} />
+      <StyledSearchIcon name="search" />
+    </div>
+  );
 };
 
 /** A generic action bar search input */
-export const TableActionBarSearchInput
-  : React.FC<SearchInputProps & {width?: string}>
-  = styled(UnstyledTableActionBarSearchInput)<SearchInputProps & {width?: string}>`
-  width: ${(props) => props.width || '30%'};
+export const TableActionBarSearchInput: React.FC<
+  SearchInputProps & { width?: string }
+> = styled(UnstyledTableActionBarSearchInput)<
+  SearchInputProps & { width?: string }
+>`
+  width: ${props => props.width || "30%"};
   height: 100%;
   display: flex;
   align-items: center;
@@ -98,9 +99,9 @@ export const TableActionBarSearchInput
 `;
 
 /** A generic action bar title. */
-export const TableActionBarTitle
-  : React.FC<React.HTMLProps<HTMLSpanElement>>
-  = styled(Truncate)`
+export const TableActionBarTitle: React.FC<
+  React.HTMLProps<HTMLSpanElement>
+> = styled(Truncate)`
   flex: 1;
   align-self: center;
   font-size: 1.25rem;
@@ -111,11 +112,11 @@ export const TableActionBarTitle
 `;
 
 /** A generic action bar button */
-export const TableActionBarButton
-  : React.FC<ButtonProps>
-  = styled(Button).attrs({type: 'inverted-primary'})`
+export const TableActionBarButton: React.FC<ButtonProps> = styled(Button).attrs(
+  { type: "inverted-primary" },
+)`
   margin-right: ${hardcodedStyle.actionBarElementMargin};
-  font-size: 1.0rem;
+  font-size: 1rem;
   &:hover {
     padding-top: 0.6rem;
     padding-bottom: 0.6rem;
@@ -123,16 +124,14 @@ export const TableActionBarButton
 `;
 
 /** A generic action bar link */
-export const TableActionBarLink
-  : React.FC<LinkProps>
-  = styled(Link)`
+export const TableActionBarLink: React.FC<LinkProps> = styled(Link)`
   margin-right: ${hardcodedStyle.actionBarElementMargin};
 `;
 
 /** A generic action bar checkbox */
-export const TableActionBarCheckboxLabel
-  : React.FC<React.HTMLProps<HTMLLabelElement>>
-  = styled.label`
+export const TableActionBarCheckboxLabel: React.FC<
+  React.HTMLProps<HTMLLabelElement>
+> = styled.label`
   align-self: center;
   cursor: pointer;
   white-space: nowrap;
@@ -141,9 +140,9 @@ export const TableActionBarCheckboxLabel
 `;
 
 /** A generic action bar checkbox */
-export const TableActionBarCheckbox
-  : React.FC<React.HTMLProps<HTMLInputElement>>
-  = styled.input`
+export const TableActionBarCheckbox: React.FC<
+  React.HTMLProps<HTMLInputElement>
+> = styled.input`
   margin-right: 5px;
 `;
 
@@ -153,14 +152,14 @@ export const TableActionBarCheckbox
 
 /** A search input, wired up to control a TableConfig */
 export function TableActionBarConfigSearchInput(props: {
-  readonly config: {readonly search: string},
-  onConfigChange?(config: {readonly search: string}): void,
+  readonly config: { readonly search: string };
+  onConfigChange?(config: { readonly search: string }): void;
   readonly placeholder: string;
   readonly width?: string;
 }): JSX.Element {
   return (
     <TableActionBarSearchInput
-      onChange={(value) => {
+      onChange={value => {
         if (props.onConfigChange) {
           props.onConfigChange({
             ...props.config,
@@ -168,7 +167,7 @@ export function TableActionBarConfigSearchInput(props: {
           });
         }
       }}
-      placeholder={''}
+      placeholder={""}
       initialValue={props.config.search}
       width={props.width}
     />
@@ -176,11 +175,9 @@ export function TableActionBarConfigSearchInput(props: {
 }
 
 /** A checkbox, wired up to control a TableConfig */
-export function TableActionBarConfigCheckbox<
-  Config
->(props: {
-  readonly config: Config,
-  onConfigChange?(config: Config): void,
+export function TableActionBarConfigCheckbox<Config>(props: {
+  readonly config: Config;
+  onConfigChange?(config: Config): void;
   readonly configKey: keyof Config;
   readonly title: string;
 }): JSX.Element {

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+  ~ Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
   ~ SPDX-License-Identifier: Apache-2.0
   -->
 
@@ -18,6 +18,8 @@
     <!-- Disable noisy DB logging at the start of sandbox -->
     <logger name="com.daml.platform.store.FlywayMigrations" level="WARN" />
     <logger name="org.flywaydb" level="INFO" />
+    <!-- Flyway prints jdbc string at info level -->
+    <logger name="org.flywaydb.core.internal.database.base.BaseDatabaseType" level="WARN" />
     <logger name="com.zaxxer.hikari" level="ERROR" />
     <logger name="com.daml.platform" level="WARN" />
 

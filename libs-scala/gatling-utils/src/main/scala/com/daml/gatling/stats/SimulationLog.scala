@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.gatling.stats
@@ -7,7 +7,6 @@ import java.nio.file.Path
 
 import scalaz._
 
-import scala.collection.compat._
 import scala.collection.immutable.ListMap
 import spray.json._
 

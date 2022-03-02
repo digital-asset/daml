@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -6,6 +6,8 @@
 
 
 module CoinIssuance where
+
+import Daml.Script
 
 import DA.Time
 import Utilities
@@ -153,38 +155,39 @@ template TransferProposal
       controller newOwner
       do return ()
 
-createCoin : Party -> Party -> Decimal -> Scenario (ContractId Coin)
+createCoin : Party -> Party -> Decimal -> Script (ContractId Coin)
 createCoin issuer owner amount =
   do
-    masterId <- issuer `submit` create CoinMaster with issuer
-    coinAgmProp <- issuer `submit` exercise masterId Invite with owner
-    coinAgmId <- owner `submit` exercise coinAgmProp AcceptCoinProposal
-    coinId <- issuer `submit` exercise coinAgmId Issue with amount
+    masterId <- issuer `submit` createCmd CoinMaster with issuer
+    coinAgmProp <- issuer `submit` exerciseCmd masterId Invite with owner
+    coinAgmId <- owner `submit` exerciseCmd coinAgmProp AcceptCoinProposal
+    coinId <- issuer `submit` exerciseCmd coinAgmId Issue with amount
     return coinId
 
-coinIssuance : Scenario (ContractId TransferProposal)  -- test
+coinIssuance : Script (ContractId TransferProposal)  -- test
 coinIssuance =
-  scenario
+  script
     do
 
       [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
-      now <- pass (days 0)
+      passTime (days 0)
+      now <- getTime
       --CoinMaster
-      masterId <- issuer `submit` do create CoinMaster with issuer
-      coinAgmProp <- issuer `submit` do exercise masterId Invite with owner
-      coinAgmId <- owner `submit` do exercise coinAgmProp AcceptCoinProposal
-      coinId <- issuer `submit` do exercise coinAgmId Issue with amount = 100.0
+      masterId <- issuer `submit` do createCmd CoinMaster with issuer
+      coinAgmProp <- issuer `submit` do exerciseCmd masterId Invite with owner
+      coinAgmId <- owner `submit` do exerciseCmd coinAgmProp AcceptCoinProposal
+      coinId <- issuer `submit` do exerciseCmd coinAgmId Issue with amount = 100.0
 
       --Coin transfer test
-      coinTransferPropId <- owner `submit` do exercise coinId Transfer with newOwner
-      coinId <- newOwner `submit` do exercise coinTransferPropId AcceptTransfer
+      coinTransferPropId <- owner `submit` do exerciseCmd coinId Transfer with newOwner
+      coinId <- newOwner `submit` do exerciseCmd coinTransferPropId AcceptTransfer
 
       --Coin lock test
-      lockedCoinId <- newOwner `submit` do exercise coinId Lock with maturity= (addRelTime now (days 2)); locker=issuer
+      lockedCoinId <- newOwner `submit` do exerciseCmd coinId Lock with maturity= (addRelTime now (days 2)); locker=issuer
 
       --since it is locked and maturity time hasn't elapsed yet, owner cannot clawback
-      newOwner `submitMustFail` do exercise lockedCoinId Clawback
+      newOwner `submitMustFail` do exerciseCmd lockedCoinId Clawback
 
       --only after unlock, owner can access the coin
-      unlockedCoin <- issuer `submit` do exercise lockedCoinId Unlock
-      newOwner `submit` do exercise unlockedCoin Transfer with newOwner=owner
+      unlockedCoin <- issuer `submit` do exerciseCmd lockedCoinId Unlock
+      newOwner `submit` do exerciseCmd unlockedCoin Transfer with newOwner=owner

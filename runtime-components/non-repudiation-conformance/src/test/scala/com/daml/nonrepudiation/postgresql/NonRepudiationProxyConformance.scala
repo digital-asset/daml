@@ -1,22 +1,18 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.nonrepudiation.postgresql
 
+import java.time.{Clock, Duration}
+
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCase,
   LedgerTestCasesRunner,
   LedgerTestSummary,
   Result,
 }
-import com.daml.ledger.api.testtool.suites.{
-  ClosedWorldIT,
-  CommandDeduplicationIT,
-  KVCommandDeduplicationIT,
-}
-import com.daml.ledger.api.testtool.tests.Tests
+import com.daml.ledger.api.testtool.{infrastructure, suites}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -33,7 +29,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
 
-import java.time.{Clock, Duration}
 import scala.concurrent.duration.DurationInt
 
 final class NonRepudiationProxyConformance
@@ -45,21 +40,16 @@ final class NonRepudiationProxyConformance
 
   behavior of "NonRepudiationProxy"
 
-  private val defaultTestsToRun = Tests
-    .default()
-    .filter {
-      case _: ClosedWorldIT => false
-      case _: CommandDeduplicationIT => false
-      case _ => true
-    }
-
-  private val optionalTestsToRun = Tests.optional().filter {
-    case _: KVCommandDeduplicationIT => true
-    case _ => false
-  }
+  private val defaultTestsToRun =
+    suites.v1_14
+      .default(timeoutScaleFactor = 1)
+      .filter {
+        case _: suites.v1_8.ClosedWorldIT => false
+        case _ => true
+      }
 
   private val conformanceTestCases: Vector[LedgerTestCase] =
-    (defaultTestsToRun ++ optionalTestsToRun)
+    defaultTestsToRun
       .flatMap(_.tests)
 
   it should "pass all conformance tests" in {
@@ -109,7 +99,7 @@ final class NonRepudiationProxyConformance
     proxy.use { _ =>
       val runner = new LedgerTestCasesRunner(
         testCases = conformanceTestCases,
-        participants = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
+        participantChannels = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
         commandInterceptors = Seq(
           SigningInterceptor.signCommands(key, certificate)
         ),

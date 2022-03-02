@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -12,8 +12,7 @@ import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.StrictOptimizedSeqFactory
-import scala.collection.immutable.ArraySeq
-import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
+import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
@@ -261,9 +260,7 @@ final class ImmArray[+A] private (
     * return the `array` as is and people would be able to break the original
     * `ImmArray`.
     */
-  def toSeq: ImmArray.ImmArraySeq[A] = new ImmArray.ImmArraySeq(this)
-
-  def toArraySeq: ArraySeq[A] = array
+  def toSeq: ImmArray.ImmArraySeq[A] = toIndexedSeq
 
   /** O(n) */
   def collect[B](f: PartialFunction[A, B]): ImmArray[B] = {

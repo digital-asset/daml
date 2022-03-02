@@ -1,17 +1,16 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.time.Duration
 
 import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.{RunnerConfig, RunnerMain}
+import com.daml.lf.engine.script.{RunnerConfig, RunnerMain, ScriptConfig}
 
 case class ExampleExportClientConfig(
     darPath: File,
@@ -90,14 +89,13 @@ object ExampleExportClient {
         ledgerHost = Some("localhost"),
         ledgerPort = Some(clientConfig.targetPort),
         participantConfig = None,
-        timeMode = Some(RunnerConfig.DefaultTimeMode),
-        commandTtl = Duration.ofSeconds(30L),
+        timeMode = ScriptConfig.DefaultTimeMode,
         inputFile = None,
         outputFile = None,
         accessTokenFile = None,
         tlsConfig = TlsConfiguration(false, None, None, None),
         jsonApi = false,
-        maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+        maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
       )
     )

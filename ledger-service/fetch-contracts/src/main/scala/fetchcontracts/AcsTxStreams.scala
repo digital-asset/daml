@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.fetchcontracts
@@ -12,7 +12,6 @@ import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteSt
 import util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
-import scalaz.syntax.tag._
 
 private[daml] object AcsTxStreams {
   import util.AkkaStreamsDoobie.{last, max, project2}
@@ -43,16 +42,16 @@ private[daml] object AcsTxStreams {
   ): Graph[FanOutShape2[
     lav1.active_contracts_service.GetActiveContractsResponse,
     ContractStreamStep.LAV1,
-    BeginBookmark[String],
+    BeginBookmark[domain.Offset],
   ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import ContractStreamStep.{LiveBegin, Acs}
-      type Off = BeginBookmark[String]
+      type Off = BeginBookmark[domain.Offset]
       val acs = b add acsAndBoundary
       val dupOff = b add Broadcast[Off](2)
       val liveStart = Flow fromFunction { off: Off =>
-        LiveBegin(domain.Offset.tag.subst(off))
+        LiveBegin(off)
       }
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
@@ -72,15 +71,17 @@ private[daml] object AcsTxStreams {
   private[this] def acsAndBoundary
       : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
-      ], BeginBookmark[String]], NotUsed] =
+      ], BeginBookmark[domain.Offset]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
       val dup = b add Broadcast[GACR](2)
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
-        .collect { case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(gacr.offset) }
-        .via(last(LedgerBegin: BeginBookmark[String]))
+        .collect {
+          case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(domain.Offset(gacr.offset))
+        }
+        .via(last(LedgerBegin: BeginBookmark[domain.Offset]))
       discard { dup ~> acs }
       discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
@@ -93,29 +94,26 @@ private[daml] object AcsTxStreams {
   private[daml] def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
   ): Graph[FanOutShape2[
-    BeginBookmark[String],
+    BeginBookmark[domain.Offset],
     ContractStreamStep.Txn.LAV1,
-    BeginBookmark[String],
+    BeginBookmark[domain.Offset],
   ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      type Off = BeginBookmark[String]
+      type Off = BeginBookmark[domain.Offset]
       val dupOff = b add Broadcast[Off](2)
       val mergeOff = b add Concat[Off](2)
       val txns = Flow[Off]
-        .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
+        .flatMapConcat(off => transactionsSince(off.toLedgerApi))
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
       import domain.Offset.`Offset ordering`
       val lastTxOff = b add last(LedgerBegin: Off)
-      type EndoBookmarkFlow[A] = Flow[BeginBookmark[A], BeginBookmark[A], NotUsed]
-      val maxOff = b add domain.Offset.tag.unsubst[EndoBookmarkFlow, String](
-        max(LedgerBegin: BeginBookmark[domain.Offset])
-      )
+      val maxOff = b add max(LedgerBegin: Off)
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
-      discard {                        dupOff                                       ~> mergeOff ~> maxOff }
-      discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> lastTxOff ~> mergeOff }
+      discard {                        dupOff                                ~> mergeOff ~> maxOff }
+      discard { txnSplit.out1.map(off => AbsoluteBookmark(off)) ~> lastTxOff ~> mergeOff }
       // format: on
       new FanOutShape2(dupOff.in, txnSplit.out0, maxOff.out)
     }

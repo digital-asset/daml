@@ -1,9 +1,7 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
-
-import scala.collection.compat._
 
 private[http] sealed trait DbStartupMode
 private[http] object DbStartupMode {
@@ -31,8 +29,7 @@ private[http] object DbStartupMode {
     Map.from(allValues.map(value => (getConfigValue(value), value)))
   private[http] val allConfigValues = configValuesMap.keys.toVector
 
-  import scalaz.Validation.{success, failure}
-  import scalaz.Validation
+  import scalaz.Validation, Validation.{success, failure}
 
   private[http] def parseSchemaHandlingField(input: String): Either[String, DbStartupMode] = {
     def parse(value: String): Validation[String, DbStartupMode] =

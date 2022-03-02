@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -46,7 +46,7 @@ final class AuthorizationTest
   private val publicToken = "public"
   private val emptyToken = "empty"
   private val mockedAuthService = Option(AuthServiceStatic {
-    case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
+    case `publicToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
     case `emptyToken` => ClaimSet.Unauthenticated
   })
 

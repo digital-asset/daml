@@ -74,3 +74,5 @@ testMerge = scenario do
   [(1, "bb"), (3, "aa")] === toList (merge (\_ v -> if v <= "bb" then Some v else None) (\_ v -> Some v) (\_ _ _ -> None) m1 M.empty)
   [(1, "a"), (3, "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) M.empty m2)
   [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)
+
+-- @ENABLE-SCENARIOS

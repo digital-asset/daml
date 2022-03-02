@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -264,6 +264,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"Mod:I → Option Mod:Ti",
         // ECallInterface
         E"λ (i: Mod:I) → (( call_method @Mod:I getParties i ))" ->
+          T"Mod:I → List Party",
+        // EInterfaceTemplateTypeRep
+        E"λ (i: Mod:I) → (( interface_template_type_rep @Mod:I i ))" ->
+          T"Mod:I → TypeRep",
+        // ESignatoryInterface
+        E"λ (i: Mod:I) → (( signatory_interface @Mod:I i ))" ->
+          T"Mod:I → List Party",
+        // EObserverInterface
+        E"λ (i: Mod:I) → (( observer_interface @Mod:I i ))" ->
           T"Mod:I → List Party",
       )
 
@@ -915,7 +924,30 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ call_method @Mod:I getParties e ⸩" -> //
           { case _: ETypeMismatch => },
-        //
+        // EInterfaceTemplateTypeRep - argument must be an interface
+        E"λ (t: Mod:T) → ⸨ interface_template_type_rep @Mod:T t ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
+        // ESignatoryInterface - argument must be an interface
+        E"λ (t: Mod:T) → ⸨ signatory_interface @Mod:T t ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
+        // EObserverInterface - argument must be an interface
+        E"λ (t: Mod:T) → ⸨ observer_interface @Mod:T t ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
       )
 
       val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"

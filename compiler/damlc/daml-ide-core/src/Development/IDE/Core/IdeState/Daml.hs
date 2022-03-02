@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.IdeState.Daml
     ( IdeState
@@ -50,7 +50,7 @@ withDamlIdeState
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     scenarioServiceConfig <- Scenario.readScenarioServiceConfig
-    Scenario.withScenarioService' optScenarioService optDamlLfVersion loggerH scenarioServiceConfig $ \mbScenarioService -> do
+    Scenario.withScenarioService' optScenarioService optEnableScenarios optDamlLfVersion loggerH scenarioServiceConfig $ \mbScenarioService -> do
         vfs <- makeVFSHandle
         bracket
             (getDamlIdeState opts mbScenarioService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)

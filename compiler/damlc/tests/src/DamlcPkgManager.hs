@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DamlcPkgManager
     ( main
@@ -118,8 +118,8 @@ testsForRemoteDataDependencies damlc dar =
                     lock <- readFile lockFp
                     lines lock @?=
                         [ "dependencies:"
-                        , "- pkgId: " <> mainPkgId
-                        , "  name: pkg-manager-test"
+                        , "- name: pkg-manager-test"
+                        , "  pkgId: " <> mainPkgId
                         , "  version: 1.0.0"
                         ]
                   -- a second call shouldn't make any network connections. So let's set the sandbox

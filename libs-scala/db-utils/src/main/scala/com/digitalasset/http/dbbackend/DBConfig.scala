@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.dbutils
@@ -12,6 +12,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Show, StateT, \/}
 
 import java.io.File
+import scala.concurrent.duration._
 import scala.util.Try
 
 object DBConfig {
@@ -28,8 +29,8 @@ final case class JdbcConfig(
     password: String,
     poolSize: Int,
     minIdle: Int = JdbcConfig.MinIdle,
-    connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
-    idleTimeout: Long = JdbcConfig.IdleTimeout,
+    connectionTimeout: FiniteDuration = JdbcConfig.ConnectionTimeout,
+    idleTimeout: FiniteDuration = JdbcConfig.IdleTimeout,
     tablePrefix: String = "",
 )
 
@@ -105,8 +106,8 @@ object JdbcConfig
     with StrictLogging {
 
   final val MinIdle = 8
-  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
-  final val ConnectionTimeout = 5000L
+  final val IdleTimeout = 10000.millis // minimum according to log, defaults to 600s
+  final val ConnectionTimeout = 5000.millis
 
   @scala.deprecated("do I need this?", since = "SC")
   implicit val showInstance: Show[JdbcConfig] =
@@ -163,8 +164,10 @@ object JdbcConfig
     tablePrefix <- optionalStringField("tablePrefix").map(_ getOrElse "")
     maxPoolSize <- optionalIntField("poolSize").map(_ getOrElse PoolSize.Production)
     minIdle <- optionalIntField("minIdle").map(_ getOrElse MinIdle)
-    connTimeout <- optionalLongField("connectionTimeout").map(_ getOrElse ConnectionTimeout)
-    idleTimeout <- optionalLongField("idleTimeout").map(_ getOrElse IdleTimeout)
+    connTimeout <- optionalLongField("connectionTimeout")
+      .map(x => x.map(_.millis) getOrElse ConnectionTimeout)
+    idleTimeout <- optionalLongField("idleTimeout")
+      .map(x => x.map(_.millis) getOrElse IdleTimeout)
   } yield JdbcConfig(
     driver = driver,
     url = url,

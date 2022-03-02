@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
@@ -34,7 +34,6 @@ import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
-import scala.collection.compat._
 import scala.collection.immutable
 
 /** V1 was missing divulgence info

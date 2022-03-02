@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF 1.dev
@@ -26,3 +26,5 @@ test = scenario do
             PreconditionFailed msg ->
                 pure msg
     m === "Template precondition violated: MyTemplate {p = 'Alice'}"
+
+-- @ENABLE-SCENARIOS

@@ -39,3 +39,5 @@ mustFail = do
   p <- getParty "p"
   submitMustFail p $ createAndExercise (Helper p) Fail1
   submitMustFail p $ createAndExercise (Helper p) Fail2
+
+-- @ENABLE-SCENARIOS

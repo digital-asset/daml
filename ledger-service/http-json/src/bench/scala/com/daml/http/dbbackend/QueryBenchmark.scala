@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -6,12 +6,9 @@ package com.daml.http.dbbackend
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, TemplateId}
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.nonempty.NonEmpty
 import doobie.implicits._
 import org.openjdk.jmh.annotations._
-
-import scala.collection.compat._
 
 trait QueryBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
@@ -59,7 +56,6 @@ trait QueryBenchmark extends ContractDaoBenchmark {
     assert(result.size == batchSize)
   }
 
-  discard(IterableOnce) // only needed for scala 2.12
 }
 
 class QueryBenchmarkOracle extends QueryBenchmark with OracleBenchmarkDbConn

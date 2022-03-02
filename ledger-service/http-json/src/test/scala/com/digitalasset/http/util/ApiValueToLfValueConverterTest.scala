@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -43,10 +43,6 @@ class ApiValueToLfValueConverterTest
 }
 
 object ApiValueToLfValueConverterTest {
-
-  type Cid = V.ContractId
-  type CidSrc = V.ContractId.V0
-
   // Numeric are normalized when converting from api to lf,
   // them we have to relax numeric equality
   private implicit def eqValue: Equal[V] = { (l, r) =>

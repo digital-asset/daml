@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
@@ -55,7 +55,7 @@ def _fat_cc_library_impl(ctx):
             # Some libs seems to depend on libstdc++ implicitely
             ["-lstdc++"] +
             (["-framework", "CoreFoundation"] if is_darwin else []) +
-            # On Windows some libs seems to depend on Windows sockets
+            # On Windows we have some extra deps.
             (["-lws2_32"] if is_windows else []),
         inputs = static_libs,
         env = {"PATH": ""},

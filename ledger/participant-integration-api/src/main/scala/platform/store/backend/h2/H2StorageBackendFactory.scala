@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.h2
@@ -14,7 +14,6 @@ import com.daml.platform.store.backend.{
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
-  DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
   PartyStorageBackend,
@@ -31,9 +30,6 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
-
-  override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
-    H2DeduplicationStorageBackend
 
   override def createCompletionStorageBackend(
       stringInterning: StringInterning

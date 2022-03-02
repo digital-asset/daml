@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.Packaging
@@ -46,6 +46,7 @@ import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
+import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Cli.Damlc.DependencyDb
@@ -307,11 +308,14 @@ settings =
   [ ("target arch", "ArchUnknown")
   , ("target os", "OSUnknown")
   , ("target word size", "8")
+  , ("target word big endian", "NO")
   , ("Unregisterised", "YES")
   , ("target has GNU nonexec stack", "YES")
   , ("target has .ident directive", "YES")
   , ("target has subsections via symbols", "YES")
   , ("cross compiling", "NO")
+  , ("Leading underscore", "NO")
+  , ("Tables next to code", "YES")
   ]
 
 -- Register a dar dependency in the package database
@@ -380,6 +384,7 @@ baseImports =
           , "DA.Internal.Template.Functions"
           , "DA.Internal.LF"
           , "DA.Internal.Prelude"
+          , "DA.Internal.Desugar"
           , "DA.Internal.Down"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"
@@ -418,7 +423,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.10.7/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-9.0.2/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
@@ -454,6 +459,16 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
             | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs <> map decodedDalfPkg pkgs
             ]
 
+    allPackageRefs :: LF.Package -> [LF.PackageRef]
+    allPackageRefs pkg =
+      toListOf packageRefs pkg
+        <>
+        [ qualPackage
+        | m <- NM.toList $ LF.packageModules pkg
+        , Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName (LF.moduleValues m)]
+        , Just quals <- [LFC.decodeModuleImports ty]
+        , LF.Qualified { LF.qualPackage } <- Set.toList quals
+        ]
 
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
@@ -461,7 +476,7 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
             [ (PackageNode src decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
             | DecodedDalf{decodedUnitId, decodedDalfPkg} <- pkgs
             , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
-            , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs pkg ]
+            , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
             , let src = generateSrcPkgFromLf (config (LF.dalfPackageId decodedDalfPkg) decodedUnitId) pkg
             ]
     vertexToNode' v = case vertexToNode v of

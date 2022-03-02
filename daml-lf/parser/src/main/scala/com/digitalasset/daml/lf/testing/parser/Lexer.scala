@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -46,6 +46,9 @@ private[parser] object Lexer extends RegexParsers {
     "to_interface" -> `to_interface`,
     "from_interface" -> `from_interface`,
     "call_method" -> `call_method`,
+    "interface_template_type_rep" -> `interface_template_type_rep`,
+    "signatory_interface" -> `signatory_interface`,
+    "observer_interface" -> `observer_interface`,
   )
 
   val token: Parser[Token] =

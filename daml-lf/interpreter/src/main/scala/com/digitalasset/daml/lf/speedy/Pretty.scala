@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -41,7 +41,7 @@ private[lf] object Pretty {
       case FailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))
       case UnhandledException(_, value) =>
-        text(s"Unhandled exception:") & prettyValue(true)(value)
+        text(s"Unhandled Daml exception:") & prettyValue(true)(value)
       case UserError(message) =>
         text(s"User abort: $message")
       case TemplatePreconditionViolated(templateId, loc @ _, arg) =>
@@ -503,12 +503,11 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate(ref, None) =>
-              text("$create") + char('[') + text(ref.qualifiedName.toString) + char(']')
-            case SBUCreate(ref, Some(iface)) =>
-              text("$createByInterface") + char('[') + text(ref.qualifiedName.toString) + char(
-                ','
-              ) + text(iface.qualifiedName.toString) + char(']')
+            case SBUCreate(None) =>
+              text("$create")
+            case SBUCreate(Some(iface)) =>
+              text("$createByInterface") + char(',') + text(iface.qualifiedName.toString) +
+                char(']')
             case SBUFetch(ref) =>
               text("$fetch") + char('[') + text(ref.qualifiedName.toString) + char(']')
             case SBGetTime => text("$getTime")

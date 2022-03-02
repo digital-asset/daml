@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
@@ -14,7 +14,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -25,7 +25,7 @@ final class LedgerClientAuthIT
     with Inside
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundEach
-    with SandboxNextFixture
+    with SandboxFixture
     with SandboxRequiringAuthorization {
 
   private val LedgerId =
@@ -35,7 +35,6 @@ final class LedgerClientAuthIT
     applicationId = classOf[LedgerClientAuthIT].getSimpleName,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -299,7 +299,7 @@ object CommitterSpec {
   private val aConfig: Configuration = Configuration(
     generation = 1,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = Duration.ofMinutes(1),
+    maxDeduplicationDuration = Duration.ofMinutes(1),
   )
 
   private def newMetrics() = new Metrics(new MetricRegistry)

@@ -33,3 +33,5 @@ piTest = scenario $ do
     pi === pi10
     pi === pi15
     pi === pi37
+
+-- @ENABLE-SCENARIOS

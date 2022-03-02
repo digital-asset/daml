@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -55,13 +55,27 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             }
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
-            .recoverWith { case _: TimeoutException =>
-              Future.failed(
-                errorFactories
-                  .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
-                    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+            .recoverWith {
+              case _: TimeoutException =>
+                Future.failed(
+                  errorFactories
+                    .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
+                      new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+                    )
+                )
+              case _: NoSuchElementException =>
+                Future.failed(
+                  errorFactories.grpcError(
+                    errorFactories.SubmissionQueueErrors
+                      .queueClosed("Party submission")(
+                        new DamlContextualizedErrorLogger(
+                          logger,
+                          loggingContext,
+                          Some(submissionId),
+                        )
+                      )
                   )
-              )
+                )
             }
             .flatten
         case r: SubmissionResult.SynchronousError =>

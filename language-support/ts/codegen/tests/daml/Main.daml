@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
@@ -196,11 +196,11 @@ template Asset with
     signatory issuer
     observer owner
     implements Token where
-      let getTokenOwner = owner
-      let transferImpl = \newOwner -> do
-            cid <- create Asset with issuer = issuer, owner = newOwner
-            pure (toInterfaceContractId @Token cid)
+      getTokenOwner = owner
+      transferImpl newOwner = do
+        cid <- create Asset with issuer = issuer, owner = newOwner
+        pure (toInterfaceContractId @Token cid)
     implements Other where
-      let getOtherOwner = owner
-      let somethingImpl = do
-            pure ()
+      getOtherOwner = owner
+      somethingImpl = do
+        pure ()

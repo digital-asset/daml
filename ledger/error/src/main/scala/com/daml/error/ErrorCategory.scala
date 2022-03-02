@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -52,6 +52,7 @@ object ErrorCategory {
       InvalidGivenCurrentSystemStateResourceMissing,
       InvalidGivenCurrentSystemStateSeekAfterEnd,
       BackgroundProcessDegradationWarning,
+      InternalUnsupportedOperation,
     )
 
   def fromInt(ii: Int): Option[ErrorCategory] = all.find(_.asInt == ii)
@@ -173,7 +174,7 @@ object ErrorCategory {
   /** Client is not authenticated properly
     */
   @Description("""The request does not have valid authentication credentials for the operation.""")
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug, application misconfiguration or ledger-level
                 |misconfiguration. Resolution requires application and/or ledger operator intervention."""
@@ -192,7 +193,7 @@ object ErrorCategory {
   /** Client does not have appropriate permissions
     */
   @Description("""The caller does not have permission to execute the specified operation.""")
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or application misconfiguration. Resolution requires
                 |application operator intervention."""
@@ -211,7 +212,7 @@ object ErrorCategory {
   /** A request which is never going to be valid
     */
   @Description("""The request is invalid independent of the state of the system.""")
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or ledger-level misconfiguration (e.g. request size limits).
                 |Resolution requires application and/or ledger operator intervention."""
@@ -231,11 +232,11 @@ object ErrorCategory {
     */
   @Description(
     """The mutable state of the system does not satisfy the preconditions required to execute the request.
-                 |We consider the whole Daml ledger including ledger config, parties, packages, and command
-                 |deduplication to be mutable system state. Thus all Daml interpretation errors are reported as
+                 |We consider the whole Daml ledger including ledger config, parties, packages, users and command
+                 |deduplication to be mutable system state. Thus all Daml interpretation errors are reported
                  |as this error or one of its specializations."""
   )
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution("""ALREADY_EXISTS and NOT_FOUND are special cases for the existence and non-existence of well-defined
                 |entities within the system state; e.g., a .dalf package, contracts ids, contract keys, or a
                 |transaction at an offset. OUT_OF_RANGE is a special case for reading past a range. Violations of the
@@ -297,10 +298,12 @@ object ErrorCategory {
   /** The supplied offset is out of range
     */
   @Description(
-    """This error is only used by the ledger Api server in connection with invalid offsets."""
+    """This error is only used by the Ledger API server in connection with invalid offsets."""
   )
-  @RetryStrategy("""Retry after app operator intervention.""")
-  @Resolution("""tbd""")
+  @RetryStrategy("""Retry after application operator intervention.""")
+  @Resolution(
+    """Expectation: this error is only used by the Ledger API server in connection with invalid offsets."""
+  )
   object InvalidGivenCurrentSystemStateSeekAfterEnd
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.OUT_OF_RANGE),
@@ -318,7 +321,7 @@ object ErrorCategory {
     """This error category is used internally to signal to the system operator an internal degradation."""
   )
   @RetryStrategy("""Not an API error, therefore not retryable.""")
-  @Resolution("""""")
+  @Resolution("""Inspect details of the specific error for more information.""")
   object BackgroundProcessDegradationWarning
       extends ErrorCategoryImpl(
         grpcCode = None, // should not be used on the API level
@@ -330,20 +333,26 @@ object ErrorCategory {
       )
       with ErrorCategory
 
-  @Deprecated
-  object IsAbortShouldBePrecondition
+  @Description(
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
+  )
+  @RetryStrategy("""Errors in this category are non-retryable.""")
+  @Resolution(
+    """This error is caused by a ledger-level misconfiguration or by an implementation bug.
+      |Resolution requires participant operator intervention."""
+  )
+  object InternalUnsupportedOperation
       extends ErrorCategoryImpl(
-        grpcCode = Some(Code.ABORTED),
-        logLevel = Level.INFO,
+        grpcCode = Some(Code.UNIMPLEMENTED),
+        logLevel = Level.ERROR,
         retryable = None,
-        securitySensitive = false,
+        securitySensitive = true,
         asInt = 14,
-        rank = 3,
+        rank = 1,
       )
       with ErrorCategory
 
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
-
 }
 
 // TODO error codes: `who` is not used?

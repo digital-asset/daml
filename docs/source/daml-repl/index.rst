@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml REPL
@@ -27,7 +27,7 @@ wallclock mode. Static time is not supported in ``daml repl``.
 .. code-block:: sh
 
    daml build
-   daml sandbox --wall-clock-time --port=6865 .daml/dist/script-example-0.0.1.dar
+   daml sandbox --wall-clock-time --port=6865 --dar .daml/dist/script-example-0.0.1.dar
 
 Now that the ledger has been started, you can launch the REPL in a
 separate terminal using the following command.

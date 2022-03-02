@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.config
@@ -24,14 +24,27 @@ object WorkflowConfigParser {
   case class ParserError(details: String)
 
   object Decoders {
-    implicit val objectivesDecoder: Decoder[StreamConfig.Objectives] =
-      Decoder.forProduct2(
+    implicit val transactionObjectivesDecoder: Decoder[StreamConfig.TransactionObjectives] =
+      Decoder.forProduct4(
         "max_delay_seconds",
         "min_consumption_speed",
-      )(StreamConfig.Objectives.apply)
+        "min_item_rate",
+        "max_item_rate",
+      )(StreamConfig.TransactionObjectives.apply)
 
-    implicit val offsetDecoder: Decoder[LedgerOffset] =
-      Decoder.decodeString.map(LedgerOffset.defaultInstance.withAbsolute)
+    implicit val rateObjectivesDecoder: Decoder[StreamConfig.RateObjectives] =
+      Decoder.forProduct2(
+        "min_item_rate",
+        "max_item_rate",
+      )(StreamConfig.RateObjectives.apply)
+
+    implicit val offsetDecoder: Decoder[LedgerOffset] = {
+      Decoder.decodeString.map {
+        case "ledger-begin" => LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+        case "ledger-end" => LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+        case absolute => LedgerOffset.defaultInstance.withAbsolute(absolute)
+      }
+    }
 
     implicit val partyFilterDecoder: Decoder[StreamConfig.PartyFilter] =
       Decoder.forProduct2(
@@ -58,17 +71,19 @@ object WorkflowConfigParser {
       )(StreamConfig.TransactionTreesStreamConfig.apply)
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
-      Decoder.forProduct2(
+      Decoder.forProduct3(
         "name",
         "filters",
+        "objectives",
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
-      Decoder.forProduct4(
+      Decoder.forProduct5(
         "name",
         "party",
         "application_id",
         "begin_offset",
+        "objectives",
       )(StreamConfig.CompletionsStreamConfig.apply)
 
     implicit val streamConfigDecoder: Decoder[StreamConfig] =

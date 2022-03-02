@@ -1,11 +1,11 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml Profiler
 #############
 
-The Daml Profiler is only available in the
-`Daml Connect Enterprise Edition <https://www.digitalasset.com/products/daml-connect>`_.
+The Daml Profiler is only available in
+`Daml Enterprise <https://www.digitalasset.com/products/daml-connect>`_.
 
 The Daml Profiler allows you to to profile execution of your Daml code
 which can help spot bottlenecks and opportunities for optimization.
@@ -22,13 +22,21 @@ assistant. We first create the project and build the DAR.
   cd profile-tutorial
   daml build
 
-Next we load the DAR into Sandbox with a special ``--profile-dir``
+Next we load the DAR into Sandbox with a special ``profile-dir``
 option. Sandbox will behave as usual but all profile results will be
-written to that directory.
+written to that directory. For this, we first create a configuration
+file that sets the ``profile-dir`` for Sandbox:
+
+.. code-block:: none
+   :caption: profile.conf
+
+   canton.participants.sandbox.features.profile-dir = profile-results
+
+We then pass
 
 .. code-block:: sh
 
-   daml sandbox .daml/dist/profile-tutorial-0.0.1.dar --profile-dir profile-results
+   daml sandbox --dar .daml/dist/profile-tutorial-0.0.1.dar -c profile.conf
 
 To actually produce some profile results, we have to create
 transactions. For the purposes of this tutorial, the Daml Script

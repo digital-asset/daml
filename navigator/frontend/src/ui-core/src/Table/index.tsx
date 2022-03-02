@@ -1,29 +1,25 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import {
-  Column,
-} from 'react-virtualized';
-import styled, { hardcodedStyle } from '../theme';
-import { createHeader } from './HeaderCell';
+import * as React from "react";
+import { Column } from "react-virtualized";
+import styled, { hardcodedStyle } from "../theme";
+import { createHeader } from "./HeaderCell";
 
 export {
   createHeader,
   default as HeaderCell,
   HeaderCellProps,
-} from './HeaderCell';
+} from "./HeaderCell";
 
 // ----------------------------------------------------------------------------
 // Table config
 // ----------------------------------------------------------------------------
 
-export type SortDirection
-  = 'ASCENDING'
-  | 'DESCENDING';
+export type SortDirection = "ASCENDING" | "DESCENDING";
 
 export function flipSortDirection(dir: SortDirection): SortDirection {
-  return dir === 'ASCENDING' ? 'DESCENDING' : 'ASCENDING';
+  return dir === "ASCENDING" ? "DESCENDING" : "ASCENDING";
 }
 
 export interface SortCriterion {
@@ -63,12 +59,11 @@ export interface CellRenderParams<C, R> {
   rowIndex: number;
 }
 
-export type CellAlignment
-  = 'none'   // Do nothing, output content as is
-  | 'left'   // Left-align content
-  | 'center' // Center content
-  | 'right'  // Right-align content
-  ;
+export type CellAlignment =
+  | "none" // Do nothing, output content as is
+  | "left" // Left-align content
+  | "center" // Center content
+  | "right"; // Right-align content
 
 /**
  * Column configuration
@@ -99,24 +94,21 @@ export interface ColumnConfig<
 export type TableRowDataGetter<
   R, // RowData
   D, // Raw query data
-> = (
-  data: D,
-) => {
+> = (data: D) => {
   /** Currently loaded rows */
   data: R[];
   /** Total number of rows (some may be not loaded yet) */
   totalCount: number;
-}
-
+};
 
 // ----------------------------------------------------------------------------
 // Styling
 // ----------------------------------------------------------------------------
 
 /** Inner wrapper (table) */
-export const TableContainer
-  : React.FC<React.HTMLProps<HTMLDivElement>>
-  = styled.div`
+export const TableContainer: React.FC<
+  React.HTMLProps<HTMLDivElement>
+> = styled.div`
   flex: 1;
   overflow: hidden;
   border-bottom-left-radius: ${({ theme }) => theme.radiusBorder};
@@ -133,7 +125,7 @@ export const TableContainer
     align-items: center;
     outline: none;
   }
-  .ReactVirtualized__Table__row:nth-child(2n+1) {
+  .ReactVirtualized__Table__row:nth-child(2n + 1) {
     background-color: ${hardcodedStyle.tableStripeBackgroundColor};
   }
   .ReactVirtualized__Table__row.ContractTable__created {
@@ -147,14 +139,16 @@ export const TableContainer
   }
   .ReactVirtualized__Table__row:hover {
     cursor: pointer;
-    border-left: ${hardcodedStyle.tableHoverBorderWidth}
-      solid ${({ theme }) => theme.colorPrimary[0]};
+    border-left: ${hardcodedStyle.tableHoverBorderWidth} solid
+      ${({ theme }) => theme.colorPrimary[0]};
     background-color: ${hardcodedStyle.tableHoverBackgroundColor};
   }
   .ReactVirtualized__Table__row:hover
-  .ReactVirtualized__Table__rowColumn:first-of-type {
-    margin-left: calc(${hardcodedStyle.tableSideMargin}
-      - ${hardcodedStyle.tableHoverBorderWidth});
+    .ReactVirtualized__Table__rowColumn:first-of-type {
+    margin-left: calc(
+      ${hardcodedStyle.tableSideMargin} -
+        ${hardcodedStyle.tableHoverBorderWidth}
+    );
   }
   .ReactVirtualized__Table__headerTruncatedText {
     display: inline-block;
@@ -196,9 +190,9 @@ export const TableContainer
 `;
 
 /** Outer wrapper (action bar + table) */
-export const TableOuterWrapper
-  : React.FC<React.HTMLProps<HTMLDivElement>>
-  = styled.div`
+export const TableOuterWrapper: React.FC<
+  React.HTMLProps<HTMLDivElement>
+> = styled.div`
   height: 100%;
   width: 100%;
   display: flex;
@@ -218,23 +212,38 @@ const CellPadding = styled.div`
   flex: 1;
 `;
 
-export function align(alignment: CellAlignment, content: JSX.Element): JSX.Element {
+export function align(
+  alignment: CellAlignment,
+  content: JSX.Element,
+): JSX.Element {
   switch (alignment) {
-    case 'none': return content;
-    case 'left': return content;
-    case 'right': return (<Cell><CellPadding/>{content}</Cell>);
-    case 'center': return (<Cell><CellPadding/>{content}<CellPadding/></Cell>);
+    case "none":
+      return content;
+    case "left":
+      return content;
+    case "right":
+      return (
+        <Cell>
+          <CellPadding />
+          {content}
+        </Cell>
+      );
+    case "center":
+      return (
+        <Cell>
+          <CellPadding />
+          {content}
+          <CellPadding />
+        </Cell>
+      );
   }
 }
 
 /** Creates react-virtualized <Columns> from a ColumnConfig */
-export function createColumns<
-  C extends TableConfig,
-  R
->(props: {
-  readonly config: C,
-  readonly columns: ColumnConfig<R, unknown>[],
-  onConfigChange?(config: C): void,
+export function createColumns<C extends TableConfig, R>(props: {
+  readonly config: C;
+  readonly columns: ColumnConfig<R, unknown>[];
+  onConfigChange?(config: C): void;
 }): JSX.Element[] {
   const { columns } = props;
   return columns.map((col: ColumnConfig<R, unknown>, idx: number) => (
@@ -243,19 +252,17 @@ export function createColumns<
       dataKey={col.key}
       width={col.width}
       flexGrow={col.weight}
-      headerRenderer={
-        () => align(col.alignment, createHeader<C, R>(col, props))
+      headerRenderer={() =>
+        align(col.alignment, createHeader<C, R>(col, props))
       }
-      cellDataGetter={
-        ({ rowData }) => col.extractCellData(rowData)
-      }
+      cellDataGetter={({ rowData }) => col.extractCellData(rowData)}
       cellRenderer={
         // cellData is not optional because we use a cellDataGetter
-        (params) => align(col.alignment,
-          col.createCell(params as CellRenderParams<C, R>))
+        params =>
+          align(col.alignment, col.createCell(params as CellRenderParams<C, R>))
       }
-      className={'column'}
-      headerClassName={'headerColumn'}
+      className={"column"}
+      headerClassName={"headerColumn"}
     />
   ));
 }

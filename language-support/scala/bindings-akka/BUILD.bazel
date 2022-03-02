@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "silencer_plugin",
 )
 
 da_scala_library(
@@ -14,7 +13,6 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
-        silencer_plugin,
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
@@ -24,7 +22,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scala_exports = [

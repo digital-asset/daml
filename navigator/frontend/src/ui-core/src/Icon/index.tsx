@@ -1,8 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import styled, { ThemeInterface, withTheme } from '../theme';
+import * as React from "react";
+import styled, { ThemeInterface, withTheme } from "../theme";
 
 /**
  * This Icon coomponent assumes an icon font is loaded and associated with
@@ -16,11 +16,11 @@ import styled, { ThemeInterface, withTheme } from '../theme';
  * specialised with the exported `IconType<T>`.
  */
 
-export type IconName
-  = 'chevron-right'
-  | 'chevron-down'
-  | 'sort-asc'
-  | 'sort-desc';
+export type IconName =
+  | "chevron-right"
+  | "chevron-down"
+  | "sort-asc"
+  | "sort-desc";
 
 const IconSpan = styled.i`
   color: inherit;
@@ -40,7 +40,7 @@ export type IconType<T> = React.FC<IconProps<T>>;
 export const UntypedIcon: IconType<string> = withTheme(
   ({ theme, name, className }) => {
     const prefix = theme && theme.iconPrefix;
-    const classNames = [`${prefix}${name}`, className].join(' ');
+    const classNames = [`${prefix}${name}`, className].join(" ");
     return <IconSpan className={classNames} />;
   },
 );

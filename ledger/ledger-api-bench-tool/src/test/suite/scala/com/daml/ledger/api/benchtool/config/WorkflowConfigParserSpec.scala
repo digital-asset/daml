@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.config
@@ -30,7 +30,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      - party: Obs-2
           |        templates:
           |         - Foo1
-          |         - Foo3""".stripMargin
+          |         - Foo3
+          |    objectives:
+          |      min_item_rate: 123
+          |      max_item_rate: 456""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -56,6 +59,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                )
+              ),
+              objectives = Some(
+                WorkflowConfig.StreamConfig.RateObjectives(
+                  minItemRate = Some(123),
+                  maxItemRate = Some(456),
                 )
               ),
             )
@@ -132,7 +141,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |    end_offset: bar
         |    objectives:
         |      max_delay_seconds: 123
-        |      min_consumption_speed: 2.34""".stripMargin
+        |      min_consumption_speed: 2.34
+        |      min_item_rate: 12
+        |      max_item_rate: 34""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -147,10 +158,90 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
-              objectives = WorkflowConfig.StreamConfig.Objectives(
-                maxDelaySeconds = Some(123),
-                minConsumptionSpeed = Some(2.34),
+              objectives = Some(
+                WorkflowConfig.StreamConfig.TransactionObjectives(
+                  maxDelaySeconds = Some(123),
+                  minConsumptionSpeed = Some(2.34),
+                  minItemRate = Some(12),
+                  maxItemRate = Some(34),
+                )
               ),
+            )
+          ),
+        )
+      )
+    }
+
+    "parse stream configuration with some objectives set" in {
+      val yaml =
+        """streams:
+          |  - type: transactions
+          |    name: stream-1
+          |    filters:
+          |      - party: Obs-2
+          |        templates:
+          |         - Foo1
+          |         - Foo3
+          |    begin_offset: foo
+          |    end_offset: bar
+          |    objectives:
+          |      min_consumption_speed: 2.34
+          |      min_item_rate: 12""".stripMargin
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = None,
+          streams = List(
+            WorkflowConfig.StreamConfig.TransactionsStreamConfig(
+              name = "stream-1",
+              filters = List(
+                WorkflowConfig.StreamConfig.PartyFilter(
+                  party = "Obs-2",
+                  templates = List("Foo1", "Foo3"),
+                )
+              ),
+              beginOffset = Some(offset("foo")),
+              endOffset = Some(offset("bar")),
+              objectives = Some(
+                WorkflowConfig.StreamConfig.TransactionObjectives(
+                  maxDelaySeconds = None,
+                  minConsumptionSpeed = Some(2.34),
+                  minItemRate = Some(12),
+                  maxItemRate = None,
+                )
+              ),
+            )
+          ),
+        )
+      )
+    }
+
+    "parse stream configuration without objectives" in {
+      val yaml =
+        """streams:
+          |  - type: transactions
+          |    name: stream-1
+          |    filters:
+          |      - party: Obs-2
+          |        templates:
+          |         - Foo1
+          |         - Foo3
+          |    begin_offset: foo
+          |    end_offset: bar""".stripMargin
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = None,
+          streams = List(
+            WorkflowConfig.StreamConfig.TransactionsStreamConfig(
+              name = "stream-1",
+              filters = List(
+                WorkflowConfig.StreamConfig.PartyFilter(
+                  party = "Obs-2",
+                  templates = List("Foo1", "Foo3"),
+                )
+              ),
+              beginOffset = Some(offset("foo")),
+              endOffset = Some(offset("bar")),
+              objectives = None,
             )
           ),
         )
@@ -171,7 +262,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    end_offset: bar
           |    objectives:
           |      max_delay_seconds: 123
-          |      min_consumption_speed: 2.34""".stripMargin
+          |      min_consumption_speed: 2.34
+          |      min_item_rate: 12
+          |      max_item_rate: 34""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -186,9 +279,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
-              objectives = WorkflowConfig.StreamConfig.Objectives(
-                maxDelaySeconds = Some(123),
-                minConsumptionSpeed = Some(2.34),
+              objectives = Some(
+                WorkflowConfig.StreamConfig.TransactionObjectives(
+                  maxDelaySeconds = Some(123),
+                  minConsumptionSpeed = Some(2.34),
+                  minItemRate = Some(12),
+                  maxItemRate = Some(34),
+                )
               ),
             )
           ),
@@ -205,7 +302,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      - party: Obs-2
           |        templates:
           |         - Foo1
-          |         - Foo3""".stripMargin
+          |         - Foo3
+          |    objectives:
+          |      min_item_rate: 123
+          |      max_item_rate: 4567""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -216,6 +316,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
+                )
+              ),
+              objectives = Some(
+                WorkflowConfig.StreamConfig.RateObjectives(
+                  minItemRate = Some(123),
+                  maxItemRate = Some(4567),
                 )
               ),
             )
@@ -231,7 +337,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    name: stream-1
           |    party: Obs-2
           |    begin_offset: foo
-          |    application_id: foobar""".stripMargin
+          |    application_id: foobar
+          |    objectives:
+          |      min_item_rate: 12
+          |      max_item_rate: 345""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -241,6 +350,45 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               party = "Obs-2",
               beginOffset = Some(offset("foo")),
               applicationId = "foobar",
+              objectives = Some(
+                WorkflowConfig.StreamConfig.RateObjectives(
+                  minItemRate = Some(12),
+                  maxItemRate = Some(345),
+                )
+              ),
+            )
+          ),
+        )
+      )
+    }
+
+    "parse ledger-begin and ledger-end markers" in {
+      val yaml =
+        """streams:
+          |  - type: transactions
+          |    name: stream-1
+          |    filters:
+          |      - party: Obs-2
+          |        templates:
+          |         - Foo1
+          |         - Foo3
+          |    begin_offset: ledger-begin
+          |    end_offset: ledger-end""".stripMargin
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = None,
+          streams = List(
+            WorkflowConfig.StreamConfig.TransactionsStreamConfig(
+              name = "stream-1",
+              filters = List(
+                WorkflowConfig.StreamConfig.PartyFilter(
+                  party = "Obs-2",
+                  templates = List("Foo1", "Foo3"),
+                )
+              ),
+              beginOffset = Some(ledgerBeginOffset),
+              endOffset = Some(ledgerEndOffset),
+              objectives = None,
             )
           ),
         )
@@ -252,5 +400,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
     WorkflowConfigParser.parse(new StringReader(yaml))
 
   def offset(str: String): LedgerOffset = LedgerOffset.defaultInstance.withAbsolute(str)
-
+  private val ledgerBeginOffset =
+    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+  private val ledgerEndOffset =
+    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
 }

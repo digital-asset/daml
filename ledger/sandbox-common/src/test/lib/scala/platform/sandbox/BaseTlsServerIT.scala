@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -92,20 +93,19 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
       )
     )
 
-  private lazy val clientConfig_noTls: LedgerClientConfiguration =
+  private val clientConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(
       "appId",
       LedgerIdRequirement.none,
       CommandClientConfiguration.default,
-      None,
     )
 
   protected def assertFailedClient(enabledProtocols: Seq[TlsVersion]): Future[Assertion] = {
     // given
-    val clientConfig = if (enabledProtocols.nonEmpty) {
-      getClientConfigWithTls(enabledProtocols)
+    val clientChannelConfig = if (enabledProtocols.nonEmpty) {
+      getClientChannelConfigWithTls(enabledProtocols)
     } else {
-      clientConfig_noTls
+      LedgerClientChannelConfiguration.InsecureDefaults
     }
     val clueMsg = s"Client enabled following protocols: ${enabledProtocols}. "
     val prependClueMsg: Throwable => Throwable = {
@@ -116,7 +116,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
 
     // when
     recoverToSucceededIf[StatusRuntimeException] {
-      createLedgerClient(clientConfig).flatMap(_.transactionClient.getLedgerEnd())
+      createLedgerClient(clientChannelConfig).flatMap(_.transactionClient.getLedgerEnd())
     }.transform(
       identity,
       prependClueMsg,
@@ -126,9 +126,9 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
   protected def assertSuccessfulClient(enabledProtocols: Seq[TlsVersion]): Future[Assertion] = {
     // given
     val clientConfig = if (enabledProtocols.nonEmpty) {
-      getClientConfigWithTls(enabledProtocols)
+      getClientChannelConfigWithTls(enabledProtocols)
     } else {
-      clientConfig_noTls
+      LedgerClientChannelConfiguration.InsecureDefaults
     }
     val clueMsg = s"Client enabled protocols: ${enabledProtocols}. "
     val addClueThrowable: Throwable => Throwable = { t =>
@@ -149,9 +149,9 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
       .transform(identity, addClueThrowable)
   }
 
-  private def getClientConfigWithTls(
+  private def getClientChannelConfigWithTls(
       enabledProtocols: Seq[TlsVersion]
-  ): LedgerClientConfiguration = {
+  ): LedgerClientChannelConfiguration = {
     val tlsConfiguration = TlsConfiguration(
       enabled = true,
       Some(clientCertChainFilePath),
@@ -159,11 +159,17 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
       Some(trustCertCollectionFilePath),
     )
     val sslContext = tlsConfiguration.client(enabledProtocols = enabledProtocols)
-    clientConfig_noTls.copy(sslContext = sslContext)
+    LedgerClientChannelConfiguration(sslContext)
   }
 
-  private def createLedgerClient(config: LedgerClientConfiguration): Future[LedgerClient] = {
-    LedgerClient.singleHost(hostIp = serverHost, port = serverPort.value, configuration = config)
-  }
+  private def createLedgerClient(
+      channelConfig: LedgerClientChannelConfiguration
+  ): Future[LedgerClient] =
+    LedgerClient.singleHost(
+      hostIp = serverHost,
+      port = serverPort.value,
+      configuration = clientConfig,
+      channelConfig = channelConfig,
+    )
 
 }

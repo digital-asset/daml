@@ -86,6 +86,7 @@ nixpkgs_local_repository(
     nix_file_deps = [
         "//nix:nixpkgs/default.nix",
         "//nix:nixpkgs/default.src.json",
+        "//nix:system.nix",
     ],
 )
 
@@ -122,6 +123,7 @@ damlc_legacy(
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
+    "//nix:system.nix",
     "//nix:nixpkgs/default.nix",
     "//nix:nixpkgs/default.src.json",
 ]
@@ -433,13 +435,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.10.7",
+    version = "9.0.2",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.10.7",
+    version = "9.0.2",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -504,7 +506,7 @@ nixpkgs_package(
 #sphinx
 nixpkgs_package(
     name = "sphinx_nix",
-    attribute_path = "sphinx183-exts",
+    attribute_path = "sphinx-exts",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -685,9 +687,9 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 """,
-    sha256 = "e2dc7ad98f2bc1a78442a3e20eeef0381be008c18bf22f0dcb56283981977e01",
+    sha256 = "2ddce4c5927fa8dd80069fba2fb60199f5b2b95e81e8da69b132665fae6c638c",
     strip_prefix = "ScalaPB-{}".format(scalapb_version),
-    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.zip".format(scalapb_version)],
+    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.tar.gz".format(scalapb_version)],
 )
 
 load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
@@ -712,7 +714,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs-12.17.0",
+    win_tool = "nodejs",
 )
 
 # Setup the Node.js toolchain
@@ -811,29 +813,6 @@ load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_depen
 buildifier_dependencies()
 
 nixpkgs_package(
-    name = "grpc_nix",
-    attribute_path = "grpc",
-    build_file_content = """
-load("@os_info//:os_info.bzl", "is_linux")
-cc_library(
-  name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.20", ":lib/libgrpc.so.20.0.0", ":lib/libgpr.so", ":lib/libgpr.so.20", ":lib/libgpr.so.20.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
-  visibility = ["//visibility:public"],
-  hdrs = [":include"],
-  includes = ["include"],
-)
-filegroup(
-  name = "grpc_file",
-  srcs = glob(["lib/*"]),
-  visibility = ["//visibility:public"],
-)
-    """,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-nixpkgs_package(
     name = "postgresql_nix",
     attribute_path = "postgresql_10",
     fail_not_supported = False,
@@ -841,15 +820,6 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
-
-nixpkgs_package(
-    name = "z3_nix",
-    attribute_path = "z3",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-) if not is_windows else None
 
 dev_env_tool(
     name = "postgresql_dev_env",
@@ -908,3 +878,11 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
+
+nixpkgs_package(
+    name = "script_nix",
+    attribute_path = "script",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None

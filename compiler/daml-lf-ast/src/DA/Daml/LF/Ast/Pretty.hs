@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -134,7 +134,6 @@ instance Pretty TypeConApp where
 instance Pretty BuiltinType where
   pPrint = \case
     BTInt64          -> "Int64"
-    BTDecimal        -> "Decimal"
     BTNumeric -> "Numeric"
     BTText           -> "Text"
     BTTimestamp      -> "Timestamp"
@@ -215,7 +214,6 @@ prettyRounding = \case
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
-    BEDecimal dec -> string (show dec)
     BENumeric n -> string (show n)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEUnit -> keyword_ "unit"
@@ -235,11 +233,6 @@ instance Pretty BuiltinExpr where
     BEGreaterEq t -> pPrintAppKeyword lvl prec "GREATER_EQ" [TyArg (TBuiltin t)]
     BEToText t    -> pPrintAppKeyword lvl prec "TO_TEXT"    [TyArg (TBuiltin t)]
     BEContractIdToText -> "CONTRACT_ID_TO_TEXT"
-    BEAddDecimal -> "ADD_DECIMAL"
-    BESubDecimal -> "SUB_DECIMAL"
-    BEMulDecimal -> "MUL_DECIMAL"
-    BEDivDecimal -> "DIV_DECIMAL"
-    BERoundDecimal -> "ROUND_DECIMAL"
     BEAddNumeric -> "ADD_NUMERIC"
     BESubNumeric -> "SUB_NUMERIC"
     BEMulNumeric -> "MUL_NUMERIC"
@@ -290,8 +283,6 @@ instance Pretty BuiltinExpr where
     BEAppendText -> "APPEND_TEXT"
     BETimestamp ts -> text (timestampToText ts)
     BEDate date -> text (dateToText date)
-    BEInt64ToDecimal -> "INT64_TO_DECIMAL"
-    BEDecimalToInt64 -> "DECIMAL_TO_INT64"
     BETimestampToUnixMicroseconds -> "TIMESTAMP_TO_UNIX_MICROSECONDS"
     BEUnixMicrosecondsToTimestamp -> "UNIX_MICROSECONDS_TO_TIMESTAMP"
     BEDateToUnixDays -> "DATE_TO_UNIX_DAYS"
@@ -303,7 +294,6 @@ instance Pretty BuiltinExpr where
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
     BETextToParty -> "TEXT_TO_PARTY"
     BETextToInt64 -> "TEXT_TO_INT64"
-    BETextToDecimal -> "TEXT_TO_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
@@ -552,6 +542,12 @@ instance Pretty Expr where
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
     EFromRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_required_interface"
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
+    EInterfaceTemplateTypeRep ty expr -> pPrintAppKeyword lvl prec "interface_template_type_rep"
+        [interfaceArg ty, TmArg expr]
+    ESignatoryInterface ty expr -> pPrintAppKeyword lvl prec "signatory_interface"
+        [interfaceArg ty, TmArg expr]
+    EObserverInterface ty expr -> pPrintAppKeyword lvl prec "observer_interface"
+        [interfaceArg ty, TmArg expr]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where
@@ -576,7 +572,7 @@ instance Pretty DefDataType where
     DataEnum enums ->
       (keyword_ "enum" <-> lhsDoc) $$ nest 2 (vcat (map pPrintEnumCon enums))
     DataInterface ->
-      keyword_ "interface"
+      keyword_ "interface" <-> pPrint tcon
     where
       lhsDoc =
         serializableDoc <-> pPrint tcon <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="

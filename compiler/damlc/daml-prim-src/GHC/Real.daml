@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -10,9 +10,7 @@ module GHC.Real where
 
 import GHC.Integer.Type
 import GHC.Types
-#ifdef DAML_NUMERIC
 import GHC.Classes
-#endif
 
 data Ratio a = !a :% !a
 
@@ -21,11 +19,7 @@ type Rational = Ratio Integer
 #ifdef DAML_BIGNUMERIC
 fromRational : IsNumeric t => Rational -> t
 #else
-#ifdef DAML_NUMERIC
 fromRational : NumericScale n => Rational -> Numeric n
-#else
-fromRational : Rational -> Decimal
-#endif
 #endif
 fromRational = magic @"fromRational"
 {-# NOINLINE fromRational #-}

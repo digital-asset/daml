@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer.ha
@@ -167,7 +167,7 @@ object EndlessReadService {
   def submissionId(i: Int): Ref.SubmissionId = Ref.SubmissionId.assertFromString(f"sub$i%08x")
   def transactionId(i: Int): Ref.TransactionId = Ref.TransactionId.assertFromString(f"tx$i%08x")
   def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(f"cmd$i%08x")
-  def cid(i: Int): Value.ContractId = Value.ContractId.V0.assertFromString(s"#$i")
+  def cid(i: Int): Value.ContractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey(i.toString))
   def recordTime(i: Int): Timestamp =
     Timestamp.assertFromInstant(Instant.EPOCH.plusSeconds(i.toLong))
   def completionInfo(i: Int): CompletionInfo = CompletionInfo(
@@ -176,6 +176,7 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
+    statistics = None, // TODO Ledger Metering
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

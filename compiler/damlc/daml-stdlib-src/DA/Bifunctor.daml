@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -21,13 +21,13 @@ module DA.Bifunctor(Bifunctor(..)) where
 --
 -- If you supply bimap, you should ensure that:
 --
--- ```
--- bimap identity identity ≡ identity
+-- ```daml-force
+-- `bimap identity identity` ≡ `identity`
 -- ```
 --
 -- If you supply first and second, ensure:
 --
--- ```
+-- ```daml-force
 -- first identity ≡ identity
 -- second identity ≡ identity
 -- 
@@ -35,13 +35,13 @@ module DA.Bifunctor(Bifunctor(..)) where
 --
 -- If you supply both, you should also ensure:
 --
--- ```
+-- ```daml-force
 -- bimap f g ≡ first f . second g
 -- ```
 --
 -- By parametricity, these will ensure that:
 --
--- ```
+-- ```daml-force
 -- 
 -- bimap  (f . g) (h . i) ≡ bimap f h . bimap g i
 -- first  (f . g) ≡ first  f . first  g
@@ -53,7 +53,7 @@ class Bifunctor p where
 
     -- | Map over both arguments at the same time.
     --
-    -- ```
+    -- ```daml-force
     -- bimap f g ≡ first f . second g
     -- ```
     --
@@ -75,7 +75,7 @@ class Bifunctor p where
 
     -- | Map covariantly over the first argument.
     --
-    -- ```
+    -- ```daml-force
     -- first f ≡ bimap f identity
     -- ```
     --
@@ -94,7 +94,7 @@ class Bifunctor p where
 
     -- | Map covariantly over the second argument.
     --
-    -- ```
+    -- ```daml-force
     -- second ≡ bimap identity
     -- ```
     --

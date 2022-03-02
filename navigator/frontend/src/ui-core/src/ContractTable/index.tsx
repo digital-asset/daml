@@ -1,30 +1,26 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import cx from 'classnames';
-import deepEqual from 'deep-equal';
-import * as React from 'react';
-import {
-  AutoSizer,
-  Table,
-} from 'react-virtualized';
-import * as UUID from 'uuidjs';
+import cx from "classnames";
+import deepEqual from "deep-equal";
+import * as React from "react";
+import { AutoSizer, Table } from "react-virtualized";
+import * as UUID from "uuidjs";
 import {
   ColumnConfig,
   createColumns,
   TableConfig,
   TableContainer,
   TableOuterWrapper,
-} from '../Table';
+} from "../Table";
 import {
   TableActionBar,
   TableActionBarConfigCheckbox,
   TableActionBarConfigSearchInput,
   TableActionBarSideMargin,
   TableActionBarTitle,
-} from '../TableActionBar';
-import { hardcodedStyle } from '../theme';
-
+} from "../TableActionBar";
+import { hardcodedStyle } from "../theme";
 
 const DEFAULT_POLL_INTERVAL = 5000;
 const AGE_THREASHOLD = 3000;
@@ -71,13 +67,17 @@ function rowClasses<C extends ContractTableConfig>(
     const now = new Date().getTime();
     return cx(props.rowClassName, {
       [props.archivedRowClassName]:
-        (config.isFrozen || config.includeArchived)
-        && info.removedAt !== undefined,
-      [props.createdRowClassName]: !config.isFrozen && info.addedAt
-        && now - info.addedAt.getTime() < AGE_THREASHOLD,
-      [props.removedRowClassName]: !config.isFrozen
-        && !config.includeArchived
-        && (info.removedAt && now - info.removedAt.getTime() < AGE_THREASHOLD),
+        (config.isFrozen || config.includeArchived) &&
+        info.removedAt !== undefined,
+      [props.createdRowClassName]:
+        !config.isFrozen &&
+        info.addedAt &&
+        now - info.addedAt.getTime() < AGE_THREASHOLD,
+      [props.removedRowClassName]:
+        !config.isFrozen &&
+        !config.includeArchived &&
+        info.removedAt &&
+        now - info.removedAt.getTime() < AGE_THREASHOLD,
     });
   }
 }
@@ -135,9 +135,9 @@ export interface State {
  *   current query. If a contract has been archived since the data was fetched,
  *   the row is greyed out.
  */
-export default class ContractTable<C extends ContractTableConfig>
-  extends React.Component<Props<C>, State> {
-
+export default class ContractTable<
+  C extends ContractTableConfig,
+> extends React.Component<Props<C>, State> {
   readonly componentId: string = UUID.generate();
 
   readonly headerHeight: number = hardcodedStyle.tableHeaderHeight;
@@ -151,7 +151,7 @@ export default class ContractTable<C extends ContractTableConfig>
    * When a row is removed from the table the corresponding entry is removed
    * from this map to ensure is does not grow infinitely.
    */
-  idToInfo: {[index: string]: RowInfo} = {};
+  idToInfo: { [index: string]: RowInfo } = {};
   table: Table;
   reloadTimer?: number;
   rerenderTimer?: number;
@@ -173,8 +173,12 @@ export default class ContractTable<C extends ContractTableConfig>
   componentWillUnmount(): void {
     this.props.dataProvider.stopCacheWatcher();
     this.unregisterContracts();
-    if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
-    if (this.rerenderTimer) { clearTimeout(this.rerenderTimer); }
+    if (this.reloadTimer) {
+      clearTimeout(this.reloadTimer);
+    }
+    if (this.rerenderTimer) {
+      clearTimeout(this.rerenderTimer);
+    }
   }
 
   componentDidUpdate(prevProps: Props<C>): void {
@@ -182,8 +186,10 @@ export default class ContractTable<C extends ContractTableConfig>
     if (!deepEqual(prevProps.config, config)) {
       if (config.isFrozen) {
         // If view is frozen, unschedule any reloads and don't schedule new ones
-        if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
-        dataProvider.startCacheWatcher(config, (contractsResult) => {
+        if (this.reloadTimer) {
+          clearTimeout(this.reloadTimer);
+        }
+        dataProvider.startCacheWatcher(config, contractsResult => {
           this.contracts = contractsResult.contracts;
           const now = new Date();
           for (const c of this.contracts) {
@@ -210,7 +216,7 @@ export default class ContractTable<C extends ContractTableConfig>
   reload(flush: boolean): void {
     const { dataProvider, config } = this.props;
     this.setState({ isLoading: true });
-    dataProvider.fetchData(config, (contractsResult) => {
+    dataProvider.fetchData(config, contractsResult => {
       if (flush) {
         this.idToInfo = {};
         this.contracts = contractsResult.contracts;
@@ -235,7 +241,7 @@ export default class ContractTable<C extends ContractTableConfig>
     const updatedContracts: RowData[] = [];
     const now = new Date();
     // Maps ID to list index for the current rows
-    const index: {[index: string]: number} = {};
+    const index: { [index: string]: number } = {};
     for (let i = 0; i < this.contracts.length; i++) {
       index[this.contracts[i].id] = i;
     }
@@ -251,8 +257,10 @@ export default class ContractTable<C extends ContractTableConfig>
       } else {
         for (let i = last + 1; i < index[c.id]; i++) {
           const info = this.getRowInfo(this.contracts[i]);
-          if (info.removedAt && now.getTime() - info.removedAt.getTime()
-            > AGE_THREASHOLD) {
+          if (
+            info.removedAt &&
+            now.getTime() - info.removedAt.getTime() > AGE_THREASHOLD
+          ) {
             delete this.idToInfo[this.contracts[i].id];
           } else {
             updatedContracts.push(this.contracts[i]);
@@ -270,8 +278,10 @@ export default class ContractTable<C extends ContractTableConfig>
     // Now insert all remaining rows after the last match.
     for (let i = last + 1; i < this.contracts.length; i++) {
       const info = this.getRowInfo(this.contracts[i]);
-      if (info.removedAt && now.getTime() - info.removedAt.getTime()
-        > AGE_THREASHOLD) {
+      if (
+        info.removedAt &&
+        now.getTime() - info.removedAt.getTime() > AGE_THREASHOLD
+      ) {
         delete this.idToInfo[this.contracts[i].id];
       } else {
         updatedContracts.push(this.contracts[i]);
@@ -296,7 +306,7 @@ export default class ContractTable<C extends ContractTableConfig>
   registerContracts(): void {
     if (this.props.config.isFrozen) {
       const contractIds = this.contracts
-        .filter((c) => this.getRowInfo(c).removedAt === undefined)
+        .filter(c => this.getRowInfo(c).removedAt === undefined)
         .map(({ id }) => id);
       if (this.props.onRegisterContracts) {
         this.props.onRegisterContracts(this.componentId, contractIds);
@@ -318,7 +328,9 @@ export default class ContractTable<C extends ContractTableConfig>
   scheduleReload(): void {
     if (!this.state.isLoading) {
       // If we're not loading, schedule reload after clearing existing one.
-      if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
+      if (this.reloadTimer) {
+        clearTimeout(this.reloadTimer);
+      }
       this.reloadTimer = window.setTimeout(() => {
         this.reload(false);
       }, DEFAULT_POLL_INTERVAL);
@@ -330,7 +342,9 @@ export default class ContractTable<C extends ContractTableConfig>
    * timeout expires, rerender the table and do the same again.
    */
   scheduleRerender(): void {
-    if (this.rerenderTimer) { clearTimeout(this.rerenderTimer); }
+    if (this.rerenderTimer) {
+      clearTimeout(this.rerenderTimer);
+    }
     let oldest = -1;
     const now = new Date().getTime();
     for (const c of this.contracts) {
@@ -371,44 +385,50 @@ export default class ContractTable<C extends ContractTableConfig>
   }
 
   render(): React.ReactElement<HTMLDivElement> {
-    const { title, className, hideActionRow = false, actionRowContent } = this.props;
+    const {
+      title,
+      className,
+      hideActionRow = false,
+      actionRowContent,
+    } = this.props;
     const rowClassProps = (index: number) => ({
       index,
       info: this.getRowInfo(this.contracts[index]),
       config: this.props.config,
-      rowClassName: this.props.rowClassName || '',
-      headerRowClassName: this.props.headerRowClassName || '',
-      removedRowClassName: this.props.removedRowClassName || '',
-      createdRowClassName: this.props.createdRowClassName || '',
-      archivedRowClassName: this.props.archivedRowClassName || '',
+      rowClassName: this.props.rowClassName || "",
+      headerRowClassName: this.props.headerRowClassName || "",
+      removedRowClassName: this.props.removedRowClassName || "",
+      createdRowClassName: this.props.createdRowClassName || "",
+      archivedRowClassName: this.props.archivedRowClassName || "",
     });
     let actionBarEl;
     if (!hideActionRow) {
-      actionBarEl = actionRowContent !== undefined ? (
-        <TableActionBar>{actionRowContent}</TableActionBar>
-      ) : (
-        <TableActionBar>
-          <TableActionBarSideMargin />
-          <TableActionBarTitle>{title}</TableActionBarTitle>
-          <TableActionBarConfigCheckbox
-            title="Include archived"
-            configKey="includeArchived"
-            config={this.props.config}
-            onConfigChange={this.props.onConfigChange}
-          />
-          <TableActionBarConfigCheckbox
-            title="Frozen"
-            configKey="isFrozen"
-            config={this.props.config}
-            onConfigChange={this.props.onConfigChange}
-          />
-          <TableActionBarConfigSearchInput
-            placeholder="Search"
-            config={this.props.config}
-            onConfigChange={this.props.onConfigChange}
-          />
-        </TableActionBar>
-      );
+      actionBarEl =
+        actionRowContent !== undefined ? (
+          <TableActionBar>{actionRowContent}</TableActionBar>
+        ) : (
+          <TableActionBar>
+            <TableActionBarSideMargin />
+            <TableActionBarTitle>{title}</TableActionBarTitle>
+            <TableActionBarConfigCheckbox
+              title="Include archived"
+              configKey="includeArchived"
+              config={this.props.config}
+              onConfigChange={this.props.onConfigChange}
+            />
+            <TableActionBarConfigCheckbox
+              title="Frozen"
+              configKey="isFrozen"
+              config={this.props.config}
+              onConfigChange={this.props.onConfigChange}
+            />
+            <TableActionBarConfigSearchInput
+              placeholder="Search"
+              config={this.props.config}
+              onConfigChange={this.props.onConfigChange}
+            />
+          </TableActionBar>
+        );
     }
 
     return (
@@ -416,9 +436,13 @@ export default class ContractTable<C extends ContractTableConfig>
         {actionBarEl}
         <TableContainer>
           <AutoSizer>
-            {({ width, height }: { width: number, height: number }) => (
+            {({ width, height }: { width: number; height: number }) => (
               <Table
-                ref={(table) => { if (table) { this.table = table; } }}
+                ref={table => {
+                  if (table) {
+                    this.table = table;
+                  }
+                }}
                 width={width}
                 height={height}
                 headerHeight={this.headerHeight}
@@ -426,10 +450,12 @@ export default class ContractTable<C extends ContractTableConfig>
                   const c = this.contracts[index];
                   const info = this.getRowInfo(c);
                   const now = new Date().getTime();
-                  return !this.props.config.isFrozen
-                    && !this.props.config.includeArchived && info.removedAt
-                    && now - info.removedAt.getTime() > AGE_THREASHOLD ?
-                    0 : this.rowHeight;
+                  return !this.props.config.isFrozen &&
+                    !this.props.config.includeArchived &&
+                    info.removedAt &&
+                    now - info.removedAt.getTime() > AGE_THREASHOLD
+                    ? 0
+                    : this.rowHeight;
                 }}
                 rowCount={this.contracts.length}
                 onRowClick={({ index }) => {
@@ -440,8 +466,8 @@ export default class ContractTable<C extends ContractTableConfig>
                 rowGetter={({ index }) => this.contracts[index]}
                 rowClassName={({ index }) => rowClasses(rowClassProps(index))}
                 onScroll={({ scrollTop }: { scrollTop: number }) =>
-                  this.onScroll(height, scrollTop)}
-              >
+                  this.onScroll(height, scrollTop)
+                }>
                 {createColumns(this.props)}
               </Table>
             )}
@@ -450,5 +476,4 @@ export default class ContractTable<C extends ContractTableConfig>
       </TableOuterWrapper>
     );
   }
-
 }

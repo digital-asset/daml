@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -15,8 +15,6 @@ javadoc_library(
     root_packages = [
         "com.daml.ledger.javaapi.data",
         "com.daml.ledger.rxjava",
-        "com.daml.ledger.rxjava.components",
-        "com.daml.ledger.rxjava.components.helpers",
         "com.daml.ledger.rxjava.grpc",
         "com.daml.ledger.rxjava.util",
         "com.daml.ledger.api.v1",

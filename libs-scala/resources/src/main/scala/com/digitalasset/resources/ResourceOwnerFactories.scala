@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -6,7 +6,7 @@ package com.daml.resources
 import java.util.Timer
 import java.util.concurrent.{CompletionStage, ExecutorService}
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -34,7 +34,7 @@ trait ResourceOwnerFactories[Context] {
     new FutureResourceOwner(acquire)
 
   def forCompletionStage[T](acquire: () => CompletionStage[T]): AbstractResourceOwner[Context, T] =
-    new FutureResourceOwner(() => acquire().toScala)
+    new FutureResourceOwner(() => acquire().asScala)
 
   def forCloseable[T <: AutoCloseable](acquire: () => T): AbstractResourceOwner[Context, T] =
     new CloseableResourceOwner(acquire)
@@ -48,6 +48,11 @@ trait ResourceOwnerFactories[Context] {
       acquire: () => Future[T]
   ): AbstractResourceOwner[Context, T] =
     new FutureCloseableResourceOwner(acquire)
+
+  def forReleasable[T](acquire: () => T)(
+      release: T => Future[Unit]
+  ): AbstractResourceOwner[Context, T] =
+    new ReleasableResourceOwner(acquire)(release)
 
   def forExecutorService[T <: ExecutorService](
       acquire: () => T

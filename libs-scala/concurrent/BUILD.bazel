@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,9 +26,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
     visibility = [
         "//visibility:public",
-    ],
-    deps = [
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

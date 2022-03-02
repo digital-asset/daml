@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -7,11 +7,7 @@ import java.time.Duration
 import java.util.UUID
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
@@ -32,7 +28,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPartyManagementService private (
@@ -40,7 +36,6 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
     managementServiceTimeout: Duration,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
@@ -53,7 +48,7 @@ private[apiserver] final class ApiPartyManagementService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionService,
@@ -115,7 +110,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 error =>
                   Future.failed(
                     ValidationLogger
-                      .logFailure(request, errorFactories.invalidArgument(None)(error))
+                      .logFailure(request, errorFactories.invalidArgument(error))
                   ),
                 party => Future.successful(Some(party)),
               )
@@ -159,7 +154,6 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
       managementServiceTimeout: Duration,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,
@@ -171,7 +165,6 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       managementServiceTimeout,
-      errorCodesVersionSwitcher,
       submissionIdGenerator,
     )
 
@@ -209,7 +202,7 @@ private[apiserver] object ApiPartyManagementService {
         input: (Option[Ref.Party], Option[String]),
     )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
       val (party, displayName) = input
-      writeService.allocateParty(party, displayName, submissionId).toScala
+      writeService.allocateParty(party, displayName, submissionId).asScala
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] =
@@ -225,7 +218,7 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        errorFactories.invalidArgument(None)(reason)(
+        errorFactories.invalidArgument(reason)(
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
         )
     }

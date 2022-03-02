@@ -1,9 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package transaction
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.Transaction.{
   AliasedNode,
@@ -41,7 +42,7 @@ class TransactionSpec
 
     "detects dangling references in children" in {
       val tx = mkTransaction(
-        HashMap(NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2)))),
+        HashMap(NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(2)))),
         ImmArray(NodeId(1)),
       )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), DanglingNodeId))
@@ -49,7 +50,7 @@ class TransactionSpec
 
     "detects cycles" in {
       val tx = mkTransaction(
-        HashMap(NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(1)))),
+        HashMap(NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(1)))),
         ImmArray(NodeId(1)),
       )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), AliasedNode))
@@ -58,9 +59,9 @@ class TransactionSpec
     "detects aliasing from roots and exercise" in {
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyExerciseNode("#cid0", ImmArray(NodeId(1))),
-          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2))),
-          NodeId(2) -> dummyCreateNode("#cid2"),
+          NodeId(0) -> dummyExerciseNode(cid("#cid0"), ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode(cid("#cid2")),
         ),
         ImmArray(NodeId(0), NodeId(2)),
       )
@@ -68,7 +69,7 @@ class TransactionSpec
     }
 
     "detects orphans" in {
-      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("#cid1")), ImmArray.Empty)
+      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode(cid("#cid1"))), ImmArray.Empty)
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), OrphanedNode))
     }
   }
@@ -78,9 +79,9 @@ class TransactionSpec
     "collects contract IDs" in {
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyExerciseNode("#cid0", ImmArray(NodeId(1))),
-          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2))),
-          NodeId(2) -> dummyCreateNode("#cid2"),
+          NodeId(0) -> dummyExerciseNode(cid("#cid0"), ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode(cid("#cid2")),
         ),
         ImmArray(NodeId(0), NodeId(2)),
       )
@@ -91,7 +92,12 @@ class TransactionSpec
         cids.result()
       }
 
-      collectCids(tx) shouldBe Set[V.ContractId]("#cid0", "#cid1", "#cid2", "#dummyCid")
+      collectCids(tx) shouldBe Set[V.ContractId](
+        cid("#cid0"),
+        cid("#cid1"),
+        cid("#cid2"),
+        cid("#dummyCid"),
+      )
 
     }
 
@@ -102,12 +108,12 @@ class TransactionSpec
 
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyCreateNode("#cid0"),
-          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2), NodeId(4))),
-          NodeId(2) -> dummyExerciseNode("#cid2", ImmArray.Empty),
-          NodeId(3) -> dummyCreateNode("#cid3"),
+          NodeId(0) -> dummyCreateNode(cid("#cid0")),
+          NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(2), NodeId(4))),
+          NodeId(2) -> dummyExerciseNode(cid("#cid2"), ImmArray.Empty),
+          NodeId(3) -> dummyCreateNode(cid("#cid3")),
           NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
-          NodeId(5) -> dummyCreateNode("#cid5"),
+          NodeId(5) -> dummyCreateNode(cid("#cid5")),
         ),
         ImmArray(NodeId(0), NodeId(1), NodeId(3)),
       )
@@ -130,19 +136,19 @@ class TransactionSpec
 
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyCreateNode("#cid0"),
-          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2), NodeId(4))),
-          NodeId(2) -> dummyExerciseNode("#cid2", ImmArray.Empty),
-          NodeId(3) -> dummyCreateNode("#cid3"),
+          NodeId(0) -> dummyCreateNode(cid("#cid0")),
+          NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(2), NodeId(4))),
+          NodeId(2) -> dummyExerciseNode(cid("#cid2"), ImmArray.Empty),
+          NodeId(3) -> dummyCreateNode(cid("#cid3")),
           NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
-          NodeId(5) -> dummyCreateNode("#cid5"),
+          NodeId(5) -> dummyCreateNode(cid("#cid5")),
           // these are not reachable
-          NodeId(10) -> dummyCreateNode("#cid10"),
-          NodeId(11) -> dummyExerciseNode("#cid11", ImmArray(NodeId(12), NodeId(14))),
-          NodeId(12) -> dummyExerciseNode("#cid12", ImmArray.Empty),
-          NodeId(13) -> dummyCreateNode("#cid13"),
+          NodeId(10) -> dummyCreateNode(cid("#cid10")),
+          NodeId(11) -> dummyExerciseNode(cid("#cid11"), ImmArray(NodeId(12), NodeId(14))),
+          NodeId(12) -> dummyExerciseNode(cid("#cid12"), ImmArray.Empty),
+          NodeId(13) -> dummyCreateNode(cid("#cid13")),
           NodeId(14) -> dummyRollbackNode(ImmArray(NodeId(15))),
-          NodeId(15) -> dummyCreateNode("#cid15"),
+          NodeId(15) -> dummyCreateNode(cid("#cid15")),
         ),
         ImmArray(NodeId(0), NodeId(1), NodeId(3)),
       )
@@ -248,8 +254,8 @@ class TransactionSpec
       val tx = mkTransaction(
         HashMap(
           NodeId(0) -> dummyCreateNode(cid1),
-          NodeId(0) -> dummyExerciseNode(cid1, ImmArray(NodeId(0))),
-          NodeId(1) -> dummyExerciseNode(cid2, ImmArray(NodeId(1))),
+          NodeId(0) -> dummyExerciseNode(cid1, ImmArray(NodeId(0)), true),
+          NodeId(1) -> dummyExerciseNode(cid2, ImmArray(NodeId(1)), true),
         ),
         ImmArray(NodeId(0), NodeId(1)),
       )
@@ -262,11 +268,6 @@ class TransactionSpec
       tx1 shouldBe Right(tx.mapCid(mapping2))
 
     }
-    "suffixing v0 contract id should be a no op" in {
-      val v0Cid = V.ValueContractId(V.ContractId.V0.assertFromString("#deadbeef"))
-      val Right(v0CidSuffixed) = v0Cid.suffixCid(_ => Bytes.assertFromString("cafe"))
-      v0Cid shouldBe v0CidSuffixed
-    }
   }
 
   "contractKeys" - {
@@ -275,36 +276,39 @@ class TransactionSpec
       val builder = TransactionBuilder()
       val parties = Set("Alice")
 
-      def create(s: String) = builder
-        .create(
-          id = s"#$s",
-          templateId = s"Mod:$s",
-          argument = V.ValueUnit,
-          signatories = parties,
-          observers = parties,
-          key = Some(V.ValueText(s)),
-        )
+      def create(s: V.ContractId) = {
+        println(s)
+        builder
+          .create(
+            id = s,
+            templateId = s"Mod:t${s.coid}",
+            argument = V.ValueUnit,
+            signatories = parties,
+            observers = parties,
+            key = Some(V.ValueText(s.coid)),
+          )
+      }
 
-      def exe(s: String, consuming: Boolean, byKey: Boolean) =
+      def exe(s: V.ContractId, consuming: Boolean, byKey: Boolean) =
         builder
           .exercise(
             contract = create(s),
-            choice = s"Choice$s",
+            choice = s"Choice${s.coid}",
             actingParties = parties.toSet,
             consuming = consuming,
             argument = V.ValueUnit,
             byKey = byKey,
           )
 
-      def fetch(s: String, byKey: Boolean) =
+      def fetch(s: V.ContractId, byKey: Boolean) =
         builder.fetch(contract = create(s), byKey = byKey)
 
-      def lookup(s: String, found: Boolean) =
+      def lookup(s: V.ContractId, found: Boolean) =
         builder.lookupByKey(contract = create(s), found = found)
 
       val root1 =
         builder.create(
-          "#root",
+          cid("#root"),
           templateId = "Mod:Root",
           argument = V.ValueUnit,
           signatories = parties,
@@ -322,25 +326,27 @@ class TransactionSpec
 
       builder.add(root1)
       val exeId = builder.add(root2)
-      builder.add(create("Create"))
-      builder.add(exe("NonConsumingExerciseById", false, false), exeId)
-      builder.add(exe("ConsumingExerciseById", true, false), exeId)
-      builder.add(exe("NonConsumingExerciseByKey", false, true), exeId)
-      builder.add(exe("NonConsumingExerciseByKey", true, true), exeId)
-      builder.add(fetch("FetchById", false), exeId)
-      builder.add(fetch("FetchByKey", true), exeId)
-      builder.add(lookup("SuccessfulLookup", true), exeId)
-      builder.add(lookup("UnsuccessfulLookup", true), exeId)
+      println(cid("Create"))
+      builder.add(create(cid("Create"): V.ContractId))
+      println("created")
+      builder.add(exe(cid("NonConsumingExerciseById"), false, false), exeId)
+      builder.add(exe(cid("ConsumingExerciseById"), true, false), exeId)
+      builder.add(exe(cid("NonConsumingExerciseByKey"), false, true), exeId)
+      builder.add(exe(cid("NonConsumingExerciseByKey"), true, true), exeId)
+      builder.add(fetch(cid("FetchById"), false), exeId)
+      builder.add(fetch(cid("FetchByKey"), true), exeId)
+      builder.add(lookup(cid("SuccessfulLookup"), true), exeId)
+      builder.add(lookup(cid("UnsuccessfulLookup"), true), exeId)
       val rollbackId = builder.add(Node.Rollback(ImmArray.Empty))
-      builder.add(create("RolledBackCreate"))
-      builder.add(exe("RolledBackNonConsumingExerciseById", false, false), rollbackId)
-      builder.add(exe("RolledBackConsumingExerciseById", true, false), rollbackId)
-      builder.add(exe("RolledBackNonConsumingExerciseByKey", false, true), rollbackId)
-      builder.add(exe("RolledBackNonConsumingExerciseByKey", true, true), rollbackId)
-      builder.add(fetch("RolledBackFetchById", false), rollbackId)
-      builder.add(fetch("RolledBackFetchByKey", true), rollbackId)
-      builder.add(lookup("RolledBackSuccessfulLookup", true), rollbackId)
-      builder.add(lookup("RolledBackUnsuccessfulLookup", true), rollbackId)
+      builder.add(create(cid("RolledBackCreate")))
+      builder.add(exe(cid("RolledBackNonConsumingExerciseById"), false, false), rollbackId)
+      builder.add(exe(cid("RolledBackConsumingExerciseById"), true, false), rollbackId)
+      builder.add(exe(cid("RolledBackNonConsumingExerciseByKey"), false, true), rollbackId)
+      builder.add(exe(cid("RolledBackNonConsumingExerciseByKey"), true, true), rollbackId)
+      builder.add(fetch(cid("RolledBackFetchById"), false), rollbackId)
+      builder.add(fetch(cid("RolledBackFetchByKey"), true), rollbackId)
+      builder.add(lookup(cid("RolledBackSuccessfulLookup"), true), rollbackId)
+      builder.add(lookup(cid("RolledBackUnsuccessfulLookup"), true), rollbackId)
 
       val expectedResults =
         Iterator(
@@ -362,7 +368,7 @@ class TransactionSpec
           "RolledBackFetchByKey",
           "RolledBackSuccessfulLookup",
           "RolledBackUnsuccessfulLookup",
-        ).map(s => GlobalKey.assertBuild("Mod:" + s, V.ValueText(s))).toSet
+        ).map(s => GlobalKey.assertBuild(create(cid(s)).templateId, V.ValueText(cid(s).coid))).toSet
 
       builder.build().contractKeys shouldBe expectedResults
     }
@@ -373,18 +379,18 @@ class TransactionSpec
     val dummyBuilder = TransactionBuilder()
     val parties = List("Alice")
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(s: String) = GlobalKey("Mod:T", keyValue(s))
-    def create(s: String) = dummyBuilder
+    def globalKey(s: V.ContractId) = GlobalKey("Mod:T", keyValue(s.coid))
+    def create(s: V.ContractId) = dummyBuilder
       .create(
         id = s,
         templateId = "Mod:T",
         argument = V.ValueUnit,
         signatories = parties,
         observers = parties,
-        key = Some(keyValue(s)),
+        key = Some(keyValue(s.coid)),
       )
 
-    def exe(s: String, consuming: Boolean, byKey: Boolean) =
+    def exe(s: V.ContractId, consuming: Boolean, byKey: Boolean) =
       dummyBuilder
         .exercise(
           contract = create(s),
@@ -395,64 +401,69 @@ class TransactionSpec
           byKey = byKey,
         )
 
-    def fetch(s: String, byKey: Boolean) =
+    def fetch(s: V.ContractId, byKey: Boolean) =
       dummyBuilder.fetch(contract = create(s), byKey = byKey)
 
-    def lookup(s: String, found: Boolean) =
+    def lookup(s: V.ContractId, found: Boolean) =
       dummyBuilder.lookupByKey(contract = create(s), found = found)
 
     "return None for create" in {
       val builder = TransactionBuilder()
-      val createNode = create("#0")
+      val createNode = create(cid("#0"))
       builder.add(createNode)
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid("#0")) -> KeyCreate))
     }
     "return Some(_) for fetch and fetch-by-key" in {
       val builder = TransactionBuilder()
-      val fetchNode0 = fetch("#0", byKey = false)
-      val fetchNode1 = fetch("#1", byKey = true)
+      val fetchNode0 = fetch(cid("#0"), byKey = false)
+      val fetchNode1 = fetch(cid("#1"), byKey = true)
       builder.add(fetchNode0)
       builder.add(fetchNode1)
       builder.build().contractKeyInputs shouldBe Right(
-        Map(globalKey("#0") -> KeyActive("#0"), globalKey("#1") -> KeyActive("#1"))
+        Map(
+          globalKey(cid("#0")) -> KeyActive(cid("#0")),
+          globalKey(cid("#1")) -> KeyActive(cid("#1")),
+        )
       )
     }
     "return Some(_) for consuming/non-consuming exercise and exercise-by-key" in {
       val builder = TransactionBuilder()
-      val exe0 = exe("#0", consuming = false, byKey = false)
-      val exe1 = exe("#1", consuming = true, byKey = false)
-      val exe2 = exe("#2", consuming = false, byKey = true)
-      val exe3 = exe("#3", consuming = true, byKey = true)
+      val exe0 = exe(cid("#0"), consuming = false, byKey = false)
+      val exe1 = exe(cid("#1"), consuming = true, byKey = false)
+      val exe2 = exe(cid("#2"), consuming = false, byKey = true)
+      val exe3 = exe(cid("#3"), consuming = true, byKey = true)
       builder.add(exe0)
       builder.add(exe1)
       builder.add(exe2)
       builder.add(exe3)
       builder.build().contractKeyInputs shouldBe Right(
-        Seq("#0", "#1", "#2", "#3").map(s => globalKey(s) -> KeyActive(s)).toMap
+        Seq(cid("#0"), cid("#1"), cid("#2"), cid("#3")).map(s => globalKey(s) -> KeyActive(s)).toMap
       )
     }
 
     "return None for negative lookup by key" in {
       val builder = TransactionBuilder()
-      val lookupNode = lookup("#0", found = false)
+      val lookupNode = lookup(cid("#0"), found = false)
       builder.add(lookupNode)
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> NegativeKeyLookup))
+      builder.build().contractKeyInputs shouldBe Right(
+        Map(globalKey(cid("#0")) -> NegativeKeyLookup)
+      )
     }
 
     "return Some(_) for negative lookup by key" in {
       val builder = TransactionBuilder()
-      val lookupNode = lookup("#0", found = true)
+      val lookupNode = lookup(cid("#0"), found = true)
       builder.add(lookupNode)
       inside(lookupNode.result) { case Some(cid) =>
-        builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyActive(cid)))
+        builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid) -> KeyActive(cid)))
       }
     }
     "returns keys used under rollback nodes" in {
       val builder = TransactionBuilder()
-      val createNode = create("#0")
-      val exerciseNode = exe("#1", consuming = false, byKey = false)
-      val fetchNode = fetch("#2", byKey = false)
-      val lookupNode = lookup("#3", found = false)
+      val createNode = create(cid("#0"))
+      val exerciseNode = exe(cid("#1"), consuming = false, byKey = false)
+      val fetchNode = fetch(cid("#2"), byKey = false)
+      val lookupNode = lookup(cid("#3"), found = false)
       val rollback = builder.add(builder.rollback())
       builder.add(createNode, rollback)
       builder.add(exerciseNode, rollback)
@@ -460,101 +471,101 @@ class TransactionSpec
       builder.add(lookupNode, rollback)
       builder.build().contractKeyInputs shouldBe Right(
         Map(
-          globalKey("#0") -> KeyCreate,
-          globalKey("#1") -> KeyActive(exerciseNode.targetCoid),
-          globalKey("#2") -> KeyActive(fetchNode.coid),
-          globalKey("#3") -> NegativeKeyLookup,
+          globalKey(cid("#0")) -> KeyCreate,
+          globalKey(cid("#1")) -> KeyActive(exerciseNode.targetCoid),
+          globalKey(cid("#2")) -> KeyActive(fetchNode.coid),
+          globalKey(cid("#3")) -> NegativeKeyLookup,
         )
       )
     }
     "two creates conflict" in {
       val builder = TransactionBuilder()
-      builder.add(create("#0"))
-      builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
+      builder.add(create(cid("#0")))
+      builder.add(create(cid("#0")))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey(cid("#0"))))
     }
     "two creates do not conflict if interleaved with archive" in {
       val builder = TransactionBuilder()
-      builder.add(create("#0"))
-      builder.add(exe("#0", consuming = true, byKey = false))
-      builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
+      builder.add(create(cid("#0")))
+      builder.add(exe(cid("#0"), consuming = true, byKey = false))
+      builder.add(create(cid("#0")))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid("#0")) -> KeyCreate))
     }
     "two creates do not conflict if one is in rollback" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(create("#0"), rollback)
-      builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
+      builder.add(create(cid("#0")), rollback)
+      builder.add(create(cid("#0")))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid("#0")) -> KeyCreate))
     }
     "negative lookup after create fails" in {
       val builder = TransactionBuilder()
-      builder.add(create("#0"))
-      builder.add(lookup("#0", found = false))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
+      builder.add(create(cid("#0")))
+      builder.add(lookup(cid("#0"), found = false))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
     }
     "inconsistent lookups conflict" in {
       val builder = TransactionBuilder()
-      builder.add(lookup("#0", found = true))
-      builder.add(lookup("#0", found = false))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
+      builder.add(lookup(cid("#0"), found = true))
+      builder.add(lookup(cid("#0"), found = false))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
     }
     "inconsistent lookups conflict across rollback" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(lookup("#0", found = true), rollback)
-      builder.add(lookup("#0", found = false))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
+      builder.add(lookup(cid("#0"), found = true), rollback)
+      builder.add(lookup(cid("#0"), found = false))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
     }
     "positive lookup conflicts with create" in {
       val builder = TransactionBuilder()
-      builder.add(lookup("#0", found = true))
-      builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
+      builder.add(lookup(cid("#0"), found = true))
+      builder.add(create(cid("#0")))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey(cid("#0"))))
     }
     "positive lookup in rollback conflicts with create" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      builder.add(lookup("#0", found = true), rollback)
-      builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
+      builder.add(lookup(cid("#0"), found = true), rollback)
+      builder.add(create(cid("#0")))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey(cid("#0"))))
     }
     "rolled back archive does not prevent conflict" in {
       val builder = TransactionBuilder()
-      builder.add(create("#0"))
+      builder.add(create(cid("#0")))
       val rollback = builder.add(builder.rollback())
-      builder.add(exe("#0", consuming = true, byKey = true), rollback)
-      builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
+      builder.add(exe(cid("#0"), consuming = true, byKey = true), rollback)
+      builder.add(create(cid("#0")))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey(cid("#0"))))
     }
     "successful, inconsistent lookups conflict" in {
       val builder = TransactionBuilder()
-      val create0 = create("#0")
-      val create1 = create("#1").copy(
+      val create0 = create(cid("#0"))
+      val create1 = create(cid("#1")).copy(
         key = Some(
           Node.KeyWithMaintainers(
-            key = keyValue("#0"),
+            key = keyValue(cid("#0").coid),
             maintainers = Set.empty,
           )
         )
       )
       builder.add(builder.lookupByKey(create0, found = true))
       builder.add(builder.lookupByKey(create1, found = true))
-      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey(cid("#0"))))
     }
     "first negative input wins" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      val create0 = create("#0")
+      val create0 = create(cid("#0"))
       val lookup0 = builder.lookupByKey(create0, found = false)
-      val create1 = create("#1")
+      val create1 = create(cid("#1"))
       val lookup1 = builder.lookupByKey(create1, found = false)
       builder.add(create0, rollback)
       builder.add(lookup1, rollback)
       builder.add(lookup0)
       builder.add(create1)
       builder.build().contractKeyInputs shouldBe Right(
-        Map(globalKey("#0") -> KeyCreate, globalKey("#1") -> NegativeKeyLookup)
+        Map(globalKey(cid("#0")) -> KeyCreate, globalKey(cid("#1")) -> NegativeKeyLookup)
       )
     }
   }
@@ -648,6 +659,8 @@ object TransactionSpec {
 
   import TransactionBuilder.Implicits._
 
+  def cid(s: String): V.ContractId = V.ContractId.V1(Hash.hashPrivateKey(s))
+
   def mkTransaction(
       nodes: HashMap[NodeId, Node],
       roots: ImmArray[NodeId],
@@ -683,11 +696,11 @@ object TransactionSpec {
       version = TransactionVersion.minVersion,
     )
 
-  def dummyCreateNode(cid: V.ContractId): Node.Create =
+  def dummyCreateNode(createCid: V.ContractId): Node.Create =
     Node.Create(
-      coid = cid,
+      coid = createCid,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
-      arg = V.ValueContractId("#dummyCid"),
+      arg = V.ValueContractId(cid("#dummyCid")),
       agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
@@ -34,7 +34,6 @@ da_scala_library(
         "//ledger-service/jwt",
         "//ledger/caching",
         "//ledger/cli-opts",
-        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
@@ -42,7 +41,6 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//libs-scala/build-info",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
@@ -133,18 +131,15 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
-        "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_netty_netty_handler",

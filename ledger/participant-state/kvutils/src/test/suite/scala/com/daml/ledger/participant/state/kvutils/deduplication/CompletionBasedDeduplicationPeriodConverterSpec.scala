@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.deduplication
@@ -8,7 +8,7 @@ import java.time.{Duration, Instant}
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.TestLoggers
-import com.daml.ledger.api.domain.{ApplicationId, LedgerOffset}
+import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.{Checkpoint, CompletionStreamResponse}
 import com.daml.ledger.api.v1.ledger_offset
@@ -20,6 +20,8 @@ import org.mockito.MockitoSugar
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+
+import scala.concurrent.Future
 
 class CompletionBasedDeduplicationPeriodConverterSpec
     extends AsyncWordSpec
@@ -34,7 +36,7 @@ class CompletionBasedDeduplicationPeriodConverterSpec
     new CompletionBasedDeduplicationPeriodConverter(indexCompletionsService)
   private val offset = Ref.HexString.assertFromString("012345ffff")
   private val lowerOffset = Ref.HexString.assertFromString("012345fffe")
-  private val applicationId = ApplicationId(Ref.ApplicationId.assertFromString("id"))
+  private val applicationId = Ref.ApplicationId.assertFromString("id")
   private val parties = Set.empty[Ref.Party]
   private val emptyResponse = CompletionStreamResponse()
 
@@ -155,16 +157,35 @@ class CompletionBasedDeduplicationPeriodConverterSpec
       }
   }
 
+  "return failure when the requested offset is higher than ledger end" in {
+    when(indexCompletionsService.currentLedgerEnd()(loggingContext))
+      .thenReturn(Future.successful(LedgerOffset.Absolute(lowerOffset)))
+    deduplicationPeriodConverter
+      .convertOffsetToDuration(
+        offset,
+        applicationId,
+        parties,
+        Instant.now(),
+      )
+      .map { result =>
+        result shouldBe Left(DeduplicationConversionFailure.CompletionAtOffsetNotFound)
+      }
+  }
+
   private def completionServiceReturnsResponse(
       response: Source[CompletionStreamResponse, NotUsed]
-  ) = when(
-    indexCompletionsService.getCompletions(
-      LedgerOffset.Absolute(lowerOffset),
-      LedgerOffset.Absolute(offset),
-      applicationId,
-      parties,
-    )(loggingContext)
-  ).thenReturn(
-    response
-  )
+  ) = {
+    when(
+      indexCompletionsService.getCompletions(
+        LedgerOffset.Absolute(lowerOffset),
+        LedgerOffset.Absolute(offset),
+        applicationId,
+        parties,
+      )(loggingContext)
+    ).thenReturn(
+      response
+    )
+    when(indexCompletionsService.currentLedgerEnd()(loggingContext))
+      .thenReturn(Future.successful(LedgerOffset.Absolute(offset)))
+  }
 }

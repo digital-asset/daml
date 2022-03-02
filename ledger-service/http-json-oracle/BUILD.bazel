@@ -1,7 +1,7 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@oracle//:index.bzl", "oracle_testing")
+load("@oracle//:index.bzl", "oracle_tags")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
@@ -32,7 +32,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = hj_scalacopts,
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
@@ -51,9 +51,9 @@ da_scala_library(
         "//ledger-service/http-json-testing:ee",
         "//ledger-service/jwt",
         "//ledger-service/utils",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
@@ -88,7 +88,7 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = hj_scalacopts,
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
@@ -108,9 +108,10 @@ da_scala_test_suite(
         "//ledger-service/http-json-testing:ee",
         "//ledger-service/jwt",
         "//ledger-service/utils",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-classic-server",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",

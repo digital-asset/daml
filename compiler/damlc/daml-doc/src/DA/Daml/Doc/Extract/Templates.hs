@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Extract.Templates
@@ -27,15 +27,15 @@ import "ghc-lib-parser" Var (varType)
 import "ghc-lib-parser" CoreSyn (isOrphan)
 import "ghc-lib-parser" InstEnv
 import "ghc-lib-parser" OccName
+import "ghc-lib-parser" Id
 
 -- | Build template docs up from ADT and class docs.
 getTemplateDocs ::
     DocCtx
     -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
-    -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
     -> MS.Map Typename (Set.Set DDoc.Type)-- ^ maps template names to their implemented interfaces' types
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
+getTemplateDocs DocCtx{..} typeMap templateImplementsMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -44,8 +44,6 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
     mkTemplateDoc name = TemplateDoc
       { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
-      , td_args = ad_args tmplADT
-      , td_super = cl_super =<< MS.lookup name templateInstanceMap
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
@@ -53,7 +51,7 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
       , td_impls =
           ImplDoc <$>
             Set.toList (MS.findWithDefault mempty name templateImplementsMap)
-      }
+     }
       where
         tmplADT = asADT typeMap name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
@@ -191,17 +189,19 @@ dropParTy ty = ty
 stripInstanceSuffix :: Typename -> Maybe Typename
 stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
 
--- | Get (normal) typeclass instances data. TODO: Correlate with
--- instance declarations via SrcSpan (like Haddock).
+-- | Get (normal) typeclass instances data.
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
-getInstanceDocs ctx ClsInst{..} =
+getInstanceDocs ctx@DocCtx{dc_decls} ClsInst{..} =
     let ty = varType is_dfun
+        srcSpan = getLoc $ idName is_dfun
         modname = Modulename $ T.pack $ moduleNameString $ moduleName $ nameModule is_cls_nm
+        instDocMap = MS.fromList [(l, doc) | (DeclData (L l (InstD _x _i)) (Just doc)) <- dc_decls]
     in InstanceDoc
         { id_context = typeToContext ctx ty
         , id_module = modname
         , id_type = typeToType ctx ty
         , id_isOrphan = isOrphan is_orphan
+        , id_descr = MS.lookup srcSpan instDocMap
         }
 
 -- Utilities common to templates and interfaces

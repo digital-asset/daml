@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.generator.app
@@ -35,7 +35,7 @@ object ErrorCategoryInventoryDocsGenApp {
       val retryStrategy: String = annotations.retryStrategy.getOrElse("").replace("\n", " ")
 
       s"""${name}
-         |------------------------------------------------------------------------------------------------------------------
+         |${"=" * 120}
          |    **Category id**: ${categoryId}
          |
          |    **gRPC status code**: ${grpcCode}

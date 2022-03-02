@@ -1,7 +1,7 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_binary", "silencer_plugin")
+load("//bazel_tools:scala.bzl", "da_scala_binary")
 
 genrule(
     name = "scenario_service_jar",
@@ -15,14 +15,11 @@ da_scala_binary(
     name = "scenario-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.lf.scenario.ScenarioServiceMain",
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/main/resources/*"]),
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -40,6 +37,7 @@ da_scala_binary(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",

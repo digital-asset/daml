@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
@@ -23,7 +23,7 @@
   type: jar-scala
 - target: //daml-lf/interpreter:interpreter
   type: jar-scala
-- target: //daml-lf/kv-transaction-support:kv-transaction-support
+- target: //daml-lf/kv-support:kv-support
   type: jar-scala
 - target: //daml-lf/language:language
   type: jar-scala
@@ -49,6 +49,8 @@
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
   type: jar-jarjar
+- target: //language-support/scala/codegen:codegen-main
+  type: jar-deploy
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
@@ -65,6 +67,8 @@
   type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger_api_proto_jar
   type: jar-lib
+- target: //ledger-api/grpc-definitions:ledger_api_proto_java
+  type: jar-proto
 - target: //ledger-api/grpc-definitions:ledger_api_proto_scala
   type: jar-scala
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
@@ -97,11 +101,23 @@
   type: jar-scala
 - target: //ledger/ledger-api-health:ledger-api-health
   type: jar-scala
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool
+- target: //ledger/ledger-api-tests/infrastructure:infrastructure-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/infrastructure:infrastructure-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/runner:runner-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/runner:runner-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/suites:suites-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/suites:suites-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/tool:ledger-api-test-tool
   type: jar-deploy
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.14
+- target: //ledger/ledger-api-tests/tool:tool-1.14
   type: jar-deploy
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.dev
+- target: //ledger/ledger-api-tests/tool:tool-1.dev
   type: jar-deploy
 - target: //ledger/ledger-configuration:ledger-configuration
   type: jar-scala
@@ -112,12 +128,6 @@
 - target: //ledger/ledger-grpc:ledger-grpc
   type: jar-scala
 - target: //ledger/ledger-offset:ledger-offset
-  type: jar-scala
-- target: //ledger/ledger-on-memory:ledger-on-memory
-  type: jar-scala
-- target: //ledger/ledger-on-memory:ledger-on-memory-app
-  type: jar-scala
-- target: //ledger/ledger-on-sql:ledger-on-sql
   type: jar-scala
 - target: //ledger/ledger-resources:ledger-resources
   type: jar-scala
@@ -151,21 +161,41 @@
   type: jar-scala
 - target: //ledger/participant-state-metrics:participant-state-metrics
   type: jar-scala
-- target: //ledger/sandbox:sandbox-ce
-  type: jar-scala
 - target: //ledger/sandbox-common:sandbox-common
   type: jar-scala
 - target: //ledger/sandbox-common:sandbox-common-ce
   type: jar-scala
-- target: //ledger/sandbox-classic:sandbox-classic-ce
+- target: //ledger/sandbox-classic:sandbox-classic
+  type: jar-scala
+- target: //ledger/sandbox-on-x:sandbox-classic-server
   type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x
   type: jar-scala
-- target: //ledger/sandbox-on-x:sandbox-on-x-app
+- target: //ledger/sandbox-on-x:sandbox-on-x-app-lib
+  type: jar-scala
+- target: //ledger/sandbox-on-x:app
+  type: jar-deploy
+- target: //ledger/ledger-runner-common:ledger-runner-common
   type: jar-scala
 - target: //ledger/test-common:dar-files-1.14-lib
   type: jar-scala
 - target: //ledger/test-common:dar-files-1.dev-lib
+  type: jar-scala
+- target: //ledger/test-common:model-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:model-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:package_management-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:package_management-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:performance-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:performance-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:semantic-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:semantic-tests-1.dev.scala
   type: jar-scala
 - target: //ledger/test-common:test-common-1.14
   type: jar-scala
@@ -200,6 +230,8 @@
 - target: //libs-scala/resources-akka:resources-akka
   type: jar-scala
 - target: //libs-scala/resources-grpc:resources-grpc
+  type: jar-scala
+- target: //libs-scala/safe-proto:safe-proto
   type: jar-scala
 - target: //libs-scala/scala-utils:scala-utils
   type: jar-scala

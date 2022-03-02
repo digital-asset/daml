@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -26,7 +26,8 @@ import System.Exit
 import System.IO
 import Control.Exception.Safe
 import qualified Data.Aeson as A
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.KeyMap as A
 import Data.Char
 import Data.Maybe
 import Data.List.Extra
@@ -202,7 +203,6 @@ runCommand env@Env{..} = \case
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
                 [ envSdkVersion
-                , envLatestStableSdkVersion
                 , guard vAssistant >> asstVersion
                 , projectVersionM
                 , defaultVersionM
@@ -241,6 +241,7 @@ runCommand env@Env{..} = \case
 
             versions = nubSort . concat $
                 [ envVersions
+                , maybeToList latestVersionM
                 , fromRight [] installedVersionsE
                 , if vAll then fromRight [] availableVersionsE else []
                 , fromRight [] snapshotVersionsE
@@ -354,7 +355,7 @@ argWhitelist = S.fromList
     , "install", "latest", "project"
     , "uninstall"
     , "studio", "never", "always", "published"
-    , "new", "skeleton", "empty-skeleton", "quickstart-java", "quickstart-scala", "copy-trigger", "gsg-trigger"
+    , "new", "skeleton", "empty-skeleton", "quickstart-java", "copy-trigger", "gsg-trigger"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
     , "migrate"
@@ -366,17 +367,15 @@ argWhitelist = S.fromList
     , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "validate-dar", "doctest", "lint"
     , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
     , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
-    , "extractor", "prettyprint", "postgresql"
     , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
-    , "codegen", "java", "scala", "js"
+    , "codegen", "java", "js"
     , "deploy"
     , "json-api"
     , "trigger", "trigger-service", "list"
     , "oauth2-middleware"
     , "script"
-    , "test-script"
     ]
 
-mkLogTable :: [(T.Text, A.Value)] -> A.Value
-mkLogTable fields = A.Object . HM.fromList $
-    ("source", A.String "daml-assistant") : fields
+mkLogTable :: [(A.Key, A.Value)] -> A.Value
+mkLogTable fields = A.Object . A.fromList $
+    (A.fromString "source", A.String "daml-assistant") : fields

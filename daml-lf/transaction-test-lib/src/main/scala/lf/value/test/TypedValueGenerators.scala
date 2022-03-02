@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -21,7 +21,6 @@ import iface.{
   Variant,
   PrimType => PT,
 }
-import scala.collection.compat._
 import scalaz.{@@, Order, Ordering, Tag}
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
@@ -147,7 +146,6 @@ object TypedValueGenerators {
         Tag unsubst implicitly[Arbitrary[Vector[elt.Inj] @@ Div3]]
       }
       override def injshrink(implicit shr: Shrink[Value.ContractId]) = {
-        import elt.injshrink
         implicitly[Shrink[Vector[elt.Inj]]]
       }
     }
@@ -169,7 +167,6 @@ object TypedValueGenerators {
         implicitly[Arbitrary[Option[elt.Inj]]]
       }
       override def injshrink(implicit cid: Shrink[Value.ContractId]) = {
-        import elt.injshrink
         implicitly[Shrink[Option[elt.Inj]]]
       }
     }
@@ -245,10 +242,7 @@ object TypedValueGenerators {
           override def inj(hl: Inj) =
             ValueRecord(
               Some(name),
-              implicitly[
-                Factory[(Some[Ref.Name], Value), ImmArray[(Some[Ref.Name], Value)]]
-              ]
-                .fromSpecific(lfvFieldNames zip spec.injRec(hl)),
+              (lfvFieldNames zip spec.injRec(hl)).to(ImmArray),
             )
           override def prj = {
             case ValueRecord(_, fields) if fields.length == spec.t.length =>
@@ -284,7 +278,7 @@ object TypedValueGenerators {
         },
       )
 
-    def enum(
+    def enumeration(
         name: Ref.Identifier,
         members: Seq[Ref.Name],
     ): (DefDataType.FWT, EnumAddend[members.type]) =
@@ -306,7 +300,7 @@ object TypedValueGenerators {
           override def injshrink(implicit shr: Shrink[Value.ContractId]) =
             Shrink { ev =>
               if (!(values.headOption contains ev)) values.headOption.toStream
-              else Stream.empty
+              else Stream.empty: @annotation.nowarn("cat=deprecation")
             }
         },
       )

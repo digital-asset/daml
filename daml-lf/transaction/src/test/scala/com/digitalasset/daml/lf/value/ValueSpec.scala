@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,7 +8,7 @@ import data.{Bytes, ImmArray, Ref}
 
 import Value._
 import Ref.{Identifier, Name}
-import test.ValueGenerators.{cidV0Gen, coidGen, idGen, nameGen}
+import test.ValueGenerators.{suffixedV1CidGen, coidGen, idGen, nameGen}
 import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
@@ -85,8 +85,7 @@ class ValueSpec
 
   "Order" - {
 
-    // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
-    implicit val cidArb: Arbitrary[Value.ContractId] = Arbitrary(cidV0Gen)
+    implicit val cidArb: Arbitrary[Value.ContractId] = Arbitrary(suffixedV1CidGen)
 
     val FooScope: Value.LookupVariantEnum =
       Map(fooVariantId -> ImmArray("quux", "baz"), fooEnumId -> ImmArray("quux", "baz"))
@@ -171,7 +170,7 @@ object ValueSpec {
       : Gen[(Map[Identifier, VA.EnumAddend[Seq[Name]]], Value.LookupVariantEnum)] =
     scopeOfEnumsGen flatMap { details =>
       (
-        details transform ((name, members) => VA.enum(name, members)._2),
+        details transform ((name, members) => VA.enumeration(name, members)._2),
         details
           .transform((_, members) => members.to(ImmArray))
           .lift,

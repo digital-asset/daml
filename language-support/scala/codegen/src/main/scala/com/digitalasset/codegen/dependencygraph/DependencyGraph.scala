@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen.dependencygraph
@@ -12,8 +12,6 @@ import scalaz.std.list._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 import scalaz.Bifoldable
-
-import scala.collection.compat._
 
 sealed abstract class DependencyGraph[Iface, TmplI] {
   def orderedDependencies(

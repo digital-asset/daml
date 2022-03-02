@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,7 +8,6 @@ load(
     "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
-    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -43,9 +42,6 @@ da_scala_binary(
 da_scala_library(
     name = "lib",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources = [
         "src/main/resources/logback.xml",
     ],
@@ -53,7 +49,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -215,6 +210,7 @@ daml_build_test(
     dar_dict = {
         ":pkg1.dar": "pkg1.dar",
         ":pkg2.dar": "pkg2.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "src/it/daml/pkg-root",
 )
@@ -318,6 +314,7 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
+    enable_scenarios = True,
     target = lf_version_configuration.get("default"),
 )
 
@@ -360,10 +357,9 @@ da_scala_test(
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",

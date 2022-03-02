@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -11,7 +11,6 @@ import com.daml.auth.middleware.api.Request
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 
-import scala.collection.compat._
 import scala.collection.concurrent.TrieMap
 import scala.io.{BufferedSource, Source}
 import scala.util.Try

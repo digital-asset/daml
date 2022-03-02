@@ -1,8 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { default as styled, hardcodedStyle } from '../theme';
+import * as React from "react";
+import { default as styled, hardcodedStyle } from "../theme";
 
 export interface Props {
   children: (React.ReactChild | null | undefined)[];
@@ -14,7 +14,7 @@ const Wrapper = styled.nav`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-left: ${ hardcodedStyle.buttonFontSize };
+  margin-left: ${hardcodedStyle.buttonFontSize};
 `;
 
 const Left = styled.div`
@@ -22,7 +22,10 @@ const Left = styled.div`
   justify-content: flex-start;
   align-items: center;
   flex: 0;
-  height: calc(${ hardcodedStyle.buttonTextHeight } + 2 * ${({theme}) => theme.buttonPadding[0]});
+  height: calc(
+    ${hardcodedStyle.buttonTextHeight} + 2 *
+      ${({ theme }) => theme.buttonPadding[0]}
+  );
   min-width: calc(${hardcodedStyle.sidebarWidth} - 1rem);
   width: calc(${hardcodedStyle.sidebarWidth} - 1rem);
 `;
@@ -39,17 +42,10 @@ const Right = styled.div`
  * - A left-aligned logo, the height of a default button
  * - A right-aligned list of custom controls
  */
-const NavBar: React.FC<Props> = ({
-  logo,
-  children,
-}: Props) => (
+const NavBar: React.FC<Props> = ({ logo, children }: Props) => (
   <Wrapper>
-    <Left>
-      {logo}
-    </Left>
-    <Right>
-      {children}
-    </Right>
+    <Left>{logo}</Left>
+    <Right>{children}</Right>
   </Wrapper>
 );
 

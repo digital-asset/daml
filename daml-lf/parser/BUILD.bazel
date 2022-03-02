@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,22 +7,16 @@ load(
     "da_scala_test",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "parser",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_parser_combinators",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts_stricter + [
-        "-P:silencer:lineContentFilters=standardInterpolator",
-    ],
+    scalacopts = lf_scalacopts_stricter,
     visibility = [
         "//daml-lf:__subpackages__",
         "//ledger:__subpackages__",

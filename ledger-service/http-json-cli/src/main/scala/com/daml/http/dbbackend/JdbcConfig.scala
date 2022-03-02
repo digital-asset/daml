@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -13,7 +13,7 @@ import com.daml.dbutils, dbutils.DBConfig
 
 private[http] final case class JdbcConfig(
     baseConfig: dbutils.JdbcConfig,
-    dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
+    startMode: DbStartupMode = DbStartupMode.StartOnly,
     backendSpecificConf: Map[String, String] = Map.empty,
 )
 
@@ -21,13 +21,9 @@ private[http] object JdbcConfig
     extends dbutils.ConfigCompanion[JdbcConfig, DBConfig.JdbcConfigDefaults]("JdbcConfig")
     with StrictLogging {
 
-  final val MinIdle = 8
-  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
-  final val ConnectionTimeout = 5000L
-
   implicit val showInstance: Show[JdbcConfig] = Show.shows { a =>
     import a._, baseConfig._
-    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$dbStartupMode)"
+    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$startMode)"
   }
 
   private[this] val DisableContractPayloadIndexing = "disableContractPayloadIndexing"
@@ -72,7 +68,7 @@ private[http] object JdbcConfig
       remainingConf <- StateT.get: Fields[Map[String, String]]
     } yield JdbcConfig(
       baseConfig = baseConfig,
-      dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
+      startMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
       backendSpecificConf = remainingConf,
     )
 

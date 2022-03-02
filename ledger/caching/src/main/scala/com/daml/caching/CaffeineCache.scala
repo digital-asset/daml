@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
@@ -6,7 +6,9 @@ package com.daml.caching
 import com.daml.metrics.CacheMetrics
 import com.github.benmanes.caffeine.{cache => caffeine}
 
-import scala.compat.java8.OptionConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
+import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
+import scala.concurrent.Future
 
 object CaffeineCache {
 
@@ -33,14 +35,22 @@ object CaffeineCache {
       cache.get(key, key => acquire(key))
   }
 
+  final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
+      cache: caffeine.AsyncLoadingCache[Key, Value],
+      cacheMetrics: CacheMetrics,
+  ) {
+    installMetrics(cacheMetrics, cache.synchronous())
+
+    def get(key: Key): Future[Value] = cache.get(key).asScala
+
+    def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
+  }
+
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.Cache[Key, Value],
       metrics: CacheMetrics,
   ) extends ConcurrentCache[Key, Value] {
-    metrics.registerSizeGauge(() => cache.estimatedSize())
-    metrics.registerWeightGauge(() =>
-      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
-    )
+    installMetrics(metrics, cache)
 
     private val delegate = new SimpleCaffeineCache(cache)
 
@@ -52,6 +62,16 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       delegate.getOrAcquire(key, acquire)
+  }
+
+  private def installMetrics[Key <: AnyRef, Value <: AnyRef](
+      metrics: CacheMetrics,
+      cache: caffeine.Cache[Key, Value],
+  ): Unit = {
+    metrics.registerSizeGauge(() => cache.estimatedSize())
+    metrics.registerWeightGauge(() =>
+      cache.policy().eviction().toScala.flatMap(_.weightedSize.toScala).getOrElse(0)
+    )
   }
 
 }

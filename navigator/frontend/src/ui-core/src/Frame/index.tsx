@@ -1,8 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import styled, { hardcodedStyle } from '../theme';
+import * as React from "react";
+import styled, { hardcodedStyle } from "../theme";
 
 export interface FrameProps {
   top: React.ReactNode;
@@ -18,7 +18,7 @@ const Wrapper = styled.div`
   padding-bottom: 4rem;
   display: flex;
   flex-direction: column;
-  background: ${({theme}) => theme.documentBackground};
+  background: ${({ theme }) => theme.documentBackground};
 `;
 
 const Bar = styled.div`
@@ -39,8 +39,8 @@ const Side = styled.div`
   flex-shrink: 1;
   padding-right: 1.5rem;
   padding-top: 1rem;
-  width: ${ hardcodedStyle.sidebarWidth };
-  min-width: ${ hardcodedStyle.sidebarWidth };
+  width: ${hardcodedStyle.sidebarWidth};
+  min-width: ${hardcodedStyle.sidebarWidth};
 `;
 
 const Content = styled.div`
@@ -61,11 +61,7 @@ const Content = styled.div`
  * - A side bar box, left of the content box
  * - Content box, right of the sidebar box
  */
-const Frame: React.FC<FrameProps> = ({
-  top,
-  left,
-  content,
-}) => (
+const Frame: React.FC<FrameProps> = ({ top, left, content }) => (
   <Wrapper>
     <Bar>{top}</Bar>
     <Main>

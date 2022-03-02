@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
@@ -29,19 +29,27 @@ class DeduplicationPeriodValidator(
 
   def validateDuration(duration: Duration, maxDeduplicationDuration: Duration)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Duration] =
+    validateNonNegativeDuration(duration).flatMap { duration =>
+      if (duration.compareTo(maxDeduplicationDuration) > 0)
+        Left(
+          errorFactories.invalidDeduplicationPeriod(
+            s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
+            Some(maxDeduplicationDuration),
+          )
+        )
+      else Right(duration)
+    }
+
+  def validateNonNegativeDuration(duration: Duration)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Duration] = if (duration.isNegative)
     Left(
       errorFactories
-        .invalidField(fieldName, "Duration must be positive", definiteAnswer = Some(false))
-    )
-  else if (duration.compareTo(maxDeduplicationDuration) > 0)
-    Left(
-      errorFactories.invalidDeduplicationDuration(
-        fieldName,
-        s"The given deduplication duration of $duration exceeds the maximum deduplication time of $maxDeduplicationDuration",
-        definiteAnswer = Some(false),
-        Some(maxDeduplicationDuration),
-      )
+        .invalidField(
+          fieldName,
+          "Duration must be positive",
+        )
     )
   else Right(duration)
 }

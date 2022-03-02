@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -10,17 +10,11 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.language.Ast.Package
-import com.daml.platform.sandboxnext
-import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
 import spray.json._
@@ -45,120 +39,101 @@ object TestMain extends StrictLogging {
       acc.flatMap(bs => f(nxt).map(b => bs :+ b))
     }
 
-  def main(args: Array[String]): Unit = {
+  def main(config: TestConfig): Unit = {
 
-    TestConfig.parse(args) match {
-      case None => sys.exit(1)
-      case Some(config) =>
-        val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
+    val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
 
-        val system: ActorSystem = ActorSystem("ScriptTest")
-        implicit val sequencer: ExecutionSequencerFactory =
-          new AkkaExecutionSequencerPool("ScriptTestPool")(system)
-        implicit val materializer: Materializer = Materializer(system)
-        implicit val executionContext: ExecutionContext = system.dispatcher
-        implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
+    val system: ActorSystem = ActorSystem("ScriptTest")
+    implicit val sequencer: ExecutionSequencerFactory =
+      new AkkaExecutionSequencerPool("ScriptTestPool")(system)
+    implicit val materializer: Materializer = Materializer(system)
+    implicit val executionContext: ExecutionContext = system.dispatcher
 
-        val (participantParams, participantCleanup) = config.participantConfig match {
-          case Some(file) =>
-            val source = Source.fromFile(file)
-            val fileContent =
-              try {
-                source.mkString
-              } finally {
-                source.close
-              }
-            val jsVal = fileContent.parseJson
-            import ParticipantsJsonProtocol._
-            (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
-          case None =>
-            val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
-              val timeProviderType = config.timeMode match {
-                case ScriptTimeMode.Static => TimeProviderType.Static
-                case ScriptTimeMode.WallClock => TimeProviderType.WallClock
-              }
-              val sandboxConfig = SandboxConfig.defaultConfig.copy(
-                port = Port.Dynamic,
-                timeProviderType = Some(timeProviderType),
-              )
-              val sandboxResource = new sandboxnext.Runner(sandboxConfig).acquire()
-              val sandboxPort =
-                Await.result(sandboxResource.asFuture.map(_.value), Duration.Inf)
-              (ApiParameters("localhost", sandboxPort, None, None), () => sandboxResource.release())
-            } else {
-              (
-                ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
-                () => Future.unit,
-              )
-            }
-            (
-              Participants(
-                default_participant = Some(apiParameters),
-                participants = Map.empty,
-                party_participants = Map.empty,
-              ),
-              cleanup,
-            )
-        }
-
-        val darMap = dar.all.toMap
-        val compiledPackages = PureCompiledPackages.assertBuild(darMap)
-        val testScripts: Map[Ref.Identifier, Script.Action] = dar.main._2.modules.flatMap {
-          case (moduleName, module) =>
-            module.definitions.collect(Function.unlift { case (name, _) =>
-              val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-              Script.fromIdentifier(compiledPackages, id) match {
-                // We exclude generated identifiers starting with `$`.
-                case Right(script: Script.Action) if !name.dottedName.startsWith("$") =>
-                  Some((id, script))
-                case _ => None
-              }
-            })
-        }
-
-        val flow: Future[Boolean] = for {
-          clients <- Runner.connect(
-            participantParams,
-            TlsConfiguration(false, None, None, None),
-            config.maxInboundMessageSize,
+    val (participantParams, participantCleanup) = config.participantConfig match {
+      case Some(file) =>
+        val source = Source.fromFile(file)
+        val fileContent =
+          try {
+            source.mkString
+          } finally {
+            source.close
+          }
+        val jsVal = fileContent.parseJson
+        import ParticipantsJsonProtocol._
+        (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
+      case None =>
+        val (apiParameters, cleanup) =
+          (
+            ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
+            () => Future.unit,
           )
-          _ <- clients.getParticipant(None) match {
-            case Left(err) => throw new RuntimeException(err)
-            case Right(client) =>
-              client.grpcClient.packageManagementClient
-                .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
-          }
-          success = new AtomicBoolean(true)
-          // Sort in case scripts depend on each other.
-          _ <- sequentialTraverse(testScripts.toList.sortBy({ case (id, _) => id })) {
-            case (id, script) =>
-              val runner =
-                new Runner(compiledPackages, script, config.timeMode)
-              val testRun: Future[Unit] = runner.runWithClients(clients)._2.map(_ => ())
-              // Print test result and remember failure.
-              testRun
-                .andThen {
-                  case Failure(exception) =>
-                    success.set(false)
-                    println(s"${id.qualifiedName} FAILURE ($exception)")
-                  case Success(_) =>
-                    println(s"${id.qualifiedName} SUCCESS")
-                }
-                .recover { case _ =>
-                  // Do not abort in case of failure, but complete all test runs.
-                  ()
-                }
-          }
-        } yield success.get()
+        (
+          Participants(
+            default_participant = Some(apiParameters),
+            participants = Map.empty,
+            party_participants = Map.empty,
+          ),
+          cleanup,
+        )
+    }
 
-        flow.onComplete { _ =>
-          Await.result(participantCleanup(), Duration.Inf)
-          system.terminate()
-        }
+    val darMap = dar.all.toMap
+    val compiledPackages = PureCompiledPackages.assertBuild(darMap)
+    val testScripts: Map[Ref.Identifier, Script.Action] = dar.main._2.modules.flatMap {
+      case (moduleName, module) =>
+        module.definitions.collect(Function.unlift { case (name, _) =>
+          val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
+          Script.fromIdentifier(compiledPackages, id) match {
+            // We exclude generated identifiers starting with `$`.
+            case Right(script: Script.Action) if !name.dottedName.startsWith("$") =>
+              Some((id, script))
+            case _ => None
+          }
+        })
+    }
 
-        if (!Await.result(flow, Duration.Inf)) {
-          sys.exit(1)
-        }
+    val flow: Future[Boolean] = for {
+      clients <- Runner.connect(
+        participantParams,
+        TlsConfiguration(false, None, None, None),
+        config.maxInboundMessageSize,
+      )
+      _ <- clients.getParticipant(None) match {
+        case Left(err) => throw new RuntimeException(err)
+        case Right(client) =>
+          client.grpcClient.packageManagementClient
+            .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
+      }
+      success = new AtomicBoolean(true)
+      // Sort in case scripts depend on each other.
+      _ <- sequentialTraverse(testScripts.toList.sortBy({ case (id, _) => id })) {
+        case (id, script) =>
+          val runner =
+            new Runner(compiledPackages, script, config.timeMode)
+          val testRun: Future[Unit] = runner.runWithClients(clients)._2.map(_ => ())
+          // Print test result and remember failure.
+          testRun
+            .andThen {
+              case Failure(exception) =>
+                success.set(false)
+                println(s"${id.qualifiedName} FAILURE ($exception)")
+              case Success(_) =>
+                println(s"${id.qualifiedName} SUCCESS")
+            }
+            .recover { case _ =>
+              // Do not abort in case of failure, but complete all test runs.
+              ()
+            }
+      }
+    } yield success.get()
+
+    flow.onComplete { _ =>
+      Await.result(participantCleanup(), Duration.Inf)
+      system.terminate()
+    }
+
+    if (!Await.result(flow, Duration.Inf)) {
+      sys.exit(1)
     }
   }
 }

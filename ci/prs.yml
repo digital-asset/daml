@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 trigger: none
@@ -12,6 +12,8 @@ pr:
 
 jobs:
 - template: build.yml
+- template: check-for-release-job.yml
+
 
 - job: check_standard_change_label
   dependsOn:
@@ -94,6 +96,7 @@ jobs:
     - git_sha
     - collect_build_data
     - check_for_release
+    - platform_independence_test
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -127,7 +130,7 @@ jobs:
 
         case "$(status)" in
           Succeeded*)
-            msg="has succeeded! Next step is to approve & merge."
+            msg="has succeeded! Next step is to approve & merge. This is probably a good time to start your Windows testing machine."
             ;;
           Failed*)
             msg="has failed. Please investigate."
@@ -173,7 +176,8 @@ jobs:
 
 - job: self_service_compat_test
   pool:
-    vmImage: ubuntu-20.04
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
   - checkout: self
@@ -182,6 +186,7 @@ jobs:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
       source $(bash-lib)
       COMMIT=$(git rev-parse HEAD^2)
       REQUEST=$(git log -n1 --format="%(trailers:key=run-full-compat,valueonly)" $COMMIT)

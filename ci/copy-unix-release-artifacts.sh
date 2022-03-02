@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -17,17 +17,20 @@ TARBALL=daml-sdk-$RELEASE_TAG-$NAME.tar.gz
 EE_TARBALL=daml-sdk-$RELEASE_TAG-$NAME-ee.tar.gz
 bazel build //release:sdk-release-tarball-ce //release:sdk-release-tarball-ee
 cp bazel-bin/release/sdk-release-tarball-ce.tar.gz $OUTPUT_DIR/github/$TARBALL
+# Used for the non-split release process.
 cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/artifactory/$EE_TARBALL
+# Used for the split release process.
+cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/split-release/$EE_TARBALL
+
+
+bazel build //compiler/damlc:damlc-dist
+cp bazel-bin/compiler/damlc/damlc-dist.tar.gz $OUTPUT_DIR/split-release/damlc-$RELEASE_TAG-$NAME.tar.gz
 
 # Platform independent artifacts are only built on Linux.
 if [[ "$NAME" == "linux" ]]; then
     bazel build //release:protobufs
     PROTOS_ZIP=protobufs-$RELEASE_TAG.zip
     cp bazel-bin/release/protobufs.zip $OUTPUT_DIR/github/$PROTOS_ZIP
-
-    DAML_ON_SQL=daml-on-sql-$RELEASE_TAG.jar
-    bazel build //ledger/daml-on-sql:daml-on-sql-binary_deploy.jar
-    cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $OUTPUT_DIR/github/$DAML_ON_SQL
 
     JSON_API=http-json-$RELEASE_TAG.jar
     JSON_API_EE=http-json-$RELEASE_TAG-ee.jar
@@ -53,8 +56,8 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $OUTPUT_DIR/artifactory/$TRIGGER
 
     SCRIPT=daml-script-$RELEASE_TAG.jar
-    bazel build //daml-script/runner:script-runner_deploy.jar
-    cp bazel-bin/daml-script/runner/script-runner_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
+    bazel build //daml-script/runner:daml-script-binary_deploy.jar
+    cp bazel-bin/daml-script/runner/daml-script-binary_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
 
     NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
     bazel build //runtime-components/non-repudiation-app:non-repudiation-app_deploy.jar
@@ -87,9 +90,6 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client-src.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_SRC
     cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_javadoc.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_DOC
 
-    bazel build //compiler/damlc:damlc-dist
-    cp bazel-bin/compiler/damlc/damlc-dist.tar.gz $OUTPUT_DIR/split-release/damlc-$RELEASE_TAG.tar.gz
-
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-script
     bazel build //daml-script/daml:daml-script-dars
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
@@ -97,4 +97,11 @@ if [[ "$NAME" == "linux" ]]; then
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-trigger
     bazel build //triggers/daml:daml-trigger-dars
     cp bazel-bin/triggers/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-trigger/
+
+    mkdir -p $OUTPUT_DIR/split-release/docs
+
+    bazel build //docs:sphinx-source-tree //docs:pdf-fonts-tar //docs:non-sphinx-html-docs
+    cp bazel-bin/docs/sphinx-source-tree.tar.gz $OUTPUT_DIR/split-release/docs/sphinx-source-tree-$RELEASE_TAG.tar.gz
+    cp bazel-bin/docs/pdf-fonts-tar.tar.gz $OUTPUT_DIR/split-release/docs/pdf-fonts-$RELEASE_TAG.tar.gz
+    cp bazel-bin/docs/non-sphinx-html-docs.tar.gz $OUTPUT_DIR/split-release/docs/non-sphinx-html-docs-$RELEASE_TAG.tar.gz
 fi

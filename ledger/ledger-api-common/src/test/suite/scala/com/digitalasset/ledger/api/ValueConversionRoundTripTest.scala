@@ -1,13 +1,15 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api
 
-import com.daml.error.{ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.NoLogging
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.empty.Empty
@@ -26,8 +28,7 @@ class ValueConversionRoundTripTest
 
   private val constructor: String = "constructor"
 
-  private val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
 
@@ -42,7 +43,7 @@ class ValueConversionRoundTripTest
 
       val testCases: TableFor1[Sum] = Table(
         "values",
-        Sum.ContractId("#coid"),
+        Sum.ContractId(ContractId.V1(Hash.hashPrivateKey("#coid")).coid),
         DomainMocks.values.validApiParty.sum,
         Sum.Int64(Long.MinValue),
         Sum.Int64(0),

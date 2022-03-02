@@ -1,25 +1,21 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.postgresql
 
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.CompositeSql
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.common.QueryStrategy
-import com.daml.platform.store.interning.StringInterning
 
 object PostgresQueryStrategy extends QueryStrategy {
 
   override def arrayIntersectionNonEmptyClause(
       columnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
+      internedParties: Set[Int],
   ): CompositeSql = {
-    val partiesArray: Array[java.lang.Integer] =
-      parties
-        .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box).toList)
-        .toArray
+    require(internedParties.nonEmpty, "internedParties must be non-empty")
+    // anorm does not like primitive arrays, so we need to box it
+    val partiesArray: Array[java.lang.Integer] = internedParties.map(Int.box).toArray
     cSQL"#$columnName::int[] && $partiesArray::int[]"
   }
 

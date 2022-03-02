@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def _impl(ctx):
@@ -15,6 +15,7 @@ def _impl(ctx):
         "index.bzl",
         content = """
 oracle_testing = {testing}
+oracle_tags = ["oracle"] + ([] if oracle_testing else ["manual"])
 """.format(
             testing = testing,
         ),

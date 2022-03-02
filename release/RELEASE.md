@@ -1,7 +1,11 @@
 # Making a Release
 
-For snapshot releases, skip the steps marked **[STABLE]**. For stable releases,
-skip the steps marked **[SNAPSHOT]**.
+This document covers how to _test_ a release. Creating a release follows a
+slightly different process depending on whether the release is stable or not,
+and whether it's a legacy 1.x release or a 2.x release.
+
+There are four corresponding files in this folder that correspond to all four
+combinations of stable/snapshot and 1/2.
 
 Valid commits for a release should come from either the `main` branch or one
 of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
@@ -10,53 +14,7 @@ patches we backport to the 1.0 release branch).
 > **IMPORTANT**: If the release fails, please delete it from the [releases page]
 > and write how it failed on the PR.
 
-1. **[STABLE]** Go through the [checklist] before making the release. Note that
-   the checklist is not available publicly.
-
-1. **[STABLE]** Stable releases are promoted from snapshot releases. Open a PR
-   that changes the `LATEST` file to remove the `-snapshot` suffix on the
-   corresponding snapshot, and add the `Standard-Change` label.
-
-1. **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
-   Double-check the snapshot version: it may need incrementing. Ask on Slack
-   (`#team-daml`) if you're not sure.
-
-   If you are manually creating the PR for an out-of-schedule snapshot, start
-   _from latest `main`_ and run
-   ```
-   ./release.sh new snapshot
-   ```
-   If you want to have a stricter control over the specific commit and version
-   prefix the command can also be used as follows:
-   ```
-   ./release.sh snapshot <sha> <prefix>
-   ```
-   for example:
-   ```
-   $ ./release.sh snapshot cc880e2 0.1.2
-   cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
-   ```
-   The former version of the command defaults to `HEAD` as the commit and tries
-   to figure out the version prefix to use based on the first line of the `LATEST`
-   file. This also mean that you will have to use the latter form for maintenance releases.
-   Once the script has run, open a PR _to be merged to `main`_ (even if it's for a maintenance release)
-   with the changed `LATEST` file, add the line produced by the `release.sh`
-   invocation in a meaningful position (if you’re not sure, [semver](https://semver.org/) ordering is
-   probably the right thing to do) and add the `Standard-Change` label. It
-   is better to add such a label _before confirming the PR's creation_, else
-   the associated CI check will fail and merging the PR will require you to
-   re-run it after all the other ones have completed successfully.
-
-1. Once the PR has built, check that it was considered a release build by our
-   CI. If you are working from an automated PR, check that it sent a message to
-   `#team-daml` to say it has finished building. If the PR was manually created,
-   you can look at the output of the `check_for_release` build step.
-
-1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
-   of this writing (2021-10-12), @bame-da, @gerolf-da, @cocreature, @stefanobaghino-da or @adriaanm-da.
-
-1. Merge the PR and wait for the corresponding `main` build to finish. You
-   will be notified on `#team-daml`.
+This testing procedure starts once the release is listed on the [releases page].
 
 1. On Windows, install the new SDK using the installer on
    https://github.com/digital-asset/daml/releases.
@@ -76,8 +34,10 @@ patches we backport to the 1.0 release branch).
    >
    > [ad-hoc]: https://github.com/DACH-NY/daml-language-ad-hoc
    >
-   > `ad-hoc.sh` prints IP address, username and password for the created Windows VM.
+   > `ad-hoc.sh create windows` prints IP address, username and password for the created Windows VM.
    > Save this output. You will need this information later when you create an RDP connection.
+   >
+   > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
    >
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
    > Linux, you can use Remmina.
@@ -90,15 +50,13 @@ patches we backport to the 1.0 release branch).
    > The ad-hoc machines take a bit of time to be available after being reported as
    > created, so be patient for a bit if your first connection attempt(s) fail.
    >
-   > Windows machines come with both Internet Explorer and Firefox installed.
-   > Do not make the mistake of trying to use Internet Explorer.
+   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do not make the mistake of trying to use Internet Explorer.
    >
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
    >
-   > The script that installs Firefox, Node, VSCode and OpenJDK runs once the
-   > machine is available for login. If you can't find the software you need
-   > immediately, just wait for a couple of minutes.
+   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox, Node, VSCode and OpenJDK runs once the
+   > machine is available for login. The software you need should appear within about 10 minutes. (An easy way to check is to try to open `D:\` , as it is created after all the software is installed.)
    >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
@@ -109,7 +67,7 @@ patches we backport to the 1.0 release branch).
       - Just the bare install; no need to build C dependencies.
       - `create-daml-app` doesn't work with the latest version 17.x of node.js.
         If you have `nix` installed, you can use a suitable version of nodejs by
-        running `nix-shell -p nodejs-12_x` before running the `npm` commands below.
+        running `nix-shell -p nodejs-14_x` before running the `npm` commands below.
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
@@ -140,17 +98,17 @@ patches we backport to the 1.0 release branch).
 
     1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
 
-    1. Log in as `Alice` in the first window, log in as `Bob` in the second window.
+    1. Log in as `alice` in the first window, log in as `bob` in the second window.
 
-    1. In the first window, where you are logged in as `Alice`,
-       follow `Bob` by typing their name in the text input and pressing enter.
-       Verify that `Bob` appears in the
-       list of users `Alice` is following. Verify in the other
+    1. In the first window, where you are logged in as `Alice`, follow
+       `Bob` by typing their name in the drop down (note that it will
+       be `Bob` not `bob`, the former is the global alias, the latter
+       is the participant-local username).  Verify that `Bob` appears
+       in the list of users `Alice` is following. Verify in the other
        browser window that `Alice` shows up in `Bob`’s network.
 
     1. In the second window, where you are logged in as `Bob`,
-       follow `Alice` by clicking on the "add user" logo to right of
-       `Alice` name below the "The Network" heading.
+       follow `Alice` by selecting it in the drop down.
        Verify that `Alice` appears in
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
@@ -183,19 +141,19 @@ patches we backport to the 1.0 release branch).
     1. Close VSCode.
 
     1. As before, open two browser windows at `localhost:3000` and log
-       in as `Alice` and `Bob`.
+       in as `alice` and `bob`.
 
     1. Make `Alice` follow `Bob`.
 
-    1. From `Bob`, select `Alice` in the `Select a follower` drop down,
+    1. From `Bob`, select Alice in the `Select a follower` drop down,
        insert `hi alice` in the message field and click on `Send`.
 
     1. Verify that `Alice` has received the message in the other window.
 
     1. Make `Bob` follow `Alice`.
 
-    1. From `Alice`, select `Bob` in the drop down insert `hi bob` in
-       the message field and click on `Send`.
+    1. From `Alice`, select Bob in the `Select a follower` drop down,
+       insert `hi bob` in the message field and click on `Send`.
 
     1. Verify that `Bob` has received the message in the other window.
 
@@ -209,11 +167,12 @@ patches we backport to the 1.0 release branch).
 1. Run through the following test plan on Windows. This is slightly shortened to
    make testing faster and since most issues are not platform specific.
 
-   1. Run `daml new quickstart` to create a new project and switch to it using
-      `cd quickstart`.
+   1. Run `daml new myproject` to create a new project and switch to it using
+      `cd myproject`.
    1. Run `daml start`.
    1. Open your browser at `http://localhost:7500`, verify that you can login as
-      Alice and there is one template and one contract.
+      alice and there is one contract, and that the template list contains
+      `Main:Asset` among other templates.
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the script result appears within 30 seconds.
@@ -236,46 +195,66 @@ patches we backport to the 1.0 release branch).
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
     1. Run `daml start`. Your browser should be opened automatically at
-       `http://localhost:7500`. Login as `Alice` and verify that there is
-       1 contract and 3 templates. Close the tab and kill `daml start` using
-       `Ctrl-C`.
+       `http://localhost:7500`. Login as `alice` and verify that there is
+       1 contract, and that the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
+       and `IouTrade:IouTrade` among other templates.
+
+    1. Close the tab and kill `daml start` using `Ctrl-C`.
 
     1. Run `daml build`.
 
-    1. In 3 separate terminals (since each command blocks), run:
+    1. In 3 separate terminals, run:
 
-       1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
-       1. `daml codegen java && mvn compile exec:java@run-quickstart`
+       1. `daml sandbox --port 6865`
 
-       > Note: It takes some time (typically around half-an-hour) for our artifacts
-       > to be available on Maven Central. If you try running the last command before
-       > the artifacts are available, you will get a "not found" error. Trying to
-       > build again _in the next 24 hours_ will result in:
-       >
-       > ```
-       > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
-       > ```
-       >
-       > This is Maven telling you it has locally cached that "not found" result
-       > and will consider it valid for 24h. To bypass that and force Maven to
-       > try the network call again, add a `-U` option, as in
-       > `mvn compile exec:java@run-quickstart -U`. Note that this is required to
-       > bypass your local cache of the failure; it will not be required for a
-       > user trying to run the quickstart after the artifacts have been
-       > published.
-       >
-       > Another common problem is that artifacts fail to resolve because of custom
-       > Maven settings. Check your `~/.m2/settings.xml` configuration and try
-       > disabling them temporarily.
+       1. Each of the following:
 
-    1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
-       that there is 1 contract, 3 templates and 1 owned IOU.
+          1. `daml ledger upload-dar --host localhost --port 6865 .daml/dist/quickstart-0.0.1.dar`
+
+          1. `daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --output-file output.json`
+
+          1. `cat output.json` and verify that the output looks like this:
+             ```
+             ["Alice::NAMESPACE", "EUR_Bank::NAMESPACE"]
+             ```
+             where `NAMESPACE` is some randomly generated series of hex digits.
+
+          1. `daml navigator server localhost 6865 --port 7500`
+
+       1. `daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')`
+
+           Note that this step scrapes the `Alice::NAMESPACE` party name from the `output.json` produced in the previous steps.
+
+           > Note: It takes some time (typically around half-an-hour) for our artifacts
+           > to be available on Maven Central. If you try running the last command before
+           > the artifacts are available, you will get a "not found" error. Trying to
+           > build again _in the next 24 hours_ will result in:
+           >
+           > ```
+           > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
+           > ```
+           >
+           > This is Maven telling you it has locally cached that "not found" result
+           > and will consider it valid for 24h. To bypass that and force Maven to
+           > try the network call again, add a `-U` option, as in
+           > `mvn compile exec:java@run-quickstart -U`. Note that this is required to
+           > bypass your local cache of the failure; it will not be required for a
+           > user trying to run the quickstart after the artifacts have been
+           > published.
+           >
+           > Another common problem is that artifacts fail to resolve because of custom
+           > Maven settings. Check your `~/.m2/settings.xml` configuration and try
+           > disabling them temporarily.
+
+    1. Point your browser to `http://localhost:7500`, login as `alice` and verify
+       that there is 1 contract, 1 owned IOU, and the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
+       and `IouTrade:IouTrade` among other templates.
 
     1. Check that `curl http://localhost:8080/iou` returns:
        ```
-       {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0000000000,"observers":[]}}
+       {"0":{"issuer":"EUR_Bank::NAMESPACE","owner":"Alice::NAMESPACE","currency":"EUR","amount":100.0000000000,"observers":[]}}
        ```
+       where NAMESPACE is again the series of hex digits that you saw before.
 
     1. Kill all processes.
 
@@ -297,7 +276,7 @@ patches we backport to the 1.0 release branch).
     1. Delete the `+1` and the `e` in the second `"Alice"` and verify
        that the script results are updated to the misspelled name.
 
-    1. Right click on `eurBank` in line 20 and verify that "Go to Definition"
+    1. Right click on `eurBank` in line 28 and verify that "Go to Definition"
        takes you to the definition in line 17.
 
     1. Close all files.
@@ -320,21 +299,25 @@ patches we backport to the 1.0 release branch).
    Note that **the Standard-Change label must remain on the PR**, even if the
    release has failed.
 
-1. Announce the release on the relevant internal Slack channels (`#product-daml`,
-   `#team-daml`). For a stable release, direct people to the release blog post;
-   for a prerelease, you can include the raw output of the `unreleased.sh`
-   script.
+1. Announce the release on `#product-daml` on Slack. For a stable release,
+   direct people to the release blog post; for a prerelease, you can include
+   the raw output of the `unreleased.sh` script in a thread after the
+   announcement. If there were any errors during testing, but we decided to keep
+   the release anyway, report those on the PR and include a link to the PR in the
+   announcement.
 
-1. **[STABLE]** Go to the [releases page] and remove the prerelease marker on
+For a stable release, you need to additionally:
+
+1. Go to the [releases page] and remove the prerelease marker on
    the release. Also change the text to
    ```See [the release notes blog]() for details.```
    adding in the direct link to this version's [release notes]. Documentation
    for this release will be added to docs.daml.com on the next hour.
 
-1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
+1. Coordinate with product (& marketing) for the relevant public
    announcements (Daml Forum, Twitter, etc.).
 
-1. **[STABLE]** Documentation is published automatically once the release is
+1. Documentation is published automatically once the release is
    public on GitHub, though this runs on an hourly cron.
 
 Thanks for making a release!

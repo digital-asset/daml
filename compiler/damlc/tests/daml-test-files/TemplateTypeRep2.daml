@@ -10,3 +10,5 @@ template T1
     p : Party
   where
     signatory p
+
+-- @ENABLE-SCENARIOS

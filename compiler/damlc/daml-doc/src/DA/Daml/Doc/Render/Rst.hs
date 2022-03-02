@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -11,9 +11,9 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Util (escapeText)
 
-import qualified Data.Text.Prettyprint.Doc as Pretty
-import Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
-import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
+import qualified Prettyprinter as Pretty
+import Prettyprinter (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
+import Prettyprinter.Render.Text (renderStrict)
 
 import Data.Char
 import qualified Data.Text as T
@@ -154,8 +154,13 @@ docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . rend
         DOCUMENT -> Pretty.align (Pretty.concatWith (\x y -> x <> Pretty.line <> Pretty.line <> y) (map render ns))
 
         PARAGRAPH -> Pretty.align (foldMap render ns)
-        CODE_BLOCK _info t ->
-          Pretty.align (Pretty.vsep [".. code-block:: daml", "", Pretty.indent 2 (pretty t)])
+        CODE_BLOCK info t ->
+          -- Force rendering of code that doesn’t pass the highlighter.
+          let force = ["  :force:" | info == "daml-force"]
+          in Pretty.align $ Pretty.vsep $
+               ".. code-block:: daml" :
+               force <>
+               ["", Pretty.indent 2 (pretty t)]
         LIST ListAttributes{..} -> Pretty.align (Pretty.vsep (zipWith (renderListItem listType) [1..] ns))
 
         EMPH -> Pretty.enclose "*" "*" (foldMap render ns)

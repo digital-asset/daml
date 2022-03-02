@@ -1,0 +1,38 @@
+/* Copy this file to settings.json to activate these defaults. */
+{
+    "editor.tabSize": 4,
+    "files.exclude": {
+        "**/.git": true,
+        "dev-env/lib/*": true,
+        "bazel-*/*": true,
+        ".bazel-cache/*": true,
+        "**/node_modules/*": true
+    },
+    "files.watcherExclude": {
+        "**/.stack-work": true,
+        "**/*.hi": true,
+        "**/*.dyn_hi": true,
+        "**/workspaces/*": true,
+        "**/.git": true,
+        "dev-env/lib/*": true,
+        "bazel-*/*": true,
+        ".bazel-cache/*": true,
+        "**/node_modules/*": true
+    },
+    "search.exclude": {
+        "**/.stack-work": true,
+        "**/*.hi": true,
+        "**/*.dyn_hi": true,
+        "**/workspaces/*": true,
+        "dev-env/lib/*": true,
+        "bazel-*/*": true,
+        ".bazel-cache": true
+    },
+    "[restructuredtext]": {
+        "editor.wordWrap": "wordWrapColumn",
+        "editor.wordWrapColumn": 80
+    },
+    "python.linting.pylintEnabled": false,
+    "diffEditor.ignoreTrimWhitespace": false,
+    "python.pythonPath": "${workspaceFolder}/dev-env/bin/python"
+}

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -16,6 +16,7 @@ import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
+import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -43,8 +44,8 @@ final class ScenarioRunner(
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   var currentSubmission: Option[CurrentSubmission] = None
 
-  def run(): ScenarioResult =
-    handleUnsafe(runUnsafe()) match {
+  def run(implicit loggingContext: LoggingContext): ScenarioResult =
+    handleUnsafe(runUnsafe) match {
       case Left(err) =>
         ScenarioError(
           ledger,
@@ -57,7 +58,7 @@ final class ScenarioRunner(
       case Right(t) => t
     }
 
-  private def runUnsafe(): ScenarioSuccess = {
+  private def runUnsafe(implicit loggingContext: LoggingContext): ScenarioSuccess = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
     // and so that we don't need to worry about stack usage.
     val startTime = System.nanoTime()
@@ -149,42 +150,6 @@ object ScenarioRunner {
 
   private def crash(reason: String) =
     throw Error.Internal(reason)
-
-  @deprecated("can be used only by sandbox classic.", since = "1.4.0")
-  def getScenarioLedger(
-      engine: Engine,
-      scenarioRef: Ref.DefinitionRef,
-      scenarioDef: Ast.Definition,
-      transactionSeed: crypto.Hash,
-  ): ScenarioLedger = {
-    val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = Speedy.Machine.fromScenarioExpr(
-      engine.compiledPackages(),
-      scenarioExpr,
-    )
-    new ScenarioRunner(speedyMachine, transactionSeed).run() match {
-      case err: ScenarioError =>
-        throw new RuntimeException(s"error running scenario $scenarioRef in scenario ${err.error}")
-      case success: ScenarioSuccess => success.ledger
-    }
-  }
-
-  private[this] def getScenarioExpr(
-      scenarioRef: Ref.DefinitionRef,
-      scenarioDef: Ast.Definition,
-  ): Ast.Expr = {
-    scenarioDef match {
-      case Ast.DValue(_, body, _) => body
-      case _: Ast.DTypeSyn =>
-        throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a type synonym, not a definition"
-        )
-      case _: Ast.DDataType =>
-        throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a data type, not a definition"
-        )
-    }
-  }
 
   private def handleUnsafe[T](unsafe: => T): Either[Error, T] = {
     Try(unsafe) match {
@@ -390,7 +355,6 @@ object ScenarioRunner {
     val valueTranslator =
       new ValueTranslator(
         interface = compiledPackages.interface,
-        forbidV0ContractId = config.forbidV0ContractId,
         requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
@@ -424,7 +388,7 @@ object ScenarioRunner {
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
-  ): SubmissionResult[R] = {
+  )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,

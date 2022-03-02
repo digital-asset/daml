@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -51,12 +51,13 @@ service CommandCompletionService {
 message CompletionStreamRequest {
   // Must correspond to the ledger id reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // Only completions of commands submitted with the same application_id will be visible in the stream.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // Required unless authentication is used with a user token or a custom token specifying an application-id.
+  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
   string application_id = 2;
 
   // Non-empty list of parties whose data should be included.
@@ -103,7 +104,7 @@ message Checkpoint {
 message CompletionEndRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 }
 

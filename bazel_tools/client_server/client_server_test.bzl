@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
@@ -13,12 +13,15 @@ def client_server_test(
         name,
         runner = "//bazel_tools/client_server/runner_with_port_file",
         runner_args = [],
+        runner_files = [],
+        runner_files_prefix = "",
         client = None,
         client_args = [],
         client_files = [],
         server = None,
         server_args = [],
         server_files = [],
+        server_files_prefix = "",
         data = [],
         **kwargs):
     """Create a client-server test.
@@ -61,11 +64,14 @@ def client_server_test(
         cmd = """\
 runner=$$(canonicalize_rlocation $$(get_exe $(rootpaths {runner})))
 runner_args="{runner_args}"
+for file in {runner_files}; do
+    runner_args+=" {runner_files_prefix}$$(canonicalize_rlocation $$file)"
+done
 client=$$(canonicalize_rlocation $$(get_exe $(rootpaths {client})))
 server=$$(canonicalize_rlocation $$(get_exe $(rootpaths {server})))
 server_args="{server_args}"
 for file in {server_files}; do
-    server_args+=" $$(canonicalize_rlocation $$file)"
+    server_args+=" {server_files_prefix}$$(canonicalize_rlocation $$file)"
 done
 
 client_args="$$@"
@@ -80,12 +86,15 @@ $$runner $$client "$$client_args" $$server "$$server_args" "$$runner_args"
 """.format(
             runner = runner,
             runner_args = _escape_args(runner_args),
+            runner_files = _escape_args(runner_files),
+            runner_files_prefix = runner_files_prefix,
             client = client,
             client_args = _escape_args(client_args),
             client_files = _escape_args(client_files),
             server = server,
             server_args = _escape_args(server_args),
             server_files = _escape_args(server_files),
+            server_files_prefix = server_files_prefix,
         ),
         **kwargs
     )

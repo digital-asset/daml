@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.util
@@ -17,4 +17,8 @@ object TimeUtil {
 
   def durationBetween(before: Instant, after: Instant): Duration =
     Duration.between(before, after)
+
+  /** Returns `true` if `a` is longer or equal to `b`. */
+  def isAtLeast(a: Duration, b: Duration): Boolean =
+    a.compareTo(b) >= 0
 }

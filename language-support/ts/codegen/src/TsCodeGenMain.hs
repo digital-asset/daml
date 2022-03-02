@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
@@ -17,6 +17,7 @@ import qualified Data.Text.Extended as T
 import qualified Data.Text.IO as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Data.Aeson hiding (Options)
+import qualified Data.Aeson.Key as Aeson
 import Data.Aeson.Encode.Pretty
 
 import Control.Exception
@@ -857,7 +858,6 @@ genType (TypeRef curModName t) mbSubst = go t
         TUnit -> ("{}", "damlTypes.Unit")
         TBool -> ("boolean", "damlTypes.Bool")
         TInt64 -> dupe "damlTypes.Int"
-        TDecimal -> dupe "damlTypes.Decimal"
         TNumeric (TNat n) -> (
             "damlTypes.Numeric"
           , "damlTypes.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
@@ -970,7 +970,7 @@ packageJsonDependencies :: Scope -> [Dependency] -> Value
 packageJsonDependencies (Scope scope) dependencies = object $
     [ "@mojotech/json-type-validation" .= jtvVersion
     ] ++
-    [ (scope <> "/" <> pkgName) .= ("file:../" <> pkgName) | Dependency pkgName <- dependencies ]
+    [ Aeson.fromText (scope <> "/" <> pkgName) .= ("file:../" <> pkgName) | Dependency pkgName <- dependencies ]
 
 packageJsonPeerDependencies:: SdkVersion ->  Value
 packageJsonPeerDependencies sdkVersion = object

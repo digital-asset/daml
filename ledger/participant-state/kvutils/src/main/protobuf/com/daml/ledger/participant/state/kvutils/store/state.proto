@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 syntax = "proto3";
 
@@ -10,9 +10,7 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "com/daml/daml_lf_dev/daml_lf.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration.proto";
-import "com/daml/lf/value.proto";
 
 
 // Daml state key. [[KeyValueCommitting]] produces effects that are committed
@@ -35,7 +33,8 @@ message DamlStateKey {
 // The field numbers below must match with the corresponding entries in `DamlStateKey`.
 message DamlStateValue {
   oneof value {
-    daml_lf_dev.Archive archive = 1;
+    // A Daml-LF archive stored as bytes (see daml_lf_dev.Archive).
+    bytes archive = 1;
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;
@@ -124,12 +123,19 @@ message DamlContractState {
 
 message DamlContractKey {
   // The Daml template identifier of the contract that created this key.
-  com.daml.lf.value.Identifier template_id = 1;
+  Identifier template_id = 1;
 
   reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
 
   // Hash of the contract key value, produced by KeyHasher.
   bytes hash = 3;
+}
+
+// A copy of com.daml.lf.value.Identifier.
+message Identifier {
+  string package_id = 1;
+  repeated string module_name = 2;
+  repeated string name = 3;
 }
 
 // Stored information about a given party.

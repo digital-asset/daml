@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
@@ -20,7 +20,7 @@ template T1
   where
     signatory owner1
     implements I where
-      let getOwner = owner1
+      getOwner = owner1
 
 template T2
   with
@@ -28,7 +28,7 @@ template T2
   where
     signatory owner2
     implements I where
-      let getOwner = owner2
+      getOwner = owner2
 
 main = scenario do
     p <- getParty "Alice"
@@ -36,3 +36,5 @@ main = scenario do
         cidT1 <- create (T1 p)
         let cidT2 = coerceContractId @T1 @T2 cidT1
         exercise cidT2 MyArchive
+
+-- @ENABLE-SCENARIOS

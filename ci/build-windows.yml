@@ -1,9 +1,10 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
   release_tag: ''
   is_release: ''
+  is_split_release: 'false'
   skip_tests: ''
 
 steps:
@@ -51,7 +52,10 @@ steps:
   - bash: |
       set -euo pipefail
       mkdir -p '$(Build.StagingDirectory)'/release
-      ./ci/copy-windows-release-artifacts.sh ${{parameters.release_tag}} '$(Build.StagingDirectory)'/release
+      ./ci/copy-windows-release-artifacts.sh \
+        ${{parameters.release_tag}} \
+        '$(Build.StagingDirectory)'/release \
+        "${{ parameters.is_split_release }}"
     name: publish
     env:
       AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)

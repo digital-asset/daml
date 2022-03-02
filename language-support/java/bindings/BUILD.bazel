@@ -1,11 +1,10 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:java.bzl", "da_java_library")
@@ -107,9 +106,6 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
@@ -117,11 +113,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
-    scalacopts = [
-        "-P:silencer:globalFilters=DeduplicationTime.*deprecated",  # deprecated field that needs to be tested
-        "-P:silencer:globalFilters=DEDUPLICATION_TIME.*deprecated",  # deprecated field that needs to be tested
     ],
     deps = [
         ":bindings-java",

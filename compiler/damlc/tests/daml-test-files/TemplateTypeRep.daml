@@ -36,3 +36,5 @@ main = scenario do
 
   assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @T2)
   assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @TemplateTypeRep2.T1)
+
+-- @ENABLE-SCENARIOS

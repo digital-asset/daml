@@ -1,1 +1,1 @@
-Error: Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXXXX{ message = "ArithmeticError while evaluating (DIV_INT64 0 0)." }
+Error: Unhandled Daml exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXXXX{ message = "ArithmeticError while evaluating (DIV_INT64 0 0)." }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -24,7 +24,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] val committers: Set[data.Ref.Party] = Set.empty
 
   private[this] val initialState = PartialTransaction.initial(
-    _ => TransactionVersion.maxVersion,
     ContractKeyUniquenessMode.On,
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
@@ -54,12 +53,13 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           Set.empty,
           None,
           None,
+          TransactionVersion.maxVersion,
         )
         ._2
 
     def beginExercises_ : PartialTransaction =
       ptx.beginExercises(
-        Authorize(Set(party)),
+        auth = Authorize(Set(party)),
         targetId = cid,
         templateId = templateId,
         choiceId = choiceId,
@@ -73,10 +73,11 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         byKey = false,
         byInterface = None,
         chosenValue = Value.ValueUnit,
+        version = TransactionVersion.maxVersion,
       )
 
     def endExercises_ : PartialTransaction =
-      ptx.endExercises(SValue.SUnit)
+      ptx.endExercises(_ => Value.ValueNone)
 
     private val dummyException = SArithmeticError("Dummy", ImmArray.Empty)
 

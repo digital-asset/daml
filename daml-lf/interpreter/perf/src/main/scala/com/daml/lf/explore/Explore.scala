@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -11,6 +11,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Speedy._
+import com.daml.logging.LoggingContext
 
 // Explore the execution of speedy machine on small examples.
 
@@ -19,6 +20,8 @@ object Explore extends App {
 }
 
 object PlaySpeedy {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] val compilerConfig =
     Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)

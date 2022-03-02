@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -39,7 +39,7 @@ object TestHelpers {
   val theDefaultConfig: Configuration = Configuration(
     generation = 0,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = Duration.ofDays(1),
+    maxDeduplicationDuration = Duration.ofDays(1),
   )
 
   def mkEntryId(n: Int): DamlLogEntryId =
@@ -68,7 +68,7 @@ object TestHelpers {
       tx: SubmittedTransaction,
   ): DamlTransactionEntry =
     DamlTransactionEntry.newBuilder
-      .setRawTransaction(Conversions.encodeTransaction(tx).bytes)
+      .setRawTransaction(Conversions.assertEncodeTransaction(tx).byteString)
       .setSubmitterInfo(
         DamlSubmitterInfo.newBuilder
           .setCommandId("commandId")

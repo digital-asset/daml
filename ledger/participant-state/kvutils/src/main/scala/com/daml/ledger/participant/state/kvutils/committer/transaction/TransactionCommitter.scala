@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Copyright
@@ -11,8 +11,8 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
+  CommitterModelConformanceValidator,
   LedgerTimeValidator,
-  ModelConformanceValidator,
   TransactionConsistencyValidator,
 }
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
@@ -24,17 +24,19 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, Raw}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
-import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
+import com.daml.lf.kv.ConversionError
+import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
+import com.daml.lf.kv.transactions.{RawTransaction, TransactionConversions}
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 private[kvutils] class TransactionCommitter(
@@ -64,7 +66,8 @@ private[kvutils] class TransactionCommitter(
 
   private val rejections = new Rejections(metrics)
   private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
-  private val modelConformanceValidator = new ModelConformanceValidator(engine, metrics)
+  private val committerModelConformanceValidator =
+    new CommitterModelConformanceValidator(engine, metrics)
 
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
@@ -72,7 +75,8 @@ private[kvutils] class TransactionCommitter(
     "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
     "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
-    "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
+    "validate_committer_model_conformance" -> committerModelConformanceValidator
+      .createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
     "set_deduplication_entry" -> CommandDeduplication.setDeduplicationEntryStep(defaultConfig),
     "blind" -> blind,
@@ -153,72 +157,27 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  /** Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
+  /** Removes `Fetch`, `LookupByKey` and `Rollback` nodes from the transactionEntry.
     */
   private[transaction] def trimUnnecessaryNodes: Step = new Step {
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val transaction =
-        TransactionOuterClass.Transaction.parseFrom(transactionEntry.submission.getRawTransaction)
-      val nodes = transaction.getNodesList.asScala
-      val nodeMap: Map[String, TransactionOuterClass.Node] =
-        nodes.view.map(n => n.getNodeId -> n).toMap
-
-      @tailrec
-      def goNodesToKeep(todo: List[String], result: Set[String]): Set[String] = todo match {
-        case Nil => result
-        case head :: tail =>
-          import TransactionOuterClass.Node.NodeTypeCase
-          val node =
-            nodeMap.getOrElse(head, throw Err.InternalError(s"Invalid transaction node id $head"))
-          node.getNodeTypeCase match {
-            case NodeTypeCase.CREATE =>
-              goNodesToKeep(tail, result + head)
-            case NodeTypeCase.EXERCISE =>
-              goNodesToKeep(node.getExercise.getChildrenList.asScala.toList ++ tail, result + head)
-            case NodeTypeCase.ROLLBACK | NodeTypeCase.FETCH | NodeTypeCase.LOOKUP_BY_KEY |
-                NodeTypeCase.NODETYPE_NOT_SET =>
-              goNodesToKeep(tail, result)
-          }
-      }
-
-      val nodesToKeep = goNodesToKeep(transaction.getRootsList.asScala.toList, Set.empty)
-
-      val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
-
-      def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
-        if (node.hasExercise) {
-          val exerciseNode = node.getExercise
-          val keptChildren =
-            exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
-          val newExerciseNode = exerciseNode.toBuilder
-            .clearChildren()
-            .addAllChildren(keptChildren.asJavaCollection)
-            .build()
-
-          node.toBuilder
-            .setExercise(newExerciseNode)
-            .build()
-        } else {
-          node
-        }
-
-      val filteredNodes = nodes
-        .collect {
-          case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
-        }
-
-      val newTransaction = transaction
-        .newBuilderForType()
-        .addAllRoots(filteredRoots.asJavaCollection)
-        .addAllNodes(filteredNodes.asJavaCollection)
-        .setVersion(transaction.getVersion)
-        .build()
+      val rawTransaction = RawTransaction(transactionEntry.submission.getRawTransaction)
+      val newRawTransaction = TransactionConversions
+        .keepCreateAndExerciseNodes(rawTransaction)
+        .fold(
+          {
+            case ConversionError.InternalError(errorMessage) =>
+              throw Err.InternalError(errorMessage)
+            case error => throw Err.DecodeError("Transaction", error.errorMessage)
+          },
+          identity,
+        )
 
       val newTransactionEntry = transactionEntry.submission.toBuilder
-        .setRawTransaction(newTransaction.toByteString)
+        .setRawTransaction(newRawTransaction.byteString)
         .build()
 
       StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
@@ -261,27 +220,32 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
   )(implicit
       loggingContext: LoggingContext
-  ): Map[ContractId, Raw.ContractInstance] = {
+  ): Map[ContractId, RawContractInstance] = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
     for ((cid, (nid, createNode)) <- localContracts) {
-      val cs = DamlContractState.newBuilder
-      cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
+      val contractStateBuilder = DamlContractState.newBuilder
       val localDisclosure = blindingInfo.disclosure(nid)
-      cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-      cs.setRawContractInstance(
-        Conversions.encodeContractInstance(createNode.versionedCoinst).bytes
+      val rawContractInstance = ContractConversions
+        .encodeContractInstance(createNode.versionedCoinst)
+        .fold(err => throw Err.EncodeError("ContractInstance", err.errorMessage), identity)
+
+      contractStateBuilder.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
+      contractStateBuilder.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+      contractStateBuilder.setRawContractInstance(
+        rawContractInstance.byteString
       )
       createNode.key.foreach { keyWithMaintainers =>
-        cs.setContractKey(
+        contractStateBuilder.setContractKey(
           Conversions.encodeContractKey(createNode.templateId, keyWithMaintainers.key)
         )
       }
+
       commitContext.set(
         Conversions.contractIdToStateKey(cid),
-        DamlStateValue.newBuilder.setContractState(cs).build,
+        DamlStateValue.newBuilder.setContractState(contractStateBuilder).build,
       )
     }
     // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
@@ -300,21 +264,23 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract state of divulged contracts.
     val divulgedContractsBuilder = {
-      val builder = Map.newBuilder[ContractId, Raw.ContractInstance]
+      val builder = Map.newBuilder[ContractId, RawContractInstance]
       builder.sizeHint(blindingInfo.divulgence.size)
       builder
     }
 
     for ((coid, parties) <- blindingInfo.divulgence) {
       val key = contractIdToStateKey(coid)
-      val cs = getContractState(commitContext, key)
-      divulgedContractsBuilder += (coid -> Raw.ContractInstance(cs.getRawContractInstance))
-      val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
+      val contractState = getContractState(commitContext, key)
+      divulgedContractsBuilder += (coid -> RawContractInstance(
+        contractState.getRawContractInstance
+      ))
+      val divulged: Set[String] = contractState.getDivulgedToList.asScala.toSet
       val newDivulgences: Set[String] = parties.toSet[String] -- divulged
       if (newDivulgences.nonEmpty) {
-        val cs2 = cs.toBuilder
+        val newContractState = contractState.toBuilder
           .addAllDivulgedTo(newDivulgences.asJava)
-        commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
+        commitContext.set(key, DamlStateValue.newBuilder.setContractState(newContractState).build)
       }
     }
     // Update contract keys.

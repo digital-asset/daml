@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
@@ -53,6 +53,19 @@ def _daml_sdk_impl(ctx):
         sdk_checksum = ctx.attr.sdk_sha256[ctx.attr.os_name]
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
+
+    if ctx.attr.sandbox_on_x:
+        ctx.symlink(ctx.attr.sandbox_on_x, "sandbox-on-x.jar")
+        ctx.file(
+            "sandbox-on-x.sh",
+            content =
+                """#!/usr/bin/env bash
+    {runfiles_library}
+    $JAVA_HOME/bin/java -jar $(rlocation daml-sdk-{version}/sandbox-on-x.jar) $@
+    """.format(version = ctx.attr.version, runfiles_library = runfiles_library),
+        )
+
+    # TODO Support sandbox on x for releases.
 
     if ctx.attr.test_tool:
         ctx.symlink(ctx.attr.test_tool, "ledger-api-test-tool.jar")
@@ -145,6 +158,11 @@ $(rlocation daml-sdk-{version}/sdk/bin/daml) $@
         Label("@compatibility//bazel_tools:daml.cc.tpl"),
         substitutions = {"{SDK_VERSION}": ctx.attr.version},
     )
+    ctx.template(
+        "sandbox-on-x.cc",
+        Label("@compatibility//bazel_tools:run_jar.cc.tpl"),
+        substitutions = {"{SDK_VERSION}": ctx.attr.version, "{JAR_NAME}": "sandbox-on-x.jar"},
+    )
     ctx.file(
         "BUILD",
         content =
@@ -155,6 +173,12 @@ sh_binary(
   srcs = [":ledger-api-test-tool.sh"],
   data = [":ledger-api-test-tool.jar"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+cc_binary(
+  name = "sandbox-on-x",
+  srcs = ["sandbox-on-x.cc"],
+  data = [":sandbox-on-x.jar"],
+  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 cc_binary(
   name = "daml",
@@ -190,6 +214,7 @@ _daml_sdk = repository_rule(
         "daml_react_sha256": attr.string(mandatory = False),
         "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
         "create_daml_app_patch_sha256": attr.string(mandatory = False),
+        "sandbox_on_x": attr.label(allow_single_file = True, mandatory = False),
     },
 )
 
@@ -200,13 +225,14 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, sandbox_on_x, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         test_tool = ledger_api_test_tool,
+        sandbox_on_x = sandbox_on_x,
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,

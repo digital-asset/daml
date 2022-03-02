@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:java.bzl", "da_java_library")
@@ -28,9 +28,6 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-    ],
-    scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

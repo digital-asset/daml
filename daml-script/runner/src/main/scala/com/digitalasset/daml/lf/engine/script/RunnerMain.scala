@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -16,7 +16,6 @@ import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -25,19 +24,10 @@ import com.daml.auth.TokenHolder
 
 object RunnerMain {
 
-  def main(args: Array[String]): Unit = {
-    RunnerConfig.parse(args) match {
-      case None => sys.exit(1)
-      case Some(config) => main(config)
-    }
-  }
-
   def main(config: RunnerConfig): Unit = {
     val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
     val scriptId: Identifier =
       Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
-
-    val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
 
     implicit val system: ActorSystem = ActorSystem("ScriptRunner")
     implicit val sequencer: ExecutionSequencerFactory =
@@ -105,7 +95,7 @@ object RunnerMain {
         } else {
           Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
         }
-      result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
+      result <- Runner.run(dar, scriptId, inputValue, clients, config.timeMode)
       _ <- Future {
         config.outputFile.foreach { outputFile =>
           val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)

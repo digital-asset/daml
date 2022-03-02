@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -9,6 +9,7 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.CommonCliSpecBase
 import com.daml.platform.sandbox.cli.CommonCliSpecBase.exampleJdbcUrl
+import com.daml.sandbox.Cli
 
 class CliSpec extends CommonCliSpecBase(Cli) {
 
@@ -23,10 +24,6 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       )
     }
 
-    "parse the eager package loading flag when given" in {
-      checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
-    }
-
     "parse the sql-backend-jdbcurl flag when given" in {
       val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
       checkOption(Array("--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
@@ -36,19 +33,8 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       checkOption(Array("--jdbcurl", exampleJdbcUrl), _.copy(jdbcUrl = Some(exampleJdbcUrl)))
     }
 
-    "parse the scenario when given" in {
-      val scenario = "myscenario"
-      checkOption(Array("--scenario", scenario), _.copy(scenario = Some(scenario)))
-    }
-
     "parse the contract-id-seeding mode when given" in {
-      checkOption(Array("--contract-id-seeding", "strong"), _.copy(seeding = Some(Seeding.Strong)))
-    }
-
-    "use no seeding by default" in {
-      // do not change the default seeding of sandbox classic without
-      // formal agreement of Bernhard Elsner.
-      cli.defaultConfig.seeding shouldBe None
+      checkOption(Array("--contract-id-seeding", "strong"), _.copy(seeding = Seeding.Strong))
     }
   }
 

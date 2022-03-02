@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -44,13 +44,7 @@ function check_non_lf_protos() {
 
   echo "Checking protobufs against git target '${BUF_GIT_TARGET_TO_CHECK}'"
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
-    # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
-    # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
-    if [[ $BUF_CONFIG_UPDATED == true ]]; then
-      buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
-    else
-      buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK"
-    fi
+    buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
   done
 
 }
@@ -89,35 +83,38 @@ USAGE
   exit
   ;;
 --stable)
-  if [[ $TARGET == "main" ]]; then
-    # Check against the most recent stable tag.
-    # This check runs only on main or PRs targeting main.
-    #
-    # This check does not need to run on release branch commits because
-    # they are built sequentially, so no conflicts are possible and the per-PR
-    # check is enough.
-    readonly LATEST_STABLE_TAG="$(git tag | grep -v "snapshot" | sort -V | tail -1)"
-    # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
-    # Starting with v1.18 we have multiple buf config files.
-    if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
-      BUF_CONFIG_UPDATED=false
-    else
-      BUF_CONFIG_UPDATED=true
-    fi
-    BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
-    check_protos
+  # Check against the highest stable tag (according to semver) for the target branch.
+  #
+  # This check does not need to run on release branch commits because
+  # they are built sequentially, so no conflicts are possible and the per-PR
+  # check is enough.
+  readonly RELEASE_BRANCH_REGEX="^release/.*"
+  LATEST_STABLE_TAG=""
+  if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
+    readonly BRANCH_SUFFIX="${TARGET#release/}"
+    readonly MINOR_VERSION="${BRANCH_SUFFIX%.x}"
+    readonly NEXT_MINOR_VERSION=$(semver bump minor "$MINOR_VERSION.0")
+    readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
+    LATEST_STABLE_TAG="$(
+      for TAG in "${STABLE_TAGS[@]}"; do
+        if [[ $(semver compare "${TAG#v}" "$NEXT_MINOR_VERSION") == "-1" ]]; then
+          echo "$TAG";
+        fi;
+      done | tail -1)"
+  elif [[ "${TARGET}" == "main" ]]; then
+    LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   else
-    echo "Skipping check for protobuf compatibility because the target is '${TARGET}' and not 'main'"
+    echo "unsupported target branch $TARGET" >&2
+    exit 1
   fi
+  BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
+  check_protos
   ;;
 --target)
   # Check against the tip of the target branch.
   #
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
-  #
-  # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
-  BUF_CONFIG_UPDATED=true
   BUF_GIT_TARGET_TO_CHECK=".git#branch=origin/${TARGET}"
   # The target check can be skipped by including the following trailer `Breaks-Protobuf: true` into the commit message
   if is_check_skipped; then

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -73,6 +73,9 @@ case object SRChoiceArg extends SerializabilityRequirement {
 }
 case object SRExceptionArg extends SerializabilityRequirement {
   def pretty: String = "exception argument"
+}
+case object SRInterfaceArg extends SerializabilityRequirement {
+  def pretty: String = "interface argument"
 }
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
@@ -150,6 +153,9 @@ case object URRoundingMode extends UnserializabilityReason {
 }
 case object URBigNumeric extends UnserializabilityReason {
   def pretty: String = "BigNumeric"
+}
+case object URInterface extends UnserializabilityReason {
+  def pretty: String = "Interface"
 }
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
@@ -428,47 +434,6 @@ final case class EBadInheritedChoices(
     s"Inherited choices for template $template implementation of interface $iface does not match interface definition.\n Expected: $expected\n But got: $got"
 }
 
-final case class EBadInterfaceChoiceImplConsuming(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    choice: ChoiceName,
-    ifaceConsuming: Boolean,
-    tplConsuming: Boolean,
-) extends ValidationError {
-
-  def prettyConsuming(consuming: Boolean): String = if (consuming) "consuming" else "non-consuming"
-
-  override protected def prettyInternal: String =
-    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the consuming/non-consuming behaviour.\nExpected: ${prettyConsuming(ifaceConsuming)}\n But got: ${prettyConsuming(tplConsuming)}"
-}
-
-final case class EBadInterfaceChoiceImplArgType(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    choice: ChoiceName,
-    ifaceArgType: Type,
-    tplArgType: Type,
-) extends ValidationError {
-
-  override protected def prettyInternal: String =
-    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the argument type.\nExpected: $ifaceArgType\n But got: $tplArgType"
-}
-
-final case class EBadInterfaceChoiceImplRetType(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    choice: ChoiceName,
-    ifaceRetType: Type,
-    tplRetType: Type,
-) extends ValidationError {
-
-  override protected def prettyInternal: String =
-    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the return type.\nExpected: $ifaceRetType\n But got: $tplRetType"
-}
-
 final case class EMissingInterfaceMethod(
     context: Context,
     template: TypeConName,
@@ -514,4 +479,20 @@ final case class EWrongInterfaceRequirement(
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Interface $requiringIface does not require $wrongRequiredIface"
+}
+final case class ENotClosedInterfaceRequires(
+    context: Context,
+    iface: TypeConName,
+    requiredIface: TypeConName,
+    missingRequiredIface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface is missing requirements $missingRequiredIface required by $requiredIface"
+}
+final case class ECircularInterfaceRequires(
+    context: Context,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Circular interface requirement is not allowed: interface $iface requires itself."
 }

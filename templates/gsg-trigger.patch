@@ -1,6 +1,6 @@
-diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
+diff --git create-daml-app/daml/ChatBot.daml create-daml-app/daml/ChatBot.daml
 --- create-daml-app/daml/ChatBot.daml	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/daml/ChatBot.daml	2021-08-18 13:15:25.000000000 +0200
++++ create-daml-app/daml/ChatBot.daml	2022-01-12 17:55:45.838308273 +0100
 @@ -0,0 +1,29 @@
 +module ChatBot where
 +
@@ -31,9 +31,9 @@ diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
 +  , registeredTemplates = T.AllInDar
 +  , heartbeat = None
 +  }
-diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
+diff --git create-daml-app/daml/NoOp.daml create-daml-app/daml/NoOp.daml
 --- create-daml-app/daml/NoOp.daml	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/daml/NoOp.daml	2021-08-18 13:15:25.000000000 +0200
++++ create-daml-app/daml/NoOp.daml	2022-01-12 17:55:45.838308273 +0100
 @@ -0,0 +1,13 @@
 +module NoOp where
 +
@@ -48,10 +48,10 @@ diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
 +    pure ()
 +  registeredTemplates = T.AllInDar
 +  heartbeat = None
-diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
---- create-daml-app/daml/User.daml	2021-08-12 14:36:31.000000000 +0200
-+++ gsg-trigger/daml/User.daml	2021-08-18 13:15:25.000000000 +0200
-@@ -25,3 +25,24 @@
+diff --git create-daml-app/daml/User.daml create-daml-app/daml/User.daml
+--- create-daml-app/daml/User.daml	2022-01-12 17:55:49.754285111 +0100
++++ create-daml-app/daml/User.daml	2022-01-12 17:55:45.838308273 +0100
+@@ -26,6 +25,17 @@
          archive self
          create this with following = userToFollow :: following
      -- FOLLOW_END
@@ -66,6 +66,13 @@ diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
 +        now <- getTime
 +        create Message with sender, receiver = username, content, receivedAt = now
 +    -- SEND_END
+ 
+ -- ALIAS_BEGIN
+ template Alias with
+@@ -46,3 +56,13 @@
+         archive self
+         create this with alias = newAlias
+ -- ALIAS_END
 +
 +-- MESSAGE_BEGIN
 +template Message with
@@ -76,38 +83,41 @@ diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
 +  where
 +    signatory sender, receiver
 +-- MESSAGE_END
-diff -Naur create-daml-app/daml.yaml.template gsg-trigger/daml.yaml.template
---- create-daml-app/daml.yaml.template	2021-05-12 10:23:33.000000000 +0200
-+++ gsg-trigger/daml.yaml.template	2021-08-18 13:15:25.000000000 +0200
-@@ -6,10 +6,12 @@
- - Alice
- - Bob
- - Charlie
+--- create-daml-app/daml.yaml.template	2022-01-26 17:29:37.149557361 +0100
++++ create-daml-app/daml.yaml.template	2022-01-26 17:29:27.749276386 +0100
+@@ -2,10 +2,13 @@
+ name: __PROJECT_NAME__
+ version: 0.1.0
+ source: daml
 +# trigger-dependencies-begin
  dependencies:
  - daml-prim
  - daml-stdlib
- - daml-trigger
+ - daml-script
++- daml-trigger
 +# trigger-dependencies-end
- sandbox-options:
- - --wall-clock-time
- - --ledgerid=__PROJECT_NAME__-sandbox
-diff -Naur create-daml-app/ui/src/components/MainView.tsx.template gsg-trigger/ui/src/components/MainView.tsx.template
---- create-daml-app/ui/src/components/MainView.tsx.template	2021-05-12 10:23:33.000000000 +0200
-+++ gsg-trigger/ui/src/components/MainView.tsx.template	2021-08-18 13:18:18.000000000 +0200
-@@ -8,6 +8,8 @@
- import { useParty, useLedger, useStreamFetchByKeys, useStreamQueries } from '@daml/react';
+ start-navigator: false
+ codegen:
+   js:
+diff --git create-daml-app/ui/src/components/MainView.tsx.template create-daml-app/ui/src/components/MainView.tsx.template
+--- create-daml-app/ui/src/components/MainView.tsx.template
++++ create-daml-app/ui/src/components/MainView.tsx.template
+@@ -8,6 +8,10 @@
+ import { publicContext, userContext } from './App';
  import UserList from './UserList';
  import PartyListEdit from './PartyListEdit';
++// IMPORTS_BEGIN
 +import MessageEdit from './MessageEdit';
 +import MessageList from './MessageList';
- 
++// IMPORTS_END
+
  // USERS_BEGIN
  const MainView: React.FC = () => {
-@@ -78,6 +80,20 @@
+@@ -88,6 +92,22 @@
                />
                {/* USERLIST_END */}
              </Segment>
++            {/* MESSAGES_SEGMENT_BEGIN */}
 +            <Segment>
 +              <Header as='h2'>
 +                <Icon name='pencil square' />
@@ -122,18 +132,23 @@ diff -Naur create-daml-app/ui/src/components/MainView.tsx.template gsg-trigger/u
 +              <Divider />
 +              <MessageList />
 +            </Segment>
++            {/* MESSAGES_SEGMENT_END */}
            </Grid.Column>
          </Grid.Row>
        </Grid>
-diff -Naur create-daml-app/ui/src/components/MessageEdit.tsx.template gsg-trigger/ui/src/components/MessageEdit.tsx.template
---- create-daml-app/ui/src/components/MessageEdit.tsx.template	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/ui/src/components/MessageEdit.tsx.template	2021-08-18 13:20:33.000000000 +0200
-@@ -0,0 +1,65 @@
+diff --git create-daml-app/ui/src/components/MessageEdit.tsx.template create-daml-app/ui/src/components/MessageEdit.tsx.template
+--- /dev/null
++++ create-daml-app/ui/src/components/MessageEdit.tsx.template
+@@ -0,0 +1,70 @@
++// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
++// SPDX-License-Identifier: Apache-2.0
++
++// MESSAGEEDIT_BEGIN
 +import React from 'react'
 +import { Form, Button } from 'semantic-ui-react';
 +import { Party } from '@daml/types';
 +import { User } from '@daml.js/__PROJECT_NAME__';
-+import { useParty, useLedger } from '@daml/react';
++import { userContext } from './App';
 +
 +type Props = {
 +  followers: Party[];
@@ -143,11 +158,11 @@ diff -Naur create-daml-app/ui/src/components/MessageEdit.tsx.template gsg-trigge
 + * React component to edit a message to send to a follower.
 + */
 +const MessageEdit: React.FC<Props> = ({followers}) => {
-+  const sender = useParty();
++  const sender = userContext.useParty();
 +  const [receiver, setReceiver] = React.useState<string | undefined>();
 +  const [content, setContent] = React.useState("");
 +  const [isSubmitting, setIsSubmitting] = React.useState(false);
-+  const ledger = useLedger();
++  const ledger = userContext.useLedger();
 +
 +  const submitMessage = async (event: React.FormEvent) => {
 +    try {
@@ -194,20 +209,25 @@ diff -Naur create-daml-app/ui/src/components/MessageEdit.tsx.template gsg-trigge
 +};
 +
 +export default MessageEdit;
-diff -Naur create-daml-app/ui/src/components/MessageList.tsx.template gsg-trigger/ui/src/components/MessageList.tsx.template
---- create-daml-app/ui/src/components/MessageList.tsx.template	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/ui/src/components/MessageList.tsx.template	2021-08-18 13:20:45.000000000 +0200
-@@ -0,0 +1,28 @@
++// MESSAGEEDIT_END
+diff --git create-daml-app/ui/src/components/MessageList.tsx.template create-daml-app/ui/src/components/MessageList.tsx.template
+--- /dev/null
++++ create-daml-app/ui/src/components/MessageList.tsx.template	2022-01-12 17:55:45.834308296 +0100
+@@ -0,0 +1,33 @@
++// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
++// SPDX-License-Identifier: Apache-2.0
++
++// MESSAGELIST_BEGIN
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
 +import { User } from '@daml.js/__PROJECT_NAME__';
-+import { useStreamQueries } from '@daml/react';
++import { userContext } from './App';
 +
 +/**
 + * React component displaying the list of messages for the current user.
 + */
 +const MessageList: React.FC = () => {
-+  const messagesResult = useStreamQueries(User.Message);
++  const messagesResult = userContext.useStreamQueries(User.Message);
 +
 +  return (
 +    <List relaxed>
@@ -226,3 +246,4 @@ diff -Naur create-daml-app/ui/src/components/MessageList.tsx.template gsg-trigge
 +};
 +
 +export default MessageList;
++// MESSAGELIST_END

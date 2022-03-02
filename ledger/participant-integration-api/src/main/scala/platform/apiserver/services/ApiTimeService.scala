@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -7,11 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -25,6 +21,7 @@ import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
+import com.daml.ledger.api.domain.optionalLedgerId
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,7 +29,6 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -45,7 +41,7 @@ private[apiserver] final class ApiTimeService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
   private val dispatcher = SignalDispatcher[Instant]()
 
@@ -60,11 +56,13 @@ private[apiserver] final class ApiTimeService private (
       request: GetTimeRequest
   ): Source[GetTimeResponse, NotUsed] = {
     val validated =
-      matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
     validated.fold(
       t => Source.failed(ValidationLogger.logFailure(request, t)),
       { ledgerId =>
-        logger.info(s"Received request for time with ledger ID $ledgerId")
+        logger.info(
+          s"Received request for time with ledger ID ${ledgerId.getOrElse("<empty-ledger-id>")}"
+        )
         dispatcher
           .subscribe()
           .map(_ => backend.getCurrentTime)
@@ -94,7 +92,7 @@ private[apiserver] final class ApiTimeService private (
           if (success) Right(requestedTime)
           else
             Left(
-              invalidArgument(None)(
+              invalidArgument(
                 s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
               )
             )
@@ -102,7 +100,7 @@ private[apiserver] final class ApiTimeService private (
     }
 
     val result = for {
-      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      _ <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       expectedTime <- fieldValidations
         .requirePresence(request.currentTime, "current_time")
         .map(toInstant)
@@ -112,7 +110,7 @@ private[apiserver] final class ApiTimeService private (
           Right(())
         else
           Left(
-            invalidArgument(None)(
+            invalidArgument(
               s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
             )
           )
@@ -150,12 +148,11 @@ private[apiserver] object ApiTimeService {
   def create(
       ledgerId: LedgerId,
       backend: TimeServiceBackend,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): TimeService with GrpcApiService =
-    new ApiTimeService(ledgerId, backend, errorCodesVersionSwitcher)
+    new ApiTimeService(ledgerId, backend)
 }

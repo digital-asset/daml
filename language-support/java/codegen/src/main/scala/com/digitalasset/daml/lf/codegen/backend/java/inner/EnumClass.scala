@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -15,26 +15,26 @@ private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      enum: iface.Enum,
+      enumeration: iface.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {
       logger.info("Start")
       val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
-      enum.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
-      enumType.addField(generateValuesArray(enum))
-      enumType.addMethod(generateEnumsMapBuilder(className, enum))
+      enumeration.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
+      enumType.addField(generateValuesArray(enumeration))
+      enumType.addMethod(generateEnumsMapBuilder(className, enumeration))
       enumType.addField(generateEnumsMap(className))
-      enumType.addMethod(generateFromValue(className, enum))
+      enumType.addMethod(generateFromValue(className, enumeration))
       enumType.addMethod(generateToValue(className))
       logger.debug("End")
       enumType.build()
     }
   }
 
-  private def generateValuesArray(enum: iface.Enum): FieldSpec = {
+  private def generateValuesArray(enumeration: iface.Enum): FieldSpec = {
     val fieldSpec = FieldSpec.builder(ArrayTypeName.of(classOf[javaapi.data.DamlEnum]), "__values$")
     fieldSpec.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-    val constructorValues = enum.constructors
+    val constructorValues = enumeration.constructors
       .map(c => CodeBlock.of("new $T($S)", classOf[javaapi.data.DamlEnum], c))
       .asJava
     fieldSpec.initializer(constructorValues.stream().collect(CodeBlock.joining(", ", "{", "}")))
@@ -61,21 +61,23 @@ private[inner] object EnumClass extends StrictLogging {
       .initializer("$T.__buildEnumsMap$$()", className)
       .build()
 
-  private def generateEnumsMapBuilder(className: ClassName, enum: iface.Enum): MethodSpec = {
+  private def generateEnumsMapBuilder(className: ClassName, enumeration: iface.Enum): MethodSpec = {
     val builder = MethodSpec.methodBuilder("__buildEnumsMap$")
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     builder.returns(mapType(className))
     builder.addStatement("$T m = new $T()", mapType(className), hashMapType(className))
-    enum.constructors.foreach(c => builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})"""))
+    enumeration.constructors.foreach(c =>
+      builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})""")
+    )
     builder.addStatement("return m")
     builder.build()
   }
 
   private def generateFromValue(
       className: ClassName,
-      enum: iface.Enum,
+      enumeration: iface.Enum,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $enum")
+    logger.debug(s"Generating fromValue static method for ${enumeration}")
 
     MethodSpec
       .methodBuilder("fromValue")

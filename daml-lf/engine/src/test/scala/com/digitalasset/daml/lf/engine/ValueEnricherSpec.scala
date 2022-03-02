@@ -1,9 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package engine
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{TNat, TTyCon, Type}
 import com.daml.lf.language.Util._
@@ -22,6 +23,8 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
+
+  private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   val pkg =
     p"""
@@ -90,8 +93,8 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       (TParty, ValueParty("Alice"), ValueParty("Alice")),
       (
         TContractId(TTyCon("Mod:Record")),
-        ValueContractId("#contractId"),
-        ValueContractId("#contractId"),
+        ValueContractId(cid("#contractId").coid),
+        ValueContractId(cid("#contractId").coid),
       ),
       (
         TList(TText),
@@ -138,7 +141,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       val builder = new TransactionBuilder(_ => TransactionVersion.minTypeErasure)
       val create =
         builder.create(
-          id = "#01",
+          id = cid("#01"),
           templateId = "Mod:Contract",
           argument = contract,
           signatories = Set("Alice"),

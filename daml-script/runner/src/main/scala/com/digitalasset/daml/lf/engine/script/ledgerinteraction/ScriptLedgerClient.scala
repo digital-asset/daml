@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.ledgerinteraction
@@ -140,7 +140,7 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User]
+  ): Future[Option[Unit]]
 
   def getUser(id: UserId)(implicit
       ec: ExecutionContext,
@@ -152,9 +152,9 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit]
+  ): Future[Option[Unit]]
 
-  def listUsers()(implicit
+  def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
@@ -164,17 +164,17 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]]
+  ): Future[Option[List[UserRight]]]
 
   def revokeUserRights(id: UserId, rights: List[UserRight])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]]
+  ): Future[Option[List[UserRight]]]
 
   def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]]
+  ): Future[Option[List[UserRight]]]
 }

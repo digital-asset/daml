@@ -23,3 +23,5 @@ main = scenario do
   none === (None @Text)
   empty === []
   left === Left ()
+
+-- @ENABLE-SCENARIOS

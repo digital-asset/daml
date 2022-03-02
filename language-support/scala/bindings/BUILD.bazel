@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -20,11 +20,9 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scala_exports = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
@@ -32,6 +30,7 @@ da_scala_library(
     ],
     exports = [
         "//daml-lf/data",
+        "//ledger-api/grpc-definitions:ledger_api_proto_java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_core",
     ],
@@ -51,7 +50,6 @@ da_scala_test_suite(
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",

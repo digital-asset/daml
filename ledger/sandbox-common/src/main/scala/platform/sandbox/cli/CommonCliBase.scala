@@ -1,10 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
+
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
@@ -19,6 +20,7 @@ import com.daml.platform.configuration.Readers._
 import com.daml.platform.sandbox.cli.CommonCliBase._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scalaz.syntax.tag._
@@ -84,13 +86,6 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .action((id, c) => c.copy(participantId = Ref.ParticipantId.assertFromString(id)))
         .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
-
-      // TODO remove in next major release.
-      opt[Unit]("dalf")
-        .optional()
-        .text(
-          "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions."
-        )
 
       opt[Unit]('s', "static-time")
         .optional()
@@ -291,6 +286,13 @@ class CommonCliBase(name: LedgerName) {
           config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
         )
 
+      opt[Int]("acs-id-queue-limit")
+        .optional()
+        .text(
+          s"Maximum number of contract ids queued for fetching. Default is ${SandboxConfig.DefaultAcsIdQueueLimit}."
+        )
+        .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
+
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
@@ -377,12 +379,53 @@ class CommonCliBase(name: LedgerName) {
           "Maximum command deduplication duration."
         )
 
-      opt[Unit]("use-pre-1.18-error-codes")
+      opt[Boolean]("enable-user-management")
         .optional()
         .text(
-          "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in future release versions."
+          "Whether to enable participant user management."
         )
-        .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
+        .action((enabled, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(enabled = enabled))
+        )
+
+      opt[Int]("user-management-cache-expiry")
+        .optional()
+        .text(
+          s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
+            "Used to set expiry time for user management cache. " +
+            "Also determines the maximum delay for propagating user management state changes which is double its value."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
+        )
+
+      opt[Int]("user-management-max-cache-size")
+        .optional()
+        .text(
+          s"Defaults to ${UserManagementConfig.DefaultMaxCacheSize} entries. " +
+            "Determines the maximum in-memory cache size for user management state."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(maxCacheSize = value))
+        )
+
+      opt[Int]("max-users-page-size")
+        .optional()
+        .text(
+          s"Maximum number of users that the server can return in a single response. " +
+            s"Defaults to ${UserManagementConfig.DefaultMaxUsersPageSize} entries."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
+        )
+      checkConfig(c => {
+        val v = c.userManagementConfig.maxUsersPageSize
+        if (v == 0 || v >= 100) {
+          success
+        } else {
+          failure(s"max-users-page-size must be either 0 or greater than 99, was: $v")
+        }
+      })
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
@@ -391,25 +434,16 @@ class CommonCliBase(name: LedgerName) {
       )
 
       help("help").text("Print the usage text")
-
-      checkConfig(c => {
-        if (c.scenario.isDefined && c.timeProviderType.contains(TimeProviderType.WallClock))
-          failure(
-            "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together."
-          )
-        else success
-      })
     }
 
   def withContractIdSeeding(
       defaultConfig: SandboxConfig,
-      seedingModes: Option[Seeding]*
+      seedingModes: Seeding*
   ): CommonCliBase = {
     val seedingModesMap =
-      seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
+      seedingModes.map(mode => (mode.name, mode)).toMap
     val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
-    val defaultSeedingModeName =
-      defaultConfig.seeding.map(_.name).getOrElse(Seeding.NoSeedingModeName)
+    val defaultSeedingModeName = defaultConfig.seeding.name
     parser
       .opt[String]("contract-id-seeding")
       .optional()

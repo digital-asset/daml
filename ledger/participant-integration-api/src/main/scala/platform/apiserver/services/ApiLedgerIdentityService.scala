@@ -1,13 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
   LedgerIdentityService => GrpcLedgerIdentityService
@@ -23,11 +19,11 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{BindableService, ServerServiceDefinition}
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiLedgerIdentityService private (
-    getLedgerId: () => Future[LedgerId],
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    getLedgerId: () => Future[LedgerId]
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends GrpcLedgerIdentityService
     with GrpcApiService {
@@ -35,16 +31,17 @@ private[apiserver] final class ApiLedgerIdentityService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   @volatile var closed = false
 
+  @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest
   ): Future[GetLedgerIdentityResponse] = {
     logger.info(s"Received request for ledger identity: $request")
     if (closed)
-      Future.failed(errorFactories.serviceNotRunning("Ledger Identity Service")(None))
+      Future.failed(errorFactories.serviceNotRunning("Ledger Identity Service"))
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))
@@ -54,17 +51,16 @@ private[apiserver] final class ApiLedgerIdentityService private (
   override def close(): Unit = closed = true
 
   override def bindService(): ServerServiceDefinition =
-    LedgerIdentityServiceGrpc.bindService(this, executionContext)
+    LedgerIdentityServiceGrpc.bindService(this, executionContext): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 }
 
 private[apiserver] object ApiLedgerIdentityService {
-  def create(
-      getLedgerId: () => Future[LedgerId],
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-  )(implicit
+  def create(ledgerId: LedgerId)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ApiLedgerIdentityService with BindableService = {
-    new ApiLedgerIdentityService(getLedgerId, errorCodesVersionSwitcher)
+    new ApiLedgerIdentityService(() => Future.successful(ledgerId))
   }
 }

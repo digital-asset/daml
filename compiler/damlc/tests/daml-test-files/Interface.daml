@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
@@ -19,7 +19,7 @@ interface Token where
 
   ensure (getAmount this >= 0)
 
-  choice Split : (ContractId Token, ContractId Token)
+  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment.
     with
       splitAmount : Int -- ^ A choice field comment.
     controller getOwner this
@@ -56,24 +56,23 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
-      let getOwner = owner
-      let getAmount = amount
-      let setAmount = \x -> toInterface @Token (this with amount = x)
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        --  (maybe) support `let setAmount x = ...` syntax.
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
 
-      let splitImpl = \splitAmount -> do
-            assert (splitAmount < amount)
-            cid1 <- create this with amount = splitAmount
-            cid2 <- create this with amount = amount - splitAmount
-            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
+      splitImpl splitAmount = do
+        assert (splitAmount < amount)
+        cid1 <- create this with amount = splitAmount
+        cid2 <- create this with amount = amount - splitAmount
+        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
 
-      let transferImpl = \newOwner -> do
-            cid <- create this with owner = newOwner
-            pure (toInterfaceContractId @Token cid)
+      transferImpl newOwner = do
+        cid <- create this with owner = newOwner
+        pure (toInterfaceContractId @Token cid)
 
-      let noopImpl = \nothing -> do
-            pure ()
+      noopImpl nothing = do
+        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
+        pure ()
 
 main = scenario do
   p <- getParty "Alice"
@@ -114,3 +113,5 @@ main = scenario do
         amount === 25
 
     pure ()
+
+-- @ENABLE-SCENARIOS

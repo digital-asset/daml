@@ -1,9 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
-import com.daml.http.HttpServiceTestFixture.{UseTls, jwtForParties}
+import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
@@ -15,7 +15,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class WebsocketServiceOffsetTickIntTest
+abstract class WebsocketServiceOffsetTickIntTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -31,12 +31,13 @@ class WebsocketServiceOffsetTickIntTest
 
   // make sure websocket heartbeats non-stop, DO NOT CHANGE `0.second`
   override def wsConfig: Option[WebsocketConfig] =
-    Some(Config.DefaultWsConfig.copy(heartBeatPer = 0.second))
+    Some(WebsocketConfig(heartbeatPeriod = 0.second))
 
   import WebsocketTestFixture._
 
   "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _, _) =>
     for {
+      jwt <- jwt(uri)
       msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
         .take(10)
         .runWith(collectResultsAsTextMessage)
@@ -50,10 +51,11 @@ class WebsocketServiceOffsetTickIntTest
 
   "Given non-empty ACS, JSON API should emit ACS block and after it only absolute offset ticks" in withHttpService {
     (uri, _, _, _) =>
-      val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
       for {
+        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
-        jwt = jwtForParties(List(party.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)
@@ -73,6 +75,7 @@ class WebsocketServiceOffsetTickIntTest
           .getLedgerEnd(ledgerId)
           .map(domain.Offset.fromLedgerApi(_))
         _ = println(ledgerOffset)
+        jwt <- jwt(uri)
         msgs <- singleClientQueryStream(
           jwt,
           uri,
@@ -96,6 +99,7 @@ class WebsocketServiceOffsetTickIntTest
           .getLedgerEnd(ledgerId)
           .map(domain.Offset.fromLedgerApi(_))
         _ = println(ledgerOffset)
+        jwt <- jwt(uri)
         msgs <- singleClientQueryStream(
           jwt,
           uri,
@@ -111,3 +115,7 @@ class WebsocketServiceOffsetTickIntTest
       }
   }
 }
+
+final class WebsocketServiceOffsetTickIntTestCustomToken
+    extends WebsocketServiceOffsetTickIntTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -58,6 +58,57 @@ trap stop_postgresql EXIT
 stop_postgresql # in case it's running from a previous build
 start_postgresql
 
+# Set up a shared Oracle instance
+# Note: this is code duplicated from ../ci/build.yml
+function start_oracle() {
+  # Only log in automatically if DOCKER_LOGIN is set (as is in our CI).
+  # When running this script locally, the developer is expected to have docker running and authenticated.
+  if [ -z "${DOCKER_LOGIN:-}" ]; then
+    echo "DOCKER_LOGIN is not set, skipping docker login"
+  else
+    docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
+  fi
+  IMAGE=$(cat ../ci/oracle_image)
+  docker pull $IMAGE
+  # Cleanup stray containers that might still be running from
+  # another build that didn’t get shut down cleanly.
+  docker rm -f oracle || true
+  if [ "${OSTYPE:0:6}" = "darwin" ]; then
+    # macOS: Oracle does not like if you use the host network to connect to it if it’s running in the container.
+    echo "Starting oracle docker with port mapping"
+    docker run -d --rm --name oracle -p $ORACLE_PORT:$ORACLE_PORT -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+  else
+    # Unix: Oracle does not like if you connect to it via localhost if it’s running in the container.
+    # Interestingly it works if you use the external IP of the host so the issue is
+    # not the host it is listening on (it claims for that to be 0.0.0.0).
+    # --network host is a cheap escape hatch for this.
+    echo "Starting oracle docker with host network"
+    docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+  fi
+}
+function stop_oracle() {
+  docker rm -f oracle
+}
+function test_oracle_connection() {
+  docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
+}
+
+# Pass the path to the docker executable to the tests.
+# This is because the tests need to interact with the docker container started above.
+ORACLE_DOCKER_PATH=$(which docker) || true
+
+if [ -z "${ORACLE_DOCKER_PATH:-}" ]; then
+  echo "Not starting Oracle because there is no docker"
+else
+  trap stop_oracle EXIT
+  start_oracle
+  until test_oracle_connection
+  do
+    echo "Could not connect to Oracle, trying again..."
+    sleep 1
+  done
+fi
+
 bazel build //...
 
 BAZEL_ARGS=""
@@ -69,4 +120,8 @@ bazel test //... \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
+  --test_env "ORACLE_PORT=${ORACLE_PORT}" \
+  --test_env "ORACLE_USERNAME=${ORACLE_USERNAME}" \
+  --test_env "ORACLE_PWD=${ORACLE_PWD}" \
+  --test_env "ORACLE_DOCKER_PATH=${ORACLE_DOCKER_PATH}" \
   $BAZEL_ARGS

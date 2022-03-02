@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -12,7 +12,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
-set -euox pipefail
+set -euo pipefail
 
 RUNNER="$(rlocation $TEST_WORKSPACE/sandbox-migration/sandbox-migration-runner)"
 MODEL_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-model.dar)"
@@ -20,6 +20,10 @@ VERSIONS="$@"
 EXTRA_ARGS=""
 if [[ $1 == "--append-only" ]]; then
     EXTRA_ARGS="--append-only"
+    VERSIONS="${@:2}"
+fi
+if [[ $1 == "--oracle" ]]; then
+    EXTRA_ARGS="--database=oracle"
     VERSIONS="${@:2}"
 fi
 SANDBOX_ARGS=""

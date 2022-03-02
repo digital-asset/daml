@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -18,6 +18,7 @@ pr: none
 
 jobs:
 - template: ci/build.yml
+- template: ci/check-for-release-job.yml
 
 - job: release
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
@@ -69,6 +70,8 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
         GPG_DIR=$(mktemp -d)
         cleanup() {
@@ -108,6 +111,8 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
@@ -115,6 +120,8 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
         cd $(Build.StagingDirectory)/release-artifacts/github
@@ -133,6 +140,8 @@ jobs:
     - bash: |
         set -euo pipefail
         source $(bash-lib)
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
@@ -150,66 +159,7 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: ci/report-end.yml
 
-- job: split_release
-  dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
-                 eq(variables['Build.SourceBranchName'], 'main'))
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-  steps:
-    - checkout: self
-      persistCredentials: true
-    - bash: |
-        set -euo pipefail
-        git checkout $(release_sha)
-      name: checkout_release
-    - template: ci/bash-lib.yml
-      parameters:
-        var_name: bash-lib
-    - bash: |
-        set -euo pipefail
-        if git tag v$(release_tag) $(release_sha); then
-          git push origin v$(release_tag)
-        fi
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: linux-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: macos-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-    - bash: |
-        set -eou pipefail
-        eval "$(./dev-env/bin/dade-assist)"
-        mkdir -p $(Build.StagingDirectory)/split-release
-        ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
-    - bash: |
-        set -eou pipefail
-
-        source $(bash-lib)
-        cd $(Build.StagingDirectory)/split-release
-        gcs "$GCRED" -m cp -r github gs://daml-binaries/split-releases/$(release_tag)/
-      name: upload_to_gcs
-      env:
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-    - template: ci/tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
+- template: ci/split-release-job.yml
 
 - job: compat_versions_pr
   dependsOn:
@@ -273,7 +223,8 @@ jobs:
 - job: compat_versions_pr_trigger_daily
   dependsOn: compat_versions_pr
   pool:
-    vmImage: "ubuntu-18.04"
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
   variables:
     branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
   steps:
@@ -283,6 +234,7 @@ jobs:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
       source $(bash-lib)
       trigger_azure $(System.AccessToken) PRs --branch $(branch)
       trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $(branch)

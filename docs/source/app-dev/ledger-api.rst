@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 The Ledger API
@@ -14,8 +14,6 @@ The Ledger API
    grpc/daml-to-ledger-api
    daml-lf-translation
    bindings-java/index
-   bindings-scala/index
-   bindings-js
    bindings-x-lang/index
 
 
@@ -25,7 +23,7 @@ another language. Every ledger that Daml can run on exposes this same API.
 What's in the Ledger API
 ************************
 
-You can access the Ledger API via the HTTP JSON API, Java bindings, Scala bindings or gRPC. In
+You can access the Ledger API via the HTTP JSON API, Java bindings or gRPC. In
 all cases, the Ledger API exposes the same services:
 
 - Submitting commands to the ledger
@@ -42,12 +40,13 @@ all cases, the Ledger API exposes the same services:
   - Use the :ref:`party management service <party-service>` to allocate and find information about parties on the Daml ledger.
   - Use the :ref:`package service <package-service>` to query the Daml packages deployed to the ledger.
   - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
-  - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like maximum deduplication time for commands.
+  - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like maximum deduplication duration for commands.
   - Use the :ref:`version service <version-service>` to retrieve information about the Ledger API version.
+  - Use the :ref:`user management service <user-management-service>` to manage users and their rights.
+  - Use the :ref:`metering report service <metering-report-service>` to retrieve a participant metering report.
 - Testing services (on Sandbox only, *not* for production ledgers)
 
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
-  - Use the :ref:`reset service <reset-service>` to reset the ledger state, as a quicker alternative to restarting the whole ledger application.
 
 For full information on the services see :doc:`/app-dev/services`.
 

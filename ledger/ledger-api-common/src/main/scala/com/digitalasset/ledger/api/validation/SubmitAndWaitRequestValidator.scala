@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -21,7 +21,7 @@ class SubmitAndWaitRequestValidator(
       req: SubmitAndWaitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration],
+      maxDeduplicationDuration: Option[Duration],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
@@ -31,7 +31,7 @@ class SubmitAndWaitRequestValidator(
         commands,
         currentLedgerTime,
         currentUtcTime,
-        maxDeduplicationTime,
+        maxDeduplicationDuration,
       )
     } yield submission.SubmitRequest(validatedCommands)
 

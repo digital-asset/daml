@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.admin
@@ -30,21 +30,21 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
     LedgerClient
       .stub(service, token)
       .createUser(request)
-      .map(fromProtoUser)
+      .map(res => fromProtoUser(res.user.get))
   }
 
   def getUser(userId: UserId, token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(proto.GetUserRequest(userId.toString))
-      .map(fromProtoUser)
+      .map(res => fromProtoUser(res.user.get))
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
   def getAuthenticatedUser(token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(proto.GetUserRequest())
-      .map(fromProtoUser)
+      .map(res => fromProtoUser(res.user.get))
 
   def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
     LedgerClient
@@ -52,49 +52,53 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .deleteUser(proto.DeleteUserRequest(userId.toString))
       .map(_ => ())
 
-  def listUsers(token: Option[String] = None): Future[Vector[User]] =
+  def listUsers(
+      token: Option[String] = None,
+      pageToken: String,
+      pageSize: Int,
+  ): Future[(Seq[User], String)] =
     LedgerClient
       .stub(service, token)
-      .listUsers(proto.ListUsersRequest())
-      .map(_.users.view.map(fromProtoUser).toVector)
+      .listUsers(proto.ListUsersRequest(pageToken = pageToken, pageSize = pageSize))
+      .map(res => res.users.view.map(fromProtoUser).toSeq -> res.nextPageToken)
 
   def grantUserRights(
       userId: UserId,
       rights: Seq[UserRight],
       token: Option[String] = None,
-  ): Future[Vector[UserRight]] =
+  ): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
       .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toProtoRight)))
-      .map(_.newlyGrantedRights.view.collect(fromProtoRight.unlift).toVector)
+      .map(_.newlyGrantedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   def revokeUserRights(
       userId: UserId,
       rights: Seq[UserRight],
       token: Option[String] = None,
-  ): Future[Vector[UserRight]] =
+  ): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
       .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toProtoRight)))
-      .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toVector)
+      .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** List the rights of the given user.
     * Unknown rights are ignored.
     */
-  def listUserRights(userId: UserId, token: Option[String] = None): Future[Vector[UserRight]] =
+  def listUserRights(userId: UserId, token: Option[String] = None): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
       .listUserRights(proto.ListUserRightsRequest(userId.toString))
-      .map(_.rights.view.collect(fromProtoRight.unlift).toVector)
+      .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** Retrieve the rights of the user authenticated by the token(s) on the call .
     * Unknown rights are ignored.
     */
-  def listAuthenticatedUserRights(token: Option[String] = None): Future[Vector[UserRight]] =
+  def listAuthenticatedUserRights(token: Option[String] = None): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
       .listUserRights(proto.ListUserRightsRequest())
-      .map(_.rights.view.collect(fromProtoRight.unlift).toVector)
+      .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 }
 
 object UserManagementClient {

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
@@ -8,8 +8,6 @@ import java.sql.Connection
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
@@ -24,104 +22,12 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 }
 import com.daml.platform.store.interning.StringInterning
 
-import scala.util.{Failure, Success, Try}
-
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
-
-  override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
-    contractKey(
-      resultColumns = List("contract_id"),
-      resultParser = contractId("contract_id"),
-    )(
-      readers = None,
-      key = key,
-      validAt = ledgerEndCache()._2,
-    )(connection)
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  protected def maximumLedgerTimeSqlLiteral(
-      id: ContractId,
-      lastEventSequentialId: Long,
-  ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events
-          WHERE contract_id = $id
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= $lastEventSequentialId
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events
-          WHERE contract_id = $id
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= $lastEventSequentialId
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT ledger_effective_time
-           FROM participant_events
-          WHERE contract_id = $id
-            AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= $lastEventSequentialId
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
-  }
-
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  override def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Timestamp]] = {
-    val lastEventSequentialId = ledgerEndCache()._2
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Timestamp]] =
-        maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
-          timestampFromMicros("ledger_effective_time").?.singleOpt
-        )(
-          connection
-        )
-
-      val queriedIds: List[(ContractId, Option[Option[Timestamp]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Timestamp]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(MissingContracts(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
-  }
 
   override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
     contractKey(
@@ -317,25 +223,35 @@ class ContractStorageBackendTemplate(
   }
 
   private def activeContract[T](
-      resultSetParser: ResultSetParser[T],
+      resultSetParser: ResultSetParser[Option[T]],
       resultColumns: List[String],
   )(
       readers: Set[Ref.Party],
       contractId: ContractId,
-  )(connection: Connection): T = {
-    val treeEventWitnessesClause: CompositeSql =
-      queryStrategy.arrayIntersectionNonEmptyClause(
-        columnName = "tree_event_witnesses",
-        parties = readers,
-        stringInterning = stringInterning,
+  )(connection: Connection): Option[T] = {
+    val internedReaders =
+      readers.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
+    if (internedReaders.isEmpty) {
+      None
+    } else {
+      val treeEventWitnessesClause: CompositeSql =
+        queryStrategy.arrayIntersectionNonEmptyClause(
+          columnName = "tree_event_witnesses",
+          internedParties = internedReaders,
+        )
+      val coalescedColumns: String = resultColumns
+        .map(columnName =>
+          s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName) as $columnName"
+        )
+        .mkString(", ")
+      activeContractSqlLiteral(
+        contractId,
+        treeEventWitnessesClause,
+        resultColumns,
+        coalescedColumns,
       )
-    val coalescedColumns: String = resultColumns
-      .map(columnName =>
-        s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
-      )
-      .mkString(", ")
-    activeContractSqlLiteral(contractId, treeEventWitnessesClause, resultColumns, coalescedColumns)
-      .as(resultSetParser)(connection)
+        .as(resultSetParser)(connection)
+    }
   }
 
   private val contractWithoutValueRowParser: RowParser[Int] =
@@ -388,57 +304,63 @@ class ContractStorageBackendTemplate(
   )(
       connection: Connection
   ): Option[T] = {
-    def withAndIfNonEmptyReaders(
-        queryF: Set[Ref.Party] => CompositeSql
-    ): CompositeSql =
-      readers match {
-        case Some(readers) =>
-          cSQL"${queryF(readers)} AND"
+    val internedReaders =
+      readers.map(_.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet)
 
-        case None =>
-          cSQL""
+    if (internedReaders.exists(_.isEmpty)) {
+      None
+    } else {
+      def withAndIfNonEmptyReaders(
+          queryF: Set[Int] => CompositeSql
+      ): CompositeSql = {
+        internedReaders match {
+          case Some(readers) =>
+            cSQL"${queryF(readers)} AND"
+
+          case None =>
+            cSQL""
+        }
       }
 
-    val lastContractKeyFlatEventWitnessesClause =
-      withAndIfNonEmptyReaders(
-        queryStrategy.arrayIntersectionNonEmptyClause(
-          columnName = "last_contract_key_create.flat_event_witnesses",
-          _,
-          stringInterning,
+      val lastContractKeyFlatEventWitnessesClause =
+        withAndIfNonEmptyReaders(
+          queryStrategy.arrayIntersectionNonEmptyClause(
+            columnName = "last_contract_key_create.flat_event_witnesses",
+            _,
+          )
         )
-      )
-    val participantEventsFlatEventWitnessesClause =
-      withAndIfNonEmptyReaders(
-        queryStrategy.arrayIntersectionNonEmptyClause(
-          columnName = "participant_events.flat_event_witnesses",
-          _,
-          stringInterning,
+      val participantEventsFlatEventWitnessesClause =
+        withAndIfNonEmptyReaders(
+          queryStrategy.arrayIntersectionNonEmptyClause(
+            columnName = "participant_events.flat_event_witnesses",
+            _,
+          )
         )
-      )
 
-    import com.daml.platform.store.Conversions.HashToStatement
-    SQL"""
-         WITH last_contract_key_create AS (
-                SELECT participant_events.*
-                  FROM participant_events
-                 WHERE event_kind = 10 -- create
-                   AND create_key_hash = ${key.hash}
-                       -- do NOT check visibility here, as otherwise we do not abort the scan early
-                   AND event_sequential_id <= $validAt
-                 ORDER BY event_sequential_id DESC
-                 FETCH NEXT 1 ROW ONLY
-              )
-         SELECT #${resultColumns.mkString(", ")}
-           FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-         WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
-           NOT EXISTS       -- check no archival visible
-                (SELECT 1
-                   FROM participant_events
-                  WHERE event_kind = 20 AND -- consuming exercise
-                    $participantEventsFlatEventWitnessesClause
-                    contract_id = last_contract_key_create.contract_id
-                    AND event_sequential_id <= $validAt
-                )"""
-      .as(resultParser.singleOpt)(connection)
+      import com.daml.platform.store.Conversions.HashToStatement
+      SQL"""
+           WITH last_contract_key_create AS (
+                  SELECT participant_events.*
+                    FROM participant_events
+                   WHERE event_kind = 10 -- create
+                     AND create_key_hash = ${key.hash}
+                         -- do NOT check visibility here, as otherwise we do not abort the scan early
+                     AND event_sequential_id <= $validAt
+                   ORDER BY event_sequential_id DESC
+                   FETCH NEXT 1 ROW ONLY
+                )
+           SELECT #${resultColumns.mkString(", ")}
+             FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+           WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
+             NOT EXISTS       -- check no archival visible
+                  (SELECT 1
+                     FROM participant_events
+                    WHERE event_kind = 20 AND -- consuming exercise
+                      $participantEventsFlatEventWitnessesClause
+                      contract_id = last_contract_key_create.contract_id
+                      AND event_sequential_id <= $validAt
+                  )"""
+        .as(resultParser.singleOpt)(connection)
+    }
   }
 }

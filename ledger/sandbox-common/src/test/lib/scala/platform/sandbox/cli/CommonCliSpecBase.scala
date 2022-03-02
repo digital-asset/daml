@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.cli
@@ -353,14 +353,101 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "parse gRPC error codes compatibility mode flag" in {
+    "handle '--enable-user-management' flag correctly" in {
+      checkOptionFail(
+        Array("--enable-user-management")
+      )
       checkOption(
-        Array("--use-pre-1.18-error-codes"),
-        _.copy(enableSelfServiceErrorCodes = false),
+        Array("--enable-user-management", "false"),
+        _.withUserManagementConfig(_.copy(enabled = false)),
+      )
+      checkOption(
+        Array("--enable-user-management", "true"),
+        _.withUserManagementConfig(_.copy(enabled = true)),
       )
       checkOption(
         Array(),
-        _.copy(enableSelfServiceErrorCodes = true),
+        _.withUserManagementConfig(_.copy(enabled = true)),
+      )
+    }
+
+    "handle '--user-management-max-cache-size' flag correctly" in {
+      // missing cache size value
+      checkOptionFail(
+        Array("--user-management-max-cache-size")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(maxCacheSize = 100)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--user-management-max-cache-size",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(maxCacheSize = 123)),
+      )
+    }
+
+    "handle '--user-management-cache-expiry' flag correctly" in {
+      // missing cache size value
+      checkOptionFail(
+        Array("--user-management-cache-expiry")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = 5)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--user-management-cache-expiry",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = 123)),
+      )
+    }
+
+    "handle '--max-users-page-size' flag correctly" in {
+      // missing value
+      checkOptionFail(
+        Array("--max-users-page-size")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 1000)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--max-users-page-size",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 123)),
+      )
+      // values in range [1, 99] are disallowed
+      checkOptionFail(
+        Array(
+          "--max-users-page-size",
+          "1",
+        )
+      )
+      checkOptionFail(
+        Array(
+          "--max-users-page-size",
+          "99",
+        )
+      )
+      // negative values are disallowed
+      checkOptionFail(
+        Array(
+          "--max-users-page-size",
+          "-1",
+        )
       )
     }
 

@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Troubleshooting
@@ -107,20 +107,36 @@ To use ``Optional``, include ``Optional.daml`` from the standard library:
 
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 7
+  :start-after: -- start snippet: import Optional
+  :end-before: -- end snippet: import Optional
 
 Then, you can create ``Optional`` values like this:
 
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 12,14
+  :start-after: -- start snippet: create some
+  :end-before: -- end snippet: create some
+  :dedent: 6
+
+.. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
+  :language: daml
+  :start-after: -- start snippet: create none
+  :end-before: -- end snippet: create none
   :dedent: 6
 
 You can test for existence in various ways:
 
+
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 16-19,21-24
+  :start-after: -- start snippet: test some
+  :end-before: -- end snippet: test some
+  :dedent: 6
+
+.. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
+  :language: daml
+  :start-after: -- start snippet: test none
+  :end-before: -- end snippet: test none
   :dedent: 6
 
 If you need to extract the value, use the ``optional`` function.
@@ -129,7 +145,8 @@ It returns a value of a defined type, and takes a ``Optional`` value and a funct
 
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 27-28
+  :start-after: -- start snippet: optional
+  :end-before: -- end snippet: optional
   :dedent: 2
 
 If ``optionalValue`` is ``Some 5``, the value of ``t`` would be ``"The number is 5"``. If it was ``None``, ``t`` would be ``"No number"``. Note that with ``optional``, it is possible to return a different type from that contained in the ``Optional`` value. This makes the ``Optional`` type very flexible.
@@ -144,27 +161,26 @@ Testing questions
 How to test that a contract is visible to a party
 =================================================
 
+Use ``queryContractId``: its first argument is a party, and the second is a ``ContractId``. If the contract corresponding to that ``ContractId`` exists and is visible to the party, the result will be wrapped in ``Some``, otherwise the result will be ``None``.
+
 Use a ``submit`` block and a ``fetch`` operation. The ``submit`` block tests that the contract (as a ``ContractId``) is visible to that party, and the ``fetch`` tests that it is valid, i.e., that the contract does exist.
 
 For example, if we wanted to test for the existence and visibility of an ``Invoice``, visible to 'Alice', whose ContractId is bound to `invoiceCid`, we could say:
 
 .. literalinclude:: code-snippets/troubleshooting/Check.daml
   :language: daml
-  :lines: 23-24
+  :start-after: -- start snippet: query contract id
+  :end-before: -- end snippet: query contract id
   :dedent: 4
 
-You could also check (in the ``submit`` block) that the contract has some expected values:
+Note that we pattern match on the ``Some`` constructor. If the contract doesn't exist or is not visible to 'Alice', the test will fail with a pattern match error.
+
+Now that the contract is bound to a variable, we can check whether it has some expected values:
 
 .. literalinclude:: code-snippets/troubleshooting/Check.daml
   :language: daml
-  :lines: 25-30
-  :dedent: 6
-
-using an equality test and an ``assert``:
-
-.. literalinclude:: code-snippets/troubleshooting/Check.daml
-  :language: daml
-  :lines: 23-30
+  :start-after: -- start snippet: check contract contents
+  :end-before: -- end snippet: check contract contents
   :dedent: 4
 
 .. _faqs-must-fail:

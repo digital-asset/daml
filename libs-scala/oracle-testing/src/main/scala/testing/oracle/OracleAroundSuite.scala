@@ -1,25 +1,24 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.testing.oracle
 
+import com.daml.testing.oracle.OracleAround.RichOracleUser
 import org.scalatest.Suite
 
-trait OracleAroundSuite extends OracleAround {
+trait OracleAroundSuite {
   self: Suite =>
 
   @volatile
-  private var user: User = _
+  private var user: RichOracleUser = _
 
-  protected def oracleUser: String = user.name
-  protected def oraclePwd: String = user.pwd
+  def jdbcUrl: String = user.jdbcUrl
+  def lockIdSeed: Int = user.lockIdSeed
+  def oracleUserName: String = user.oracleUser.name
+  def oracleUserPwd: String = user.oracleUser.pwd
+  def oracleJdbcUrlWithoutCredentials: String = user.jdbcUrlWithoutCredentials
 
-  protected def createNewUser(): Unit = {
-    connectToOracle()
-    user = createNewRandomUser()
-  }
+  protected def createNewUser(): Unit = user = OracleAround.createNewUniqueRandomUser()
 
-  protected def dropUser(): Unit = {
-    dropUser(oracleUser)
-  }
+  protected def dropUser(): Unit = user.drop()
 }

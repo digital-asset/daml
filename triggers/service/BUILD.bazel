@@ -1,7 +1,7 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@oracle//:index.bzl", "oracle_testing")
+load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
@@ -41,6 +41,8 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:com_github_pureconfig_pureconfig_core",
+        "@maven//:com_github_pureconfig_pureconfig_generic",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -65,12 +67,12 @@ da_scala_library(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
+        "//ledger-service/pureconfig-utils",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
-        "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
@@ -90,8 +92,6 @@ scala_binary_deps = [
 
 binary_deps = [
     ":trigger-service",
-    "//libs-scala/ports",
-    "//libs-scala/concurrent",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
     "//daml-lf/data",
@@ -100,6 +100,7 @@ binary_deps = [
     "//ledger/ledger-api-common",
     "//libs-scala/contextualized-logging",
     "//libs-scala/db-utils",
+    "//libs-scala/ports",
     "//libs-scala/scala-utils",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
@@ -174,9 +175,9 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//libs-scala/adjustable-clock",
         "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
@@ -202,9 +203,14 @@ da_scala_test_suite(
         ["src/test-suite/scala/**/*.scala"],
         exclude = ["**/*Oracle*"],
     ),
+    data = [
+        ":src/test-suite/resources/trigger-service.conf",
+        ":src/test-suite/resources/trigger-service-minimal.conf",
+    ],
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_parsing",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
@@ -215,18 +221,20 @@ da_scala_test_suite(
     deps = [
         ":trigger-service",
         ":trigger-service-tests",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/interpreter",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger-service/cli-opts",
         "//ledger-service/jwt",
+        "//ledger-service/pureconfig-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
-        "//ledger/sandbox",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/adjustable-clock",
@@ -235,6 +243,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:org_flywaydb_flyway_core",
@@ -254,7 +263,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
@@ -271,7 +280,6 @@ da_scala_test_suite(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
-        "//ledger/sandbox",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/adjustable-clock",
@@ -300,6 +308,7 @@ genrule(
       cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml

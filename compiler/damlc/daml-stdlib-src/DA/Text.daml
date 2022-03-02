@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -45,13 +45,13 @@ module DA.Text
   , DA.Text.isAlpha
   , DA.Text.isAlphaNum
   , DA.Text.parseInt
-#ifdef DAML_NUMERIC
   , DA.Text.parseNumeric
-#endif
   , DA.Text.parseDecimal
   , DA.Text.sha256
   , DA.Text.toCodePoints
   , DA.Text.fromCodePoints
+  , DA.Text.asciiToLower
+  , DA.Text.asciiToUpper
 
 #ifdef DAML_UNSTABLE
   -- unstable, experimental primitives
@@ -287,7 +287,6 @@ isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= 
 parseInt : Text -> Optional Int
 parseInt = primitive @"BETextToInt64"
 
-#ifdef DAML_NUMERIC
 -- | Attempt to parse a `Numeric` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex
 -- `(-|\+)?[0-9]+(\.[0-9]+)?`
@@ -301,7 +300,6 @@ parseInt = primitive @"BETextToInt64"
 -- ```
 parseNumeric : Text -> Optional (Numeric n)
 parseNumeric = primitive @"BETextToNumeric"
-#endif
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex
@@ -315,11 +313,7 @@ parseNumeric = primitive @"BETextToNumeric"
 --   parseDecimal "+12.0" == Some 12
 -- ```
 parseDecimal : Text -> Optional Decimal
-#ifdef DAML_NUMERIC
 parseDecimal = parseNumeric
-#else
-parseDecimal = primitive @"BETextToDecimal"
-#endif
 
 -- | Computes the SHA256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
@@ -345,6 +339,25 @@ toCodePoints = primitive @"BETextToCodePoints"
 fromCodePoints : [Int] -> Text
 fromCodePoints = primitive @"BECodePointsToText"
 
+-- | Convert the uppercase ASCII characters of a `Text` to lowercase;
+-- all other characters remain unchanged.
+asciiToLower : Text -> Text
+asciiToLower = fromCodePoints . fmap toLowerCP . toCodePoints
+  where
+    toLowerCP x
+      | cpA <= x && x <= cpZ = x + (cpa - cpA)
+      | otherwise = x
+    [cpA, cpZ, cpa] = toCodePoints "AZa"
+
+-- | Convert the lowercase ASCII characters of a `Text` to uppercase;
+-- all other characters remain unchanged.
+asciiToUpper : Text -> Text
+asciiToUpper = fromCodePoints . fmap toUpperCP . toCodePoints
+  where
+    toUpperCP x
+      | cpa <= x && x <= cpz = x - (cpa - cpA)
+      | otherwise = x
+    [cpA, cpa, cpz] = toCodePoints "Aaz"
 
 #ifdef DAML_UNSTABLE
 

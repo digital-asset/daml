@@ -1,15 +1,13 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
@@ -39,10 +37,13 @@ import com.daml.ledger.client.services.commands.{
   CompletionStreamElement,
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.lf.crypto.Hash
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.services.TestCommands
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
@@ -90,10 +91,12 @@ final class CommandClientIT
       configuration,
     )
 
-  private def timeProvider(ledgerId: domain.LedgerId): Future[TimeProvider] = {
+  private def timeProvider(
+      ledgerId: domain.LedgerId
+  ): Future[TimeProvider] = {
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), ledgerId.unwrap)
-      .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
+      .recover { case NonFatal(_) => TimeProvider.UTC }
   }
 
   private def commandClient(
@@ -102,9 +105,7 @@ final class CommandClientIT
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
   ): Future[CommandClient] =
     timeProvider(ledgerId)
-      .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))(
-        DirectExecutionContext
-      )
+      .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))
 
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Static(testLedgerId))
@@ -171,7 +172,7 @@ final class CommandClientIT
         notOk.grpcStatus.code should be(expectedErrorCode.value)
         notOk.grpcStatus.message should include(expectedMessageSubString)
       }
-    }(DirectExecutionContext)
+    }
 
   /** Reads a set of command IDs expected in the given client after the given checkpoint.
     * Returns a pair of sets (elements seen, elements not seen).
@@ -484,12 +485,21 @@ final class CommandClientIT
       }
 
       "not accept exercises with bad contract IDs, return ABORTED" in {
-        val contractId = "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
+        val contractId = ContractId.V1(
+          Hash.hashPrivateKey(
+            "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
+          )
+        )
         val command =
           submitRequest(
             "Exercise_contract_not_found",
             List(
-              ExerciseCommand(Some(templateIds.dummy), contractId, "DummyChoice1", Some(unit)).wrap
+              ExerciseCommand(
+                Some(templateIds.dummy),
+                contractId.coid,
+                "DummyChoice1",
+                Some(unit),
+              ).wrap
             ),
           )
 

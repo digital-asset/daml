@@ -1,12 +1,17 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool
 
 import akka.actor.testkit.typed.scaladsl.{BehaviorTestKit, ScalaTestWithActorTestKit}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
-import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
+import com.daml.clock.AdjustableClock
+import com.daml.ledger.api.benchtool.metrics.{
+  Metric,
+  MetricValue,
+  MetricsCollector,
+  ServiceLevelObjective,
+}
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.{Clock, Duration, Instant, ZoneId}
@@ -17,9 +22,8 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
   import MetricsCollector.Response
 
   "The MetricsCollector" should {
-    "respond with empty periodic report" in {
-      val collector = spawn()
-      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+    "respond with empty periodic report" in new CollectorFixture {
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
 
       collector ! Message.PeriodicReportRequest(probe.ref)
 
@@ -32,9 +36,8 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       )
     }
 
-    "respond with correct periodic report" in {
-      val collector = spawn()
-      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+    "respond with correct periodic report" in new CollectorFixture {
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
 
       collector ! Message.NewValue("banana")
       collector ! Message.NewValue("mango")
@@ -49,9 +52,23 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       )
     }
 
-    "include objective-violating values in periodic report" in {
-      val collector = spawn()
-      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+    "not respond with a periodic report when requests are too frequent" in new CollectorFixture {
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
+
+      collector ! Message.NewValue("banana")
+      collector ! Message.NewValue("mango")
+      collector ! Message.PeriodicReportRequest(probe.ref)
+
+      probe.expectMessageType[Response.PeriodicReport]
+
+      clock.fastForward(Duration.ofSeconds(1))
+      collector ! Message.PeriodicReportRequest(probe.ref)
+
+      probe.expectMessage(Response.ReportNotReady)
+    }
+
+    "include objective-violating values in periodic report" in new CollectorFixture {
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
 
       collector ! Message.NewValue("banana")
       collector ! Message.NewValue(TestObjective.TestViolatingValue)
@@ -67,11 +84,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       )
     }
 
-    "respond with empty final report" in {
-      val now = Clock.systemUTC().instant()
-      val tenSecondsAgo = now.minusSeconds(10)
-      val clock = Clock.fixed(now, ZoneId.of("UTC"))
-      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
+    "respond with empty final report" in new CollectorFixture {
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.FinalReportRequest(probe.ref)
@@ -82,7 +95,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
             Response.MetricFinalReportData(
               name = "Test Metric",
               value = TestMetricValue("FINAL:"),
-              violatedObjective = None,
+              violatedObjectives = Nil,
             )
           ),
           totalDuration = Duration.ofSeconds(10),
@@ -90,11 +103,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       )
     }
 
-    "respond with correct final report" in {
-      val now = Clock.systemUTC().instant()
-      val tenSecondsAgo = now.minusSeconds(10)
-      val clock = Clock.fixed(now, ZoneId.of("UTC"))
-      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
+    "respond with correct final report" in new CollectorFixture {
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.NewValue("mango")
@@ -108,7 +117,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
             Response.MetricFinalReportData(
               name = "Test Metric",
               value = TestMetricValue("FINAL:mango-banana-cherry"),
-              violatedObjective = None,
+              violatedObjectives = Nil,
             )
           ),
           totalDuration = Duration.ofSeconds(10),
@@ -116,11 +125,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       )
     }
 
-    "include information about violated objective in the final report" in {
-      val now = Clock.systemUTC().instant()
-      val tenSecondsAgo = now.minusSeconds(10)
-      val clock = Clock.fixed(now, ZoneId.of("UTC"))
-      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
+    "include information about violated objective in the final report" in new CollectorFixture {
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.NewValue("mango")
@@ -134,7 +139,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
             Response.MetricFinalReportData(
               name = "Test Metric",
               value = TestMetricValue("FINAL:mango-tomato-cherry"),
-              violatedObjective = Some(
+              violatedObjectives = List(
                 (
                   TestObjective,
                   TestMetricValue(TestObjective.TestViolatingValue),
@@ -159,22 +164,31 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
     }
   }
 
-  private def spawn(): ActorRef[Message] =
-    testKit.spawn(
-      behavior = behavior,
-      name = Random.alphanumeric.take(10).mkString,
+  private class CollectorFixture {
+    private val now = Clock.systemUTC().instant()
+    private val tenSecondsAgo = now.minusSeconds(10)
+    private val minimumReportInterval = Duration.ofSeconds(5)
+    val clock = AdjustableClock(
+      baseClock = Clock.fixed(now, ZoneId.of("UTC")),
+      offset = Duration.ZERO,
     )
+    val collector: ActorRef[Message] =
+      spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
+  }
 
   private def spawnWithFixedClock(
       clock: Clock,
       startTime: Instant,
       lastPeriodicCheck: Instant,
+      minimumTimePeriodBetweenSubsequentReports: Duration,
   ) = {
-    val behavior = new MetricsCollector[String](None, clock).handlingMessages(
-      metrics = List(TestMetric()),
-      lastPeriodicCheck = lastPeriodicCheck,
-      startTime = startTime,
-    )
+    val behavior =
+      new MetricsCollector[String](None, minimumTimePeriodBetweenSubsequentReports, clock)
+        .handlingMessages(
+          metrics = List(TestMetric()),
+          lastPeriodicCheck = lastPeriodicCheck,
+          startTime = startTime,
+        )
     testKit.spawn(
       behavior = behavior,
       name = Random.alphanumeric.take(10).mkString,
@@ -217,11 +231,15 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       TestMetricValue(s"FINAL:${processedElems.mkString("-")}")
     }
 
-    override def violatedObjective: Option[(TestObjective.type, TestMetricValue)] =
+    override def violatedPeriodicObjectives: List[(TestObjective.type, TestMetricValue)] =
       if (processedElems.contains(TestObjective.TestViolatingValue))
-        Some(TestObjective -> TestMetricValue(TestObjective.TestViolatingValue))
+        List(TestObjective -> TestMetricValue(TestObjective.TestViolatingValue))
       else
-        None
+        Nil
+
+    override def violatedFinalObjectives(
+        totalDuration: Duration
+    ): List[(TestObjective.type, TestMetricValue)] = Nil
 
   }
 

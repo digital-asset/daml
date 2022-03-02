@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -8,7 +8,6 @@ import java.net.InetAddress
 import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 import java.util.{Date, UUID}
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -20,9 +19,9 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.auth.middleware.oauth2.{
+  SecretString,
   Config => MiddlewareConfig,
   Server => MiddlewareServer,
-  SecretString,
 }
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.bazeltools.BazelRunfiles
@@ -32,7 +31,7 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -44,6 +43,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -52,7 +52,6 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandboxnext.{Runner => SandboxRunner}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
@@ -65,6 +64,7 @@ import eu.rekawek.toxiproxy._
 import io.grpc.Channel
 import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
+import scalaz.syntax.show._
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
@@ -135,7 +135,11 @@ trait AbstractAuthFixture extends SuiteMixin {
   self: Suite =>
 
   protected def authService: Option[auth.AuthService]
-  protected def authToken(payload: AuthServiceJWTPayload): Option[String]
+  protected[this] def authToken(
+      admin: Boolean,
+      actAs: List[ApiTypes.Party],
+      readAs: List[ApiTypes.Party],
+  ): Option[String]
   protected def authConfig: AuthConfig
 }
 
@@ -143,7 +147,11 @@ trait NoAuthFixture extends AbstractAuthFixture {
   self: Suite =>
 
   protected override def authService: Option[auth.AuthService] = None
-  protected override def authToken(payload: AuthServiceJWTPayload): Option[String] = None
+  protected[this] override final def authToken(
+      admin: Boolean,
+      actAs: List[ApiTypes.Party],
+      readAs: List[ApiTypes.Party],
+  ) = None
   protected override def authConfig: AuthConfig = NoAuth
 }
 
@@ -155,12 +163,30 @@ trait AuthMiddlewareFixture
   self: Suite =>
 
   protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
-  protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
+
+  protected[this] override final def authToken(
+      admin: Boolean,
+      actAs: List[ApiTypes.Party],
+      readAs: List[ApiTypes.Party],
+  ) = Some {
+    val payload =
+      if (sandboxClientTakesUserToken)
+        StandardJWTPayload(userId = "", participantId = None, exp = None)
+      else
+        CustomDamlJWTPayload(
+          ledgerId = None,
+          applicationId = None,
+          participantId = None,
+          exp = None,
+          admin = admin,
+          actAs = ApiTypes.Party unsubst actAs,
+          readAs = ApiTypes.Party unsubst readAs,
+        )
+
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = JwtSigner.HMAC256
       .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret)
-      .toOption
-      .get
+      .fold(e => fail(e.shows), identity)
     jwt.value
   }
   protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri, authMiddlewareUri)
@@ -180,6 +206,8 @@ trait AuthMiddlewareFixture
     Uri()
       .withScheme("http")
       .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
+  protected[this] def oauth2YieldsUserTokens: Boolean = true
+  protected[this] def sandboxClientTakesUserToken: Boolean = true
 
   private val authSecret: String = "secret"
   private var resource
@@ -209,6 +237,7 @@ trait AuthMiddlewareFixture
             ledgerId = ledgerId,
             jwtSecret = authSecret,
             clock = Some(clock),
+            yieldUserTokens = oauth2YieldsUserTokens,
           )
           oauthServer = OAuthServer(oauthConfig)
           oauth <- Resource(oauthServer.start())(closeServerBinding)
@@ -266,7 +295,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
     authService = authService,
-    seeding = Some(Seeding.Weak),
+    seeding = Seeding.Weak,
   )
 
   protected lazy val sandboxPort: Port = resource.value._1
@@ -283,18 +312,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        sslContext = None,
-        token = authToken(
-          AuthServiceJWTPayload(
-            ledgerId = None,
-            applicationId = None,
-            participantId = None,
-            exp = None,
-            admin = admin,
-            actAs = actAs.map(ApiTypes.Party.unwrap),
-            readAs = readAs.map(ApiTypes.Party.unwrap),
-          )
-        ),
+        token = authToken(admin, actAs = actAs, readAs = readAs),
       ),
     )
 
@@ -314,7 +332,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         // of which is that the ledger and index databases will be out of sync.
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => Some(info.jdbcUrl))
-        port <- new SandboxRunner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
+        port <- SandboxServer.owner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,
@@ -459,9 +477,9 @@ trait TriggerDaoOracleFixture
   private lazy val jdbcConfig_ =
     JdbcConfig(
       "oracle.jdbc.OracleDriver",
-      oracleJdbcUrl,
-      oracleUser,
-      oraclePwd,
+      oracleJdbcUrlWithoutCredentials,
+      oracleUserName,
+      oracleUserPwd,
       ConnectionPool.PoolSize.Production,
     )
   // TODO For whatever reason we need a larger pool here, otherwise
@@ -520,20 +538,20 @@ trait TriggerServiceFixture
               toxiSandboxPort.value,
               TimeProviderType.Static,
               java.time.Duration.ofSeconds(30),
-              ServiceConfig.DefaultMaxInboundMessageSize,
+              Cli.DefaultMaxInboundMessageSize,
             )
             val restartConfig = TriggerRestartConfig(
               minRestartInterval,
-              ServiceConfig.DefaultMaxRestartInterval,
+              Cli.DefaultMaxRestartInterval,
             )
             for {
               r <- ServiceMain.startServer(
                 host.getHostName,
                 Port.Dynamic.value,
-                ServiceConfig.DefaultMaxAuthCallbacks,
-                ServiceConfig.DefaultAuthCallbackTimeout,
-                ServiceConfig.DefaultMaxHttpEntityUploadSize,
-                ServiceConfig.DefaultHttpEntityUploadTimeout,
+                Cli.DefaultMaxAuthCallbacks,
+                Cli.DefaultAuthCallbackTimeout,
+                Cli.DefaultMaxHttpEntityUploadSize,
+                Cli.DefaultHttpEntityUploadTimeout,
                 authConfig,
                 AuthClient.RedirectToLogin.Yes,
                 authCallback,

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -17,7 +17,7 @@ class StakeholdersTest
     extends AsyncFlatSpec
     with Matchers
     with TestResourceContext
-    with SandboxFixture
+    with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._

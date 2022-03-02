@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -51,7 +51,6 @@ genrule(
             "empty-skeleton/**",
             "create-daml-app/**",
             "quickstart-java/**",
-            "quickstart-scala/**",
             "copy-trigger/**",
             "gsg-trigger.patch",
         ],
@@ -61,7 +60,6 @@ genrule(
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
         "//docs:script-example-template",
-        "//language-support/scala/examples:quickstart-scala.tar",
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
@@ -80,7 +78,6 @@ genrule(
         for d in skeleton \
                  empty-skeleton \
                  create-daml-app \
-                 quickstart-scala \
                  quickstart-java \
                  copy-trigger \
                  gsg-trigger; do
@@ -99,9 +96,6 @@ genrule(
 
         # quickstart-java template
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
-
-        # quickstart-scala template
-        tar xf $(location //language-support/scala/examples:quickstart-scala.tar) --strip-components=1 -C $$OUT/quickstart-scala/
 
         # daml intro templates
         tar xf $(location //docs:daml-intro-templates) -C $$OUT

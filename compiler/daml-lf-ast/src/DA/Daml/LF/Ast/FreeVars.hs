@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.FreeVars
@@ -109,6 +109,9 @@ freeVarsStep = \case
     ECallInterfaceF _ _ e -> e
     EToRequiredInterfaceF _ _ e -> e
     EFromRequiredInterfaceF _ _ e -> e
+    EInterfaceTemplateTypeRepF _ e -> e
+    ESignatoryInterfaceF _ e -> e
+    EObserverInterfaceF _ e -> e
     EExperimentalF _ t -> freeVarsInType t
 
   where

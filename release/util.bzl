@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//daml-lf/language:daml-lf.bzl", "PROTO_LF_VERSIONS")
@@ -10,7 +10,6 @@ inputs = {
     "install_bat": ":install.bat",
     "sandbox_logback": "//ledger/sandbox-common:src/main/resources/logback.xml",
     "navigator_logback": "//navigator/backend:src/main/resources/logback.xml",
-    "extractor_logback": "//extractor:src/main/resources/logback.xml",
     "http_json_logback": "//ledger-service/http-json:src/main/resources/logback.xml",
     "oauth2_middleware_logback": "//triggers/service/auth:release/oauth2-middleware-logback.xml",
     "trigger_service_logback": "//triggers/service:release/trigger-service-logback.xml",
@@ -96,7 +95,6 @@ def sdk_tarball(name, version, config):
           cp -L $(location {oauth2_middleware_logback}) $$OUT/daml-sdk/
           cp -L $(location {sandbox_logback}) $$OUT/daml-sdk/sandbox-logback.xml
           cp -L $(location {navigator_logback}) $$OUT/daml-sdk/navigator-logback.xml
-          cp -L $(location {extractor_logback}) $$OUT/daml-sdk/extractor-logback.xml
           cp -L $(location {java_codegen_logback}) $$OUT/daml-sdk/codegen-logback.xml
           cp -L $(location {trigger_logback}) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location {daml_script_logback}) $$OUT/daml-sdk/script-logback.xml

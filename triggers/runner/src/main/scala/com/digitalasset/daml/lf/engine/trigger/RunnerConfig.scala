@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -6,11 +6,16 @@ package com.daml.lf.engine.trigger
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
+import com.daml.ledger.client.LedgerClient
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.lf.speedy.Compiler
+
+import scala.concurrent.{ExecutionContext, Future}
 
 case class RunnerConfig(
     darPath: Path,
@@ -19,7 +24,7 @@ case class RunnerConfig(
     triggerIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
-    ledgerParties: TriggerParties,
+    ledgerClaims: ClaimsSpecification,
     maxInboundMessageSize: Int,
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
     timeProviderType: Option[TimeProviderType],
@@ -28,9 +33,79 @@ case class RunnerConfig(
     applicationId: ApplicationId,
     tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
-)
+) {
+  private def updatePartySpec(f: TriggerParties => TriggerParties): RunnerConfig =
+    if (ledgerClaims == null) {
+      copy(ledgerClaims = PartySpecification(f(TriggerParties(Party(""), Set.empty))))
+    } else
+      ledgerClaims match {
+        case PartySpecification(claims) =>
+          copy(ledgerClaims = PartySpecification(f(claims)))
+        case _: UserSpecification =>
+          throw new IllegalArgumentException(
+            s"Must specify either --ledger-party and --ledger-readas or --ledger-userid but not both"
+          )
+      }
+  private def updateActAs(party: Party): RunnerConfig =
+    updatePartySpec(spec => spec.copy(actAs = party))
 
-case class TriggerParties(
+  private def updateReadAs(parties: Seq[Party]): RunnerConfig =
+    updatePartySpec(spec => spec.copy(readAs = spec.readAs ++ parties))
+
+  private def updateUser(userId: Ref.UserId): RunnerConfig =
+    if (ledgerClaims == null) {
+      copy(ledgerClaims = UserSpecification(userId))
+    } else
+      ledgerClaims match {
+        case UserSpecification(_) => copy(ledgerClaims = UserSpecification(userId))
+        case _: PartySpecification =>
+          throw new IllegalArgumentException(
+            s"Must specify either --ledger-party and --ledger-readas or --ledger-userid but not both"
+          )
+      }
+}
+
+sealed abstract class ClaimsSpecification {
+  def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext): Future[TriggerParties]
+}
+
+final case class PartySpecification(claims: TriggerParties) extends ClaimsSpecification {
+  override def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext) =
+    Future.successful(claims)
+}
+
+final case class UserSpecification(userId: Ref.UserId) extends ClaimsSpecification {
+  override def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext) = for {
+    user <- client.userManagementClient.getUser(userId)
+    primaryParty <- user.primaryParty.fold[Future[Ref.Party]](
+      Future.failed(
+        new IllegalArgumentException(
+          s"User $user has no primary party. Specify a party explicitly via --ledger-party"
+        )
+      )
+    )(Future.successful(_))
+    rights <- client.userManagementClient.listUserRights(userId)
+    readAs = rights.collect { case domain.UserRight.CanReadAs(party) =>
+      party
+    }.toSet
+    actAs = rights.collect { case domain.UserRight.CanActAs(party) =>
+      party
+    }.toSet
+    _ <-
+      if (actAs.contains(primaryParty)) {
+        Future.unit
+      } else {
+        Future.failed(
+          new IllegalArgumentException(
+            s"User $user has primary party $primaryParty but no actAs claims for that party. Either change the user rights or specify a different party via --ledger-party"
+          )
+        )
+      }
+    readers = (readAs ++ actAs) - primaryParty
+  } yield TriggerParties(Party(primaryParty), readers.map(Party(_)))
+}
+
+final case class TriggerParties(
     actAs: Party,
     readAs: Set[Party],
 ) {
@@ -38,6 +113,11 @@ case class TriggerParties(
 }
 
 object RunnerConfig {
+
+  implicit val userRead: scopt.Read[Ref.UserId] = scopt.Read.reads { s =>
+    Ref.UserId.fromString(s).fold(e => throw new IllegalArgumentException(e), identity)
+  }
+
   private[trigger] val DefaultMaxInboundMessageSize: Int = 4194304
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   private[trigger] val DefaultApplicationId: ApplicationId =
@@ -66,18 +146,30 @@ object RunnerConfig {
       .text("Ledger port")
 
     opt[String]("ledger-party")
-      .action((t, c) => c.copy(ledgerParties = c.ledgerParties.copy(actAs = Party(t))))
-      .text("Ledger party")
+      .action((t, c) => c.updateActAs(Party(t)))
+      .text("""The party the trigger can act as.
+              |Mutually exclusive with --ledger-user.""".stripMargin)
 
     opt[Seq[String]]("ledger-readas")
-      .action((t, c) =>
-        c.copy(ledgerParties =
-          c.ledgerParties.copy(readAs = c.ledgerParties.readAs ++ t.map(Party(_)))
-        )
-      )
+      .action((t, c) => c.updateReadAs(t.map(Party(_))))
       .unbounded()
       .text(
-        "A comma-separated list of parties the trigger can read as. Can be specified multiple-times."
+        """A comma-separated list of parties the trigger can read as.
+          |Can be specified multiple-times.
+          |Mutually exclusive with --ledger-user.""".stripMargin
+      )
+
+    opt[Ref.UserId]("ledger-user")
+      .action((u, c) => c.updateUser(u))
+      .unbounded()
+      .text(
+        """The id of the user the trigger should run as.
+          |This is equivalent to specifying the primary party
+          |of the user as --ledger-party and
+          |all actAs and readAs claims of the user other than the
+          |primary party as --ledger-readas.
+          |The user must have a primary party.
+          |Mutually exclusive with --ledger-party and --ledger-readas.""".stripMargin
       )
 
     opt[Int]("max-inbound-message-size")
@@ -150,10 +242,14 @@ object RunnerConfig {
           failure("Missing option --ledger-host")
         } else if (c.ledgerPort == 0) {
           failure("Missing option --ledger-port")
-        } else if (c.ledgerParties.actAs == Party("")) {
-          failure("Missing option --ledger-party")
+        } else if (c.ledgerClaims == null) {
+          failure("Missing option --ledger-party or --ledger-user")
         } else {
-          success
+          c.ledgerClaims match {
+            case PartySpecification(TriggerParties(actAs, _)) if actAs == Party("") =>
+              failure("Missing option --ledger-party")
+            case _ => success
+          }
         }
       }
     )
@@ -174,24 +270,22 @@ object RunnerConfig {
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
       args,
-      RunnerConfig(
-        darPath = null,
-        listTriggers = false,
-        triggerIdentifier = null,
-        ledgerHost = null,
-        ledgerPort = 0,
-        ledgerParties = TriggerParties(
-          // Required argument so this will always be replaced.
-          actAs = Party(""),
-          readAs = Set.empty,
-        ),
-        maxInboundMessageSize = DefaultMaxInboundMessageSize,
-        timeProviderType = None,
-        commandTtl = Duration.ofSeconds(30L),
-        accessTokenFile = None,
-        tlsConfig = TlsConfiguration(false, None, None, None),
-        applicationId = DefaultApplicationId,
-        compilerConfig = DefaultCompilerConfig,
-      ),
+      Empty,
     )
+
+  val Empty: RunnerConfig = RunnerConfig(
+    darPath = null,
+    listTriggers = false,
+    triggerIdentifier = null,
+    ledgerHost = null,
+    ledgerPort = 0,
+    ledgerClaims = null,
+    maxInboundMessageSize = DefaultMaxInboundMessageSize,
+    timeProviderType = None,
+    commandTtl = Duration.ofSeconds(30L),
+    accessTokenFile = None,
+    tlsConfig = TlsConfiguration(false, None, None, None),
+    applicationId = DefaultApplicationId,
+    compilerConfig = DefaultCompilerConfig,
+  )
 }

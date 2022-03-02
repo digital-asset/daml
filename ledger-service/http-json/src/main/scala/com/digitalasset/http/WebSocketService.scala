@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -42,13 +42,12 @@ import Liskov.<~<
 import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.domain.TemplateId.{OptionalPkg, RequiredPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
-import com.daml.http.util.Logging.InstanceUUID
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
-import spray.json.{JsArray, JsObject, JsValue, JsonReader}
+import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny => `sj enrichAny`}
 
-import scala.collection.compat._
 import scala.collection.mutable.HashSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -97,7 +96,7 @@ object WebSocketService {
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfVT], Pos)],
   ) {
-    import JsonProtocol._, spray.json._
+    import JsonProtocol._
 
     def logHiddenErrors()(implicit lc: LoggingContextOf[InstanceUUID]): Unit =
       errors foreach { case ServerError(message) =>
@@ -355,7 +354,7 @@ object WebSocketService {
 
       override def renderCreatedMetadata(p: Positive) =
         Map {
-          import spray.json._, JsonProtocol._
+          import JsonProtocol._
           "matchedQueries" -> p.toJson
         }
 
@@ -412,7 +411,6 @@ object WebSocketService {
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) = {
-        import scalaz.Scalaz._
         type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
         def go[Hint](
             alg: StreamQuery[NelCKRH[Hint, LfV]]
@@ -604,7 +602,7 @@ class WebSocketService(
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
 
-  private val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+  private val config = wsConfig.getOrElse(WebsocketConfig())
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
@@ -699,7 +697,9 @@ class WebSocketService(
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
-      .map(_.fold(e => wsErrorMessage(e), identity): Message)
+      .map(
+        _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
+      )
   }
 
   private def parseJson(x: Message): Future[InvalidUserInput \/ JsValue] = x match {
@@ -884,7 +884,7 @@ class WebSocketService(
 
     Flow[StepAndErrors[Pos, JsValue]]
       .map(a => Step(a))
-      .keepAlive(config.heartBeatPer, () => TickTrigger)
+      .keepAlive(config.heartbeatPeriod, () => TickTrigger)
       .scan(zero) {
         case ((None, _), TickTrigger) =>
           // skip all ticks we don't have the offset yet
@@ -933,7 +933,9 @@ class WebSocketService(
       .collect { case (_, Some(x)) => x }
   }
 
-  private[http] def wsErrorMessage(error: Error): TextMessage.Strict =
+  private[http] def wsErrorMessage(error: Error)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): TextMessage.Strict =
     wsMessage(SprayJson.encodeUnsafe(errorResponse(error)))
 
   private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =
@@ -954,7 +956,7 @@ class WebSocketService(
               .fromLedgerApi(ce)
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
-        )(implicitly[Factory[ServerError, Seq[ServerError]]])
+        )(Seq)
         StepAndErrors(
           errors ++ aerrors,
           dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>
@@ -972,7 +974,6 @@ class WebSocketService(
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {
-      import spray.json._
       Source.single(
         domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson
       )

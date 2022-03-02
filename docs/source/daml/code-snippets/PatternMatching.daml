@@ -1,9 +1,12 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The PatternMatching example.
 
 module PatternMatching where
+
+import Daml.Script
+import DA.Assert
 
 optionalIntegerToText (x : Optional Int) : Text =
   case x of
@@ -11,10 +14,10 @@ optionalIntegerToText (x : Optional Int) : Text =
     Some val -> "The content of the box is " <> show val
 
 optionalIntegerToTextTest =
-  scenario do
+  script do
     let
       x = Some 3
-    assert (optionalIntegerToText x == "The content of the box is 3")
+    optionalIntegerToText x === "The content of the box is 3"
 
 
 tmp =

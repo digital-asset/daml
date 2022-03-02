@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
@@ -97,6 +97,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
+import           DA.Daml.Options.Types (EnableScenarios (..))
 import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
@@ -182,6 +183,7 @@ data Env = Env
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
     ,envIsGenerated :: Bool
+    ,envEnableScenarios :: EnableScenarios
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
     ,envTypeVarNames :: !(S.Set TypeVarName)
@@ -294,9 +296,7 @@ convertRationalDecimal env num denom
     -- upper limit.
     if 10 ^ maxPrecision `mod` denom == 0 && abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 then
         pure $ EBuiltin $
-        if envLfVersion env `supports` featureNumeric
-            then BENumeric $ numericFromDecimal $ fromRational r
-            else BEDecimal $ fromRational r
+          BENumeric $ numericFromDecimal $ fromRational r
     else
         unsupported
             ("Rational is out of bounds: " ++
@@ -498,6 +498,7 @@ convertConsuming consumingTy = case consumingTy of
 
 convertModule
     :: LF.Version
+    -> EnableScenarios
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
     -> Bool
@@ -506,7 +507,7 @@ convertModule
     -> [GHC.Module]
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     depOrphanModules <- convertDepOrphanModules env depOrphanModules
@@ -522,11 +523,11 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             ++ interfaces
             ++ depOrphanModules
             ++ exports
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags defs)
+    pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
     where
-        ghcModName = GHC.moduleName $ cm_module x
-        thisUnitId = GHC.moduleUnitId $ cm_module x
-        lfModName = convertModuleName ghcModName
+        envGHCModuleName = GHC.moduleName $ cm_module x
+        envModuleUnitId = GHC.moduleUnitId $ cm_module x
+        envLFModuleName = convertModuleName envGHCModuleName
         flags = LF.daml12FeatureFlags
         binds =
           [ bind
@@ -538,88 +539,61 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
-        interfaceCons = interfaceNames lfVersion (eltsUFM (cm_types x))
-        tplImplements = MS.fromListWith (++)
+        envInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types x))
+        envImplements = MS.fromListWith (++)
           [ (mkTypeCon [getOccText tpl], [iface])
           | (name, _val) <- binds
           , "_implements_" `T.isPrefixOf` getOccText name
           , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
           , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
           ]
-        ifaceRequires = MS.fromListWith (++)
+        envRequires = MS.fromListWith (++)
           [ (mkTypeCon [getOccText iface1], [iface2])
           | (name, _val) <- binds
           , "_requires_" `T.isPrefixOf` getOccText name
           , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
           , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
           ]
-        tplInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-        tplInterfaceMethodInstances = MS.fromListWith (++)
+        envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+        envInterfaceMethodInstances = MS.fromListWith (++)
           [
             ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
-            , [(methodName, body)]
+            , [(methodName, untick val)]
             )
           | (name, val) <- binds
           , TypeCon methodNewtype
             [ TypeCon tpl []
             , TypeCon iface []
             , StrLitTy methodName
-            , _methodType
             ] <- [varType name]
           , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
           , Just mod <- [nameModule_maybe (getName iface)]
-          , Var (NameIn DA_Internal_Desugar "mkMethod")
-            `App` Type _tpl
-            `App` Type _iface
-            `App` Type _methodName
-            `App` Type _methodType
-            `App` _implDict
-            `App` _hasMethodDict
-            `App` body
-              <- [untick val]
           ]
-        choiceData = MS.fromListWith (++)
+        envChoiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
             , "_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
-        ifChoiceData = MS.fromListWith (++)
+        envInterfaceChoiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
             , "_interface_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
             ]
-        templateBinds = scrapeTemplateBinds binds
-        interfaceBinds = scrapeInterfaceBinds binds
-        exceptionBinds
-            | lfVersion `supports` featureExceptions =
+        envTemplateBinds = scrapeTemplateBinds binds
+        envInterfaceBinds = scrapeInterfaceBinds binds
+        envExceptionBinds
+            | envLfVersion `supports` featureExceptions =
                 scrapeExceptionBinds binds
             | otherwise =
                 MS.empty
 
-        env = Env
-          { envLFModuleName = lfModName
-          , envGHCModuleName = ghcModName
-          , envModuleUnitId = thisUnitId
-          , envAliases = MS.empty
-          , envPkgMap = pkgMap
-          , envStablePackages = stablePackages
-          , envLfVersion = lfVersion
-          , envInterfaces = interfaceCons
-          , envInterfaceChoiceData = ifChoiceData
-          , envTemplateBinds = templateBinds
-          , envInterfaceBinds = interfaceBinds
-          , envExceptionBinds = exceptionBinds
-          , envImplements = tplImplements
-          , envRequires = ifaceRequires
-          , envInterfaceMethodInstances = tplInterfaceMethodInstances
-          , envChoiceData = choiceData
-          , envIsGenerated = isGenerated
-          , envTypeVars = MS.empty
-          , envTypeVarNames = S.empty
-          , envModInstanceInfo = modInstanceInfoFromDetails details
-          }
+        envAliases = MS.empty
+        envTypeVars = MS.empty
+        envTypeVarNames = S.empty
+        envModInstanceInfo = modInstanceInfoFromDetails details
+        env = Env {..}
 
 data Consuming = PreConsuming
                | Consuming
@@ -645,7 +619,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [getOccText t]
                 , dataSerializable = IsSerializable False
-                -- TODO https://github.com/digital-asset/daml/issues/10810
+                -- TODO https://github.com/digital-asset/daml/issues/12051
                 -- validate that the type has no parameters.
                 , dataParams = []
                 , dataCons = DataInterface
@@ -716,11 +690,7 @@ convertSimpleRecordDef env tycon = do
 
 convertTypeSynonym :: Env -> TyCon -> ConvertM [Definition]
 convertTypeSynonym env tycon
-    | NameIn DA_Generics _ <- GHC.tyConName tycon
-    = pure []
-
-    | envLfVersion env `supports` featureTypeSynonyms
-    , Just (params, body) <- synTyConDefn_maybe tycon
+    | Just (params, body) <- synTyConDefn_maybe tycon
     , not (isKindTyCon tycon)
     = do
         let isConstraintSynonym =
@@ -750,17 +720,8 @@ convertClassDef env tycon
     fieldTypes <- mapM (convertType env') (theta ++ args)
 
     let fields = zipExact labels (map sanitize fieldTypes)
-        tconName = mkTypeCon [getOccText tycon]
         tsynName = mkTypeSyn [getOccText tycon]
-        newStyle = envLfVersion env `supports` featureTypeSynonyms
-            -- "new-style typeclasses" are type synonyms
-            -- "old-style typeclasses" were record types
-        typeDef
-            | newStyle =
-                -- LF structs must have > 0 fields, therefore we define the
-                -- typeclass as a synonym for Unit if it has no fields.
-                defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
-            | otherwise = defDataType tconName tyVars (DataRecord fields)
+        typeDef = defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
 
     let funDeps = snd (classTvsFds cls)
     funDeps' <- mapM (mapFunDepM (convTypeVarName env')) funDeps
@@ -787,10 +748,8 @@ convertClassDef env tycon
         minimalDef = DValue (mkMetadataStub (minimalName tsynName) minimalType)
 
     pure $ [typeDef]
-        ++ [funDepDef | classHasFds cls && newStyle]
-        ++ [minimalDef | not minimalIsDefault && newStyle]
-        -- NOTE (SF): No reason to generate fundep & minimal metadata with old-style typeclasses,
-        -- since data-dependencies support for old-style typeclasses is extremely limited.
+        ++ [funDepDef | classHasFds cls]
+        ++ [minimalDef | not minimalIsDefault]
 
 convertDepOrphanModules :: Env -> [GHC.Module] -> ConvertM [Definition]
 convertDepOrphanModules env orphanModules = do
@@ -801,14 +760,10 @@ convertDepOrphanModules env orphanModules = do
     pure [moduleImportsDef]
 
 convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
-convertExports env availInfos =
-    if envLfVersion env `supports` featureTypeSynonyms
-        then do
-            let externalExportInfos = filter isExternalAvailInfo availInfos
-            exportInfos <- mapM availInfoToExportInfo externalExportInfos
-            pure $ zipWith mkExportDef [0..] exportInfos
-        else
-            pure []
+convertExports env availInfos = do
+    let externalExportInfos = filter isExternalAvailInfo availInfos
+    exportInfos <- mapM availInfoToExportInfo externalExportInfos
+    pure $ zipWith mkExportDef [0..] exportInfos
     where
         isExternalAvailInfo :: GHC.AvailInfo -> Bool
         isExternalAvailInfo = isExternalName . GHC.availName
@@ -1090,9 +1045,7 @@ convertBind env (name, x)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
 
-    -- TODO https://github.com/digital-asset/daml/issues/10810
-    -- Reconsider once we have a constructor for existential interfaces
-    -- in LF.
+    -- Remove interface worker.
     | Just iface <- T.stripPrefix "$W" (getOccText name)
     , mkTypeCon [iface] `MS.member` envInterfaces env = pure []
 
@@ -1135,6 +1088,7 @@ convertBind env (name, x)
     = pure []
 
     -- HasMethod instances are only used for desugaring.
+    -- In data-dependencies, they are reconstructed from the interface definition.
     | DFunId _ <- idDetails name
     , TypeCon hasMethodCls _ <- varType name
     , NameIn DA_Internal_Desugar "HasMethod" <- hasMethodCls
@@ -1149,10 +1103,7 @@ convertBind env (name, x)
     let sanitized_x'
           | isNewtype = x'
           | otherwise =
-            let fieldsPrism
-                  | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
-                  | otherwise = _ERecCon . _2
-            in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit)) x'
+            over (_ETyLams . _2 . _ETmLams . _2 . _EStructCon . each . _2) (ETmLam (mkVar "_", TUnit)) x'
     name' <- convValWithType env name
 
     -- OVERLAP* annotations
@@ -1163,6 +1114,16 @@ convertBind env (name, x)
             Just (DValue (mkMetadataStub overlapModeName' overlapModeType))
 
     pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
+
+    -- Scenario definitions when scenarios are disabled
+    | EnableScenarios False <- envEnableScenarios env
+    , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
+    , NameIn DA_Internal_LF "Scenario" <- scenarioType
+    = withRange (convNameLoc name) $ conversionError $ unlines
+        [ "Scenarios are no longer supported."
+        , "Instead, consider using Daml Script (https://docs.daml.com/daml-script/index.html)."
+        , "When compiling " <> prettyPrint name <> " : " <> prettyPrint ty <> "."
+        ]
 
     -- Regular functions
     | otherwise
@@ -1208,7 +1169,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     , ("DA.Internal.Desugar",
         [ "mkMethod"
-        , "$sel:unMethod:Method"
         ])
     ]
 
@@ -1247,6 +1207,9 @@ convertExpr env0 e = do
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+    -- erase mkMethod calls and leave only the body.
+    go env (VarIn DA_Internal_Desugar "mkMethod") (LType _tpl : LType _iface : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
+        = go env body args
     go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
         = do
         ty <- convertType env t
@@ -1341,9 +1304,9 @@ convertExpr env0 e = do
             | (con, i) <- zip (tyConDataCons t) [0..]
             ]
     go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
-        | VarIn GHC_Prim "==#" <- op0 = go (mkBuiltinEqual (envLfVersion env))
-        | VarIn GHC_Prim "<#"  <- op0 = go (mkBuiltinLess (envLfVersion env))
-        | VarIn GHC_Prim ">#"  <- op0 = go (mkBuiltinGreater (envLfVersion env))
+        | VarIn GHC_Prim "==#" <- op0 = go mkBuiltinEqual
+        | VarIn GHC_Prim "<#"  <- op0 = go mkBuiltinLess
+        | VarIn GHC_Prim ">#"  <- op0 = go mkBuiltinGreater
         where
           go op1 = fmap (, args) $ do
               x' <- convertExpr env x
@@ -1351,7 +1314,7 @@ convertExpr env0 e = do
               pure (op1 BTInt64 `ETmApp` x' `ETmApp` y')
     go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
-        pure $ mkBuiltinEqual (envLfVersion env) BTInt64 `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
+        pure $ mkBuiltinEqual BTInt64 `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
     go env (VarIn GHC_Prim "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
         tt' <- convertType env tt
@@ -1365,7 +1328,7 @@ convertExpr env0 e = do
               = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText con))
               | otherwise
               = EVariantCon (fromTCon tt') (mkVariantCon (getOccText con)) EUnit
-            mkEqInt i = mkBuiltinEqual (envLfVersion env) BTInt64 `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
+            mkEqInt i = mkBuiltinEqual BTInt64 `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
     -- built ins because they are lazy
@@ -1527,12 +1490,11 @@ convertExpr env0 e = do
             let fldIndex = fromJust (elemIndex x vs)
             let fldName = fldNames !! fldIndex
             recTyp <- convertType env (varType bind)
-            pure $ mkDictProj env (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
+            pure $ mkDictProj fldName scrutinee' `ETmApp` EUnit
     go env o@(Case scrutinee bind resultType [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
             -- opaque types have no patterns that can be matched
             TText -> asLet
-            TDecimal -> asLet
             TNumeric _ -> asLet
             TParty -> asLet
             TTimestamp -> asLet
@@ -1635,14 +1597,7 @@ mkCase env scrutineeType resultType scrutinee galts =
 
     mkScrutineeEquality :: LF.Expr -> LF.Expr
     mkScrutineeEquality pattern
-        | TBuiltin scrutineeBuiltinType <- scrutineeType
-        = mkBuiltinEqual (envLfVersion env) scrutineeBuiltinType `ETmApp` scrutinee `ETmApp` pattern
-
-        | envLfVersion env `supports` featureGenericComparison
         = EBuiltin BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
-
-        | otherwise
-        = error "mkScrutineeEquality: No built-in equality exists for target LF version and type."
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool
@@ -1741,6 +1696,25 @@ convertDataCon env m con args
     | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do
         tyArgs <- mapM (convertType env) tyArgs
         tmArgs <- mapM (convertExpr env) tmArgs
+        (, []) <$> fullyApplied env tyArgs tmArgs
+
+    -- Partially applied, but the constructor only takes type args.
+    -- In this situation there is no worker function, so we inline
+    -- the constructor by introducing some type lambdas.
+    | let (conTypes, conTheta, conArgs, _) = dataConSig con
+    , null conTheta && null conArgs -- no value args
+    = do
+        kinds <- mapM (convertKind . tyVarKind) conTypes
+        withTyArgs env kinds args $ \ env' types args' -> do
+            (, args') <$> fullyApplied env' types []
+
+    -- Partially applied
+    | otherwise = do
+        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
+  where
+
+    fullyApplied :: Env -> [LF.Type] -> [LF.Expr] -> ConvertM LF.Expr
+    fullyApplied env tyArgs tmArgs = do
         let tycon = dataConTyCon con
         qTCon <- qual (\x -> mkTypeCon [x]) (getOccText tycon)
         let tcon = TypeConApp qTCon tyArgs
@@ -1748,7 +1722,7 @@ convertDataCon env m con args
             fldNames = ctorLabels con
             xargs = (dataConName con, args)
 
-        fmap (, []) $ case classifyDataCon con of
+        case classifyDataCon con of
             EnumCon -> do
                 unless (null args) $ unhandled "enum constructor with arguments" xargs
                 pure $ EEnumCon qTCon ctorName
@@ -1772,22 +1746,25 @@ convertDataCon env m con args
                     EVariantCon tcon ctorName $
                     ERecCon (TypeConApp recTCon tyArgs) (zipExact fldNames tmArgs)
 
-    -- Partially applied
-    | otherwise = do
-        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
-
-    where
-
-        qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
-        qual f t
-            | Just xs <- T.stripPrefix "(," t
-            , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-            | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
+    qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+    qual f t
+        | Just xs <- T.stripPrefix "(," t
+        , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
+        | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
     Type t -> TyArg <$> convertType env t
     e -> TmArg <$> convertExpr env e
+
+withTyArgs :: Env -> [LF.Kind] -> [LArg Var] -> (Env -> [LF.Type] -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTyArgs env0 kinds0 args0 cont = go env0 args0 [] kinds0
+  where
+    go !env !args !types [] =
+        cont env (reverse types) args
+    go !env !args !types (kind : kinds) =
+        withTyArg env kind args $ \env' ty args' ->
+            go env' args' (ty : types) kinds
 
 withTyArg :: Env -> LF.Kind -> [LArg Var] -> (Env -> LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do
@@ -1893,15 +1870,11 @@ mkDictCon :: Env -> TypeConApp -> [(LF.FieldName, LF.Expr)] -> LF.Expr
 mkDictCon env tcon fields
 -- Structs must have > 0 fields, therefore we simply make a typeclass a synonym for Unit
 -- if it has no fields.
-    | envLfVersion env `supports` featureTypeSynonyms && null fields = EUnit
-    | envLfVersion env `supports` featureTypeSynonyms = EStructCon fields
-    | otherwise = ERecCon tcon fields
+    | null fields = EUnit
+    | otherwise = EStructCon fields
 
-mkDictProj :: Env -> TypeConApp -> LF.FieldName -> LF.Expr -> LF.Expr
-mkDictProj env tcon =
-    if envLfVersion env `supports` featureTypeSynonyms
-      then EStructProj
-      else ERecProj tcon
+mkDictProj :: LF.FieldName -> LF.Expr -> LF.Expr
+mkDictProj = EStructProj
 
 -- Convert a coercion @S ~ T@ to a pair of lambdas
 -- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
@@ -1996,7 +1969,7 @@ convertCoercion env co = evalStateT (go env co) 0
         t' <- lift $ convertQualifiedTyCon env tCon
         let tcon = TypeConApp t' ts'
         pure $ if flv == ClassFlavour
-           then (\expr -> mkDictCon env tcon [(field, sanitizeTo expr)], sanitizeFrom . mkDictProj env tcon field)
+           then (\expr -> mkDictCon env tcon [(field, sanitizeTo expr)], sanitizeFrom . mkDictProj field)
            else (\expr -> ERecCon tcon [(field, expr)], ERecProj tcon field)
       where
           sanitizeTo x
@@ -2120,10 +2093,7 @@ convertTyCon env t
         case n of
             "Text" -> pure TText
             "Numeric" -> pure (TBuiltin BTNumeric)
-            "Decimal" ->
-                if envLfVersion env `supports` featureNumeric
-                    then pure TNumeric10
-                    else pure TDecimal
+            "Decimal" -> pure TNumeric10
             "BigNumeric" -> pure TBigNumeric
             "RoundingMode" -> pure TRoundingMode
             _ -> defaultTyCon
@@ -2137,20 +2107,8 @@ convertTyCon env t
             "Time" -> pure TTimestamp
             "TextMap" -> pure (TBuiltin BTTextMap)
             "Map" -> pure (TBuiltin BTGenMap)
-            "Any" ->
-                -- We just translate this to TUnit when it is not supported.
-                -- We can’t get rid of it completely since the template desugaring uses
-                -- this and we do not want to make that dependent on the DAML-LF version.
-                pure $ if envLfVersion env `supports` featureAnyType
-                    then TAny
-                    else TUnit
-            "TypeRep" ->
-                -- We just translate this to TUnit when it is not supported.
-                -- We can’t get rid of it completely since the template desugaring uses
-                -- this and we do not want to make that dependent on the DAML-LF version.
-                pure $ if envLfVersion env `supports` featureTypeRep
-                    then TTypeRep
-                    else TUnit
+            "Any" -> pure TAny
+            "TypeRep" -> pure TTypeRep
             "AnyException" -> pure (TBuiltin BTAnyException)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
@@ -2159,9 +2117,6 @@ convertTyCon env t
         arity = tyConArity t
         defaultTyCon = TCon <$> convertQualifiedTyCon env t
 
-metadataTys :: UniqSet FastString
-metadataTys = mkUniqSet ["MetaData", "MetaCons", "MetaSel"]
-
 convertType :: Env -> GHC.Type -> ConvertM LF.Type
 convertType env = go env
   where
@@ -2169,9 +2124,6 @@ convertType env = go env
     go env o@(TypeCon t ts)
         | t == listTyCon, ts `eqTypes` [charTy] =
             pure TText
-        | NameIn DA_Generics n <- t
-        , n `elementOfUniqSet` metadataTys
-        , [_] <- ts = erasedTy env
         | t == anyTyCon, [_] <- ts =
             -- used for type-zonking
             -- We translate this to Erased instead of TUnit since we do
@@ -2193,8 +2145,7 @@ convertType env = go env
             fieldTys <- mapM (go env) ts
             let fieldNames = map mkSuperClassField [1..]
             pure $ TStruct (zip fieldNames fieldTys)
-        | tyConFlavour t == ClassFlavour
-        , envLfVersion env `supports` featureTypeSynonyms = do
+        | tyConFlavour t == ClassFlavour = do
            tySyn <- convertQualifiedTySyn env t
            TSynApp tySyn <$> mapM (go env) ts
         | otherwise =
@@ -2230,7 +2181,6 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
-    | NameIn DA_Generics "Meta" <- getName t, null ts = pure KStar
     | NameIn GHC_Types "Nat" <- getName t, null ts = pure KNat
     | t == funTyCon, [_,_,t1,t2] <- ts = do
         k1 <- convertKind t1

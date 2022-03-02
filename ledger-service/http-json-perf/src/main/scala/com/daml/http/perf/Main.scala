@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf
@@ -198,42 +198,42 @@ object Main extends StrictLogging {
     )
 
     import com.daml.testing.oracle, oracle.OracleAround
-    val Oracle: T = QueryStoreBracket[OracleRunner, oracle.User](
+    val Oracle: T = QueryStoreBracket[OracleRunner, OracleAround.RichOracleUser](
       () => new OracleRunner,
       _.start(),
       _ jdbcConfig _,
       _.stop(_),
     )
 
-    private[this] final class OracleRunner extends OracleAround {
+    private[this] final class OracleRunner {
 
       private val defaultUser = "ORACLE_USER"
       private val retainData = sys.env.get("RETAIN_DATA").exists(_ equalsIgnoreCase "true")
       private val useDefaultUser = sys.env.get("USE_DEFAULT_USER").exists(_ equalsIgnoreCase "true")
-      type St = oracle.User
+      type St = OracleAround.RichOracleUser
 
-      def start() = Try {
-        connectToOracle()
-        if (useDefaultUser) createNewUser(defaultUser) else createNewRandomUser(): St
+      def start(): Try[St] = Try {
+        if (useDefaultUser) OracleAround.createOrReuseUser(defaultUser)
+        else OracleAround.createNewUniqueRandomUser()
       }
 
-      def jdbcConfig(user: St) = {
+      def jdbcConfig(user: St): JdbcConfig = {
         import DbStartupMode._
         val startupMode: DbStartupMode = if (retainData) CreateIfNeededAndStart else CreateAndStart
         JdbcConfig(
           dbutils.JdbcConfig(
             "oracle.jdbc.OracleDriver",
-            oracleJdbcUrl,
-            user.name,
-            user.pwd,
+            user.jdbcUrlWithoutCredentials,
+            user.oracleUser.name,
+            user.oracleUser.pwd,
             ConnectionPool.PoolSize.Production,
           ),
-          dbStartupMode = startupMode,
+          startMode = startupMode,
         )
       }
 
-      def stop(user: St) = {
-        if (retainData) Success((): Unit) else Try(dropUser(user.name))
+      def stop(user: St): Try[Unit] = {
+        if (retainData) Success(()) else Try(user.drop())
       }
     }
 
@@ -254,7 +254,7 @@ object Main extends StrictLogging {
           password = "",
           ConnectionPool.PoolSize.Production,
         ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
     )
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {
@@ -269,9 +269,11 @@ object Main extends StrictLogging {
     }
   }
 
-  private def getLedgerId(jwt: Jwt): EndpointsCompanion.Unauthorized \/ LedgerId = {
+  private def getLedgerId(
+      jwt: Jwt
+  ): EndpointsCompanion.Error \/ LedgerId = {
     EndpointsCompanion
-      .decodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
+      .customDecodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
       .map { case (_, payload) => payload.ledgerId }
   }
 

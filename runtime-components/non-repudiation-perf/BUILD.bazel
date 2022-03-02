@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,7 +13,6 @@ da_scala_benchmark_jmh(
     resources = ["src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
         "@maven//:org_tpolecat_doobie_hikari",

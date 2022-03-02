@@ -1,9 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -16,20 +15,21 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionEntry
 import com.daml.ledger.participant.state.kvutils.store.{
-  DamlContractKey,
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.lf.archive
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
-import com.daml.lf.value.ValueCoder
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
+import com.daml.lf.kv.transactions.{ContractIdOrKey, RawTransaction, TransactionConversions}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
 
@@ -180,8 +180,14 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
-          archive: DamlLf.Archive =>
-            DamlStateKey.newBuilder.setPackageId(archive.getHash).build
+          rawArchive: ByteString =>
+            ArchiveConversions.parsePackageId(RawArchive(rawArchive)) match {
+              case Right(packageId) => DamlStateKey.newBuilder.setPackageId(packageId).build
+              case Left(err: archive.Error) =>
+                throw Err.InternalError(
+                  s"${err.msg}: This should not happen, as the archives have just been validated."
+                )
+            }
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
@@ -195,8 +201,7 @@ object KeyValueCommitting {
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val transactionEntry = submission.getTransactionEntry
-        transactionOutputs(transactionEntry) +
-          commandDedupKey(transactionEntry.getSubmitterInfo)
+        transactionOutputs(transactionEntry) + commandDedupKey(transactionEntry.getSubmitterInfo)
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         val configEntry = submission.getConfigurationSubmission
@@ -210,86 +215,14 @@ object KeyValueCommitting {
     }
   }
 
-  private def transactionOutputs(
-      transactionEntry: DamlTransactionEntry
-  ): Set[DamlStateKey] = {
-    val outputs = Set.newBuilder[DamlStateKey]
-    val transaction =
-      TransactionOuterClass.Transaction.parseFrom(transactionEntry.getRawTransaction)
-    val txVersion =
-      TransactionCoder.decodeVersion(transaction.getVersion) match {
-        case Right(value) => value
-        case Left(err) => throw Err.DecodeError("Transaction", err.errorMessage)
-      }
-
-    transaction.getNodesList.asScala.foreach { node =>
-      val nodeVersion = TransactionCoder.decodeNodeVersion(txVersion, node) match {
-        case Right(value) => value
-        case Left(err) => throw Err.DecodeError("Node", err.errorMessage)
-      }
-
-      node.getNodeTypeCase match {
-
-        case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
-        // Nodes under rollback will potentially produce outputs such as divulgence.
-        // Actual outputs must be a subset of, or the same as, computed outputs and
-        // we currently relax this check by widening the latter set, treating a node the
-        // same regardless of whether it was under a rollback node or not.
-        // Computed outputs that are not actual outputs can be safely trimmed: examples
-        // are transient contracts and, now, potentially also outputs from nodes under
-        // rollback.
-
-        case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
-          val protoCreate = node.getCreate
-          TransactionCoder.nodeKey(nodeVersion, protoCreate) match {
-            case Right(Some(key)) =>
-              outputs += contractKeyToStateKey(key)
-            case Right(None) =>
-            case Left(err) => throw Err.DecodeError("ContractKey", err.errorMessage)
-          }
-          outputs +=
-            Conversions.contractIdStructOrStringToStateKey(protoCreate.getContractIdStruct)
-
-        case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
-          val protoExercise = node.getExercise
-          TransactionCoder.nodeKey(nodeVersion, protoExercise) match {
-            case Right(Some(key)) =>
-              outputs += contractKeyToStateKey(key)
-            case Right(None) =>
-            case Left(err) => throw Err.DecodeError("ContractKey", err.errorMessage)
-          }
-          outputs +=
-            Conversions.contractIdStructOrStringToStateKey(protoExercise.getContractIdStruct)
-
-        case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
-          // A fetch may cause a divulgence, which is why the target contract is a potential output.
-          outputs +=
-            Conversions.contractIdStructOrStringToStateKey(node.getFetch.getContractIdStruct)
-
-        case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
-        // Contract state only modified on divulgence, in which case we'll have a fetch node,
-        // so no outputs from lookup node.
-
-        case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
-          throw Err.InvalidSubmission("submissionOutputs: NODETYPE_NOT_SET")
-      }
-    }
-    outputs.result()
-  }
-
-  private def contractKeyToStateKey(
-      key: GlobalKey
-  ): DamlStateKey = {
-    // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
-    // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
-    // to allocate a log entry id and we can directly place the output keys into the submission and do not need
-    // to compute outputs from serialized transaction.
-    DamlStateKey.newBuilder
-      .setContractKey(
-        DamlContractKey.newBuilder
-          .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
-          .setHash(key.hash.bytes.toByteString)
+  private def transactionOutputs(transactionEntry: DamlTransactionEntry): Set[DamlStateKey] =
+    TransactionConversions
+      .extractTransactionOutputs(RawTransaction(transactionEntry.getRawTransaction))
+      .fold(
+        err => throw Err.DecodeError("Transaction", err.errorMessage),
+        _.map {
+          case ContractIdOrKey.Id(id) => Conversions.contractIdToStateKey(id)
+          case ContractIdOrKey.Key(key) => Conversions.globalKeyToStateKey(key)
+        },
       )
-      .build
-  }
 }

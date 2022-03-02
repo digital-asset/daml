@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.nonrepudiation
@@ -12,7 +12,7 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceO
 import doobie.hikari.HikariTransactor
 import doobie.util.{Get, Put, Read}
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.ExecutionContext
 
 package object postgresql {

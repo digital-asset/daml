@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,6 +17,7 @@ import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.{PackageInterface, LanguageVersion => LV}
+import com.daml.logging.LoggingContext
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -79,6 +80,8 @@ object Main extends App {
 
 // The Daml-LF Read-Eval-Print-Loop
 object Repl {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   val defaultCompilerConfig: Compiler.Config =
     Compiler.Config(
@@ -206,7 +209,7 @@ object Repl {
           compiledPackages,
           expr,
         )
-      (machine, new ScenarioRunner(machine, seed).run())
+      (machine, new ScenarioRunner(machine, seed).run)
     }
   }
 
@@ -564,11 +567,11 @@ object Repl {
           successes += 1
           totalTime += success.duration
           totalSteps += success.steps
-          println(s"ok in ${success.duration.formatted("%.2f")}ms, ${success.steps} steps")
+          println(f"ok in ${success.duration}%.2f ms, ${success.steps} steps")
       }
     }
     println(
-      s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps."
+      f"\n$successes passed, $failures failed, total time $totalTime%.2f ms, total steps $totalSteps."
     )
     (failures == 0, state)
   }

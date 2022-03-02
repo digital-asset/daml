@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -70,6 +70,7 @@ trait TestFixture
   }
   lazy protected val middlewareClientRoutes: Client.Routes =
     middlewareClient.routes(middlewareClientCallbackUri)
+  protected def oauthYieldsUserTokens: Boolean = true
   override protected lazy val suiteResource: Resource[TestResources] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, TestResources](
@@ -81,6 +82,7 @@ trait TestFixture
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
             clock = Some(clock),
+            yieldUserTokens = oauthYieldsUserTokens,
           )
         )
         serverBinding <- Resources.authServerBinding(server)

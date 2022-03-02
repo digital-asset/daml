@@ -1,9 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.google.protobuf.timestamp.Timestamp
 
@@ -12,13 +11,13 @@ import java.time.{Clock, Duration}
 final case class DelayMetric[T](
     recordTimeFunction: T => Seq[Timestamp],
     clock: Clock,
-    objective: Option[(ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value])],
+    objective: Option[(DelayMetric.MaxDelay, Option[DelayMetric.Value])],
     delaysInCurrentInterval: List[Duration] = List.empty,
 ) extends Metric[T] {
   import DelayMetric._
 
   override type V = Value
-  override type Objective = ServiceLevelObjective[Value]
+  override type Objective = MaxDelay
 
   override def onNext(value: T): DelayMetric[T] = {
     val now = clock.instant()
@@ -39,14 +38,18 @@ final case class DelayMetric[T](
   override def finalValue(totalDuration: Duration): Value =
     Value(None)
 
-  override def violatedObjective: Option[(ServiceLevelObjective[Value], Value)] =
+  override def violatedPeriodicObjectives: List[(MaxDelay, Value)] =
     objective.collect {
       case (objective, value) if value.isDefined => objective -> value.get
-    }
+    }.toList
+
+  override def violatedFinalObjectives(
+      totalDuration: Duration
+  ): List[(MaxDelay, Value)] = Nil
 
   private def updatedObjective(
       newValue: Value
-  ): Option[(ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value])] =
+  ): Option[(MaxDelay, Option[DelayMetric.Value])] =
     objective.map { case (objective, currentViolatingValue) =>
       // verify if the new value violates objective's requirements
       if (objective.isViolatedBy(newValue)) {
@@ -80,7 +83,7 @@ object DelayMetric {
   def empty[T](
       recordTimeFunction: T => Seq[Timestamp],
       clock: Clock,
-      objective: Option[ServiceLevelObjective[Value]] = None,
+      objective: Option[MaxDelay] = None,
   ): DelayMetric[T] =
     DelayMetric(
       recordTimeFunction = recordTimeFunction,
@@ -103,4 +106,11 @@ object DelayMetric {
       }
     }
   }
+
+  final case class MaxDelay(maxDelaySeconds: Long)
+      extends ServiceLevelObjective[DelayMetric.Value] {
+    override def isViolatedBy(metricValue: DelayMetric.Value): Boolean =
+      metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
+  }
+
 }

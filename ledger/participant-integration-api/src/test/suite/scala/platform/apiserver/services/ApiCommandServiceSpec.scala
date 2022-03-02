@@ -1,9 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -40,8 +39,6 @@ class ApiCommandServiceSpec
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
-
   s"the command service" should {
     val completionSuccess = CompletionResponse.CompletionSuccess(
       Completion(
@@ -71,7 +68,6 @@ class ApiCommandServiceSpec
         new ApiCommandService(
           UnimplementedTransactionServices,
           submissionTracker,
-          errorCodesVersionSwitcher,
         )
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
@@ -81,7 +77,6 @@ class ApiCommandServiceSpec
           verify(submissionTracker).track(
             eqTo(CommandSubmission(commands))
           )(any[ExecutionContext], any[LoggingContext])
-          verifyZeroInteractions(errorCodesVersionSwitcher)
           succeed
         }
       }
@@ -111,7 +106,6 @@ class ApiCommandServiceSpec
         new ApiCommandService(
           UnimplementedTransactionServices,
           submissionTracker,
-          errorCodesVersionSwitcher,
         ),
         deadlineTicker,
       ).use { stub =>
@@ -124,55 +118,42 @@ class ApiCommandServiceSpec
             verify(submissionTracker).track(
               eqTo(CommandSubmission(commands, timeout = Some(Duration.ofSeconds(30))))
             )(any[ExecutionContext], any[LoggingContext])
-            verifyZeroInteractions(errorCodesVersionSwitcher)
             succeed
           }
       }
     }
 
     "time out if the tracker times out" in {
-      def testTrackerTimeout(switcher: ErrorCodesVersionSwitcher, expectedStatusCode: Code) = {
-        val commands = someCommands()
-        val submissionTracker = mock[Tracker]
-        when(
-          submissionTracker.track(any[CommandSubmission])(
-            any[ExecutionContext],
-            any[LoggingContext],
-          )
-        ).thenReturn(
-          Future.successful(
-            Left(
-              CompletionResponse.QueueCompletionFailure(
-                CompletionResponse.TimeoutResponse("command ID")
-              )
+      val commands = someCommands()
+      val submissionTracker = mock[Tracker]
+      when(
+        submissionTracker.track(any[CommandSubmission])(
+          any[ExecutionContext],
+          any[LoggingContext],
+        )
+      ).thenReturn(
+        Future.successful(
+          Left(
+            CompletionResponse.QueueCompletionFailure(
+              CompletionResponse.TimeoutResponse("command ID")
             )
           )
         )
+      )
 
-        openChannel(
-          new ApiCommandService(
-            UnimplementedTransactionServices,
-            submissionTracker,
-            switcher,
-          )
-        ).use { stub =>
-          val request = SubmitAndWaitRequest.of(Some(commands))
-          stub.submitAndWaitForTransactionId(request).failed.map {
-            case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(`expectedStatusCode`)) =>
-              succeed
-            case unexpected => fail(s"Unexpected exception", unexpected)
-          }
+      openChannel(
+        new ApiCommandService(
+          UnimplementedTransactionServices,
+          submissionTracker,
+        )
+      ).use { stub =>
+        val request = SubmitAndWaitRequest.of(Some(commands))
+        stub.submitAndWaitForTransactionId(request).failed.map {
+          case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(Code.DEADLINE_EXCEEDED)) =>
+            succeed
+          case unexpected => fail(s"Unexpected exception", unexpected)
         }
       }
-
-      testTrackerTimeout(
-        new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false),
-        Code.ABORTED,
-      )
-      testTrackerTimeout(
-        new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
-        Code.DEADLINE_EXCEEDED,
-      )
     }
 
     "close the supplied tracker when closed" in {
@@ -180,11 +161,9 @@ class ApiCommandServiceSpec
       val service = new ApiCommandService(
         UnimplementedTransactionServices,
         submissionTracker,
-        errorCodesVersionSwitcher,
       )
 
       verifyZeroInteractions(submissionTracker)
-      verifyZeroInteractions(errorCodesVersionSwitcher)
 
       service.close()
       verify(submissionTracker).close()

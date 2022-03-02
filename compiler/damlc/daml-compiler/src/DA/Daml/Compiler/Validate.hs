@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.Validate (validateDar) where
@@ -11,6 +11,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.List as L
 import qualified Data.Text as T
 import Language.LSP.Types
 import Language.LSP.Types.Lens
@@ -47,7 +48,7 @@ validateDar inFile = do
   ExtractedDar{edDalfs} <- extractDar inFile
   extPackages <- mapM (decodeDalfEntry Archive.DecodeAsDependency) edDalfs
   validateWellTyped extPackages
-  return $ length extPackages
+  return $ L.length extPackages
 
 validateWellTyped :: [LF.ExternalPackage] -> IO ()
 validateWellTyped extPackages = do

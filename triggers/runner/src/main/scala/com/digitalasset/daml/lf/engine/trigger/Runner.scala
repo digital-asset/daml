@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -32,8 +32,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
-import com.daml.logging.entries.{LoggingEntry, LoggingValue}
+import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
@@ -51,11 +50,11 @@ import scalaz.syntax.functor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
-import scalaz.{-\/, Functor, \/, \/-}
+import scalaz.{-\/, Functor, Tag, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -76,26 +75,7 @@ final case class Trigger(
     heartbeat: Option[FiniteDuration],
     // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
     hasReadAs: Boolean,
-) {
-  @nowarn("msg=parameter value label .* is never used") // Proxy only
-  private[trigger] final class withLoggingContext[P] private (
-      label: label[Trigger with P],
-      kvs: Seq[LoggingEntry],
-  ) {
-    def apply[T](f: LoggingContextOf[Trigger with P] => T): T =
-      newLoggingContext(
-        label,
-        kvs :+ "triggerDefinition" -> LoggingValue.from(triggerDefinition.toString): _*
-      )(f)
-  }
-
-  private[trigger] object withLoggingContext {
-    def apply[T](f: LoggingContextOf[Trigger] => T): T =
-      newLoggingContext(label, "triggerDefinition" -> triggerDefinition.toString)(f)
-
-    def labelled[P](kvs: LoggingEntry*) = new withLoggingContext(label[Trigger with P], kvs)
-  }
-}
+)
 
 // Utilities for interacting with the speedy machine.
 object Machine extends StrictLogging {
@@ -117,6 +97,21 @@ object Machine extends StrictLogging {
 }
 
 object Trigger extends StrictLogging {
+
+  private[trigger] def newLoggingContext[P, T](
+      triggerDefinition: Identifier,
+      actAs: Party,
+      readAs: Set[Party],
+      triggerId: Option[UUID] = None,
+  ): (LoggingContextOf[Trigger with P] => T) => T = {
+    val entries0 = List[LoggingEntry](
+      "triggerDefinition" -> triggerDefinition.toString,
+      "triggerActAs" -> Tag.unwrap(actAs),
+      "triggerReadAs" -> Tag.unsubst(readAs),
+    )
+    val entries = triggerId.fold(entries0)(uuid => entries0.+:("triggerId" -> uuid.toString))
+    LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger with P], entries: _*)
+  }
 
   private def detectHasReadAs(
       interface: PackageInterface,
@@ -140,7 +135,7 @@ object Trigger extends StrictLogging {
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       triggerId: Identifier,
-  ): Either[String, Trigger] = {
+  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Trigger] = {
 
     // Given an identifier to a high- or lowlevel trigger,
     // return an expression that will run the corresponding trigger
@@ -192,7 +187,7 @@ object Trigger extends StrictLogging {
       compiler: Compiler,
       converter: Converter,
       expr: TypedExpr,
-  ): Either[String, Option[FiniteDuration]] = {
+  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Option[FiniteDuration]] = {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
@@ -210,11 +205,10 @@ object Trigger extends StrictLogging {
       compiler: Compiler,
       converter: Converter,
       expr: TypedExpr,
-  ): Either[String, Filters] = {
-    val registeredTemplates =
-      compiler.unsafeCompile(
-        ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
-      )
+  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Filters] = {
+    val registeredTemplates = compiler.unsafeCompile(
+      ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
+    )
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
@@ -539,7 +533,7 @@ class Runner(
     // The materialized value of the flow is the (future) final state
     // of this process.
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    val graph = GraphDSL.create(Sink.last[SValue]) { implicit gb => saveLastState =>
+    val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
       val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
       val initialState = gb add runInitialState
@@ -749,7 +743,7 @@ object Runner extends StrictLogging {
     case object Neither extends SeenMsgs
   }
 
-  // Convience wrapper that creates the runner and runs the trigger.
+  // Convenience wrapper that creates the runner and runs the trigger.
   def run(
       dar: Dar[(PackageId, Package)],
       triggerId: Identifier,
@@ -758,23 +752,22 @@ object Runner extends StrictLogging {
       applicationId: ApplicationId,
       parties: TriggerParties,
       config: Compiler.Config,
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
-    val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages.build(darMap, config) match {
-      case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
-      case Right(pkgs) => pkgs
-    }
-    val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
-      case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
-      case Right(trigger) => trigger
-    }
-    val runner =
-      trigger.withLoggingContext { implicit lc =>
-        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, parties)
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
+    Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
+      val darMap = dar.all.toMap
+      val compiledPackages = PureCompiledPackages.build(darMap, config) match {
+        case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
+        case Right(pkgs) => pkgs
       }
-    for {
-      (acs, offset) <- runner.queryACS()
-      finalState <- runner.runWithACS(acs, offset)._2
-    } yield finalState
-  }
+      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
+        case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
+        case Right(trigger) => trigger
+      }
+      val runner =
+        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, parties)
+      for {
+        (acs, offset) <- runner.queryACS()
+        finalState <- runner.runWithACS(acs, offset)._2
+      } yield finalState
+    }
 }

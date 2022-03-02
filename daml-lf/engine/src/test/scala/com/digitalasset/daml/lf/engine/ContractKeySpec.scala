@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -23,6 +23,7 @@ import com.daml.lf.value.Value.{
   ValueContractId,
   ContractId,
 }
+import com.daml.logging.LoggingContext
 import java.io.File
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
@@ -47,6 +48,8 @@ class ContractKeySpec
     with BazelRunfiles {
 
   import ContractKeySpec._
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))

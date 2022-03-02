@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -31,8 +31,6 @@ final class Metrics(val registry: MetricRegistry) {
 
       val failedCommandInterpretations: Meter =
         registry.meter(Prefix :+ "failed_command_interpretations")
-      val deduplicatedCommands: Meter =
-        registry.meter(Prefix :+ "deduplicated_commands")
       val delayedSubmissions: Meter =
         registry.meter(Prefix :+ "delayed_submissions")
       val validSubmissions: Meter =
@@ -336,34 +334,24 @@ final class Metrics(val registry: MetricRegistry) {
       }
     }
 
+    object userManagement {
+      private val Prefix = daml.Prefix :+ "user_management"
+
+      val cache = new CacheMetrics(registry, Prefix :+ "cache")
+
+      private def createDbMetrics(name: String): DatabaseMetrics =
+        new DatabaseMetrics(registry, Prefix, name)
+      val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
+      val createUser: DatabaseMetrics = createDbMetrics("create_user")
+      val deleteUser: DatabaseMetrics = createDbMetrics("delete_user")
+      val grantRights: DatabaseMetrics = createDbMetrics("grant_rights")
+      val revokeRights: DatabaseMetrics = createDbMetrics("revoke_rights")
+      val listUsers: DatabaseMetrics = createDbMetrics("list_users")
+    }
     object index {
       private val Prefix = daml.Prefix :+ "index"
 
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
-      val lookupContract: Timer = registry.timer(Prefix :+ "lookup_contract")
-      val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
-      val lookupFlatTransactionById: Timer =
-        registry.timer(Prefix :+ "lookup_flat_transaction_by_id")
-      val lookupTransactionTreeById: Timer =
-        registry.timer(Prefix :+ "lookup_transaction_tree_by_id")
-      val lookupLedgerConfiguration: Timer = registry.timer(Prefix :+ "lookup_ledger_configuration")
-      val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
-      val getParties: Timer = registry.timer(Prefix :+ "get_parties")
-      val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
-      val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
-      val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
-      val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
-      val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
-      val removeExpiredDeduplicationData: Timer =
-        registry.timer(Prefix :+ "remove_expired_deduplication_data")
-      val stopDeduplicatingCommand: Timer =
-        registry.timer(Prefix :+ "stop_deduplicating_command")
-      val prune: Timer = registry.timer(Prefix :+ "prune")
-
-      val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
-      val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
-      val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
-      val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
       val decodeTransactionLogUpdate: Timer =
         registry.timer(Prefix :+ "transaction_log_update_decode")
@@ -386,7 +374,6 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = index.Prefix :+ "db"
 
         val storePartyEntry: Timer = registry.timer(Prefix :+ "store_party_entry")
-        val storeInitialState: Timer = registry.timer(Prefix :+ "store_initial_state")
         val storePackageEntry: Timer = registry.timer(Prefix :+ "store_package_entry")
 
         val storeTransaction: Timer = registry.timer(Prefix :+ "store_ledger_entry")
@@ -415,11 +402,6 @@ final class Metrics(val registry: MetricRegistry) {
         val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
         val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
         val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
-        val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
-        val removeExpiredDeduplicationData: Timer =
-          registry.timer(Prefix :+ "remove_expired_deduplication_data")
-        val stopDeduplicatingCommand: Timer =
-          registry.timer(Prefix :+ "stop_deduplicating_command")
         val prune: Timer = registry.timer(Prefix :+ "prune")
 
         private val createDbMetrics: String => DatabaseMetrics =
@@ -459,7 +441,6 @@ final class Metrics(val registry: MetricRegistry) {
           val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
 
           // in order within SQL transaction
-          val commitValidation: Timer = registry.timer(dbPrefix :+ "commit_validation")
           val eventsBatch: Timer = registry.timer(dbPrefix :+ "events_batch")
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
@@ -476,9 +457,6 @@ final class Metrics(val registry: MetricRegistry) {
         val storeRejectionDbMetrics: DatabaseMetrics = createDbMetrics(
           "store_rejection"
         ) // FIXME Base name conflicts with storeRejection
-        val storeInitialStateFromScenario: DatabaseMetrics = createDbMetrics(
-          "store_initial_state_from_scenario"
-        )
         val loadParties: DatabaseMetrics = createDbMetrics("load_parties")
         val loadAllParties: DatabaseMetrics = createDbMetrics("load_all_parties")
         val loadPackages: DatabaseMetrics = createDbMetrics("load_packages")
@@ -487,15 +465,6 @@ final class Metrics(val registry: MetricRegistry) {
           "store_package_entry"
         ) // FIXME Base name conflicts with storePackageEntry
         val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
-        val deduplicateCommandDbMetrics: DatabaseMetrics = createDbMetrics(
-          "deduplicate_command"
-        ) // FIXME Base name conflicts with deduplicateCommand
-        val removeExpiredDeduplicationDataDbMetrics: DatabaseMetrics = createDbMetrics(
-          "remove_expired_deduplication_data"
-        ) // FIXME Base name conflicts with removeExpiredDeduplicationData
-        val stopDeduplicatingCommandDbMetrics: DatabaseMetrics = createDbMetrics(
-          "stop_deduplicating_command"
-        ) // FIXME Base name conflicts with stopDeduplicatingCommand
         val pruneDbMetrics: DatabaseMetrics = createDbMetrics(
           "prune"
         ) // FIXME Base name conflicts with prune
@@ -506,9 +475,6 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_contract_by_key"
         )
-        val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_maximum_ledger_time"
-        ) // FIXME Base name conflicts with lookupActiveContract
         val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")
         val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
           "lookup_flat_transaction_by_id"
@@ -528,6 +494,11 @@ final class Metrics(val registry: MetricRegistry) {
         )
         val loadStringInterningEntries: DatabaseMetrics = createDbMetrics(
           "loadStringInterningEntries"
+        )
+
+        val meteringAggregator: DatabaseMetrics = createDbMetrics("metering_aggregator")
+        val initializeMeteringAggregator: DatabaseMetrics = createDbMetrics(
+          "initialize_metering_aggregator"
         )
 
         object translation {
@@ -555,9 +526,7 @@ final class Metrics(val registry: MetricRegistry) {
             registry.histogram(Prefix :+ "exercise_result_compressed")
           val exerciseResultUncompressed: Histogram =
             registry.histogram(Prefix :+ "exercise_result_uncompressed")
-
         }
-
       }
     }
 
@@ -604,10 +573,6 @@ final class Metrics(val registry: MetricRegistry) {
         // Bundle of metrics coming from instrumentation of the underlying thread-pool
         val executor: MetricName = Prefix :+ "executor"
 
-        // The latency, which during an update element is residing in the mapping-stage.
-        // Since batches are involved, this duration is divided by the batch size.
-        val duration: Timer = registry.timer(Prefix :+ "duration")
-
         // The batch size, i.e., the number of state updates per database submission
         val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
       }
@@ -619,21 +584,19 @@ final class Metrics(val registry: MetricRegistry) {
 
         // Bundle of metrics coming from instrumentation of the underlying thread-pool
         val executor: MetricName = Prefix :+ "executor"
+      }
 
-        // The latency, which during an update element is residing in the batching-stage.
-        // Since batches are involved, this duration is divided by the batch size.
+      // Sequence Mapping stage
+      object seqMapping {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "seqmapping"
+
+        // The latency, which during an update element is residing in the seq-mapping-stage.
         val duration: Timer = registry.timer(Prefix :+ "duration")
       }
 
       // Ingestion stage
       // Parallel ingestion of prepared data into the database
-      object ingestion extends DatabaseMetrics(registry, Prefix, "ingestion") {
-        private val Prefix: MetricName = parallelIndexer.Prefix :+ "ingestion"
-
-        // The latency, which during an update element is residing in the ingestion.
-        // Since batches are involved, this duration is divided by the batch size.
-        val duration: Timer = registry.timer(Prefix :+ "duration")
-      }
+      val ingestion = new DatabaseMetrics(registry, Prefix, "ingestion")
 
       // Tail ingestion stage
       // The throttled update of ledger end parameters
@@ -648,7 +611,6 @@ final class Metrics(val registry: MetricRegistry) {
 
         val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
         val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
-        val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
         val packageEntries: Timer = registry.timer(Prefix :+ "package_entries")
         val getLedgerConfiguration: Timer = registry.timer(Prefix :+ "get_ledger_configuration")
         val currentLedgerEnd: Timer = registry.timer(Prefix :+ "current_ledger_end")
@@ -662,16 +624,14 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
         val lookupContractKey: Timer = registry.timer(Prefix :+ "lookup_contract_key")
         val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
-        val getLedgerId: Timer = registry.timer(Prefix :+ "get_ledger_id")
         val getParticipantId: Timer = registry.timer(Prefix :+ "get_participant_id")
         val getParties: Timer = registry.timer(Prefix :+ "get_parties")
         val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
         val partyEntries: Timer = registry.timer(Prefix :+ "party_entries")
         val lookupConfiguration: Timer = registry.timer(Prefix :+ "lookup_configuration")
         val configurationEntries: Timer = registry.timer(Prefix :+ "configuration_entries")
-        val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
-        val stopDeduplicateCommand: Timer = registry.timer(Prefix :+ "stop_deduplicating_command")
         val prune: Timer = registry.timer(Prefix :+ "prune")
+        val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
         object streamsBuffer {
           private val Prefix: MetricName = index.Prefix :+ "streams_buffer"

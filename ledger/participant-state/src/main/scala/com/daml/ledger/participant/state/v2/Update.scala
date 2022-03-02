@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v2
@@ -53,7 +53,7 @@ object Update {
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
           Logging.configGeneration(newConfiguration.generation),
-          Logging.maxDeduplicationTime(newConfiguration.maxDeduplicationTime),
+          Logging.maxDeduplicationDuration(newConfiguration.maxDeduplicationDuration),
         )
     }
   }
@@ -86,7 +86,7 @@ object Update {
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
           Logging.configGeneration(proposedConfiguration.generation),
-          Logging.maxDeduplicationTime(proposedConfiguration.maxDeduplicationTime),
+          Logging.maxDeduplicationDuration(proposedConfiguration.maxDeduplicationDuration),
           Logging.rejectionReason(rejectionReason),
         )
     }
@@ -417,8 +417,8 @@ object Update {
     def configGeneration(generation: Long): LoggingEntry =
       "configGeneration" -> generation
 
-    def maxDeduplicationTime(time: Duration): LoggingEntry =
-      "maxDeduplicationTime" -> time
+    def maxDeduplicationDuration(time: Duration): LoggingEntry =
+      "maxDeduplicationDuration" -> time
 
     def deduplicationPeriod(period: Option[DeduplicationPeriod]): LoggingEntry =
       "deduplicationPeriod" -> period

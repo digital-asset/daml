@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -32,9 +32,26 @@ private[validation] object Serializability {
 
     def checkType(): Unit = checkType(typeToSerialize)
 
+    def isInterface(typ: Type): Boolean = {
+      typ match {
+        case TTyCon(tycon) =>
+          interface.lookupDataType(tycon) match {
+            case Right(DDataType(_, _, cons)) =>
+              cons match {
+                case DataInterface => true
+                case _ => false
+              }
+            case Left(_) => false
+          }
+        case _ => false
+      }
+    }
+
     def checkType(typ0: Type): Unit = typ0 match {
       case TApp(TBuiltin(BTContractId), tArg) =>
-        checkType(tArg)
+        // While an interface payload I is not serializable,
+        // ContractId I is, so special case this here.
+        if (!isInterface(tArg)) checkType(tArg)
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>
@@ -117,7 +134,7 @@ private[validation] object Serializability {
       case DataRecord(fields) =>
         fields.iterator.map(_._2)
       case DataInterface =>
-        Iterator.empty
+        env.unserializable(URInterface)
     }
     typs.foreach(env.checkType)
   }
@@ -148,6 +165,19 @@ private[validation] object Serializability {
     Env(version, interface, context, SRExceptionArg, tyCon).checkType()
   }
 
+  def checkInterface(
+      version: LanguageVersion,
+      interface: PackageInterface,
+      tyCon: TTyCon,
+      defInterface: DefInterface,
+  ): Unit = {
+    val context = ContextDefInterface(tyCon.tycon)
+    defInterface.fixedChoices.values.foreach { choice =>
+      Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(version, interface, context, SRChoiceRes, choice.returnType).checkType()
+    }
+  }
+
   def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
     val version = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
     module.definitions.foreach {
@@ -163,6 +193,10 @@ private[validation] object Serializability {
     module.exceptions.keys.foreach { defName =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
       checkException(version, interface, tyCon)
+    }
+    module.interfaces.foreach { case (defName, defInterface) =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkInterface(version, interface, tyCon, defInterface)
     }
   }
 }

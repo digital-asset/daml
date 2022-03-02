@@ -1,10 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import Input from 'react-autosuggest';
-import { StyledTextInput } from '../Input';
-import styled, { hardcodedStyle } from '../theme';
+import * as React from "react";
+import Input from "react-autosuggest";
+import { StyledTextInput } from "../Input";
+import styled, { hardcodedStyle } from "../theme";
 
 const DEBOUNCE_TIME_DEFAULT = 500;
 
@@ -54,30 +54,33 @@ const SuggestionsContainer = styled.div`
     cursor: pointer;
   }
   li.react-autosuggest__suggestion--highlighted {
-    border-left: ${hardcodedStyle.tableHoverBorderWidth}
-      solid ${({ theme }) => theme.colorPrimary[0]};
-    padding-left: calc(${hardcodedStyle.tableCellHorizontalMargin}
-      - ${hardcodedStyle.tableHoverBorderWidth});
+    border-left: ${hardcodedStyle.tableHoverBorderWidth} solid
+      ${({ theme }) => theme.colorPrimary[0]};
+    padding-left: calc(
+      ${hardcodedStyle.tableCellHorizontalMargin} -
+        ${hardcodedStyle.tableHoverBorderWidth}
+    );
     background-color: ${hardcodedStyle.tableHoverBackgroundColor};
   }
 `;
 
-export default class Autosuggest<R>
-  extends React.Component<Props<R>, State<R>> {
-
+export default class Autosuggest<R> extends React.Component<
+  Props<R>,
+  State<R>
+> {
   private delayTimer: number;
 
   constructor(props: Props<R>) {
     super(props);
-    const { initialValue = '' } = props;
+    const { initialValue = "" } = props;
     this.state = {
       value: initialValue,
       suggestions: [],
-    }
-    this.onSuggestionFetchRequested = this.onSuggestionFetchRequested
-      .bind(this);
-    this.onSuggestionClearRequested = this.onSuggestionClearRequested
-      .bind(this);
+    };
+    this.onSuggestionFetchRequested =
+      this.onSuggestionFetchRequested.bind(this);
+    this.onSuggestionClearRequested =
+      this.onSuggestionClearRequested.bind(this);
     this.onChange = this.onChange.bind(this);
   }
 
@@ -98,7 +101,7 @@ export default class Autosuggest<R>
     }, this.props.debounceTime || DEBOUNCE_TIME_DEFAULT);
   }
 
-  onChange(_event: {}, { newValue }: { newValue: string}): void {
+  onChange(_event: {}, { newValue }: { newValue: string }): void {
     this.setState({ value: newValue });
     if (this.props.onChange) {
       this.props.onChange(newValue);
@@ -112,7 +115,7 @@ export default class Autosuggest<R>
       placeholder,
       value,
       onChange: this.onChange,
-    }
+    };
     return (
       <Input
         suggestions={suggestions}
@@ -134,15 +137,13 @@ export default class Autosuggest<R>
                 {...otherInputComponentProps}
               />
             </InputContainer>
-          ); }
-        }
-        renderSuggestionsContainer={
-          ({containerProps, children}) =>
-          (
-            <SuggestionsContainer {...containerProps} >
-              {children}
-            </SuggestionsContainer>
-          )}
+          );
+        }}
+        renderSuggestionsContainer={({ containerProps, children }) => (
+          <SuggestionsContainer {...containerProps}>
+            {children}
+          </SuggestionsContainer>
+        )}
         highlightFirstSuggestion={true}
       />
     );

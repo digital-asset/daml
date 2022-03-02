@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -38,9 +38,12 @@ private[validation] object SpecUtil {
   )
 
   implicit class SyntaxHelper2(val sc: StringContext) extends AnyVal {
-    def K(args: Any*): Kind = k"${replace(sc.standardInterpolator(identity, args))}"
-    def T(args: Any*): Type = t"${replace(sc.standardInterpolator(identity, args))}"
-    def E(args: Any*): Expr = e"${replace(sc.standardInterpolator(identity, args))}"
+    def K(args: Any*): Kind =
+      k"${replace(StringContext.standardInterpolator(identity, args, sc.parts))}"
+    def T(args: Any*): Type =
+      t"${replace(StringContext.standardInterpolator(identity, args, sc.parts))}"
+    def E(args: Any*): Expr =
+      e"${replace(StringContext.standardInterpolator(identity, args, sc.parts))}"
 
     def replace(s: String): String = {
       val b = new StringBuilder()

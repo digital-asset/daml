@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -15,8 +15,9 @@ import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.metrics.Metrics
 import com.daml.testing.oracle
+import com.daml.testing.oracle.OracleAround.RichOracleUser
 import com.daml.testing.postgresql.{PostgresAround, PostgresDatabase}
-import oracle.{OracleAround, User}
+import oracle.OracleAround
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.ExecutionContext
@@ -25,7 +26,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 @State(Scope.Benchmark)
-abstract class ContractDaoBenchmark extends OracleAround {
+abstract class ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
 
   protected var dao: ContractDao = _
@@ -107,26 +108,23 @@ trait BenchmarkDbConnection {
   def cleanup(): Unit
 }
 
-trait OracleBenchmarkDbConn extends BenchmarkDbConnection with OracleAround {
+trait OracleBenchmarkDbConn extends BenchmarkDbConnection {
 
-  private var user: User = _
+  private var user: RichOracleUser = _
   private val disableContractPayloadIndexing = false
 
-  override def connectToDb() = {
-    connectToOracle()
-  }
+  override def connectToDb() = user = OracleAround.createNewUniqueRandomUser()
 
   override def createDbJdbcConfig: JdbcConfig = {
-    user = createNewRandomUser()
     val cfg = JdbcConfig(
       dbutils.JdbcConfig(
         driver = "oracle.jdbc.OracleDriver",
-        url = oracleJdbcUrl,
-        user = user.name,
-        password = user.pwd,
+        url = user.jdbcUrlWithoutCredentials,
+        user = user.oracleUser.name,
+        password = user.oracleUser.pwd,
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
       backendSpecificConf =
         if (disableContractPayloadIndexing) Map(DisableContractPayloadIndexing -> "true")
         else Map.empty,
@@ -134,9 +132,7 @@ trait OracleBenchmarkDbConn extends BenchmarkDbConnection with OracleAround {
     cfg
   }
 
-  override def cleanup(): Unit = {
-    dropUser(user.name)
-  }
+  override def cleanup(): Unit = user.drop()
 }
 
 trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround {
@@ -158,7 +154,7 @@ trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround 
         password = database.password,
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
     )
   }
 

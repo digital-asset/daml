@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,7 +8,6 @@ import com.daml.lf.data.{ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SError.SError
-import com.daml.lf.speedy.SResult.SResultError
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
@@ -16,6 +15,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
+  import SpeedyTestLib.loggingContext
 
   import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 
@@ -683,13 +684,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
     )
     val machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(sexpr, (parties ++ contractIds).toArray))
-    try {
-      machine.run() match {
-        case SResult.SResultFinalValue(v) => Right(v)
-        case SResultError(err) => throw Goodbye(err)
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-    } catch { case Goodbye(err) => Left(err) }
+    SpeedyTestLib.run(machine)
   }
 
 }

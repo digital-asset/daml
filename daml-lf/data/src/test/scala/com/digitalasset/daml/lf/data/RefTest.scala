@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -220,11 +220,13 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
 
   testOrdered("Indenfitiers", identifiersInOrder)
 
-  "Party and PackageId" - {
+  "Party, PackageId, LedgerString, and ApplicationId" - {
 
     val packageIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
     val partyIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_ "
     val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-#/ "
+    val applicationIdChars =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-#/ !|@^$`+'~"
 
     def makeString(c: Char): String = s"the character $c is not US-ASCII"
 
@@ -232,6 +234,7 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       PackageId.fromString("") shouldBe a[Left[_, _]]
       Party.fromString("") shouldBe a[Left[_, _]]
       LedgerString.fromString("") shouldBe a[Left[_, _]]
+      ApplicationId.fromString("") shouldBe a[Left[_, _]]
     }
 
     "treats US-ASCII characters as expected" in {
@@ -243,6 +246,8 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
                                       else a[Left[_, _]])
         LedgerString.fromString(s) shouldBe (if (ledgerStringChars.contains(c)) a[Right[_, _]]
                                              else a[Left[_, _]])
+        ApplicationId.fromString(s) shouldBe (if (applicationIdChars.contains(c)) a[Right[_, _]]
+                                              else a[Left[_, _]])
       }
     }
 
@@ -253,12 +258,14 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       PackageId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
       Party.fromString(negativeTestCase) shouldBe a[Right[_, _]]
       LedgerString.fromString(negativeTestCase) shouldBe a[Right[_, _]]
+      ApplicationId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
 
       for (c <- '\u0080' to '\u00ff') {
         val positiveTestCase = makeString(c)
         PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         LedgerString.fromString(positiveTestCase) shouldBe a[Left[_, _]]
+        ApplicationId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
       for (
         positiveTestCase <- List(
@@ -269,6 +276,8 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       ) {
         Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
+        LedgerString.fromString(positiveTestCase) shouldBe a[Left[_, _]]
+        ApplicationId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
     }
 
@@ -277,52 +286,57 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       Party.fromString("p" * 256) shouldBe a[Left[_, _]]
       PackageId.fromString("p" * 64) shouldBe a[Right[_, _]]
       PackageId.fromString("p" * 65) shouldBe a[Left[_, _]]
-    }
-  }
-
-  "LedgerString" - {
-    "reject too long strings" in {
-      val negativeTestCase = "a" * 255
-      val positiveTestCase1 = "a" * 256
-      val positiveTestCase2 = "a" * 500
-      LedgerString.fromString(negativeTestCase) shouldBe a[Right[_, _]]
-      LedgerString.fromString(positiveTestCase1) shouldBe a[Left[_, _]]
-      LedgerString.fromString(positiveTestCase2) shouldBe a[Left[_, _]]
+      LedgerString.fromString("p" * 255) shouldBe a[Right[_, _]]
+      LedgerString.fromString("p" * 256) shouldBe a[Left[_, _]]
+      ApplicationId.fromString("p" * 255) shouldBe a[Right[_, _]]
+      ApplicationId.fromString("p" * 256) shouldBe a[Left[_, _]]
     }
   }
 
   "UserId" - {
-    "accept valid user names" in {
-      UserId.fromString("a") shouldBe a[Right[_, _]]
-      UserId.fromString("john.doe") shouldBe a[Right[_, _]]
-      UserId.fromString("john-doe") shouldBe a[Right[_, _]]
-      UserId.fromString("john_doe") shouldBe a[Right[_, _]]
-      UserId.fromString("jo1hn.d200oe") shouldBe a[Right[_, _]]
-      UserId.fromString("john-do1.e") shouldBe a[Right[_, _]]
-      UserId.fromString("123e4567-e89b-12d3-a456-426614174000") shouldBe a[Right[_, _]]
+    val validCharacters = "abcdefghijklmnopqrstuvwxyz0123456789._-#!|@^$`+'~:"
+    val validUserIds =
+      validCharacters.flatMap(c => Vector(c.toString, s"$c$c")) ++
+        Vector(
+          "a",
+          "jo1hn.d200oe",
+          validCharacters,
+          // The below are examples from https://auth0.com/docs/users/user-profiles/sample-user-profiles
+          // with the exception of requiring only lowercase characters to be used
+          "google-oauth2|103547991597142817347",
+          "windowslive|4cf0a30169d55031",
+          "office365|10030000838d23ad@microsoftonline.com",
+          "adfs|john@fabrikam.com",
+        )
+
+    "accept valid user ids" in {
+      validUserIds.foreach(userId => UserId.fromString(userId) shouldBe a[Right[_, _]])
     }
 
-    "reject invalid user names" in {
-      UserId.fromString("john|doe") shouldBe a[Left[_, _]]
-      UserId.fromString("john#doe") shouldBe a[Left[_, _]]
-      UserId.fromString("john@doe") shouldBe a[Left[_, _]]
-      UserId.fromString("john..doe") shouldBe a[Left[_, _]]
-      UserId.fromString("john.-doe") shouldBe a[Left[_, _]]
-      UserId.fromString("john--doe") shouldBe a[Left[_, _]]
-      UserId.fromString("johndoe.") shouldBe a[Left[_, _]]
-      UserId.fromString("johndoe-") shouldBe a[Left[_, _]]
-      UserId.fromString("-johndoe") shouldBe a[Left[_, _]]
+    "accept valid user ids as application ids" in {
+      validUserIds.foreach(userId => ApplicationId.fromString(userId) shouldBe a[Right[_, _]])
+    }
+
+    "reject invalid user ids" in {
+      val invalidCharacters = "àáABCDEFGHIJKLMNOPQRSTUVWXYZ \\%&*()=[]{};<>,?\""
+      val invalidUserIds =
+        invalidCharacters.map(c => c.toString) ++
+          Vector(
+            "john/doe",
+            "JOHn_doe",
+            "",
+            "office365|10030000838D23AF@MicrosoftOnline.com",
+          )
+      invalidUserIds.foreach(userId => UserId.fromString(userId) shouldBe a[Left[_, _]])
     }
 
     "reject too long strings" in {
-      val negativeTestCase = "a" * 63
-      val positiveTestCase1 = "a" * 64
-      UserId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
-      UserId.fromString(positiveTestCase1) shouldBe a[Left[_, _]]
+      UserId.fromString("a" * 128) shouldBe a[Right[_, _]]
+      UserId.fromString("a" * 129) shouldBe a[Left[_, _]]
     }
   }
 
-  private def testOrdered[X <: Ordered[X]](name: String, elems: Iterable[X]) =
+  private def testOrdered[X <: Ordered[X]](name: String, elems: Iterable[X]): Unit =
     s"$name#compare" - {
       "agrees with equality" in {
         for {

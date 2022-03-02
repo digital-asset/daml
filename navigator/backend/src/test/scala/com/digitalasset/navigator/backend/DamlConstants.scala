@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -240,7 +240,7 @@ case object DamlConstants {
       ("fUnit", V.ValueUnit),
       ("fInt64", simpleInt64V),
       ("fParty", V.ValueParty(DamlLfRef.Party assertFromString "BANK1")),
-      ("fContractId", V.ValueContractId(V.ContractId.assertFromString("#C0"))),
+      ("fContractId", V.ValueContractId(V.ContractId.assertFromString("00" + "00" * 32 + "c0"))),
       ("fListOfText", V.ValueList(FrontStack(V.ValueText("foo"), V.ValueText("bar")))),
       ("fListOfUnit", V.ValueList(FrontStack(V.ValueUnit, V.ValueUnit))),
       ("fDate", simpleDateV),

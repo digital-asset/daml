@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Query language
@@ -133,7 +133,7 @@ Appendix: Known issues
 When using Oracle, queries fail if a token is too large
 =======================================================
 
-This limitation is exclusive to users of the HTTP JSON API using the Enterprise Edition support for Oracle. Due to a known limitation in Oracle, the full-test JSON search index on the contract payloads rejects query tokens larger than 256 bytes. This limitations shouldn't impact most workloads, but if this needs to be worked around, the HTTP JSON API server can be started passing the additional ``disableContractPayloadIndexing=true`` (after wiping an existing query store database, if necessary).
+This limitation is exclusive to users of the HTTP JSON API using Daml Enterprise support for Oracle. Due to a known limitation in Oracle, the full-test JSON search index on the contract payloads rejects query tokens larger than 256 bytes. This limitations shouldn't impact most workloads, but if this needs to be worked around, the HTTP JSON API server can be started passing the additional ``disableContractPayloadIndexing=true`` (after wiping an existing query store database, if necessary).
 
 `Issue on GitHub <https://github.com/digital-asset/daml/issues/10780>`__
 

@@ -1,9 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
@@ -16,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.wire.{DamlConfigurationSubmissi
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.kv.archives.RawArchive
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -78,7 +78,7 @@ class KeyValueSubmission(metrics: Metrics) {
         .addAllInputDamlState(contractKeyStates.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder
-            .setRawTransaction(Conversions.encodeTransaction(tx).bytes)
+            .setRawTransaction(Conversions.assertEncodeTransaction(tx).byteString)
             .setSubmitterInfo(encodedSubInfo)
             .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
             .setWorkflowId(meta.workflowId.getOrElse(""))
@@ -91,28 +91,30 @@ class KeyValueSubmission(metrics: Metrics) {
   /** Prepare a package upload submission. */
   def archivesToSubmission(
       submissionId: String,
-      archives: List[Archive],
+      packageIdsToRawArchives: Map[Ref.PackageId, RawArchive],
       sourceDescription: String,
       participantId: Ref.ParticipantId,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
-        archives.map(archive =>
+        packageIdsToRawArchives.keys.map(packageId =>
           DamlStateKey.newBuilder
-            .setPackageId(archive.getHash)
+            .setPackageId(packageId)
             .build
         )
+
+      val packageUploadEntryBuilder = DamlPackageUploadEntry.newBuilder
+        .setSubmissionId(submissionId)
+        .setSourceDescription(sourceDescription)
+        .setParticipantId(participantId)
+      packageIdsToRawArchives.values.foreach(rawArchive =>
+        packageUploadEntryBuilder.addArchives(rawArchive.byteString)
+      )
 
       DamlSubmission.newBuilder
         .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
         .addAllInputDamlState(archivesDamlState.asJava)
-        .setPackageUploadEntry(
-          DamlPackageUploadEntry.newBuilder
-            .setSubmissionId(submissionId)
-            .addAllArchives(archives.asJava)
-            .setSourceDescription(sourceDescription)
-            .setParticipantId(participantId)
-        )
+        .setPackageUploadEntry(packageUploadEntryBuilder)
         .build
     }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool
@@ -18,17 +18,19 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 object Benchmark {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def run(
-      streams: List[StreamConfig],
+      streamConfigs: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
       metricsReporter: MetricsReporter,
-  )(implicit ec: ExecutionContext, resourceContext: ResourceContext): Future[Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      resourceContext: ResourceContext,
+  ): Future[Either[String, Unit]] = {
     val resources = for {
       system <- TypedActorSystemResourceOwner.owner()
       registry <- new MetricRegistryOwner(
@@ -40,7 +42,7 @@ object Benchmark {
 
     resources.use { case (system, registry) =>
       Future
-        .traverse(streams) {
+        .traverse(streamConfigs) {
           case streamConfig: StreamConfig.TransactionsStreamConfig =>
             StreamMetrics
               .observer(
@@ -79,7 +81,7 @@ object Benchmark {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = reportingPeriod,
-                metrics = MetricsSet.activeContractsMetrics,
+                metrics = MetricsSet.activeContractsMetrics(streamConfig.objectives),
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet.activeContractsExposedMetrics(
@@ -97,7 +99,7 @@ object Benchmark {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = reportingPeriod,
-                metrics = MetricsSet.completionsMetrics,
+                metrics = MetricsSet.completionsMetrics(streamConfig.objectives),
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet
@@ -108,13 +110,10 @@ object Benchmark {
                 apiServices.commandCompletionService.completions(streamConfig, observer)
               }
         }
-        .transform {
-          case Success(results) =>
-            if (results.contains(StreamResult.ObjectivesViolated))
-              Failure(new RuntimeException("Metrics objectives not met."))
-            else Success(())
-          case Failure(ex) =>
-            Failure(ex)
+        .map { results =>
+          if (results.contains(StreamResult.ObjectivesViolated))
+            Left("Metrics objectives not met.")
+          else Right(())
         }
     }
   }

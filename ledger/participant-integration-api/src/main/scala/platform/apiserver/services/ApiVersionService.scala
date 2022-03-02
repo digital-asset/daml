@@ -1,49 +1,82 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.experimental_features.{
   ExperimentalFeatures,
+  ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
+  ExperimentalStaticTime,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
   FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
+  UserManagementFeature,
   VersionServiceGrpc,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.usermanagement.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private[apiserver] final class ApiVersionService private (enableSelfServiceErrorCodes: Boolean)(
-    implicit
+private[apiserver] final class ApiVersionService private (
+    ledgerFeatures: LedgerFeatures,
+    userManagementConfig: UserManagementConfig,
+)(implicit
     loggingContext: LoggingContext,
-    ec: ExecutionContext,
+    executionContext: ExecutionContext,
 ) extends VersionService
     with GrpcApiService {
 
-  private val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val versionFile: String = "ledger-api/VERSION"
   private lazy val apiVersion: Try[String] = readVersion(versionFile)
+
+  private val featuresDescriptor =
+    FeaturesDescriptor.of(
+      userManagement = Some(
+        if (userManagementConfig.enabled) {
+          UserManagementFeature(
+            supported = true,
+            maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+            maxUsersPageSize = userManagementConfig.maxUsersPageSize,
+          )
+        } else {
+          UserManagementFeature(
+            supported = false,
+            maxRightsPerUser = 0,
+            maxUsersPageSize = 0,
+          )
+        }
+      ),
+      experimental = Some(
+        ExperimentalFeatures.of(
+          selfServiceErrorCodes = Some(ExperimentalSelfServiceErrorCodes()): @nowarn(
+            "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.experimental_features\\..*"
+          ),
+          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
+          commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
+          optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
+          contractIds = Some(ledgerFeatures.contractIdFeatures),
+        )
+      ),
+    )
 
   override def getLedgerApiVersion(
       request: GetLedgerApiVersionRequest
@@ -57,13 +90,7 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
       }
 
   private def apiVersionResponse(version: String) =
-    if (enableSelfServiceErrorCodes)
-      GetLedgerApiVersionResponse(version).withFeatures(
-        FeaturesDescriptor().withExperimental(
-          ExperimentalFeatures().withSelfServiceErrorCodes(ExperimentalSelfServiceErrorCodes())
-        )
-      )
-    else GetLedgerApiVersionResponse(version)
+    GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
 
   private lazy val internalError: Future[Nothing] =
     Future.failed(
@@ -80,7 +107,7 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
     }
 
   override def bindService(): ServerServiceDefinition =
-    VersionServiceGrpc.bindService(this, ec)
+    VersionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = ()
 
@@ -88,7 +115,11 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
 
 private[apiserver] object ApiVersionService {
   def create(
-      enableSelfServiceErrorCodes: Boolean
+      ledgerFeatures: LedgerFeatures,
+      userManagementConfig: UserManagementConfig,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(enableSelfServiceErrorCodes)
+    new ApiVersionService(
+      ledgerFeatures,
+      userManagementConfig = userManagementConfig,
+    )
 }

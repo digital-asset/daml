@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -6,11 +6,7 @@ package com.daml.platform.apiserver.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
@@ -73,15 +69,14 @@ private[apiserver] object ApiActiveContractsService {
       ledgerId: LedgerId,
       backend: ACSBackend,
       metrics: Metrics,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService = {
-    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-    val field = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val errorFactories = ErrorFactories()
+    val field = FieldValidations(ErrorFactories())
     val service = new ApiActiveContractsService(
       backend = backend,
       metrics = metrics,

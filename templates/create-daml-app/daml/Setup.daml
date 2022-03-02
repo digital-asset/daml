@@ -1,0 +1,53 @@
+module Setup where
+
+import DA.Foldable (forA_)
+import DA.Optional (fromSomeNote)
+import qualified DA.Text as T
+import Daml.Script
+
+-- | A test user for the create-daml-app network.
+data TestUser = TestUser with
+  alias : Text
+  public : Party
+
+-- | Create a public party, then create three test users.
+setup : Script ()
+setup = do
+  public <- createPublic
+  let aliases = ["Alice", "Bob", "Charlie"]
+  forA_ aliases $ \alias -> createTestUser $ TestUser alias public
+
+-- | Create a test user.
+createTestUser : TestUser -> Script Party
+createTestUser TestUser{alias, public} = do
+  u <- getOrCreateUser alias (Some public)
+  let p = getPrimaryParty u
+  pure p
+
+-- | Create the public party.
+createPublic : Script Party
+createPublic = do
+  publicUser <- getOrCreateUser "Public" None
+  pure $ getPrimaryParty publicUser
+
+
+-- | Get a user by their id. If the user doesn't exist, it is created.
+getOrCreateUser : Text -> Optional Party -> Script User
+getOrCreateUser alias publicM = do
+  userId <- validateUserId $ toUserId alias
+  try
+    getUser userId
+  catch
+    UserNotFound _ -> do
+      p <- allocateParty alias
+      let u = User userId (Some p)
+      createUser u $ CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+      pure u
+
+-- | Convert a text to a valid user id.
+toUserId : Text -> Text
+toUserId = T.asciiToLower
+
+-- | Try to get the primary party of a user and fail if the user has no associated primary party.
+getPrimaryParty : User -> Party
+getPrimaryParty u = fromSomeNote ("User " <> userIdToText u.userId <> " is missing a primary party.") u.primaryParty

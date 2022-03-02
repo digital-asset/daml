@@ -1,10 +1,10 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
@@ -84,6 +84,11 @@ da_haskell_test(
     srcs = ["src/DamlcTest.hs"],
     data = [
         "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+
+        # TODO https://github.com/digital-asset/daml/issues/12051
+        #   Remove once DAML-LF 1.15 is the default compiler output
+        "//daml-script/daml:daml-script-1.dev.dar",
     ],
     hackage_deps = [
         "base",
@@ -336,6 +341,7 @@ da_haskell_test(
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-visual",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
@@ -608,7 +614,7 @@ da_haskell_test(
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
         "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
@@ -651,7 +657,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     hackage_deps = [
         "async",
@@ -720,6 +726,7 @@ damlc_compile_test(
 damlc_compile_test(
     name = "memory-examples",
     srcs = [":daml-test-files"],
+    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
     heap_limit = "200M",
     main = "daml-test-files/Examples.daml",
     stack_limit = "230K",
@@ -728,6 +735,7 @@ damlc_compile_test(
 damlc_compile_test(
     name = "memory-bond-trading",
     srcs = [":bond-trading"],
+    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
     heap_limit = "200M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
     stack_limit = "100K" if is_windows else "70K",
@@ -909,7 +917,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     hackage_deps = [
         "base",

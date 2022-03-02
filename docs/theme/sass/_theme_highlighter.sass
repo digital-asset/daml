@@ -1,6 +1,6 @@
 .rst-content
   pre.literal-block, div[class^="highlight"]
-    background-color: #171B26
+    background-color: $da-dark-blue
     overflow-x: auto
     margin: 35px 0 35px -47px
 
@@ -29,7 +29,7 @@
       a.copybtn.o-tooltip--left
         position: absolute
         opacity: 1
-        top: 0.7em
+        top: 0.4em
 
         +media($desktop)
           left: 15px
@@ -49,8 +49,8 @@
           width: 20px
 
         &:after
-          padding: 6px
-          top: -7px
+          padding: 3px
+          top: -0.4em
           background: $gray-lighter
           color: $text-dark
 
@@ -71,7 +71,6 @@
         width: 100%
         position: relative
         left: 38px
-        overflow: visible
         z-index: 1
         padding-right: 10px
         border-right: solid 1px $gray
@@ -85,6 +84,7 @@
         pre
           text-align: end
           padding-left: 0
+          overflow: inherit
 
     .highlighttable
       width: 100%
@@ -106,7 +106,7 @@
 
 
   .highlight, .highlight:last-child
-    background-color: #171B26
+    background-color: $da-dark-blue
     color: #eeeeee
     margin-top: 35px
     margin-bottom: 35px

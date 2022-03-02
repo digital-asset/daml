@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -6,7 +6,6 @@ load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//language-support/ts:defs.bzl", "da_ts_library")
 load("//language-support/ts:eslint.bzl", "eslint_test")
-load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("//language-support/ts:jest.bzl", "jest_test")
 
@@ -42,8 +41,6 @@ genrule(
       cp $(location //:LICENSE) $@
     """,
 )
-
-ts_docs("daml-ledger")
 
 eslint_test(
     name = "lint",

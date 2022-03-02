@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.config
@@ -93,6 +93,13 @@ object Cli {
       .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
       .action((reporter, config) => config.copy(metricsReporter = reporter))
 
+    opt[String]("user-based-authorization-secret")
+      .optional()
+      .text(
+        "Enables user based authorization. The value is used for signing authorization tokens with HMAC256."
+      )
+      .action((secret, config) => config.copy(authorizationTokenSecret = Some(secret)))
+
     TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
       c.copy(tls = f(c.tls))
     )
@@ -101,7 +108,7 @@ object Cli {
 
     private def note(level: Int, param: String, desc: String = ""): OptionDef[Unit, Config] = {
       val paddedParam = s"${" " * level * 2}$param"
-      val internalPadding = math.max(1, 40 - paddedParam.length)
+      val internalPadding = math.max(1, 50 - paddedParam.length)
       note(s"$paddedParam${" " * internalPadding}$desc")
     }
 
@@ -110,11 +117,17 @@ object Cli {
     note(1, "Transactions/transaction trees:")
     note(2, "stream-type=<transactions|transaction-trees>", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "filters=party1@template1@template2+party2", "(required)")
+    note(
+      2,
+      "filters=party1@template1@template2+party2",
+      "List of per-party filters separated by the plus symbol (required)",
+    )
     note(2, "begin-offset=<offset>")
     note(2, "end-offset=<offset>")
     note(2, "max-delay=<seconds>", "Max record time delay objective")
     note(2, "min-consumption-speed=<speed>", "Min consumption speed objective")
+    note(2, "min-item-rate=<rate>", "Min item rate per second")
+    note(2, "max-item-rate=<rate>", "Max item rate per second")
     note(1, "Active contract sets:")
     note(2, "stream-type=active-contracts", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
@@ -123,12 +136,16 @@ object Cli {
       "filters=party1@template1@template2+party2",
       "List of per-party filters separated by the plus symbol (required)",
     )
+    note(2, "min-item-rate=<rate>", "Min item rate per second")
+    note(2, "max-item-rate=<rate>", "Max item rate per second")
     note(1, "Command completions:")
     note(2, "stream-type=completions", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
     note(2, "party=<party>", "(required)")
     note(2, "begin-offset=<offset>")
     note(2, "template-ids=<id1>|<id2>")
+    note(2, "min-item-rate=<rate>", "Min item rate per second")
+    note(2, "max-item-rate=<rate>", "Max item rate per second")
   }
 
   def config(args: Array[String]): Option[Config] =
@@ -160,7 +177,33 @@ object Cli {
         }
 
         def offset(stringValue: String): LedgerOffset =
-          LedgerOffset.defaultInstance.withAbsolute(stringValue)
+          stringValue match {
+            case "ledger-begin" =>
+              LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+            case "ledger-end" =>
+              LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+            case _ =>
+              LedgerOffset.defaultInstance.withAbsolute(stringValue)
+          }
+
+        def transactionObjectives(
+            maxDelaySeconds: Option[Long],
+            minConsumptionSpeed: Option[Double],
+            minItemRate: Option[Double],
+            maxItemRate: Option[Double],
+        ): Option[WorkflowConfig.StreamConfig.TransactionObjectives] =
+          (maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate) match {
+            case (None, None, None, None) => None
+            case _ =>
+              Some(
+                WorkflowConfig.StreamConfig.TransactionObjectives(
+                  maxDelaySeconds = maxDelaySeconds,
+                  minConsumptionSpeed = minConsumptionSpeed,
+                  minItemRate = minItemRate,
+                  maxItemRate = maxItemRate,
+                )
+              )
+          }
 
         def transactionsConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
@@ -170,15 +213,15 @@ object Cli {
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
+          minItemRate <- optionalDoubleField("min-item-rate")
+          maxItemRate <- optionalDoubleField("max-item-rate")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
-          objectives = WorkflowConfig.StreamConfig.Objectives(
-            maxDelaySeconds = maxDelaySeconds,
-            minConsumptionSpeed = minConsumptionSpeed,
-          ),
+          objectives =
+            transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
         )
 
         def transactionTreesConfig
@@ -190,24 +233,42 @@ object Cli {
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
+            minItemRate <- optionalDoubleField("min-item-rate")
+            maxItemRate <- optionalDoubleField("max-item-rate")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
-            objectives = WorkflowConfig.StreamConfig.Objectives(
-              maxDelaySeconds = maxDelaySeconds,
-              minConsumptionSpeed = minConsumptionSpeed,
-            ),
+            objectives =
+              transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
           )
+
+        def rateObjectives(
+            minItemRate: Option[Double],
+            maxItemRate: Option[Double],
+        ): Option[WorkflowConfig.StreamConfig.RateObjectives] =
+          (minItemRate, maxItemRate) match {
+            case (None, None) => None
+            case _ =>
+              Some(
+                WorkflowConfig.StreamConfig.RateObjectives(
+                  minItemRate = minItemRate,
+                  maxItemRate = maxItemRate,
+                )
+              )
+          }
 
         def activeContractsConfig
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
+          minItemRate <- optionalDoubleField("min-item-rate")
+          maxItemRate <- optionalDoubleField("max-item-rate")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
+          objectives = rateObjectives(minItemRate, maxItemRate),
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
@@ -216,11 +277,14 @@ object Cli {
             party <- stringField("party")
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+            minItemRate <- optionalDoubleField("min-item-rate")
+            maxItemRate <- optionalDoubleField("max-item-rate")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
             party = party,
             applicationId = applicationId,
             beginOffset = beginOffset,
+            objectives = rateObjectives(minItemRate, maxItemRate),
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {

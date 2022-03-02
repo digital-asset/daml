@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -19,7 +19,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 message Commands {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // Identifier of the on-ledger workflow that this command is a part of.
@@ -27,10 +27,10 @@ message Commands {
   // Optional
   string workflow_id = 2;
 
-  // Uniquely identifies the application (or its part) that issued the command. This is used in tracing
-  // across different components and to let applications subscribe to their own submissions only.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Uniquely identifies the application or participant user that issued the command.
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // Required unless authentication is used with a user token or a custom token specifying an application-id.
+  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
   string application_id = 3;
 
   // Uniquely identifies the command.
@@ -72,6 +72,10 @@ message Commands {
     // Must be non-negative. Must not exceed the maximum deduplication time (see
     // ``ledger_configuration_service.proto``).
     google.protobuf.Duration deduplication_duration = 15;
+
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
+    // Must be a valid LedgerString (as described in ``ledger_offset.proto``).
+    string deduplication_offset = 16;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.

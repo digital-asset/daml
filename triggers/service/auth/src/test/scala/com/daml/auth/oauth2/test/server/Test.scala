@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.oauth2.test.server
@@ -11,21 +11,39 @@ import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  AuthServiceJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json._
 
+import java.time.Instant
 import scala.concurrent.Future
+import scala.util.Try
 
-class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
+abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
-  private def requestToken(
+  import Test._
+
+  type Tok <: AuthServiceJWTPayload
+  protected[this] val Tok: TokenCompat[Tok]
+  implicit def `default Token`: Token[Tok]
+
+  private def readJWTTokenFromString[A](
+      serializedPayload: String
+  )(implicit A: Token[A]): Try[A] =
+    AuthServiceJWTCodec.readFromString(serializedPayload).flatMap { t => Try(A.run(t)) }
+
+  private def requestToken[A: Token](
       parties: Seq[String],
       admin: Boolean,
       applicationId: Option[String],
-  ): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+  ): Future[Either[String, (A, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -61,16 +79,16 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_),
               )
-            payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
+            payload <- Future.fromTry(readJWTTokenFromString[A](decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
     } yield result
   }
 
-  private def requestRefresh(
+  private def requestRefresh[A: Token](
       refreshToken: String
-  ): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+  ): Future[Either[String, (A, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -94,40 +112,89 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_),
               )
-            payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
+            payload <- Future.fromTry(readJWTTokenFromString[A](decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
     } yield result
   }
 
-  private def expectToken(
+  protected[this] def expectToken(
       parties: Seq[String],
       admin: Boolean = false,
       applicationId: Option[String] = None,
-  ): Future[(AuthServiceJWTPayload, String)] =
+  ): Future[(Tok, String)] =
     requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
     }
 
-  private def expectError(
+  protected[this] def expectError(
       parties: Seq[String],
       admin: Boolean = false,
       applicationId: Option[String] = None,
   ): Future[String] =
-    requestToken(parties, admin, applicationId).flatMap {
+    requestToken[AuthServiceJWTPayload](parties, admin, applicationId).flatMap {
       case Left(error) => Future(error)
       case Right(_) => fail("Expected an error but got a token")
     }
 
-  private def expectRefresh(refreshToken: String): Future[(AuthServiceJWTPayload, String)] =
+  private def expectRefresh(refreshToken: String): Future[(Tok, String)] =
     requestRefresh(refreshToken).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
     }
 
   "the auth server" should {
+    "refresh a token" in {
+      for {
+        (token1, refresh1) <- expectToken(Seq())
+        _ <- Future(clock.set((Tok exp token1) plusSeconds 1))
+        (token2, _) <- expectRefresh(refresh1)
+      } yield {
+        assert((Tok exp token2) isAfter (Tok exp token1))
+        assert((Tok withoutExp token1) == (Tok withoutExp token2))
+      }
+    }
+    "return a token with the requested app id" in {
+      for {
+        (token, __) <- expectToken(Seq(), applicationId = Some("my-app-id"))
+      } yield {
+        assert(Tok.userId(token) == Some("my-app-id"))
+      }
+    }
+    "return a token with no app id if non is requested" in {
+      for {
+        (token, __) <- expectToken(Seq(), applicationId = None)
+      } yield {
+        assert(Tok.userId(token) == None)
+      }
+    }
+
+  }
+}
+
+class ClaimTokenTest extends Test {
+  import Test._
+
+  override def yieldUserTokens = false
+
+  type Tok = CustomDamlJWTPayload
+  override object Tok extends TokenCompat[Tok] {
+    override def userId(t: Tok) = t.applicationId
+    override def exp(t: Tok) = t.exp.get
+    override def withoutExp(t: Tok) = t copy (exp = None)
+  }
+
+  implicit override def `default Token`: Token[Tok] = new Token({
+    case _: StandardJWTPayload =>
+      throw new IllegalStateException(
+        "auth-middleware: user access tokens are not expected here"
+      )
+    case payload: CustomDamlJWTPayload => payload
+  })
+
+  "the auth server with claim tokens" should {
     "issue a token with no parties" in {
       for {
         (token, _) <- expectToken(Seq())
@@ -172,29 +239,40 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         assert(error == "access_denied")
       }
     }
-    "refresh a token" in {
-      for {
-        (token1, refresh1) <- expectToken(Seq())
-        _ <- Future(clock.set(token1.exp.get.plusSeconds(1)))
-        (token2, _) <- expectRefresh(refresh1)
-      } yield {
-        assert(token2.exp.get.isAfter(token1.exp.get))
-        assert(token1.copy(exp = None) == token2.copy(exp = None))
-      }
-    }
-    "return a token with the requested app id" in {
-      for {
-        (token, __) <- expectToken(Seq(), applicationId = Some("my-app-id"))
-      } yield {
-        assert(token.applicationId == Some("my-app-id"))
-      }
-    }
-    "return a token with no app id if non is requested" in {
-      for {
-        (token, __) <- expectToken(Seq(), applicationId = None)
-      } yield {
-        assert(token.applicationId == None)
-      }
-    }
+  }
+}
+
+class UserTokenTest extends Test {
+  import Test._
+
+  override def yieldUserTokens = true
+
+  type Tok = StandardJWTPayload
+  override object Tok extends TokenCompat[Tok] {
+    override def userId(t: Tok) = Some(t.userId).filter(_.nonEmpty)
+    override def exp(t: Tok) = t.exp.get
+    override def withoutExp(t: Tok) = t copy (exp = None)
+  }
+
+  implicit override def `default Token`: Token[Tok] = new Token({
+    case payload: StandardJWTPayload => payload
+    case _: CustomDamlJWTPayload =>
+      throw new IllegalStateException(
+        "auth-middleware: custom tokens are not expected here"
+      )
+  })
+}
+
+object Test {
+  final class Token[A](val run: AuthServiceJWTPayload => A) extends AnyVal
+
+  object Token {
+    implicit val any: Token[AuthServiceJWTPayload] = new Token(identity)
+  }
+
+  private[server] abstract class TokenCompat[Tok] {
+    def userId(t: Tok): Option[String]
+    def exp(t: Tok): Instant
+    def withoutExp(t: Tok): Tok
   }
 }

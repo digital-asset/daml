@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -6,7 +6,7 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
-    , EnableScripts(..)
+    , EnableScenarios(..)
     , SkipScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
@@ -80,9 +80,9 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
-  , optEnableScripts :: EnableScripts
-    -- ^ Whether scripts should be run by the scenario service.
-    -- This will be switched to True by default once it has stabilized.
+  , optEnableScenarios :: EnableScenarios
+    -- ^ Whether old-style scenarios should be run by the scenario service.
+    -- This will be switched to False by default once scenarios are no longer supported in 2.0.
   , optSkipScenarioValidation :: SkipScenarioValidation
     -- ^ Controls whether the scenario service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
@@ -135,7 +135,7 @@ newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidat
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
     deriving Show
 
-newtype EnableScripts = EnableScripts { getEnableScripts :: Bool }
+newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -192,7 +192,7 @@ defaultOptions mbVersion =
         , optLogLevel = Logger.Info
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optEnableScripts = EnableScripts False
+        , optEnableScenarios = EnableScenarios False
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False

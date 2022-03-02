@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _auth0:
@@ -6,8 +6,15 @@
 Setting Up Auth0
 ================
 
+.. note::
+
+   This is an Early Access feature. Note that this feature does not currently
+   work with Daml 2.0. These docs refer to and use Daml 1.18. The feature is
+   under active development and it will soon be available for the 2.x major
+   release series.
+
 In this section, we will walk through a complete setup of an entire Daml
-Connect system using Auth0 as its authentication provider.
+system using Auth0 as its authentication provider.
 
 .. note::
 
@@ -58,15 +65,11 @@ In order to follow along this guide, you will need:
   requests from these IPs through.
 - To know the ``ledgerId`` your ledger self-identifies as. Refer to your
   specific driver's documentation for how to set the ``ledgerId`` value.
-- To be running SDK 1.17.0 or later. Before 1.17.0, the JSON API required an
-  extra token, the setup of which is not covered here. If you are somehow
-  unable to upgrade but still want to use Auth0, please contact us for
-  assistance.
 - An application you want to deploy on your Daml system. This is not, strictly
   speaking, required, but the whole experience is going to be a lot less
   satisfying if you don't end up with something actually running on your Daml
-  Connect system. In this guide, we'll use the `create-daml-app` template,
-  which as of Daml SDK 1.17.0 supports Auth0 out-of-the-box on its UI side.
+  system. In this guide, we'll use the `create-daml-app` template,
+  which supports Auth0 out-of-the-box on its UI side.
 
 Generating Party Allocation Credentials
 ---------------------------------------
@@ -386,12 +389,6 @@ of illustration, here we're going to work with a modified version of
 
     daml new --template=gsg-trigger my-project
 
-If your app was based on the ``create-daml-app`` template using a Daml SDK
-version prior to 1.17.0, you may need to adapt your ``ui/src/config.ts`` and
-``ui/src/components/LoginScreen.tsx`` files. See
-`this commit <https://github.com/digital-asset/daml/commit/79080839c1ca299972038ba515b98e6176668783>`_
-for guidance.
-
 The next step is to build the Daml code:
 
 .. code-block:: bash
@@ -593,17 +590,16 @@ in the folder that contains both ``nginx`` and ``my-project``:
 
 And that's it for building the application. We now have a DAR file that is
 ready to be deployed to a ledger, as well as a Docker container ready to serve
-our frontend. All we need now is to get a Daml Connect system up and running.
+our frontend. All we need now is to get a Daml system up and running.
 We document two paths forward here: one that relies on the Helm chart included
-in Daml Connect Enterprise Edition, and a manual setup using only the Community
-Edition SDK.
+in Daml Enterprise, and a manual setup using only the Open Source SDK.
 
-Using the Connect Helm Chart
-****************************
+Using the Daml Helm Chart
+*************************
 
 For simplicity, we assume that you have access to a server with a public IP
 address that both you and Auth0 can reach. Furthermore, we assume that you have
-access to Enterprise Edition credentials to download the Docker images.  We
+access to Daml Enterprise credentials to download the Docker images.  We
 also assume you can create a local cluster with ``minikube`` on the remote
 machine. Finally, we assume that you have downloaded the Helm chart in a folder
 called ``daml-connect``.
@@ -673,8 +669,8 @@ domain on which your server is exposed. And voilà! Your application is up and
 running. You should be able to log in with Auth0, exchange messages, and set up
 an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
 
-Manually Setting Up the Connect Components
-******************************************
+Manually Setting Up the Daml Components
+***************************************
 
 For simplicity, we assume that all of the Daml components will run on a single
 machine (they can find each other on ``localhost``) and that this machine has
@@ -696,7 +692,7 @@ production ledger (minus persistence).
     daml sandbox --ledgerid %%LEDGER_ID%% \
                  --auth-jwt-rs256-jwks https://%%AUTH0_DOMAIN%%/.well-known/jwks.json \
                  --implicit-party-allocation false \
-                 .daml/dist/my-project-0.1.0.dar
+                 --dar .daml/dist/my-project-0.1.0.dar
 
 As before, you need to replace ``%%LEDGER_ID%%`` with a value of your choosing
 (the same one you used when configuring Auth0), and ``%%AUTH0_DOMAIN%%`` with
@@ -711,10 +707,6 @@ Next, you need to start a JSON API instance.
     daml json-api --ledger-port 6865 \
                   --ledger-host localhost \
                   --http-port 4000
-
-If you are using a Daml SDK version prior to 1.17.0, you'll need to find a way
-to supply the JSON API with a valid, refreshing token file. We recommend
-upgrading to 1.17.0 or later.
 
 Then, we want to start the Trigger Service and OAuth2 middleware, which we will
 put respectively under ``/trigger`` and ``/auth``. First, the middleware:

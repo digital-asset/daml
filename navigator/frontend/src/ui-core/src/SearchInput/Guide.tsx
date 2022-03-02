@@ -1,9 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Section } from '../Guide';
-import SearchInput from '../SearchInput';
+import * as React from "react";
+import { Section } from "../Guide";
+import SearchInput from "../SearchInput";
 
 export interface State {
   value: string;
@@ -17,16 +17,15 @@ debounce delay before the \`onChange\` callback is called.
 export default class SearchInputGuide extends React.Component<{}, State> {
   constructor() {
     super({});
-    this.state = { value: 'Mockingbird' };
+    this.state = { value: "Mockingbird" };
   }
   render(): JSX.Element {
     return (
-      <Section
-        title="Search and filter inputs"
-        description={description}
-      >
+      <Section title="Search and filter inputs" description={description}>
         <SearchInput
-          onChange={(value) => { this.setState({ value }); }}
+          onChange={value => {
+            this.setState({ value });
+          }}
           placeholder="Placeholder"
           initialValue={this.state.value}
         />
@@ -34,7 +33,9 @@ export default class SearchInputGuide extends React.Component<{}, State> {
           <span>Value seen by parent:</span> {this.state.value}
         </p>
         <SearchInput
-          onChange={() => { return; }}
+          onChange={() => {
+            return;
+          }}
           placeholder="Placeholder"
           disabled={true}
           initialValue="Hello, world"
@@ -43,4 +44,3 @@ export default class SearchInputGuide extends React.Component<{}, State> {
     );
   }
 }
-

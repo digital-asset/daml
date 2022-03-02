@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -14,7 +14,8 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 set -eou pipefail
 version=$1
-extra_args="${@:2}"
+executable=$2
+extra_args="${@:3}"
 WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres/with-postgres-exe)
 if [ -z "$WITH_POSTGRES" ]; then
     WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres/with-postgres.exe)
@@ -23,4 +24,6 @@ if [ -z "$WITH_POSTGRES" ]; then
     echo "Faild to find with-postgres wrapper"
     exit 1
 fi
-$WITH_POSTGRES $(rlocation daml-sdk-$version/daml) $extra_args
+echo $@
+echo "$(rlocation daml-sdk-$version/$executable)"
+$WITH_POSTGRES $(rlocation daml-sdk-$version/$executable) $extra_args

@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Interface where
@@ -61,18 +61,18 @@ template Asset
   where
     signatory issuer
     implements Token where
-      let getOwner = owner
-      let getAmount = amount
+      getOwner = owner
+      getAmount = amount
 
-      let splitImpl = \splitAmount -> do
-            assert (splitAmount < amount)
-            cid1 <- create this with amount = splitAmount
-            cid2 <- create this with amount = amount - splitAmount
-            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
+      splitImpl splitAmount = do
+        assert (splitAmount < amount)
+        cid1 <- create this with amount = splitAmount
+        cid2 <- create this with amount = amount - splitAmount
+        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
 
-      let transferImpl = \newOwner -> do
-            cid <- create this with owner = newOwner
-            pure (toInterfaceContractId @Token cid)
+      transferImpl newOwner = do
+        cid <- create this with owner = newOwner
+        pure (toInterfaceContractId @Token cid)
 
-      let noopImpl = \nothing -> do
-            pure ()
+      noopImpl nothing = do
+        pure ()

@@ -1,17 +1,16 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.caching
+import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
   KeyValueReadWriteFactory,
   LedgerFactory,
-  ParticipantConfig,
   ReadWriteServiceFactory,
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
@@ -26,6 +25,8 @@ import scala.concurrent.ExecutionContext
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
     extends LedgerFactory[Unit] {
+
+  override def ledgerName: String = "in-memory ledger"
 
   override def readWriteServiceFactoryOwner(
       config: Config[Unit],
@@ -54,14 +55,6 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       state = state,
       engine = engine,
       committerExecutionContext = materializer.executionContext,
-    ).map(writer => {
-      new KeyValueReadWriteFactory(
-        config,
-        metrics,
-        reader,
-        writer,
-      )
-    })
+    ).map(writer => new KeyValueReadWriteFactory(metrics, reader, writer))
   }
-
 }

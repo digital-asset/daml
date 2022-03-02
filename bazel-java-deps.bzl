@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
@@ -21,29 +21,47 @@ load(
 version_specific = {
 }
 
-netty_version = "4.1.67.Final"
-
 # ** Upgrading tcnative in sync with main netty version **
 # Look for "tcnative.version" in top-level pom.xml.
 # For example for netty version netty-4.1.68.Final look here https://github.com/netty/netty/blob/netty-4.1.68.Final/pom.xml#L511:
 # ```
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
-netty_tcnative_version = "2.0.40.Final"
-grpc_version = "1.42.0"
-akka_version = "2.6.13"
+
+# Bumping versions of io.grpc:* has a few implications:
+# 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
+#    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
+#    ScalaPB also depends on a specific version of protobuf-java, but it's not strict:
+#    as long as the version we use is greater than or equal to the version required by ScalaPB,
+#    everything should work.
+#
+# 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
+# in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
+#
+# * io.grpc:grpc-netty
+# * io.netty:netty-handler
+# * io.netty:netty-tcnative-boringssl-static
+#
+# This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
+# need to be updated with careful consideration.
+
+netty_tcnative_version = "2.0.46.Final"
+netty_version = "4.1.72.Final"
+grpc_version = "1.44.0"
+protobuf_version = "3.19.3"
+akka_version = "2.6.18"
 gatling_version = "3.5.1"
+guava_version = "31.0.1-jre"
 
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
-            "ch.qos.logback:logback-classic:1.2.3",
-            "ch.qos.logback:logback-core:1.2.3",
+            "ch.qos.logback:logback-classic:1.2.8",
+            "ch.qos.logback:logback-core:1.2.8",
             "com.auth0:java-jwt:3.10.3",
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
             "com.github.ben-manes.caffeine:caffeine:2.8.0",
-            "com.github.ghik:silencer-plugin_{}:1.7.5".format(scala_version),
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -51,9 +69,9 @@ def install_java_deps():
             "com.github.scopt:scopt_{}:4.0.0".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
-            "com.google.guava:guava:29.0-jre",
-            "com.h2database:h2:1.4.200",
-            "com.lihaoyi:pprint_{}:0.6.0".format(scala_major_version),
+            "com.google.guava:guava:{}".format(guava_version),
+            "com.h2database:h2:2.1.210",
+            "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
             "com.oracle.database.jdbc:ojdbc8:19.8.0.0",
@@ -85,33 +103,15 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-graphite:4.1.2",
             "io.dropwizard.metrics:metrics-jmx:4.1.2",
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.opentelemetry:opentelemetry-api:0.16.0",
-            "io.opentelemetry:opentelemetry-context:0.16.0",
-            "io.opentelemetry:opentelemetry-sdk-testing:0.16.0",
-            "io.opentelemetry:opentelemetry-sdk-trace:0.16.0",
-            "io.opentelemetry:opentelemetry-semconv:0.16.0-alpha",
+            "io.opentelemetry:opentelemetry-api:1.1.0",
+            "io.opentelemetry:opentelemetry-context:1.1.0",
+            "io.opentelemetry:opentelemetry-sdk-testing:1.1.0",
+            "io.opentelemetry:opentelemetry-sdk-trace:1.1.0",
+            "io.opentelemetry:opentelemetry-semconv:1.1.0-alpha",
             "io.prometheus:simpleclient:0.8.1",
             "io.prometheus:simpleclient_dropwizard:0.8.1",
             "io.prometheus:simpleclient_httpserver:0.8.1",
             "io.prometheus:simpleclient_servlet:0.8.1",
-
-            # Bumping versions of io.grpc:* has a few implications:
-            # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
-            #    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
-            #    ScalaPB also depends on a specific version of protobuf-java, but it's not strict:
-            #    as long as the version we use is greater than or equal to the version required by ScalaPB,
-            #    everything should work.
-            #
-            # 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
-            # in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
-            #
-            # * io.grpc:grpc-netty
-            # * io.netty:netty-handler
-            # * io.netty:netty-tcnative-boringssl-static
-            #
-            # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
-            # need to be updated with careful consideration.
-            # grpc
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
@@ -126,7 +126,7 @@ def install_java_deps():
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             # protobuf
-            "com.google.protobuf:protobuf-java:3.17.3",
+            "com.google.protobuf:protobuf-java:{}".format(protobuf_version),
             # scalapb
             "com.thesamet.scalapb:compilerplugin_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:lenses_{}:{}".format(scala_major_version, scalapb_version),
@@ -145,17 +145,20 @@ def install_java_deps():
             "io.gatling:gatling-http-client:{}".format(gatling_version),
             "io.reactivex.rxjava2:rxjava:2.2.1",
             "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
+            "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.4".format(scala_major_version),
             "javax.annotation:javax.annotation-api:1.2",
             "javax.ws.rs:javax.ws.rs-api:2.1",
             "junit:junit:4.12",
             "junit:junit-dep:4.10",
             "net.logstash.logback:logstash-logback-encoder:6.6",
+            "org.bouncycastle:bcpkix-jdk15on:1.70",
+            "org.bouncycastle:bcprov-jdk15on:1.70",
             "org.codehaus.janino:janino:3.1.4",
             "org.apache.commons:commons-lang3:3.9",
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:3.1.6",
             "org.checkerframework:checker:2.5.4",
-            "org.flywaydb:flyway-core:7.13.0",
+            "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
@@ -167,15 +170,13 @@ def install_java_deps():
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
             "org.pcollections:pcollections:2.1.3",
-            "org.postgresql:postgresql:42.2.18",
+            "org.postgresql:postgresql:42.2.25",
             "org.reactivestreams:reactive-streams:1.0.2",
             "org.reactivestreams:reactive-streams-tck:1.0.2",
             "org.reflections:reflections:0.9.12",
             "org.sangria-graphql:sangria_{}:2.0.1".format(scala_major_version),
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
             "org.scalacheck:scalacheck_{}:1.15.4".format(scala_major_version),
-            "org.scala-lang.modules:scala-collection-compat_{}:2.3.2".format(scala_major_version),
-            "org.scala-lang.modules:scala-java8-compat_{}:0.9.0".format(scala_major_version),
             "org.scala-lang.modules:scala-parallel-collections_{}:1.0.0".format(scala_major_version),
             "org.scalameta:munit_{}:0.7.26".format(scala_major_version),
             "org.scalactic:scalactic_{}:3.2.9".format(scala_major_version),
@@ -188,7 +189,7 @@ def install_java_deps():
             "org.seleniumhq.selenium:selenium-java:3.12.0",
             "org.slf4j:slf4j-api:1.7.26",
             "org.slf4j:slf4j-simple:1.7.26",
-            "org.typelevel:kind-projector_{}:0.13.0".format(scala_version),
+            "org.typelevel:kind-projector_{}:0.13.2".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
@@ -197,6 +198,7 @@ def install_java_deps():
             "org.xerial:sqlite-jdbc:3.36.0.1",
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",
+            "org.scala-lang:scala-library:{}".format(scala_version),
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),

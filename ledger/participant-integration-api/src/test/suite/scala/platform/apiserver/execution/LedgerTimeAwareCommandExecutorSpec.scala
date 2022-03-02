@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
@@ -10,9 +10,9 @@ import com.daml.error.ErrorCause
 import com.daml.error.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.daml.ledger.api.domain.{ApplicationId, CommandId, Commands, LedgerId}
+import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.crypto.Hash
@@ -27,7 +27,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 class LedgerTimeAwareCommandExecutorSpec
     extends AsyncWordSpec
@@ -43,7 +42,7 @@ class LedgerTimeAwareCommandExecutorSpec
       minSkew = Duration.ZERO,
       maxSkew = Duration.ZERO,
     ).get,
-    maxDeduplicationTime = Duration.ZERO,
+    maxDeduplicationDuration = Duration.ZERO,
   )
 
   val cid = TransactionBuilder.newCid
@@ -64,12 +63,13 @@ class LedgerTimeAwareCommandExecutorSpec
 
   private def runExecutionTest(
       dependsOnLedgerTime: Boolean,
-      contractStoreResults: List[Try[Option[Time.Timestamp]]],
+      contractStoreResults: List[MaximumLedgerTime],
       finalExecutionResult: Either[ErrorCause, Time.Timestamp],
   ) = {
 
     def commandExecutionResult(let: Time.Timestamp) = CommandExecutionResult(
       SubmitterInfo(
+        Nil,
         Nil,
         Ref.ApplicationId.assertFromString("foobar"),
         Ref.CommandId.assertFromString("foobar"),
@@ -96,16 +96,20 @@ class LedgerTimeAwareCommandExecutorSpec
 
     val mockContractStore = mock[ContractStore]
     contractStoreResults.tail.foldLeft(
-      when(mockContractStore.lookupMaximumLedgerTime(any[Set[ContractId]])(any[LoggingContext]))
-        .thenReturn(Future.fromTry(contractStoreResults.head))
+      when(
+        mockContractStore.lookupMaximumLedgerTimeAfterInterpretation(any[Set[ContractId]])(
+          any[LoggingContext]
+        )
+      )
+        .thenReturn(Future.successful(contractStoreResults.head))
     ) { case (mock, result) =>
-      mock.andThen(Future.fromTry(result))
+      mock.andThen(Future.successful(result))
     }
 
     val commands = Commands(
-      ledgerId = LedgerId("ledgerId"),
+      ledgerId = Some(LedgerId("ledgerId")),
       workflowId = None,
-      applicationId = ApplicationId(Ref.ApplicationId.assertFromString("applicationId")),
+      applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
       submissionId = None,
       actAs = Set.empty,
@@ -131,6 +135,7 @@ class LedgerTimeAwareCommandExecutorSpec
           CommandExecutionResult(
             SubmitterInfo(
               Nil,
+              Nil,
               Ref.ApplicationId.assertFromString("foobar"),
               Ref.CommandId.assertFromString("foobar"),
               DeduplicationDuration(Duration.ofMinutes(1)),
@@ -150,18 +155,18 @@ class LedgerTimeAwareCommandExecutorSpec
           any[Configuration],
         )(any[ExecutionContext], any[LoggingContext])
         verify(mockContractStore, times(contractStoreResults.size))
-          .lookupMaximumLedgerTime(Set(cid))
+          .lookupMaximumLedgerTimeAfterInterpretation(Set(cid))
 
         actual shouldEqual expectedResult
       }
     }
   }
 
-  val missingCid = Failure(MissingContracts(Set(cid)))
-  val foundEpoch = Success(Some(Time.Timestamp.Epoch))
-  val epochPlus5: Time.Timestamp = Time.Timestamp.Epoch.add(Duration.ofSeconds(5))
-  val foundEpochPlus5 = Success(Some(epochPlus5))
-  val noLetFound = Success(None)
+  private val missingCid: MaximumLedgerTime = MaximumLedgerTime.Archived(Set(cid))
+  private val foundEpoch: MaximumLedgerTime = MaximumLedgerTime.Max(Time.Timestamp.Epoch)
+  private val epochPlus5: Time.Timestamp = Time.Timestamp.Epoch.add(Duration.ofSeconds(5))
+  private val foundEpochPlus5: MaximumLedgerTime = MaximumLedgerTime.Max(epochPlus5)
+  private val noLetFound: MaximumLedgerTime = MaximumLedgerTime.NotAvailable
 
   "LedgerTimeAwareCommandExecutor" when {
     "the model doesn't use getTime" should {

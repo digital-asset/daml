@@ -1,8 +1,10 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module Templates where
+
+import Daml.Script
 
 -- BEGIN_SIMPLE_TEMPLATE
 data MySimpleTemplateKey =
@@ -26,7 +28,7 @@ template MySimpleTemplate
             controller owner
             do return ()
 
-emptyTemplateTest = scenario do
-    alice <- getParty "Alice"
-    emptyContract <- submit alice do create MySimpleTemplate with owner = alice
+emptyTemplateTest = script do
+    alice <- allocateParty "Alice"
+    emptyContract <- submit alice do createCmd MySimpleTemplate with owner = alice
     return ()

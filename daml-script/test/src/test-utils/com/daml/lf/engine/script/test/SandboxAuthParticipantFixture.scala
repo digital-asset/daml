@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -8,14 +8,14 @@ import java.io.File
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import scalaz.syntax.tag._
@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext
 
 trait SandboxAuthParticipantFixture
     extends AbstractScriptTest
-    with SandboxNextFixture
+    with SandboxFixture
     with SandboxBackend.Postgresql
     with AkkaBeforeAndAfterAll {
   self: Suite =>
@@ -45,7 +45,7 @@ trait SandboxAuthParticipantFixture
         participants = Map.empty,
       ),
       tlsConfig = TlsConfiguration(false, None, None, None),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
     )
 
   private val secret = "secret"
@@ -64,7 +64,7 @@ trait SandboxAuthParticipantFixture
   private val appId = ApplicationId("daml-script-test")
 
   def getToken(parties: List[String], admin: Boolean): String = {
-    val payload = AuthServiceJWTPayload(
+    val payload = CustomDamlJWTPayload(
       ledgerId = None,
       participantId = None,
       exp = None,

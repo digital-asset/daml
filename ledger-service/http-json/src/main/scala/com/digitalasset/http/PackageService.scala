@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -16,7 +16,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.Scalaz._
 import scalaz._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
 import com.daml.ledger.api.{domain => LedgerApiDomain}

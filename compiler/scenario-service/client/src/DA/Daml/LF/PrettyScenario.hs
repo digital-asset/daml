@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 
@@ -353,6 +353,7 @@ prettyScenarioErrorError (Just err) =  do
       pure $ "Invalid party name: " <-> ltext name
     ScenarioErrorErrorScenarioPartyAlreadyExists name ->
       pure $ "Tried to allocate a party that already exists: " <-> ltext name
+
     ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a contract not visible to the reading parties."
@@ -412,6 +413,11 @@ prettyScenarioErrorError (Just err) =  do
       pure "Attend to compare incomparable values"
     ScenarioErrorErrorValueExceedsMaxNesting _ ->
           pure "Value exceeds maximum nesting value of 100"
+    ScenarioErrorErrorScenarioPartiesNotAllocated ScenarioError_PartiesNotAllocated{..} ->
+      pure $ vcat
+        [ "Tried to submit a command for parties that have not ben allocated:"
+        , prettyParties scenarioError_PartiesNotAllocatedParties
+        ]
 
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

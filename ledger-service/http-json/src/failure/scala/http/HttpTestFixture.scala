@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -44,7 +44,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
         password = "",
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
     )
 
   override def packageFiles =
@@ -67,7 +67,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
       proxiedPort,
       Some(jdbcConfig_),
       None,
-      wsConfig = Some(Config.DefaultWsConfig),
+      wsConfig = Some(WebsocketConfig()),
       ledgerIdOverwrite = Some(ledgerId(None)),
     )
   }

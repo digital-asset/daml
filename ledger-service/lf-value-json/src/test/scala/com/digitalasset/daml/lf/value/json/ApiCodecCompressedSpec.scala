@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -117,7 +117,7 @@ class ApiCodecCompressedSpec
         fUnit = (),
         fInt64 = 100L,
         fParty = Ref.Party assertFromString "BANK1",
-        fContractId = ContractId.assertFromString("#C0"),
+        fContractId = ContractId.assertFromString("00" + "00" * 32 + "c0"),
         fListOfText = Vector("foo", "bar"),
         fListOfUnit = Vector((), ()),
         fDate = Time.Date assertFromString "2019-01-28",
@@ -132,7 +132,7 @@ class ApiCodecCompressedSpec
 
     val colorId = defRef("Color")
     val (colorGD, colorGT) =
-      VA.enum(colorId, Seq("Red", "Green", "Blue") map Ref.Name.assertFromString)
+      VA.enumeration(colorId, Seq("Red", "Green", "Blue") map Ref.Name.assertFromString)
 
     val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
       Map(
@@ -260,7 +260,14 @@ class ApiCodecCompressedSpec
 
     val successes = Table(
       ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
-      c("\"#123\"", VA.contractId)(ContractId.assertFromString("#123")),
+      c(
+        "\"0000000000000000000000000000000000000000000000000000000000000000000123\"",
+        VA.contractId,
+      )(
+        ContractId.assertFromString(
+          "0000000000000000000000000000000000000000000000000000000000000000000123"
+        )
+      ),
       cn("\"42.0\"", "42.0", VA.numeric(Decimal.scale))(
         Decimal assertFromString "42",
         "\"42\"",

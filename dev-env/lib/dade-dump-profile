@@ -20,34 +20,46 @@ unset NIX_PATH
 set -Eeuo pipefail
 
 if [[ -n "${DADE_DEBUG+x}" ]]; then
-    set -x
+  set -x
 fi
 
 errcho() {
-    >&2 echo "[dev-env] $*"
+  >&2 echo "[dev-env] $*"
+}
+
+get_nix_version() {
+  local current
+  current="$(nix-env --version)"
+  if [[ "$current" =~ ([0-9])[.]([0-9]+)([.]([0-9]+))?$ ]]; then
+    echo "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[4]:-0}"
+  else
+    errcho "WARNING: Unexpected output of 'nix-env --version' ($current), dev-env might not work properly."
+    return 1
+  fi
 }
 
 check_nix_version() {
-    # Keep in sync with dade-nix-install.
-    NIX_MAJOR="$1"
-    NIX_MINOR="$2"
-    NIX_PATCH="$3"
-    local current
-    current=$(nix-env --version)
-    if [[ $current =~ ([0-9])[.]([0-9]+)([.]([0-9]+))? ]]; then
-        local current_major="${BASH_REMATCH[1]}"
-        local current_minor="${BASH_REMATCH[2]}"
-        local current_patch="${BASH_REMATCH[4]:-0}"
-        if [[ $current_major -lt $NIX_MAJOR ]] ||
-           [[ $current_major -eq $NIX_MAJOR && $current_minor -lt $NIX_MINOR ]] ||
-           [[ $current_major -eq $NIX_MAJOR && $current_minor -eq $NIX_MINOR && $current_patch -lt $NIX_PATCH ]];
+  # Keep in sync with dade-nix-install.
+  NIX_MAJOR="$1"
+  NIX_MINOR="$2"
+  NIX_PATCH="$3"
+  if current="$(get_nix_version)"; then
+    [[ "$current" =~ ([0-9])[.]([0-9]+)[.]([0-9]+)$ ]]
+    local current_major="${BASH_REMATCH[1]}"
+    local current_minor="${BASH_REMATCH[2]}"
+    local current_patch="${BASH_REMATCH[3]}"
+    if [[ $current_major -lt $NIX_MAJOR ]] ||
+      [[ $current_major -eq $NIX_MAJOR && $current_minor -lt $NIX_MINOR ]] ||
+      [[ $current_major -eq $NIX_MAJOR && $current_minor -eq $NIX_MINOR && $current_patch -lt $NIX_PATCH ]];
         then
-            errcho "WARNING: Version ${current_major}.${current_minor}.${current_patch} detected, but ${NIX_MAJOR}.${NIX_MINOR}.${NIX_PATCH} or higher required."
-            errcho "Please run 'nix upgrade-nix' or 'curl -sSfL https://nixos.org/nix/install | sh' to update Nix."
-        fi
-    else
-      errcho "WARNING: Unexpected output of 'nix-env --version' ($current), dev-env might not work properly. Contact #disc-enterprise-pipe immediately!"
+          errcho "WARNING: Version ${current_major}.${current_minor}.${current_patch} detected, but ${NIX_MAJOR}.${NIX_MINOR}.${NIX_PATCH} or higher required."
+          errcho "Please run 'nix upgrade-nix' or 'curl -sSfL https://nixos.org/nix/install | sh' to update Nix."
     fi
+  fi
+}
+
+nix_tool() {
+  echo "$(nix-build ./nix/default.nix -A "tools.$1" -Q --no-out-link)/$2"
 }
 
 # TODO(gleber): Compatibility mode until JBH is ugraded.
@@ -96,10 +108,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 )
 
 # Make sure nix gets ensured in main shell
-echo source "$(dirname "${BASH_SOURCE[0]}")/ensure-nix"
+echo "source $(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
-echo "export NIX_CONF_DIR=\"${DADE_DEVENV_DIR}/etc\""
+semver="$(nix_tool semver bin/semver)"
+if [[ "$("$semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
+  echo "export NIX_USER_CONF_FILES=\"${DADE_DEVENV_DIR}/etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
+else
+  # On an old version of Nix, overwrite the system config, as we can't support multiple config files.
+  echo "export NIX_CONF_DIR=\"${DADE_DEVENV_DIR}/etc\""
+fi
 echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
 echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
 echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""

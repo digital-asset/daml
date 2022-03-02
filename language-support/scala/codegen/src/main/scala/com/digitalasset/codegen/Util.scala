@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -11,7 +11,6 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
 
-import scala.collection.compat._
 import scala.reflect.runtime.universe._
 import scalaz.{Tree => _, _}
 import scalaz.std.list._

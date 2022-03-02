@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -19,6 +19,7 @@ module Development.IDE.Core.API.Testing
     , ExpectedSubGraph(..)
     , ExpectedChoiceDetails(..)
     , runShakeTest
+    , runShakeTestOpts
     , makeFile
     , makeModule
     , setFilesOfInterest
@@ -60,9 +61,10 @@ import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import DA.Daml.Options
 import DA.Daml.Options.Types
+import qualified DA.Daml.Options.Types as Daml (Options)
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
-import Language.LSP.Types
+import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -145,9 +147,17 @@ pattern EventVirtualResourceNoteSet vr note <-
 
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
-runShakeTest mbScenarioService (ShakeTest m) = do
+runShakeTest = runShakeTestOpts id
+
+-- | Run shake test on freshly initialised shake service, with custom options.
+runShakeTestOpts :: (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
+runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
     dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    let options = (defaultOptions Nothing) { optDlintUsage = DlintEnabled dlintDataDir False, optEnableOfInterestRule = True }
+    let options = fOpts (defaultOptions Nothing)
+            { optDlintUsage = DlintEnabled dlintDataDir False
+            , optEnableOfInterestRule = True
+            , optEnableScenarios = EnableScenarios True
+            }
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty
     let eventLogger :: forall (m :: Method 'FromServer 'Notification). SMethod m -> MessageParams m -> IO ()
@@ -321,11 +331,17 @@ cursorFilePath :: Cursor -> D.NormalizedFilePath
 cursorFilePath ( absPath, _line, _col) = absPath
 
 cursorPosition :: Cursor -> D.Position
-cursorPosition (_absPath,  line,  col) = D.Position line col
+cursorPosition (_absPath,  line,  col) =
+    D.Position
+        (fromIntegral line)
+        (fromIntegral col)
 
 locationStartCursor :: D.Location -> Cursor
 locationStartCursor (D.Location path (D.Range (D.Position line col) _)) =
-    (D.toNormalizedFilePath' $ fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
+    ( D.toNormalizedFilePath' $ fromMaybe D.noFilePath $ D.uriToFilePath' path
+    , fromIntegral line
+    , fromIntegral col
+    )
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).

@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -85,39 +85,36 @@ buildPackage :: HasCallStack => Maybe PackageName -> Maybe PackageVersion -> Ver
 buildPackage mbPkgName mbPkgVersion version mods =
     Package version (NM.fromList mods) pkgMetadata
   where
-    pkgMetadata = do
+    pkgMetadata =
         -- In `damlc build` we are guaranteed to have a name and version
         -- however, for `damlc package` (which should really die in a fire)
         -- we might only have a name and for `damlc compile` we don’t even
         -- have a package name <insert sad panda here>.
         -- We require metadata to be present in newer LF versions,
         -- so we set it to some arbitrarily chosen garbage.
-        getPackageMetadata version (fromMaybe (PackageName "unknown") mbPkgName) mbPkgVersion
+        Just $ getPackageMetadata (fromMaybe (PackageName "unknown") mbPkgName) mbPkgVersion
 
 instance Outputable Expr where
     ppr = text . renderPretty
 
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
-  Range (Position slin scol) (Position elin ecol)
+  Range
+    (Position
+        (fromIntegral slin)
+        (fromIntegral scol))
+    (Position
+        (fromIntegral elin)
+        (fromIntegral ecol))
 
-mkBuiltinEqual :: Version -> BuiltinType -> Expr
-mkBuiltinEqual v ty =
-    if v `supports` featureGenericComparison
-        then EBuiltin BEEqualGeneric `ETyApp` TBuiltin ty
-        else EBuiltin (BEEqual ty)
+mkBuiltinEqual :: BuiltinType -> Expr
+mkBuiltinEqual ty = EBuiltin BEEqualGeneric `ETyApp` TBuiltin ty
 
-mkBuiltinLess :: Version -> BuiltinType -> Expr
-mkBuiltinLess v ty =
-    if v `supports` featureGenericComparison
-        then EBuiltin BELessGeneric `ETyApp` TBuiltin ty
-        else EBuiltin (BELess ty)
+mkBuiltinLess :: BuiltinType -> Expr
+mkBuiltinLess ty = EBuiltin BELessGeneric `ETyApp` TBuiltin ty
 
-mkBuiltinGreater :: Version -> BuiltinType -> Expr
-mkBuiltinGreater v ty =
-    if v `supports` featureGenericComparison
-        then EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
-        else EBuiltin (BEGreater ty)
+mkBuiltinGreater :: BuiltinType -> Expr
+mkBuiltinGreater ty = EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
 
 preconditionFailedTypeCon :: Qualified TypeConName
 preconditionFailedTypeCon = Qualified

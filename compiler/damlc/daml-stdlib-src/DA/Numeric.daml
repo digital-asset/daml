@@ -1,11 +1,10 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
 
 module DA.Numeric where
 
-#ifdef DAML_NUMERIC
 import GHC.Types (primitive)
 
 -- | Multiply two numerics. Both inputs and the output may have
@@ -39,11 +38,3 @@ shift = primitive @"BEShiftNumeric"
 -- | The number pi.
 pi : forall n. NumericScale n => Numeric n
 pi = castAndRound (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
-
-#else
-
--- | The number pi.
-pi : Decimal
-pi = 3.14159_26536
-
-#endif

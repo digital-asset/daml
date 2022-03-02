@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -13,4 +13,4 @@ main :: IO ()
 main = do
     (arg : args) <- getArgs
     withPostgres $ \jdbcUrl ->
-        callProcess arg (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])
+        callProcess arg (map (T.unpack . T.replace "__jdbcurl__" jdbcUrl . T.pack) args)

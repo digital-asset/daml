@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,7 +20,7 @@ package speedy
   * 3: transform to ANF
   * 4: validate the final expression which will run on the speedy machine
   *
-  * Stage 1 is in Compiler.scala
+  * Stage 1 is in PhaseOne.scala
   * Stage 2 is in ClosureConversion.scala
   * Stage 3 is in Anf.scala
   * Stage 4 is in ValidateCompilation.scala

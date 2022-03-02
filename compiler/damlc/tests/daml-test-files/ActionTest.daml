@@ -29,3 +29,5 @@ testFilterA = scenario do
   largeIouIds <- bank `submit` filterA (fmap (\iou -> iou.amount > (2.0 : Decimal)) . fetch) iouIds
   largeIous <- bank `submit` forA largeIouIds fetch
   [bobIou, charlieIou] === largeIous
+
+-- @ENABLE-SCENARIOS

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -153,6 +153,7 @@ private[lf] object PartialTransaction {
       parent: Context,
       byKey: Boolean,
       byInterface: Option[TypeConName],
+      version: TxVersion,
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
@@ -178,13 +179,11 @@ private[lf] object PartialTransaction {
   }
 
   def initial(
-      pkg2TxVersion: Ref.PackageId => TxVersion,
       contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
   ) = PartialTransaction(
-    pkg2TxVersion,
     contractKeyUniqueness = contractKeyUniqueness,
     submissionTime = submissionTime,
     nextNodeIdx = 0,
@@ -266,7 +265,6 @@ private[lf] object PartialTransaction {
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
   */
 private[speedy] case class PartialTransaction(
-    packageToTransactionVersion: Ref.PackageId => TxVersion,
     contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
@@ -341,14 +339,6 @@ private[speedy] case class PartialTransaction(
     }.toMap
   }
 
-  /** normValue: converts a speedy value into a normalized regular value,
-    * suitable for a transaction node of 'version' determined by 'templateId'
-    */
-  def normValue(templateId: TypeConName, svalue: SValue): Value = {
-    val version = packageToTransactionVersion(templateId.packageId)
-    svalue.toNormalizedValue(version)
-  }
-
   private def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
     if (version < TxVersion.minByKey) {
       false
@@ -409,12 +399,12 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       byInterface: Option[TypeConName],
+      version: TxVersion,
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
       crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
     val cid = Value.ContractId.V1(discriminator)
-    val version = packageToTransactionVersion(templateId.packageId)
     val createNode = Node.Create(
       cid,
       templateId,
@@ -503,9 +493,9 @@ private[speedy] case class PartialTransaction(
       key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       byInterface: Option[TypeConName],
+      version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val version = packageToTransactionVersion(templateId.packageId)
     val node = Node.Fetch(
       coid,
       templateId,
@@ -518,8 +508,8 @@ private[speedy] case class PartialTransaction(
       version,
     )
     mustBeActive(
+      NameOf.qualifiedNameOfCurrentFunc,
       coid,
-      templateId,
       insertLeafNode(node, version, optLocation),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
@@ -530,9 +520,9 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       key: Node.KeyWithMaintainers,
       result: Option[Value.ContractId],
+      version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val version = packageToTransactionVersion(templateId.packageId)
     val node = Node.LookupByKey(
       templateId,
       key,
@@ -561,6 +551,7 @@ private[speedy] case class PartialTransaction(
       byKey: Boolean,
       chosenValue: Value,
       byInterface: Option[TypeConName],
+      version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -579,11 +570,12 @@ private[speedy] case class PartialTransaction(
         parent = context,
         byKey = byKey,
         byInterface = byInterface,
+        version = version,
       )
 
     mustBeActive(
+      NameOf.qualifiedNameOfCurrentFunc,
       targetId,
-      templateId,
       copy(
         actionNodeLocations = actionNodeLocations :+ optLocation,
         nextNodeIdx = nextNodeIdx + 1,
@@ -613,12 +605,14 @@ private[speedy] case class PartialTransaction(
   /** Close normally an exercise context.
     * Must match a `beginExercises`.
     */
-  def endExercises(value: SValue): PartialTransaction =
+  def endExercises(result: TxVersion => Value): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
-        val result = normValue(ec.templateId, value)
         val exerciseNode =
-          makeExNode(ec).copy(children = context.children.toImmArray, exerciseResult = Some(result))
+          makeExNode(ec).copy(
+            children = context.children.toImmArray,
+            exerciseResult = Some(result(ec.version)),
+          )
         val nodeId = ec.nodeId
         copy(
           context =
@@ -656,7 +650,6 @@ private[speedy] case class PartialTransaction(
     }
 
   private[this] def makeExNode(ec: ExercisesContextInfo): Node.Exercise = {
-    val version = packageToTransactionVersion(ec.templateId.packageId)
     Node.Exercise(
       targetCoid = ec.targetId,
       templateId = ec.templateId,
@@ -670,9 +663,9 @@ private[speedy] case class PartialTransaction(
       children = ImmArray.Empty,
       exerciseResult = None,
       key = ec.contractKey,
-      byKey = normByKey(version, ec.byKey),
+      byKey = normByKey(ec.version, ec.byKey),
       byInterface = ec.byInterface,
-      version = version,
+      version = ec.version,
     )
   }
 
@@ -762,18 +755,18 @@ private[speedy] case class PartialTransaction(
   /** `True` iff the given `ContractId` has been consumed already */
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
 
-  /** Guard the execution of a step with the unconsumedness of a
-    * `ContractId`
+  /** Double check the execution of a step with the unconsumedness of a
+    * `ContractId`.
     */
   private[this] def mustBeActive(
+      loc: => String,
       coid: Value.ContractId,
-      templateId: TypeConName,
       f: => PartialTransaction,
   ): PartialTransaction =
-    consumedBy.get(coid) match {
-      case None => f
-      case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
-    }
+    if (consumedBy.isDefinedAt(coid))
+      InternalError.runtimeException(loc, "try to build a node using an inactive contract.")
+    else
+      f
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   def insertLeafNode(

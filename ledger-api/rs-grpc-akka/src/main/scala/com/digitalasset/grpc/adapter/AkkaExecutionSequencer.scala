@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter
@@ -12,7 +12,6 @@ import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import com.daml.dec.DirectExecutionContext
 
 /** Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
   */
@@ -23,7 +22,7 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(implicit
   override def sequence(runnable: Runnable): Unit = actorRef ! runnable
 
   override def close(): Unit = {
-    closeAsync(DirectExecutionContext)
+    closeAsync(ExecutionContext.parasitic)
     ()
   }
 
@@ -68,7 +67,7 @@ private[grpc] class RunnableSequencingActor extends Actor with ActorLogging {
       try {
         runnable.run()
       } catch {
-        case NonFatal(t) => log.error("Unexpected exception while executing Runnable", t)
+        case NonFatal(t) => log.error("Unexpected exception while executing Runnable: {}", t)
       }
     case ShutdownRequest =>
       context.stop(self) // processing of the current message will continue

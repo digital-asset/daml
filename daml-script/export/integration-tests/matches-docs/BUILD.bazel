@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
@@ -50,7 +50,7 @@ client_server_build(
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
-    server = "//ledger/sandbox:sandbox-ephemeral-postgresql",
+    server = "//ledger/sandbox-classic:sandbox-classic-ephemeral-postgresql",
     server_args = [
         "--port=0",
         "--port-file=%PORT_FILE%",

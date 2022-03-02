@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -276,7 +276,7 @@ abstract class AbstractFuncIT
     }
     "traceOrder" should {
       "emit trace statements in correct order" in {
-        val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: "(.*)"""".r
+        val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: (.*)""".r
         def stripLoc(msg: String) = msg match {
           case msgRegex(msg_) => msg_
         }
@@ -290,7 +290,7 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(v == SUnit)
-          val logMsgs = LogCollector.events.map(_.getMessage)
+          val logMsgs = LogCollector.events.map(_.getFormattedMessage)
           assert(logMsgs.map(stripLoc(_)) == Seq("abc", "def", "abc", "def"))
         }
       }
@@ -407,9 +407,8 @@ abstract class AbstractFuncIT
         )
       }
     }
-    // TODO https://github.com/digital-asset/daml/issues/11997
-    // Enable once #12063 is merged
-    "testUserManagement should succeed" ignore {
+
+    "testUserManagement should succeed" in {
       for {
         clients <- participantClients()
         r <-
@@ -420,9 +419,8 @@ abstract class AbstractFuncIT
           )
       } yield r shouldBe SUnit
     }
-    // TODO https://github.com/digital-asset/daml/issues/11997
-    // Enable once #12063 is merged
-    "testUserRightManagement should succeed" ignore {
+
+    "testUserRightManagement should succeed" in {
       for {
         clients <- participantClients()
         r <-

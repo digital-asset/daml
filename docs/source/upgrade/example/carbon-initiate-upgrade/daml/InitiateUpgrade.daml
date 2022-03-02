@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module InitiateUpgrade where
@@ -8,28 +8,27 @@ import DA.List
 import Daml.Script
 
 import CarbonV1
+import qualified Setup
 import UpgradeFromCarbonCertV1
 
 -- INITIATE_UPGRADE_BEGIN
-initiateUpgrade : Party -> Script ()
-initiateUpgrade issuer = do
-  certs <- query @CarbonCert issuer
-  let myCerts = filter (\(_cid, c) -> c.issuer == issuer) certs
+initiateUpgrade : Setup.Parties -> Script ()
+initiateUpgrade Setup.Parties{alice} = do
+  certs <- query @CarbonCert alice
+  let myCerts = filter (\(_cid, c) -> c.issuer == alice) certs
   let owners = dedup $ map (\(_cid, c) -> c.owner) myCerts
   forA_ owners $ \owner -> do
-    debug ("Creating upgrade proposal for: " <> show owner)
-    submit issuer $ createCmd (UpgradeCarbonCertProposal issuer owner)
+    debugRaw ("Creating upgrade proposal for: " <> show owner)
+    submit alice $ createCmd (UpgradeCarbonCertProposal alice owner)
 -- INITIATE_UPGRADE_END
 
 -- SETUP_SCRIPT_BEGIN
-setup : Script ()
+setup : Script Setup.Parties
 setup = do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-  charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
+  parties@Setup.Parties{..} <- Setup.setup
   bobProposal <- submit alice $ createCmd (CarbonCertProposal alice bob 10)
   submit bob $ exerciseCmd bobProposal CarbonCertProposal_Accept
   charlieProposal <- submit alice $ createCmd (CarbonCertProposal alice charlie 5)
   submit charlie $ exerciseCmd charlieProposal CarbonCertProposal_Accept
-  pure ()
+  pure parties
 -- SETUP_SCRIPT_END

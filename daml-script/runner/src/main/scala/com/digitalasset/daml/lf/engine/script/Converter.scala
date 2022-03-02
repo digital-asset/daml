@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -303,7 +303,9 @@ object Converter {
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
+        Script.DummyLoggingContext
+      )
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {
@@ -505,13 +507,13 @@ object Converter {
     go(initialFreeAp, allEventResults, List())
   }
 
-  def toParty(v: SValue): Either[String, Ref.Party] =
+  def toParty(v: SValue): Either[String, Party] =
     v match {
       case SParty(p) => Right(p)
       case _ => Left(s"Expected SParty but got $v")
     }
 
-  def toParties(v: SValue): Either[String, OneAnd[Set, Ref.Party]] =
+  def toParties(v: SValue): Either[String, OneAnd[Set, Party]] =
     v match {
       case SList(FrontStackCons(x, xs)) =>
         OneAnd(x, xs).traverse(toParty(_)).map(toNonEmptySet(_))
@@ -667,9 +669,15 @@ object Converter {
     Right(
       record(
         scriptIds.damlScript("User"),
-        ("id", SText(user.id)),
+        ("id", fromUserId(scriptIds, user.id)),
         ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
       )
+    )
+
+  def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
+    record(
+      scriptIds.damlScript("UserId"),
+      ("userName", SText(userId)),
     )
 
   def toUser(v: SValue): Either[String, User] =
@@ -683,9 +691,14 @@ object Converter {
     }
 
   def toUserId(v: SValue): Either[String, UserId] =
-    // TODO https://github.com/digital-asset/daml/issues/11997
-    // Produce a sensible error for invalid user ids.
-    toText(v).flatMap(UserId.fromString(_))
+    v match {
+      case SRecord(_, _, vals) if vals.size == 1 =>
+        for {
+          userName <- toText(vals.get(0))
+          userId <- UserId.fromString(userName)
+        } yield userId
+      case _ => Left(s"Expected UserId but got $v")
+    }
 
   def fromUserRight(
       scriptIds: ScriptIds,
@@ -747,7 +760,6 @@ object Converter {
       valueTranslator =
         new preprocessing.ValueTranslator(
           compiledPackages.interface,
-          forbidV0ContractId = false,
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator

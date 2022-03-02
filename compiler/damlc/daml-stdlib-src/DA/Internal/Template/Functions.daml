@@ -1,9 +1,10 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 -- This is the companion module (is that a word? now it is!) to DA.Internal.Template
 -- which provides functions and typeclasses.
@@ -110,6 +111,12 @@ class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
 
+-- | Exposes `exerciseGuarded` function.
+class HasExerciseGuarded t c r | t c -> r where
+  -- | Exercise a choice on the contract with the given contract ID,
+  -- only if the predicate returns `True`.
+  exerciseGuarded : (t -> Bool) -> ContractId t -> c -> Update r
+
 -- | Exposes `toAnyChoice` function for Daml-LF 1.7 or later.
 -- Part of the `Choice` constraint.
 class HasToAnyChoice t c r | t c -> r where
@@ -190,16 +197,19 @@ class HasFromAnyContractKey t k | t -> k where
   -- | HIDE
   _fromAnyContractKey : proxy t -> Any -> Optional k
 
+-- | Exposes `exerciseByKey` function.
+class HasExerciseByKey t k c r | t -> k, t c -> r where
+   -- | HIDE
+   _exerciseByKey : proxy t -> k -> c -> Update r
+
 -- | Exercise a choice on the contract associated with the given key.
 --
 -- You must pass the `t` using an explicit type application. For
 -- instance, if you want to exercise a choice `Withdraw` on a contract of
 -- template `Account` given by its key `k`, you must call
 -- `exerciseByKey @Account k Withdraw`.
-exerciseByKey : forall t k c r. (HasFetchByKey t k, HasExercise t c r) => k -> c -> Update r
-exerciseByKey k c = do
-    (cid, _) <- fetchByKey @t k
-    exercise cid c
+exerciseByKey : forall t k c r. HasExerciseByKey t k c r => k -> c -> Update r
+exerciseByKey = _exerciseByKey ([] : [t])
 
 -- | Create a contract and exercise the choice on the newly created contract.
 createAndExercise : forall t c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
@@ -244,6 +254,21 @@ instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b
 
 deriving instance Ord TemplateTypeRep
+
+#ifdef DAML_EXPERIMENTAL
+
+-- | (experimental, 1.dev only) Get the template id (or interface id)
+-- represented by a TemplateTypeRep, as a string.
+templateTypeRepToText : TemplateTypeRep -> Text
+templateTypeRepToText (TemplateTypeRep x) =
+  case primitive @"$TYPEREP_TYCON_NAME" x of
+    None -> error "Invalid TemplateTypeRep, does not contain a type constructor."
+    Some y -> y
+
+instance Show TemplateTypeRep where
+  show = templateTypeRepToText
+
+#endif
 
 -- | Wrap the template in `AnyTemplate`.
 --

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -34,19 +34,16 @@ package object archive {
     catch {
       case error: java.io.IOException => Left(Error.IO(where, error))
       case error: Error => Left(error)
-      case NonFatal(err) => Left(Error.Internal(where, s"Unhandled exception: ${err.getMessage}"))
+      case NonFatal(err) =>
+        Left(
+          Error.Internal(where, s"Unexpected ${err.getClass.getSimpleName} Exception", Some(err))
+        )
     }
 
   // This constant is introduced and used
   // to make serialization of nested data
   // possible otherwise complex models failed to deserialize.
   private val PROTOBUF_RECURSION_LIMIT: Int = 1000
-
-  @deprecated("use Error", since = "1.16.0")
-  val Errors = Error
-
-  @deprecated("use Error.Parsing", since = "1.16.0")
-  val ParseError = Error.Parsing
 
   // just set the recursion limit
   private[this] val Base: GenReader[CodedInputStream] =

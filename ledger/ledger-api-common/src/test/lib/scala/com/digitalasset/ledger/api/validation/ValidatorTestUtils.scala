@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -29,39 +29,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val eventId = "eventId"
   protected val transactionId = "42"
   protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
-
-  /** Fixture that facilitates testing validators with and without self-service error codes.
-    *
-    * @param testedFactory Creates an instance of a validator to be tested.
-    *                      Accepts a boolean to decide if self-service error codes should be enabled.
-    */
-  class ValidatorFixture[T](testedFactory: Boolean => T) {
-    def testRequestFailure(
-        testedRequest: T => Either[StatusRuntimeException, _],
-        expectedCodeV1: Code,
-        expectedDescriptionV1: String,
-        expectedCodeV2: Code,
-        expectedDescriptionV2: String,
-        metadataV2: Map[String, String] = Map.empty,
-    ): Assertion = {
-      requestMustFailWith(
-        request = testedRequest(testedFactory(false)),
-        code = expectedCodeV1,
-        description = expectedDescriptionV1,
-        metadata = Map.empty[String, String],
-      )
-      requestMustFailWith(
-        request = testedRequest(testedFactory(true)),
-        code = expectedCodeV2,
-        description = expectedDescriptionV2,
-        metadataV2,
-      )
-    }
-
-    def tested(enabledSelfServiceErrorCodes: Boolean): T = {
-      testedFactory(enabledSelfServiceErrorCodes)
-    }
-  }
 
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty

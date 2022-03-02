@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.h2
@@ -12,46 +12,6 @@ import com.daml.platform.store.interning.StringInterning
 
 class H2ContractStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends ContractStorageBackendTemplate(H2QueryStrategy, ledgerEndCache, stringInterning) {
-  override def maximumLedgerTimeSqlLiteral(
-      id: ContractId,
-      lastEventSequentialId: Long,
-  ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
-  WITH archival_event AS (
-         SELECT 1
-           FROM participant_events_consuming_exercise
-          WHERE contract_id = $id
-            AND event_sequential_id <= $lastEventSequentialId
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events_create
-          WHERE contract_id = $id
-            AND event_sequential_id <= $lastEventSequentialId
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT NULL::BIGINT
-           FROM participant_events_divulgence
-          WHERE contract_id = $id
-            AND event_sequential_id <= $lastEventSequentialId
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
-  }
 
   override def activeContractSqlLiteral(
       contractId: ContractId,

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.ValueSwitch
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -24,6 +23,8 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
+import com.daml.lf.kv.archives.ArchiveConversions
+import com.daml.lf.kv.contracts.RawContractInstance
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
@@ -63,8 +64,6 @@ object KVTest {
   )
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
-  private[kvutils] val errorVersionSwitch =
-    new ValueSwitch(enableSelfServiceErrorCodes = true)
 
   private def initialTestState: KVTestState = {
     val engine = Engine.DevEngine()
@@ -191,7 +190,7 @@ object KVTest {
       submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
-  ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     KVReader { state =>
       state.engine
         .submit(
@@ -210,8 +209,8 @@ object KVTest {
             state.damlState
               .get(Conversions.contractIdToStateKey(contractId))
               .map { v =>
-                Conversions.decodeContractInstance(
-                  Raw.ContractInstance(v.getContractState.getRawContractInstance)
+                Conversions.assertDecodeContractInstance(
+                  RawContractInstance(v.getContractState.getRawContractInstance)
                 )
               },
           packages = state.uploadedPackages.get,
@@ -227,7 +226,7 @@ object KVTest {
       submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
-  ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, command)
 
   def submitTransaction(
@@ -389,7 +388,6 @@ object KVTest {
       val _ = KeyValueConsumption.logEntryToUpdate(
         entryId,
         logEntry,
-        errorVersionSwitch,
       )(loggingContext)
 
       entryId -> logEntry
@@ -420,13 +418,11 @@ object KVTest {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         successfulLogEntry,
-        errorVersionSwitch,
         recordTimeFromTimeUpdateLogEntry,
       )(loggingContext)
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         outOfTimeBoundsLogEntry,
-        errorVersionSwitch,
         recordTimeFromTimeUpdateLogEntry,
       )(loggingContext)
 
@@ -448,7 +444,8 @@ object KVTest {
   ): SubmitterInfo = {
     SubmitterInfo(
       actAs = List(submitter),
-      applicationId = Ref.LedgerString.assertFromString("test"),
+      readAs = List.empty,
+      applicationId = Ref.ApplicationId.assertFromString("test"),
       commandId = commandId,
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       submissionId = None,
@@ -491,7 +488,9 @@ object KVTest {
   ): DamlSubmission =
     testState.keyValueSubmission.archivesToSubmission(
       submissionId = submissionId,
-      archives = archives.toList,
+      packageIdsToRawArchives = ArchiveConversions
+        .parsePackageIdsAndRawArchives(archives.toList)
+        .fold(error => throw error, identity),
       sourceDescription = "description",
       participantId = testState.participantId,
     )

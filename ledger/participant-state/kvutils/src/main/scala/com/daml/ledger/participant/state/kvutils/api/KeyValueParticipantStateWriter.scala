@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -7,28 +7,30 @@ import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.kv.archives.ArchiveConversions
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
-import scala.compat.java8.FutureConverters
+import scala.jdk.FutureConverters.FutureOps
 
 class KeyValueParticipantStateWriter(
     writer: LedgerWriter,
     metrics: Metrics,
 ) extends WriteService {
 
-  private val logger = ContextualizedLogger.get(getClass)
-  override def isApiDeduplicationEnabled: Boolean = false
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
@@ -73,14 +75,27 @@ class KeyValueParticipantStateWriter(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] = {
-    val submission = keyValueSubmission
-      .archivesToSubmission(
-        submissionId,
-        archives,
-        sourceDescription.getOrElse(""),
-        writer.participantId,
-      )
-    commit(submissionId, submission)
+    ArchiveConversions.parsePackageIdsAndRawArchives(archives) match {
+      case Left(_) =>
+        CompletableFuture.completedFuture(
+          SubmissionResult.SynchronousError(
+            KVErrors.Internal.SubmissionFailed
+              .Reject("Could not parse a package ID")(
+                new DamlContextualizedErrorLogger(logger, loggingContext, None)
+              )
+              .asStatus
+          )
+        )
+      case Right(packageIdsToRawArchives) =>
+        val submission = keyValueSubmission
+          .archivesToSubmission(
+            submissionId,
+            packageIdsToRawArchives,
+            sourceDescription.getOrElse(""),
+            writer.participantId,
+          )
+        commit(submissionId, submission)
+    }
   }
 
   override def submitConfiguration(
@@ -126,13 +141,13 @@ class KeyValueParticipantStateWriter(
       submission: DamlSubmission,
       metadata: Option[CommitMetadata] = None,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(
-      writer.commit(
+    writer
+      .commit(
         correlationId,
         Envelope.enclose(submission),
         metadata.getOrElse(CommitMetadata(submission, None)),
       )
-    )
+      .asJava
 
   override def prune(
       pruneUpToInclusive: Offset,

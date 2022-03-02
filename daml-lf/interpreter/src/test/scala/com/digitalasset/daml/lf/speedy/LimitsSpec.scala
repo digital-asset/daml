@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -6,10 +6,9 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.language.Ast
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
-import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +17,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
-  private[this] val pkgs = typeAndCompile(
+  import SpeedyTestLib.loggingContext
+
+  private[this] val pkgs = SpeedyTestLib.typeAndCompile(
     p"""
       module Mod {
         
@@ -329,12 +330,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
       val signatories = committers.take(1)
       val contract = mkContract(signatories, Set.empty)
-      val contracts = (_: Value.ContractId) => contract
       val cids = (1 to 99).map(i => Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"contract$i")))
       val e = e"Mod:fetches"
 
       forEvery(testCases) { (i, succeed) =>
-        val result = eval(limits, contracts, committers, e, asSCids(cids.take(i)))
+        val result = eval(limits, _ => contract, committers, e, asSCids(cids.take(i)))
         if (succeed)
           result shouldBe a[Right[_, _]]
         else
@@ -360,14 +360,6 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
   private val txSeed = crypto.Hash.hashPrivateKey(this.getClass.getCanonicalName)
 
-  private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Dev
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
-  }
-
   private[this] val T = { val Ast.TTyCon(t) = t"Mod:T"; t }
 
   private[this] val aCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("a contract ID"))
@@ -391,43 +383,21 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
   private[this] def eval(
       limits: interpretation.Limits,
-      contracts: Value.ContractId => Versioned[Value.ContractInstance],
+      contracts: PartialFunction[Value.ContractId, Versioned[Value.ContractInstance]],
       committers: Set[Ref.Party],
       e: Ast.Expr,
       agrs: SValue*
-  ): Either[SError.SError, SubmittedTransaction] = {
-    val machine = Speedy.Machine.fromUpdateSExpr(
-      compiledPackages = pkgs,
-      transactionSeed = txSeed,
-      updateSE =
-        SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.map(SExpr.SEValue(_)).toArray),
-      committers = committers,
-      limits = limits,
+  ): Either[SError.SError, SubmittedTransaction] =
+    SpeedyTestLib.buildTransaction(
+      machine = Speedy.Machine.fromUpdateSExpr(
+        compiledPackages = pkgs,
+        transactionSeed = txSeed,
+        updateSE =
+          SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.map(SExpr.SEValue(_)).toArray),
+        committers = committers,
+        limits = limits,
+      ),
+      getContract = contracts,
     )
-    final case class Goodbye(e: SError.SError) extends RuntimeException("", null, false, false)
-    try {
-      var result = Option.empty[SubmittedTransaction]
-      while (result.isEmpty) {
-        machine.run() match {
-          case SResult.SResultFinalValue(_) =>
-            machine.withOnLedger("LimitsSpec")(_.ptx.finish match {
-              case PartialTransaction.CompleteTransaction(tx, _, _) =>
-                result = Some(tx)
-              case PartialTransaction.IncompleteTransaction(ptx) =>
-                throw new RuntimeException(s"Got unexpected incomplete transaction $ptx")
-            })
-          case SResult.SResultNeedContract(contractId, _, _, callback) =>
-            callback(contracts(contractId))
-          case SResult.SResultError(err) =>
-            throw Goodbye(err)
-          case res =>
-            throw new RuntimeException(s"Got unexpected interpretation result $res")
-        }
-      }
-      Right(result.get)
-    } catch {
-      case Goodbye(err) => Left(err)
-    }
-  }
 
 }

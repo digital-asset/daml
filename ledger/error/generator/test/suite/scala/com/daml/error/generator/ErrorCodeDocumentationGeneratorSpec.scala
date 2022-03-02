@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.generator
@@ -12,9 +12,6 @@ import com.daml.error._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.nowarn
-
-@nowarn("msg=deprecated")
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
   private val className = ErrorCodeDocumentationGenerator.getClass.getSimpleName
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,6 +26,7 @@ da_scala_binary(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "//libs-scala/contextualized-logging",
         "@maven//:org_jline_jline",
     ],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -107,17 +107,7 @@ object Ordering extends scala.math.Ordering[SValue] {
   }
   @inline
   private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int = {
-    // Note that the engine never produce V0 contract IDs directly
-    // (V0 contract ID scheme can only be "emulated" at commit using
-    // `com.daml.lf.transaction.LegacyTransactionCommitter`).
-    // So we can assume here that all V0 Contract IDs are global.
     (cid1, cid2) match {
-      case (ContractId.V0(s1), ContractId.V0(s2)) =>
-        s1 compareTo s2
-      case (_: ContractId.V0, _: ContractId.V1) =>
-        -1
-      case (_: ContractId.V1, _: ContractId.V0) =>
-        +1
       case (
             cid1 @ ContractId.V1(discriminator1, suffix1),
             cid2 @ ContractId.V1(discriminator2, suffix2),

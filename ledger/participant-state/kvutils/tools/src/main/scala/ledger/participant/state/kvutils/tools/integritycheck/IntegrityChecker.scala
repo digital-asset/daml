@@ -1,15 +1,15 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.io.PrintWriter
 import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
@@ -20,13 +20,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.{
-  Indexer,
-  IndexerConfig,
-  IndexerStartupMode,
-  JdbcIndexer,
-  StandaloneIndexerServer,
-}
+import com.daml.platform.indexer._
 import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration.Duration
@@ -257,18 +251,14 @@ class IntegrityChecker[LogResult](
       resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[Indexer] =
+  ): ResourceOwner[Indexer] = {
+    val indexerFactory = new JdbcIndexer.Factory(
+      config,
+      readService,
+      metrics,
+      lfValueTranslationCache,
+    )
     for {
-      servicesExecutionContext <- ResourceOwner
-        .forExecutorService(() => Executors.newWorkStealingPool())
-        .map(ExecutionContext.fromExecutorService)
-      indexerFactory = new JdbcIndexer.Factory(
-        config,
-        readService,
-        servicesExecutionContext,
-        metrics,
-        lfValueTranslationCache,
-      )
       migrating <- ResourceOwner.forFuture(() =>
         StandaloneIndexerServer
           .migrateOnly(
@@ -278,6 +268,7 @@ class IntegrityChecker[LogResult](
       )
       migrated <- migrating
     } yield migrated
+  }
 }
 
 object IntegrityChecker {
@@ -327,7 +318,7 @@ object IntegrityChecker {
           case Failure(exception) =>
             exception.printStackTrace()
             sys.exit(1)
-        }(DirectExecutionContext)
+        }
     }
   }
 

@@ -1,9 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
-import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.parseTimestamp
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.kv.transactions.RawTransaction
 import com.daml.lf.transaction.VersionedTransaction
 
 import scala.jdk.CollectionConverters._
@@ -44,6 +45,6 @@ private[transaction] object DamlTransactionEntrySummary {
   ): DamlTransactionEntrySummary =
     new DamlTransactionEntrySummary(
       submission,
-      Conversions.decodeTransaction(Raw.Transaction(submission.getRawTransaction)),
+      Conversions.assertDecodeTransaction(RawTransaction(submission.getRawTransaction)),
     )
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.dbutils
@@ -63,9 +63,9 @@ object ConnectionPool {
     c.setUsername(user)
     c.setPassword(password)
     c.setMinimumIdle(jc.minIdle)
-    c.setConnectionTimeout(jc.connectionTimeout)
+    c.setConnectionTimeout(jc.connectionTimeout.toMillis)
     c.setMaximumPoolSize(poolSize)
-    c.setIdleTimeout(jc.idleTimeout)
+    c.setIdleTimeout(jc.idleTimeout.toMillis)
     new HikariDataSource(c)
   }
 }

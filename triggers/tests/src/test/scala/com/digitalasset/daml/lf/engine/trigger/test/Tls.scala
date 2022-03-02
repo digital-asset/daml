@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.test
@@ -31,13 +31,14 @@ class Tls
     }
   }
 
-  override protected def config =
-    super.config
-      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
+  private val tlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
 
-  override protected def ledgerClientConfiguration =
-    super.ledgerClientConfiguration
-      .copy(sslContext = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt).client())
+  override protected def config =
+    super.config.copy(tlsConfig = Some(tlsConfig))
+
+  override protected def ledgerClientChannelConfiguration =
+    super.ledgerClientChannelConfiguration
+      .copy(sslContext = tlsConfig.client())
 
   "TLS" can {
     // We just need something simple to test the connection.

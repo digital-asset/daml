@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -50,6 +50,30 @@ class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks
       }
 
     }
+  }
+
+  "Struct#indexOf" should {
+
+    "return proper index" in {
+
+      val seq: Seq[(Ref.Name, Int)] =
+        (0 to 10).map(i => Ref.Name.assertFromString(String.valueOf(('a' + i).toChar))).zipWithIndex
+      val subseq: Seq[(Ref.Name, Int)] =
+        seq.filter(_._2 % 2 == 1)
+
+      for (i <- 0 to 5) {
+        val struct = Struct.assertFromSeq(subseq.take(i))
+        for (entry <- seq.take(2 * i + 1)) {
+          val (n, j) = entry
+          val k = struct.indexOf(n)
+          if (j % 2 == 0)
+            k shouldBe -1
+          else
+            k shouldBe j / 2
+        }
+      }
+    }
+
   }
 
   "Struct" should {

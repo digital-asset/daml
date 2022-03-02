@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -7,11 +7,7 @@ import java.time.{Duration => JDuration}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
@@ -28,9 +24,9 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
-import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -40,7 +36,6 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     submissionIdGenerator: String => Ref.SubmissionId,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -48,7 +43,7 @@ private[apiserver] final class ApiConfigManagementService private (
 ) extends ConfigManagementService
     with GrpcApiService {
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
 
   import errorFactories._
@@ -67,7 +62,7 @@ private[apiserver] final class ApiConfigManagementService private (
           Future.successful(configurationToResponse(configuration))
         case None =>
           Future.failed(
-            missingLedgerConfig(Status.Code.NOT_FOUND)(Some(true))(
+            missingLedgerConfig()(
               new DamlContextualizedErrorLogger(logger, loggingContext, None)
             )
           )
@@ -116,7 +111,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(missingLedgerConfig(Status.Code.UNAVAILABLE)(None))
+                Future.failed(missingLedgerConfig())
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -127,7 +122,7 @@ private[apiserver] final class ApiConfigManagementService private (
               Future.failed(
                 ValidationLogger.logFailure(
                   request,
-                  invalidArgument(None)(
+                  invalidArgument(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
                   ),
                 )
@@ -188,10 +183,9 @@ private[apiserver] final class ApiConfigManagementService private (
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(invalidArgument(None)(err.toString))
+        case Failure(err) => Left(invalidArgument(err.toString))
         case Success(ok) => Right(ok)
       }
-      // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
       pMaxRecordTime <- requirePresence(request.maximumRecordTime, "maximum_record_time")
       mrtInstant = TimestampConversion.toInstant(pMaxRecordTime)
       timeToLive = {
@@ -201,7 +195,7 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(invalidArgument(None)(err)), Right(_))
+        .fold(err => Left(invalidArgument(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 
@@ -213,7 +207,6 @@ private[apiserver] object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: state.WriteConfigService,
       timeProvider: TimeProvider,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
@@ -225,7 +218,6 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       submissionIdGenerator,
-      errorCodesVersionSwitcher,
     )
 
   private final class SynchronousResponseStrategy(
@@ -252,7 +244,7 @@ private[apiserver] object ApiConfigManagementService {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
-        .toScala
+        .asScala
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[ConfigurationEntry, _] =
@@ -269,7 +261,7 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        errorFactories.configurationEntryRejected(reason, None)(
+        errorFactories.configurationEntryRejected(reason)(
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
         )
     }

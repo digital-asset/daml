@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.appendonlydao
@@ -26,7 +26,8 @@ private[platform] final class DbDispatcher private (
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
 )(implicit loggingContext: LoggingContext)
-    extends ReportsHealth {
+    extends SqlExecutor
+    with ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
   private val executionContext = ExecutionContext.fromExecutor(

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -30,6 +30,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.daml.logging.LoggingContext
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -607,6 +608,50 @@ class EngineTest
         err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
+      }
+    }
+  }
+
+  "DAML exercise-by-key" should {
+    val seed = hash("exercise-by-key")
+    val now = Time.Timestamp.now()
+
+    "create a Exercise node with flag byKey without Fetch REMY" in {
+
+      val tmplId = Identifier(basicTestsPkgId, "BasicTests:ExerciseByKey")
+      val cmds = ImmArray(
+        speedy.Command.CreateAndExercise(
+          templateId = tmplId,
+          createArgument =
+            SRecord(null, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
+          choiceId = ChoiceName.assertFromString("Exercise"),
+          choiceArgument = SUnit,
+        )
+      )
+      val submitters = Set(alice)
+
+      val result = suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+        )
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      inside(result) { case Right((tx, _)) =>
+        inside(tx.roots.map(tx.nodes)) { case ImmArray(create: Node.Create, exe: Node.Exercise) =>
+          create.templateId shouldBe tmplId
+          exe.templateId shouldBe tmplId
+          inside(exe.children.map(tx.nodes)) { case ImmArray(exeByKey: Node.Exercise) =>
+            exeByKey.templateId shouldBe Identifier(basicTestsPkgId, "BasicTests:WithKey")
+            exeByKey.children shouldBe ImmArray.empty
+            exeByKey.byKey shouldBe true
+          }
+        }
       }
     }
   }
@@ -2139,6 +2184,8 @@ class EngineTest
 }
 
 object EngineTest {
+
+  private implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -494,6 +494,7 @@ sealed abstract class HasTxNodes {
     "If a contract key contains a contract id"
   )
   final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
+    val localCids = localContracts.keySet
     final case class State(
         keys: Map[GlobalKey, Option[Value.ContractId]],
         rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
@@ -523,7 +524,7 @@ sealed abstract class HasTxNodes {
             case Some(keyMapping) if Some(cid) != keyMapping => Left(InconsistentKeys(gk))
             case _ =>
               val r = copy(keys = keys.updated(gk, Some(cid)))
-              if (localContracts.contains(cid)) {
+              if (localCids.contains(cid)) {
                 Right(r)
               } else {
                 r.setKeyMapping(gk, KeyActive(cid))
@@ -837,15 +838,6 @@ object Transaction {
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
-
-  /** Signals that the contract-id `coid` was expected to be active, but
-    * is not.
-    */
-  final case class ContractNotActive(
-      coid: Value.ContractId,
-      templateId: TypeConName,
-      consumedBy: NodeId,
-  ) extends TransactionError
 
   /** Signals that within the transaction we got to a point where
     * two contracts with the same key were active.

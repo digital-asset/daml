@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -26,20 +27,16 @@ import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
+import com.daml.platform.sandbox.fixture.SandboxFixture
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-trait AbstractTriggerTest
-    extends SandboxNextFixture
-    with SandboxBackend.Postgresql
-    with TestCommands {
+trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql with TestCommands {
   self: Suite =>
 
   protected def toHighLevelResult(s: SValue) = s match {
@@ -61,9 +58,11 @@ trait AbstractTriggerTest
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = None,
       token = None,
     )
+
+  protected def ledgerClientChannelConfiguration =
+    LedgerClientChannelConfiguration.InsecureDefaults
 
   protected def ledgerClient(
       maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
@@ -73,7 +72,8 @@ trait AbstractTriggerTest
         .singleHost(
           "localhost",
           serverPort.value,
-          ledgerClientConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
+          ledgerClientConfiguration,
+          ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
     } yield client
 
@@ -92,19 +92,20 @@ trait AbstractTriggerTest
       readAs: Set[String] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
-    val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-    trigger.withLoggingContext { implicit lc =>
-      new Runner(
-        compiledPackages,
-        trigger,
-        client,
-        config.timeProviderType.get,
-        applicationId,
-        TriggerParties(
-          actAs = Party(party),
-          readAs = Party.subst(readAs),
-        ),
-      )
+    Trigger.newLoggingContext(triggerId, Party(party), Party.subst(readAs)) {
+      implicit loggingContext =>
+        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+        new Runner(
+          compiledPackages,
+          trigger,
+          client,
+          config.timeProviderType.get,
+          applicationId,
+          TriggerParties(
+            actAs = Party(party),
+            readAs = Party.subst(readAs),
+          ),
+        )
     }
   }
 

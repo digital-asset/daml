@@ -1,16 +1,16 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
 
 import java.util.UUID
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{VersionedContractInstance, ValueParty}
+import com.daml.lf.value.Value.{ValueParty, VersionedContractInstance}
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{Inside, LoneElement}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -72,8 +72,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           chosenValue = someChoiceArgument,
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
-          // TODO https://github.com/digital-asset/daml/issues/7709
-          //  also test the case of non-empty choice-observers
           choiceObservers = Set.empty,
           children = ImmArray.Empty,
           exerciseResult = Some(someChoiceResult),
@@ -151,7 +149,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     val t1 = Timestamp.now()
     val t2 = t1.addMicros(1000)
     val t3 = t2.addMicros(1000)
-    val appId = UUID.randomUUID().toString
+    val appId: Ref.ApplicationId = UUID.randomUUID().toString
     for {
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(

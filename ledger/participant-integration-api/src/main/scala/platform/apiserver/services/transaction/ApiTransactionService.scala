@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.transaction
@@ -6,11 +6,7 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
   Filters,
@@ -48,7 +44,6 @@ private[apiserver] object ApiTransactionService {
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
       metrics: Metrics,
-      errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -56,22 +51,21 @@ private[apiserver] object ApiTransactionService {
       loggingContext: LoggingContext,
   ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService, metrics, errorsVersionsSwitcher),
+      new ApiTransactionService(transactionsService, metrics),
       ledgerId,
       PartyNameChecker.AllowAllParties,
-      ErrorFactories(errorsVersionsSwitcher),
+      ErrorFactories(),
     )
 }
 
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     metrics: Metrics,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   import errorFactories.transactionNotFound
   import errorFactories.invalidArgumentWasNotFound
@@ -146,7 +140,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         Future.failed {
-          invalidArgumentWasNotFound(None)(s"invalid eventId: ${request.eventId}")
+          invalidArgumentWasNotFound(s"invalid eventId: ${request.eventId}")
         }
       }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -189,7 +183,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         val msg = s"eventId: ${request.eventId}"
-        Future.failed(invalidArgumentWasNotFound(None)(msg))
+        Future.failed(invalidArgumentWasNotFound(msg))
       }
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }

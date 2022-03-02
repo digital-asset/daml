@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -36,12 +36,11 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
-        "//libs-scala/concurrent",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -55,6 +54,7 @@ da_scala_library(
 daml_compile(
     name = "LargeTransaction",
     srcs = ["src/perf/resources/damls/LargeTransaction.daml"],
+    enable_scenarios = True,
     visibility = ["//visibility:public"],
 )
 

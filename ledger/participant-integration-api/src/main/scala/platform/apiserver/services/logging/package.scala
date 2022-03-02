@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -13,6 +13,7 @@ import com.daml.ledger.api.domain.{
 }
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.logging._
+import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey._
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
@@ -55,8 +56,8 @@ package object logging {
   private[services] def offset(offset: String): LoggingEntry =
     "offset" -> offset
 
-  private[services] def ledgerId(id: LedgerId): LoggingEntry =
-    "ledgerId" -> id.unwrap
+  private[services] def ledgerId(id: Option[LedgerId]): LoggingEntry =
+    "ledgerId" -> OfString(id.map(_.unwrap).getOrElse("<empty-ledger-id>"))
 
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id

@@ -41,3 +41,5 @@ dnfTest = scenario do
   Disjunction [Conjunction[Negation $ Proposition 1]] === toDNF (Conjunction [Negation . Proposition $ 1])
   (toDNF . neg . Conjunction $ Proposition <$> [1, 2, 3]) ===
     Disjunction (Conjunction . (:: []) . Negation . Proposition <$> [1,2,3])
+
+-- @ENABLE-SCENARIOS

@@ -1,14 +1,14 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Section } from '../Guide';
+import * as React from "react";
+import { Section } from "../Guide";
 import {
   TableActionBarButton,
   TableActionBarSideMargin,
   TableActionBarTitle,
-} from '../TableActionBar'
-import styled from '../theme';
+} from "../TableActionBar";
+import styled from "../theme";
 import {
   ContractColumn,
   ContractTableConfig,
@@ -16,55 +16,55 @@ import {
   default as ContractTable,
   ResultCallback,
   RowData,
-} from './index';
+} from "./index";
 
 interface Contract {
   id: string;
   createEvent: {
     effectiveAt: string;
-  }
+  };
   archiveEvent: {} | null;
   template: {
     id: string;
-  }
+  };
 }
 
 const demoResult = {
   contracts: [
     {
-      id: 'c01',
+      id: "c01",
       createEvent: {
-        effectiveAt: '2017-06-05T11:34:21Z',
+        effectiveAt: "2017-06-05T11:34:21Z",
       },
       archiveEvent: null,
       template: {
-        id: '1111',
+        id: "1111",
       },
       argument: {},
     },
     {
-      id: 'c02',
+      id: "c02",
       createEvent: {
-        id: '2',
-        effectiveAt: '2017-06-05T11:35:26Z',
+        id: "2",
+        effectiveAt: "2017-06-05T11:35:26Z",
       },
       archiveEvent: null,
       template: {
-        id: '2222',
+        id: "2222",
       },
       argument: {},
     },
     {
-      id: 'c03',
+      id: "c03",
       createEvent: {
-        id: '2',
-        effectiveAt: '2017-06-05T11:36:26Z',
+        id: "2",
+        effectiveAt: "2017-06-05T11:36:26Z",
       },
       archiveEvent: {
-        id: '3',
+        id: "3",
       },
       template: {
-        id: '3333',
+        id: "3333",
       },
       argument: {},
     },
@@ -73,13 +73,12 @@ const demoResult = {
 };
 
 class DemoDataProvider implements DataProvider<ContractTableConfig> {
-
   fetchData(config: ContractTableConfig, onResult: ResultCallback) {
     let contracts = demoResult.contracts.slice();
     if (!config.includeArchived) {
-      contracts = contracts.filter((c) => c.archiveEvent === null);
+      contracts = contracts.filter(c => c.archiveEvent === null);
     }
-    if (config.sort.length > 0 && config.sort[0].direction === 'DESCENDING') {
+    if (config.sort.length > 0 && config.sort[0].direction === "DESCENDING") {
       contracts.reverse();
     }
     onResult({
@@ -88,54 +87,55 @@ class DemoDataProvider implements DataProvider<ContractTableConfig> {
     });
   }
 
-  startCacheWatcher(_config: ContractTableConfig, _onResult: ResultCallback): void {
+  startCacheWatcher(
+    _config: ContractTableConfig,
+    _onResult: ResultCallback,
+  ): void {
     // empty
   }
 
   stopCacheWatcher(): void {
     // empty
   }
-
 }
 
 const demoDataProvider = new DemoDataProvider();
 
 const columns: ContractColumn<RowData, string>[] = [
   {
-    key: 'id',
-    title: 'ID',
+    key: "id",
+    title: "ID",
     extractCellData: ({ id }: Contract) => id,
     createCell: createTextCell,
     sortable: true,
     width: 80,
     weight: 0,
-    alignment: 'left',
+    alignment: "left",
   },
   {
-    key: 'template.id',
-    title: 'Template ID',
+    key: "template.id",
+    title: "Template ID",
     extractCellData: ({ template }: Contract) => template.id,
     createCell: createTextCell,
     sortable: true,
     width: 200,
     weight: 3,
-    alignment: 'left',
+    alignment: "left",
   },
   {
-    key: 'time',
-    title: 'Time',
-    extractCellData: (contract: Contract) =>
-      contract.createEvent.effectiveAt,
+    key: "time",
+    title: "Time",
+    extractCellData: (contract: Contract) => contract.createEvent.effectiveAt,
     createCell: createTextCell,
     sortable: false,
     width: 180,
     weight: 2,
-    alignment: 'left',
+    alignment: "left",
   },
 ];
 
-function createTextCell({cellData}: {cellData: string | number}){
-  return (<span>{cellData}</span>);
+function createTextCell({ cellData }: { cellData: string | number }) {
+  return <span>{cellData}</span>;
 }
 
 const Container = styled.div`
@@ -154,12 +154,11 @@ export interface State {
 }
 
 export default class ContractTableGuide extends React.Component<{}, State> {
-
   constructor(props: {}) {
     super(props);
     this.state = {
       config: {
-        search: '',
+        search: "",
         filter: [],
         includeArchived: false,
         sort: [],
@@ -174,8 +173,7 @@ export default class ContractTableGuide extends React.Component<{}, State> {
     return (
       <Section
         title="Contract table"
-        description="This component displays a list of contracts."
-      >
+        description="This component displays a list of contracts.">
         <Container>
           <StyledContractTable
             dataProvider={demoDataProvider}
@@ -194,7 +192,7 @@ export default class ContractTableGuide extends React.Component<{}, State> {
         </Container>
         <Container>
           <StyledContractTable
-            title={'Contracts'}
+            title={"Contracts"}
             dataProvider={demoDataProvider}
             config={this.state.config}
             columns={columns}
@@ -210,11 +208,17 @@ export default class ContractTableGuide extends React.Component<{}, State> {
         </Container>
         <Container>
           <StyledContractTable
-            title={'Contracts'}
+            title={"Contracts"}
             actionRowContent={[
               <TableActionBarSideMargin key="left" />,
-              <TableActionBarTitle key="title">Custom header</TableActionBarTitle>,
-              <TableActionBarButton key="button1" onClick={() => { return; }}>
+              <TableActionBarTitle key="title">
+                Custom header
+              </TableActionBarTitle>,
+              <TableActionBarButton
+                key="button1"
+                onClick={() => {
+                  return;
+                }}>
                 Action
               </TableActionBarButton>,
             ]}

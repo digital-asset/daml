@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Util
@@ -19,35 +19,43 @@ module DA.Daml.Helper.Util
   , withJar
   , runJar
   , runCantonSandbox
+  , withCantonSandbox
+  , withCantonPortFile
   , getLogbackArg
-  , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
-  , CantonPorts(..)
+  , StaticTime(..)
+  , CantonOptions(..)
+  , decodeCantonSandboxPort
+  , CantonReplApi(..)
+  , CantonReplParticipant(..)
+  , CantonReplDomain(..)
+  , CantonReplOptions(..)
+  , runCantonRepl
   ) where
 
 import Control.Exception.Safe
 import Control.Monad.Extra
-import Control.Monad.Loops (untilJust)
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Key as Aeson.Key
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.Extended as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
-import Network.Socket
 import System.Directory
 import System.FilePath
 import System.IO
-import System.IO.Extra (withTempFile)
+import System.IO.Extra (withTempDir, withTempFile)
 import System.Info.Extra
-import System.Process (showCommandForUser, terminateProcess)
+import System.Exit (exitFailure)
+import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
 import System.Process.Typed
 import qualified Web.JWT as JWT
 import qualified Data.Aeson as A
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 
 import DA.Daml.Project.Config
@@ -194,42 +202,39 @@ damlSdkJarFolder = "daml-sdk"
 damlSdkJar :: FilePath
 damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
 
--- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
--- Between each connection request it calls `sleep`.
-waitForConnectionOnPort :: IO () -> Int -> IO ()
-waitForConnectionOnPort sleep port = do
-    let hints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
-    addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
-    untilJust $ do
-        r <- tryIO $ checkConnection addr
-        case r of
-            Left _ -> sleep *> pure Nothing
-            Right _ -> pure $ Just ()
-    where
-        checkConnection addr = bracket
-              (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-              close
-              (\s -> connect s (addrAddress addr))
-
--- | `waitForHttpServer sleep url` keeps trying to establish an HTTP connection on the given URL.
--- Between each connection request it calls `sleep`.
-waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
-waitForHttpServer sleep url headers = do
+-- | `waitForHttpServer numTries processHandle sleep url headers` tries to establish an HTTP connection on
+-- the given URL with the given headers, in a given number of tries. Between each connection request
+-- it checks that a certain process is still alive and calls `sleep`.
+waitForHttpServer :: Int -> ProcessHandle -> IO () -> String -> HTTP.RequestHeaders -> IO ()
+waitForHttpServer 0 _processHandle _sleep url _headers = do
+    hPutStrLn stderr ("Failed to connect to HTTP server " <> url <> " in time.")
+    exitFailure
+waitForHttpServer numTries processHandle sleep url headers = do
     request <- HTTP.parseRequest $ "HEAD " <> url
     request <- pure (HTTP.setRequestHeaders headers request)
-    untilJust $ do
-        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
-        case r of
-            Right resp
-                | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure $ Just ()
-            _ -> sleep *> pure Nothing
+    r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
+    case r of
+        Right resp | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure ()
+        Right resp -> do
+            hPutStrLn stderr ("HTTP server " <> url <> " replied with status code "
+                <> show (HTTP.statusCode (HTTP.getResponseStatus resp)) <> ".")
+            exitFailure
+        Left _ -> do
+            sleep
+            status <- getProcessExitCode processHandle
+            case status of
+                Nothing -> waitForHttpServer (numTries-1) processHandle sleep url headers
+                Just exitCode -> do
+                    hPutStrLn stderr ("Failed to connect to HTTP server " <> url
+                        <> " before process exited with " <> show exitCode)
+                    exitFailure
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
 tokenFor :: [T.Text] -> T.Text -> T.Text -> T.Text
 tokenFor parties ledgerId applicationId =
   JWT.encodeSigned
-    (JWT.HMACSecret "secret")
+    (JWT.EncodeHMACSecret "secret")
     mempty
     mempty
       { JWT.unregisteredClaims =
@@ -237,7 +242,7 @@ tokenFor parties ledgerId applicationId =
           Map.fromList
             [ ( "https://daml.com/ledger-api"
               , A.Object $
-                HashMap.fromList
+                KM.fromList
                   [ ("actAs", A.toJSON parties)
                   , ("ledgerId", A.String ledgerId)
                   , ("applicationId", A.String applicationId)
@@ -245,46 +250,139 @@ tokenFor parties ledgerId applicationId =
             ]
       }
 
-runCantonSandbox :: CantonPorts -> [String] -> IO ()
-runCantonSandbox ports remainingArgs = do
+runCantonSandbox :: CantonOptions -> [String] -> IO ()
+runCantonSandbox options args = withCantonSandbox options args (const $ pure ())
+
+withCantonSandbox :: CantonOptions -> [String] -> (Process () () () -> IO a) -> IO a
+withCantonSandbox options remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
-    withTempFile $ \config ->
-      withTempFile $ \bootstrap -> do
-        BSL.writeFile config (cantonConfig ports)
-        T.writeFileUtf8 bootstrap $ T.unlines
-          [ "sandbox.domains.connect_local(local)"
-          , "println(\"Canton sandbox started\")"
-          ]
-        runJar cantonJar Nothing ("daemon" : "-c" : config : "--bootstrap" : bootstrap : remainingArgs)
+    withTempFile $ \config -> do
+        BSL.writeFile config (cantonConfig options)
+        let args | cantonHelp options = ["--help"]
+                 | otherwise = concatMap (\f -> ["-c", f]) (cantonConfigFiles options)
+        withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : (args <> remainingArgs)) k
 
-data CantonPorts = CantonPorts
-  { ledgerApi :: Int
-  , adminApi :: Int
-  , domainPublicApi :: Int
-  , domainAdminApi :: Int
+-- | Obtain a path to use as canton portfile, and give updated options.
+withCantonPortFile :: CantonOptions -> (CantonOptions -> FilePath -> IO a) -> IO a
+withCantonPortFile options kont =
+    case cantonPortFileM options of
+        Nothing ->
+            withTempDir $ \ tempDir -> do
+                let portFile = tempDir </> "canton-portfile.json"
+                kont options { cantonPortFileM = Just portFile } portFile
+        Just portFile ->
+            kont options portFile
+
+newtype StaticTime = StaticTime Bool
+
+data CantonOptions = CantonOptions
+  { cantonLedgerApi :: Int
+  , cantonAdminApi :: Int
+  , cantonDomainPublicApi :: Int
+  , cantonDomainAdminApi :: Int
+  , cantonPortFileM :: Maybe FilePath
+  , cantonStaticTime :: StaticTime
+  , cantonHelp :: Bool
+  , cantonConfigFiles :: [FilePath]
   }
 
-cantonConfig :: CantonPorts -> BSL.ByteString
-cantonConfig CantonPorts{..} =
+cantonConfig :: CantonOptions -> BSL.ByteString
+cantonConfig CantonOptions{..} =
     Aeson.encode $ Aeson.object
-      [ "canton" Aeson..= Aeson.object
-          [ "participants" Aeson..= Aeson.object
-              [ "sandbox" Aeson..= Aeson.object
-                  [ storage
-                  , "admin-api" Aeson..= port adminApi
-                  , "ledger-api" Aeson..= port ledgerApi
-                  ]
-              ]
-          , "domains" Aeson..= Aeson.object
-              [ "local" Aeson..= Aeson.object
-                [ storage
-                , "public-api" Aeson..= port domainPublicApi
-                , "admin-api" Aeson..= port domainAdminApi
+        [ "canton" Aeson..= Aeson.object
+            [ "parameters" Aeson..= Aeson.object ( concat
+                [ [ "ports-file" Aeson..= portFile | Just portFile <- [cantonPortFileM] ]
+                , [ "clock" Aeson..= Aeson.object
+                        [ "type" Aeson..= ("sim-clock" :: T.Text) ]
+                  | StaticTime True <- [cantonStaticTime] ]
+                ] )
+            , "participants" Aeson..= Aeson.object
+                [ "sandbox" Aeson..= Aeson.object
+                    (
+                     [ storage
+                     , "admin-api" Aeson..= port cantonAdminApi
+                     , "ledger-api" Aeson..= Aeson.object
+                         [ "port" Aeson..= cantonLedgerApi
+                         , "user-management-service" Aeson..= Aeson.object [ "enabled" Aeson..= True ]
+                         -- Can be dropped once user mgmt is enabled by default
+                         ]
+
+                     ] <>
+                     [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
+                     | StaticTime True <- [cantonStaticTime]
+                     ]
+                    )
                 ]
-              ]
-          ]
-      ]
+            , "domains" Aeson..= Aeson.object
+                [ "local" Aeson..= Aeson.object
+                     [ storage
+                     , "public-api" Aeson..= port cantonDomainPublicApi
+                     , "admin-api" Aeson..= port cantonDomainAdminApi
+                     ]
+                ]
+            ]
+        ]
   where
     port p = Aeson.object [ "port" Aeson..= p ]
     storage = "storage" Aeson..= Aeson.object [ "type" Aeson..= ("memory" :: T.Text) ]
+
+decodeCantonSandboxPort :: String -> Maybe Int
+decodeCantonSandboxPort json = do
+    participants :: Map.Map String (Map.Map String Int) <- Aeson.decode (BSL8.pack json)
+    ports <- Map.lookup "sandbox" participants
+    Map.lookup "ledgerApi" ports
+
+data CantonReplApi = CantonReplApi
+    { craHost :: String
+    , craPort :: Int
+    }
+
+data CantonReplParticipant = CantonReplParticipant
+    { crpName :: String
+    , crpLedgerApi :: Maybe CantonReplApi
+    , crpAdminApi :: Maybe CantonReplApi
+    }
+
+data CantonReplDomain = CantonReplDomain
+    { crdName :: String
+    , crdPublicApi :: Maybe CantonReplApi
+    , crdAdminApi :: Maybe CantonReplApi
+    }
+
+data CantonReplOptions = CantonReplOptions
+    { croParticipants :: [CantonReplParticipant]
+    , croDomains :: [CantonReplDomain]
+    }
+
+cantonReplConfig :: CantonReplOptions -> BSL.ByteString
+cantonReplConfig CantonReplOptions{..} =
+    Aeson.encode $ Aeson.object
+        [ "canton" Aeson..= Aeson.object
+            [ "remote-participants" Aeson..= Aeson.object
+                [ Aeson.Key.fromString crpName Aeson..= Aeson.object
+                    (api "ledger-api" crpLedgerApi <> api "admin-api" crpAdminApi)
+                | CantonReplParticipant {..} <- croParticipants
+                ]
+            , "remote-domains" Aeson..= Aeson.object
+                [ Aeson.Key.fromString crdName Aeson..= Aeson.object
+                    (api "public-api" crdPublicApi <> api "admin-api" crdAdminApi)
+                | CantonReplDomain {..} <- croDomains
+                ]
+            ]
+        ]
+  where
+    api name = \case
+        Nothing -> []
+        Just CantonReplApi{..} ->
+            [ name Aeson..= Aeson.object
+                [ "address" Aeson..= craHost
+                , "port" Aeson..= craPort ] ]
+
+runCantonRepl :: CantonReplOptions -> [String] -> IO ()
+runCantonRepl options remainingArgs = do
+    sdkPath <- getSdkPath
+    let cantonJar = sdkPath </> "canton" </> "canton.jar"
+    withTempFile $ \config -> do
+        BSL.writeFile config (cantonReplConfig options)
+        runJar cantonJar Nothing ("-c" : config : remainingArgs)

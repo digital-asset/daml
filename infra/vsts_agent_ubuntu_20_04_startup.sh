@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Agent startup script
@@ -72,7 +72,9 @@ apt-get install -qy \
     xdg-utils \
     wget
 
-curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+# Taken from https://cloud.google.com/logging/docs/agent/logging/installation
+curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 
 #install docker
 DOCKER_VERSION="5:20.10.2~3-0~ubuntu-$(lsb_release -cs)"
@@ -199,8 +201,8 @@ rm /etc/sudoers.d/nix_installation
 # legacy reasons; it bears no relation to the DNS hostname of the current
 # cache.
 cat <<NIX_CONF > /etc/nix/nix.conf
-binary-cache-public-keys = hydra.da-int.net-2:91tXuJGf/ExbAz7IWsMsxQ5FsO6lG/EGM5QVt+xhZu0= hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs=
-binary-caches = https://nix-cache.da-ext.net https://cache.nixos.org
+extra-substituters = https://nix-cache.da-ext.net
+extra-trusted-public-keys = hydra.da-int.net-2:91tXuJGf/ExbAz7IWsMsxQ5FsO6lG/EGM5QVt+xhZu0= hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g=
 build-users-group = nixbld
 cores = 1
 max-jobs = 0

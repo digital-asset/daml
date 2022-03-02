@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- DAML_SCRIPT_HEADER_BEGIN
@@ -40,6 +40,15 @@ data LedgerParties = LedgerParties with
   bob : Party
 -- LEDGER_PARTIES_END
 
+-- ALLOCATE_PARTIES_BEGIN
+allocateParties : Script LedgerParties
+allocateParties = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  bank <- allocateParty "Bank"
+  pure (LedgerParties bank alice bob)
+-- ALLOCATE_PARTIES_END
+
 -- INITIALIZE_SIGNATURE_BEGIN
 initialize : LedgerParties -> Script ()
 initialize parties = do
@@ -64,12 +73,7 @@ initialize parties = do
 test : Script ()
 test = do
 -- TEST_SIGNATURE_END
--- TEST_ALLOCATE_BEGIN
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  bank <- allocateParty "Bank"
-  let parties = LedgerParties bank alice bob
--- TEST_ALLOCATE_END
+  parties@LedgerParties{..} <- allocateParties
 
 -- TEST_INITIALIZE_BEGIN
   initialize parties
@@ -87,30 +91,15 @@ test = do
 -- TEST_QUERIES_END
 
 
--- INITIALIZE_FIXED_BEGIN
-initializeFixed : Script ()
-initializeFixed = do
-  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-  let parties = LedgerParties{..}
+-- INITIALIZE_USER_BEGIN
+initializeUser : Script ()
+initializeUser = do
+  parties <- allocateParties
+  bank <- validateUserId "bank"
+  alice <- validateUserId "alice"
+  bob <- validateUserId "bob"
+  _ <- createUser (User bank (Some parties.bank)) [CanActAs parties.bank]
+  _ <- createUser (User alice (Some parties.alice)) [CanActAs parties.alice]
+  _ <- createUser (User bob (Some parties.bob)) [CanActAs parties.bob]
   initialize parties
--- INITIALIZE_FIXED_END
-
--- INITIALIZE_QUERY_BEGIN
-queryParties : Script (Optional LedgerParties)
-queryParties = do
-  knownParties <- listKnownParties
-  pure $ do
-    bank <- party <$> find (\p -> p.displayName == Some "Bank") knownParties
-    alice <- party <$> find (\p -> p.displayName == Some "Alice") knownParties
-    bob <- party <$> find (\p -> p.displayName == Some "Bob") knownParties
-    pure LedgerParties{..}
-
-initializeFromQuery : Script ()
-initializeFromQuery = do
-  optParties <- queryParties
-  case optParties of
-    None -> fail "Could not find parties with correct display names"
-    Some parties -> initialize parties
--- INITIALIZE_QUERY_END
+-- INITIALIZE_USER_END

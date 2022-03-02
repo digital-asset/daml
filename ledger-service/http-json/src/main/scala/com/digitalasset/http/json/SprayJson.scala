@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -7,7 +7,14 @@ import com.daml.scalautil.ExceptionOps._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Bitraverse, Show, Traverse, \/, \/-}
-import spray.json.{JsValue, JsonReader, _}
+import spray.json.{
+  JsValue,
+  JsObject,
+  JsonParser,
+  JsonReader,
+  JsonWriter,
+  enrichAny => `sj enrichAny`,
+}
 
 object SprayJson {
   sealed abstract class Error extends Product with Serializable
@@ -81,15 +88,11 @@ object SprayJson {
       fab <- fjj.bitraverse(decode[A](_), decode[B](_))
     } yield fab
 
-  def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
-    import spray.json._
+  def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue =
     \/.attempt(a.toJson)(e => JsonWriterError(a, e.description))
-  }
 
-  def encodeUnsafe[A: JsonWriter](a: A): JsValue = {
-    import spray.json._
+  def encodeUnsafe[A: JsonWriter](a: A): JsValue =
     a.toJson
-  }
 
   def encode1[F[_], A](fa: F[A])(implicit
       ev1: JsonWriter[F[JsValue]],

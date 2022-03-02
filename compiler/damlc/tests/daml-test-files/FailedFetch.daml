@@ -24,3 +24,5 @@ fetchNonStakeholder = scenario do
   secret <- submit alice (create (T alice))
   submit bob (createAndExercise (Helper bob) (Fetch secret))
   return ()
+
+-- @ENABLE-SCENARIOS

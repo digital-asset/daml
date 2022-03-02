@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,10 +19,10 @@ import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Participants, Runner, Script, ScriptF, ScriptIds}
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.collection.compat._
 import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success}
 
@@ -35,7 +35,7 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion): Context =
+  def newContext(lfVerion: LanguageVersion)(implicit loggingContext: LoggingContext): Context =
     new Context(contextCounter.incrementAndGet(), lfVerion)
 
   private val compilerConfig =
@@ -47,7 +47,9 @@ object Context {
     )
 }
 
-class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion) {
+class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion)(implicit
+    loggingContext: LoggingContext
+) {
 
   import Context._
 
@@ -152,13 +154,10 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[ScenarioRunner.ScenarioResult] = {
+  ): Option[ScenarioRunner.ScenarioResult] =
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    ).map { machine =>
-      new ScenarioRunner(machine, txSeeding).run()
-    }
-  }
+    ).map(machine => new ScenarioRunner(machine, txSeeding).run)
 
   def interpretScript(
       pkgId: String,

@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _deploy-generic-ledger:
@@ -48,7 +48,7 @@ ledger --help`` to get a list of available ledger commands:
      with the ledger.host and ledger.port options, or you can pass the --host and
      --port flags to each command below. If the ledger is authenticated, you should
      pass the name of the file containing the token using the --access-token-file
-     flag or the `ledger.access-token-file` field in daml.yaml.
+     flag or the `daml.access-token-file` field in daml.yaml.
 
    Available options:
      -h,--help                Show this help text
@@ -57,7 +57,8 @@ ledger --help`` to get a list of available ledger commands:
      list-parties             List parties known to ledger
      allocate-parties         Allocate parties on ledger
      upload-dar               Upload DAR file to ledger
-     navigator                Launch Navigator on ledger
+     fetch-dar                Fetch DAR from ledger into file
+     metering-report          Report on Ledger Use
 
 Connecting via TLS
 ------------------

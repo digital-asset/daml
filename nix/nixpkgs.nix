@@ -1,6 +1,8 @@
 # Pinned version of nixpkgs that we use for our development and deployment.
 
-{ system ? builtins.currentSystem, ... }:
+{ system ? import ./system.nix
+, ...
+}:
 
 let
   # See ./nixpkgs/README.md for upgrade instructions.
@@ -8,7 +10,7 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
-    nodejs = pkgs.nodejs-12_x;
+    nodejs = pkgs.nodejs-14_x;
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out
@@ -17,36 +19,13 @@ let
       '';
     });
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
-      version = "2.13.6";
-      name = "scala-2.13.6";
+      version = "2.13.8";
+      name = "scala-2.13.8";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";
-        sha256 = "0hzd6pljc8z5fwins5a05rwpx2w7wmlb6gb8973c676i7i895ps9";
+        sha256 = "1kql2gh9s6xy0r4zalk7f8qx0l35n0d7m0ww1sgq6lf6d621vcrc";
       };
     });
-   haskell = pkgs.haskell // {
-     packages = pkgs.haskell.packages // {
-       integer-simple = pkgs.haskell.packages.integer-simple // {
-        ghc8107 = pkgs.haskell.packages.integer-simple.ghc8107.override {
-          ghc = pkgs.haskell.compiler.integer-simple.ghc8107.overrideAttrs (old: {
-            # We need to include darwin.cctools in PATH to make sure GHC finds
-            # otool.
-            postInstall = ''
-    # Install the bash completion file.
-    install -D -m 444 utils/completion/ghc.bash $out/share/bash-completion/completions/ghc
-
-    # Patch scripts to include "readelf" and "cat" in $PATH.
-    for i in "$out/bin/"*; do
-      test ! -h $i || continue
-      egrep --quiet '^#!' <(head -n 1 $i) || continue
-      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
-    done
-  '';
-          });
-        };
-       };
-     };
-    };
 
     bazel_4 = pkgs.bazel_4.overrideAttrs(oldAttrs: {
       patches = oldAttrs.patches ++ [

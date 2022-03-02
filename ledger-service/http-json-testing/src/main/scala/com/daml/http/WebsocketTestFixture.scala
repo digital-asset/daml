@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -25,12 +25,23 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.std.vector._
+import spray.json.{
+  JsBoolean,
+  JsArray,
+  JsNull,
+  JsNumber,
+  JsObject,
+  JsString,
+  JsValue,
+  DefaultJsonProtocol,
+  RootJsonReader,
+  enrichAny => `sj enrichAny`,
+  enrichString => `sj enrichString`,
+}
 
-import scala.collection.compat._
 import scala.concurrent.Future
 
 private[http] object WebsocketTestFixture extends StrictLogging with Assertions {
-  import spray.json._
   import WebsocketEndpoints._
 
   def validSubprotocol(jwt: Jwt) = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
@@ -113,7 +124,6 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   private[http] final case class EventsBlock(events: Vector[JsValue], offset: Option[JsValue])
   private[http] object EventsBlock {
-    import spray.json._
     import DefaultJsonProtocol._
 
     // cannot rely on default reader, offset: JsNull gets read as None, I want Some(JsNull) for LedgerBegin
@@ -196,7 +206,7 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       offset: Option[domain.Offset],
   )(implicit asys: ActorSystem): Source[Message, NotUsed] = {
 
-    import spray.json._, json.JsonProtocol._
+    import json.JsonProtocol._
     val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
     logger.info(
       s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}"
@@ -274,7 +284,6 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   final class JsValueMatcher(right: JsValue) extends Matcher[JsValue] {
     override def apply(left: JsValue): MatchResult = {
-      import spray.json._
       val result = (left, right) match {
         case (JsArray(l), JsArray(r)) =>
           l.length == r.length && matchJsValues(r)(l).matches
@@ -303,7 +312,6 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       ec: ExecutionContext,
       fm: Materializer,
   ): Flow[Message, JsValue, NotUsed] = {
-    import spray.json._
     Flow[Message]
       .mapAsync(1) {
         case _: BinaryMessage => fail("shouldn't get BinaryMessage")

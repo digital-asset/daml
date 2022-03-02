@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "kind_projector_plugin",
     "lf_scalacopts_stricter",
-    "silencer_plugin",
 )
 
 da_scala_library(
@@ -14,20 +13,14 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
-        silencer_plugin,
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts_stricter + [
-        "-P:silencer:lineContentFilters=import elt.injshrink",
-        # Forced upon us by Shrink
-        "-P:silencer:lineContentFilters=Stream.empty",
-    ],
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [

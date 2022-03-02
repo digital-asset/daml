@@ -1,27 +1,23 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
 
+import java.time.{Duration, Instant}
+import java.util.UUID
+
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCause,
-  ErrorCodesVersionSwitcher,
-}
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => InterpretationError}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -34,16 +30,12 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
-import io.grpc.{Status, StatusRuntimeException}
 
-import java.time.{Duration, Instant}
-import java.util.UUID
-import scala.annotation.nowarn
-import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 private[apiserver] object ApiSubmissionService {
@@ -51,7 +43,6 @@ private[apiserver] object ApiSubmissionService {
   def create(
       ledgerId: LedgerId,
       writeService: state.WriteService,
-      submissionService: IndexSubmissionService,
       partyManagementService: IndexPartyManagementService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
@@ -61,7 +52,6 @@ private[apiserver] object ApiSubmissionService {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -69,7 +59,6 @@ private[apiserver] object ApiSubmissionService {
     new GrpcCommandSubmissionService(
       service = new ApiSubmissionService(
         writeService,
-        submissionService,
         partyManagementService,
         timeProvider,
         timeProviderType,
@@ -79,28 +68,24 @@ private[apiserver] object ApiSubmissionService {
         checkOverloaded,
         configuration,
         metrics,
-        errorCodesVersionSwitcher,
       ),
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+      maxDeduplicationDuration = () =>
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
-      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean,
-      enableDeduplication: Boolean,
+      implicitPartyAllocation: Boolean
   )
 
 }
 
 private[apiserver] final class ApiSubmissionService private[services] (
     writeService: state.WriteService,
-    submissionService: IndexSubmissionService,
     partyManagementService: IndexPartyManagementService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
@@ -110,85 +95,42 @@ private[apiserver] final class ApiSubmissionService private[services] (
     checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-    val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   override def submit(
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
-      logger.info("Submitting transaction")
-      logger.trace(s"Commands: ${request.commands.commands.commands}")
-
-      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+      // TODO: Replace the workaround below with a proper solution.
+      // Spin up a Future so that all the work is done not on the dispatcher thread
+      // but using the pool provided with the ExecutionContext of this class instance.
+      Future {
+        logger.info("Submitting transaction")
+        logger.trace(s"Commands: ${request.commands.commands.commands}")
         new DamlContextualizedErrorLogger(
           logger,
           loggingContext,
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
-
-      val evaluatedCommand = ledgerConfigurationSubscription
-        .latestConfiguration() match {
-        case Some(ledgerConfiguration) =>
-          if (writeService.isApiDeduplicationEnabled && configuration.enableDeduplication) {
-            deduplicateAndRecordOnLedger(
-              seedService.nextSeed(),
-              request.commands,
-              ledgerConfiguration,
-            )
-          } else {
+      }.flatMap { implicit contextualizedErrorLogger: ContextualizedErrorLogger =>
+        val evaluatedCommand = ledgerConfigurationSubscription
+          .latestConfiguration() match {
+          case Some(ledgerConfiguration) =>
             evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
               .transform(handleSubmissionResult)
-          }
-        case None =>
-          Future.failed(
-            errorFactories.missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer =
-              Some(false)
+          case None =>
+            Future.failed(
+              errorFactories.missingLedgerConfig()
             )
-          )
+        }
+        evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
       }
-      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
-
-  private def deduplicateAndRecordOnLedger(
-      seed: crypto.Hash,
-      commands: ApiCommands,
-      ledgerConfig: Configuration,
-  )(implicit
-      loggingContext: LoggingContext,
-      telemetryContext: TelemetryContext,
-      contextualizedErrorLogger: ContextualizedErrorLogger,
-  ): Future[Unit] =
-    submissionService
-      .deduplicateCommand(
-        commands.commandId,
-        commands.actAs.toList,
-        commands.submittedAt,
-        DeduplicationPeriod.deduplicateUntil(
-          commands.submittedAt,
-          commands.deduplicationPeriod,
-        ),
-      )
-      .flatMap {
-        case CommandDeduplicationNew =>
-          evaluateAndSubmit(seed, commands, ledgerConfig)
-            .transform(handleSubmissionResult)
-            .recoverWith { case NonFatal(originalCause) =>
-              submissionService
-                .stopDeduplicatingCommand(commands.commandId, commands.actAs.toList)
-                .transform(_ => Failure(originalCause))
-            }
-        case _: CommandDeduplicationDuplicate =>
-          metrics.daml.commands.deduplicatedCommands.mark()
-          Future.failed(
-            errorFactories.duplicateCommandException(None)
-          )
-      }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
       loggingContext: LoggingContext
@@ -277,7 +219,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             submissionId = submissionId,
           )
     }
-  }.toScala
+  }.asScala
 
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,
@@ -321,46 +263,16 @@ private[apiserver] final class ApiSubmissionService private[services] (
         result.transaction,
         result.interpretationTimeNanos,
       )
-      .toScala
-  }
-
-  /** This method encodes logic related to legacy error codes (V1).
-    * Cf. self-service error codes (V2) in //ledger/error
-    */
-  @nowarn("msg=deprecated")
-  private def toStatusExceptionV1(
-      errorCause: ErrorCause
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
-    // Explicitly instantiate here a V1-enabled ErrorFactories to support the legacy error code dispatching logic.
-    val v1ErrorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
-    errorCause match {
-      case cause @ ErrorCause.DamlLf(error) =>
-        error match {
-          case LfError.Interpretation(
-                LfError.Interpretation.DamlException(
-                  InterpretationError.ContractNotFound(_) |
-                  InterpretationError.DuplicateContractKey(_)
-                ),
-                _,
-              ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-            v1ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-          case _ =>
-            v1ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
-        }
-      case cause: ErrorCause.LedgerTime =>
-        v1ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-    }
+      .toScalaUnwrapped
   }
 
   private def failedOnCommandExecution(
       error: ErrorCause
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
-    errorCodesVersionSwitcher.chooseAsFailedFuture(
-      v1 = toStatusExceptionV1(error),
-      v2 = RejectionGenerators
-        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error)),
+    Future.failed(
+      RejectionGenerators
+        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))
     )
 
   override def close(): Unit = ()
-
 }

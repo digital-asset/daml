@@ -1,56 +1,51 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Overlay } from 'react-overlays';
-import styled from '../theme';
-import Tooltip from '../Tooltip';
+import * as React from "react";
+import { Overlay } from "react-overlays";
+import styled from "../theme";
+import Tooltip from "../Tooltip";
 
 const PositionContainer = styled.div`
   position: absolute;
   z-index: 999;
-`
+`;
 const Wrapper = styled.div`
   display: inline;
-`
+`;
 
-export type InteractionType
-  = 'target'
-  | 'content'
-  | 'outside';
+export type InteractionType = "target" | "content" | "outside";
 
-export type Placement
-  = 'top'
-  | 'top-start'
-  | 'top-end'
-  | 'bottom'
-  | 'bottom-start'
-  | 'bottom-end'
-  | 'left'
-  | 'left-start'
-  | 'left-end'
-  | 'right'
-  | 'right-start'
-  | 'right-end';
+export type Placement =
+  | "top"
+  | "top-start"
+  | "top-end"
+  | "bottom"
+  | "bottom-start"
+  | "bottom-end"
+  | "left"
+  | "left-start"
+  | "left-end"
+  | "right"
+  | "right-start"
+  | "right-end";
 
 export const placementStrings: Placement[] = [
-  'top',
-  'top-start',
-  'top-end',
-  'bottom',
-  'bottom-start',
-  'bottom-end',
-  'left',
-  'left-start',
-  'left-end',
-  'right',
-  'right-start',
-  'right-end',
+  "top",
+  "top-start",
+  "top-end",
+  "bottom",
+  "bottom-start",
+  "bottom-end",
+  "left",
+  "left-start",
+  "left-end",
+  "right",
+  "right-start",
+  "right-end",
 ];
 
-export type PopoverPosition =
-  Placement
-  | 'inline';
+export type PopoverPosition = Placement | "inline";
 
 // eslint-disable-next-line  @typescript-eslint/no-explicit-any
 export type AnyReactElement = React.ReactElement<any>;
@@ -82,37 +77,40 @@ const defaultMargin = 6;
 export default class Popover extends React.Component<Props, {}> {
   private target: React.RefObject<HTMLElement> = React.createRef();
   private contentNode: React.RefObject<HTMLDivElement> = React.createRef();
-  private onClickDocument: (e: MouseEvent) => void
-    = (e) => this.handleDocumentClick(e);
+  private onClickDocument: (e: MouseEvent) => void = e =>
+    this.handleDocumentClick(e);
 
   constructor(props: Props) {
     super(props);
   }
 
   componentDidMount(): void {
-    document.addEventListener('click', this.onClickDocument, true);
+    document.addEventListener("click", this.onClickDocument, true);
   }
 
   componentWillUnmount(): void {
-    document.removeEventListener('click', this.onClickDocument, true);
+    document.removeEventListener("click", this.onClickDocument, true);
   }
 
   handleDocumentClick(e: MouseEvent): void {
     if (
-      (!this.target.current || !this.target.current.contains(e.target as Node)) &&
-      (!this.contentNode.current || !this.contentNode.current.contains(e.target as Node)) &&
+      (!this.target.current ||
+        !this.target.current.contains(e.target as Node)) &&
+      (!this.contentNode.current ||
+        !this.contentNode.current.contains(e.target as Node)) &&
       this.props.isOpen
     ) {
-      this.onInteraction('outside');
+      this.onInteraction("outside");
     }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  cloneTarget(target: JSX.Element | undefined): React.FunctionComponentElement<any> | null {
+  cloneTarget(
+    target: JSX.Element | undefined,
+  ): React.FunctionComponentElement<any> | null {
     if (target === undefined) {
       return null;
-    }
-    else {
+    } else {
       return React.cloneElement(target, {
         ref: this.target,
         onClick: (e: React.MouseEvent<HTMLElement>) => {
@@ -120,7 +118,7 @@ export default class Popover extends React.Component<Props, {}> {
             target.props.onClick(e);
           }
           if (this.props.onInteraction) {
-            this.onInteraction('target');
+            this.onInteraction("target");
           }
         },
       });
@@ -128,13 +126,13 @@ export default class Popover extends React.Component<Props, {}> {
   }
 
   getNextState(type: InteractionType, isOpen: boolean): boolean {
-    if (type === 'target' && !isOpen) {
+    if (type === "target" && !isOpen) {
       // Opening via target
       return true;
-    } else if (type === 'target' && isOpen) {
+    } else if (type === "target" && isOpen) {
       // Closing via target
       return false;
-    } else if (type === 'outside' && isOpen) {
+    } else if (type === "outside" && isOpen) {
       // Closing via outside click
       return false;
     } else {
@@ -162,16 +160,15 @@ export default class Popover extends React.Component<Props, {}> {
     return (
       <Wrapper>
         {this.cloneTarget(target)}
-        {position === 'inline' ? (
+        {position === "inline" ? (
           isOpen ? (
             <PositionContainer>
               <Tooltip
-                placement={'bottom'}
+                placement={"bottom"}
                 arrow={arrow}
                 margin={margin}
                 ref={this.contentNode}
-                onClick={() => this.onInteraction('content')}
-              >
+                onClick={() => this.onInteraction("content")}>
                 {content}
               </Tooltip>
             </PositionContainer>
@@ -181,21 +178,18 @@ export default class Popover extends React.Component<Props, {}> {
             show={isOpen}
             placement={position}
             container={document.body}
-            target={this.target}
-          >
-            {({props}) =>
-            (
-            <PositionContainer {...props}>
-              <Tooltip
-                placement={position}
-                arrow={arrow}
-                margin={margin}
-                ref={this.contentNode}
-                onClick={() => this.onInteraction('content')}
-              >
-                {content}
-              </Tooltip>
-            </PositionContainer>
+            target={this.target}>
+            {({ props }) => (
+              <PositionContainer {...props}>
+                <Tooltip
+                  placement={position}
+                  arrow={arrow}
+                  margin={margin}
+                  ref={this.contentNode}
+                  onClick={() => this.onInteraction("content")}>
+                  {content}
+                </Tooltip>
+              </PositionContainer>
             )}
           </Overlay>
         )}

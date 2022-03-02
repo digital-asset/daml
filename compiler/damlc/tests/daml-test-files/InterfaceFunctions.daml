@@ -1,0 +1,41 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- | Check that `create`, `signatory`, `observer`, `interfaceTypeRep` work as expected on interface payloads.
+module InterfaceFunctions where
+
+import DA.Assert ((===))
+
+interface Token where
+  getAmount : Int
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer
+    observer issuer, owner
+    implements Token where
+      getAmount = amount
+
+main = scenario do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    let asset = Asset alice bob 15
+    let token = toInterface @Token asset
+    fromInterface token === Some asset
+    getAmount token === 15
+    submit alice do
+      cid <- create token
+      token' <- fetch cid
+      fromInterface token' === Some asset
+      getAmount token' === 15
+      signatory token === [alice]
+      observer token === [bob, alice]
+      assert (interfaceTypeRep token == templateTypeRep @Asset)
+      assert (interfaceTypeRep token /= templateTypeRep @Token)
+
+-- @ENABLE-SCENARIOS

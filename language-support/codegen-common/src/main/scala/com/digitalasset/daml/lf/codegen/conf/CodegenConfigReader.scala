@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.conf
@@ -17,7 +17,6 @@ object CodegenConfigReader {
 
   sealed trait CodegenDest
   object Java extends CodegenDest
-  object Scala extends CodegenDest
 
   type Result[A] = Either[ConfigLoadingError, A]
 
@@ -140,7 +139,6 @@ object CodegenConfigReader {
 
   private def dest(a: CodegenDest): String = a match {
     case Java => "java"
-    case Scala => "scala"
   }
 
   private def path(a: String): Result[Path] =
@@ -157,20 +155,33 @@ object CodegenConfigReader {
   private def resultR[A](a: A): Result[A] =
     Right(a): Result[A]
 
-  implicit val decodePackageReference: KeyDecoder[PackageReference] =
-    new KeyDecoder[PackageReference] {
-      // TODO (MK) https://github.com/digital-asset/daml/issues/9934
-      // For now we only allow name-vesion pairs to match the compiler. Once the compiler
-      // accepts package ids we can allow for those here as well.
-      final def apply(key: String): Option[PackageReference] = nameVersion(key)
-
-      private def nameVersion(key: String): Option[PackageReference] = key.split("-") match {
-        case Array(name, version) =>
-          for {
-            name <- PackageName.fromString(name).toOption
-            version <- PackageVersion.fromString(version).toOption
-          } yield PackageReference.NameVersion(name, version)
-        case _ => None
+  private[conf] def splitNameAndVersion(
+      string: String,
+      separator: Char,
+  ): Option[(String, String)] = {
+    val separatorIndex = string.lastIndexOf(separator.toInt)
+    if (separatorIndex < 0) {
+      None
+    } else {
+      // `splitAt` doesn't allow to cleanly drop the separator
+      val name = string.take(separatorIndex)
+      val version = string.drop(separatorIndex + 1)
+      if (name.nonEmpty && version.nonEmpty) {
+        Some((name, version))
+      } else {
+        None
       }
     }
+  }
+
+  private val PackageReferenceSeparator = '-'
+
+  implicit val decodePackageReference: KeyDecoder[PackageReference] =
+    key =>
+      for {
+        (rawName, rawVersion) <- splitNameAndVersion(key, PackageReferenceSeparator)
+        name <- PackageName.fromString(rawName).toOption
+        version <- PackageVersion.fromString(rawVersion).toOption
+      } yield PackageReference.NameVersion(name, version)
+
 }

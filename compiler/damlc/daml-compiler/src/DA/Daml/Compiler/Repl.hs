@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -56,8 +56,9 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Compile (compileModule, typecheckModule, RunSimplifier(..))
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getDamlLfVersion, getExternalPackages, ideErrorPretty, modInfoDepOrphanModules)
+import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getExternalPackages, ideErrorPretty, modInfoDepOrphanModules)
 import Development.IDE.Core.Service
+import Development.IDE.Core.Service.Daml (DamlEnv(..), getDamlServiceEnv)
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Diagnostics
@@ -489,7 +490,7 @@ runRepl importPkgs opts replClient logger ideState = do
                 liftIO $ writeDiags diags
                 MaybeT (pure r)
         r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $ do
-            lfVersion <- lift getDamlLfVersion
+            DamlEnv{envDamlLfVersion = lfVersion, envEnableScenarios} <- lift getDamlServiceEnv
             let pm = toParsedModule dflags source
             IdeOptions { optDefer = defer } <- lift getIdeOptions
             packageState <- hscEnv <$> useE' GhcSession file
@@ -499,7 +500,7 @@ runRepl importPkgs opts replClient logger ideState = do
             PackageMap pkgMap <- useE' GeneratePackageMap file
             stablePkgs <- lift $ useNoFile_ GenerateStablePackages
             let depOrphanModules = modInfoDepOrphanModules (tmrModInfo tm)
-            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core depOrphanModules details of
+            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core depOrphanModules details of
                 Left diag -> handleIdeResult ([diag], Nothing)
                 Right v -> do
                    pkgs <- lift $ getExternalPackages file

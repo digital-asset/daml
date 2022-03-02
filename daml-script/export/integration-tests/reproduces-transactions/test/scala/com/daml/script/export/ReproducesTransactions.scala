@@ -1,20 +1,17 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
 
 import java.nio.file.{Files, Path}
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
+import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.language.Ast.Package
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.script.{Participants, Runner}
-import com.daml.ledger.api.domain
+import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -28,22 +25,23 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarDecoder}
-import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandboxnext.SandboxNextFixture
-import com.daml.SdkVersion
-import com.daml.fs.Utils.deleteRecursively
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.{Participants, Runner}
+import com.daml.lf.language.Ast.Package
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.services.TestCommands
 import com.typesafe.scalalogging.StrictLogging
+import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.tag._
 import spray.json._
 
 import scala.concurrent.Future
 import scala.sys.process._
-import org.scalatest._
-import org.scalatest.freespec.AsyncFreeSpec
-import org.scalatest.matchers.should.Matchers
 
 trait ReproducesTransactions
     extends AsyncFreeSpec
@@ -51,17 +49,16 @@ trait ReproducesTransactions
     with AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
     with SuiteResourceManagementAroundAll
-    with SandboxNextFixture
+    with SandboxFixture
     with SandboxBackend.Postgresql
     with StrictLogging
     with TestCommands {
 
-  private val appId = domain.ApplicationId("script-export")
+  private val appId = Ref.ApplicationId.assertFromString("script-export")
   private val clientConfiguration = LedgerClientConfiguration(
-    applicationId = appId.unwrap,
+    applicationId = appId,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
   val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
@@ -89,7 +86,7 @@ trait ReproducesTransactions
         Some(
           Commands(
             ledgerId = client.ledgerId.unwrap,
-            applicationId = appId.unwrap,
+            applicationId = appId,
             commandId = UUID.randomUUID().toString(),
             party = p,
             commands = Seq(cmd),

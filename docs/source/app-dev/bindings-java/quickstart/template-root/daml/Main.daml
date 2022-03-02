@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -8,39 +8,49 @@ import Daml.Script
 import Iou
 import IouTrade()
 
-initialize : Script ()
+initialize : Script [Party]
 initialize = do
   -- allocate parties
   alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   usBank <- allocatePartyWithHint "USD_Bank" (PartyIdHint "USD_Bank")
   eurBank <- allocatePartyWithHint "EUR_Bank" (PartyIdHint "EUR_Bank")
+  aliceId <- validateUserId "alice"
+  bobId <- validateUserId "bob"
+  eurBankId <- validateUserId "eur"
+  usBankId <- validateUserId "us"
+  createUser (User aliceId (Some alice)) [CanActAs alice]
+  createUser (User bobId (Some bob)) [CanActAs bob]
+  createUser (User eurBankId (Some eurBank)) [CanActAs eurBank]
+  createUser (User usBankId (Some usBank)) [CanActAs usBank]
 
   -- Banks issue IOU transfers.
-  iouEurBankCid <- submit eurBank do
-    createCmd Iou with
-      issuer = eurBank
-      owner = eurBank
-      currency = "EUR"
-      amount = 100.0
-      observers = []
-
   iouTransferAliceCid <- submit eurBank do
-    exerciseCmd iouEurBankCid Iou_Transfer with newOwner = alice
-
-  iouUsBankCid <- submit usBank do
-    createCmd Iou with
-      issuer = usBank
-      owner = usBank
-      currency = "USD"
-      amount = 110.0
-      observers = []
+    createAndExerciseCmd
+      Iou with
+        issuer = eurBank
+        owner = eurBank
+        currency = "EUR"
+        amount = 100.0
+        observers = []
+      Iou_Transfer with
+        newOwner = alice
 
   iouTransferBobCid <- submit usBank do
-    exerciseCmd iouUsBankCid Iou_Transfer with newOwner = bob
+    createAndExerciseCmd
+      Iou with
+        issuer = usBank
+        owner = usBank
+        currency = "USD"
+        amount = 110.0
+        observers = []
+      Iou_Transfer with
+        newOwner = bob
 
   -- Bob and Alice accept.
-  submit alice do exerciseCmd iouTransferAliceCid IouTransfer_Accept
-  submit bob do exerciseCmd iouTransferBobCid IouTransfer_Accept
+  submit alice do
+    exerciseCmd iouTransferAliceCid IouTransfer_Accept
+  submit bob do
+    exerciseCmd iouTransferBobCid IouTransfer_Accept
 
-  pure ()
+  pure [alice, eurBank]

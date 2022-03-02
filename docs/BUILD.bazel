@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
@@ -145,37 +145,154 @@ genrule(
 )
 
 genrule(
-    name = "pdf-docs",
-    srcs = glob([
-        "configs/pdf/**",
+    name = "sphinx-source-tree",
+    srcs = [
         "configs/static/pygments_daml_lexer.py",
         "configs/static/typescript.py",
-    ]) + [
+        "configs/html/conf.py",
+        "configs/pdf/conf.py",
+        "configs/pdf/logo.png",
+        "configs/pdf/index.rst",
         ":sources",
+        ":theme",
+        "//templates:templates-tarball",
+        "//templates:create-daml-app-docs",
+        "//templates:create-daml-app-test-resources/index.test.ts",
+    ],
+    outs = ["sphinx-source-tree.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+    mkdir -p $$DIR/docs
+
+    mkdir -p $$DIR/docs/configs/static $$DIR/docs/configs/html $$DIR/docs/configs/pdf/fonts
+    cp $(location configs/static/pygments_daml_lexer.py) $$DIR/docs/configs/static
+    cp $(location configs/static/typescript.py) $$DIR/docs/configs/static
+
+    tar xf $(location :sources) -C $$DIR/docs
+
+    cp $(location configs/html/conf.py) $$DIR/docs/configs/html
+    cp $(location configs/pdf/conf.py) $$DIR/docs/configs/pdf
+    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
+    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
+    mv $$DIR/docs/source/index.rst $$DIR/docs/configs/html
+    cp $(location configs/pdf/index.rst) $$DIR/docs/configs/pdf
+
+    cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
+
+    # Copy in theme
+    mkdir -p $$DIR/docs/theme
+    tar xf $(location :theme) -C $$DIR/docs/theme
+
+    # Copy templates for code snippets in getting started guide
+    CODE_DIR=$$DIR/docs/source/getting-started/code/
+    mkdir -p $$CODE_DIR
+    tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+    rm -rf $$CODE_DIR/templates-tarball/create-daml-app
+    tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
+    # Copy create-daml-app tests
+    mkdir $$CODE_DIR/testing
+    cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+
+    TEMPLATES_DIR=$$DIR/docs/source/_templates
+    mkdir -p $$TEMPLATES_DIR
+    tar xf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH docs
+  """.format(sdk = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+) if not is_windows else None
+
+[
+    genrule(
+        name = "sphinx-{}".format(name),
+        srcs = [
+            ":canton-refs.rst",
+            ":sphinx-source-tree",
+            ":scripts/check-closing-quotes.sh",
+            ":scripts/check-closing-quotes.sh.allow",
+        ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+        outs = ["sphinx-{}.tar.gz".format(name)],
+        cmd = ("""
+export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
+""" if is_linux else "") +
+              """
+    set -eou pipefail
+
+    DIR=$$(mktemp -d)
+    mkdir -p $$DIR/source $$DIR/target
+
+    tar xf $(location sphinx-source-tree) -C $$DIR/source --strip-components=1
+    mv $$DIR/source/configs/{name}/index.rst $$DIR/source/source/
+    mv $(location :canton-refs.rst) $$DIR/source/source
+    cat << EOF >> $$DIR/source/source/index.rst
+
+Stub
+----
+
+.. toctree::
+   canton-refs
+EOF
+
+    if ! docs/scripts/check-closing-quotes.sh $$DIR/source docs/scripts/check-closing-quotes.sh.allow; then
+        exit 1
+    fi
+
+    export LC_ALL=en_US.UTF-8
+    export LANG=en_US.UTF-8
+    SPHINX_BUILD_EXIT_CODE=0
+    # We hide the output unless we get a failure to make the builds less noisy.
+    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -W -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+
+    if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
+        >&2 echo "## SPHINX-BUILD OUTPUT:"
+        >&2 echo "$$SPHINX_BUILD_OUTPUT"
+        >&2 echo "## SPHINX-BUILD OUTPUT END"
+        exit 1
+    fi
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH target
+  """.format(
+                  target = target,
+                  name = name,
+              ),
+        tools = [
+            "//bazel_tools/sh:mktgz",
+            "@sphinx_nix//:bin/sphinx-build",
+        ],
+    )
+    for (name, target) in [
+        ("html", "html"),
+        ("pdf", "latex"),
+    ]
+] if not is_windows else None
+
+genrule(
+    name = "pdf-docs",
+    srcs = [
+        ":sphinx-pdf",
+        ":pdf-fonts",
     ],
     outs = ["DigitalAssetSDK.pdf"],
-    cmd = ("""
-        export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
-    """ if is_linux else "") + """
+    cmd = """
         set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
 
-        # Copy files into the right structure and remove symlinks
-        tar -zxf $(location sources) -C .
-        cp -L docs/configs/pdf/index.rst source/
-        cp -L docs/configs/pdf/conf.py source/
-        cp -L docs/configs/pdf/logo.png source/
-        cp -rL docs/configs/static ./
-
-        # Build with Sphinx
-        sed -i "s,__VERSION__,"{sdk}"," source/conf.py
-        export LC_ALL=en_US.UTF-8
-        export LANG=en_US.UTF-8
-        $(location @sphinx_nix//:bin/sphinx-build) -b latex source out
+        mkdir out
+        tar -zxf $(location sphinx-pdf) -C out --strip-components=1
 
         # Copy in fonts and build with lualatex
-        cp -L docs/configs/pdf/fonts/* out/
+        cp -L $(locations :pdf-fonts) out/
         cd out
         # run twice to generate all references properly (this is a latex thing...)
         ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
@@ -200,128 +317,96 @@ genrule(
     tags = ["pdfdocs"],
     tools =
         [
-            "@texlive_nix//:bin/lualatex",
-            "@sphinx_nix//:bin/sphinx-build",
             "@imagemagick_nix//:bin/convert",
-        ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+            "@texlive_nix//:bin/lualatex",
+        ],
 ) if not is_windows else None
 
+filegroup(
+    name = "pdf-fonts",
+    srcs = glob(["configs/pdf/fonts/**"]) + ["@freefont//:fonts"],
+)
+
+pkg_tar(
+    name = "pdf-fonts-tar",
+    srcs = [":pdf-fonts"],
+    extension = "tar.gz",
+)
+
 genrule(
-    name = "docs-no-pdf",
-    srcs = glob([
-        "configs/html/**",
-        "configs/static/pygments_daml_lexer.py",
-        "configs/static/typescript.py",
-    ]) + [
-        ":sources",
-        ":theme",
+    name = "non-sphinx-html-docs",
+    srcs = [
         ":hoogle_db.tar.gz",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
-        "//templates:templates-tarball",
-        "//templates:create-daml-app-docs",
-        "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
-        ":scripts/check-closing-quotes.sh",
-        ":scripts/check-closing-quotes.sh.allow",
+        ":redirects",
+        "error.html",
+    ],
+    outs = ["non-sphinx-html-docs.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf DIR" EXIT
+    mkdir -p $$DIR/html/app-dev/bindings-java/javadocs
+
+    # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
+    unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/app-dev/bindings-java/javadocs
+    # Remove JAR metadata
+    rm -r $$DIR/html/app-dev/bindings-java/javadocs/META-INF
+
+    # Copy generated documentation for typescript libraries
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-react
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-ledger
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-types
+    tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-react/
+    tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-ledger/
+    tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-types/
+    # The generated docs of the typescript libraries are published at two places: The npm
+    # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
+    # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
+    # pointing to itself.
+    sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' $$DIR/html/app-dev/bindings-ts/*/index.html
+
+    # Get the daml cheat sheet
+    mkdir -p $$DIR/html/cheat-sheet
+    tar -xzf $(location @daml-cheat-sheet//:site) --strip-components 1 -C $$DIR/html/cheat-sheet
+
+    # Copy in hoogle DB
+    cp -L $(location :hoogle_db.tar.gz) $$DIR/html/hoogle_db.tar.gz
+
+    echo {{ \\"{version}\\" : \\"{version}\\" }} > $$DIR/html/versions.json
+    cp $(location :error.html) $$DIR/html/
+    tar xf $(location :redirects) --strip-components=1 -C $$DIR/html
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH html
+  """.format(version = sdk_version),
+    tools = ["//bazel_tools/sh:mktgz"],
+) if not is_windows else None
+
+genrule(
+    name = "docs-no-pdf",
+    srcs = [
+        ":sphinx-html",
+        ":non-sphinx-html-docs",
     ],
     outs = ["html-only.tar.gz"],
-    cmd = ("""
-        export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
-    """ if is_linux else "") + """
-        # Copy files into the right structure and remove symlinks
-        mkdir build
-        cp -rL docs build
-        tar -zxf $(location sources) -C build/docs
-
-        # Copy in theme
-        mkdir -p build/docs/theme
-        tar -zxf $(location :theme) -C build/docs/theme
-
-        # Copy templates for code snippets in getting started guide
-        CODE_DIR=$$PWD/build/docs/source/getting-started/code/
-        mkdir -p $$CODE_DIR
-
-        tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
-        rm -rf $$CODE_DIR/templates-tarball/create-daml-app
-        tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
-        # Copy create-daml-app tests
-        mkdir $$CODE_DIR/testing
-        cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
-
-        # Templates
-        TEMPLATES_DIR=$$PWD/build/docs/source/_templates
-        mkdir -p $$TEMPLATES_DIR
-        tar -zxf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
-
-        if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allow; then
-            exit 1
-        fi
-
-        # Build with Sphinx
+    cmd = """
+        set -eou pipefail
+        mkdir -p build/html
+        tar xf $(location :sphinx-html) -C build/html --strip-components=1
+        tar xf $(location :non-sphinx-html-docs) -C build/html --strip-components=1
         cd build
-        sed -i "s,__VERSION__,"{sdk}"," docs/configs/html/conf.py
-        export LC_ALL=en_US.UTF-8
-        export LANG=en_US.UTF-8
-        # Sphinx 1.8.3 triggers the following warning:
-        #
-        #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
-        #      The iterable returned by Node.traverse()
-        #      will become an iterator instead of a list in Docutils > 0.16.
-        #     target_node = image_nodes and image_nodes[0] or node.parent
-        #
-        # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
-        # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
-        # the PDF documentation due to issues with the FreeSerif font in the
-        # fontspec package. So, for now we ignore `FutureWarning`.
-        SPHINX_BUILD_EXIT_CODE=0
-        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
-        if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
-            >&2 echo "## SPHINX-BUILD OUTPUT:"
-            >&2 echo "$$SPHINX_BUILD_OUTPUT"
-            >&2 echo "## SPHINX-BUILD OUTPUT END"
-            exit 1
-        fi
-        # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
-        WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
-        if [ "$$WARNINGS" != "" ]; then
-            echo "$$WARNINGS"
-            exit 1
-        fi
-
-        # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-        unzip -q -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
-        # Remove JAR metadata
-        rm -r html/app-dev/bindings-java/javadocs/META-INF
-
-        # Copy generated documentation for typescript libraries
-        mkdir -p html/app-dev/bindings-ts/daml-react
-        mkdir -p html/app-dev/bindings-ts/daml-ledger
-        mkdir -p html/app-dev/bindings-ts/daml-types
-        tar -xzf ../$(location //language-support/ts/daml-react:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-react/
-        tar -xzf ../$(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-ledger/
-        tar -xzf ../$(location //language-support/ts/daml-types:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-types/
-        # The generated docs of the typescript libraries are published at two places: The npm
-        # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
-        # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
-        # pointing to itself.
-        sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' html/app-dev/bindings-ts/*/index.html
-
-        # Get the daml cheat sheet
-        mkdir -p html/cheat-sheet
-        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
-
-        # Copy in hoogle DB
-        cp -L ../$(location :hoogle_db.tar.gz) html/hoogle_db.tar.gz
-
         ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
         """.format(sdk = sdk_version),
     tools = [
-        "@sphinx_nix//:bin/sphinx-build",
         "//bazel_tools/sh:mktgz",
-    ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+    ],
 ) if not is_windows else None
 
 genrule(
@@ -353,16 +438,11 @@ genrule(
     srcs = [
         ":docs-no-pdf",
         ":pdf-docs",
-        ":redirects",
-        "error.html",
     ],
     outs = ["html.tar.gz"],
     cmd = """
         VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
-        tar -zxf $(location :redirects)
         tar -zxf $(location :docs-no-pdf)
-        cp -rn redirects/* html
-        cp -L docs/error.html html
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
         SMHEAD="{head}"
@@ -374,11 +454,10 @@ genrule(
         done < sitemap
         rm sitemap
         echo $$SMFOOT >> sitemap.xml
-        echo {{ \\"{version}\\" : \\"{version}\\" }} > versions.json
         cd ..
         cp -L $(location :pdf-docs) html/_downloads
         # Remove Sphinx build products
-        rm -rf .buildinfo .doctrees objects.inv
+        rm -r html/.buildinfo html/.doctrees html/objects.inv
         $(execpath //bazel_tools/sh:mktgz) $@ html
     """.format(
         head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
@@ -486,6 +565,7 @@ java_binary(
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
@@ -496,6 +576,7 @@ daml_test(
 daml_test(
     name = "patterns-daml-test",
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 pkg_tar(
@@ -508,12 +589,14 @@ pkg_tar(
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
@@ -539,6 +622,7 @@ daml_test(
 daml_test(
     name = "ledger-model-daml-test",
     srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
@@ -576,13 +660,16 @@ daml_build_test(
     name = "daml-intro-7",
     daml_yaml = ":daml-intro-7.yaml",
     dar_dict = {
-        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/daml/intro/daml/daml-intro-7",
 )
 
 daml_build_test(
     name = "daml-upgrade-example-v1",
+    dar_dict = {
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+    },
     project_dir = "source/upgrade/example/carbon-1.0.0",
 )
 
@@ -614,7 +701,7 @@ daml_build_test(
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
         ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
-        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-initiate-upgrade",
 )
@@ -625,8 +712,8 @@ daml_build_test(
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
         ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
-        "//triggers/daml:daml-trigger.dar": "path/to/daml-trigger.dar",
-        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+        "//triggers/daml:daml-trigger.dar": "daml-trigger.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-upgrade-trigger",
 )

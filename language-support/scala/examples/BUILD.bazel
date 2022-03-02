@@ -1,11 +1,10 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "silencer_plugin",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
@@ -59,11 +58,8 @@ dar_to_scala(
 da_scala_library(
     name = "quickstart-scala-codegen-lib",
     srcs = [":quickstart-scala-codegen.srcjar"],
-    plugins = [
-        silencer_plugin,
-    ],
     scalacopts = [
-        "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+        "-Wconf:cat=unused-imports&site=com\\.daml\\.quickstart\\.iou\\.model..*:s",
     ],
     deps = ["//language-support/scala/bindings"],
 )
@@ -73,9 +69,6 @@ da_scala_binary(
     srcs = glob(["quickstart-scala/application/src/main/scala/**/*.scala"]),
     main_class = "com.daml.quickstart.iou.IouMain",
     resources = glob(["quickstart-scala/application/src/main/resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
     deps = [
         ":quickstart-scala-codegen-lib",
         "//language-support/scala/bindings",

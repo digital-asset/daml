@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -7,14 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
-  ConfigurationEntry,
-  LedgerId,
-  LedgerOffset,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerId, LedgerOffset, TransactionId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -27,11 +20,11 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -42,6 +35,8 @@ import scala.concurrent.Future
 private[daml] final class TimedIndexService(delegate: IndexService, metrics: Metrics)
     extends IndexService {
 
+  override def ledgerId: LedgerId = delegate.ledgerId
+
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
   ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
@@ -51,11 +46,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     Timed.future(metrics.daml.services.index.getLfArchive, delegate.getLfArchive(packageId))
-
-  override def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    Timed.future(metrics.daml.services.index.getLfPackage, delegate.getLfPackage(packageId))
 
   override def packageEntries(
       startExclusive: Option[LedgerOffset.Absolute]
@@ -80,7 +70,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def getCompletions(
       begin: domain.LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
@@ -157,16 +147,13 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.lookupContractKey(readers, key),
     )
 
-  override def lookupMaximumLedgerTime(
+  override def lookupMaximumLedgerTimeAfterInterpretation(
       ids: Set[Value.ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
     Timed.future(
       metrics.daml.services.index.lookupMaximumLedgerTime,
-      delegate.lookupMaximumLedgerTime(ids),
+      delegate.lookupMaximumLedgerTimeAfterInterpretation(ids),
     )
-
-  override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
-    Timed.future(metrics.daml.services.index.getLedgerId, delegate.getLedgerId())
 
   override def getParticipantId()(implicit
       loggingContext: LoggingContext
@@ -203,26 +190,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.configurationEntries(startExclusive),
     )
 
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
-    Timed.future(
-      metrics.daml.services.index.deduplicateCommand,
-      delegate.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
-    )
-
-  override def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    Timed.future(
-      metrics.daml.services.index.stopDeduplicateCommand,
-      delegate.stopDeduplicatingCommand(commandId, submitters),
-    )
-
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -235,7 +202,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def getCompletions(
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
@@ -245,4 +212,15 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  override def getMeteringReportData(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
+    Timed.future(
+      metrics.daml.services.index.getTransactionMetering,
+      delegate.getMeteringReportData(from, to, applicationId),
+    )
+  }
 }

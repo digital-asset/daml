@@ -55,3 +55,5 @@ test = scenario do
 
     submit eric do
         exercise suggestion AcceptFeature with sponsor = eric
+
+-- @ENABLE-SCENARIOS

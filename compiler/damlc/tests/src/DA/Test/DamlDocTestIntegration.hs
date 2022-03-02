@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.DamlDocTestIntegration (main) where
@@ -55,4 +55,10 @@ tests damlcPath = testGroup "doctest integration tests"
               stderr @?= ""
               assertEqual "exit code" ExitSuccess exit
     ]
-  where docTestProc dir f = (proc damlcPath ["doctest", f]) { cwd = Just dir }
+  where
+    docTestProc dir f =
+        let p = proc damlcPath
+                [ "doctest"
+                , f
+                ]
+        in p { cwd = Just dir }

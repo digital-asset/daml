@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -124,8 +124,7 @@ class TypeScriptLexer(RegexLexer):
         # there should be reflected here as well.
         'interp': [
             (r'`', String.Backtick, '#pop'),
-            (r'\\\\', String.Backtick),
-            (r'\\`', String.Backtick),
+            (r'\\.', String.Backtick),
             (r'\$\{', String.Interpol, 'interp-inside'),
             (r'\$', String.Backtick),
             (r'[^`\\$]+', String.Backtick),

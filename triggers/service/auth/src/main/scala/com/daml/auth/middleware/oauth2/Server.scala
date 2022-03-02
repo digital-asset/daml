@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -13,21 +13,20 @@ import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
 import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.{auth => lapiauth}
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
-import java.util.UUID
 
+import java.util.UUID
 import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.ports.{Port, PortFiles}
 import scalaz.{-\/, \/-}
 import spray.json._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -37,6 +36,7 @@ import scala.util.{Failure, Success, Try}
 class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
   import com.daml.auth.oauth2.api.JsonProtocol._
+  import Server.rightsProvideClaims
 
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
@@ -64,23 +64,11 @@ class Server(config: Config) extends StrictLogging {
   private def tokenProvidesClaims(accessToken: String, claims: Request.Claims): Boolean = {
     for {
       decodedJwt <- JwtDecoder.decode(Jwt(accessToken)).toOption
-      tokenPayload <- AuthServiceJWTCodec.readFromString(decodedJwt.payload).toOption
-    } yield {
-      (tokenPayload.admin || !claims.admin) &&
-      claims.actAs.map(_.toString).toSet.subsetOf(tokenPayload.actAs.toSet) &&
-      claims.readAs
-        .map(_.toString)
-        .toSet
-        .subsetOf(tokenPayload.readAs.toSet ++ tokenPayload.actAs.toSet) &&
-      ((claims.applicationId, tokenPayload.applicationId) match {
-        // No requirement on app id
-        case (None, _) => true
-        // Token valid for all app ids.
-        case (_, None) => true
-        case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
-      })
-    }
-  }.getOrElse(false)
+      tokenPayload <- lapiauth.AuthServiceJWTCodec
+        .readFromString(decodedJwt.payload)
+        .toOption
+    } yield rightsProvideClaims(tokenPayload, claims)
+  } getOrElse false
 
   private val requestTemplates: RequestTemplates = RequestTemplates(
     config.clientId,
@@ -343,4 +331,37 @@ object Server extends StrictLogging {
 
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
     f.flatMap(_.unbind())
+
+  private[oauth2] def rightsProvideClaims(
+      r: lapiauth.AuthServiceJWTPayload,
+      claims: Request.Claims,
+  ): Boolean = {
+    val (precond, userId) = r match {
+      case tp: lapiauth.CustomDamlJWTPayload =>
+        (
+          (tp.admin || !claims.admin) &&
+            Party
+              .unsubst(claims.actAs)
+              .toSet
+              .subsetOf(tp.actAs.toSet) &&
+            Party
+              .unsubst(claims.readAs)
+              .toSet
+              .subsetOf(tp.readAs.toSet ++ tp.actAs),
+          tp.applicationId,
+        )
+      case tp: lapiauth.StandardJWTPayload =>
+        // NB: in this mode we check the applicationId claim (if supplied)
+        // and ignore everything else
+        (true, Some(tp.userId))
+    }
+    precond && ((claims.applicationId, userId) match {
+      // No requirement on app id
+      case (None, _) => true
+      // Token valid for all app ids.
+      case (_, None) => true
+      case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
+    })
+  }
+
 }

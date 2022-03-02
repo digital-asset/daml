@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
@@ -13,10 +13,10 @@ import com.daml.platform.store.interning.StringInterning
 trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
   def createParameterStorageBackend: ParameterStorageBackend
+  def createMeteringParameterStorageBackend: MeteringParameterStorageBackend
   def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
-  def createDeduplicationStorageBackend: DeduplicationStorageBackend
   def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
   def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -31,6 +31,9 @@ trait StorageBackendFactory {
   def createIntegrityStorageBackend: IntegrityStorageBackend
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
+  def createUserManagementStorageBackend: UserManagementStorageBackend
+  def createMeteringStorageReadBackend(ledgerEndCache: LedgerEndCache): MeteringStorageReadBackend
+  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend
 
   final def readStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -43,6 +46,7 @@ trait StorageBackendFactory {
       completionStorageBackend = createCompletionStorageBackend(stringInterning),
       contractStorageBackend = createContractStorageBackend(ledgerEndCache, stringInterning),
       eventStorageBackend = createEventStorageBackend(ledgerEndCache, stringInterning),
+      meteringStorageBackend = createMeteringStorageReadBackend(ledgerEndCache),
     )
 }
 
@@ -62,4 +66,5 @@ case class ReadStorageBackend(
     completionStorageBackend: CompletionStorageBackend,
     contractStorageBackend: ContractStorageBackend,
     eventStorageBackend: EventStorageBackend,
+    meteringStorageBackend: MeteringStorageReadBackend,
 )

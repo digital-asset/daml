@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -130,7 +130,7 @@ cmdIde numProcessors =
     cmd = execIde
         <$> telemetryOpt
         <*> debugOpt
-        <*> enableScenarioOpt
+        <*> enableScenarioServiceOpt
         <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
 
 cmdLicense :: Mod CommandFields Command
@@ -496,7 +496,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
-              withScenarioService' enableScenarioService (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
+              withScenarioService' enableScenarioService (optEnableScenarios options) (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer
@@ -865,7 +865,10 @@ execDocTest opts files =
           -- This is horrible but we do not have a way to change the import paths in a running
           -- IdeState at the moment.
           pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
-      opts <- pure opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
+      opts <- pure opts
+        { optImportPath = importPaths <> optImportPath opts
+        , optHaddock = Haddock True
+        , optEnableScenarios = EnableScenarios True }
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 

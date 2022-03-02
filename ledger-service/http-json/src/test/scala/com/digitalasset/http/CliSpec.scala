@@ -1,18 +1,29 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
+import akka.stream.ThrottleMode
+import com.daml.bazeltools.BazelRunfiles.requiredResource
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.dbutils
+import com.daml.dbutils.{JdbcConfig => DbUtilsJdbcConfig}
+import ch.qos.logback.classic.{Level => LogLevel}
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.metrics.MetricsReporter
+
+import java.io.File
+import java.nio.file.Paths
+import scala.concurrent.duration._
 
 object CliSpec {
   private val poolSize = 10
   private val minIdle = 4
-  private val connectionTimeout = 5000L
-  private val idleTimeout = 1000L
+  private val connectionTimeout = 5000.millis
+  private val idleTimeout = 10000.millis
   private val tablePrefix = "foo"
 }
 final class CliSpec extends AnyFreeSpec with Matchers {
@@ -36,11 +47,12 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       idleTimeout,
       tablePrefix,
     ),
-    dbStartupMode = DbStartupMode.StartOnly,
+    startMode = DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
-      s"poolSize=$poolSize,minIdle=$minIdle,connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout,tablePrefix=$tablePrefix"
+      s"poolSize=$poolSize,minIdle=$minIdle,connectionTimeout=${connectionTimeout.toMillis}," +
+      s"idleTimeout=${idleTimeout.toMillis},tablePrefix=$tablePrefix"
 
   val sharedOptions =
     Seq("--ledger-host", "localhost", "--ledger-port", "6865", "--http-port", "7500")
@@ -121,14 +133,15 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "DbStartupMode" - {
       val jdbcConfigShared =
         "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
-          s"poolSize=$poolSize,minIdle=$minIdle,connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout,tablePrefix=$tablePrefix"
+          s"poolSize=$poolSize,minIdle=$minIdle,connectionTimeout=${connectionTimeout.toMillis}," +
+          s"idleTimeout=${idleTimeout.toMillis},tablePrefix=$tablePrefix"
 
       "should get the CreateOnly startup mode from the string" in {
         val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-only"
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
-        config.jdbcConfig shouldBe Some(jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly))
+        config.jdbcConfig shouldBe Some(jdbcConfig.copy(startMode = DbStartupMode.CreateOnly))
       }
 
       "should get the StartOnly startup mode from the string" in {
@@ -136,7 +149,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
-        config.jdbcConfig shouldBe Some(jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly))
+        config.jdbcConfig shouldBe Some(jdbcConfig.copy(startMode = DbStartupMode.StartOnly))
       }
 
       "should get the CreateIfNeededAndStart startup mode from the string" in {
@@ -145,7 +158,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateIfNeededAndStart)
+          jdbcConfig.copy(startMode = DbStartupMode.CreateIfNeededAndStart)
         )
       }
 
@@ -155,7 +168,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateAndStart)
+          jdbcConfig.copy(startMode = DbStartupMode.CreateAndStart)
         )
       }
 
@@ -165,7 +178,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly)
+          jdbcConfig.copy(startMode = DbStartupMode.StartOnly)
         )
       }
 
@@ -175,7 +188,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly)
+          jdbcConfig.copy(startMode = DbStartupMode.CreateOnly)
         )
       }
     }
@@ -209,6 +222,97 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       "but fails on bad input" in {
         Oracle.parseConf(Map(DisableContractPayloadIndexing -> "haha")).isLeft should ===(true)
       }
+    }
+  }
+
+  "TypeConfig app Conf" - {
+    val confFile = "ledger-service/http-json/src/test/resources/http-json-api-minimal.conf"
+
+    "should fail on missing ledgerHost and ledgerPort if no config file supplied" in {
+      configParser(sharedOptions.drop(4)) should ===(None)
+    }
+    "should fail on missing httpPort and no config file is supplied" in {
+      configParser(sharedOptions.take(4)) should ===(None)
+    }
+
+    "should successfully load a minimal config file" in {
+      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath))
+      cfg shouldBe Some(
+        Config.Empty.copy(httpPort = 7500, ledgerHost = "127.0.0.1", ledgerPort = 6400)
+      )
+    }
+
+    "should load a minimal config file along with logging opts from cli" in {
+      val cfg = configParser(
+        Seq(
+          "--config",
+          requiredResource(confFile).getAbsolutePath,
+          "--log-level",
+          "DEBUG",
+          "--log-encoder",
+          "json",
+        )
+      )
+      cfg shouldBe Some(
+        Config(
+          httpPort = 7500,
+          ledgerHost = "127.0.0.1",
+          ledgerPort = 6400,
+          logLevel = Some(LogLevel.DEBUG),
+          logEncoder = LogEncoder.Json,
+        )
+      )
+    }
+
+    "should fail when config file and cli args both are supplied" in {
+      configParser(
+        Seq("--config", requiredResource(confFile).getAbsolutePath) ++ sharedOptions
+      ) should ===(None)
+    }
+
+    "should successfully load a complete config file" in {
+      val baseConfig = DbUtilsJdbcConfig(
+        url = "jdbc:postgresql://localhost:5432/test?&ssl=true",
+        driver = "org.postgresql.Driver",
+        user = "postgres",
+        password = "password",
+        poolSize = 12,
+        idleTimeout = 12.seconds,
+        connectionTimeout = 90.seconds,
+        tablePrefix = "foo",
+        minIdle = 4,
+      )
+      val expectedWsConfig = WebsocketConfig(
+        maxDuration = 180.minutes,
+        throttleElem = 20,
+        throttlePer = 1.second,
+        maxBurst = 20,
+        mode = ThrottleMode.Enforcing,
+        heartbeatPeriod = 1.second,
+      )
+      val expectedConfig = Config(
+        ledgerHost = "127.0.0.1",
+        ledgerPort = 6400,
+        address = "127.0.0.1",
+        httpPort = 7500,
+        portFile = Some(Paths.get("port-file")),
+        tlsConfig = TlsConfiguration(
+          enabled = true,
+          Some(new File("cert-chain.crt")),
+          Some(new File("pvt-key.pem")),
+          Some(new File("root-ca.crt")),
+        ),
+        jdbcConfig = Some(JdbcConfig(baseConfig, DbStartupMode.StartOnly, Map("foo" -> "bar"))),
+        staticContentConfig = Some(StaticContentConfig("static", new File("static-content-dir"))),
+        metricsReporter = Some(MetricsReporter.Console),
+        metricsReportingInterval = 30.seconds,
+        wsConfig = Some(expectedWsConfig),
+        surrogateTpIdCacheMaxEntries = Some(2000L),
+        packageMaxInboundMessageSize = Some(StartSettings.DefaultMaxInboundMessageSize),
+      )
+      val confFile = "ledger-service/http-json/src/test/resources/http-json-api.conf"
+      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath))
+      cfg shouldBe Some(expectedConfig)
     }
   }
 

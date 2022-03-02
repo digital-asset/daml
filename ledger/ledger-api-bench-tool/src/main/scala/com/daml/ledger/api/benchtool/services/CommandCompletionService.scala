@@ -1,8 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.services
 
+import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -18,10 +19,14 @@ import scala.concurrent.Future
 class CommandCompletionService(
     channel: Channel,
     ledgerId: String,
+    userId: String,
+    authorizationToken: Option[String],
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: CommandCompletionServiceGrpc.CommandCompletionServiceStub =
-    CommandCompletionServiceGrpc.stub(channel)
+    AuthorizationHelper.maybeAuthedService(authorizationToken)(
+      CommandCompletionServiceGrpc.stub(channel)
+    )
 
   def completions[Result](
       config: WorkflowConfig.StreamConfig.CompletionsStreamConfig,
@@ -37,6 +42,12 @@ class CommandCompletionService(
       ledgerId: String,
       config: WorkflowConfig.StreamConfig.CompletionsStreamConfig,
   ): CompletionStreamRequest = {
+    if (authorizationToken.isDefined) {
+      assert(
+        userId == config.applicationId,
+        s"When using user based authorization applicationId (${config.applicationId}) must be equal to userId ($userId)",
+      )
+    }
     val request = CompletionStreamRequest.defaultInstance
       .withLedgerId(ledgerId)
       .withParties(List(config.party))

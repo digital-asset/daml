@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.ledgerinteraction
@@ -349,8 +349,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User] =
-    grpcClient.userManagementClient.createUser(user, rights)
+  ): Future[Option[Unit]] =
+    grpcClient.userManagementClient.createUser(user, rights).map(_ => Some(())).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.ALREADY_EXISTS => None
+    }
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
@@ -365,15 +367,35 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
-    grpcClient.userManagementClient.deleteUser(id)
+  ): Future[Option[Unit]] =
+    grpcClient.userManagementClient.deleteUser(id).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[User]] =
-    grpcClient.userManagementClient.listUsers().map(_.toList)
+  ): Future[List[User]] = {
+    val pageSize = 100
+    def listWithPageToken(pageToken: String): Future[List[User]] = {
+      grpcClient.userManagementClient
+        .listUsers(pageToken = pageToken, pageSize = pageSize)
+        .flatMap { case (users, nextPageToken) =>
+          // A note on loop termination:
+          // We terminate the loop when the nextPageToken is empty.
+          // However, we may not terminate the loop with 'users.size < pageSize', because the server
+          // does not guarantee to deliver pageSize users even if there are that many.
+          if (nextPageToken == "") Future.successful(users.toList)
+          else {
+            listWithPageToken(nextPageToken).map { more =>
+              users.toList ++ more
+            }
+          }
+        }
+    }
+    listWithPageToken("") // empty-string as pageToken asks for the first page
+  }
 
   override def grantUserRights(
       id: UserId,
@@ -382,8 +404,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 
   override def revokeUserRights(
       id: UserId,
@@ -392,13 +416,21 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    grpcClient.userManagementClient.revokeUserRights(id, rights).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    grpcClient.userManagementClient
+      .revokeUserRights(id, rights)
+      .map(_.toList)
+      .map(Some(_))
+      .recover {
+        case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      }
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    grpcClient.userManagementClient.listUserRights(id).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    grpcClient.userManagementClient.listUserRights(id).map(_.toList).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -48,7 +48,7 @@ TESTDAR="$TESTDIR/Main.dar"
 
 REGEX_HIDE_HASHES="s,@[a-z0-9]{8},@XXXXXXXX,g"
 
-$DAMLC package $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
+$DAMLC package --enable-scenarios=yes $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL $DEVFLAG test Test:run $TESTDAR | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 

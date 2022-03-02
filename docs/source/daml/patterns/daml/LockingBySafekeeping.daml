@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -6,6 +6,8 @@
 
 
 module LockingBySafekeeping where
+
+import Daml.Script
 
 import CoinIssuance
 import Utilities
@@ -71,26 +73,27 @@ template LockRequest
 -- END_LOCK_REQUEST_TEMPLATE
 
 
-locking : Scenario (ContractId Coin)  -- test
+locking : Script (ContractId Coin)  -- test
 locking =
-  scenario do
+  script do
 
     [issuer, owner, newOwner, locker] <- makePartiesFrom ["Bank", "Me", "You", "Custodian Bank"]
 
-    now <- pass (days 0)
+    passTime (days 0)
+    now <- getTime
 
    --when coin is created, owner = locker. it is unlocked
     coinId <- createCoin issuer owner 100.0
 
-    coin <- issuer `submit` do fetch coinId
+    Some coin <- issuer `queryContractId` coinId
     lockRequestCid <- locker `submit` do
-      create LockRequest with locker; maturity= (addRelTime now (days 2)); coin
-    lockResult <- owner `submit` do exercise lockRequestCid Accept with coinCid = coinId
+      createCmd LockRequest with locker; maturity= (addRelTime now (days 2)); coin
+    lockResult <- owner `submit` do exerciseCmd lockRequestCid Accept with coinCid = coinId
 
     --since it is locked and maturity time hasn't elapsed yet, owner cannot clawback
-    owner `submitMustFail` do exercise lockResult.lockCid ClawbackV2 with coinCid = lockResult.coinCid
+    owner `submitMustFail` do exerciseCmd lockResult.lockCid ClawbackV2 with coinCid = lockResult.coinCid
 
     --only after unlock, owner can access the coin
-    unlockedCoin <- locker `submit` exercise lockResult.lockCid UnlockV2 with coinCid = lockResult.coinCid
-    propId <- owner `submit` exercise unlockedCoin Transfer with newOwner
-    newOwner `submit` exercise propId AcceptTransfer
+    unlockedCoin <- locker `submit` exerciseCmd lockResult.lockCid UnlockV2 with coinCid = lockResult.coinCid
+    propId <- owner `submit` exerciseCmd unlockedCoin Transfer with newOwner
+    newOwner `submit` exerciseCmd propId AcceptTransfer

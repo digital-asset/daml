@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -22,8 +23,8 @@ import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerSt
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import io.grpc.Status.Code
 import scalaz.syntax.tag._
-
 import java.util.UUID
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -40,9 +41,10 @@ object TriggerRunnerImpl {
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
+      readAs: Set[Party],
   ) {
-    private[trigger] def withLoggingContext[T](f: LoggingContextOf[Config with Trigger] => T): T =
-      trigger.withLoggingContext.labelled[Config]("triggerId" -> triggerInstance.toString)(f)
+    private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger with Config] => T) => T =
+      Trigger.newLoggingContext(trigger.triggerDefinition, party, readAs, Some(triggerInstance))
   }
 
   sealed trait Message
@@ -72,8 +74,11 @@ object TriggerRunnerImpl {
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl
         ),
-        sslContext = None,
         token = AccessToken.unsubst(config.accessToken),
+      )
+
+      val channelConfig = LedgerClientChannelConfiguration(
+        sslContext = None,
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 
@@ -180,6 +185,7 @@ object TriggerRunnerImpl {
           config.ledgerConfig.host,
           config.ledgerConfig.port,
           clientConfig,
+          channelConfig,
         )
         runner = new Runner(
           config.compiledPackages,
@@ -189,8 +195,7 @@ object TriggerRunnerImpl {
           config.applicationId,
           TriggerParties(
             actAs = config.party,
-            // TODO (MK) Support multi-party readAs in the trigger service.
-            readAs = Set.empty,
+            readAs = config.readAs,
           ),
         )
         (acs, offset) <- runner.queryACS()

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 
@@ -42,6 +41,7 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ReadAs.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/ActAs.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
@@ -81,12 +81,8 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -110,10 +106,9 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
@@ -135,6 +130,7 @@ da_scala_library(
                 "Tls",
                 "RunnerSpec",
                 "UnfoldStateSpec",
+                "ConfigSpec",
             ] + (["DevOnly"] if lf_version else [])
         ],
         data = [
@@ -166,9 +162,10 @@ da_scala_library(
             "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox:sandbox-scala-tests-lib",
             "//ledger/sandbox-common",
             "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+            "//ledger/sandbox-on-x:sandbox-classic-server",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//ledger/test-common",
             "//libs-scala/ports",
             "//libs-scala/resources",

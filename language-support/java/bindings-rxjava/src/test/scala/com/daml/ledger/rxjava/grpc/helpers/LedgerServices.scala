@@ -1,13 +1,13 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
+
+import akka.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
@@ -31,6 +31,8 @@ import com.daml.ledger.api.v1.package_service.{
   ListPackagesResponse,
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
+import com.daml.logging.LoggingContext
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -45,14 +47,18 @@ final class LedgerServices(val ledgerId: String) {
 
   val executionContext: ExecutionContext = global
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
+  private val akkaSystem = ActorSystem("LedgerServicesParticipant")
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =
-    Authorizer(
+    new Authorizer(
       () => Clock.systemUTC().instant(),
       ledgerId,
       participantId,
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
-    )
+      new InMemoryUserManagementStore(),
+      executionContext,
+      userRightsCheckIntervalInSeconds = 1,
+      akkaScheduler = akkaSystem.scheduler,
+    )(LoggingContext.ForTesting)
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 
@@ -93,8 +99,8 @@ final class LedgerServices(val ledgerId: String) {
   ): Server = {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
+      Some(new InMemoryUserManagementStore()),
       executionContext,
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
     )
     services
       .foldLeft(newServerBuilder())(_ addService _)
@@ -141,7 +147,7 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       CommandSubmissionServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandSubmissionClientImpl(ledgerId, channel, accessToken, timeout), serviceImpl)
+      f(new CommandSubmissionClientImpl(ledgerId, channel, esf, accessToken, timeout), serviceImpl)
     }
   }
 
@@ -173,7 +179,7 @@ final class LedgerServices(val ledgerId: String) {
         authorizer,
       )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new PackageClientImpl(ledgerId, channel, accessToken), impl)
+      f(new PackageClientImpl(ledgerId, channel, esf, accessToken), impl)
     }
   }
 
@@ -193,7 +199,7 @@ final class LedgerServices(val ledgerId: String) {
       authorizer,
     )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandClientImpl(ledgerId, channel, accessToken), serviceImpl)
+      f(new CommandClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
     }
   }
 
@@ -216,7 +222,7 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerIdentityClientImpl(channel, accessToken), serviceImpl)
+      f(new LedgerIdentityClientImpl(channel, esf, accessToken), serviceImpl)
     }
   }
 
@@ -229,6 +235,17 @@ final class LedgerServices(val ledgerId: String) {
       TransactionsServiceImpl.createWithRef(ledgerContent, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new TransactionClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
+    }
+  }
+
+  def withUserManagementClient(
+      authService: AuthService = AuthServiceWildcard,
+      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
+  )(f: (UserManagementClientImpl, UserManagementServiceImpl) => Any): Any = {
+    val (service, serviceImpl) =
+      UserManagementServiceImpl.createWithRef(authorizer)(executionContext)
+    withServerAndChannel(authService, Seq(service)) { channel =>
+      f(new UserManagementClientImpl(channel, esf, accessToken), serviceImpl)
     }
   }
 

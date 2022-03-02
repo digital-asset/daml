@@ -1,19 +1,26 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _connect-helm-chart:
 
-Connect Helm Chart
-==================
+Daml Helm Chart
+===============
 
-As of 1.18.0, we provide an Early Access version of the Connect Helm Chart for
-Enterprise Edition customers. This page contains documentation for that Helm
+.. note::
+
+   This is an Early Access feature. Note that this feature does not currently
+   work with Daml 2.0. These docs refer to and use Daml 1.18. The feature is
+   under active development and it will soon be available for the 2.x major
+   release series.
+
+We provide an Early Access version of the Helm Chart for
+Daml Enterprise customers. This page contains documentation for that Helm
 chart.
 
 Credentials
 -----------
 
-Like all Enterprise Edition components, the Helm Chart is hosted on
+Like all Daml Enterprise components, the Helm Chart is hosted on
 Artifactory. To get both the Helm chart itself and the Docker images it relies
 on, you will need Artifactory credentials. In the rest of this document, we
 assume that ``$ARTIFACTORY_USERNAME`` refers to your Artifactory user name,
@@ -22,7 +29,7 @@ whereas ``$ARTIFACTORY_PASSWORD`` refers to your Artifactory API key.
 Installing the Helm Chart Repository
 ------------------------------------
 
-To let your local Helm installation know about the Daml Connect Helm chart, you
+To let your local Helm installation know about the Daml Helm chart, you
 need to add the repository with::
 
   helm repo add daml \
@@ -57,7 +64,7 @@ Setting Up the ``imagePullSecret``
 ----------------------------------
 
 The Helm chart relies on the production-ready Docker images for individual
-components that are part of the Enterprise Edition. Specifically, it expects a
+components that are part of Daml Enterprise. Specifically, it expects a
 Kubernetes secret given as the ``imagePullSecret`` argument with the relevant
 Docker credentials in it.
 
@@ -116,12 +123,12 @@ To get started against a development cluster, you can just run::
 
 This assumes you have used the above script to setup your credentials, or
 otherwise created the secret ``daml-docker-credentials``. It also assumes you
-run this command after having added the Daml Connect Helm chart repository as
+run this command after having added the Daml Helm chart repository as
 explained above.
 
 This is going to start the following:
 
-- For each of the state-keeping components (Daml Driver for PostgreSQL, HTTP
+- For each of the state-keeping components (Daml driver for PostgreSQL, HTTP
   JSON API Service), an "internal" PostgreSQL database server. These are
   decidedly not production-ready. For a production setup, you'll need to
   provide your own databases here.
@@ -129,7 +136,7 @@ This is going to start the following:
   should be replaced with a real authentication server for production use. See
   the :ref:`auth0` section for an example of using an external authentication
   infrastructure.
-- A single instance of each of the following services: Daml Driver for
+- A single instance of each of the following services: Daml driver for
   PostgreSQL, HTTP JSON API Service.
 - An nginx server exposing the ``/v1`` endpoints of the HTTP JSON API Service
   on a ``NodePort`` service type, for easy access from outside the Kubernetes
@@ -152,11 +159,11 @@ need to set the following:
   are most definitely not meant for production use. Specifically, this will
   disable the internal PostgreSQL instances, the mock auth server, and the
   reverse proxy.
-- ``ledger.db``: If you want the Helm char to start a Daml Driver For
+- ``ledger.db``: If you want the Helm char to start a Daml driver For
   PostgreSQL instance for you, you need to set this. See reference section at
   the end of this page for details.
 - ``ledger.host`` and ``ledger.port``: If you **do not** want the Helm chart to
-  setup a Daml Driver isntance for you, but instead want the components started
+  setup a Daml driver isntance for you, but instead want the components started
   by it to connect to an existing Ledger API server, fill in these options
   instead of the ``ledger.db`` object.
 - ``jsonApi.db``: If you want the Helm chart to start the HTTP JSON API Service
@@ -165,7 +172,7 @@ need to set the following:
 - ``triggerService.db``: If you want the Helm chart to start the Trigger
   Service for you, you need to set this. See reference section at the end of
   this page for details.
-- ``authUrl``: If you want the Helm chart to provide either a Daml Driver for
+- ``authUrl``: If you want the Helm chart to provide either a Daml driver for
   PostgreSQL or a OAuth2 Middleware instance, you will need to set this to the
   JWKS URL of your token provider.
 
@@ -192,13 +199,13 @@ You can find external documentation on, how to setup `ElasticSearch` with
 `Filebeat` and `Kibana` for analyzing logs on your Kubernetes cluster
 `here <https://www.deepnetwork.com/blog/2020/01/27/ELK-stack-filebeat-k8s-deployment.html>`_.
 
-As of 1.18.0, the :ref:`HTTP JSON API <json-api>` component in the Helm chart produces
+The :ref:`HTTP JSON API <json-api>` component in the Helm chart produces
 JSON-encoded logs. Other components log as unstructured text.
 
 Daml Metrics Options
 --------------------
 
-The Daml Driver for PostgreSQL instance and the HTTP JSON API instances started
+The Daml driver for PostgreSQL instance and the HTTP JSON API instances started
 by the Helm chart are configured to expose Prometheus metrics on a port named
 ``metrics``, using the appropriate annotations. This means that, if you are
 running a cluster-wide Prometheus instance, the relevant metrics should be
@@ -206,7 +213,7 @@ collected automatically.
 
 See each component's documentation for details on the metrics exposed:
 
-- `Daml Driver for PostgreSQL </daml-driver-for-postgresql/#types-of-metrics>`_
+- `Daml driver for PostgreSQL </daml-driver-for-postgresql/#types-of-metrics>`_
 - :ref:`JSON API metrics <json-api-metrics>`
 
 Upgrading
@@ -216,7 +223,7 @@ Upgrading
 
    This section only makes sense with the ``production`` flag set to ``true``.
 
-Upgrading the Daml Connect version should be done by uninstalling the existing
+Upgrading the Daml version should be done by uninstalling the existing
 Helm chart, waiting for all of the pods to stop, and then installing a higher
 version. Destroying all of the components is a safe operation because all of
 the state is stored in the provided database coordinates. There is no
@@ -244,7 +251,7 @@ those databases as a whole, just like you would any other database.
 If you want to be more fine-grained, you *may* decide to **not** backup the
 database used by the HTTP JSON API Service instances. Note that it is
 imperative that you still backup the databases for the other components (Trigger
-Service and Daml Driver for PostgreSQL) if you are running them.
+Service and Daml driver for PostgreSQL) if you are running them.
 
 If you are running the Helm chart solely for the HTTP JSON API Service
 (connected to an external Ledger API server), then you can eschew backing up
@@ -252,8 +259,8 @@ entirely, as the database for the HTTP JSON API Service is an
 easy-to-reconstruct cache. This assume that, in this setup, the data store of
 the Ledger API server is, itself, properly backed up.
 
-Securing Daml Connect
----------------------
+Securing Daml
+-------------
 
 The Helm chart assumes that the Kubernetes environment itself is trusted, and
 as such does not encrypt connections between components. Full TLS encryption
@@ -279,10 +286,10 @@ Helm Chart Options Reference
 ----------------------------
 
 ..
-
-  copied from https://github.com/DACH-NY/connect-helm-chart/blob/c297baae3565d92f6ff2aad5e40b7138945772b5/Configuration.md
-  This will need to be updated, but hopefully we can move the Helm chart to
-  this repo "soon" and that will stop being an problem. Also, converting md to rst sucks.
+  Copied from https://github.com/DACH-NY/connect-helm-chart/blob/c297baae3565d92f6ff2aad5e40b7138945772b5/Configuration.md
+  TODO: this will need updating across repositories, which is time-consuming and error-prone,
+        as some adjustment may be needed when converting from MD to RST -- we should evalute
+        a different strategy to deal with this documentation.
 
 These options have been extracted from the Helm chart version ``daml-connect-1.18.0-20211110.main.84.c297baae``.
 
@@ -488,7 +495,7 @@ ledger.create
 - **Default**: true
 - **Required**: false
 
-If true, the Helm chart will create a Daml Driver for PostgreSQL instance. If
+If true, the Helm chart will create a Daml driver for PostgreSQL instance. If
 false, you will need to provide ``ledger.host`` and ``ledger.port`` (see
 below).
 
@@ -498,7 +505,7 @@ ledger.db.host
 - **Type**: string
 - **Required**: if enabled & production
 
-The hostname of the database server for the Daml Driver for PostgreSQL, if one
+The hostname of the database server for the Daml driver for PostgreSQL, if one
 is started by the Helm chart.
 
 ledger.db.port
@@ -507,7 +514,7 @@ ledger.db.port
 - **Type**: integer
 - **Required**: if enabled & production
 
-The exposed port of the database server for the Daml Driver for PostgreSQL, if
+The exposed port of the database server for the Daml driver for PostgreSQL, if
 one is started by the Helm chart.
 
 ledger.db.postgres.database
@@ -516,9 +523,9 @@ ledger.db.postgres.database
 - **Type**: string
 - **Required**: if enabled & production
 
-The database the Daml Driver for PostgreSQL should use when connecting to the
+The database the Daml driver for PostgreSQL should use when connecting to the
 database server. Note that, unlike the Trigger Service and HTTP JSON API
-Service, the Daml Driver for PostgreSQL started by the Helm chart only supports
+Service, the Daml driver for PostgreSQL started by the Helm chart only supports
 PostgreSQL database servers.
 
 ledger.db.secret
@@ -551,7 +558,7 @@ ledger.db.setupSecret
 - **Default**: none
 - **Required**: false
 
-The Daml Driver for PostgreSQL supports two start modes: ``--migrate-only`` and
+The Daml driver for PostgreSQL supports two start modes: ``--migrate-only`` and
 ``--migrate-and-start``. The long-running instance always starts with
 ``--migrate-and-start``, but if you supply this option, the Helm chart will
 start a separate, one-time job with ``--migrate-only``.
@@ -570,7 +577,7 @@ ledger.healthCheck
 - **Default**: see below
 - **Required**: false
 
-Overrides the probes for the long-running Daml Driver for PostgreSQL instance.
+Overrides the probes for the long-running Daml driver for PostgreSQL instance.
 Defaults:
 
 .. code-block:: yaml
@@ -595,7 +602,7 @@ ledger.host
 - **Type**: string
 - **Required**: if ledger.create is false
 
-If the Helm chart should not create its own Daml Driver for PostgreSQL instance
+If the Helm chart should not create its own Daml driver for PostgreSQL instance
 (i.e. you want to connect to other components to an existing gRPC Ledger API
 provider), this option should be set to the hostname of the gRPC Ledger API
 Server to connect to.
@@ -607,7 +614,7 @@ ledger.podAnnotations
 - **Default**: {}
 - **Required**: false
 
-The annotations which should be attached to the metadata of the Daml Driver for
+The annotations which should be attached to the metadata of the Daml driver for
 PostgreSQL pod.
 
 ledger.port
@@ -626,7 +633,7 @@ ledger.resources
 - **Default**: see below
 - **Required**: false
 
-Overrides the ``resources`` field of the Daml Driver for PostgreSQL pod.
+Overrides the ``resources`` field of the Daml driver for PostgreSQL pod.
 Defaults:
 
 .. code-block:: yaml
@@ -645,7 +652,7 @@ ledger.serviceAccount
 - **Default**: null
 - **Required**: false
 
-The service account which should be attached to the Daml Driver for PostgreSQL
+The service account which should be attached to the Daml driver for PostgreSQL
 pod.
 
 oauthMiddleware.callback

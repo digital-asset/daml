@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -14,7 +14,7 @@ trait CliBase {
   ): Option[Config] = {
     implicit val jcd: DBConfig.JdbcConfigDefaults =
       DBConfig.JdbcConfigDefaults(supportedJdbcDriverNames)
-    configParser(getEnvVar).parse(args, Config.Empty)
+    configParser(getEnvVar).parse(args, JsonApiCli.Default).flatMap(_.loadConfig)
   }
 
   protected[this] def configParser(getEnvVar: String => Option[String])(implicit

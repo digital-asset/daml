@@ -1,10 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
 
-import com.daml.codegen.{Main => ScalaCodegen}
-import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java, Scala}
+import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java}
 import com.daml.lf.codegen.conf.{CodegenConfigReader, Conf}
 import com.daml.lf.codegen.{CodeGenRunner => JavaCodegen}
 
@@ -23,8 +22,6 @@ object CodegenMain {
     val exitCode: ExitCode = parseFrontEndConfig(args) match {
       case Some(FrontEndConfig(Some(Java))) =>
         javaCodegen(args.tail)
-      case Some(FrontEndConfig(Some(Scala))) =>
-        scalaCodegen(args.tail)
       case Some(FrontEndConfig(None)) | None =>
         println("\n")
         cliConfigParser.displayToOut(cliConfigParser.usage)
@@ -36,11 +33,6 @@ object CodegenMain {
   private def javaCodegen(args: Array[String]): ExitCode = {
     println("Java codegen")
     runCodegen(JavaCodegen.run, codegenConfig(args, Java))
-  }
-
-  private def scalaCodegen(args: Array[String]): ExitCode = {
-    println("Scala codegen")
-    runCodegen(ScalaCodegen.generateCode, codegenConfig(args, Scala))
   }
 
   private def runCodegen(generate: Conf => Unit, configO: Option[Conf]): ExitCode =
@@ -91,10 +83,5 @@ object CodegenMain {
       .children(help("help").text("Java codegen help"))
     note("\n")
 
-    cmd("scala")
-      .action((_, c) => c.copy(mode = Some(Scala)))
-      .text("To generate Scala code:\n")
-      .children(help("help").text("Scala codegen help"))
-    note("\n")
   }
 }

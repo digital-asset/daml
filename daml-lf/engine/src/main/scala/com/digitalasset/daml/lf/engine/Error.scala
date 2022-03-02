@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -29,6 +29,7 @@ object Error {
     final case class Internal(
         location: String,
         override val message: String,
+        cause: Option[Throwable],
     ) extends Error
         with InternalError
 
@@ -87,6 +88,7 @@ object Error {
     final case class Internal(
         location: String,
         override val message: String,
+        cause: Option[Throwable],
     ) extends Error
         with InternalError
 
@@ -114,10 +116,6 @@ object Error {
     object IllegalContractId {
       sealed abstract class Reason extends Serializable with Product {
         def details: String
-      }
-      case object V0ContractId extends Reason {
-        def details = "V0 Contract IDs are forbidden"
-        def apply(cid: Value.ContractId.V0): IllegalContractId = IllegalContractId(cid, this)
       }
       case object NonSuffixV1ContractId extends Reason {
         def details = "non-suffixed V1 Contract IDs are forbidden"
@@ -147,6 +145,7 @@ object Error {
     final case class Internal(
         location: String,
         override val message: String,
+        cause: Option[Throwable],
     ) extends Error
         with InternalError
 

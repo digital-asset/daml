@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.ScriptService (main) where
@@ -472,30 +472,20 @@ main =
                       "  where",
                       "    signatory owner",
                       "    observer observer",
-                      "    choice InventObserver : ContractId T with name : Text",
-                      "      controller owner",
-                      "        do create this { observer = fromSome $ partyFromText name }",
                       "partyManagement = do",
                       "  alice <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
                       "  alice1 <- allocateParty \"alice\"",
                       "  t1 <- submit alice $ createCmd T { owner = alice, observer = alice1 }",
-                      "  t2 <- submit alice $ exerciseCmd t1 (InventObserver \"bob\")",
-                      "  bob1 <- allocateParty \"bob\"",
+                      "  bob <- allocateParty \"bob\"",
                       "  details <- listKnownParties",
-                      "  assertEq (length details) 4",
-                      "  let [aliceDetails, alice1Details, bobDetails, bob1Details] = details",
+                      "  assertEq (length details) 3",
+                      "  let [aliceDetails, alice1Details, bobDetails] = details",
                       "  assertEq aliceDetails (PartyDetails alice (Some \"alice\") True)",
                       "  assertEq alice1Details (PartyDetails alice1 (Some \"alice\") True)",
-                      "  assertEq bobDetails (PartyDetails (fromSome $ partyFromText \"bob\") None True)",
-                      "  assertEq bob1Details (PartyDetails bob1 (Some \"bob\") True)",
+                      "  assertEq bobDetails (PartyDetails bob (Some \"bob\") True)",
                       "duplicateAllocateWithHint = do",
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
-                      "  pure ()",
-                      "duplicatePartyFromText = do",
-                      "  alice <- allocateParty \"alice\"",
-                      "  _ <- submit alice $ createAndExerciseCmd (T alice alice) (InventObserver \"bob\")",
-                      "  _ <- allocatePartyWithHint \"bob\" (PartyIdHint \"bob\")",
                       "  pure ()",
                       "partyWithEmptyDisplayName = do",
                       "  p1 <- allocateParty \"\"",
@@ -509,11 +499,9 @@ main =
                       "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
-                  matchRegex r "Active contracts:  #1:1\n\nReturn value: {}\n\n$"
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
                 expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  alice"
-                expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
-                  matchRegex r "Tried to allocate a party that already exists:  bob"
                 expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
             , testCase "queryContractId/Key" $ do
@@ -896,22 +884,40 @@ main =
                     , "    p : Party"
                     , "  where"
                     , "    signatory p"
-                    , "    choice C : ()"
+                    , "    postconsuming choice C : ()"
                     , "      with"
                     , "        cid : ContractId T"
                     , "      controller p"
                     , "      do try do"
-                    , "           -- rolled back create"
+                    , "           -- rolled back direct create"
                     , "           create (T p)"
                     , "           -- rolled back archive"
                     , "           archive cid"
+                    , "           -- rolled back create under exercise"
+                    , "           exercise self CreateT"
+                    , "           try do"
+                    , "             create (T p)"
+                    , "             error \"\""
+                    , "           catch"
+                    , "             (GeneralError _) -> pure ()"
+                    , "           -- rolled back create after nested rollback"
+                    , "           create (T p)"
                     , "           error \"\""
                     , "         catch"
                     , "           (GeneralError _) -> pure ()"
+                    , "    nonconsuming choice CreateT : ContractId T"
+                    , "      controller p"
+                    , "      do create (T p)"
                     , "    choice Fail : ()"
                     , "      controller p"
                     , "      do assert False"
-                    , "test = do"
+                    -- Check that we display activeness correctly.
+                    -- There are 3 main cases:
+                    -- 1. Direct children of a rollback node are rolled back.
+                    -- 2. Children of an exercise under a rollback node are rolled back.
+                    -- 3. After exiting a nested rollback node, we rollback further children
+                    --    if we’re still below a rollback node.
+                    , "testActive = do"
                     , "  p <- allocateParty \"p\""
                     , "  cid <- submit p $ createCmd (T p)"
                     , "  submit p $ createAndExerciseCmd (Helper p) (C cid)"
@@ -923,7 +929,7 @@ main =
                     , "  p <- allocateParty \"p\""
                     , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
-                expectScriptSuccess rs (vr "test") $ \r ->
+                expectScriptSuccess rs (vr "testActive") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
                 expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
                 expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception",
@@ -932,57 +938,114 @@ main =
                   [ "module Test where"
                   , "import DA.Assert"
                   , "import Daml.Script"
+                  , "import DA.List (sort)"
+                  , "isValidUserId : Text -> Script Bool"
+                  , "isValidUserId name = try do _ <- validateUserId name; pure True catch InvalidUserId _ -> pure False"
+                  , "userExists : UserId -> Script Bool"
+                  , "userExists u = do try do _ <- getUser u; pure True catch UserNotFound _ -> pure False"
+                  , "expectUserNotFound : Script a -> Script ()"
+                  , "expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -> pure ()"
                   , "testUserManagement = do"
-                  , "  users <- listUsers"
+                  , "  True <- isValidUserId \"good\""
+                  , "  False <- isValidUserId \"BAD\""
+                  , "  u1 <- validateUserId \"user1\""
+                  , "  u2 <- validateUserId \"user2\""
+                  , "  let user1 = User u1 None"
+                  , "  let user2 = User u2 None"
+                  , "  userIdToText u1 === \"user1\""
+                  , "  userIdToText u2 === \"user2\""
+                  , "  users <- listAllUsers"
                   , "  users === []"
-                  , "  u1 <- createUser (User \"u1\" None) []"
-                  , "  u1 === User \"u1\" None"
-                  , "  u2 <- createUser (User \"u2\" None) []"
-                  , "  u2 === User \"u2\" None"
-                  , "  u <- getUser \"u1\""
-                  , "  u === Some u1"
-                  , "  u <- getUser \"u2\""
-                  , "  u === Some u2"
-                  , "  u <- getUser \"nonexistent\""
-                  , "  u === None"
-                  , "  users <- listUsers"
-                  , "  users === [User \"u1\" None, User \"u2\" None]"
-                  , "  deleteUser \"u1\""
-                  , "  users <- listUsers"
-                  , "  users === [User \"u2\" None]"
-                  , "  deleteUser \"u2\""
-                  , "  users <- listUsers"
+                  , "  createUser user1 []"
+                  , "  True <- userExists u1"
+                  , "  False <- userExists u2"
+                  , "  try do _ <- createUser user1 []; undefined catch UserAlreadyExists _ -> pure ()"
+                  , "  createUser user2 []"
+                  , "  True <- userExists u1"
+                  , "  True <- userExists u2"
+                  , "  u <- getUser u1"
+                  , "  u === user1"
+                  , "  u <- getUser u2"
+                  , "  u === user2"
+                  , "  users <- listAllUsers"
+                  , "  sort users === [user1, user2]"
+                  , "  deleteUser u1"
+                  , "  users <- listAllUsers"
+                  , "  users === [user2]"
+                  , "  deleteUser u2"
+                  , "  users <- listAllUsers"
                   , "  users === []"
+                  , "  nonexistent <- validateUserId \"nonexistent\""
+                  , "  expectUserNotFound (getUser nonexistent)"
+                  , "  expectUserNotFound (deleteUser nonexistent)"
                   , "  pure ()"
                   , "testUserRightManagement = do"
                   , "  p1 <- allocateParty \"p1\""
                   , "  p2 <- allocateParty \"p2\""
-                  , "  u1 <- createUser (User \"u1\" None) []"
-                  , "  rights <- listUserRights \"u1\""
+                  , "  u1 <- validateUserId \"user1\""
+                  , "  createUser (User u1 None) []"
+                  , "  rights <- listUserRights u1"
                   , "  rights === []"
-                  , "  newRights <- grantUserRights \"u1\" [ParticipantAdmin]"
+                  , "  newRights <- grantUserRights u1 [ParticipantAdmin]"
                   , "  newRights === [ParticipantAdmin]"
-                  , "  newRights <- grantUserRights \"u1\" [ParticipantAdmin]"
+                  , "  newRights <- grantUserRights u1 [ParticipantAdmin]"
                   , "  newRights === []"
-                  , "  rights <- listUserRights \"u1\""
+                  , "  rights <- listUserRights u1"
                   , "  rights === [ParticipantAdmin]"
-                  , "  newRights <- grantUserRights \"u1\" [CanActAs p1, CanReadAs p2]"
+                  , "  newRights <- grantUserRights u1 [CanActAs p1, CanReadAs p2]"
                   , "  newRights === [CanActAs p1, CanReadAs p2]"
-                  , "  rights <- listUserRights \"u1\""
+                  , "  rights <- listUserRights u1"
                   , "  rights === [ParticipantAdmin, CanActAs p1, CanReadAs p2]"
-                  , "  revoked <- revokeUserRights \"u1\" [ParticipantAdmin]"
+                  , "  revoked <- revokeUserRights u1 [ParticipantAdmin]"
                   , "  revoked === [ParticipantAdmin]"
-                  , "  revoked <- revokeUserRights \"u1\" [ParticipantAdmin]"
+                  , "  revoked <- revokeUserRights u1 [ParticipantAdmin]"
                   , "  revoked === []"
-                  , "  rights <- listUserRights \"u1\""
+                  , "  rights <- listUserRights u1"
                   , "  rights === [CanActAs p1, CanReadAs p2]"
-                  , "  revoked <- revokeUserRights \"u1\" [CanActAs p1, CanReadAs p2]"
+                  , "  revoked <- revokeUserRights u1 [CanActAs p1, CanReadAs p2]"
                   , "  revoked === [CanActAs p1, CanReadAs p2]"
-                  , "  rights <- listUserRights \"u1\""
+                  , "  rights <- listUserRights u1"
                   , "  rights === []"
+                  , "  nonexistent <- validateUserId \"nonexistent\""
+                  , "  expectUserNotFound (listUserRights nonexistent)"
+                  , "  expectUserNotFound (revokeUserRights nonexistent [])"
+                  , "  expectUserNotFound (grantUserRights nonexistent [])"
+                  , "  pure ()"
                   ]
                 expectScriptSuccess rs (vr "testUserManagement") $ \r ->
                     matchRegex r "Active contracts: \n"
+                expectScriptSuccess rs (vr "testUserRightManagement") $ \r ->
+                    matchRegex r "Active contracts: \n",
+              testCase "implicit party allocation" $ do
+                rs <- runScripts scriptService
+                  [ "module Test where"
+                  , "import DA.Assert"
+                  , "import DA.Optional"
+                  , "import Daml.Script"
+                  , "template T"
+                  , "  with"
+                  , "    s: Party"
+                  , "    o: Party"
+                  , "  where"
+                  , "    signatory s"
+                  , "    observer o"
+                  , "submitterNotAllocated : Script ()"
+                  , "submitterNotAllocated = do"
+                  , "  x <- allocateParty \"x\""
+                  , "  let unallocated  = fromSome (partyFromText \"y\")"
+                  , "  submitMulti [x, unallocated] [] $ createCmd (T x x)"
+                  , "  pure ()"
+                  , "observerNotAllocated : Script ()"
+                  , "observerNotAllocated = do"
+                  , "  x <- allocateParty \"x\""
+                  , "  let unallocated  = fromSome (partyFromText \"y\")"
+                  , "  submit x $ createCmd (T x unallocated)"
+                  , "  pure ()"
+                  ]
+                expectScriptFailure rs (vr "submitterNotAllocated") $ \r ->
+                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
+                expectScriptFailure rs (vr "observerNotAllocated") $ \r ->
+                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
@@ -1034,8 +1097,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
 options :: Options
 options =
   (defaultOptions (Just lfVersion))
-    { optDlintUsage = DlintDisabled,
-      optEnableScripts = EnableScripts True
+    { optDlintUsage = DlintDisabled
     }
 
 runScripts :: SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

@@ -1,10 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref.{Identifier, Party, UserId}
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
@@ -75,12 +75,6 @@ object Error {
   /** Tried to allocate a party that already exists. */
   final case class PartyAlreadyExists(name: String) extends Error
 
-  final case class UserManagement(error: UserManagementError) extends Error
-
-  sealed abstract class UserManagementError extends Product with Serializable
-
-  object UserManagementError {
-    final case class UserNotFound(userId: UserId) extends UserManagementError
-    final case class UserExists(userId: UserId) extends UserManagementError
-  }
+  /** Submitted commands for parties that have not been allocated. */
+  final case class PartiesNotAllocated(parties: Set[Party]) extends Error
 }

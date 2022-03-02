@@ -14,3 +14,5 @@ main = scenario do
 
   submitMustFail alice (error "fail-error" : Update ())
   submitMustFail alice (pure (error "fail-pure-error": ()))
+
+-- @ENABLE-SCENARIOS

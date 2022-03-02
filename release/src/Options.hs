@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Options (
@@ -35,4 +35,4 @@ optsParser = Options
 
 -- Keep in sync with /bazel_tools/scala_version.bzl and /nix/nixpkgs.nix
 defaultScalaVersions :: [T.Text]
-defaultScalaVersions = ["2.13.6"]
+defaultScalaVersions = ["2.13.8"]

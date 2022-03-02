@@ -1,7 +1,7 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
@@ -77,31 +77,33 @@ conformance_test(
         "--verbose",
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
         "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
-        "--exclude=ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
-        ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
-        ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-        ",CommandServiceIT:CSsubmitAndWaitCompletionOffset" +  # Canton does not fill the offsets
-        # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
-        ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
-        ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
-        # The following three contract key tests require uniqueness
-        ",ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
-        ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
-        ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
-        ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic" +  # sync vs async error (part of canton #6301)
-        ",CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic" +
-        ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationMixedClients" +
-        # Also exclude "optional tests" - which are run separately below
-        ",CompletionDeduplicationInfoITCommandService" +
-        ",CompletionDeduplicationInfoITCommandSubmissionService" +
-        ",CommandDeduplicationParallelIT" +
-        ",ContractIdIT" +
-        ",KVCommandDeduplicationIT" +  # only for KV-utils
-        ",MultiPartySubmissionIT" +
-        ",ParticipantPruningIT" +
-        ",TLSOnePointThreeIT" +
-        ",TLSAtLeastOnePointTwoIT" +
-        ",MonotonicRecordTimeIT",  # KV-utils specific
+        "--exclude=" + ",".join([
+            # dynamic config management not supported by Canton
+            "ConfigManagementServiceIT",
+            "LedgerConfigurationServiceIT",
+            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+            # Excluding tests that require contract key uniqueness
+            "RaceConditionIT:WWDoubleNonTransientCreate",
+            "RaceConditionIT:WWArchiveVsNonTransientCreate",
+            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
+            "RaceConditionIT:RWArchiveVsFailedLookupByKey",
+            "RaceConditionIT:RWArchiveVsLookupByKey",
+            "RaceConditionIT:RWArchiveVsNonConsumingChoice",
+            "RaceConditionIT:RWArchiveVsFetch",
+            "RaceConditionIT:WWDoubleArchive",
+            "ContractKeysIT:CKFetchOrLookup",
+            "ContractKeysIT:CKNoFetchUndisclosed",
+            "ContractKeysIT:CKMaintainerScoped",
+            # need UCK mode - added below
+            "ExceptionsIT",
+            "ExceptionRaceConditionIT",
+            "ParticipantPruningIT",  # pruning not supported in Canton Community
+            # tests with special config run in canton enterprise-repo
+            "TLSOnePointThreeIT",
+            "TLSAtLeastOnePointTwoIT",
+            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
+            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
+        ]),
     ],
 ) if not is_windows else None
 
@@ -134,79 +136,11 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--include=ContractKeysIT" +
-        ",RaceConditionIT" +
-        ",ExceptionsIT" +
-        ",ExceptionRaceConditionIT",
-    ],
-) if not is_windows else None
-
-conformance_test(
-    name = "conformance-test-optional",
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton_deploy.jar",
-        ":canton.conf",
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-        "@bazel_tools//tools/jdk",
-    ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check",
-    server = ":canton-test-runner-with-dependencies",
-    test_tool_args = [
-        "--verbose",
-        "--include=ContractIdIT:RejectV0,ContractIdIT:RejectNonSuffixedV1Cid,ContractIdIT:AcceptSuffixedV1Cid" +
-        ",MultiPartySubmissionIT" +
-        ",CommandDeduplicationParallelIT" +
-        ",CompletionDeduplicationInfoITCommandService,CompletionDeduplicationInfoITCommandSubmissionService",
-        "--exclude=MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible" +  # Enable once error parsing more permissive
-        ",MultiPartySubmissionIT:MPSCreateInsufficientAuthorization" +  # canton returns INTERNAL instead of INVALID_ARGUMENT
-        ",ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
-    ],
-) if not is_windows else None
-
-conformance_test(
-    name = "conformance-test-participant-pruning",
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton_deploy.jar",
-        ":canton.conf",
-        ":enable-faster-pruning.conf",  # needed to prevent timing out on prune requests
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-        "@bazel_tools//tools/jdk",
-    ],
-    lf_versions = [
-        "default",
-        "latest",
-    ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check",
-    server = ":canton-test-runner-with-dependencies",
-    tags = [
-        "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--timeout-scale-factor=4",  # increased to match setting in canton repo
-        "--include=ParticipantPruningIT",
+        "--include=" + ",".join([
+            "ContractKeysIT",
+            "ExceptionRaceConditionIT",
+            "ExceptionsIT",
+            "RaceConditionIT",
+        ]),
     ],
 ) if not is_windows else None

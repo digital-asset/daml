@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
@@ -51,7 +51,7 @@ da_haskell_test(
     data = [
         ":for-tests.dar",
         ":for-upload.dar",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     # The tests throw flaky timeout errors. It looks like this comes
     # from a fundamental issue in the Haskell bindings: they eagerly pull

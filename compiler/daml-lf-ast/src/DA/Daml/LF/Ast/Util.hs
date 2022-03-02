@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
@@ -21,7 +21,6 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
-import DA.Daml.LF.Ast.Version
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -159,11 +158,10 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric :: Type
+pattern TUnit, TBool, TInt64, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
-pattern TDecimal    = TBuiltin BTDecimal -- legacy decimal (LF version <= 1.6)
 pattern TNumeric10  = TNumeric TNat10 -- new decimal
 pattern TNat10      = TNat TypeLevelNat10
 pattern TText       = TBuiltin BTText
@@ -294,10 +292,9 @@ removeLocations = cata $ \case
     ELocationF _loc e -> e
     b -> embed b
 
-getPackageMetadata :: Version -> PackageName -> Maybe PackageVersion -> Maybe PackageMetadata
-getPackageMetadata lfVer pkgName mbPkgVersion = do
-    guard (lfVer `supports` featurePackageMetadata)
-    Just (PackageMetadata pkgName (fromMaybe (PackageVersion "0.0.0") mbPkgVersion))
+getPackageMetadata :: PackageName -> Maybe PackageVersion -> PackageMetadata
+getPackageMetadata pkgName mbPkgVersion =
+    PackageMetadata pkgName (fromMaybe (PackageVersion "0.0.0") mbPkgVersion)
 
 -- | Given the name of a DALF and the decoded package return package metadata.
 --

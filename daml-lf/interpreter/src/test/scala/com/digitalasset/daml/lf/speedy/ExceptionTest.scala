@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,15 +8,14 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
-import com.daml.lf.speedy.Compiler.FullStackTrace
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.SErrorDamlException
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue.{SUnit, SParty}
+import com.daml.lf.speedy.SValue.{SParty, SUnit}
+import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -24,6 +23,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 // TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
+  import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
+  import SpeedyTestLib.loggingContext
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
@@ -62,9 +64,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     val List((t1, e1), (t2, e2)) =
       List("M:E1", "M:E2")
-        .map(id =>
-          data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
-        )
+        .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
     val arithmeticCon = data.Ref.Identifier.assertFromString(
       "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
@@ -485,7 +485,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
       val id = "M:AnException"
       val tyCon =
-        data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
+        data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id")
       val anException =
         IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
 
@@ -498,12 +498,8 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
 
-      implicit val defaultParserParameters: ParserParameters[this.type] = {
-        ParserParameters(
-          defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-          languageVersion,
-        )
-      }
+      implicit val defaultParserParameters: ParserParameters[this.type] =
+        ParserParameters(defaultPackageId, languageVersion)
 
       typeAndCompile(p"""
       module M {
@@ -543,14 +539,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       } """)
     }
 
-  }
-
-  private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private val party = Party.assertFromString("Alice")
@@ -672,11 +660,8 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
       } """
     }
-    val pkgs = {
-      val rawPkgs = Map(oldPid -> oldPackage, newPid -> newPackage)
-      val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
-      PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
-    }
+    val pkgs =
+      SpeedyTestLib.typeAndCompile(Map(oldPid -> oldPackage, newPid -> newPackage))
 
     implicit val defaultParserParameters: ParserParameters[this.type] = {
       ParserParameters(

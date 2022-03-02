@@ -1,11 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
 
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry.PayloadCase._
-import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
@@ -104,7 +104,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
           // NOTE(JM): We show the template id as the other piece of data we have is the contract key
           // hash, which isn't very useful as it's an implementation detail not exposed over ledger-api.
           val templateId =
-            ValueCoder
+            Conversions
               .decodeIdentifier(key.getContractKey.getTemplateId)
               .map(_.toString)
               .getOrElse("<unknown>")

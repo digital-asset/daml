@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -12,12 +12,13 @@ import Iou
 import IouTrade
 
 trade_test = do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  usBank <- allocateParty "USD_Bank"
-  eurBank <- allocateParty "EUR_Bank"
+  -- allocate parties
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  usBank <- allocatePartyWithHint "USD_Bank" (PartyIdHint "USD_Bank")
+  eurBank <- allocatePartyWithHint "EUR_Bank" (PartyIdHint "EUR_Bank")
 
--- BEGIN_SCENARIO
+-- BEGIN_SCRIPT
   -- Banks issue IOU transfers.
   iouTransferAliceCid <- submit eurBank do
     createAndExerciseCmd
@@ -29,7 +30,7 @@ trade_test = do
         observers = []
       Iou_Transfer with
         newOwner = alice
--- END_SCENARIO
+-- END_SCRIPT
 
   iouTransferBobCid <- submit usBank do
     createAndExerciseCmd

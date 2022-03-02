@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.DataDependencies
@@ -28,6 +28,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.Types.Location
 import GHC.Generics (Generic)
+import GHC.Stack
 import Safe
 import System.FilePath
 
@@ -52,11 +53,13 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
+import DA.Daml.UtilGHC (fsFromText)
 
 import SdkVersion
 
-panicOnError :: Either LF.Error a -> a
-panicOnError (Left e) = error $ "Internal LF type error: " <> renderPretty e
+panicOnError :: HasCallStack => Either LF.Error a -> a
+panicOnError (Left e) =
+    withFrozenCallStack $ error $ "Internal LF type error: " <> renderPretty e
 panicOnError (Right a) = a
 
 -- | Newtype wrapper around an LF type where all type synonyms have been expanded.
@@ -330,6 +333,7 @@ generateSrcFromLf env = noLoc mod
             , synonymDecls
             , dataTypeDecls
             , valueDecls
+            , interfaceDecls
             ]
         instDecls <- sequence instanceDecls
         pure $ decls <> catMaybes instDecls
@@ -505,8 +509,17 @@ generateSrcFromLf env = noLoc mod
         -- convDataCons.
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
         let occName = mkOccName varName (T.unpack dataTypeCon0)
-        [ mkDataDecl env thisModule occName dataParams =<<
-            convDataCons dataTypeCon0 dataCons ]
+        pure $ do
+            ctxt <- noLoc <$> do
+                if NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) then do
+                    -- We add the DamlInterface context so LFConversion
+                    -- picks this up as an interface
+                    interface <- mkGhcType env "DamlInterface"
+                    pure [noLoc interface]
+                else
+                    pure []
+            cons <- convDataCons dataTypeCon0 dataCons
+            mkDataDecl env thisModule ctxt occName dataParams cons
 
     valueDecls :: [Gen (LHsDecl GhcPs)]
     valueDecls = do
@@ -583,6 +596,38 @@ generateSrcFromLf env = noLoc mod
             | otherwise
             = pure emptyBag
 
+    interfaceDecls :: [Gen (LHsDecl GhcPs)]
+    interfaceDecls = do
+        interface <- NM.toList $ LF.moduleInterfaces $ envMod env
+        [interfaceName] <- [LF.unTypeConName $ LF.intName interface]
+        let interfaceType = HsTyVar noExt NotPromoted $ mkRdrName interfaceName
+        meth <- NM.toList $ LF.intMethods interface
+        pure $ do
+            methodType <- convType env reexportedClasses $ LF.ifmType meth
+            cls <- mkDesugarType env "HasMethod"
+            let methodNameSymbol = HsTyLit noExt $ HsStrTy NoSourceText $ fsFromText $ LF.unMethodName $ LF.ifmName meth
+                args =
+                    [ interfaceType
+                    , methodNameSymbol
+                    , methodType
+                    ]
+                sig :: LHsSigType GhcPs
+                sig =
+                    HsIB noExt $ noLoc $
+                        foldl'
+                            (HsAppTy noExt . noLoc)
+                            cls
+                            (map noLoc args)
+            pure $ noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
+                { cid_ext = noExt
+                , cid_poly_ty = sig
+                , cid_binds = emptyBag
+                , cid_sigs = []
+                , cid_tyfam_insts = []
+                , cid_datafam_insts = []
+                , cid_overlap_mode = Nothing
+                }
+
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
 
@@ -642,8 +687,7 @@ generateSrcFromLf env = noLoc mod
                 | conName <- cons
                 ]
 
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        LF.DataInterface -> error "interfaces are not implemented"
+        LF.DataInterface -> pure []
       where
         occName = mkOccName varName (T.unpack dataTypeCon0)
         occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
@@ -716,8 +760,8 @@ mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
  | otherwise = mkRdrUnqual
 
-mkDataDecl :: Env -> Module -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
-mkDataDecl env thisModule occName tyVars cons = do
+mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl env thisModule ctxt occName tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
     pure . noLoc . TyClD noExt $ DataDecl
         { tcdDExt = noExt
@@ -728,7 +772,7 @@ mkDataDecl env thisModule occName tyVars cons = do
             HsDataDefn
                 { dd_ext = noExt
                 , dd_ND = DataType
-                , dd_ctxt = noLoc []
+                , dd_ctxt = ctxt
                 , dd_cType = Nothing
                 , dd_kindSig = Nothing
                 , dd_cons = cons
@@ -957,7 +1001,6 @@ convBuiltInTy :: Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
     \case
         LF.BTInt64 -> mkGhcType env "Int"
-        LF.BTDecimal -> mkGhcType env "Decimal"
         LF.BTText -> mkGhcType env "Text"
         LF.BTTimestamp -> mkLfInternalType env "Time"
         LF.BTDate -> mkLfInternalType env "Date"
@@ -1037,6 +1080,10 @@ mkLfInternalType :: Env -> String -> Gen (HsType GhcPs)
 mkLfInternalType env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "LF"]
 
+mkDesugarType :: Env -> String -> Gen (HsType GhcPs)
+mkDesugarType env = mkStableType env primUnitId $
+    LF.ModuleName ["DA", "Internal", "Desugar"]
+
 mkLfInternalPrelude :: Env -> String -> Gen (HsType GhcPs)
 mkLfInternalPrelude env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "Prelude"]
@@ -1072,6 +1119,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# LANGUAGE MagicHash #-}"
+        , "{-# LANGUAGE DatatypeContexts #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations #-}"
         ]
 
@@ -1165,8 +1213,7 @@ refsFromDataCons = \case
     LF.DataRecord fields -> foldMap (refsFromType . snd) fields
     LF.DataVariant cons -> foldMap (refsFromType . snd) cons
     LF.DataEnum _ -> mempty
-    -- TODO https://github.com/digital-asset/daml/issues/10810
-    LF.DataInterface -> error "interfaces are not implemented"
+    LF.DataInterface -> mempty
 
 rootRefs :: Config -> LF.World -> DL.DList Ref
 rootRefs config world = fold

@@ -1,18 +1,23 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
 
 import java.math.BigDecimal
 import java.nio.file.Paths
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.daml_lf_dev.DamlLf1
-import com.daml.lf.language.Ast.{EPrimLit, PLRoundingMode}
+import com.daml.lf.language.Ast.{
+  EInterfaceTemplateTypeRep,
+  EObserverInterface,
+  EPrimLit,
+  ESignatoryInterface,
+  PLRoundingMode,
+}
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -908,6 +913,84 @@ class DecodeV1Spec
           inside(result) { case Failure(error) =>
             error shouldBe an[Error.Parsing]
           }
+      }
+    }
+
+    val interfacePrimitivesDottedNameTable =
+      ImmArraySeq("Mod", "I").map(Ref.DottedName.assertFromString)
+
+    val interfacePrimitivesTestCases = {
+
+      val unit = DamlLf1.Unit.newBuilder().build()
+      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+      val modRef =
+        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+      val ifaceTyConName =
+        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+      val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
+
+      val interfaceTemplateTypeRep = DamlLf1.Expr
+        .newBuilder()
+        .setInterfaceTemplateTypeRep(
+          DamlLf1.Expr.InterfaceTemplateTypeRep
+            .newBuilder()
+            .setInterface(ifaceTyConName)
+            .setExpr(unitExpr)
+            .build()
+        )
+        .build()
+
+      val signatoryInterface = DamlLf1.Expr
+        .newBuilder()
+        .setSignatoryInterface(
+          DamlLf1.Expr.SignatoryInterface
+            .newBuilder()
+            .setInterface(ifaceTyConName)
+            .setExpr(unitExpr)
+            .build()
+        )
+        .build()
+
+      val observerInterface = DamlLf1.Expr
+        .newBuilder()
+        .setObserverInterface(
+          DamlLf1.Expr.ObserverInterface
+            .newBuilder()
+            .setInterface(ifaceTyConName)
+            .setExpr(unitExpr)
+            .build()
+        )
+        .build()
+
+      Table(
+        "input" -> "expected output",
+        interfaceTemplateTypeRep -> EInterfaceTemplateTypeRep(
+          ifaceId = scalaIfaceTyConName,
+          body = EUnit,
+        ),
+        signatoryInterface -> ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+        observerInterface -> EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+      )
+    }
+
+    val interfacePrimitivesDecoder =
+      (version: LV) => moduleDecoder(version, dottedNameTable = interfacePrimitivesDottedNameTable)
+
+    s"reject interface_template_type_rep if version < ${LV.Features.interfaces}" in {
+      forEveryVersionSuchThat(_ < LV.Features.interfaces) { version =>
+        forEvery(interfacePrimitivesTestCases) { (proto, _) =>
+          an[Error.Parsing] shouldBe thrownBy(
+            interfacePrimitivesDecoder(version).decodeExpr(proto, "test")
+          )
+        }
+      }
+    }
+
+    s"accept interface_template_type_rep if version >= ${LV.Features.interfaces}" in {
+      forEveryVersionSuchThat(_ >= LV.Features.interfaces) { version =>
+        forEvery(interfacePrimitivesTestCases) { (proto, scala) =>
+          interfacePrimitivesDecoder(version).decodeExpr(proto, "test") shouldBe scala
+        }
       }
     }
 

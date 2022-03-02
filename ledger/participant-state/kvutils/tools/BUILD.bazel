@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,7 +8,6 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
@@ -21,7 +20,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
@@ -30,7 +28,7 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/kv-transaction-support",
+        "//daml-lf/kv-support",
         "//daml-lf/transaction",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-health",
@@ -41,7 +39,6 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
@@ -155,22 +152,20 @@ da_scala_test(
 da_scala_library(
     name = "engine-replay",
     srcs = glob(["engine-replay/src/replay/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/kv-support",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -203,60 +198,6 @@ da_scala_binary(
         ":engine-replay",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interpreter",
         "//daml-lf/language",
-    ],
-)
-
-sh_test(
-    name = "engine-replay-profile-test",
-    srcs = ["src/test/sh/profile.sh"],
-    args = [
-        "$(location :engine-replay-profile)",
-        "$(location //ledger/participant-state/kvutils:reference-ledger-export.out)",
-        "$(location //ledger/test-common:model-tests-default.dar)",
-        "$(location @jq_dev_env//:jq)",
-    ],
-    data = [
-        ":engine-replay-profile",
-        "//ledger/participant-state/kvutils:reference-ledger-export.out",
-        # Use dev to test --adapt to a different ledger API version.
-        "//ledger/test-common:model-tests-default.dar",
-        "@jq_dev_env//:jq",
-    ],
-    deps = [
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-) if not is_windows else None
-
-da_scala_benchmark_jmh(
-    name = "benchmark-codec",
-    srcs = glob(["codec-benchmark/src/benchmark/scala/**/*.scala"]),
-    data = [
-        "//ledger/participant-state/kvutils:reference-ledger-export.out",
-    ] if not is_windows else [],
-    max_heap_size = "4g",
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
-    scalacopts = lf_scalacopts,
-    tags = [
-        "manual",
-    ],
-    deps = [
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
-        "//daml-lf/transaction:value_proto_java",
-        "//ledger/participant-state/kvutils",
-        "//libs-scala/logging-entries",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

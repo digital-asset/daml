@@ -1,12 +1,10 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
-import java.time.Duration
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -19,31 +17,26 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractId,
-  Create,
-  Exercise,
-  FieldCompressionStrategy,
-  LfValueSerialization,
-  Raw,
-}
+import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
-import org.scalactic.TripleEquals._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
+// Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
+// (e.g., because the ledger removes rollback nodes before sending them to the index database).
+// Should you ever consider replacing this suite by something else, make sure all functionality is still covered.
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
-  import UpdateToDbDtoSpec._
   import TransactionBuilder.Implicits._
+  import UpdateToDbDtoSpec._
 
   "UpdateToDbDto" should {
 
@@ -266,13 +259,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_duration_nanos = None,
           deduplication_start = None,
-        ),
-        DbDto.CommandDeduplication(
-          DeduplicationKeyMaker.make(
-            domain.CommandId(completionInfo.commandId),
-            completionInfo.actAs,
-          )
-        ),
+        )
       )
     }
 
@@ -764,6 +751,76 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
+    "handle TransactionAccepted (fetch and lookup nodes)" in {
+      // Previous transaction
+      // └─ #1 Create
+      // Transaction
+      // ├─ #1 Fetch
+      // ├─ #2 Fetch by key
+      // └─ #3 Lookup by key
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val builder = TransactionBuilder()
+      val createNode = builder.create(
+        id = builder.newCid,
+        templateId = "M:T",
+        argument = Value.ValueUnit,
+        signatories = List("signatory"),
+        observers = List("observer"),
+        key = Some(Value.ValueUnit),
+      )
+      val fetchNode = builder.fetch(
+        contract = createNode,
+        byKey = false,
+        byInterface = None,
+      )
+      val fetchByKeyNode = builder.fetch(
+        contract = createNode,
+        byKey = true,
+        byInterface = None,
+      )
+      val lookupByKeyNode = builder.lookupByKey(
+        contract = createNode,
+        found = true,
+      )
+      builder.add(fetchNode)
+      builder.add(fetchByKeyNode)
+      builder.add(lookupByKeyNode)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        recordTime = someRecordTime,
+        divulgedContracts = List.empty,
+        blindingInfo = None,
+      )
+      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
+        someOffset
+      )(update).toList
+
+      // Note: fetch and lookup nodes are not indexed
+      dtos should contain theSameElementsInOrderAs List(
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.toHexString,
+          record_time = update.recordTime.micros,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
+          transaction_id = Some(update.transactionId),
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
+          submission_id = completionInfo.submissionId,
+          deduplication_offset = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
+          deduplication_start = None,
+        )
+      )
+    }
+
     "handle TransactionAccepted (single exercise node with divulgence)" in {
       // Previous transaction
       // └─ #1 Create
@@ -1145,7 +1202,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )(update).toList
 
       dtos should contain theSameElementsInOrderAs List(
-        // TODO append-only: Why is there a divulgence event? The divulged contract doesn't exist because it was rolled back.
+        // Note: this divulgence event references a contract that was never created. This is correct:
+        // the divulgee only sees the exercise node under the rollback node, it doesn't know that the contract creation
+        // was rolled back (similar to how divulgees may not learn that a contract divulged to them was archived).
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
           command_id = Some(completionInfo.commandId),
@@ -1294,13 +1353,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
               deduplication_duration_nanos = expectedDeduplicationDurationNanos,
               deduplication_start = None,
-            ),
-            DbDto.CommandDeduplication(
-              DeduplicationKeyMaker.make(
-                domain.CommandId(completionInfo.commandId),
-                completionInfo.actAs,
-              )
-            ),
+            )
           )
       }
     }
@@ -1463,6 +1516,7 @@ object UpdateToDbDtoSpec {
     commandId = someCommandId,
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
+    statistics = None,
   )
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
@@ -1474,18 +1528,5 @@ object UpdateToDbDtoSpec {
     optByKeyNodes = None,
   )
 
-  // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
-  // because this representation can efficiently be passed to Jdbc.
-  // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
-  implicit private val DbDtoEq: org.scalactic.Equality[DbDto] = {
-    case (a: DbDto, b: DbDto) =>
-      (a.productPrefix === b.productPrefix) &&
-        (a.productArity == b.productArity) &&
-        (a.productIterator zip b.productIterator).forall {
-          case (x: Array[_], y: Array[_]) => x sameElements y
-          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
-          case (x, y) => x === y
-        }
-    case (_, _) => false
-  }
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
 }

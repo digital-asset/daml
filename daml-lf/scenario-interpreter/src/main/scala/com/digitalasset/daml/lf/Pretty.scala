@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -67,14 +67,9 @@ private[lf] object Pretty {
       case Error.PartyAlreadyExists(party) =>
         text(s"Error: Tried to allocate a party that already exists: $party")
 
-      case Error.UserManagement(err) => prettyError(err)
+      case Error.PartiesNotAllocated(parties) =>
+        text(s"Error: Tried to submit a command for parties that have not been allocated:") &
+          intercalate(comma + space, parties.map(prettyParty))
     }
-
-  def prettyError(err: Error.UserManagementError) = err match {
-    case Error.UserManagementError.UserNotFound(userId) =>
-      text(s"Error: User with id $userId does not exist")
-    case Error.UserManagementError.UserExists(userId) =>
-      text(s"Error: Tried to create a user id $userId but such a user already exists")
-  }
 
 }

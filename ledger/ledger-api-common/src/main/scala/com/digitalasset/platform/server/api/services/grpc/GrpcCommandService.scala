@@ -1,11 +1,11 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
@@ -23,10 +23,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcCommandService(
     protected val service: CommandService with AutoCloseable,
     val ledgerId: LedgerId,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Option[Duration],
+    maxDeduplicationDuration: () => Option[Duration],
     generateSubmissionId: SubmissionIdGenerator,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandService
@@ -36,8 +35,8 @@ class GrpcCommandService(
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   private[this] val validator = new SubmitAndWaitRequestValidator(
-    new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
-    FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
+    new CommandsValidator(ledgerId),
+    FieldValidations(ErrorFactories()),
   )
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
@@ -70,7 +69,7 @@ class GrpcCommandService(
         requestWithSubmissionId,
         currentLedgerTime(),
         currentUtcTime(),
-        maxDeduplicationTime(),
+        maxDeduplicationDuration(),
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),

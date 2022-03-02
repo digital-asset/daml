@@ -1,10 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.ledgerinteraction.ide
 
 import com.daml.lf.data.Ref.UserId
-import com.daml.lf.scenario.Error.UserManagementError
 import com.daml.ledger.api.domain.{User, UserRight}
 
 import scala.collection.mutable
@@ -15,55 +14,54 @@ import scala.collection.mutable
 // #11896. While it would be nice to not have to duplicate this for now this seems like the
 // simpler option than trying to reuse participant code in the script service.
 private[ledgerinteraction] class UserManagementStore {
-  import UserManagementError._
   import UserManagementStore._
 
-  def createUser(user: User, rights: Set[UserRight]): Result[Unit] =
+  def createUser(user: User, rights: Set[UserRight]): Option[Unit] =
     putIfAbsent(UserInfo(user, rights)) match {
-      case Some(_) => Left(UserExists(user.id))
-      case None => Right(())
+      case Some(_) => None
+      case None => Some(())
     }
 
-  def getUser(id: UserId): Result[User] =
+  def getUser(id: UserId): Option[User] =
     lookup(id) match {
-      case Some(userInfo) => Right(userInfo.user)
-      case None => Left(UserNotFound(id))
+      case Some(userInfo) => Some(userInfo.user)
+      case None => None
     }
 
-  def deleteUser(id: UserId): Result[Unit] =
+  def deleteUser(id: UserId): Option[Unit] =
     dropExisting(id) match {
-      case Some(_) => Right(())
-      case None => Left(UserNotFound(id))
+      case Some(_) => Some(())
+      case None => None
     }
 
-  def grantRights(id: UserId, granted: Set[UserRight]): Result[Set[UserRight]] =
+  def grantRights(id: UserId, granted: Set[UserRight]): Option[Set[UserRight]] =
     lookup(id) match {
       case Some(userInfo) =>
         val newlyGranted = granted.diff(userInfo.rights)
         replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights ++ newlyGranted))
-        Right(newlyGranted)
+        Some(newlyGranted)
       case None =>
-        Left(UserNotFound(id))
+        None
     }
 
-  def revokeRights(id: UserId, revoked: Set[UserRight]): Result[Set[UserRight]] =
+  def revokeRights(id: UserId, revoked: Set[UserRight]): Option[Set[UserRight]] =
     lookup(id) match {
       case Some(userInfo) =>
         val effectivelyRevoked = revoked.intersect(userInfo.rights)
         replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights -- effectivelyRevoked))
-        Right(effectivelyRevoked)
+        Some(effectivelyRevoked)
       case None =>
-        Left(UserNotFound(id))
+        None
     }
 
-  def listUserRights(id: UserId): Result[Set[UserRight]] =
+  def listUserRights(id: UserId): Option[Set[UserRight]] =
     lookup(id) match {
-      case Some(userInfo) => Right(userInfo.rights)
-      case None => Left(UserNotFound(id))
+      case Some(userInfo) => Some(userInfo.rights)
+      case None => None
     }
 
-  def listUsers(): Result[List[User]] =
-    Right(state.values.map(_.user).toList)
+  def listUsers(): List[User] =
+    state.values.map(_.user).toList
 
   private val state: mutable.Map[UserId, UserInfo] = mutable.Map()
   private def lookup(id: UserId) = state.get(id)
@@ -89,5 +87,4 @@ object UserManagementStore {
   case class UserInfo(user: User, rights: Set[UserRight]) {
     def toStateEntry: (UserId, UserInfo) = user.id -> this
   }
-  type Result[T] = Either[UserManagementError, T]
 }

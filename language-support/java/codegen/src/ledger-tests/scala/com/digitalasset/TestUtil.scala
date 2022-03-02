@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -24,7 +24,7 @@ import com.daml.ledger.javaapi.data._
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.Empty
@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
-trait SandboxFixture extends SandboxNextFixture {
+trait SandboxTestLedger extends SandboxFixture {
   self: Suite =>
 
   protected val damlPackages: List[File] = List(
@@ -49,14 +49,13 @@ trait SandboxFixture extends SandboxNextFixture {
     damlPackages = damlPackages,
     timeProviderType = Some(TimeProviderType.Static),
     engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Some(Seeding.Weak),
+    seeding = Seeding.Weak,
   )
 
-  protected val ClientConfiguration = LedgerClientConfiguration(
+  protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = TestUtil.LedgerID,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 

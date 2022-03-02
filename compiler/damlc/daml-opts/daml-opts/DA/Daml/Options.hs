@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -64,9 +64,9 @@ import SdkVersion (damlStdlib)
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
-toCompileOpts options@Options{..} =
+toCompileOpts Options{..} =
     Ghcide.IdeOptions
-      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions (optUnitId options)
+      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions
       , optGhcSession = getDamlGhcSession
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
@@ -447,10 +447,8 @@ locateGhcVersionHeader = GhcVersionHeader <$> do
 
 locateCppPath :: IO (Maybe FilePath)
 locateCppPath = do
-    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "hpp")
-    isDirectory <- doesDirectoryExist resourcesDir
-    let path | isDirectory = resourcesDir </> "hpp"
-             | otherwise = resourcesDir
+    resourcesDir <- locateRunfiles $ "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
+    let path  = resourcesDir </> exe "hpp"
     exists <- doesFileExist path
     pure (guard exists >> Just path)
 

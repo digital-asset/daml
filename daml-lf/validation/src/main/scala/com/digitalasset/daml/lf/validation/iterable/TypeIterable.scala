@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -88,6 +88,12 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
       case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
         Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
+      case EInterfaceTemplateTypeRep(ifaceId @ _, body) =>
+        Iterator(TTyCon(ifaceId)) ++ iterator(body)
+      case ESignatoryInterface(ifaceId, body) =>
+        Iterator(TTyCon(ifaceId)) ++ iterator(body)
+      case EObserverInterface(ifaceId, body) =>
+        Iterator(TTyCon(ifaceId)) ++ iterator(body)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
@@ -252,12 +258,6 @@ private[validation] object TypeIterable {
           iterator(precond) ++
           fixedChoice.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator)
-    }
-
-  private[validation] def iterator(ichoice: InterfaceChoice): Iterator[Type] =
-    ichoice match {
-      case InterfaceChoice(name @ _, consuming @ _, argType, retType) =>
-        Iterator(argType, retType)
     }
 
   private[validation] def iterator(imethod: InterfaceMethod): Iterator[Type] =

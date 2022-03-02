@@ -52,3 +52,5 @@ testBy = scenario do
   None === maximumBy @(Int,Int) cmp []
   Some (1, 4) === minimumBy cmp ls
   Some (4, 1) === maximumBy cmp ls
+
+-- @ENABLE-SCENARIOS

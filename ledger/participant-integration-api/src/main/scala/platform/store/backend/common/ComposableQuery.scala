@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
@@ -71,19 +71,12 @@ object ComposableQuery {
   }
 
   implicit class CompositConcatenationOps(val composits: Iterable[CompositeSql]) extends AnyVal {
-    def mkComposite(start: String, sep: String, end: String): CompositeSql =
-      if (composits.isEmpty)
-        CompositeSql(
-          stringParts = s"$start$end" :: Nil,
-          valueParts = Nil,
-        )
-      else
-        CompositeSql(
-          stringParts = start :: List.fill(composits.size - 1)(sep) ::: List(end),
-          valueParts = composits.toSeq,
-        )
-
-    def mkComposite(sep: String): CompositeSql = mkComposite("", sep, "")
-    def mkComposite: CompositeSql = mkComposite("", "", "")
+    def mkComposite(start: String, sep: String, end: String): CompositeSql = {
+      require(composits.nonEmpty, "composits must be non-empty")
+      CompositeSql(
+        stringParts = start :: List.fill(composits.size - 1)(sep) ::: List(end),
+        valueParts = composits.toSeq,
+      )
+    }
   }
 }

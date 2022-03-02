@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.iface
@@ -7,7 +7,6 @@ package reader
 import com.daml.lf.data.Ref.{DottedName, Name}
 
 import scala.language.implicitConversions
-import scala.collection.compat._
 import scala.collection.immutable.Map
 import scalaz.{-\/, ==>>, @@, Applicative, Cord, Monoid, Order, Semigroup, Tag, Traverse, \/, \/-}
 import scalaz.std.map._

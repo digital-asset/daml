@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml Triggers - Off-Ledger Automation in Daml
@@ -34,7 +34,7 @@ ledger client could not do.
 If you don't want to follow along, but still want to get the final code
 for this section to play with, you can get it by running::
 
-      daml new --template-name=gsg-trigger create-daml-app
+      daml new --template=gsg-trigger gsg-trigger
 
 How To Think About Triggers
 ===========================
@@ -172,11 +172,11 @@ with:
 
 .. code-block:: bash
 
-    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+    daml trigger --dar .daml/dist/gsg-trigger-0.1.0.dar \
                  --trigger-name NoOp:noOp \
                  --ledger-host localhost \
                  --ledger-port 6865 \
-                 --ledger-party "bob"
+                 --ledger-user "bob"
 
 and then play with the app as ``alice`` and ``bob`` just like you did for
 :doc:`/getting-started/first-feature`, you should see the trigger command
@@ -239,11 +239,11 @@ its terminal, then start the trigger with:
 
 .. code-block:: bash
 
-    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+    daml trigger --dar .daml/dist/gsg-trigger-0.1.0.dar \
                  --trigger-name ChatBot:autoReply \
                  --ledger-host localhost \
                  --ledger-port 6865 \
-                 --ledger-party "bob"
+                 --ledger-user "bob"
 
 Play a bit with ``alice`` and ``bob`` in your browser, to get a feel for how
 the trigger works. Watch both the messages in-browser and the debug statements
@@ -380,14 +380,14 @@ optimization rather than a requirement for correctness. The Daml model should
 be designed such that duplicated commands are either rejected (e.g. using keys
 or relying on changing contract IDs) or benign.
 
-Authentication
-==============
+Authorization
+=============
 
-When using Daml triggers against a Ledger with authentication, you can
+When using Daml triggers against a Ledger with :doc:`request authorization </app-dev/authorization>`, you can
 pass ``--access-token-file token.jwt`` to ``daml trigger`` which will
 read the token from the file ``token.jwt``.
 
-If you plan to run more than one trigger at a time, or trigers for more than
+If you plan to run more than one trigger at a time, or triggers for more than
 one party at a time, you may be interested in the
 :doc:`/tools/trigger-service/index`.
 

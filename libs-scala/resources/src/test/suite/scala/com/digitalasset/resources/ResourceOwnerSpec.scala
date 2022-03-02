@@ -1,10 +1,15 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
 
 import java.util.concurrent.CompletableFuture.completedFuture
-import java.util.concurrent.{Executors, RejectedExecutionException}
+import java.util.concurrent.{
+  CopyOnWriteArrayList,
+  CopyOnWriteArraySet,
+  Executors,
+  RejectedExecutionException,
+}
 import java.util.{Timer, TimerTask}
 
 import com.daml.resources.FailingResourceOwner.{
@@ -17,9 +22,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.annotation.nowarn
-import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
@@ -617,6 +622,33 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
   }
 
+  "a function returning a class with a release method" should {
+    "convert to a ResourceOwner" in {
+      val newReleasable = new MockConstructor(acquired =>
+        // A releasable is just a more generic closeable
+        new TestCloseable(93, acquired)
+      )
+
+      val resource = for {
+        releasable <- Factories.forReleasable(newReleasable.apply)(r => Future(r.close())).acquire()
+      } yield {
+        withClue("after acquiring,") {
+          newReleasable.hasBeenAcquired should be(true)
+          releasable.value should be(93)
+        }
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        withClue("after releasing,") {
+          newReleasable.hasBeenAcquired should be(false)
+        }
+      }
+    }
+  }
+
   "a function returning an ExecutorService" should {
     "convert to a ResourceOwner" in {
       val testPromise = Promise[Unit]()
@@ -704,19 +736,15 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
   "many resources in a sequence" should {
     "be able to be sequenced" in {
-      val acquireOrder = mutable.Buffer[Int]()
-      val released = mutable.Set[Int]()
+      val acquireOrder = new CopyOnWriteArrayList[Int]().asScala
+      val released = new CopyOnWriteArraySet[Int]().asScala
       val owners = (1 to 10).map(value =>
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] = {
-            acquireOrder.synchronized {
-              acquireOrder += value
-            }
+            acquireOrder += value
             Resource(Future(value))(v =>
               Future {
-                released.synchronized {
-                  released += v
-                }
+                released += v
                 ()
               }
             )
@@ -746,21 +774,17 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "sequence, ignoring values if asked" in {
-      val acquired = mutable.Set[Int]()
-      val released = mutable.Set[Int]()
+      val acquired = new CopyOnWriteArraySet[Int]().asScala
+      val released = new CopyOnWriteArraySet[Int]().asScala
       val owners = (1 to 10).map(value =>
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] =
             Resource(Future {
-              acquired.synchronized {
-                acquired += value
-              }
+              acquired += value
               value
             })(v =>
               Future {
-                released.synchronized {
-                  released += v
-                }
+                released += v
                 ()
               }
             )
@@ -788,16 +812,18 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "release in parallel" in {
-      val releaseOrder = mutable.Buffer[Int]()
-      val owners = (1 to 4).map(value =>
+    "acquire and release in parallel" in {
+      val acquireOrder = new CopyOnWriteArrayList[Int]().asScala
+      val releaseOrder = new CopyOnWriteArrayList[Int]().asScala
+      val owners = (4 to 1 by -1).map(value =>
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] = {
-            Resource(Future(value)) { v =>
+            Resource(Delayed.by((value * 200).milliseconds) {
+              acquireOrder += value
+              value
+            }) { v =>
               Delayed.by((v * 200).milliseconds) {
-                releaseOrder.synchronized {
-                  releaseOrder += v
-                }
+                releaseOrder += v
                 ()
               }
             }
@@ -809,8 +835,11 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val resource = for {
         values <- Resource.sequence(resources)
       } yield {
+        withClue("during acquisition,") {
+          acquireOrder should be(1 to 4)
+        }
         withClue("after sequencing,") {
-          values should be(1 to 4)
+          values should be(4 to 1 by -1)
         }
         ()
       }

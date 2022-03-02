@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "google_compute_network" "hoogle" {
@@ -41,12 +41,12 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 3,
+      size           = 0,
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 3,
     }
   ]
 }
@@ -71,7 +71,9 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get -y upgrade
 ### stackdriver
-curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+# Taken from https://cloud.google.com/logging/docs/agent/logging/installation
+curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 ### nginx
 apt-get -y install nginx
 cat > /etc/nginx/nginx.conf <<NGINX
@@ -244,7 +246,7 @@ resource "google_compute_backend_service" "hoogle-http" {
   health_checks = [google_compute_health_check.hoogle-http.self_link]
   port_name     = "http"
 
-  dynamic backend {
+  dynamic "backend" {
     for_each = local.h_clusters
     content {
       group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
@@ -284,7 +286,7 @@ resource "google_compute_backend_service" "hoogle-https" {
   health_checks = [google_compute_health_check.hoogle-https.self_link]
   port_name     = "https"
 
-  dynamic backend {
+  dynamic "backend" {
     for_each = local.h_clusters
     content {
       group = google_compute_instance_group_manager.hoogle[backend.key].instance_group

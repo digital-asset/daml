@@ -18,3 +18,5 @@ eq a b = a == b
 main = scenario do
     alice <- getParty "alice"
     submit alice $ assert $ eq (Foo 1 2) (Foo 1 2)
+
+-- @ENABLE-SCENARIOS

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -16,7 +16,6 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.compat._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -1161,6 +1160,30 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             body = decodeExpr(fromRequiredInterface.getExpr, definition),
           )
 
+        case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
+          assertSince(LV.Features.interfaces, "Expr.interface_template_type_rep")
+          val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
+          EInterfaceTemplateTypeRep(
+            ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),
+            body = decodeExpr(interfaceTemplateTypeRep.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.signatory_interface")
+          val signatoryInterface = lfExpr.getSignatoryInterface
+          ESignatoryInterface(
+            ifaceId = decodeTypeConName(signatoryInterface.getInterface),
+            body = decodeExpr(signatoryInterface.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.observer_interface")
+          val observerInterface = lfExpr.getObserverInterface
+          EObserverInterface(
+            ifaceId = decodeTypeConName(observerInterface.getInterface),
+            body = decodeExpr(observerInterface.getExpr, definition),
+          )
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
@@ -1201,15 +1224,15 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             ),
           )
         case PLF.CaseAlt.SumCase.ENUM =>
-          val enum = lfCaseAlt.getEnum
+          val enumeration = lfCaseAlt.getEnum
           CPEnum(
-            tycon = decodeTypeConName(enum.getCon),
+            tycon = decodeTypeConName(enumeration.getCon),
             constructor = handleInternedName(
-              enum.getConstructorCase,
+              enumeration.getConstructorCase,
               PLF.CaseAlt.Enum.ConstructorCase.CONSTRUCTOR_STR,
-              enum.getConstructorStr,
+              enumeration.getConstructorStr,
               PLF.CaseAlt.Enum.ConstructorCase.CONSTRUCTOR_INTERNED_STR,
-              enum.getConstructorInternedStr,
+              enumeration.getConstructorInternedStr,
               "CaseAlt.Enum.constructor.constructor",
             ),
           )

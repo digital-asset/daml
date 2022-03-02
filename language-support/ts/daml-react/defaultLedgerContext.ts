@@ -1,9 +1,15 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { createLedgerContext, FetchResult, QueryResult, LedgerProps, FetchByKeysResult } from "./createLedgerContext";
-import { ContractId, Party, Template } from '@daml/types';
-import Ledger, { Query, StreamCloseEvent } from '@daml/ledger';
+import {
+  createLedgerContext,
+  FetchResult,
+  QueryResult,
+  LedgerProps,
+  FetchByKeysResult,
+} from "./createLedgerContext";
+import { ContractId, Party, Template } from "@daml/types";
+import Ledger, { Query, StreamCloseEvent, User } from "@daml/ledger";
 
 /**
  * @internal
@@ -15,19 +21,32 @@ const ledgerContext = createLedgerContext();
  *
  * @param props React props and children for this element.
  */
-export function DamlLedger(props: React.PropsWithChildren<LedgerProps>): React.ReactElement|null {
+export function DamlLedger(
+  props: React.PropsWithChildren<LedgerProps>,
+): React.ReactElement | null {
   return ledgerContext.DamlLedger(props);
 }
 
 /**
  * React hook to get the party currently connected to the ledger.
  */
-export function useParty(): Party { return ledgerContext.useParty(); }
+export function useParty(): Party {
+  return ledgerContext.useParty();
+}
+
+/**
+ * React hook to get the user currently connected to the ledger participant.
+ */
+export function useUser(): User {
+  return ledgerContext.useUser();
+}
 
 /**
  * React Hook that returns the Ledger instance to interact with the connected Daml ledger.
  */
-export function useLedger(): Ledger { return ledgerContext.useLedger(); }
+export function useLedger(): Ledger {
+  return ledgerContext.useLedger();
+}
 
 /**
  * React Hook for a ``query`` against the ledger.
@@ -42,9 +61,19 @@ export function useLedger(): Ledger { return ledgerContext.useLedger(); }
  *
  * @return The result of the query.
  */
-export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
-export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
-export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
+export function useQuery<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  queryFactory: () => Query<T>,
+  queryDeps: readonly unknown[],
+): QueryResult<T, K, I>;
+export function useQuery<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+): QueryResult<T, K, I>;
+export function useQuery<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  queryFactory?: () => Query<T>,
+  queryDeps?: readonly unknown[],
+): QueryResult<T, K, I> {
   return ledgerContext.useQuery(template, queryFactory, queryDeps);
 }
 
@@ -60,7 +89,10 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
  *
  * @return The fetched contract.
  */
-export function useFetch<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): FetchResult<T, K, I> {
+export function useFetch<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  contractId: ContractId<T>,
+): FetchResult<T, K, I> {
   return ledgerContext.useFetch(template, contractId);
 }
 
@@ -77,7 +109,11 @@ export function useFetch<T extends object, K, I extends string>(template: Templa
  *
  * @return The fetched contract.
  */
-export function useFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
+export function useFetchByKey<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  keyFactory: () => K,
+  keyDeps: readonly unknown[],
+): FetchResult<T, K, I> {
   return ledgerContext.useFetchByKey(template, keyFactory, keyDeps);
 }
 
@@ -97,8 +133,18 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
  *
  * @return The matching contracts.
  */
-export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): QueryResult<T, K, I> {
-  return ledgerContext.useStreamQuery(template, queryFactory, queryDeps, closeHandler);
+export function useStreamQuery<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  queryFactory?: () => Query<T>,
+  queryDeps?: readonly unknown[],
+  closeHandler?: (e: StreamCloseEvent) => void,
+): QueryResult<T, K, I> {
+  return ledgerContext.useStreamQuery(
+    template,
+    queryFactory,
+    queryDeps,
+    closeHandler,
+  );
 }
 
 /**
@@ -115,8 +161,18 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
  *
  * @return The matching contracts.
  */
-export function useStreamQueries<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>[], queryDeps?: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): QueryResult<T, K, I> {
-  return ledgerContext.useStreamQueries(template, queryFactory, queryDeps, closeHandler);
+export function useStreamQueries<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  queryFactory?: () => Query<T>[],
+  queryDeps?: readonly unknown[],
+  closeHandler?: (e: StreamCloseEvent) => void,
+): QueryResult<T, K, I> {
+  return ledgerContext.useStreamQueries(
+    template,
+    queryFactory,
+    queryDeps,
+    closeHandler,
+  );
 }
 
 /**
@@ -138,8 +194,18 @@ export function useStreamQueries<T extends object, K, I extends string>(template
  *
  * @return The matching (unique) contract, or null.
  */
-export function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): FetchResult<T, K, I> {
-  return ledgerContext.useStreamFetchByKey(template, keyFactory, keyDeps, closeHandler);
+export function useStreamFetchByKey<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  keyFactory: () => K,
+  keyDeps: readonly unknown[],
+  closeHandler?: (e: StreamCloseEvent) => void,
+): FetchResult<T, K, I> {
+  return ledgerContext.useStreamFetchByKey(
+    template,
+    keyFactory,
+    keyDeps,
+    closeHandler,
+  );
 }
 
 /**
@@ -162,8 +228,18 @@ export function useStreamFetchByKey<T extends object, K, I extends string>(templ
  *         corresponding key, or null if no active contract matches the key in
  *         the same position.
  */
-export function useStreamFetchByKeys<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K[], keyDeps: readonly unknown[], closeHandler?: (e: StreamCloseEvent) => void): FetchByKeysResult<T, K, I> {
-  return ledgerContext.useStreamFetchByKeys(template, keyFactory, keyDeps, closeHandler);
+export function useStreamFetchByKeys<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  keyFactory: () => K[],
+  keyDeps: readonly unknown[],
+  closeHandler?: (e: StreamCloseEvent) => void,
+): FetchByKeysResult<T, K, I> {
+  return ledgerContext.useStreamFetchByKeys(
+    template,
+    keyFactory,
+    keyDeps,
+    closeHandler,
+  );
 }
 
 /**

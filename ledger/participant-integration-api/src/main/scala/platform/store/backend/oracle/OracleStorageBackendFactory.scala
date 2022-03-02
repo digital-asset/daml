@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.oracle
@@ -15,7 +15,6 @@ import com.daml.platform.store.backend.{
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
-  DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
   PartyStorageBackend,
@@ -32,9 +31,6 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
-
-  override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
-    OracleDeduplicationStorageBackend
 
   override def createCompletionStorageBackend(
       stringInterning: StringInterning
@@ -61,4 +57,5 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override val createResetStorageBackend: ResetStorageBackend =
     OracleResetStorageBackend
+
 }

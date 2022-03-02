@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module TestScript where
@@ -8,10 +8,24 @@ import DA.Assert
 import DA.Time
 import Daml.Script
 
+allocateAlice : Script Party
+allocateAlice = do
+  debug "Creating Alice ..."
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  debug alice
+  debug "... done"
+  pure alice
+
 test : Script ()
 test = do
-  debug "Creating parties ..."
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  debug "Searching for Alice ..."
+  let isAlice x = displayName x == Some "Alice"
+  Some aliceDetails <- find isAlice <$> listKnownParties
+  let alice = party aliceDetails
+  debug alice
+  debug "... done"
+
+  debug "Creating Bob ..."
   bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   debug alice
   debug bob

@@ -1,11 +1,10 @@
-diff --git templates/create-daml-app/daml/User.daml templates/create-daml-app/daml/User.daml
---- templates/create-daml-app/daml/User.daml
-+++ templates/create-daml-app/daml/User.daml
-@@ -25,3 +25,22 @@ template User with
-         archive self
+diff -Naur templates/create-daml-app/daml/User.daml templates/create-daml-app-test-resources/daml/User.daml
+--- templates/create-daml-app/daml/User.daml	2022-02-02 17:09:01.301176478 +0100
++++ templates/create-daml-app-test-resources/daml/User.daml	2022-02-02 17:17:07.624855269 +0100
+@@ -27,6 +27,16 @@
          create this with following = userToFollow :: following
      -- FOLLOW_END
-+
+ 
 +    -- SENDMESSAGE_BEGIN
 +    nonconsuming choice SendMessage: ContractId Message with
 +        sender: Party
@@ -16,6 +15,14 @@ diff --git templates/create-daml-app/daml/User.daml templates/create-daml-app/da
 +        create Message with sender, receiver = username, content
 +    -- SENDMESSAGE_END
 +
+ -- ALIAS_BEGIN
+ template Alias with
+     username: Party
+@@ -45,3 +55,12 @@
+         archive self
+         create this with alias = newAlias
+ -- ALIAS_END
++
 +-- MESSAGE_BEGIN
 +template Message with
 +    sender: Party
@@ -24,21 +31,21 @@ diff --git templates/create-daml-app/daml/User.daml templates/create-daml-app/da
 +  where
 +    signatory sender, receiver
 +-- MESSAGE_END
-diff --git templates/create-daml-app/ui/src/components/MainView.tsx templates/create-daml-app/ui/src/components/MainView.tsx
---- templates/create-daml-app/ui/src/components/MainView.tsx
-+++ templates/create-daml-app/ui/src/components/MainView.tsx
-@@ -8,6 +8,10 @@ import { User } from '@daml.js/create-daml-app';
- import { useParty, useLedger, useStreamFetchByKey, useStreamQueries } from '@daml/react';
+diff -Naur templates/create-daml-app/ui/src/components/MainView.tsx templates/create-daml-app-test-resources/ui/src/components/MainView.tsx
+--- templates/create-daml-app/ui/src/components/MainView.tsx	2022-02-02 17:09:01.309176539 +0100
++++ templates/create-daml-app-test-resources/ui/src/components/MainView.tsx	2022-02-02 17:47:40.054336940 +0100
+@@ -8,6 +8,10 @@
+ import { useParty, useLedger, useStreamFetchByKeys, useStreamQueries } from '@daml/react';
  import UserList from './UserList';
  import PartyListEdit from './PartyListEdit';
 +// IMPORTS_BEGIN
 +import MessageEdit from './MessageEdit';
 +import MessageList from './MessageList';
 +// IMPORTS_END
-
+ 
  // USERS_BEGIN
  const MainView: React.FC = () => {
-@@ -78,6 +82,22 @@ const MainView: React.FC = () => {
+@@ -88,6 +92,23 @@
                />
                {/* USERLIST_END */}
              </Segment>
@@ -53,41 +60,40 @@ diff --git templates/create-daml-app/ui/src/components/MainView.tsx templates/cr
 +              </Header>
 +              <MessageEdit
 +                followers={followers.map(follower => follower.username)}
++                partyToAlias={partyToAlias}
 +              />
 +              <Divider />
-+              <MessageList />
++              <MessageList partyToAlias={partyToAlias}/>
 +            </Segment>
 +            {/* MESSAGES_SEGMENT_END */}
            </Grid.Column>
          </Grid.Row>
        </Grid>
-diff --git templates/create-daml-app/ui/src/components/MessageEdit.tsx templates/create-daml-app/ui/src/components/MessageEdit.tsx
---- /dev/null
-+++ templates/create-daml-app/ui/src/components/MessageEdit.tsx
-@@ -0,0 +1,70 @@
-+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-+// SPDX-License-Identifier: Apache-2.0
-+
+diff -Naur templates/create-daml-app/ui/src/components/MessageEdit.tsx templates/create-daml-app-test-resources/ui/src/components/MessageEdit.tsx
+--- templates/create-daml-app/ui/src/components/MessageEdit.tsx	1970-01-01 01:00:00.000000000 +0100
++++ templates/create-daml-app-test-resources/ui/src/components/MessageEdit.tsx	2022-02-03 12:42:06.144235635 +0100
+@@ -0,0 +1,69 @@
 +// MESSAGEEDIT_BEGIN
 +import React from 'react'
 +import { Form, Button } from 'semantic-ui-react';
 +import { Party } from '@daml/types';
 +import { User } from '@daml.js/create-daml-app';
-+import { useParty, useLedger } from '@daml/react';
++import { userContext } from './App';
 +
 +type Props = {
 +  followers: Party[];
++  partyToAlias: Map<string, string>;
 +}
 +
 +/**
 + * React component to edit a message to send to a follower.
 + */
-+const MessageEdit: React.FC<Props> = ({followers}) => {
-+  const sender = useParty();
++const MessageEdit: React.FC<Props> = ({followers, partyToAlias}) => {
++  const sender = userContext.useParty();
 +  const [receiver, setReceiver] = React.useState<string | undefined>();
 +  const [content, setContent] = React.useState("");
 +  const [isSubmitting, setIsSubmitting] = React.useState(false);
-+  const ledger = useLedger();
++  const ledger = userContext.useLedger();
 +
 +  const submitMessage = async (event: React.FormEvent) => {
 +    try {
@@ -107,13 +113,14 @@ diff --git templates/create-daml-app/ui/src/components/MessageEdit.tsx templates
 +
 +  return (
 +    <Form onSubmit={submitMessage}>
-+      <Form.Dropdown
-+        selection
++      <Form.Select
++        fluid
++        search
 +        className='test-select-message-receiver'
-+        placeholder="Select a follower"
-+        options={followers.map(follower => ({ key: follower, text: follower, value: follower }))}
++        placeholder={receiver ? partyToAlias.get(receiver) ?? receiver : "Select a follower"}
 +        value={receiver}
-+        onChange={event => setReceiver(event.currentTarget.textContent ?? undefined)}
++        options={followers.map(follower => ({ key: follower, text: partyToAlias.get(follower) ?? follower, value: follower }))}
++        onChange={(event, data) => setReceiver(data.value?.toString())}
 +      />
 +      <Form.Input
 +        className='test-select-message-content'
@@ -135,24 +142,24 @@ diff --git templates/create-daml-app/ui/src/components/MessageEdit.tsx templates
 +
 +export default MessageEdit;
 +// MESSAGEEDIT_END
-diff --git templates/create-daml-app/ui/src/components/MessageList.tsx templates/create-daml-app/ui/src/components/MessageList.tsx
---- /dev/null
-+++ templates/create-daml-app/ui/src/components/MessageList.tsx
+diff -Naur templates/create-daml-app/ui/src/components/MessageList.tsx templates/create-daml-app-test-resources/ui/src/components/MessageList.tsx
+--- templates/create-daml-app/ui/src/components/MessageList.tsx	1970-01-01 01:00:00.000000000 +0100
++++ templates/create-daml-app-test-resources/ui/src/components/MessageList.tsx	2022-02-02 17:47:13.646655436 +0100
 @@ -0,0 +1,33 @@
-+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-+// SPDX-License-Identifier: Apache-2.0
-+
 +// MESSAGELIST_BEGIN
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
 +import { User } from '@daml.js/create-daml-app';
-+import { useStreamQueries } from '@daml/react';
++import { userContext } from './App';
 +
++type Props = {
++  partyToAlias: Map<string, string>
++}
 +/**
 + * React component displaying the list of messages for the current user.
 + */
-+const MessageList: React.FC = () => {
-+  const messagesResult = useStreamQueries(User.Message);
++const MessageList: React.FC<Props> = ({partyToAlias}) => {
++  const messagesResult = userContext.useStreamQueries(User.Message);
 +
 +  return (
 +    <List relaxed>
@@ -162,7 +169,7 @@ diff --git templates/create-daml-app/ui/src/components/MessageList.tsx templates
 +          <ListItem
 +            className='test-select-message-item'
 +            key={message.contractId}>
-+            <strong>{sender} &rarr; {receiver}:</strong> {content}
++            <strong>{partyToAlias.get(sender) ?? sender} &rarr; {partyToAlias.get(receiver) ?? receiver}:</strong> {content}
 +          </ListItem>
 +        );
 +      })}

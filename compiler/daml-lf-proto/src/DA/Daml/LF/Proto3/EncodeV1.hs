@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -298,7 +298,6 @@ encodeKind = fmap (P.Kind . Just) . \case
 encodeBuiltinType :: BuiltinType -> P.Enumerated P.PrimType
 encodeBuiltinType = P.Enumerated . Right . \case
     BTInt64 -> P.PrimTypeINT64
-    BTDecimal -> P.PrimTypeDECIMAL
     BTText -> P.PrimTypeTEXT
     BTTimestamp -> P.PrimTypeTIMESTAMP
     BTParty -> P.PrimTypePARTY
@@ -393,8 +392,6 @@ encodeTypeConApp (TypeConApp tycon args) = do
 encodeBuiltinExpr :: BuiltinExpr -> Encode P.ExprSum
 encodeBuiltinExpr = \case
     BEInt64 x -> pureLit $ P.PrimLitSumInt64 x
-    BEDecimal dec ->
-        pureLit $ P.PrimLitSumDecimalStr $ encodeString (T.pack (show dec))
     BENumeric num ->
         lit . P.PrimLitSumNumericInternedStr <$> allocString (T.pack (show num))
     BEText x ->
@@ -426,7 +423,6 @@ encodeBuiltinExpr = \case
 
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
-      BTDecimal -> builtin P.BuiltinFunctionEQUAL_DECIMAL
       BTText -> builtin P.BuiltinFunctionEQUAL_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionEQUAL_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
@@ -437,7 +433,6 @@ encodeBuiltinExpr = \case
 
     BELessEq typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionLEQ_INT64
-      BTDecimal -> builtin P.BuiltinFunctionLEQ_DECIMAL
       BTText -> builtin P.BuiltinFunctionLEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLEQ_DATE
@@ -446,7 +441,6 @@ encodeBuiltinExpr = \case
 
     BELess typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionLESS_INT64
-      BTDecimal -> builtin P.BuiltinFunctionLESS_DECIMAL
       BTText -> builtin P.BuiltinFunctionLESS_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLESS_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLESS_DATE
@@ -455,7 +449,6 @@ encodeBuiltinExpr = \case
 
     BEGreaterEq typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionGEQ_INT64
-      BTDecimal -> builtin P.BuiltinFunctionGEQ_DECIMAL
       BTText -> builtin P.BuiltinFunctionGEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGEQ_DATE
@@ -464,7 +457,6 @@ encodeBuiltinExpr = \case
 
     BEGreater typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionGREATER_INT64
-      BTDecimal -> builtin P.BuiltinFunctionGREATER_DECIMAL
       BTText -> builtin P.BuiltinFunctionGREATER_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGREATER_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGREATER_DATE
@@ -479,7 +471,6 @@ encodeBuiltinExpr = \case
 
     BEToText typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionINT64_TO_TEXT
-      BTDecimal -> builtin P.BuiltinFunctionDECIMAL_TO_TEXT
       BTText -> builtin P.BuiltinFunctionTEXT_TO_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionTIMESTAMP_TO_TEXT
       BTDate -> builtin P.BuiltinFunctionDATE_TO_TEXT
@@ -491,16 +482,9 @@ encodeBuiltinExpr = \case
     BECodePointsToText -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
     BETextToParty -> builtin P.BuiltinFunctionTEXT_TO_PARTY
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
-    BETextToDecimal-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
     BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
-
-    BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
-    BESubDecimal -> builtin P.BuiltinFunctionSUB_DECIMAL
-    BEMulDecimal -> builtin P.BuiltinFunctionMUL_DECIMAL
-    BEDivDecimal -> builtin P.BuiltinFunctionDIV_DECIMAL
-    BERoundDecimal -> builtin P.BuiltinFunctionROUND_DECIMAL
 
     BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
     BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC
@@ -526,9 +510,6 @@ encodeBuiltinExpr = \case
     BEDivInt64 -> builtin P.BuiltinFunctionDIV_INT64
     BEModInt64 -> builtin P.BuiltinFunctionMOD_INT64
     BEExpInt64 -> builtin P.BuiltinFunctionEXP_INT64
-
-    BEInt64ToDecimal -> builtin P.BuiltinFunctionINT64_TO_DECIMAL
-    BEDecimalToInt64 -> builtin P.BuiltinFunctionDECIMAL_TO_INT64
 
     BEInt64ToNumeric -> builtin P.BuiltinFunctionINT64_TO_NUMERIC
     BENumericToInt64 -> builtin P.BuiltinFunctionNUMERIC_TO_INT64
@@ -729,6 +710,18 @@ encodeExpr' = \case
         expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
         expr_FromRequiredInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromRequiredInterface P.Expr_FromRequiredInterface{..}
+    EInterfaceTemplateTypeRep ty val -> do
+        expr_InterfaceTemplateTypeRepInterface <- encodeQualTypeConName ty
+        expr_InterfaceTemplateTypeRepExpr <- encodeExpr val
+        pureExpr $ P.ExprSumInterfaceTemplateTypeRep P.Expr_InterfaceTemplateTypeRep{..}
+    ESignatoryInterface ty val -> do
+        expr_SignatoryInterfaceInterface <- encodeQualTypeConName ty
+        expr_SignatoryInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumSignatoryInterface P.Expr_SignatoryInterface{..}
+    EObserverInterface ty val -> do
+        expr_ObserverInterfaceInterface <- encodeQualTypeConName ty
+        expr_ObserverInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumObserverInterface P.Expr_ObserverInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -964,13 +957,8 @@ encodeTemplateKey TemplateKey{..} = do
     pure P.DefTemplate_DefKey{..}
 
 encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
-encodeChoiceObservers chcObservers = do
-  EncodeEnv{..} <- get
-  -- The choice-observers field is mandatory when supported. So, when choice-observers are
-  -- not syntactically explicit, we generate an empty-party-list expression here.
-  if version `supports` featureChoiceObservers
-  then encodeExpr (fromMaybe (ENil TParty) chcObservers)
-  else traverse encodeExpr' chcObservers
+encodeChoiceObservers chcObservers =
+  encodeExpr (fromMaybe (ENil TParty) chcObservers)
 
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
@@ -997,7 +985,7 @@ encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
-    metadata = getPackageMetadata version (PackageName "scenario") Nothing
+    metadata = Just (getPackageMetadata (PackageName "scenario") Nothing)
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

@@ -1,0 +1,21 @@
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR expected serializable type
+module InterfaceSerializabilityArgument where
+
+data NonSerializable = NonSerializable (() -> ())
+
+-- Dummy Eq and Show instances so we blow up in the serializability checker rather than
+-- the GHC typechecker.
+
+instance Eq NonSerializable where
+  (==) = error "undefined"
+instance Show NonSerializable where
+  show = error "undefined"
+
+interface I where
+   p : Party
+
+   choice NonSerializableArgument : ()
+     with f : NonSerializable
+     controller p this
+     do pure ()

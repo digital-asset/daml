@@ -1,17 +1,16 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package speedy
 
 import java.util
-
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{SError, SErrorCrash}
+import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
@@ -22,6 +21,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.Inside
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Try}
 
 class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
@@ -731,8 +731,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     "EQUAL @ContractId" - {
       "works as expected" in {
-        val cid1 = SContractId(Value.ContractId.assertFromString("#contract1"))
-        val cid2 = SContractId(Value.ContractId.assertFromString("#contract2"))
+        val cid1 = SContractId(Value.ContractId.V1(Hash.hashPrivateKey("#contract1")))
+        val cid2 = SContractId(Value.ContractId.V1(Hash.hashPrivateKey("#contract2")))
         evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid1)) shouldBe Right(SBool(true))
         evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid2)) shouldBe Right(SBool(false))
       }
@@ -1299,19 +1299,21 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "CONTRACT_ID_TO_TEXT" - {
         "returns None on-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
+          val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
           evalApp(
             e"$f",
-            Array(SContractId(Value.ContractId.assertFromString("#abc"))),
+            Array(SContractId(cid)),
             onLedger = true,
           ) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
+          val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
           evalApp(
             e"$f",
-            Array(SContractId(Value.ContractId.assertFromString("#abc"))),
+            Array(SContractId(cid)),
             onLedger = false,
-          ) shouldBe Right(SOptional(Some(SText("#abc"))))
+          ) shouldBe Right(SOptional(Some(SText(cid.coid))))
         }
       }
 
@@ -1536,10 +1538,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:ExceptionAppend (Mod:ExceptionAppend { front = "Hello", back = "world"}))"""
       ) shouldBe Right(SText("Helloworld"))
       inside(
-        eval(
-          e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
+        Try(
+          eval(
+            e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
+          )
         )
-      ) { case Left(SErrorCrash(_, "need package '-unknown-package-'")) =>
+      ) { case Failure(error) =>
+        error.getMessage should include("unknown package '-unknown-package-'")
       }
     }
 
@@ -1573,9 +1578,31 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
   }
 
+  "Interfaces" - {
+    val iouTypeRep = Ref.TypeConName.assertFromString("-pkgId-:Mod:Iou")
+    val alice = Ref.Party.assertFromString("alice")
+    val bob = Ref.Party.assertFromString("bob")
+
+    val testCases = Table[String, SValue](
+      "expression" -> "string-result",
+      "interface_template_type_rep @Mod:Iface Mod:aliceOwesBobIface" -> STypeRep(
+        TTyCon(iouTypeRep)
+      ),
+      "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
+      "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
+    )
+
+    forEvery(testCases) { (exp, res) =>
+      s"""eval[$exp] --> "$res"""" in {
+        eval(e"$exp") shouldBe Right(res)
+      }
+    }
+  }
 }
 
 object SBuiltinTest {
+
+  import SpeedyTestLib.loggingContext
 
   private val pkg =
     p"""
@@ -1612,6 +1639,26 @@ object SBuiltinTest {
           val from1 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex1 e of None -> "NONE" | Some x -> Mod:Ex1 { message} x;
           val from2 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex2 e of None -> "NONE" | Some x -> Mod:Ex2 { message} x;
           val from3 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex3 e of None -> "NONE" | Some x -> Mod:Ex3 { message} x;
+
+          interface (this : Iface) = {
+              precondition True;
+          };
+
+          record @serializable Iou = { i: Party, u: Party, name: Text };
+          template (this: Iou) = {
+            precondition True;
+            signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
+            observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
+            agreement "Agreement";
+            implements Mod:Iface {};
+          };
+
+          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+          val alice : Party = Mod:mkParty "alice";
+          val bob : Party = Mod:mkParty "bob";
+
+          val aliceOwesBob : Mod:Iou = Mod:Iou { i = Mod:alice, u = Mod:bob, name = "alice owes bob" };
+          val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
         }
 
     """
@@ -1619,44 +1666,30 @@ object SBuiltinTest {
   val compiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
-  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
+  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] =
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
-  }
 
   private def evalApp(
       e: Expr,
       args: Array[SValue],
       onLedger: Boolean = true,
-  ): Either[SError, SValue] = {
+  ): Either[SError, SValue] =
     evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
-  }
 
   private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
 
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
-    val machine = if (onLedger) {
-      val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-      Speedy.Machine.fromUpdateSExpr(
-        compiledPackages,
-        transactionSeed = seed,
-        updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
-        committers = committers,
-      )
-    } else {
-      Speedy.Machine.fromPureSExpr(compiledPackages, e)
-    }
-    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
-    try {
-      val value = machine.run() match {
-        case SResultFinalValue(v) => v
-        case SResultError(err) => throw Goodbye(err)
-        case SResultNeedPackage(pkgId, _, _) =>
-          throw Goodbye(SErrorCrash("", s"need package '$pkgId'"))
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-
-      Right(value)
-    } catch { case Goodbye(err) => Left(err) }
+    val machine =
+      if (onLedger)
+        Speedy.Machine.fromUpdateSExpr(
+          compiledPackages,
+          transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
+          updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+          committers = committers,
+        )
+      else
+        Speedy.Machine.fromPureSExpr(compiledPackages, e)
+    SpeedyTestLib.run(machine)
   }
 
   def intList(xs: Long*): String =

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -475,7 +475,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  // TODO(Leo): this should be converted to scalacheck test with random offset gaps and pageSize
   it should "return all transactions in the specified offset range when iterating with gaps in the offsets assigned to events and a page size that ensures a page ends in such a gap" in {
     // Simulates a gap in the offsets assigned to events, as they
     // can be assigned to party allocation, package uploads and
@@ -503,23 +502,24 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
-      ledgerDao <- createLedgerDao(
+      response <- createLedgerDaoResourceOwner(
         pageSize = 2,
         eventsProcessingParallelism = 8,
         acsIdPageSize = 2,
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
         acsGlobalParallelism = 10,
-      )
-
-      response <- ledgerDao.transactionsReader
-        .getFlatTransactions(
-          beginOffset,
-          endOffset,
-          Map(alice -> Set.empty[Identifier]),
-          verbose = true,
-        )
-        .runWith(Sink.seq)
+        acsIdQueueLimit = 1000000,
+      ).use(
+        _.transactionsReader
+          .getFlatTransactions(
+            beginOffset,
+            endOffset,
+            Map(alice -> Set.empty[Identifier]),
+            verbose = true,
+          )
+          .runWith(Sink.seq)
+      )(ResourceContext(executionContext))
 
       readTxs = extractAllTransactions(response)
     } yield {
@@ -640,13 +640,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   ): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
-  private def createLedgerDao(
+  private def createLedgerDaoResourceOwner(
       pageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      acsIdQueueLimit: Int,
   ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
@@ -656,9 +657,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = acsIdFetchingParallelism,
         acsContractFetchingParallelism = acsContractFetchingParallelism,
         acsGlobalParallelism = acsGlobalParallelism,
+        acsIdQueueLimit = acsIdQueueLimit,
         MockitoSugar.mock[ErrorFactories],
-      ).acquire()(ResourceContext(executionContext))
-    }.asFuture
+      )
+    }
 
   // XXX SC much of this is repeated because we're more concerned here
   // with whether each query is tested than whether the specifics of the

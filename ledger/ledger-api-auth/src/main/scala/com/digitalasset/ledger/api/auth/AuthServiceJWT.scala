@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -66,28 +66,37 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     } yield parsed
   }
 
-  private[this] def payloadToClaims(payload: AuthServiceJWTPayload): ClaimSet.Claims = {
-    val claims = ListBuffer[Claim]()
+  private[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
+    case payload: CustomDamlJWTPayload =>
+      val claims = ListBuffer[Claim]()
 
-    // Any valid token authorizes the user to use public services
-    claims.append(ClaimPublic)
+      // Any valid token authorizes the user to use public services
+      claims.append(ClaimPublic)
 
-    if (payload.admin)
-      claims.append(ClaimAdmin)
+      if (payload.admin)
+        claims.append(ClaimAdmin)
 
-    payload.actAs
-      .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
+      payload.actAs
+        .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
 
-    payload.readAs
-      .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
+      payload.readAs
+        .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
 
-    ClaimSet.Claims(
-      claims = claims.toList,
-      ledgerId = payload.ledgerId,
-      participantId = payload.participantId,
-      applicationId = payload.applicationId,
-      expiration = payload.exp,
-    )
+      ClaimSet.Claims(
+        claims = claims.toList,
+        ledgerId = payload.ledgerId,
+        participantId = payload.participantId,
+        applicationId = payload.applicationId,
+        expiration = payload.exp,
+        resolvedFromUser = false,
+      )
+
+    case payload: StandardJWTPayload =>
+      ClaimSet.AuthenticatedUser(
+        participantId = payload.participantId,
+        userId = payload.userId,
+        expiration = payload.exp,
+      )
   }
 }
 

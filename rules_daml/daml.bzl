@@ -1,9 +1,9 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "versions")
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
@@ -96,6 +96,7 @@ def _daml_build_impl(ctx):
             # Having to produce all the daml.yaml files via a genrule is annoying
             # so we allow hardcoded version numbers and patch them here.
             {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
+            {sed} -i 's/daml-script$/daml-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar}
@@ -147,7 +148,7 @@ _daml_build = rule(
         ),
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
-            default = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"],
+            default = ["--ghc-option=-Werror", "--log-level=WARNING"],
         ),
         "damlc": _damlc,
     },
@@ -256,7 +257,7 @@ _inspect_dar = rule(
 
 _default_project_version = "1.0.0"
 
-default_damlc_opts = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"]
+default_damlc_opts = ["--ghc-option=-Werror", "--log-level=WARNING"]
 
 def damlc_for_target(target):
     if not target or target in COMPILER_LF_VERSIONS:
@@ -271,6 +272,7 @@ def daml_compile(
         target = None,
         project_name = None,
         ghc_options = default_damlc_opts,
+        enable_scenarios = False,
         **kwargs):
     "Build a DAML project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -290,7 +292,9 @@ def daml_compile(
         srcs = srcs,
         dar_dict = {},
         dar = name + ".dar",
-        ghc_options = ghc_options,
+        ghc_options =
+            ghc_options +
+            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or versions.gte(target, "1.14")) else []),
         damlc = damlc_for_target(target),
         **kwargs
     )

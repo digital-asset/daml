@@ -1,28 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 <configuration>
     <include resource="com/daml/platform/sandbox/logback-test.base.xml"/>
-
-    <appender name="SqlLedgerSpecAppender" class="com.daml.platform.testing.LogCollector">
-        <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec</test>
-    </appender>
-
-    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="INFO">
-        <appender-ref ref="SqlLedgerSpecAppender" />
-    </logger>
-
-    <!-- TODO append-only: remove the following definitions from this file -->
-    <appender name="SqlLedgerOnMutableIndexSpecAppender" class="com.daml.platform.testing.LogCollector">
-        <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerOnMutableIndexSpec</test>
-    </appender>
-
-    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="INFO">
-        <appender-ref ref="SqlLedgerOnMutableIndexSpecAppender" />
-    </logger>
-
-    <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
-        <appender-ref ref="SqlLedgerOnMutableIndexSpecAppender" />
-    </logger>
 </configuration>

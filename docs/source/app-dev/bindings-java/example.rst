@@ -1,12 +1,12 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Example project
 ###############
 
-To try out the Java bindings library, use the `examples on GitHub <https://github.com/digital-asset/ex-java-bindings>`__: ``PingPongReactive`` or ``PingPongComponents``.
+To try out the Java bindings library, use the `examples on GitHub <https://github.com/digital-asset/ex-java-bindings>`__: ``PingPongReactive``.
 
-The former example does not use the Reactive Components, and the latter example does. Both examples implement the ``PingPong`` application, which consists of:
+The example implements the ``PingPong`` application, which consists of:
 
 - a Daml model with two contract templates, ``Ping`` and ``Pong``
 - two parties, ``Alice`` and ``Bob``
@@ -23,7 +23,7 @@ Setting up the example projects
 
 To set up the example projects, clone the public GitHub repository at `github.com/digital-asset/ex-java-bindings <https://github.com/digital-asset/ex-java-bindings>`__ and follow the setup instruction in the `README file <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__.
 
-This project contains three examples of the PingPong application, built with gRPC (non-reactive), Reactive and Reactive Component bindings respectively.
+This project contains two examples of the PingPong application, built directly with gRPC and using the RxJava2-based Java bindings.
 
 Example project
 ***************

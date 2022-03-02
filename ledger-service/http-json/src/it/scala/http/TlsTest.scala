@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -13,7 +13,7 @@ import spray.json.{JsArray, JsObject}
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class TlsTest
+abstract class TlsTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -28,7 +28,7 @@ class TlsTest
   override def wsConfig: Option[WebsocketConfig] = None
 
   "connect normally with tls on" in withHttpService { (uri: Uri, _, _, _) =>
-    getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
+    getRequestWithMinimumAuth(uri = uri.withPath(Uri.Path("/v1/query")))
       .flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
@@ -40,3 +40,7 @@ class TlsTest
       }: Future[Assertion]
   }
 }
+
+final class TlsTestCustomToken
+    extends TlsTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

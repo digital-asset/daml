@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.ledgerinteraction
@@ -17,7 +17,12 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
@@ -74,6 +79,15 @@ class JsonLedgerClient(
 
   private def damlLfTypeLookup(id: Identifier) =
     envIface.typeDecls.get(id).map(_.`type`)
+
+  val applicationId: Option[String] =
+    tokenPayload match {
+      case t: CustomDamlJWTPayload => t.applicationId
+      case t: StandardJWTPayload =>
+        // For standard jwts, the JSON API uses the user id
+        // as the application id on command submissions.
+        Some(t.userId)
+    }
 
   def request[A, B](path: Path, a: A)(implicit
       wa: JsonWriter[A],
@@ -319,45 +333,21 @@ class JsonLedgerClient(
     )
   }
 
-  // Check that the parties in the token provide read claims for the given parties
-  // and return explicit party specifications if required.
   private def validateTokenParties(
       parties: OneAnd[Set, Ref.Party],
       what: String,
-  ): Future[Option[QueryParties]] = {
-    val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
-    val partiesSet = parties.toSet.toSet[String]
-    val missingParties = partiesSet diff tokenParties
-    // First check is just for a nicer error message and would be covered by the second
-    if (tokenParties.isEmpty) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
-        )
-      )
-    } else if (missingParties.nonEmpty) {
-      Future.failed(new RuntimeException(s"Tried to $what as [${parties.toList
-        .mkString(", ")}] but token provides claims for [${tokenParties
-        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]"))
-    } else {
-      import scalaz.std.string._
-      if (partiesSet === tokenParties) {
-        // For backwards-compatibility we only set the party set flags when needed
-        Future.successful(None)
-      } else {
-        Future.successful(Some(QueryParties(parties)))
-      }
-    }
-  }
+  ): Future[Option[QueryParties]] =
+    JsonLedgerClient
+      .validateTokenParties(parties, what, tokenPayload)
+      .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
 
   private def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-  ): Future[Option[SubmitParties]] = {
+  ): Future[Option[SubmitParties]] =
     JsonLedgerClient
       .validateSubmitParties(actAs, readAs, tokenPayload)
       .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
-  }
 
   private def create(
       tplId: Identifier,
@@ -512,6 +502,17 @@ class JsonLedgerClient(
     }
   }
 
+  def recoverNotFound[A](e: Future[A]): Future[Option[A]] = {
+    e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.NotFound, _) =>
+      None
+    }
+  }
+  def recoverAlreadyExists[A](e: Future[A]): Future[Option[A]] = {
+    e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.Conflict, _) =>
+      None
+    }
+  }
+
   override def createUser(
       user: User,
       rights: List[UserRight],
@@ -519,29 +520,51 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User] =
-    unsupportedOn("createUser")
+  ): Future[Option[Unit]] = {
+    recoverAlreadyExists {
+      requestSuccess[CreateUserRequest, ObjectResponse](
+        uri.path./("v1")./("user")./("create"),
+        CreateUserRequest(
+          userId = user.id,
+          primaryParty = user.primaryParty,
+          rights,
+          isAdmin = false,
+        ),
+      ).map(_ => ())
+    }
+  }
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    unsupportedOn("getUser")
+    recoverNotFound {
+      requestSuccess[UserIdRequest, User](
+        uri.path./("v1")./("user"),
+        UserIdRequest(id),
+      )
+    }
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
-    unsupportedOn("deleteUser")
+  ): Future[Option[Unit]] =
+    recoverNotFound {
+      requestSuccess[UserIdRequest, ObjectResponse](
+        uri.path./("v1")./("user")./("delete"),
+        UserIdRequest(id),
+      ).map(_ => ())
+    }
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[User]] =
-    unsupportedOn("listUsers")
+  ): Future[List[User]] = {
+    requestSuccess[List[User]](uri.path./("v1")./("users"))
+  }
 
   override def grantUserRights(
       id: UserId,
@@ -550,8 +573,13 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    unsupportedOn("grantUserRights")
+  ): Future[Option[List[UserRight]]] =
+    recoverNotFound {
+      requestSuccess[UserIdAndRightsRequest, List[UserRight]](
+        uri.path./("v1")./("user")./("rights")./("grant"),
+        UserIdAndRightsRequest(id, rights),
+      )
+    }
 
   override def revokeUserRights(
       id: UserId,
@@ -560,18 +588,42 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    unsupportedOn("revokeUserRights")
+  ): Future[Option[List[UserRight]]] =
+    recoverNotFound {
+      requestSuccess[UserIdAndRightsRequest, List[UserRight]](
+        uri.path./("v1")./("user")./("rights")./("revoke"),
+        UserIdAndRightsRequest(id, rights),
+      )
+    }
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    unsupportedOn("listUserRights")
+  ): Future[Option[List[UserRight]]] =
+    recoverNotFound {
+      requestSuccess[UserIdRequest, List[UserRight]](
+        uri.path./("v1")./("user")./("rights"),
+        UserIdRequest(id),
+      )
+    }
 }
 
 object JsonLedgerClient {
+
+  final case class CreateUserRequest(
+      userId: String,
+      primaryParty: Option[String],
+      rights: List[UserRight],
+      isAdmin: Boolean,
+  )
+
+  final case class UserIdRequest(userId: UserId)
+
+  final case class UserIdAndRightsRequest(
+      userId: UserId,
+      rights: List[UserRight],
+  )
 
   case class FailedJsonApiRequest(
       path: Path,
@@ -593,6 +645,43 @@ object JsonLedgerClient {
       readers: OneAnd[Set, Ref.Party]
   )
 
+  // Check that the parties in the token provide read claims for the given parties
+  // and return explicit party specifications if required.
+  def validateTokenParties(
+      parties: OneAnd[Set, Ref.Party],
+      what: String,
+      tokenPayload: AuthServiceJWTPayload,
+  ): Either[String, Option[QueryParties]] =
+    tokenPayload match {
+      case tokenPayload: CustomDamlJWTPayload =>
+        val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
+        val partiesSet = parties.toSet.toSet[String]
+        val missingParties = partiesSet diff tokenParties
+        // First check is just for a nicer error message and would be covered by the second
+        if (tokenParties.isEmpty) {
+          Left(
+            s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
+          )
+        } else if (missingParties.nonEmpty) {
+          Left(s"Tried to $what as [${parties.toList
+            .mkString(", ")}] but token provides claims for [${tokenParties
+            .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]")
+        } else {
+          import scalaz.std.string._
+          if (partiesSet === tokenParties) {
+            // For backwards-compatibility we only set the party set flags when needed
+            Right(None)
+          } else {
+            Right(Some(QueryParties(parties)))
+          }
+        }
+      case _: StandardJWTPayload =>
+        // A JSON API that understands standard JWTs also understands explicit party
+        // specifications so rather than validating this client side, we just always set
+        // the explicit party specification and leave it to the JSON API to validate this.
+        Right(Some(QueryParties(parties)))
+    }
+
   // Validate that the token has the required claims and return
   // SubmitParties we need to pass to the JSON API
   // if the token has more claims than we need.
@@ -601,37 +690,45 @@ object JsonLedgerClient {
       readAs: Set[Ref.Party],
       tokenPayload: AuthServiceJWTPayload,
   ): Either[String, Option[SubmitParties]] = {
-    val actAsSet = actAs.toList.toSet[String]
-    val readAsSet = readAs.toSet[String]
-    val tokenActAs = tokenPayload.actAs.toSet
-    val tokenReadAs = tokenPayload.readAs.toSet
-    val missingActAs = actAs.toSet.toSet[String] diff tokenActAs
-    val missingReadAs = readAs.toSet[String] diff (tokenReadAs union tokenActAs)
-    if (tokenPayload.actAs.isEmpty) {
-      Left(
-        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
-      )
+    tokenPayload match {
+      case tokenPayload: CustomDamlJWTPayload =>
+        val actAsSet = actAs.toList.toSet[String]
+        val readAsSet = readAs.toSet[String]
+        val tokenActAs = tokenPayload.actAs.toSet
+        val tokenReadAs = tokenPayload.readAs.toSet
+        val missingActAs = actAs.toSet.toSet[String] diff tokenActAs
+        val missingReadAs = readAs.toSet[String] diff (tokenReadAs union tokenActAs)
+        if (tokenPayload.actAs.isEmpty) {
+          Left(
+            s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
+          )
 
-    } else if (missingActAs.nonEmpty) {
-      Left(
-        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
-          .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
-      )
-    } else if (missingReadAs.nonEmpty) {
-      Left(
-        s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
-          .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
-      )
-    } else {
-      import scalaz.std.string._
-      val onlyReadAs = readAsSet diff actAsSet
-      val tokenOnlyReadAs = tokenReadAs diff tokenActAs
-      if (onlyReadAs === tokenOnlyReadAs && actAsSet === tokenActAs) {
-        // For backwards-compatibility we only set the party set flags when needed
-        Right(None)
-      } else {
+        } else if (missingActAs.nonEmpty) {
+          Left(
+            s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
+              .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
+          )
+        } else if (missingReadAs.nonEmpty) {
+          Left(
+            s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
+              .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
+          )
+        } else {
+          import scalaz.std.string._
+          val onlyReadAs = readAsSet diff actAsSet
+          val tokenOnlyReadAs = tokenReadAs diff tokenActAs
+          if (onlyReadAs === tokenOnlyReadAs && actAsSet === tokenActAs) {
+            // For backwards-compatibility we only set the party set flags when needed
+            Right(None)
+          } else {
+            Right(Some(SubmitParties(actAs, readAs)))
+          }
+        }
+      case _: StandardJWTPayload =>
+        // A JSON API that understands standard JWTs also understands explicit party
+        // specifications so rather than validating this client side, we just always set
+        // the explicit party specification and leave it to the JSON API to validate this.
         Right(Some(SubmitParties(actAs, readAs)))
-      }
     }
   }
 
@@ -680,6 +777,10 @@ object JsonLedgerClient {
       displayName: String,
   )
   final case class AllocatePartyResponse(identifier: Ref.Party)
+
+// Any JS object, we validate that it’s an object to catch issues in our request but we ignore all fields
+// for forwards compatibility.
+  final case class ObjectResponse()
 
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     implicit def optionReader[A: JsonReader]: JsonReader[Option[A]] =
@@ -833,5 +934,80 @@ object JsonLedgerClient {
         case Seq(id) => AllocatePartyResponse(id.convertTo[Party])
         case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
       }
+
+    implicit val userId: JsonFormat[UserId] = new JsonFormat[UserId] {
+      override def write(id: UserId) = JsString(id)
+      override def read(json: JsValue) = {
+        json match {
+          case JsString(s) => Ref.UserId.fromString(s).fold(deserializationError(_), identity)
+          case _ => deserializationError(s"Expected UserId but got $json")
+        }
+      }
+    }
+
+    implicit val userReader: JsonReader[User] = json => {
+      val o = json.asJsObject
+      (o.fields.get("userId"), o.fields.get("primaryParty")) match {
+        case (Some(id), primaryPartyOpt) =>
+          User(
+            id = id.convertTo[UserId],
+            primaryParty = primaryPartyOpt.map(_.convertTo[Party]),
+          )
+        case _ => deserializationError(s"Expected User but got $json")
+      }
+    }
+
+    implicit val listUserRight: JsonFormat[List[UserRight]] = new JsonFormat[List[UserRight]] {
+      override def write(xs: List[UserRight]) = JsArray(xs.map(_.toJson).toVector)
+      override def read(json: JsValue) = json match {
+        case JsArray(elements) => elements.iterator.map(_.convertTo[UserRight]).toList
+        case _ => deserializationError(s"must be a list, but got $json")
+      }
+    }
+
+    implicit val userRightFormat: JsonFormat[UserRight] = new JsonFormat[UserRight] {
+      override def write(x: UserRight) = x match {
+        case UserRight.CanReadAs(party) =>
+          JsObject("type" -> JsString("CanReadAs"), "party" -> JsString(party))
+        case UserRight.CanActAs(party) =>
+          JsObject("type" -> JsString("CanActAs"), "party" -> JsString(party))
+        case UserRight.ParticipantAdmin =>
+          JsObject("type" -> JsString("ParticipantAdmin"))
+      }
+      override def read(json: JsValue) = {
+        val obj = json.asJsObject
+        obj.fields.get("type") match {
+          case Some(JsString("ParticipantAdmin")) => UserRight.ParticipantAdmin
+          case Some(JsString("CanReadAs")) =>
+            obj.fields.get("party") match {
+              case None => deserializationError("UserRight.CanReadAs")
+              case Some(party) => UserRight.CanReadAs(party.convertTo[Party])
+            }
+          case Some(JsString("CanActAs")) =>
+            obj.fields.get("party") match {
+              case None => deserializationError("UserRight.CanActAs")
+              case Some(party) => UserRight.CanActAs(party.convertTo[Party])
+            }
+          case _ =>
+            deserializationError("UserRight")
+        }
+      }
+    }
+
+    implicit val createUserFormat: JsonFormat[CreateUserRequest] = jsonFormat4(CreateUserRequest)
+
+    implicit val userIdRequestFormat: JsonFormat[UserIdRequest] = jsonFormat1(UserIdRequest)
+
+    implicit val userIdAndRightsFormat: JsonFormat[UserIdAndRightsRequest] = jsonFormat2(
+      UserIdAndRightsRequest
+    )
+
+    implicit val objectResponse: RootJsonReader[ObjectResponse] = v => {
+      v match {
+        case JsObject(_) => ObjectResponse()
+        case _ => deserializationError("ObjectResponse")
+      }
+    }
+
   }
 }

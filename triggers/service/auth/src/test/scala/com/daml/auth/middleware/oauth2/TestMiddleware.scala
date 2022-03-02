@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -12,10 +12,16 @@ import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.{Client, Request, Response}
+import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -31,26 +37,23 @@ import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.{Failure, Success}
 
-class TestMiddleware
+abstract class TestMiddleware
     extends AsyncWordSpec
     with TestFixture
     with SuiteResourceManagementAroundAll
     with Matchers {
-  private def makeToken(
+  protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload
+
+  protected[this] def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
       expiresIn: Option[Duration] = None,
   ): OAuthResponse.Token = {
     val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwtPayload = AuthServiceJWTPayload(
-      ledgerId = Some("test-ledger"),
-      applicationId = Some("test-application"),
-      participantId = None,
-      exp = expiresIn.map(in => clock.instant.plus(in)),
-      admin = claims.admin,
-      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
-      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
-    )
+    val jwtPayload = makeJwt(claims, expiresIn)
     OAuthResponse.Token(
       accessToken = JwtSigner.HMAC256
         .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(jwtPayload)), secret)
@@ -64,6 +67,7 @@ class TestMiddleware
       scope = Some(claims.toQueryString()),
     )
   }
+
   "the port file" should {
     "list the HTTP port" in {
       val bindingPort = middlewareBinding.localAddress.getPort.toString
@@ -97,46 +101,6 @@ class TestMiddleware
       } yield {
         assert(auth.accessToken == token.accessToken)
         assert(auth.refreshToken == token.refreshToken)
-      }
-    }
-    "return unauthorized on insufficient party claims" in {
-      val claims = Request.Claims(actAs = List(Party("Bob")))
-      def r(actAs: String*)(readAs: String*) =
-        middlewareClient
-          .requestAuth(
-            claims,
-            Seq(
-              Cookie(
-                "daml-ledger-token",
-                makeToken(
-                  Request.Claims(
-                    actAs = actAs.map(Party(_)).toList,
-                    readAs = readAs.map(Party(_)).toList,
-                  )
-                ).toCookieValue,
-              )
-            ),
-          )
-      for {
-        aliceA <- r("Alice")()
-        nothing <- r()()
-        aliceA_bobA <- r("Alice", "Bob")()
-        aliceA_bobR <- r("Alice")("Bob")
-        aliceR_bobA <- r("Bob")("Alice")
-        aliceR_bobR <- r()("Alice", "Bob")
-        bobA <- r("Bob")()
-        bobR <- r()("Bob")
-        bobAR <- r("Bob")("Bob")
-      } yield {
-        aliceA shouldBe empty
-        nothing shouldBe empty
-        aliceA_bobA should not be empty
-        aliceA_bobR shouldBe empty
-        aliceR_bobA should not be empty
-        aliceR_bobR shouldBe empty
-        bobA should not be empty
-        bobR shouldBe empty
-        bobAR should not be empty
       }
     }
     "return unauthorized on insufficient app id claims" in {
@@ -177,6 +141,19 @@ class TestMiddleware
       } yield {
         assert(result == None)
       }
+    }
+
+    "accept user tokens" in {
+      import com.daml.auth.middleware.oauth2.Server.rightsProvideClaims
+      rightsProvideClaims(
+        StandardJWTPayload("foo", None, None),
+        Claims(
+          admin = true,
+          actAs = List(ApiTypes.Party("Alice")),
+          readAs = List(ApiTypes.Party("Bob")),
+          applicationId = Some(ApiTypes.ApplicationId("foo")),
+        ),
+      ) should ===(true)
     }
   }
   "the /login endpoint" should {
@@ -235,64 +212,6 @@ class TestMiddleware
         assert(token.tokenType == "bearer")
       }
     }
-    "not authorize unauthorized parties" in {
-      server.revokeParty(Party("Eve"))
-      val claims = Request.Claims(actAs = List(Party("Eve")))
-      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
-      for {
-        resp <- Http().singleRequest(req)
-        // Redirect to /authorize on authorization server
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-        // Redirect to /cb on middleware
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-      } yield {
-        // Redirect to client callback
-        assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
-        // with error parameter set
-        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
-        // Without token in cookie
-        val cookie = resp.header[`Set-Cookie`]
-        assert(cookie == None)
-      }
-    }
-    "not authorize disallowed admin claims" in {
-      server.revokeAdmin()
-      val claims = Request.Claims(admin = true)
-      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
-      for {
-        resp <- Http().singleRequest(req)
-        // Redirect to /authorize on authorization server
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-        // Redirect to /cb on middleware
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-      } yield {
-        // Redirect to client callback
-        assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
-        // with error parameter set
-        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
-        // Without token in cookie
-        val cookie = resp.header[`Set-Cookie`]
-        assert(cookie == None)
-      }
-    }
   }
   "the /refresh endpoint" should {
     "return a new access token" in {
@@ -340,6 +259,120 @@ class TestMiddleware
       }
     }
   }
+}
+
+class TestMiddlewareClaimsToken extends TestMiddleware {
+  override protected[this] def oauthYieldsUserTokens = false
+  override protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload =
+    CustomDamlJWTPayload(
+      ledgerId = Some("test-ledger"),
+      applicationId = Some("test-application"),
+      participantId = None,
+      exp = expiresIn.map(in => clock.instant.plus(in)),
+      admin = claims.admin,
+      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
+      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
+    )
+
+  "the /auth endpoint given claim token" should {
+    "return unauthorized on insufficient party claims" in {
+      val claims = Request.Claims(actAs = List(Party("Bob")))
+      def r(actAs: String*)(readAs: String*) =
+        middlewareClient
+          .requestAuth(
+            claims,
+            Seq(
+              Cookie(
+                "daml-ledger-token",
+                makeToken(
+                  Request.Claims(
+                    actAs = actAs.map(Party(_)).toList,
+                    readAs = readAs.map(Party(_)).toList,
+                  )
+                ).toCookieValue,
+              )
+            ),
+          )
+      for {
+        aliceA <- r("Alice")()
+        nothing <- r()()
+        aliceA_bobA <- r("Alice", "Bob")()
+        aliceA_bobR <- r("Alice")("Bob")
+        aliceR_bobA <- r("Bob")("Alice")
+        aliceR_bobR <- r()("Alice", "Bob")
+        bobA <- r("Bob")()
+        bobR <- r()("Bob")
+        bobAR <- r("Bob")("Bob")
+      } yield {
+        aliceA shouldBe empty
+        nothing shouldBe empty
+        aliceA_bobA should not be empty
+        aliceA_bobR shouldBe empty
+        aliceR_bobA should not be empty
+        aliceR_bobR shouldBe empty
+        bobA should not be empty
+        bobR shouldBe empty
+        bobAR should not be empty
+      }
+    }
+  }
+
+  "the /login endpoint with an oauth server checking claims" should {
+    "not authorize unauthorized parties" in {
+      server.revokeParty(Party("Eve"))
+      val claims = Request.Claims(actAs = List(Party("Eve")))
+      ensureDisallowed(claims)
+    }
+
+    "not authorize disallowed admin claims" in {
+      server.revokeAdmin()
+      val claims = Request.Claims(admin = true)
+      ensureDisallowed(claims)
+    }
+
+    def ensureDisallowed(claims: Request.Claims) = {
+      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
+      for {
+        resp <- Http().singleRequest(req)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+        // Redirect to /cb on middleware
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+      } yield {
+        // Redirect to client callback
+        assert(resp.status == StatusCodes.Found)
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
+        // with error parameter set
+        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
+        // Without token in cookie
+        val cookie = resp.header[`Set-Cookie`]
+        assert(cookie == None)
+      }
+    }
+  }
+}
+
+class TestMiddlewareUserToken extends TestMiddleware {
+  override protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload =
+    StandardJWTPayload(
+      userId = "test-application",
+      participantId = None,
+      exp = expiresIn.map(in => clock.instant.plus(in)),
+    )
 }
 
 class TestMiddlewareCallbackUriOverride

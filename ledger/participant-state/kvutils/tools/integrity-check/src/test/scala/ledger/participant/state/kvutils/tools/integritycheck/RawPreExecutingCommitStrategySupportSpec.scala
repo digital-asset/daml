@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
@@ -94,7 +94,7 @@ class RawPreExecutingCommitStrategySupportSpec
         configuration = Configuration(
           generation = 1,
           timeModel = LedgerTimeModel.reasonableDefault,
-          maxDeduplicationTime = Duration.ofMinutes(1),
+          maxDeduplicationDuration = Duration.ofMinutes(1),
         ),
       )
       val updateConfigurationWithInvalidMrt = newConfigurationSubmission(
@@ -106,7 +106,7 @@ class RawPreExecutingCommitStrategySupportSpec
         configuration = Configuration(
           generation = 2,
           timeModel = LedgerTimeModel.reasonableDefault,
-          maxDeduplicationTime = Duration.ofMinutes(1),
+          maxDeduplicationDuration = Duration.ofMinutes(1),
         ),
       )
 

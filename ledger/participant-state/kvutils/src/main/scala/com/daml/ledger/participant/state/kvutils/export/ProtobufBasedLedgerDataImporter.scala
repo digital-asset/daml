@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.export
@@ -10,7 +10,6 @@ import com.daml.ledger.participant.state.kvutils.export.LedgerExport.LedgerExpor
 import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.lf.data.Ref
 
-import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 final class ProtobufBasedLedgerDataImporter(input: InputStream)

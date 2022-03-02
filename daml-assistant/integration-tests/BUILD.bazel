@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -107,7 +107,6 @@ da_haskell_test(
     name = "integration-tests",
     timeout = "long",
     srcs = [
-        "src/DA/Daml/Assistant/FreePort.hs",
         "src/DA/Daml/Assistant/IntegrationTests.hs",
     ],
     args = [
@@ -121,13 +120,14 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ] + ([] if is_windows else ts_libraries),
+    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
         "aeson",
         "async",
         "base",
+        "bytestring",
         "conduit",
         "conduit-extra",
         "containers",
@@ -220,6 +220,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "process",
         "tagged",
         "tasty",
         "tasty-hunit",
@@ -242,10 +243,12 @@ da_haskell_test(
     args = [
         "$(location @nodejs//:npm_bin)",
         "$(location @nodejs//:node_bin)",
+        "$(location @grpcurl_nix//:bin)",
         "--project-name",
         "not-create-daml-app",
     ],
     data = [
+        "@grpcurl_nix//:bin",
         "@nodejs//:node_bin",
         "@nodejs//:npm_bin",
     ],

@@ -1,40 +1,168 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
 
+import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
+
+import akka.actor.Scheduler
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
+import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
+
+import scala.concurrent.ExecutionContext
 
 private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
-    claims: ClaimSet.Claims,
-    authorized: ClaimSet.Claims => Either[AuthorizationError, Unit],
-    throwOnFailure: AuthorizationError => Throwable,
-) extends ServerCallStreamObserver[A] {
+    originalClaims: ClaimSet.Claims,
+    nowF: () => Instant,
+    errorFactories: ErrorFactories,
+    userRightsCheckerO: Option[UserRightsChangeAsyncChecker],
+    userRightsCheckIntervalInSeconds: Int,
+    lastUserRightsCheckTime: AtomicReference[Instant],
+)(implicit loggingContext: LoggingContext)
+    extends ServerCallStreamObserver[A] {
 
-  override def isCancelled: Boolean = observer.isCancelled
+  private val logger = ContextualizedLogger.get(getClass)
+  private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  override def setOnCancelHandler(runnable: Runnable): Unit = observer.setOnCancelHandler(runnable)
+  // Guards against propagating calls to delegate observer after either
+  // [[onComplete]] or [[onError]] has already been called once.
+  // We need this because [[onError]] can be invoked two concurrent sources:
+  // 1) scheduled user rights state change task (see [[cancellableO]]),
+  // 2) upstream component that is translating upstream Akka stream into [[onNext]] and other signals.
+  private var afterCompletionOrError = false
 
-  override def setCompression(s: String): Unit = observer.setCompression(s)
+  private val cancelUserRightsChecksO =
+    userRightsCheckerO.map(_.schedule(() => onError(staleStreamAuthError)))
 
-  override def isReady: Boolean = observer.isReady
+  override def isCancelled: Boolean = synchronized(observer.isCancelled)
 
-  override def setOnReadyHandler(runnable: Runnable): Unit = observer.setOnReadyHandler(runnable)
+  override def setOnCancelHandler(runnable: Runnable): Unit = synchronized(
+    observer.setOnCancelHandler(runnable)
+  )
 
-  override def disableAutoInboundFlowControl(): Unit = observer.disableAutoInboundFlowControl()
+  override def setCompression(s: String): Unit = synchronized(observer.setCompression(s))
 
-  override def request(i: Int): Unit = observer.request(i)
+  override def isReady: Boolean = synchronized(observer.isReady)
 
-  override def setMessageCompression(b: Boolean): Unit = observer.setMessageCompression(b)
+  override def setOnReadyHandler(runnable: Runnable): Unit = synchronized(
+    observer.setOnReadyHandler(runnable)
+  )
 
-  override def onNext(v: A): Unit =
-    authorized(claims) match {
+  override def disableAutoInboundFlowControl(): Unit = synchronized(
+    observer.disableAutoInboundFlowControl()
+  )
+
+  override def request(i: Int): Unit = synchronized(observer.request(i))
+
+  override def setMessageCompression(b: Boolean): Unit = synchronized(
+    observer.setMessageCompression(b)
+  )
+
+  override def onNext(v: A): Unit = onlyBeforeCompletionOrError {
+    val now = nowF()
+    (for {
+      _ <- checkClaimsExpiry(now)
+      _ <- checkUserRightsRefreshTimeout(now)
+    } yield ()) match {
       case Right(_) => observer.onNext(v)
-      case Left(authorizationError) => observer.onError(throwOnFailure(authorizationError))
+      case Left(e) => onError(e)
     }
+  }
 
-  override def onError(throwable: Throwable): Unit = observer.onError(throwable)
+  override def onError(throwable: Throwable): Unit = onlyBeforeCompletionOrError {
+    afterCompletionOrError = true
+    cancelUserRightsChecksO.foreach(_.apply())
+    observer.onError(throwable)
+  }
 
-  override def onCompleted(): Unit = observer.onCompleted()
+  override def onCompleted(): Unit = onlyBeforeCompletionOrError {
+    afterCompletionOrError = true
+    cancelUserRightsChecksO.foreach(_.apply())
+    observer.onCompleted()
+  }
+
+  private def onlyBeforeCompletionOrError(body: => Unit): Unit =
+    synchronized(
+      if (!afterCompletionOrError) {
+        body
+      }
+    )
+
+  private def checkUserRightsRefreshTimeout(now: Instant): Either[StatusRuntimeException, Unit] = {
+    // Safety switch to abort the stream if the user-rights-state-check task
+    // fails to refresh within 2*[[userRightsCheckIntervalInSeconds]] seconds.
+    // In normal conditions we expected the refresh delay to be about [[userRightsCheckIntervalInSeconds]] seconds.
+    if (
+      originalClaims.resolvedFromUser &&
+      lastUserRightsCheckTime.get.isBefore(
+        now.minusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
+      )
+    ) {
+      Left(staleStreamAuthError)
+    } else Right(())
+  }
+
+  private def checkClaimsExpiry(now: Instant): Either[StatusRuntimeException, Unit] =
+    originalClaims
+      .notExpired(now)
+      .left
+      .map(authorizationError =>
+        errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+      )
+
+  private def staleStreamAuthError: StatusRuntimeException =
+    // Terminate the stream, so that clients will restart their streams
+    // and claims will be rechecked precisely.
+    LedgerApiErrors.AuthorizationChecks.StaleUserManagementBasedStreamClaims
+      .Reject()(errorLogger)
+      .asGrpcError
+}
+
+private[auth] object OngoingAuthorizationObserver {
+
+  /** @param userRightsCheckIntervalInSeconds - determines the interval at which to check whether user rights state has changed.
+    *                                          Also, double of this value serves as timeout value for subsequent user rights state checks.
+    */
+  def apply[A](
+      observer: ServerCallStreamObserver[A],
+      originalClaims: ClaimSet.Claims,
+      nowF: () => Instant,
+      errorFactories: ErrorFactories,
+      userManagementStore: UserManagementStore,
+      userRightsCheckIntervalInSeconds: Int,
+      akkaScheduler: Scheduler,
+  )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ServerCallStreamObserver[A] = {
+
+    val lastUserRightsCheckTime = new AtomicReference(nowF())
+    val userRightsCheckerO = if (originalClaims.resolvedFromUser) {
+      val checker = new UserRightsChangeAsyncChecker(
+        lastUserRightsCheckTime = lastUserRightsCheckTime,
+        originalClaims = originalClaims,
+        nowF: () => Instant,
+        userManagementStore: UserManagementStore,
+        userRightsCheckIntervalInSeconds: Int,
+        akkaScheduler: Scheduler,
+      )
+      Some(checker)
+    } else {
+      None
+    }
+    new OngoingAuthorizationObserver(
+      observer = observer,
+      originalClaims = originalClaims,
+      nowF = nowF,
+      errorFactories = errorFactories,
+      userRightsCheckerO = userRightsCheckerO,
+      userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
+      lastUserRightsCheckTime = lastUserRightsCheckTime,
+    )
+  }
+
 }

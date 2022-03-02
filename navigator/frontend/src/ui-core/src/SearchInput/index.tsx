@@ -1,8 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { StyledTextInput } from '../Input';
+import * as React from "react";
+import { StyledTextInput } from "../Input";
 
 const DEBOUNCE_TIME_DEFAULT = 500;
 
@@ -27,7 +27,7 @@ export default class SearchInput extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.immediateChange = this.immediateChange.bind(this);
-    this.state = { value: this.props.initialValue || '' };
+    this.state = { value: this.props.initialValue || "" };
   }
 
   immediateChange(event: React.ChangeEvent<HTMLInputElement>): void {
@@ -41,15 +41,13 @@ export default class SearchInput extends React.Component<Props, State> {
   }
 
   render(): JSX.Element {
-    const {
-      className,
-      placeholder = '',
-      disabled = false,
-    } = this.props;
+    const { className, placeholder = "", disabled = false } = this.props;
 
     return (
       <StyledTextInput
-        innerRef={(input) => { this.searchField = input; }}
+        innerRef={input => {
+          this.searchField = input;
+        }}
         className={className}
         type="search"
         disabled={disabled}
@@ -61,6 +59,8 @@ export default class SearchInput extends React.Component<Props, State> {
   }
 
   componentDidMount(): void {
-    if (this.props.focusAfterMount) { this.searchField.focus(); }
+    if (this.props.focusAfterMount) {
+      this.searchField.focus();
+    }
   }
 }

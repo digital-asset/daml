@@ -1,9 +1,7 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
-
-import com.daml.error.ValueSwitch
 
 import java.time.Duration
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
@@ -33,7 +31,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
@@ -41,9 +38,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   import KVTest._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-
-  private val errorVersionSwitch =
-    new ValueSwitch(enableSelfServiceErrorCodes = false)
 
   private val alice = party("Alice")
   private val bob = party("Bob")
@@ -102,7 +96,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           KeyValueConsumption.logEntryToUpdate(
             entryId,
             logEntry,
-            errorVersionSwitch,
           )(loggingContext)
         )
 
@@ -227,7 +220,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
               KeyValueConsumption.logEntryToUpdate(
                 entryId,
                 preExecutionResult.successfulLogEntry,
-                errorVersionSwitch,
                 Some(recordTime),
               )(loggingContext)
             )
@@ -315,7 +307,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           KeyValueConsumption.logEntryToUpdate(
             entryId,
             logEntry,
-            errorVersionSwitch,
           )(loggingContext)
         )
 
@@ -536,7 +527,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           KeyValueConsumption.logEntryToUpdate(
             entryId,
             strippedEntry.build,
-            errorVersionSwitch,
           )(loggingContext)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
@@ -556,7 +546,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         _ <- preExecuteConfig(existingConfig => {
           existingConfig.copy(
             generation = existingConfig.generation + 1,
-            maxDeduplicationTime = maxDeduplicationDuration,
+            maxDeduplicationDuration = maxDeduplicationDuration,
           )
         })
         transaction <- runSimpleCommand(alice, seed, command)
@@ -592,7 +582,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         preExecutionResult.successfulLogEntry,
-        errorVersionSwitch,
         Some(recordTime),
       )(loggingContext)
     )

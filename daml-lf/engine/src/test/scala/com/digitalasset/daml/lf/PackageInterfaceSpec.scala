@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -22,7 +22,7 @@ class PackageInterfaceSpec
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
-  // TODO https://github.com/digital-asset/daml/issues/10810
+  // TODO https://github.com/digital-asset/daml/issues/12051
   //  test interfaces
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
@@ -33,7 +33,7 @@ class PackageInterfaceSpec
         module Mod {
 
           val unit: Unit = ();
-          
+
           record @serializable Tuple X Y = { fst: X, snd: Y };
           variant @serializable Either a b = Left : a | Right : b ;
           enum @serializable Color = Red | Green | Blue;

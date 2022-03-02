@@ -26,3 +26,5 @@ test = scenario do
   assert $ bob > alice
   assert $ not (alice > bob)
   assert $ not (bob > bob)
+
+-- @ENABLE-SCENARIOS

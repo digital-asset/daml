@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
@@ -43,6 +43,8 @@ da_haskell_library(
         "uuid",
         "vector",
         "yaml",
+        "aeson-pretty",
+        "time",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -68,6 +70,8 @@ da_haskell_binary(
         "process",
         "safe-exceptions",
         "typed-process",
+        "time",
+        "text",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],
@@ -91,7 +95,7 @@ da_haskell_test(
     srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
     data = [
         "daml-helper",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
         "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
@@ -117,7 +121,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-assistant/daml-helper",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     # TODO (MK) https://github.com/digital-asset/daml/issues/9768
     flaky = True,
@@ -159,7 +163,7 @@ da_haskell_test(
         "daml-helper",
         ":test.dar",
         "//ledger-service/http-json:http-json-binary",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     hackage_deps = [
         "base",
@@ -193,7 +197,7 @@ da_haskell_test(
         "daml-helper",
         ":test.dar",
         "//ledger-service/http-json:http-json-binary",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     hackage_deps = [
         "base",

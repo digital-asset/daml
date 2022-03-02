@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -38,7 +38,9 @@ config_setting(
         data = [
             "@//bazel_tools/client_server/with-postgres:with-postgres-exe",
             "@daml-sdk-{}//:daml".format(version),
-        ],
+        ] + ([
+            "@daml-sdk-{}//:sandbox-on-x".format(version),
+        ] if versions.is_at_least("2.0.0", version) else []),
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for version in platform_versions

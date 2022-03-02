@@ -1,4 +1,4 @@
-import * as OpaqueTypes from './OpaqueTypes'
+import * as OpaqueTypes from "./OpaqueTypes";
 /* tslint:disable */
 /* eslint-disable */
 // @generated
@@ -98,6 +98,23 @@ export interface CommandResultsQuery {
 
 export interface CommandResultsQueryVariables {
   commandIds: string[];
+}
+
+/* tslint:disable */
+/* eslint-disable */
+// @generated
+// This file was automatically generated and should not be edited.
+
+// ====================================================
+// GraphQL query operation: ParameterFormPartyQuery
+// ====================================================
+
+export interface ParameterFormPartyQuery {
+  parties: OpaqueTypes.Party[];
+}
+
+export interface ParameterFormPartyQueryVariables {
+  filter: string;
 }
 
 /* tslint:disable */

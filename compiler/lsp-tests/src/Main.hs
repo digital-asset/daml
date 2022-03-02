@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -18,9 +18,9 @@ import Data.Foldable (toList)
 import Data.List.Extra
 import qualified Data.Text as T
 import qualified Language.LSP.Test as LspTest
-import Language.LSP.Types
+import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
 import Language.LSP.Types.Capabilities
-import Language.LSP.Types.Lens hiding (id)
+import Language.LSP.Types.Lens hiding (id, to)
 import Network.URI
 import SdkVersion
 import System.Directory
@@ -36,7 +36,7 @@ import DA.Daml.Lsp.Test.Util
 import qualified Language.LSP.Test as LSP
 
 fullCaps' :: ClientCapabilities
-fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
+fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
 
 main :: IO ()
 main = do
@@ -45,14 +45,14 @@ main = do
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
     scriptDarPath <- locateRunfiles $
         mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
-    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps' dir s
+    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no --enable-scenarios=yes") fullCaps' dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything
             -- that uses the scenario service extremely flaky and forces us to disable it on
             -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
             -- also run scenario tests on Windows.
             | isWindows = pure ()
-            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
+            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
         [ symbolsTests run
         , diagnosticTests run runScenarios
@@ -883,7 +883,7 @@ includePathTests damlc = testGroup "include-path"
               , "test = scenario $ assert False"
               ]
           withCurrentDirectory dir $
-            runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
+            runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir $ do
               _docB <- openDoc "src2/B.daml" "daml"
               -- If we get a scenario result, we managed to build a DALF which
               -- is what we really want to check here.
@@ -927,12 +927,12 @@ multiPackageTests damlc
               , "f : Scenario A"
               , "f = pure a"
               ]
-          withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "-o", dir </> "b" </> "b.dar"]
+          withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "--enable-scenarios=yes", "-o", dir </> "b" </> "b.dar"]
           step "run language server"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               ]
-          withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
+          withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir $ do
               docA <- openDoc ("a" </> "A.daml") "daml"
               Just fpA <- pure $ uriToFilePath (docA ^. uri)
               r <- getHover docA (Position 2 0)
@@ -999,7 +999,7 @@ multiPackageTests damlc
           -- When run in the project directory, the IDE will take care of initializing
           -- the package db so we do not need to build.
           step "run language server"
-          withCurrentDirectory (dir </> "b") $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' (dir </> "b") $ do
+          withCurrentDirectory (dir </> "b") $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' (dir </> "b") $ do
               -- We cannot open files in a here but we can open files in b
               docB <- openDoc "B.daml" "daml"
               Just escapedFpB <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (docB ^. uri)

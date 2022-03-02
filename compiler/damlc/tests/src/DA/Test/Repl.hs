@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.Repl (main) where
@@ -8,8 +8,8 @@ import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Test.Sandbox
 import Data.Aeson
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import Data.List
 import qualified Data.Text as T
@@ -72,10 +72,10 @@ withTokenFile f = withResource acquire release (f . fmap fst)
     release = snd
 
 jwtToken :: String
-jwtToken = T.unpack $ JWT.encodeSigned (JWT.HMACSecret $ BS.pack testSecret) mempty mempty
+jwtToken = T.unpack $ JWT.encodeSigned (JWT.EncodeHMACSecret $ BS.pack testSecret) mempty mempty
     { JWT.unregisteredClaims = JWT.ClaimsMap $ Map.fromList
           [ ( "https://daml.com/ledger-api"
-            , Object $ HashMap.fromList
+            , Object $ KM.fromList
                   [ ("actAs", toJSON ["Alice" :: T.Text])
                   , ("ledgerId", toJSON testLedgerId)
                   , ("applicationId", "foobar")

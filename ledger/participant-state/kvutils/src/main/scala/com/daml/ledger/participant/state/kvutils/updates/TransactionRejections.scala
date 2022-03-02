@@ -1,15 +1,13 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.updates
 
 import com.daml.error.definitions.LedgerApiErrors
 
-import java.io.StringWriter
 import java.time.Instant
-import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.GrpcStatus
-import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
@@ -20,27 +18,19 @@ import com.daml.ledger.participant.state.kvutils.store.events._
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.protobuf.ProtocolStringList
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 /** Utilities for converting between rejection log entries and updates and/or gRPC statuses.
   */
 private[kvutils] object TransactionRejections {
 
-  @nowarn("msg=deprecated")
   def invalidRecordTimeRejectionUpdate(
       recordTime: Timestamp,
       tooEarlyUntil: Option[Timestamp],
       tooLateFrom: Option[Timestamp],
       rejectionEntry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
     Update.CommandRejected(
       recordTime = recordTime,
@@ -49,28 +39,22 @@ private[kvutils] object TransactionRejections {
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
-        errorVersionSwitch.choose(
-          V1.invalidRecordTimeRejectionStatus(
-            rejectionEntry,
-            invalidRecordTimeReason(recordTime, tooEarlyUntil, tooEarlyUntil),
-            Code.ABORTED,
-          ),
-          V2.invalidRecordTimeRejectionStatus(
-            rejectionEntry,
-            recordTime,
-            tooEarlyUntil,
-            tooLateFrom,
-          ),
-        )
+        KVErrors.Time.InvalidRecordTime
+          .Reject(
+            rejectionEntry.getDefiniteAnswer,
+            invalidRecordTimeReason(recordTime, tooEarlyUntil, tooLateFrom),
+            recordTime.toInstant,
+            tooEarlyUntil.map(_.toInstant),
+            tooLateFrom.map(_.toInstant),
+          )
+          .asStatus
       ),
     )
   }
 
-  @nowarn("msg=deprecated")
   def duplicateCommandsRejectionUpdate(
       recordTime: Timestamp,
       rejectionEntry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
       existingCommandSubmissionId: Option[String],
   )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
     val definiteAnswer = rejectionEntry.getDefiniteAnswer
@@ -81,98 +65,57 @@ private[kvutils] object TransactionRejections {
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
-        errorVersionSwitch.choose(
-          V1.duplicateCommandsRejectionStatus(definiteAnswer, Code.ALREADY_EXISTS),
-          V2.duplicateCommandsRejectionStatus(definiteAnswer, existingCommandSubmissionId),
-        )
+        duplicateCommandsRejectionStatus(definiteAnswer, existingCommandSubmissionId)
       ),
     )
   }
 
-  @nowarn("msg=deprecated")
-  def rejectionReasonNotSetStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
-  )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(entry, Code.UNKNOWN, "No reason set for rejection"),
-      V2.rejectionReasonNotSetStatus(),
-    )
+  def rejectionReasonNotSetStatus()(implicit loggingContext: ContextualizedErrorLogger): Status =
+    KVErrors.Internal.RejectionReasonNotSet
+      .Reject()
+      .asStatus
 
-  @nowarn("msg=deprecated")
   def invalidParticipantStateStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: InvalidParticipantState,
-      errorVersionSwitch: ValueSwitch,
+      rejection: InvalidParticipantState
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
     val metadata = rejection.getMetadataMap.asScala.toMap
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.INVALID_ARGUMENT,
-        s"Disputed: $details",
-        metadata,
-      ),
-      V2.invalidParticipantStateStatus(details, metadata),
-    )
+    KVErrors.Internal.InvalidParticipantState
+      .Reject(details, metadata)
+      .asStatus
   }
 
-  @nowarn("msg=deprecated")
   def partiesNotKnownOnLedgerStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: PartiesNotKnownOnLedger,
-      errorVersionSwitch: ValueSwitch,
+      rejection: PartiesNotKnownOnLedger
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val parties = rejection.getPartiesList
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.INVALID_ARGUMENT,
-        s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
-        Map("parties" -> toJsonString(parties)),
-      ),
-      V2.partiesNotKnownOnLedgerStatus(parties.asScala.toSeq),
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+        .Reject(parties.asScala.toSet)
+        .asGrpcStatusFromContext
     )
   }
 
-  @nowarn("msg=deprecated")
   def submittingPartyNotKnownOnLedgerStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: SubmittingPartyNotKnownOnLedger,
-      errorVersionSwitch: ValueSwitch,
+      rejection: SubmittingPartyNotKnownOnLedger
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val submitter = rejection.getSubmitterParty
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.INVALID_ARGUMENT,
-        s"Party not known on ledger: Submitting party '$submitter' not known",
-        Map("submitter_party" -> submitter),
-      ),
-      V2.submittingPartyNotKnownOnLedgerStatus(submitter),
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.SubmittingPartyNotKnownOnLedger
+        .Reject(submitter)
+        .asGrpcStatusFromContext
     )
   }
 
-  @nowarn("msg=deprecated")
-  def causalMonotonicityViolatedStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
-  )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        "Invalid ledger time: Causal monotonicity violated",
-      ),
-      V2.causalMonotonicityViolatedStatus(),
-    )
+  def causalMonotonicityViolatedStatus()(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Status =
+    KVErrors.Time.CausalMonotonicityViolated
+      .Reject()
+      .asStatus
 
-  @nowarn("msg=deprecated")
   def recordTimeOutOfRangeStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: RecordTimeOutOfRange,
-      errorVersionSwitch: ValueSwitch,
+      rejection: RecordTimeOutOfRange
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val minRecordTime = Instant
       .ofEpochSecond(
@@ -184,525 +127,182 @@ private[kvutils] object TransactionRejections {
         rejection.getMaximumRecordTime.getSeconds,
         rejection.getMaximumRecordTime.getNanos.toLong,
       )
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
-        Map(
-          "minimum_record_time" -> minRecordTime.toString,
-          "maximum_record_time" -> maxRecordTime.toString,
-        ),
-      ),
-      V2.recordTimeOutOfRangeStatus(minRecordTime, maxRecordTime),
-    )
+    KVErrors.Time.RecordTimeOutOfRange
+      .Reject(minRecordTime, maxRecordTime)
+      .asStatus
   }
 
-  @nowarn("msg=deprecated")
-  def externallyDuplicateKeysStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
-  )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}",
-      ),
-      V2.externallyDuplicateKeysStatus(),
+  def externallyDuplicateKeysStatus()(implicit loggingContext: ContextualizedErrorLogger): Status =
+    GrpcStatus.toProto(
+      LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+        .Reject(ExternallyInconsistentTransaction.DuplicateKeys.description)
+        .asGrpcStatusFromContext
     )
 
-  @nowarn("msg=deprecated")
-  def externallyInconsistentKeysStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
-  )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}",
-      ),
-      V2.externallyInconsistentKeysStatus(),
+  def externallyInconsistentKeysStatus()(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Status =
+    GrpcStatus.toProto(
+      LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+        .Reject(ExternallyInconsistentTransaction.InconsistentKeys.description)
+        .asGrpcStatusFromContext
     )
 
-  @nowarn("msg=deprecated")
-  def externallyInconsistentContractsStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
-  )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}",
-      ),
-      V2.externallyInconsistentContractsStatus(),
+  def externallyInconsistentContractsStatus()(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Status =
+    GrpcStatus.toProto(
+      LedgerApiErrors.ConsistencyErrors.InconsistentContracts
+        .Reject(ExternallyInconsistentTransaction.InconsistentContracts.description)
+        .asGrpcStatusFromContext
     )
 
-  @nowarn("msg=deprecated")
   def missingInputStateStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: MissingInputState,
-      errorVersionSwitch: ValueSwitch,
+      rejection: MissingInputState
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val key = rejection.getKey.toString
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Inconsistent: Missing input state for key $key",
-        Map("key" -> key),
-      ),
-      V2.missingInputStateStatus(key),
-    )
+    KVErrors.Internal.MissingInputState
+      .Reject(key)
+      .asStatus
   }
 
-  @nowarn("msg=deprecated")
   def internallyInconsistentKeysStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.INVALID_ARGUMENT,
-        s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}",
-      ),
-      V2.internallyInconsistentKeysStatus(), // Code.INTERNAL as it should have been caught by the participant
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.Internal.InternallyInconsistentKeys
+        .Reject(InternallyInconsistentTransaction.InconsistentKeys.description)
+        .asGrpcStatusFromContext
     )
 
-  @nowarn("msg=deprecated")
   def internallyDuplicateKeysStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Status =
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.INVALID_ARGUMENT,
-        s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}",
-      ),
-      V2.internallyDuplicateKeysStatus(), // Code.INTERNAL as it should have been caught by the participant
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
+        .Reject(InternallyInconsistentTransaction.DuplicateKeys.description)
+        .asGrpcStatusFromContext
     )
 
-  @nowarn("msg=deprecated")
   def validationFailureStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: ValidationFailure,
-      errorVersionSwitch: ValueSwitch,
+      rejection: ValidationFailure
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.disputedStatus(entry, details, Code.INVALID_ARGUMENT),
-      V2.validationFailureStatus(details),
-    )
+    KVErrors.Consistency.ValidationFailure
+      .Reject(details)
+      .asStatus
   }
 
-  @nowarn("msg=deprecated")
   def duplicateCommandStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
+      entry: DamlTransactionRejectionEntry
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val rejectionReason = entry.getDuplicateCommand
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ALREADY_EXISTS,
-        "Duplicate commands",
-      ),
-      V2.duplicateCommandsRejectionStatus(existingCommandSubmissionId =
-        Some(rejectionReason.getSubmissionId).filter(_.nonEmpty)
-      ),
+    duplicateCommandsRejectionStatus(existingCommandSubmissionId =
+      Some(rejectionReason.getSubmissionId).filter(_.nonEmpty)
     )
   }
 
-  @nowarn("msg=deprecated")
   def submitterCannotActViaParticipantStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: SubmitterCannotActViaParticipant,
-      errorVersionSwitch: ValueSwitch,
+      rejection: SubmitterCannotActViaParticipant
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val submitter = rejection.getSubmitterParty
     val participantId = rejection.getParticipantId
     val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.PERMISSION_DENIED,
-        s"Submitter cannot act via participant: $details",
-        Map(
-          "submitter_party" -> submitter,
-          "participant_id" -> participantId,
-        ),
-      ),
-      V2.submitterCannotActViaParticipantStatus(details, submitter, participantId),
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
+        .RejectWithSubmitterAndParticipantId(
+          details,
+          submitter,
+          participantId,
+        )
+        .asGrpcStatusFromContext
     )
   }
 
-  @nowarn("msg=deprecated")
   def invalidLedgerTimeStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: InvalidLedgerTime,
-      errorVersionSwitch: ValueSwitch,
+      rejection: InvalidLedgerTime
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
     val ledgerTime = rejection.getLedgerTime
     val ledgerTimeLowerBound = rejection.getLowerBound
     val ledgerTimeUpperBound = rejection.getUpperBound
 
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Invalid ledger time: $details",
-        Map(
-          "ledger_time" -> ledgerTime.toString,
-          "lower_bound" -> ledgerTimeLowerBound.toString,
-          "upper_bound" -> ledgerTimeUpperBound.toString,
-        ),
-      ),
-      V2.invalidLedgerTimeStatus(
-        details,
-        ledgerTime = Instant
-          .ofEpochSecond(
-            ledgerTime.getSeconds,
-            ledgerTime.getNanos.toLong,
-          ),
-        ledgerTimeLowerBound = Instant
-          .ofEpochSecond(
-            ledgerTimeLowerBound.getSeconds,
-            ledgerTimeLowerBound.getNanos.toLong,
-          ),
-        ledgerTimeUpperBound = Instant
-          .ofEpochSecond(
-            ledgerTimeUpperBound.getSeconds,
-            ledgerTimeUpperBound.getNanos.toLong,
-          ),
-      ),
+    GrpcStatus.toProto(
+      LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+        .RejectEnriched(
+          cause = details,
+          ledger_time = Instant
+            .ofEpochSecond(
+              ledgerTime.getSeconds,
+              ledgerTime.getNanos.toLong,
+            ),
+          ledger_time_lower_bound = Instant
+            .ofEpochSecond(
+              ledgerTimeLowerBound.getSeconds,
+              ledgerTimeLowerBound.getNanos.toLong,
+            ),
+          ledger_time_upper_bound = Instant
+            .ofEpochSecond(
+              ledgerTimeUpperBound.getSeconds,
+              ledgerTimeUpperBound.getNanos.toLong,
+            ),
+        )
+        .asGrpcStatusFromContext
     )
   }
 
-  @nowarn("msg=deprecated")
   def resourceExhaustedStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: ResourcesExhausted,
-      errorVersionSwitch: ValueSwitch,
+      rejection: ResourcesExhausted
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Resources exhausted: $details",
-      ),
-      V2.resourceExhaustedStatus(details),
-    )
+    KVErrors.Resources.ResourceExhausted
+      .Reject(details)
+      .asStatus
   }
 
   @deprecated
   def partyNotKnownOnLedgerStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: PartyNotKnownOnLedger,
-      errorVersionSwitch: ValueSwitch,
+      rejection: PartyNotKnownOnLedger
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.INVALID_ARGUMENT,
-        s"Party not known on ledger: $details",
-      ),
-      V2.partyNotKnownOnLedgerStatus(details),
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+        .RejectDeprecated(details)
+        .asGrpcStatusFromContext
     )
   }
 
   @deprecated
   def inconsistentStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: Inconsistent,
-      errorVersionSwitch: ValueSwitch,
+      rejection: Inconsistent
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Inconsistent: $details",
-      ),
-      V2.inconsistentStatus(details),
+    GrpcStatus.toProto(
+      LedgerApiErrors.ConsistencyErrors.Inconsistent
+        .Reject(details)
+        .asGrpcStatusFromContext
     )
   }
 
   @deprecated
   def disputedStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: Disputed,
-      errorVersionSwitch: ValueSwitch,
+      rejection: Disputed
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.disputedStatus(entry, details, Code.INVALID_ARGUMENT),
-      V2.disputedStatus(details),
-    )
-  }
-
-  private object V2 {
-
-    def externallyDuplicateKeysStatus()(implicit
-        loggingContext: ContextualizedErrorLogger
-    ): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-          .Reject(ExternallyInconsistentTransaction.DuplicateKeys.description)
-          .asGrpcStatusFromContext
-      )
-
-    def externallyInconsistentKeysStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
-          .Reject(ExternallyInconsistentTransaction.InconsistentKeys.description)
-          .asGrpcStatusFromContext
-      )
-
-    def externallyInconsistentContractsStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.InconsistentContracts
-          .Reject(ExternallyInconsistentTransaction.InconsistentContracts.description)
-          .asGrpcStatusFromContext
-      )
-
-    def submitterCannotActViaParticipantStatus(
-        details: String,
-        submitter: String,
-        participantId: String,
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
-          .RejectWithSubmitterAndParticipantId(
-            details,
-            submitter,
-            participantId,
-          )
-          .asGrpcStatusFromContext
-      )
-
-    def recordTimeOutOfRangeStatus(
-        minimumRecordTime: Instant,
-        maximumRecordTime: Instant,
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Time.RecordTimeOutOfRange
-        .Reject(minimumRecordTime, maximumRecordTime)
-        .asStatus
-
-    def invalidRecordTimeRejectionStatus(
-        rejectionEntry: DamlTransactionRejectionEntry,
-        recordTime: Timestamp,
-        tooEarlyUntil: Option[Timestamp],
-        tooLateFrom: Option[Timestamp],
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Time.InvalidRecordTime
-        .Reject(
-          rejectionEntry.getDefiniteAnswer,
-          invalidRecordTimeReason(recordTime, tooEarlyUntil, tooLateFrom),
-          recordTime.toInstant,
-          tooEarlyUntil.map(_.toInstant),
-          tooLateFrom.map(_.toInstant),
-        )
-        .asStatus
-
-    def causalMonotonicityViolatedStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Time.CausalMonotonicityViolated
-        .Reject()
-        .asStatus
-
-    def duplicateCommandsRejectionStatus(
-        definiteAnswer: Boolean = false,
-        existingCommandSubmissionId: Option[String],
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-          .Reject(definiteAnswer, existingCommandSubmissionId)
-          .asGrpcStatusFromContext
-      )
-
-    def rejectionReasonNotSetStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.RejectionReasonNotSet
-        .Reject()
-        .asStatus
-
-    def invalidParticipantStateStatus(
-        details: String,
-        metadata: Map[String, String],
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.InvalidParticipantState
-        .Reject(details, metadata)
-        .asStatus
-
-    def validationFailureStatus(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.ValidationFailure
+    GrpcStatus.toProto(
+      LedgerApiErrors.WriteServiceRejections.Disputed
         .Reject(details)
-        .asStatus
-
-    def missingInputStateStatus(
-        key: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.MissingInputState
-        .Reject(key)
-        .asStatus
-
-    def internallyInconsistentKeysStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.InternallyInconsistentKeys
-        .Reject()
-        .asStatus
-
-    def internallyDuplicateKeysStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.InternallyDuplicateKeys
-        .Reject()
-        .asStatus
-
-    def submittingPartyNotKnownOnLedgerStatus(
-        submitter: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.WriteServiceRejections.SubmittingPartyNotKnownOnLedger
-          .Reject(submitter)
-          .asGrpcStatusFromContext
-      )
-
-    def partiesNotKnownOnLedgerStatus(
-        parties: Seq[String]
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
-          .Reject(parties.toSet)
-          .asGrpcStatusFromContext
-      )
-
-    def resourceExhaustedStatus(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Resources.ResourceExhausted
-        .Reject(details)
-        .asStatus
-
-    @deprecated
-    def invalidLedgerTimeStatus(
-        details: String,
-        ledgerTime: Instant,
-        ledgerTimeLowerBound: Instant,
-        ledgerTimeUpperBound: Instant,
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-          .RejectEnriched(details, ledgerTime, ledgerTimeLowerBound, ledgerTimeUpperBound)
-          .asGrpcStatusFromContext
-      )
-
-    @deprecated
-    def partyNotKnownOnLedgerStatus(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
-          .RejectDeprecated(details)
-          .asGrpcStatusFromContext
-      )
-
-    @deprecated
-    def inconsistentStatus(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.Inconsistent
-          .Reject(details)
-          .asGrpcStatusFromContext
-      )
-
-    @deprecated
-    def disputedStatus(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.WriteServiceRejections.Disputed
-          .Reject(details)
-          .asGrpcStatusFromContext
-      )
-  }
-
-  @deprecated
-  private object V1 {
-    def status(
-        entry: DamlTransactionRejectionEntry,
-        code: Code,
-        message: String,
-        additionalMetadata: Map[String, String] = Map.empty,
-    ): Status = Status.of(
-      code.value,
-      message,
-      Seq(
-        AnyProto.pack[ErrorInfo](
-          ErrorInfo(metadata =
-            additionalMetadata + (GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
-          )
-        )
-      ),
-    )
-
-    def disputedStatus(
-        entry: DamlTransactionRejectionEntry,
-        rejectionString: String,
-        code: Code,
-    ): Status = status(
-      entry,
-      code,
-      s"Disputed: $rejectionString",
-    )
-
-    def invalidRecordTimeRejectionStatus(
-        rejectionEntry: DamlTransactionRejectionEntry,
-        reason: String,
-        errorCode: Code,
-    ): Status = Status.of(
-      errorCode.value,
-      reason,
-      Seq(
-        AnyProto.pack[ErrorInfo](
-          ErrorInfo(metadata =
-            Map(
-              GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
-            )
-          )
-        )
-      ),
-    )
-
-    def duplicateCommandsRejectionStatus(
-        definiteAnswer: Boolean,
-        errorCode: Code,
-    ): Status = Status.of(
-      errorCode.value,
-      "Duplicate commands",
-      Seq(
-        AnyProto.pack[ErrorInfo](
-          // the definite answer is false, as the rank-based deduplication is not yet implemented
-          ErrorInfo(metadata =
-            Map(
-              GrpcStatuses.DefiniteAnswerKey -> definiteAnswer.toString
-            )
-          )
-        )
-      ),
+        .asGrpcStatusFromContext
     )
   }
+
+  private def duplicateCommandsRejectionStatus(
+      definiteAnswer: Boolean = false,
+      existingCommandSubmissionId: Option[String],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
+    GrpcStatus.toProto(
+      LedgerApiErrors.ConsistencyErrors.DuplicateCommand
+        .Reject(definiteAnswer, existingCommandSubmissionId)
+        .asGrpcStatusFromContext
+    )
 
   private def invalidRecordTimeReason(
       recordTime: Timestamp,
@@ -720,10 +320,4 @@ private[kvutils] object TransactionRejections {
         "Record time outside of valid range"
     }
 
-  private def toJsonString(parties: ProtocolStringList): String = {
-    val stringWriter = new StringWriter
-    val objectMapper = new ObjectMapper
-    objectMapper.writeValue(stringWriter, parties)
-    stringWriter.toString
-  }
 }

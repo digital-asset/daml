@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.tls
@@ -10,11 +10,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.GrpcChannel
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
+import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -99,18 +95,14 @@ case class TlsFixture(
       trustCertCollectionFile = Some(caCrt),
     )
 
-  private val ledgerClientConfiguration = LedgerClientConfiguration(
-    applicationId = s"TlsCertificates-app",
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    sslContext = clientTlsConfiguration.client(),
-    token = None,
+  private val ledgerClientChannelConfiguration = LedgerClientChannelConfiguration(
+    sslContext = clientTlsConfiguration.client()
   )
 
   private def resources(): ResourceOwner[ManagedChannel] =
     for {
       apiServer <- apiServerOwner()
-      channel <- new GrpcChannel.Owner(apiServer.port, ledgerClientConfiguration)
+      channel <- new GrpcChannel.Owner(apiServer.port, ledgerClientChannelConfiguration)
     } yield channel
 
 }

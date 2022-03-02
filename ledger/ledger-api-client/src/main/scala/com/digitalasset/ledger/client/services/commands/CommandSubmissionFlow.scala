@@ -1,16 +1,15 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
 object CommandSubmissionFlow {
@@ -33,7 +32,7 @@ object CommandSubmissionFlow {
                     telemetryContext,
                   )
                 )
-              }(DirectExecutionContext)
+              }(ExecutionContext.parasitic)
           }
       }
   }

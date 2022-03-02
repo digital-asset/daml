@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
@@ -17,11 +17,11 @@ module InterfaceDesugared where
 import DA.Assert ( (===) )
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
-  interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
+  _interfaceTypeRep = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasToInterface Token Token where
-  _toInterface = GHC.Types.primitive @"EToInterface"
+  _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
-  fromInterface = GHC.Types.primitive @"EFromInterface"
+  fromInterface this = Some this
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
 instance DA.Internal.Desugar.HasMethod Token "noopImpl" (()
@@ -81,6 +81,8 @@ instance DA.Internal.Desugar.HasEnsure Token where
   ensure this = (getAmount this >= 0)
 instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Token where
+  (==) = GHC.Types.primitive @"BEEqual"
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
@@ -90,13 +92,20 @@ instance (DA.Internal.Desugar.Implements t Token) =>
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t GetRich (ContractId Token) where
-  exercise cid arg
+         DA.Internal.Desugar.HasExerciseGuarded t GetRich (ContractId Token) where
+  exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
         (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Token)) =>
+         DA.Internal.Desugar.HasExercise t GetRich (ContractId Token) where
+  exercise
+    = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
@@ -106,13 +115,20 @@ instance (DA.Internal.Desugar.Implements t Token) =>
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t Noop (()) where
-  exercise cid arg
+         DA.Internal.Desugar.HasExerciseGuarded t Noop (()) where
+  exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
         (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Token)) =>
+         DA.Internal.Desugar.HasExercise t Noop (()) where
+  exercise
+    = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
@@ -122,13 +138,20 @@ instance (DA.Internal.Desugar.Implements t Token) =>
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t Transfer (ContractId Token) where
-  exercise cid arg
+         DA.Internal.Desugar.HasExerciseGuarded t Transfer (ContractId Token) where
+  exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
         (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Token)) =>
+         DA.Internal.Desugar.HasExercise t Transfer (ContractId Token) where
+  exercise
+    = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
                                                       ContractId Token)) where
@@ -140,14 +163,22 @@ instance (DA.Internal.Desugar.Implements t Token) =>
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t Split ((ContractId Token,
-                                                   ContractId Token)) where
-  exercise cid arg
+         DA.Internal.Desugar.HasExerciseGuarded t Split ((ContractId Token,
+                                                                  ContractId Token)) where
+  exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
         (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Token)) =>
+         DA.Internal.Desugar.HasExercise t Split ((ContractId Token,
+                                                   ContractId Token)) where
+  exercise
+    = DA.Internal.Desugar._exerciseDefault
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -383,3 +414,5 @@ main
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 25
                 pure ()
+
+-- @ENABLE-SCENARIOS

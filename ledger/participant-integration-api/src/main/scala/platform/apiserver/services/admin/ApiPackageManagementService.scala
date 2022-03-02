@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -11,11 +11,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.definitions.LoggingPackageServiceError
 import com.daml.error.definitions.PackageServiceError.Validation
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
@@ -40,7 +36,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -52,7 +48,6 @@ private[apiserver] final class ApiPackageManagementService private (
     engine: Engine,
     darReader: GenDarReader[Archive],
     submissionIdGenerator: String => Ref.SubmissionId,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -62,7 +57,7 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
@@ -160,7 +155,6 @@ private[apiserver] object ApiPackageManagementService {
       writeBackend: state.WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       darReader: GenDarReader[Archive] = DarParser,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
@@ -176,7 +170,6 @@ private[apiserver] object ApiPackageManagementService {
       engine,
       darReader,
       submissionIdGenerator,
-      errorCodesVersionSwitcher,
     )
 
   private final class SynchronousResponseStrategy(
@@ -198,7 +191,7 @@ private[apiserver] object ApiPackageManagementService {
     override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
         telemetryContext: TelemetryContext
     ): Future[state.SubmissionResult] =
-      packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
+      packagesWrite.uploadPackages(submissionId, dar.all, None).asScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
       packagesIndex.packageEntries(offset)
@@ -213,7 +206,7 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        errorFactories.packageUploadRejected(reason, definiteAnswer = None)(
+        errorFactories.packageUploadRejected(reason)(
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
         )
     }

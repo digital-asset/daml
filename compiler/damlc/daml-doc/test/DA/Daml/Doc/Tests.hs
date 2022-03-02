@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -194,7 +194,7 @@ unitTests =
            , "  where"
            , "    signatory field1"
            , "    implements Bar where"
-           , "      let method = pure ()"
+           , "      method = pure ()"
            ]
            (\md -> assertBool
                    ("Expected interface implementation, got " <> show md)

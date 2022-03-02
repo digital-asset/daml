@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: expressions
@@ -124,7 +124,7 @@ To bind values or functions to be in scope beneath the expression, use the block
    :start-after: -- BEGIN_LET_EXPRESSION
    :end-before: -- END_LET_EXPRESSION
 
-You can use ``let`` inside ``do`` and ``scenario`` blocks:
+You can use ``let`` inside ``do`` blocks:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml

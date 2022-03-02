@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Class of data structures that can be folded to a summary value.
@@ -50,7 +50,7 @@ class Foldable t where
   foldl1 : (a -> a -> a) -> t a -> a
   foldl1 f xs = O.fromSomeNote "foldl1: empty input" (foldl mf None xs)
     where
-      mf m x = Some (case m of None -> x; Some y -> f x y)
+      mf m x = Some (case m of None -> x; Some y -> f y x)
 
   -- | List of elements of a structure, from left to right.
   toList : t a -> [a]
@@ -98,6 +98,10 @@ mapA_ f = foldr ((*>) . f) (pure ())
 -- that doesn't ignore the results see 'DA.Traversable.forA'.
 forA_ : (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()
 forA_ = flip mapA_
+
+{-# DEPRECATED forM_ "Daml compatibility helper, use 'forA_' instead of 'forM_'" #-}
+forM_ : (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()
+forM_ = forA_
 
 -- | Evaluate each action in the structure from left to right,
 -- and ignore the results. For a version that doesn't ignore the

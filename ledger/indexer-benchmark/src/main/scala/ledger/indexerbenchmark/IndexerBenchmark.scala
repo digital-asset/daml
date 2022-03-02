@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.indexerbenchmark
@@ -10,7 +10,6 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Snapshot}
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -44,7 +43,7 @@ class IndexerBenchmark() {
       .use(db => {
         println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
         run(createUpdates, config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = db.url)))
-      })(DirectExecutionContext)
+      })(ExecutionContext.parasitic)
   }
 
   def run(
@@ -71,7 +70,6 @@ class IndexerBenchmark() {
       val indexerFactory = new JdbcIndexer.Factory(
         config.indexerConfig,
         readService,
-        indexerEC,
         metrics,
         LfValueTranslationCache.Cache.none,
       )
@@ -110,6 +108,12 @@ class IndexerBenchmark() {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
         val updateRate: Double = updates / duration
+        val inputMappingDurationMetric = metrics.registry.timer(
+          MetricRegistry.name(metrics.daml.parallelIndexer.inputMapping.executor, "duration")
+        )
+        val batchingDurationMetric = metrics.registry.timer(
+          MetricRegistry.name(metrics.daml.parallelIndexer.batching.executor, "duration")
+        )
         val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
           config.minUpdateRate match {
             case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
@@ -151,13 +155,21 @@ class IndexerBenchmark() {
             metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
           )}
              |  inputMapping.duration:      ${histogramToString(
-            metrics.daml.parallelIndexer.inputMapping.duration.getSnapshot
+            inputMappingDurationMetric.getSnapshot
           )}
-             |  inputMapping.duration.rate: ${metrics.daml.parallelIndexer.inputMapping.duration.getMeanRate}
+             |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
+             |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
+             |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
+             |  seqMapping.duration: ${metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot}|
+             |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
              |  ingestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.ingestion.duration.getSnapshot
+            metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
           )}
-             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.duration.getMeanRate}
+             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
+             |  tailIngestion.duration:         ${histogramToString(
+            metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
+          )}
+             |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
              |
              |Notes:
              |  The above numbers include all ingested updates, including package uploads.
@@ -189,7 +201,7 @@ class IndexerBenchmark() {
       Configuration(
         generation = 0,
         timeModel = LedgerTimeModel.reasonableDefault,
-        maxDeduplicationTime = java.time.Duration.ofDays(1),
+        maxDeduplicationDuration = java.time.Duration.ofDays(1),
       ),
       Time.Timestamp.Epoch,
     )

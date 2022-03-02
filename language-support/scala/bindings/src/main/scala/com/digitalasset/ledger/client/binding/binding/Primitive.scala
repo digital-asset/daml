@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -15,8 +15,7 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
 import scala.annotation.nowarn
-import scala.collection.compat._
-import scala.collection.{mutable, immutable => imm}
+import scala.collection.{Factory, mutable, immutable => imm}
 
 sealed abstract class Primitive extends PrimitiveInstances {
   type Int64 = Long

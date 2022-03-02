@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
@@ -14,13 +14,23 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
+  // Ensure that mutable state does not change while reading.
+  // `StampedLock` supports many read locks, or one write lock.
   private val lockCurrentState = new StampedLock()
   @volatile private var lastLogEntryIndex = 0
 
-  def readLog[A](action: ImmutableLog => A): A =
-    action(log) // `log` is mutable, but the interface is immutable
-
   def newHeadSinceLastWrite(): Int = lastLogEntryIndex
+
+  def readLog[A](action: ImmutableLog => A): A = {
+    val stamp = blocking {
+      lockCurrentState.readLock()
+    }
+    try {
+      action(log) // `log` is mutable, but the interface is immutable
+    } finally {
+      lockCurrentState.unlock(stamp)
+    }
+  }
 
   def write[A](action: (MutableLog, MutableState) => Future[A])(implicit
       executionContext: ExecutionContext
@@ -47,12 +57,10 @@ object InMemoryState {
   type MutableState = mutable.Map[Raw.StateKey, Raw.Envelope] with ImmutableState
 
   // The first element will never be read because begin offsets are exclusive.
-  private val Beginning =
-    LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Envelope.empty)
+  private val Beginning = LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Envelope.empty)
 
-  def empty =
-    new InMemoryState(
-      log = mutable.ArrayBuffer(Beginning),
-      state = mutable.Map.empty,
-    )
+  def empty = new InMemoryState(
+    log = mutable.ArrayBuffer(Beginning),
+    state = mutable.Map.empty,
+  )
 }

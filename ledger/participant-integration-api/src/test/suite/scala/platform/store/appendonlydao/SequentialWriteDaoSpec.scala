@@ -1,10 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
-
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -31,7 +30,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
-    val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5, 1)))
+    val storageBackendCaptor = new StorageBackendCaptor(LedgerEnd(Offset.beforeBegin, 5, 1))
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       parameterStorageBackend = storageBackendCaptor,
@@ -82,7 +81,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "start event_seq_id from 1" in {
-    val storageBackendCaptor = new StorageBackendCaptor(None)
+    val storageBackendCaptor = new StorageBackendCaptor(LedgerEnd.beforeBegin)
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       parameterStorageBackend = storageBackendCaptor,
@@ -104,7 +103,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured should have size 4
   }
 
-  class StorageBackendCaptor(initialLedgerEnd: Option[ParameterStorageBackend.LedgerEnd])
+  class StorageBackendCaptor(initialLedgerEnd: ParameterStorageBackend.LedgerEnd)
       extends IngestionStorageBackend[Vector[DbDto]]
       with ParameterStorageBackend {
 
@@ -118,7 +117,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       captured = captured ++ batch
     }
 
-    override def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
+    override def deletePartiallyIngestedData(ledgerEnd: ParameterStorageBackend.LedgerEnd)(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
@@ -132,7 +131,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       }
 
     private var ledgerEndCalled = false
-    override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
+    override def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd =
       synchronized {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false

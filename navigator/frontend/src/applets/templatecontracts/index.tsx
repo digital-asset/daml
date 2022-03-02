@@ -1,24 +1,26 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-
-import { ApolloClient } from '@apollo/client';
-import { withApollo, withQuery } from '@apollo/client/react/hoc';
+import { ApolloClient } from "@apollo/client";
+import { withApollo, withQuery } from "@apollo/client/react/hoc";
 import {
   ApolloDataProvider,
   ContractColumn,
   ContractTable,
   ContractTableConfig,
   Dispatch,
-} from '@da/ui-core';
-import { User } from '@da/ui-core/lib/session';
-import * as React from 'react';
-import { connect } from 'react-redux';
-import { ContractsByTemplateParamQuery, ContractsByTemplateParamQueryVariables } from 'src/api/Queries';
-import { contract as contractRoute } from '../../routes';
-import { pathToAction } from '../../routes';
-import * as App from '../app';
-import makeColumns from './columns';
+} from "@da/ui-core";
+import { User } from "@da/ui-core/lib/session";
+import * as React from "react";
+import { connect } from "react-redux";
+import {
+  ContractsByTemplateParamQuery,
+  ContractsByTemplateParamQueryVariables,
+} from "src/api/Queries";
+import { contract as contractRoute } from "../../routes";
+import { pathToAction } from "../../routes";
+import * as App from "../app";
+import makeColumns from "./columns";
 import {
   Contract,
   dataToRows,
@@ -27,7 +29,7 @@ import {
   paramQuery,
   ParamQueryData,
   query,
-} from './data';
+} from "./data";
 
 export const INITIAL_FETCH_SIZE = 100;
 
@@ -38,7 +40,7 @@ export interface TableConfig extends ContractTableConfig {
 export type State = TableConfig;
 
 export const init = (id: string): TableConfig => ({
-  search: '',
+  search: "",
   filter: [],
   includeArchived: true,
   count: INITIAL_FETCH_SIZE,
@@ -47,18 +49,19 @@ export const init = (id: string): TableConfig => ({
   id,
 });
 
-export type Action
-  = { type: 'SET_CONFIG', config: TableConfig };
+export type Action = { type: "SET_CONFIG"; config: TableConfig };
 
-const setConfig = (config: TableConfig): Action =>
-  ({ type: 'SET_CONFIG', config });
+const setConfig = (config: TableConfig): Action => ({
+  type: "SET_CONFIG",
+  config,
+});
 
 export const reduce = (_: State, action: Action): State => {
   switch (action.type) {
-    case 'SET_CONFIG':
+    case "SET_CONFIG":
       return action.config;
   }
-}
+};
 
 interface ReduxProps {
   dispatch: Dispatch<App.Action>;
@@ -83,7 +86,6 @@ interface OwnProps {
 type Props = GraphQLProps & ReduxProps & ApolloProps & OwnProps;
 
 class Component extends React.Component<Props, {}> {
-
   private dataProvider: ApolloDataProvider<TableConfig>;
 
   constructor(props: Props) {
@@ -91,7 +93,11 @@ class Component extends React.Component<Props, {}> {
     this.onConfigChange = this.onConfigChange.bind(this);
     this.onClick = this.onClick.bind(this);
     this.dataProvider = new ApolloDataProvider(
-      props.client, query, makeQueryVariables, dataToRows);
+      props.client,
+      query,
+      makeQueryVariables,
+      dataToRows,
+    );
   }
 
   onConfigChange(config: TableConfig) {
@@ -101,14 +107,22 @@ class Component extends React.Component<Props, {}> {
 
   onClick(contract: Contract) {
     const { dispatch } = this.props;
-    dispatch(pathToAction(contractRoute.render({ id: encodeURIComponent(contract.id) })));
+    dispatch(
+      pathToAction(
+        contractRoute.render({ id: encodeURIComponent(contract.id) }),
+      ),
+    );
   }
 
   render() {
     const { data } = this.props;
     const columns =
-      data && data.node && data.node.__typename === 'Template' && data.node.parameterDef.dataType.type === 'record' ?
-      makeColumns(data.node.parameterDef.dataType) : [];
+      data &&
+      data.node &&
+      data.node.__typename === "Template" &&
+      data.node.parameterDef.dataType.type === "record"
+        ? makeColumns(data.node.parameterDef.dataType)
+        : [];
     return (
       <ContractTable
         title={`Contracts for [${this.props.state.id}]`}
@@ -130,18 +144,13 @@ class Component extends React.Component<Props, {}> {
   }
 }
 
-const withGraphQL
-  =
-  withQuery<
-    ReduxProps & ApolloProps & OwnProps,
-    ContractsByTemplateParamQuery,
-    ContractsByTemplateParamQueryVariables,
-    GraphQLProps>(
-    paramQuery, { options: (s) => makeParamQueryVariables(s) });
+const withGraphQL = withQuery<
+  ReduxProps & ApolloProps & OwnProps,
+  ContractsByTemplateParamQuery,
+  ContractsByTemplateParamQueryVariables,
+  GraphQLProps
+>(paramQuery, { options: s => makeParamQueryVariables(s) });
 
-export const UI: React.ComponentClass<OwnProps> =
-  withApollo<OwnProps>(
-    connect()(
-      withGraphQL(Component),
-    ),
-  );
+export const UI: React.ComponentClass<OwnProps> = withApollo<OwnProps>(
+  connect()(withGraphQL(Component)),
+);

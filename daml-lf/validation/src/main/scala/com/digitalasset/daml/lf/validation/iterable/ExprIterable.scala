@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -73,6 +73,12 @@ private[validation] object ExprIterable {
       case EToRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
       case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
+        iterator(body)
+      case EInterfaceTemplateTypeRep(iface @ _, body) =>
+        iterator(body)
+      case ESignatoryInterface(iface @ _, body) =>
+        iterator(body)
+      case EObserverInterface(iface @ _, body) =>
         iterator(body)
     }
   }

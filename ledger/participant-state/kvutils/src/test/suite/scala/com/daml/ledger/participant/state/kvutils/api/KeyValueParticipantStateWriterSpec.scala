@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -142,7 +142,7 @@ object KeyValueParticipantStateWriterSpec {
   private val aConfiguration: Configuration = Configuration(
     generation = 1,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = Duration.ofDays(1),
+    maxDeduplicationDuration = Duration.ofDays(1),
   )
 
   private val anInterpretationCost = 123L
@@ -169,7 +169,8 @@ object KeyValueParticipantStateWriterSpec {
   private def submitterInfo(party: Ref.Party, submissionId: String) =
     SubmitterInfo(
       actAs = List(party),
-      applicationId = Ref.LedgerString.assertFromString("tests"),
+      readAs = List.empty,
+      applicationId = Ref.ApplicationId.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString("someCommandId"),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofDays(1)),
       submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),

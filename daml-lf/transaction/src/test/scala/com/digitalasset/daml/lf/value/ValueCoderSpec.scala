@@ -1,7 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
+package lf
 package value
 
 import com.daml.lf.EitherAssertions
@@ -27,6 +28,19 @@ class ValueCoderSpec
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000)
+
+  "encode" should {
+    "fail gracefully when serialized message exceeding 2GB" in {
+
+      val ver = TransactionVersion.StableVersions.max
+
+      val value0 = ValueText("a" * (1024 * 1024 * 1024))
+      val value1 = ValueList(FrontStack(value0, value0))
+
+      ValueCoder.encodeValue(ValueCoder.CidEncoder, ver, value0) shouldBe a[Right[_, _]]
+      ValueCoder.encodeValue(ValueCoder.CidEncoder, ver, value1) shouldBe a[Left[_, _]]
+    }
+  }
 
   "encode-decode" should {
     "do Int" in {

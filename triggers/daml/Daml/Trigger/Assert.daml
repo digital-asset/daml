@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
@@ -67,7 +67,7 @@ testRule trigger party readAs acsBuilder commandsInFlight s = do
   acs <- buildACS party acsBuilder
   let state = TriggerState
         { acs = acs
-        , party = party
+        , actAs = party
         , readAs = readAs
         , userState = s
         , commandsInFlight = commandsInFlight

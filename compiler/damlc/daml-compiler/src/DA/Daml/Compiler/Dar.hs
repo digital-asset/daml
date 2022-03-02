@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Compiler.Dar
     ( createDarFile
@@ -240,7 +240,7 @@ mergePkgs pkgName mbPkgVer ver pkgs =
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
                  , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = LF.getPackageMetadata ver pkgName mbPkgVer }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just $ LF.getPackageMetadata pkgName mbPkgVer }
         pkgs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as

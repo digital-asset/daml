@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module is a workaround for the `output not created` error we
@@ -20,25 +20,20 @@ import Build.Bazel.Remote.Execution.V2.RemoteExecution (ActionResult(..), Digest
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TBMQueue
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Resource
+import Control.Exception
+import Control.Monad.Extra
+import Control.Monad.Loops (whileJust_)
 import qualified Data.ByteString.Lazy as BSL
-import Data.Conduit ((.|))
-import qualified Data.Conduit as Conduit
-import qualified Data.Conduit.Combinators as Conduit
-import qualified Data.Conduit.Process.Typed as Conduit
-import qualified Data.Conduit.Text as Conduit
-import qualified Data.Conduit.TQueue as Conduit
+import Data.List (isPrefixOf, stripPrefix)
 import Data.Maybe
-import Data.Text (Text)
-import qualified Data.Text as T
 import Data.Time
 import Data.Time.Format.ISO8601
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS
 import qualified Proto3.Suite as Proto3
 import System.IO
+import System.IO.Error
+import System.Process.Typed
 
 data Opts = Opts
   { age :: NominalDiffTime
@@ -55,49 +50,50 @@ data Opts = Opts
 
 newtype Delete = Delete Bool
 
+forLine :: Handle -> (String -> IO ()) -> IO ()
+forLine h f = go
+  where go = do
+            r <- tryJust (guard . isEOFError) (hGetLine h)
+            case r of
+                Left _ -> pure ()
+                Right l -> f l >> go
+
 run :: Opts -> IO ()
 run Opts{..} = do
     now <- getCurrentTime
     let oldest = addUTCTime (- age) now
     let procSpec =
-            Conduit.setStdout Conduit.createSource $
-            Conduit.proc "gsutil" ["list", "-l", gsCachePath cacheSuffix]
+            setStdout createPipe $
+            proc "gsutil" ["list", "-l", gsCachePath cacheSuffix]
     manager <- newManager tlsManagerSettings
-    runResourceT $ do
-        (reg, queue) <- allocate (newTBMQueueIO queueSize) (atomically . closeTBMQueue)
-        workers <- replicateM concurrency $ do
-            (_, worker) <- allocate (async (worker delete manager queue)) uninterruptibleCancel
-            pure worker
-        liftIO $ Conduit.withProcessWait procSpec $ \p -> do
-            let outConduit = Conduit.getStdout p
-            Conduit.runConduit
-              $ outConduit
-              .| Conduit.decode Conduit.utf8 .| Conduit.lines
-              .| Conduit.filter (not . isTotal)
-              .| Conduit.concatMapM (filterLine oldest)
-              .| Conduit.sinkTBMQueue queue
-        release reg
-        liftIO $ mapM_ wait workers
+    queue <- newTBMQueueIO queueSize
+    workers <- replicateM concurrency $ async (worker delete manager queue)
+    withProcessWait procSpec $ \p -> do
+        forLine (getStdout p) $ \l ->
+          when (not $ isTotal l) $ do
+            r <- filterLine oldest l
+            whenJust r $ atomically . writeTBMQueue queue
+    atomically $ closeTBMQueue queue
+    mapM_ wait workers
 
-worker :: Delete -> Manager -> TBMQueue (UTCTime, Text) -> IO ()
-worker delete manager queue = Conduit.runConduit
-    $ Conduit.sourceTBMQueue queue
-    .| Conduit.concatMapM (validateArtifact manager)
-    .| Conduit.mapM_ (handleInvalid delete)
+worker :: Delete -> Manager -> TBMQueue (UTCTime, String) -> IO ()
+worker delete manager queue = whileJust_ (atomically $ readTBMQueue queue) $ \a -> do
+  r <- validateArtifact manager a
+  whenJust r $ handleInvalid delete
 
 -- | Handle an invalid entry.
-handleInvalid :: Delete -> (UTCTime, Text, ActionResult) -> IO ()
+handleInvalid :: Delete -> (UTCTime, String, ActionResult) -> IO ()
 handleInvalid (Delete delete) (time, path, r) = do
     putStrLn $ "Found invalid AC at " <> show path <> " created at " <> show time <> ": " <> show r
     when delete $ do
         putStrLn $ "Deleting AC " <> show path
-        exit <- Conduit.runProcess $
-            Conduit.proc "gsutil" ["rm", "gs://daml-bazel-cache/" <> T.unpack path]
+        exit <- runProcess $
+            proc "gsutil" ["rm", "gs://daml-bazel-cache/" <> path]
         putStrLn $ "Exit code: " <> show exit
 
 -- | Filter to lines that parse and are for entries that are not older
 -- than the supplied age.
-filterLine :: UTCTime -> T.Text -> IO (Maybe (UTCTime, T.Text))
+filterLine :: UTCTime -> String -> IO (Maybe (UTCTime, String))
 filterLine oldest s = case parseLine s of
     Nothing -> do
         hPutStrLn stderr $
@@ -110,9 +106,9 @@ filterLine oldest s = case parseLine s of
 -- | Download and validate the AC artifact at the given path.
 -- Returns Nothing for valid artifacts and Just _ for a broken
 -- arfiact.
-validateArtifact :: Manager -> (UTCTime, Text) -> IO (Maybe (UTCTime, Text, ActionResult))
+validateArtifact :: Manager -> (UTCTime, String) -> IO (Maybe (UTCTime, String, ActionResult))
 validateArtifact manager (time, path) = do
-    req <- parseUrlThrow (cacheUrl (T.unpack path))
+    req <- parseUrlThrow (cacheUrl path)
     resp <- httpLbs req manager
     let bs = responseBody resp
     case Proto3.fromByteString (BSL.toStrict bs) of
@@ -141,16 +137,16 @@ validateArtifact manager (time, path) = do
     brokenDigestHash = "102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604"
 
 -- | Checks for the last line in `gsutil -l`’s output.
-isTotal :: Text -> Bool
-isTotal = T.isPrefixOf "TOTAL: "
+isTotal :: String -> Bool
+isTotal = isPrefixOf "TOTAL: "
 
 -- | Parse a single line in the output of `gsutil -l`
 -- into the time and the cache path.
-parseLine :: Text -> Maybe (UTCTime, Text)
+parseLine :: String -> Maybe (UTCTime, String)
 parseLine t = do
-    [_, timeStr, name] <- pure (T.words t)
-    time <- iso8601ParseM (T.unpack timeStr)
-    path <- T.stripPrefix "gs://daml-bazel-cache/" name
+    [_, timeStr, name] <- pure (words t)
+    time <- iso8601ParseM timeStr
+    path <- stripPrefix "gs://daml-bazel-cache/" name
     pure (time, path)
 
 gsCachePath :: Maybe String -> String

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.postgresql
@@ -64,34 +64,5 @@ private[postgresql] object PGTable {
   ): Table[FROM] = {
     val insertSuffix = s"on conflict (${fields(keyFieldIndex)._1}) do nothing"
     transposedInsertBase(transposedInsertStatement(tableName, fields, insertSuffix))(fields)
-  }
-
-  def transposedDelete[FROM](
-      tableName: String
-  )(field: (String, Field[FROM, _, _])): Table[FROM] = {
-    val tableField = field._1
-    val inputField = s"${field._1}_in"
-    val selectField = field._2.selectFieldExpression(inputField)
-    val deleteStatement = {
-      s"""
-        |DELETE FROM $tableName
-        |WHERE $tableField IN (
-        |  SELECT $selectField
-        |  FROM unnest(?)
-        |  as t($inputField)
-        |)
-        |""".stripMargin
-    }
-    new BaseTable[FROM](Seq(field)) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit =
-        data =>
-          connection =>
-            Table.ifNonEmpty(data) {
-              val preparedStatement = connection.prepareStatement(deleteStatement)
-              preparedStatement.setObject(1, data(0))
-              preparedStatement.execute()
-              preparedStatement.close()
-            }
-    }
   }
 }

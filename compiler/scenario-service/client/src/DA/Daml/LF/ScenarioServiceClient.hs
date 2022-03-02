@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.ScenarioServiceClient
@@ -41,7 +41,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
 
-import DA.Daml.Options.Types (EnableScenarioService(..))
+import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -59,6 +59,7 @@ data Options = Options
   , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
+  , optEnableScenarios :: EnableScenarios
   }
 
 toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
@@ -87,7 +88,10 @@ withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
 withScenarioService :: LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
-withScenarioService ver loggerH scenarioConfig f = do
+withScenarioService = withScenarioService'' (EnableScenarios True)
+
+withScenarioService'' :: EnableScenarios -> LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService'' optEnableScenarios ver loggerH scenarioConfig f = do
   hOptions <- getOptions
   LowLevel.withScenarioService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
@@ -112,17 +116,19 @@ withScenarioService ver loggerH scenarioConfig f = do
                 , optLogDebug = wrapLog Logger.logDebug
                 , optLogInfo = wrapLog Logger.logInfo
                 , optLogError = wrapLog Logger.logError
+                , optEnableScenarios
                 }
 
 withScenarioService'
     :: EnableScenarioService
+    -> EnableScenarios
     -> LF.Version
     -> Logger.Handle IO
     -> ScenarioServiceConfig
     -> (Maybe Handle -> IO a)
     -> IO a
-withScenarioService' (EnableScenarioService enable) ver loggerH conf f
-    | enable = withScenarioService ver loggerH conf (f . Just)
+withScenarioService' (EnableScenarioService enable) enableScenarios ver loggerH conf f
+    | enable = withScenarioService'' enableScenarios ver loggerH conf (f . Just)
     | otherwise = f Nothing
 
 data ScenarioServiceConfig = ScenarioServiceConfig
@@ -149,10 +155,15 @@ readScenarioServiceConfig = do
 
 parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServiceConfig
 parseScenarioServiceConfig conf = do
-    cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
-    cnfGrpcTimeout <- queryProjectConfig ["scenario-service", "grpc-timeout"] conf
-    cnfJvmOptions <- fromMaybe [] <$> queryProjectConfig ["scenario-service", "jvm-options"] conf
+    cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
+    cnfGrpcTimeout <- queryOpt "grpc-timeout"
+    cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     pure ScenarioServiceConfig {..}
+  where queryOpt opt = do
+            a <- queryProjectConfig ["script-service", opt] conf
+            case a of
+                Nothing -> queryProjectConfig ["scenario-service", opt] conf
+                Just a -> pure (Just a)
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)

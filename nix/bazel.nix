@@ -1,7 +1,7 @@
 # Bazel MUST only use this file to source dependencies
 #
 # This allows CI to pre-build and cache the build outputs
-{ system ? builtins.currentSystem
+{ system ? import ./system.nix
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
 let shared = rec {
@@ -12,7 +12,6 @@ let shared = rec {
     docker
     gawk
     gnutar
-    grpc
     grpcurl
     gzip
     imagemagick
@@ -65,7 +64,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8107;
+  ghcPkgs = pkgs.haskell.packages.native-bignum.ghc902;
 
   ghc = ghcPkgs.ghc;
   # Deliberately not taken from ghcPkgs. This is a fully
@@ -73,7 +72,6 @@ let shared = rec {
   # and upstream nixpkgs does not cache packages for
   # integer-simple.
   hlint = pkgs.hlint;
-
 
   # Java 8 development
   mvn = pkgs.writeScriptBin "mvn" ''
@@ -95,27 +93,14 @@ let shared = rec {
         sha256 = "0p1yls8pplfg59wzmb96m3pjcyr3202an1rcr5wn2jwqhqvqi4ll";
       };
       doCheck = false;
-      buildInputs = [sphinx183];
+      buildInputs = [pkgs.python3Packages.sphinx];
   } ;
 
-  # sphinx 2.2.2 causes build failures of //docs:pdf-docs.
-  # We override here rather than in nixpkgs.nix since GHC depends on sphinx
-  # and we don’t want to rebuild that unnecessarily.
-  sphinx183 = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
-    version = "1.8.3";
-    doCheck = false;
-    src = pkgs.fetchFromGitHub {
-      owner = "sphinx-doc";
-      repo = "sphinx";
-      rev = "v${version}";
-      sha256 = "1hkqi5kzs85idv1w85qdl1bb2fwh7ccmgp6m860kzpkrl55149y8";
-    };
-  });
-
-  sphinx183-exts = sphinx183.overridePythonAttrs (attrs: rec {
+  sphinx-exts = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
     propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
   });
 
+  script = pkgs.unixtools.script;
   sysctl = pkgs.unixtools.sysctl;
 
   # Custom combination of latex packages for our latex needs
@@ -159,8 +144,6 @@ let shared = rec {
       xargs
     ;
   };
-
-  z3 = pkgs.z3;
 
   bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
 };

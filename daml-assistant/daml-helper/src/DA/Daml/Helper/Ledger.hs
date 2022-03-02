@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -7,6 +7,7 @@ module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
     RemoteDalf(..),
     defaultLedgerFlags,
+    sandboxLedgerFlags,
     getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
@@ -19,13 +20,13 @@ module DA.Daml.Helper.Ledger (
     runLedgerUploadDar,
     runLedgerFetchDar,
     runLedgerExport,
-    runLedgerNavigator,
     runLedgerReset,
     runLedgerGetDalfs,
     runLedgerListPackages,
     runLedgerListPackages0,
+    runLedgerMeteringReport,
     -- exported for testing
-    downloadAllReachablePackages
+    downloadAllReachablePackages,
     ) where
 
 import Control.Exception (SomeException(..), catch)
@@ -33,7 +34,7 @@ import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson ((.=))
+import Data.Aeson ((.=), encode)
 import qualified Data.Aeson as A
 import Data.Aeson.Text
 import qualified Data.ByteString as BS
@@ -73,6 +74,10 @@ import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified SdkVersion
+import DA.Ledger.Types (Timestamp(..), ApplicationId(..))
+import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Time.Calendar (Day(..))
+
 
 data LedgerApi
   = Grpc
@@ -101,6 +106,12 @@ defaultLedgerFlags api = LedgerFlags
   , fPortM = Nothing
   , fTokFileM = Nothing
   , fMaxReceiveLengthM = Nothing
+  }
+
+sandboxLedgerFlags :: Int -> LedgerFlags
+sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
+  { fHostM = Just "localhost"
+  , fPortM = Just port
   }
 
 data LedgerArgs = LedgerArgs
@@ -525,27 +536,6 @@ runLedgerExport flags remainingArguments = do
         exitCode <- waitExitCode ph
         exitWith exitCode
 
--- | Run navigator against configured ledger. We supply Navigator with
--- the list of parties from the ledger, but in the future Navigator
--- should fetch the list of parties itself.
-runLedgerNavigator :: LedgerFlags -> [String] -> IO ()
-runLedgerNavigator flags remainingArguments = do
-    args <- getDefaultArgs flags
-    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
-    putStrLn $ "Opening navigator at " <> showHostAndPort args
-    let navigatorArgs = concat
-            [ ["server"]
-            , [host args, show (port args)]
-            , ["--ignore-project-parties"]
-            , remainingArguments
-            ]
-    withJar
-      damlSdkJar
-      [logbackArg]
-      ("navigator" : navigatorArgs) $ \ph -> do
-        exitCode <- waitExitCode ph
-        exitWith exitCode
-
 --
 -- Interface with the Haskell bindings
 --------------------------------------
@@ -644,3 +634,23 @@ sanitizeToken :: String -> String
 sanitizeToken tok
   | "Bearer " `isPrefixOf` tok = tok
   | otherwise = "Bearer " <> tok
+
+-- | Report on Ledger Use.
+runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationId -> Bool -> IO ()
+runLedgerMeteringReport flags fromIso toIso application compactOutput = do
+    args <- getDefaultArgs flags
+    report <- meteringReport args (L.utcDayToTimestamp fromIso) (fmap L.utcDayToTimestamp toIso) application
+    let encodeFn = if compactOutput then encode else encodePretty  
+    let encoded = encodeFn report
+    let bsc = BSL.toStrict encoded
+    let output = BSC.unpack bsc
+    putStrLn output
+
+meteringReport :: LedgerArgs -> Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> IO L.MeteringReport
+meteringReport args from to application =
+  case api args of
+    Grpc -> runWithLedgerArgs args $ do L.getMeteringReport from to application
+    HttpJson -> do
+      hPutStrLn stderr "Error: daml ledger metering can only be run via gRPC at the moment."
+      exitFailure
+

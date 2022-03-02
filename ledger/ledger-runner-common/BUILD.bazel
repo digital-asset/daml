@@ -1,0 +1,69 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "ledger-runner-common",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:ledger-runner-common:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//language-support/scala/bindings",
+        "//ledger-service/jwt",
+        "//ledger/caching",
+        "//ledger/cli-opts",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_netty_netty_handler",
+    ],
+)
+
+da_scala_test_suite(
+    name = "ledger-runner-common-tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    deps = [
+        ":ledger-runner-common",
+        "//daml-lf/data",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

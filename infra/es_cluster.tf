@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "google_compute_network" "es" {
@@ -10,7 +10,7 @@ Instruct ES to move all data out of blue nodes:
 PUT _cluster/settings
 {
   "transient" : {
-    "cluster.routing.allocation.exclude._ip" : "es-blue-*"
+    "cluster.routing.allocation.exclude._name" : "es-blue-*"
   }
 }
 use null to reset
@@ -23,20 +23,20 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 0,
-      init           = "[]",
-      type           = "n2-highmem-2",
-      xmx            = "12g",
-      disk_size      = 300,
-    },
-    {
-      suffix         = "-green",
-      ubuntu_version = "2004",
       size           = 5,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
-      disk_size      = 500,
+      disk_size      = 800,
+    },
+    {
+      suffix         = "-green",
+      ubuntu_version = "2004",
+      size           = 0,
+      init           = "[]",
+      type           = "n2-highmem-2",
+      xmx            = "12g",
+      disk_size      = 800,
     },
     {
       suffix         = "-init",
@@ -218,7 +218,7 @@ docker run -d \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx} -Dlog4j2.formatMsgNoLookups=true" \
            -v /root/es-data:/usr/share/elasticsearch/data \
            es
 
@@ -283,7 +283,7 @@ resource "google_compute_instance_group_manager" "es" {
     instance_template = google_compute_instance_template.es[count.index].self_link
   }
 
-  dynamic named_port {
+  dynamic "named_port" {
     for_each = local.es_ports
     content {
       name = named_port.value["name"]
@@ -323,7 +323,7 @@ resource "google_compute_backend_service" "es-http" {
   security_policy       = google_compute_security_policy.es.self_link
   load_balancing_scheme = "EXTERNAL"
 
-  dynamic backend {
+  dynamic "backend" {
     for_each = local.es_clusters
     content {
       group           = google_compute_instance_group_manager.es[backend.key].instance_group

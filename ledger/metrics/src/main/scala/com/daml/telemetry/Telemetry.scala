@@ -1,11 +1,14 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.telemetry
 
+import java.util.concurrent.TimeUnit
 import java.util.{Map => jMap}
 
-import io.opentelemetry.api.trace.{Span, Tracer}
+import io.opentelemetry.api.common.{AttributeKey, Attributes}
+import io.opentelemetry.api.trace
+import io.opentelemetry.api.trace.{Span, SpanBuilder, SpanContext, Tracer}
 import io.opentelemetry.context.Context
 
 import scala.concurrent.Future
@@ -109,7 +112,7 @@ object DefaultTelemetry extends DefaultTelemetry(OpenTelemetryTracer)
   *
   * It always returns NoOpTelemetryContext, and just executes without modification any given code block function.
   */
-object NoOpTelemetry extends Telemetry(Tracer.getDefault) {
+object NoOpTelemetry extends Telemetry(NoOpTracer) {
 
   override def contextFromGrpcThreadLocalContext(): TelemetryContext = NoOpTelemetryContext
 
@@ -120,4 +123,34 @@ object NoOpTelemetry extends Telemetry(Tracer.getDefault) {
 
   override def contextFromOpenTelemetryContext(context: Context): TelemetryContext =
     NoOpTelemetryContext
+}
+
+private object NoOpTracer extends Tracer {
+  override def spanBuilder(spanName: String): SpanBuilder = NoOpSpanBuilder
+
+  private object NoOpSpanBuilder extends SpanBuilder {
+    override def setParent(context: Context): SpanBuilder = this
+
+    override def setNoParent(): SpanBuilder = this
+
+    override def addLink(spanContext: SpanContext): SpanBuilder = this
+
+    override def addLink(spanContext: SpanContext, attributes: Attributes): SpanBuilder = this
+
+    override def setAttribute(key: String, value: String): SpanBuilder = this
+
+    override def setAttribute(key: String, value: Long): SpanBuilder = this
+
+    override def setAttribute(key: String, value: Double): SpanBuilder = this
+
+    override def setAttribute(key: String, value: Boolean): SpanBuilder = this
+
+    override def setAttribute[T](key: AttributeKey[T], value: T): SpanBuilder = this
+
+    override def setSpanKind(spanKind: trace.SpanKind): SpanBuilder = this
+
+    override def setStartTimestamp(startTimestamp: Long, unit: TimeUnit): SpanBuilder = this
+
+    override def startSpan(): Span = Span.getInvalid
+  }
 }

@@ -1,17 +1,17 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Frame as CoreFrame, makeSidebarLink } from '@da/ui-core';
-import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
-import * as Session from '@da/ui-core/lib/session';
-import * as React from 'react';
-import * as App from '../applets/app';
-import * as ConfigSource from '../applets/configsource';
-import * as Page from '../applets/page';
-import { ConfigType } from '../config';
-import * as Routes from '../routes';
-import Link from './Link';
-import Navbar from './Navbar';
+import { Frame as CoreFrame, makeSidebarLink } from "@da/ui-core";
+import * as LedgerWatcher from "@da/ui-core/lib/ledger-watcher";
+import * as Session from "@da/ui-core/lib/session";
+import * as React from "react";
+import * as App from "../applets/app";
+import * as ConfigSource from "../applets/configsource";
+import * as Page from "../applets/page";
+import { ConfigType } from "../config";
+import * as Routes from "../routes";
+import Link from "./Link";
+import Navbar from "./Navbar";
 
 const Item = makeSidebarLink(Link);
 
@@ -42,47 +42,43 @@ const Frame: React.FC<FrameProps> = ({
 
   return (
     <CoreFrame
-      top={(
+      top={
         <Navbar
           user={user}
           watcher={watcher}
           toSession={toSession}
           toWatcher={toWatcher}
         />
-      )}
+      }
       left={[
-        (
-          <Item
-            title="Contracts"
-            isActive={activeRoute === Routes.contracts}
-            route={Routes.contracts}
-            params={{}}
-            key="Contracts"
-          />
-        ),
-        (
-          <Item
-            title="Templates"
-            isActive={activeRoute === Routes.templates}
-            route={Routes.templates}
-            params={{}}
-            key="Templates"
-          />
-        ),
-        ...Object.keys(config.customViews).map((id) => {
-          const {title} = config.customViews[id];
+        <Item
+          title="Contracts"
+          isActive={activeRoute === Routes.contracts}
+          route={Routes.contracts}
+          params={{}}
+          key="Contracts"
+        />,
+        <Item
+          title="Templates"
+          isActive={activeRoute === Routes.templates}
+          route={Routes.templates}
+          params={{}}
+          key="Templates"
+        />,
+        ...Object.keys(config.customViews).map(id => {
+          const { title } = config.customViews[id];
           return (
             <Item
               title={title}
               isActive={page.type === "customview" && page.state.id === id}
               route={Routes.customView}
-              params={{id}}
+              params={{ id }}
               key={`Custom-${id}`}
             />
-            );
-          }),
+          );
+        }),
       ]}
-      content={(
+      content={
         <Page.UI
           toConfig={toConfig}
           toSelf={toPage}
@@ -92,9 +88,9 @@ const Frame: React.FC<FrameProps> = ({
           configSource={configSource}
           config={config}
         />
-      )}
+      }
     />
   );
-}
+};
 
 export default Frame;

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
@@ -84,3 +84,22 @@ alias(
     actual = "sdk-release-tarball-ce",
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "test-protobuf-structure",
+    srcs = ["test-protobuf-structure.sh"],
+    args = [
+        "$(location :protobufs.zip)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_SORT)",
+    ],
+    data = [
+        ":protobufs.zip",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+) if not is_windows else None

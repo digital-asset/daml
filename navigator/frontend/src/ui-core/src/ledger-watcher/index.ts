@@ -1,8 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ApolloClient } from '@apollo/client';
-import gql from 'graphql-tag';
+import { ApolloClient } from "@apollo/client";
+import gql from "graphql-tag";
 import {
   CommandResultsQuery,
   CommandResultsQuery_nodes,
@@ -10,8 +10,8 @@ import {
   CommandResultsQueryVariables,
   ContractsByIdQuery,
   ContractsByIdQueryVariables,
-} from '../api/Queries';
-export { UI } from './UI';
+} from "../api/Queries";
+export { UI } from "./UI";
 
 const CONTRACTS_POLL_INTERVAL = 5000;
 const COMMANDS_POLL_INTERVAL = 1000;
@@ -20,38 +20,41 @@ const COMMANDS_POLL_INTERVAL = 1000;
 export const MAX_COMMAND_AGE = 5000;
 
 const contractsQuery = gql`
-query ContractsByIdQuery($contractIds: [ID!]!) {
-  nodes(typename: "Contract", ids: $contractIds) {
-    __typename
-    id
-    ... on Contract {
-      archiveEvent {
-        __typename
-        id
+  query ContractsByIdQuery($contractIds: [ID!]!) {
+    nodes(typename: "Contract", ids: $contractIds) {
+      __typename
+      id
+      ... on Contract {
+        archiveEvent {
+          __typename
+          id
+        }
       }
     }
   }
-}
 `;
 
 const commandResultsQuery = gql`
-query CommandResultsQuery($commandIds: [ID!]!) {
-  nodes(typename: "Command", ids: $commandIds) {
-    __typename
-    id
-    ... on Command {
-      status {
-        __typename
-        ... on CommandStatusError { code details }
+  query CommandResultsQuery($commandIds: [ID!]!) {
+    nodes(typename: "Command", ids: $commandIds) {
+      __typename
+      id
+      ... on Command {
+        status {
+          __typename
+          ... on CommandStatusError {
+            code
+            details
+          }
+        }
       }
     }
   }
-}
 `;
 
-export type ResultType
-  = { type: 'SUCCESS', processedAt: Date; }
-  | { type: 'ERROR', message: string, processedAt: Date; };
+export type ResultType =
+  | { type: "SUCCESS"; processedAt: Date }
+  | { type: "ERROR"; message: string; processedAt: Date };
 
 export interface WatchedCommand {
   commandId: string;
@@ -63,45 +66,48 @@ export interface State {
   commands: WatchedCommand[];
 }
 
-export type Action
-  = {
-    type: 'REGISTER_CONTRACTS',
-    componentId: string,
-    contractIds: string[],
-  } | {
-    type: 'UNREGISTER_CONTRACTS',
-    componentId: string,
-  } | {
-    type: 'SET_COMMAND_RESULT',
-    commandData?: WatchedCommand,
-  } | {
-    type: 'REGISTER_COMMAND',
-    commandId: string,
-  };
+export type Action =
+  | {
+      type: "REGISTER_CONTRACTS";
+      componentId: string;
+      contractIds: string[];
+    }
+  | {
+      type: "UNREGISTER_CONTRACTS";
+      componentId: string;
+    }
+  | {
+      type: "SET_COMMAND_RESULT";
+      commandData?: WatchedCommand;
+    }
+  | {
+      type: "REGISTER_COMMAND";
+      commandId: string;
+    };
 
-export const register = (componentId: string, contractIds: string[]):
-  Action => ({
-    type: 'REGISTER_CONTRACTS',
-    componentId,
-    contractIds,
-  });
+export const register = (
+  componentId: string,
+  contractIds: string[],
+): Action => ({
+  type: "REGISTER_CONTRACTS",
+  componentId,
+  contractIds,
+});
 
 export const unregister = (componentId: string): Action => ({
-  type: 'UNREGISTER_CONTRACTS',
+  type: "UNREGISTER_CONTRACTS",
   componentId,
 });
 
-export const setCommandResult = (commandData?: WatchedCommand)
-  : Action => ({
-  type: 'SET_COMMAND_RESULT',
+export const setCommandResult = (commandData?: WatchedCommand): Action => ({
+  type: "SET_COMMAND_RESULT",
   commandData,
 });
 
 export const registerCommand = (commandId: string): Action => ({
-  type: 'REGISTER_COMMAND',
+  type: "REGISTER_COMMAND",
   commandId,
 });
-
 
 /**
  * NOTE(cbaatz): This should be changed to a pure object that has the component
@@ -136,7 +142,7 @@ export class WatchedContracts {
 
   getDistinctContractIds(): string[] {
     const set: { [index: string]: string } = {};
-    const val = '';
+    const val = "";
     for (const componentId in this.contracts) {
       const contractIds = this.contracts[componentId];
       for (const contractId of contractIds) {
@@ -152,30 +158,33 @@ export class WatchedContracts {
 }
 
 // Reducer function
-export function reduce(prev?: State, action?: Action)
-  : State {
+export function reduce(prev?: State, action?: Action): State {
   if (prev === undefined) {
     return {
       contracts: new WatchedContracts(),
       commands: [],
     };
   }
-  if (action === undefined) { return prev; }
+  if (action === undefined) {
+    return prev;
+  }
   return {
     contracts: watchedContracts(prev.contracts, action),
     commands: watchedCommands(prev.commands, action),
-  }
+  };
 }
 
 function watchedContracts(
   prev: WatchedContracts,
-  action: Action):
-  WatchedContracts {
+  action: Action,
+): WatchedContracts {
   switch (action.type) {
-    case 'REGISTER_CONTRACTS':
-      return new WatchedContracts(prev).addContractIds(action.componentId,
-        action.contractIds);
-    case 'UNREGISTER_CONTRACTS':
+    case "REGISTER_CONTRACTS":
+      return new WatchedContracts(prev).addContractIds(
+        action.componentId,
+        action.contractIds,
+      );
+    case "UNREGISTER_CONTRACTS":
       return new WatchedContracts(prev).removeContractIds(action.componentId);
   }
   return prev;
@@ -183,16 +192,15 @@ function watchedContracts(
 
 function watchedCommands(
   prev: WatchedCommand[],
-  action: Action): WatchedCommand[] {
+  action: Action,
+): WatchedCommand[] {
   switch (action.type) {
-    case 'REGISTER_COMMAND':
-    {
+    case "REGISTER_COMMAND": {
       const result = processCommands(prev);
       result.push({ commandId: action.commandId });
       return result;
     }
-    case 'SET_COMMAND_RESULT':
-    {
+    case "SET_COMMAND_RESULT": {
       const result = processCommands(prev);
       if (action.commandData) {
         for (let i = 0; i < result.length; i++) {
@@ -217,8 +225,10 @@ function processCommands(prev?: WatchedCommand[]): WatchedCommand[] {
   if (prev) {
     const now = new Date().getTime();
     for (const cmd of prev) {
-      if (!cmd.result
-        || (now - cmd.result.processedAt.getTime() <= MAX_COMMAND_AGE)) {
+      if (
+        !cmd.result ||
+        now - cmd.result.processedAt.getTime() <= MAX_COMMAND_AGE
+      ) {
         result.push(cmd);
       }
     }
@@ -233,7 +243,8 @@ class Watcher {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private client: ApolloClient<any>,
     private getWatcherState: () => State,
-    private dispatch: (action: Action) => void) {
+    private dispatch: (action: Action) => void,
+  ) {
     this.start = this.start.bind(this);
     this.stop = this.stop.bind(this);
     this.processContracts = this.processContracts.bind(this);
@@ -241,10 +252,14 @@ class Watcher {
   }
 
   start(): void {
-    this.contractsTimer = window.setTimeout(this.processContracts,
-      CONTRACTS_POLL_INTERVAL);
-    this.commandsTimer = window.setTimeout(this.processCommands,
-      COMMANDS_POLL_INTERVAL);
+    this.contractsTimer = window.setTimeout(
+      this.processContracts,
+      CONTRACTS_POLL_INTERVAL,
+    );
+    this.commandsTimer = window.setTimeout(
+      this.processCommands,
+      COMMANDS_POLL_INTERVAL,
+    );
   }
 
   stop(): void {
@@ -253,20 +268,24 @@ class Watcher {
   }
 
   processContracts(): void {
-    const contractIds = this.getWatcherState().contracts
-      .getDistinctContractIds();
+    const contractIds =
+      this.getWatcherState().contracts.getDistinctContractIds();
     if (contractIds.length > 0) {
       // Run a query and date the client cache with the data manually.
-      this.client.query<ContractsByIdQuery>({
-        query: contractsQuery,
-        variables: { contractIds } as ContractsByIdQueryVariables,
-        fetchPolicy:  'network-only',
-      }).catch((err) => {
-        console.error('Error fetching contract archiving updates:', err);
-      });
+      this.client
+        .query<ContractsByIdQuery>({
+          query: contractsQuery,
+          variables: { contractIds } as ContractsByIdQueryVariables,
+          fetchPolicy: "network-only",
+        })
+        .catch(err => {
+          console.error("Error fetching contract archiving updates:", err);
+        });
     }
-    this.contractsTimer = window.setTimeout(this.processContracts,
-      CONTRACTS_POLL_INTERVAL);
+    this.contractsTimer = window.setTimeout(
+      this.processContracts,
+      CONTRACTS_POLL_INTERVAL,
+    );
   }
 
   processCommands(): void {
@@ -283,43 +302,57 @@ class Watcher {
         this.dispatch(setCommandResult());
       }
       if (commandIds.length > 0) {
-        this.client.query<CommandResultsQuery>({
-          query: commandResultsQuery,
-          variables: { commandIds } as CommandResultsQueryVariables,
-          fetchPolicy: 'network-only',
-        }).then(({ data, loading }) => {
-          if (!loading && data) {
-            data.nodes
-              .map(parseCommand)
-              .filter((r) => r.result !== undefined)
-              .map(setCommandResult)
-              .forEach(this.dispatch);
-          }
-        }).catch((err) => {
-          console.error('Error fetching command status:', err);
-        });
+        this.client
+          .query<CommandResultsQuery>({
+            query: commandResultsQuery,
+            variables: { commandIds } as CommandResultsQueryVariables,
+            fetchPolicy: "network-only",
+          })
+          .then(({ data, loading }) => {
+            if (!loading && data) {
+              data.nodes
+                .map(parseCommand)
+                .filter(r => r.result !== undefined)
+                .map(setCommandResult)
+                .forEach(this.dispatch);
+            }
+          })
+          .catch(err => {
+            console.error("Error fetching command status:", err);
+          });
       }
     }
-    this.commandsTimer = window.setTimeout(this.processCommands,
-      COMMANDS_POLL_INTERVAL);
+    this.commandsTimer = window.setTimeout(
+      this.processCommands,
+      COMMANDS_POLL_INTERVAL,
+    );
   }
 }
 
 function parseCommand(node: CommandResultsQuery_nodes): WatchedCommand {
-  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
+  if (
+    node.__typename === "CreateCommand" ||
+    node.__typename === "ExerciseCommand"
+  ) {
     return { commandId: node.id, result: parseCommandResult(node.status) };
   } else {
     return { commandId: node.id, result: undefined };
   }
 }
 
-function parseCommandResult(status: CommandResultsQuery_nodes_CreateCommand_status): ResultType | undefined {
+function parseCommandResult(
+  status: CommandResultsQuery_nodes_CreateCommand_status,
+): ResultType | undefined {
   const processedAt = new Date();
   switch (status.__typename) {
-    case 'CommandStatusSuccess':
-      return { type: 'SUCCESS', processedAt };
-    case 'CommandStatusError':
-      return { type: 'ERROR', message: `${status.code}: ${status.details}`, processedAt };
+    case "CommandStatusSuccess":
+      return { type: "SUCCESS", processedAt };
+    case "CommandStatusError":
+      return {
+        type: "ERROR",
+        message: `${status.code}: ${status.details}`,
+        processedAt,
+      };
     default:
       return undefined;
   }

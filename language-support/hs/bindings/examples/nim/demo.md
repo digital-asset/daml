@@ -11,7 +11,7 @@ Notes on the format of this file:
 
     $ cd daml
     $ bazel build language-support/hs/bindings/examples/nim/...
-    $ daml install latest --activate
+    $ daml install latest --install-assistant=yes
 
 ## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/main/language-support/hs/bindings/examples/nim/daml/Nim.daml)
 

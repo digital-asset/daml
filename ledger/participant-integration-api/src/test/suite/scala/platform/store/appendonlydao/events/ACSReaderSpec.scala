@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.appendonlydao.events
@@ -291,6 +291,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       tasks = List("a", "b", "c"),
       outputBatchSize = 3,
       inputBatchSize = 2,
+      idQueueLimit = 100,
       metrics = new Metrics(new MetricRegistry),
     )(implicitly)()
     mutableLogic("a" -> List(1, 3)) shouldBe Nil // a [1 3] b [] c []

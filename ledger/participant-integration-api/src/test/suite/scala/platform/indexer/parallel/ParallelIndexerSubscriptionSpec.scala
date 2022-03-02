@@ -1,21 +1,29 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer.parallel
 
-import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.data.Ref
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  TransactionNodeStatistics,
+  TransactionVersion,
+  VersionedTransaction,
+}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.ParallelIndexerSubscription.Batch
 import com.daml.platform.store.backend.{DbDto, ParameterStorageBackend}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.time.Instant
 
 class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
@@ -116,29 +124,21 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     val actual = ParallelIndexerSubscription.inputMapper(
       metrics = metrics,
       toDbDto = _ => _ => Iterator(someParty, someParty),
+      toMeteringDbDto = _ => Vector.empty,
     )(lc)(
       List(
+        (Offset.fromHexString(Ref.HexString.assertFromString("00")), somePackageUploadRejected),
         (
-          (Offset.fromHexString(Ref.HexString.assertFromString("00")), somePackageUploadRejected),
-          1000000001,
+          Offset.fromHexString(Ref.HexString.assertFromString("01")),
+          somePackageUploadRejected.copy(recordTime =
+            somePackageUploadRejected.recordTime.addMicros(1000)
+          ),
         ),
         (
-          (
-            Offset.fromHexString(Ref.HexString.assertFromString("01")),
-            somePackageUploadRejected.copy(recordTime =
-              somePackageUploadRejected.recordTime.addMicros(1000)
-            ),
+          Offset.fromHexString(Ref.HexString.assertFromString("02")),
+          somePackageUploadRejected.copy(recordTime =
+            somePackageUploadRejected.recordTime.addMicros(2000)
           ),
-          1000000002,
-        ),
-        (
-          (
-            Offset.fromHexString(Ref.HexString.assertFromString("02")),
-            somePackageUploadRejected.copy(recordTime =
-              somePackageUploadRejected.recordTime.addMicros(2000)
-            ),
-          ),
-          1000000003,
         ),
       )
     )
@@ -156,10 +156,82 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         someParty,
       ),
       batchSize = 3,
-      averageStartTime = 1000000001,
       offsets = Vector("00", "01", "02").map(offset),
     )
     actual shouldBe expected
+  }
+
+  behavior of "inputMapper transaction metering"
+
+  it should "extract transaction metering" in {
+
+    val applicationId = Ref.ApplicationId.assertFromString("a0")
+
+    val timestamp: Long = 12345
+    val offset = Ref.HexString.assertFromString("02")
+    val statistics = TransactionNodeStatistics(
+      EmptyActions.copy(creates = 2),
+      EmptyActions.copy(consumingExercisesByCid = 1),
+    )
+
+    val someHash = Hash.hashPrivateKey("p0")
+
+    val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
+
+    val someCompletionInfo = state.CompletionInfo(
+      actAs = Nil,
+      applicationId = applicationId,
+      commandId = Ref.CommandId.assertFromString("c0"),
+      optDeduplicationPeriod = None,
+      submissionId = None,
+      statistics = Some(statistics),
+    )
+    val someTransactionMeta = state.TransactionMeta(
+      ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
+      workflowId = None,
+      submissionTime = Time.Timestamp.assertFromLong(3),
+      submissionSeed = someHash,
+      optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    )
+
+    val someTransactionAccepted = state.Update.TransactionAccepted(
+      optCompletionInfo = Some(someCompletionInfo),
+      transactionMeta = someTransactionMeta,
+      transaction = CommittedTransaction(
+        VersionedTransaction(TransactionVersion.VDev, Map.empty, ImmArray.empty)
+      ),
+      transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+      recordTime = someRecordTime,
+      divulgedContracts = List.empty,
+      blindingInfo = None,
+    )
+
+    val expected: Vector[DbDto.TransactionMetering] = Vector(
+      DbDto.TransactionMetering(
+        application_id = applicationId,
+        action_count = statistics.committed.actions + statistics.rolledBack.actions,
+        metering_timestamp = timestamp,
+        ledger_offset = offset,
+      )
+    )
+
+    val actual: Vector[DbDto.TransactionMetering] = ParallelIndexerSubscription
+      .inputMapper(
+        metrics = metrics,
+        toDbDto = _ => _ => Iterator.empty,
+        toMeteringDbDto = _ => expected,
+      )(lc)(
+        List(
+          (Offset.fromHexString(offset), someTransactionAccepted)
+        )
+      )
+      .batch
+      .asInstanceOf[Vector[DbDto.TransactionMetering]]
+
+    actual shouldBe expected
+
   }
 
   behavior of "seqMapperZero"
@@ -172,7 +244,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = 0,
       batch = Vector.empty,
       batchSize = 0,
-      averageStartTime = 0,
       offsets = Vector.empty,
     )
   }
@@ -202,13 +273,11 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        averageStartTime = 1000000001,
         offsets = Vector("00", "01", "02").map(offset),
       ),
     )
     result.lastSeqEventId shouldBe 18
     result.lastStringInterningId shouldBe 1
-    result.averageStartTime should be > System.nanoTime() - 1000000000
     result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
     result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
     result.batch(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 17
@@ -235,7 +304,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        averageStartTime = 1000000001,
         offsets = Vector("00", "01", "02").map(offset),
       ),
     )
@@ -247,8 +315,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   it should "batch correctly in happy path case" in {
     val result = ParallelIndexerSubscription.batcher(
-      batchF = _ => "bumm",
-      metrics = metrics,
+      batchF = _ => "bumm"
     )(
       Batch(
         lastOffset = offset("02"),
@@ -262,7 +329,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        averageStartTime = 1000000001,
         offsets = Vector("00", "01", "02").map(offset),
       )
     )
@@ -273,10 +339,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = someTime.toEpochMilli,
       batch = "bumm",
       batchSize = 3,
-      averageStartTime = result.averageStartTime,
       offsets = Vector("00", "01", "02").map(offset),
     )
-    result.averageStartTime should be > System.nanoTime() - 1000000000
   }
 
   behavior of "tailer"
@@ -290,7 +354,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli - 1000,
         batch = "bumm1",
         batchSize = 3,
-        averageStartTime = 8,
         offsets = Vector("00", "01", "02").map(offset),
       ),
       Batch(
@@ -300,7 +363,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli,
         batch = "bumm2",
         batchSize = 3,
-        averageStartTime = 10,
         offsets = Vector("03", "04", "05").map(offset),
       ),
     ) shouldBe Batch(
@@ -310,7 +372,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = someTime.toEpochMilli,
       batch = "zero",
       batchSize = 0,
-      averageStartTime = 0,
       offsets = Vector.empty,
     )
   }
@@ -326,7 +387,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli,
         batch = "zero",
         batchSize = 0,
-        averageStartTime = 0,
         offsets = Vector.empty,
       )
     ) shouldBe ParameterStorageBackend.LedgerEnd(
@@ -335,4 +395,5 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastStringInterningId = 300,
     )
   }
+
 }

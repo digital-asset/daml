@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -214,6 +214,10 @@ message ScenarioError {
     Value key = 1;
   }
 
+  message PartiesNotAllocated {
+    repeated Party parties = 1;
+  }
+
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -279,6 +283,7 @@ message ScenarioError {
     Empty ComparableValueError = 29;
     ContractIdInContractKey contract_id_in_contract_key = 30;
     Empty ValueExceedsMaxNesting = 31;
+    PartiesNotAllocated scenario_parties_not_allocated = 33;
   }
 }
 

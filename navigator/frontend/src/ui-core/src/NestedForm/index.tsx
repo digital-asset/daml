@@ -1,8 +1,8 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import styled, { hardcodedStyle } from '../theme';
+import * as React from "react";
+import styled, { hardcodedStyle } from "../theme";
 
 export interface NestedFormProps {
   level: number;
@@ -19,10 +19,15 @@ const LeftMargin = styled.div`
 /**
  * Adds horizontal indentation for nested forms
  */
-const NestedForm = (
-  { level, children, className }: NestedFormProps,
-): JSX.Element => level > 0
-  ? (<LeftMargin className={className}>{children}</LeftMargin>)
-  : (<div className={className}>{children}</div>);
+const NestedForm = ({
+  level,
+  children,
+  className,
+}: NestedFormProps): JSX.Element =>
+  level > 0 ? (
+    <LeftMargin className={className}>{children}</LeftMargin>
+  ) : (
+    <div className={className}>{children}</div>
+  );
 
 export default NestedForm;

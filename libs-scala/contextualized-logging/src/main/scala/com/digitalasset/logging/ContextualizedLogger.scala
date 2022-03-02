@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -25,16 +25,14 @@ object ContextualizedLogger {
     new ContextualizedLogger(withoutContext)
 
   // Slf4j handles the caching of the underlying logger itself
-  private[logging] def createFor(name: String): ContextualizedLogger =
-    createFor(LoggerFactory.getLogger(name))
+  def createFor(name: String): ContextualizedLogger =
+    cache.getOrElseUpdate(name, createFor(LoggerFactory.getLogger(name)))
 
   /** Gets from cache (or creates) a [[ContextualizedLogger]].
     * Automatically strips the `$` at the end of Scala `object`s' name.
     */
-  def get(clazz: Class[_]): ContextualizedLogger = {
-    val name = clazz.getName.stripSuffix("$")
-    cache.getOrElseUpdate(name, createFor(name))
-  }
+  def get(clazz: Class[_]): ContextualizedLogger =
+    createFor(clazz.getName.stripSuffix("$"))
 
 }
 

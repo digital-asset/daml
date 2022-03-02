@@ -1,8 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.services
 
+import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -20,10 +21,11 @@ import scala.concurrent.Future
 final class TransactionService(
     channel: Channel,
     ledgerId: String,
+    authorizationToken: Option[String],
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: TransactionServiceGrpc.TransactionServiceStub =
-    TransactionServiceGrpc.stub(channel)
+    AuthorizationHelper.maybeAuthedService(authorizationToken)(TransactionServiceGrpc.stub(channel))
 
   def transactions[Result](
       config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,

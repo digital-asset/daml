@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell, MultiWayIf #-}
@@ -75,7 +75,7 @@ checkForMissingDeps jars = do
   where
     allArtifacts = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) jars
     bazelQueryDeps target =
-      let query = "kind(\"(java|scala)_(macro_)?library\", deps(" <> target <> ")) intersect //... except (" <> T.unpack depsToExclude <> ")"
+      let query = "kind(\"(java|scala)_(proto_|macro_)?library\", deps(" <> target <> ")) intersect //... except (" <> T.unpack depsToExclude <> ")"
       in liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
 
 copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => IncludeDocs -> BazelLocations -> Path Abs Dir -> [Artifact PomData] -> m ()

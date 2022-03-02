@@ -1,22 +1,26 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
 
 import Control.Applicative
+import Control.Exception
 import DA.Test.Process
 import Data.Either.Extra
 import Data.Function ((&))
+import Data.List.Extra (replace)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
+import Sandbox (maxRetries, nullDevice, readPortFile)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
 import System.FilePath ((</>), takeBaseName)
-import System.IO.Extra (withTempDir,writeFileUTF8)
+import System.IO.Extra (IOMode(ReadWriteMode), hClose, newTempDir, openBinaryFile, withTempDir, writeFileUTF8)
+import System.Process
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
 import Test.Tasty.HUnit
@@ -27,12 +31,32 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Web.JWT as JWT
 
-import Sandbox
-
 data Tools = Tools
   { daml :: FilePath
-  , sandboxConfig :: SandboxConfig
+  , sandboxBinary :: FilePath
+  , sandboxArgs :: [String]
   }
+
+withSandbox :: IO Tools -> Maybe String -> (IO Int -> TestTree) -> TestTree
+withSandbox getTools mbSecret f =
+    withResource (openBinaryFile nullDevice ReadWriteMode) hClose $ \getDevNull ->
+    withResource newTempDir snd $ \getTempDir ->
+      let createSandbox = do
+              Tools{..} <- getTools
+              (tmpDir, _) <- getTempDir
+              let portFile = tmpDir </> "portfile"
+              devNull <- getDevNull
+              let args = map (tweakArg portFile) (sandboxArgs <> ["--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSecret]])
+              mask $ \unmask -> do
+                  ph <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
+                  let waitForStart = do
+                          port <- readPortFile maxRetries portFile
+                          pure (port, ph)
+                  unmask (waitForStart `onException` cleanupProcess ph)
+          destroySandbox = cleanupProcess . snd
+      in withResource createSandbox destroySandbox (f . fmap fst)
+  where
+    tweakArg portFile = replace "__PORTFILE__" portFile
 
 newtype DamlOption = DamlOption FilePath
 instance IsOption DamlOption where
@@ -55,21 +79,13 @@ instance IsOption SandboxArgsOption where
   optionName = Tagged "sandbox-arg"
   optionHelp = Tagged "extra arguments to pass to sandbox executable"
   optionCLParser = concatMany (mkOptionCLParser mempty)
-    where concatMany = fmap (SandboxArgsOption . concat) . many . fmap unSandboxArgsOption
-
-newtype CertificatesOption = CertificatesOption FilePath
-instance IsOption CertificatesOption where
-  defaultValue = CertificatesOption "certificates"
-  parseValue = Just . CertificatesOption
-  optionName = Tagged "certs"
-  optionHelp = Tagged "runfiles path to the certificates directory"
+    where concatMany = fmap (SandboxArgsOption . concat) . some . fmap unSandboxArgsOption
 
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
   askOption $ \(DamlOption damlPath) -> do
   askOption $ \(SandboxOption sandboxPath) -> do
   askOption $ \(SandboxArgsOption sandboxArgs) -> do
-  askOption $ \(CertificatesOption certificatesPath) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -79,15 +95,10 @@ withTools tests = do
   let tools = do
         daml <- locateRunfiles <*> pure damlPath
         sandboxBinary <- locateRunfiles <*> pure sandboxPath
-        sandboxCertificates <- locateRunfiles <*> pure certificatesPath
-        let sandboxConfig = defaultSandboxConf
-              { sandboxBinary
-              , sandboxArgs
-              , sandboxCertificates
-              }
         pure Tools
           { daml
-          , sandboxConfig
+          , sandboxBinary
+          , sandboxArgs
           }
   tests tools
 
@@ -118,7 +129,6 @@ main = do
         [ Option @DamlOption Proxy
         , Option @SandboxOption Proxy
         , Option @SandboxArgsOption Proxy
-        , Option @CertificatesOption Proxy
         , Option @SdkVersion Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
@@ -133,7 +143,7 @@ main = do
 -- | Test `daml ledger list-parties --access-token-file`
 authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
 authenticatedUploadTest sdkVersion getTools = do
-  withSandbox getSandboxConfig $ \getSandboxPort ->  testGroup "authentication" $
+  withSandbox getTools (Just sharedSecret) $ \getSandboxPort ->  testGroup "authentication" $
     [ testCase "Bearer prefix" $ do
           Tools{..} <- getTools
           port <- getSandboxPort
@@ -165,9 +175,6 @@ authenticatedUploadTest sdkVersion getTools = do
     ]
   where
     sharedSecret = "TheSharedSecret"
-    getSandboxConfig = do
-        cfg <- sandboxConfig <$> getTools
-        pure cfg { mbSharedSecret = Just sharedSecret }
 
 makeSignedJwt :: String -> String
 makeSignedJwt sharedSecret = do
@@ -179,7 +186,7 @@ makeSignedJwt sharedSecret = do
 
 unauthenticatedTests :: SdkVersion -> IO Tools -> TestTree
 unauthenticatedTests sdkVersion getTools = do
-    withSandbox (sandboxConfig <$> getTools) $ \getSandboxPort ->
+    withSandbox getTools Nothing $ \getSandboxPort ->
         testGroup "unauthenticated"
             [ fetchTest sdkVersion getTools getSandboxPort
             ]

@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -37,6 +37,7 @@ import GHC.Generics(Generic)
 import Data.Int
 import Text.Read (readMaybe)
 import Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as Aeson
 import Data.Char (toUpper)
 import Control.Monad
 import Control.Monad.Loops
@@ -51,7 +52,6 @@ import System.IO.Extra
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
 import DA.Daml.Project.Consts
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
@@ -233,7 +233,7 @@ data LogEntry = LogEntry
     }
 
 instance ToJSON LogEntry where
-    toJSON LogEntry{..} = Object $ HM.fromList
+    toJSON LogEntry{..} = Object $ Aeson.fromList
         [ priorityToGCP severity
         , ("timestamp", toJSON timeStamp)
         , ("jsonPayload", toJSON message)
@@ -276,7 +276,7 @@ data WithSession a = WithSession {wsID :: UUID, wsContents :: a}
 instance ToJSON a => ToJSON (WithSession a) where
     toJSON WithSession{..} =
         Object $
-            HM.insert "SESSION_ID" (toJSON wsID) $
+            Aeson.insert "SESSION_ID" (toJSON wsID) $
             toJsonObject $
             toJSON wsContents
 
@@ -294,8 +294,8 @@ toLogEntry GCPState{gcpSessionID} severity m = do
 -- TODO (MK) This encoding is stupid and wrong but we might have some queries
 -- that rely on it, so for now let’s keep it.
 toJsonObject :: Aeson.Value
-             -> HM.HashMap T.Text Value
-toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
+             -> Aeson.KeyMap Value
+toJsonObject v = either (\k -> Aeson.singleton k v) id $ objectOrKey v where
   objectOrKey = \case
     Aeson.Object o -> Right o
     Aeson.Array _ -> Left "Array"
@@ -307,7 +307,7 @@ toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
 -- | Map from our custom severities to Google Cloud Stackdriver's LogSeverity.
 -- Most severity levels are named the same, though we map Telemetry to NOTICE.
 -- This is necessary as a log message is rejected if its severity is not valid.
-priorityToGCP :: Lgr.Priority -> (T.Text, Value)
+priorityToGCP :: Lgr.Priority -> (Key, Value)
 priorityToGCP prio = ("severity", prio')
     where
       prio' = case prio of
@@ -407,7 +407,7 @@ logOptOut gcp = do
 disabledMessage :: MetaData -> T.Text -> Aeson.Value
 disabledMessage metadata msg =
     -- The slightly odd format here is to make sure that we don’t break old queries before machineID was part of opt-out messages.
-    toJSON $ HM.insert "machineID" (toJSON $ machineID metadata) $ toJsonObject (toJSON msg)
+    toJSON $ Aeson.insert "machineID" (toJSON $ machineID metadata) $ toJsonObject (toJSON msg)
 
 -- Log that the user clicked away the telemetry popup without making a choice.
 logIgnored :: GCPState -> IO ()

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -24,7 +24,12 @@ import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{AuthService, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -32,18 +37,19 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.Runner
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
@@ -76,6 +82,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       wsConfig: Option[WebsocketConfig] = None,
       nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
       ledgerIdOverwrite: Option[LedgerId] = None,
+      token: Option[Jwt] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
@@ -116,11 +123,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val client = DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId, useTls = useTls),
+      clientConfig(applicationId, token.map(_.value)),
+      clientChannelConfig(useTls),
     )
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
-      codecs <- jsonCodecs(client, ledgerId)
+      codecs <- jsonCodecs(client, ledgerId, token)
     } yield codecs
 
     val fa: Future[A] = for {
@@ -165,28 +173,30 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           .acquire()
       )
       jdbcUrl <- urlResource.asFuture
-      ledger <- Future(
-        new Runner(
-          ledgerConfig(
-            Port.Dynamic,
-            dars,
-            ledgerId,
-            useTls = useTls,
-            authService = authService,
-            jdbcUrl = jdbcUrl,
+      portF <- Future(
+        SandboxServer
+          .owner(
+            ledgerConfig(
+              Port.Dynamic,
+              dars,
+              ledgerId,
+              useTls = useTls,
+              authService = authService,
+              jdbcUrl = jdbcUrl,
+            )
           )
-        )
           .acquire()
       )
-      port <- ledger.asFuture
-    } yield (ledger, port)
+      port <- portF.asFuture
+    } yield (portF, port)
 
     val clientF: Future[DamlLedgerClient] = for {
       (_, ledgerPort) <- ledgerF
     } yield DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId, token, useTls),
+      clientConfig(applicationId, token),
+      clientChannelConfig(useTls),
     )
 
     val fa: Future[A] = for {
@@ -219,32 +229,41 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService,
-      seeding = Some(Seeding.Weak),
+      seeding = Seeding.Weak,
     )
 
-  private def clientConfig[A](
+  private def clientConfig(
       applicationId: ApplicationId,
-      token: Option[String] = None,
-      useTls: UseTls,
+      token: Option[String],
   ): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = if (useTls) clientTlsConfig.client() else None,
       token = token,
     )
+
+  private def clientChannelConfig(useTls: UseTls): LedgerClientChannelConfiguration =
+    if (useTls) {
+      LedgerClientChannelConfiguration(clientTlsConfig.client())
+    } else {
+      LedgerClientChannelConfiguration.InsecureDefaults
+    }
 
   def jsonCodecs(
       client: DamlLedgerClient,
       ledgerId: LedgerId,
+      token: Option[Jwt],
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val packageService = new PackageService(doLoad(client.packageClient))
     packageService
-      .reload(Jwt("we use a dummy because there is no token in these tests."), ledgerId)
+      .reload(
+        token.getOrElse(Jwt("we use a dummy because there is no token in these tests.")),
+        ledgerId,
+      )
       .flatMap(x => FutureUtil.toFuture(x))
       .map(_ => HttpService.buildJsonCodecs(packageService))
   }
@@ -267,7 +286,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     for {
       dao <- Future(ContractDao(c))
       isSuccess <- DbStartupOps
-        .fromStartupMode(dao, c.dbStartupMode)
+        .fromStartupMode(dao, c.startMode)
         .unsafeToFuture()
       _ = if (!isSuccess) throw new Exception("Db startup failed")
     } yield dao
@@ -294,27 +313,54 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
-  def jwtForParties(actAs: List[String], readAs: List[String], ledgerId: String) = {
+  def jwtForParties(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+      admin: Boolean = false,
+  ): Jwt = {
     import AuthServiceJWTCodec.JsonImplicits._
-    val decodedJwt = DecodedJwt(
-      """{"alg": "HS256", "typ": "JWT"}""",
-      AuthServiceJWTPayload(
-        ledgerId = Some(ledgerId),
-        applicationId = Some("test"),
-        actAs = actAs,
-        participantId = None,
-        exp = None,
-        admin = false,
-        readAs = readAs,
-      ).toJson.prettyPrint,
-    )
+    val payload =
+      if (withoutNamespace)
+        s"""{
+               |  "ledgerId": "$ledgerId",
+               |  "applicationId": "test",
+               |  "exp": 0,
+               |  "admin": $admin,
+               |  "actAs": ${actAs.toJson.prettyPrint},
+               |  "readAs": ${readAs.toJson.prettyPrint}
+               |}
+              """.stripMargin
+      else
+        (CustomDamlJWTPayload(
+          ledgerId = Some(ledgerId),
+          applicationId = Some("test"),
+          actAs = actAs,
+          participantId = None,
+          exp = None,
+          admin = false,
+          readAs = readAs,
+        ): AuthServiceJWTPayload).toJson.prettyPrint
     JwtSigner.HMAC256
-      .sign(decodedJwt, "secret")
+      .sign(
+        DecodedJwt(
+          """{"alg": "HS256", "typ": "JWT"}""",
+          payload,
+        ),
+        "secret",
+      )
       .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  def headersWithPartyAuth(actAs: List[String], readAs: List[String], ledgerId: String) =
-    authorizationHeader(jwtForParties(actAs, readAs, ledgerId))
+  def headersWithPartyAuth(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+  ): List[Authorization] = {
+    authorizationHeader(jwtForParties(actAs, readAs, ledgerId, withoutNamespace))
+  }
 
   def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))

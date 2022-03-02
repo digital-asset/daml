@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,33 +8,48 @@ import IdString.`Name order instance`
 import Ref.Name
 import ScalazEqual._
 
-import scala.collection
 import scalaz.std.iterable._
 import scalaz.std.tuple._
 import scalaz.syntax.order._
 import scalaz.{Equal, Order}
 
-/** We use this container to describe structural record as sorted flat list in various parts of the codebase.
-  *    `entries` are sorted by their first component without duplicate.
-  */
-final case class Struct[+X] private (private val sortedFields: ImmArray[(Ref.Name, X)])
-    extends NoCopy {
+import scala.annotation.tailrec
+import scala.collection.immutable._
 
-  /** O(n) */
+final class Struct[+X] private (protected val sortedFields: ArraySeq[(Ref.Name, X)])
+    extends AnyVal {
+
+  /** O(log n) */
   @throws[IndexOutOfBoundsException]
   def apply(name: Ref.Name): X = sortedFields(indexOf(name))._2
 
-  /** O(n) */
-  def indexOf(name: Ref.Name): Int = sortedFields.indexWhere(_._1 == name)
+  /** O(log n) */
+  def indexOf(name: Ref.Name): Int = {
+    @tailrec
+    def loop(from: Int, to: Int): Int =
+      if (to < from)
+        -1
+      else {
+        val idx = (from + to) / 2
+        val c = name compareTo sortedFields(idx)._1
+        if (c < 0) loop(from, idx - 1)
+        else if (c > 0) loop(idx + 1, to)
+        else idx
+      }
+    loop(0, size - 1)
+  }
+
+  /** O(log n) */
+  def get(name: Ref.Name): Option[X] = {
+    val idx = indexOf(name)
+    if (idx < 0) None else Some(sortedFields(idx)._2)
+  }
 
   /** O(n) */
-  def lookup(name: Ref.Name): Option[X] = sortedFields.find(_._1 == name).map(_._2)
-
-  /** O(n) */
-  def mapValues[Y](f: X => Y) = new Struct(sortedFields.map { case (k, v) => k -> f(v) })
+  def mapValues[Y](f: X => Y): Struct[Y] = new Struct(sortedFields.map { case (k, v) => k -> f(v) })
 
   /** O(1) */
-  def toImmArray: ImmArray[(Ref.Name, X)] = sortedFields
+  def toImmArray: ImmArray[(Ref.Name, X)] = ImmArray.fromArraySeq(sortedFields)
 
   /** O(1) */
   def names: Iterator[Ref.Name] = iterator.map(_._1)
@@ -50,7 +65,6 @@ final case class Struct[+X] private (private val sortedFields: ImmArray[(Ref.Nam
 
   /** O(n) */
   override def toString: String = iterator.mkString("Struct(", ",", ")")
-
 }
 
 object Struct {
@@ -62,8 +76,8 @@ object Struct {
   def fromSeq[X](fields: collection.Seq[(Name, X)]): Either[Name, Struct[X]] =
     if (fields.isEmpty) rightEmpty
     else {
-      val struct = Struct(fields.sortBy(_._1: String).to(ImmArray))
-      val names = struct.names
+      val sortedFields = fields.to(ArraySeq).sortBy(_._1: String)
+      val names = sortedFields.iterator.map(_._1)
       var previous = names.next()
       names
         .find { name =>
@@ -71,10 +85,10 @@ object Struct {
           previous = name
           found
         }
-        .toLeft(struct)
+        .toLeft(new Struct(sortedFields))
     }
 
-  private[this] def assertSuccess[X](either: Either[String, X]) =
+  private[this] def assertSuccess[X](either: Either[String, X]): X =
     either.fold(
       name =>
         throw new IllegalArgumentException(s"name $name duplicated when trying to build Struct"),
@@ -90,12 +104,12 @@ object Struct {
   def assertFromNameSeq[X](names: Seq[Name]): Struct[Unit] =
     assertSuccess(fromNameSeq(names))
 
-  val Empty: Struct[Nothing] = new Struct(ImmArray.Empty)
+  val Empty: Struct[Nothing] = new Struct(ArraySeq.empty)
 
   private[this] val rightEmpty = Right(Empty)
 
   implicit def structEqualInstance[X: Equal]: Equal[Struct[X]] =
-    _.toImmArray === _.toImmArray
+    _.sortedFields === _.sortedFields
 
   implicit def structOrderInstance[X: Order]: Order[Struct[X]] =
     // following daml-lf specification, this considers first names, then values.

@@ -1,14 +1,12 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.store
 
 import java.time.Instant
-
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User}
 import com.daml.navigator.model._
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.navigator.config.UserConfig
 import com.daml.navigator.time.TimeProviderWithType
 
 trait ActorStatus
@@ -30,12 +28,18 @@ object Store {
   /** Reinitialize the platform connection and reset all local state `Unit` */
   case object ResetConnection
 
-  case object UpdateParties
+  case object UpdateUsersOrParties
+  case class UpdatedUsers(details: Seq[User])
 
   case class UpdatedParties(details: List[PartyDetails])
 
   /** Request to subscribe a party to the store (without response to sender). */
-  case class Subscribe(displayName: String, config: UserConfig)
+  case class Subscribe(
+      displayName: String,
+      name: ApiTypes.Party,
+      userRole: Option[String] = None,
+      useDatabase: Boolean = false,
+  )
 
   /** Request to create a contract instance for a template and respond with a `scala.util.Try[CommandId]`. */
   case class CreateContract(party: PartyState, templateId: TemplateStringId, argument: ApiRecord)
@@ -62,6 +66,12 @@ object Store {
   /** Request diagnostic information about the state of the application and respond with a [[ApplicationStateInfo]]. */
   case object GetApplicationStateInfo
 
+  /** Request a list of all parties that have an active actor on the system matching the provided search string */
+  final case class GetParties(search: String)
+
+  /** Response to a request for parties */
+  final case class PartyList(parties: List[ApiTypes.Party])
+
   /** Diagnostic information about the state of the application */
   sealed trait ApplicationStateInfo {
     def platformHost: String
@@ -86,6 +96,7 @@ object Store {
       applicationId: String,
       ledgerId: String,
       ledgerTime: TimeProviderWithType,
+      // `partyActors`'s keys are passed to the frontend as possible user ids to log in as
       partyActors: Map[String, PartyActorResponse],
   ) extends ApplicationStateInfo
 

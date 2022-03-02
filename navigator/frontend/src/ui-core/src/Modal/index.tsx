@@ -1,13 +1,13 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Modal as ROModal } from 'react-overlays';
-import styled from '../theme';
+import * as React from "react";
+import { Modal as ROModal } from "react-overlays";
+import styled from "../theme";
 
 const Wrapper = styled.div`
   display: inline;
-`
+`;
 
 const PositionContainer = styled.div`
   position: absolute;
@@ -18,8 +18,8 @@ const PositionContainer = styled.div`
 `;
 
 const ContentOuterContainer = styled.div`
-  box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.1),
-    0 2px 4px rgba(16, 22, 26, 0.2), 0 8px 24px rgba(16, 22, 26, 0.2);
+  box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.1), 0 2px 4px rgba(16, 22, 26, 0.2),
+    0 8px 24px rgba(16, 22, 26, 0.2);
   transform: scale(1);
   display: inline-block;
   border-radius: ${({ theme }) => theme.tooltipRadius};
@@ -31,7 +31,7 @@ const ContentInnerContainer = styled.div`
   background-color: ${({ theme }) => theme.colorBackground};
   height: 100%;
   width: 100%;
-`
+`;
 
 export interface Props {
   /** Content displayed in the Modal */
@@ -58,10 +58,7 @@ export default class Modal extends React.Component<Props, {}> {
   }
 
   render(): JSX.Element {
-    const {
-      content,
-      isOpen,
-    } = this.props;
+    const { content, isOpen } = this.props;
 
     return (
       <Wrapper>
@@ -71,21 +68,18 @@ export default class Modal extends React.Component<Props, {}> {
           container={document.body}
           onHide={this.props.onHide}
           backdropStyle={{
-            position: 'fixed',
-            zIndex: 'auto',
-            top: '0px',
-            bottom: '0px',
-            left: '0px',
-            right: '0px',
-            backgroundColor: 'rgb(0, 0, 0)',
+            position: "fixed",
+            zIndex: "auto",
+            top: "0px",
+            bottom: "0px",
+            left: "0px",
+            right: "0px",
+            backgroundColor: "rgb(0, 0, 0)",
             opacity: 0.5,
-          }}
-        >
+          }}>
           <PositionContainer>
             <ContentOuterContainer>
-              <ContentInnerContainer>
-                {content}
-              </ContentInnerContainer>
+              <ContentInnerContainer>{content}</ContentInnerContainer>
             </ContentOuterContainer>
           </PositionContainer>
         </ROModal>

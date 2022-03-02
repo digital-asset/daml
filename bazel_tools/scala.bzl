@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -39,28 +39,9 @@ def resolve_scala_deps(deps, scala_deps = [], versioned_deps = {}, versioned_sca
                         versioned_scala_deps.get(scala_major_version, [])
            ]
 
-def extra_scalacopts(scala_deps, plugins):
-    return (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if (scala_major_version != "2.12" and
-                                                                                    silencer_plugin in plugins and
-                                                                                    "@maven//:org_scala_lang_modules_scala_collection_compat" in scala_deps) else [])
-
+# Please don't remove, this will be useful in the future to transition to Scala 3
 version_specific = {
-    "2.12": [
-        # these two flags turn on source-incompatible enhancements that are always
-        # on in Scala 2.13.  Despite the naming, though, the most impactful and
-        # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
-        # some minor, but in one specific case (scala/bug#10283) essential bug fixes
-        "-Xsource:2.13",
-        "-Ypartial-unification",
-        # adapted args is a deprecated feature:
-        # `def foo(a: (A, B))` can be called with `foo(a, b)`.
-        # properly it should be `foo((a,b))`
-        "-Yno-adapted-args",
-        "-Xlint:unsound-match",
-        "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
-        "-Xfuture",
-        "-language:higherKinds",
-    ],
+    "2.13": [],
 }
 
 common_scalacopts = version_specific.get(scala_major_version, []) + [
@@ -96,8 +77,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
     "-Ywarn-unused:imports",
-    # Allow `@nowarn` annotations that allegedly do nothing (necessary because of false positives)
-    "-Ywarn-unused:-nowarn",
+    "-Ywarn-unused:nowarn",
     "-Ywarn-unused",
 ]
 
@@ -109,12 +89,9 @@ common_plugins = [
     "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
 
+# Please don't remove, this will be useful in the future to transition to Scala 3
 version_specific_warts = {
-    "2.12": [
-        # On 2.13, this also triggers in string interpolation
-        # https://github.com/wartremover/wartremover/issues/447
-        "StringPlusAny",
-    ],
+    "2.13": [],
 }
 
 plugin_scalacopts = [
@@ -176,7 +153,6 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
-silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
 kind_projector_plugin = "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
@@ -233,10 +209,9 @@ def _wrap_rule(
     exports = resolve_scala_deps(exports, scala_exports)
     if (len(exports) > 0):
         kwargs["exports"] = exports
-    compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
     rule(
         name = name,
-        scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
+        scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
         runtime_deps = runtime_deps,
@@ -542,12 +517,11 @@ def _create_scaladoc_jar(
     # Limit execution to Linux and MacOS
     if is_windows == False:
         deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
-        compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
         scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,
             srcs = srcs,
-            scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
+            scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
             plugins = common_plugins + plugins,
             generated_srcs = generated_srcs,
             tags = ["scaladoc"],

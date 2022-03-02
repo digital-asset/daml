@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -111,9 +111,11 @@ class Server(
   )(implicit ec: ExecutionContext, sys: ActorSystem): Future[Either[String, Unit]] = {
     import cats.implicits._
     triggers.toList.traverse(runningTrigger =>
-      Trigger
-        .fromIdentifier(compiledPackages, runningTrigger.triggerName)
-        .map(trigger => (trigger, runningTrigger))
+      runningTrigger.withLoggingContext(implicit loggingContext =>
+        Trigger
+          .fromIdentifier(compiledPackages, runningTrigger.triggerName)
+          .map(trigger => (trigger, runningTrigger))
+      )
     ) match {
       case Left(err) => Future.successful(Left(err))
       case Right(triggers) =>
@@ -135,16 +137,18 @@ class Server(
       name: Identifier,
       party: Party,
       applicationId: ApplicationId,
+      readAs: Set[Party],
   )
 
   private def newTrigger(
       party: Party,
       triggerName: Identifier,
       optApplicationId: Option[ApplicationId],
+      readAs: Set[Party],
   ): TriggerConfig = {
     val newInstance = UUID.randomUUID()
     val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
-    TriggerConfig(newInstance, triggerName, party, applicationId)
+    TriggerConfig(newInstance, triggerName, party, applicationId, readAs)
   }
 
   // Add a new trigger to the database and return the resulting Trigger.
@@ -161,13 +165,16 @@ class Server(
         config.applicationId,
         auth.map(_.accessToken),
         auth.flatMap(_.refreshToken),
+        config.readAs,
       )
-    // Validate trigger id before persisting to DB
-    Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
-      case Left(value) => Future.successful(Left(value))
-      case Right(trigger) =>
-        triggerDao.addRunningTrigger(runningTrigger).map(_ => Right((trigger, runningTrigger)))
-    }
+    runningTrigger.withLoggingContext(implicit loggingContext =>
+      // Validate trigger id before persisting to DB
+      Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
+        case Left(value) => Future.successful(Left(value))
+        case Right(trigger) =>
+          triggerDao.addRunningTrigger(runningTrigger).map(_ => Right((trigger, runningTrigger)))
+      }
+    )
   }
 
   private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger)(implicit
@@ -298,11 +305,18 @@ class Server(
             // started trigger.
             post {
               entity(as[StartParams]) { params =>
-                val config = newTrigger(params.party, params.triggerName, params.applicationId)
+                val config =
+                  newTrigger(
+                    params.party,
+                    params.triggerName,
+                    params.applicationId,
+                    params.readAs.map(_.toSet).getOrElse(Set.empty),
+                  )
                 val claims =
                   AuthRequest.Claims(
                     actAs = List(params.party),
                     applicationId = Some(config.applicationId),
+                    readAs = config.readAs.toList,
                   )
                 authorize(claims) { auth =>
                   extractExecutionContext { implicit ec =>
@@ -582,6 +596,7 @@ object Server {
             trigger,
             ledgerConfig,
             restartConfig,
+            runningTrigger.triggerReadAs,
           ),
           runningTrigger.triggerInstance.toString,
         ),

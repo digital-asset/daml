@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Tasty resource for starting sandbox
@@ -57,7 +57,7 @@ defaultSandboxConf = SandboxConfig
 
 getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess
 getSandboxProc SandboxConfig{..} portFile = do
-    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
+    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox-classic" </> exe "sandbox-classic-binary")
     tlsArgs <- if enableTls
         then do
             certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
@@ -88,9 +88,9 @@ createSandbox :: FilePath -> Handle -> SandboxConfig -> IO SandboxResource
 createSandbox portFile sandboxOutput conf = do
     sandboxProc <- getSandboxProc conf portFile
     mask $ \unmask -> do
-        ph <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
+        ph@(_,_,_,ph') <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
         let waitForStart = do
-                port <- readPortFile maxRetries portFile
+                port <- readPortFile ph' maxRetries portFile
                 pure (SandboxResource ph port)
         unmask (waitForStart `onException` cleanupProcess ph)
 

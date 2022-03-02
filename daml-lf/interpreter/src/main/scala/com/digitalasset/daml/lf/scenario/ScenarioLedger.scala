@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -22,7 +22,6 @@ import Value._
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.collection.compat._
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
@@ -158,7 +157,7 @@ object ScenarioLedger {
     *                       node exists. Consumption under a rollback
     *                       is not included here even for contracts created
     *                       under a rollback node.
-    * @param rolledbackBy   The nearest parent rollback node, provided such a
+    * @param rolledbackBy   The nearest ancestor rollback node, provided such a
     *                       node exists.
     * @param parent         If the node is part of a sub-transaction, then
     *                       this is the immediate parent, which must be an
@@ -172,7 +171,7 @@ object ScenarioLedger {
       disclosures: Map[Party, Disclosure],
       referencedBy: Set[EventId],
       consumedBy: Option[EventId],
-      rolledbackBy: Option[EventId],
+      rolledbackBy: Option[NodeId],
       parent: Option[EventId],
   ) {
 
@@ -308,8 +307,7 @@ object ScenarioLedger {
   /** Collect all contract ids appearing in a value
     */
   def collectCoids(value: Value): Set[ContractId] = {
-    val coids =
-      implicitly[Factory[ContractId, Set[ContractId]]].newBuilder
+    val coids = Set.newBuilder[ContractId]
     def collect(v: Value): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>
@@ -399,13 +397,16 @@ object ScenarioLedger {
   ): Either[UniqueKeyViolation, LedgerData] = {
 
     final case class RollbackBeginState(
-        rollbackId: EventId,
         activeContracts: Set[ContractId],
         activeKeys: Map[GlobalKey, ContractId],
     )
 
     final case class ProcessingNode(
+        // The id of the direct parent or None.
         mbParentId: Option[NodeId],
+        // The id of the nearest rollback ancestor. If this is
+        // a rollback node itself, it points to itself.
+        mbRollbackAncestorId: Option[NodeId],
         children: List[NodeId],
         // For rollback nodes, we store the previous state here and restore it.
         // For exercise nodes, we don’t need to restore anything.
@@ -422,7 +423,7 @@ object ScenarioLedger {
         case Right(cache0) =>
           enps match {
             case Nil => Right(cache0)
-            case ProcessingNode(_, Nil, optPrevState) :: restENPs => {
+            case ProcessingNode(_, _, Nil, optPrevState) :: restENPs => {
               val cache1 = optPrevState.fold(cache0) { case prevState =>
                 cache0.copy(
                   activeContracts = prevState.activeContracts,
@@ -433,6 +434,7 @@ object ScenarioLedger {
             }
             case (processingNode @ ProcessingNode(
                   mbParentId,
+                  mbRollbackAncestorId,
                   nodeId :: restOfNodeIds,
                   optPrevState,
                 )) :: restENPs =>
@@ -449,7 +451,7 @@ object ScenarioLedger {
                     disclosures = Map.empty,
                     referencedBy = Set.empty,
                     consumedBy = None,
-                    rolledbackBy = optPrevState.map(_.rollbackId),
+                    rolledbackBy = mbRollbackAncestorId,
                     parent = mbParentId.map(EventId(trId.id, _)),
                   )
                   val newCache =
@@ -459,10 +461,11 @@ object ScenarioLedger {
                   node match {
                     case rollback: Node.Rollback =>
                       val rollbackState =
-                        RollbackBeginState(eventId, newCache.activeContracts, newCache.activeKeys)
+                        RollbackBeginState(newCache.activeContracts, newCache.activeKeys)
                       processNodes(
                         Right(newCache),
                         ProcessingNode(
+                          Some(nodeId),
                           Some(nodeId),
                           rollback.children.toList,
                           Some(rollbackState),
@@ -523,7 +526,12 @@ object ScenarioLedger {
 
                       processNodes(
                         Right(newCache1),
-                        ProcessingNode(Some(nodeId), ex.children.toList, None) :: idsToProcess,
+                        ProcessingNode(
+                          Some(nodeId),
+                          mbRollbackAncestorId,
+                          ex.children.toList,
+                          None,
+                        ) :: idsToProcess,
                       )
 
                     case nlkup: Node.LookupByKey =>
@@ -548,7 +556,7 @@ object ScenarioLedger {
     val mbCacheAfterProcess =
       processNodes(
         Right(ledgerData),
-        List(ProcessingNode(None, richTr.transaction.roots.toList, None)),
+        List(ProcessingNode(None, None, richTr.transaction.roots.toList, None)),
       )
 
     mbCacheAfterProcess.map { cacheAfterProcess =>

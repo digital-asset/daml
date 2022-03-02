@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -44,7 +44,7 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
         archiveState.isDefined shouldBe true
         archiveState.get.hasArchive shouldBe true
-        archiveState.get.getArchive shouldEqual simpleArchive
+        archiveState.get.getArchive shouldEqual simpleArchive.toByteString
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry2.getPackageUploadEntry.getArchivesCount shouldEqual 0

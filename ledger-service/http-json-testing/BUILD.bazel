@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "kind_projector_plugin",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 
 hj_scalacopts = lf_scalacopts + [
@@ -19,14 +18,12 @@ hj_scalacopts = lf_scalacopts + [
         srcs = glob(["src/main/scala/**/*.scala"]),
         plugins = [
             kind_projector_plugin,
-            silencer_plugin,
         ],
         scala_deps = [
             "@maven//:com_typesafe_akka_akka_actor",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalactic_scalactic",
             "@maven//:org_scalatest_scalatest_core",
@@ -58,10 +55,10 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/ledger-resources",
             "//ledger/metrics",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox",
-            "//ledger/sandbox:sandbox-scala-tests-lib",
             "//ledger/sandbox-common",
             "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+            "//ledger/sandbox-on-x:sandbox-classic-server",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ports",
             "//libs-scala/resources",

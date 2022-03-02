@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -138,7 +138,12 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(rejection)
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
-        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId = "WRONG", parties)
+        .getCommandCompletions(
+          from.lastOffset,
+          to.lastOffset,
+          applicationId = Ref.ApplicationId.assertFromString("WRONG"),
+          parties,
+        )
         .runWith(Sink.seq)
     } yield {
       response shouldBe Seq.empty
@@ -226,6 +231,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
+            statistics = None, // TODO Ledger Metering
           )
         ),
         recordTime = Timestamp.now(),
@@ -250,6 +256,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
+            statistics = None, // TODO Ledger Metering
           )
         ),
         recordTime = Timestamp.now(),

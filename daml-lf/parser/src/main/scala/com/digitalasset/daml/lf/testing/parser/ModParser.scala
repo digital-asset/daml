@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -165,7 +165,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             choices = choices,
             observers = observers,
             key = key,
-            implements = implements,
+            implements = implements.reverse, // we want insertion order here.
           ),
         )
     }

@@ -45,3 +45,5 @@ main = scenario do
     -- cannot test ValScenarioEmbedExpr from Daml, since
     -- the compiler does not generate it.
     pure ()
+
+-- @ENABLE-SCENARIOS

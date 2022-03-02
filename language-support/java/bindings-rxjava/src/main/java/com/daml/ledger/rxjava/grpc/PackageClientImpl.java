@@ -1,14 +1,16 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc;
 
+import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.PackageServiceGrpc;
 import com.daml.ledger.api.v1.PackageServiceOuterClass;
 import com.daml.ledger.javaapi.data.GetPackageResponse;
 import com.daml.ledger.javaapi.data.GetPackageStatusResponse;
 import com.daml.ledger.rxjava.PackageClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
+import com.daml.ledger.rxjava.util.CreateSingle;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
@@ -18,18 +20,25 @@ public class PackageClientImpl implements PackageClient {
 
   private final String ledgerId;
   private final PackageServiceGrpc.PackageServiceFutureStub serviceStub;
+  private final ExecutionSequencerFactory sequencerFactory;
 
-  public PackageClientImpl(String ledgerId, Channel channel, Optional<String> accessToken) {
+  public PackageClientImpl(
+      String ledgerId,
+      Channel channel,
+      ExecutionSequencerFactory sequencerFactory,
+      Optional<String> accessToken) {
     this.ledgerId = ledgerId;
+    this.sequencerFactory = sequencerFactory;
     serviceStub = StubHelper.authenticating(PackageServiceGrpc.newFutureStub(channel), accessToken);
   }
 
   private Flowable<String> listPackages(Optional<String> accessToken) {
     PackageServiceOuterClass.ListPackagesRequest request =
         PackageServiceOuterClass.ListPackagesRequest.newBuilder().setLedgerId(ledgerId).build();
-    return Flowable.fromFuture(
-            StubHelper.authenticating(this.serviceStub, accessToken).listPackages(request))
-        .concatMapIterable(PackageServiceOuterClass.ListPackagesResponse::getPackageIdsList);
+    return CreateSingle.fromFuture(
+            StubHelper.authenticating(this.serviceStub, accessToken).listPackages(request),
+            sequencerFactory)
+        .flattenAsFlowable(PackageServiceOuterClass.ListPackagesResponse::getPackageIdsList);
   }
 
   @Override
@@ -48,8 +57,9 @@ public class PackageClientImpl implements PackageClient {
             .setLedgerId(ledgerId)
             .setPackageId(packageId)
             .build();
-    return Single.fromFuture(
-            StubHelper.authenticating(this.serviceStub, accessToken).getPackage(request))
+    return CreateSingle.fromFuture(
+            StubHelper.authenticating(this.serviceStub, accessToken).getPackage(request),
+            sequencerFactory)
         .map(GetPackageResponse::fromProto);
   }
 
@@ -70,8 +80,9 @@ public class PackageClientImpl implements PackageClient {
             .setLedgerId(ledgerId)
             .setPackageId(packageId)
             .build();
-    return Single.fromFuture(
-            StubHelper.authenticating(this.serviceStub, accessToken).getPackageStatus(request))
+    return CreateSingle.fromFuture(
+            StubHelper.authenticating(this.serviceStub, accessToken).getPackageStatus(request),
+            sequencerFactory)
         .map(GetPackageStatusResponse::fromProto);
   }
 

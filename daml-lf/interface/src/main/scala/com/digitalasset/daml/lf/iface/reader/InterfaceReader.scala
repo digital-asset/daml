@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -140,11 +140,13 @@ object InterfaceReader {
             case dfn: Ast.DataVariant =>
               variant(fullName, tyVars, dfn)
             case dfn: Ast.DataEnum =>
-              enum(fullName, tyVars, dfn)
+              enumeration(fullName, tyVars, dfn)
             case Ast.DataInterface =>
               \/-(
                 None
-              ) // TODO (https://github.com/digital-asset/daml/issues/10810) Add support for interfaces.
+              )
+            // TODO https://github.com/digital-asset/daml/issues/12051
+            //    Add support for interfaces.
           }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {
@@ -208,16 +210,16 @@ object InterfaceReader {
     } yield Some(name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T))
   }
 
-  private[reader] def enum[T >: iface.InterfaceType.Normal](
+  private[reader] def enumeration[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
-      enum: Ast.DataEnum,
+      enumeration: Ast.DataEnum,
   ): InterfaceReaderError \/ Some[(QualifiedName, T)] =
     if (tyVars.isEmpty)
       \/-(
         Some(
           name -> iface.InterfaceType.Normal(
-            DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))
+            DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
           )
         )
       )

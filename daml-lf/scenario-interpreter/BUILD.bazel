@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -32,6 +32,7 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
     ],
@@ -50,12 +51,14 @@ da_scala_test_suite(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/contextualized-logging",
     ],
 )
 
 daml_compile(
     name = "CollectAuthority",
     srcs = ["src/perf/resources/damls/CollectAuthority.daml"],
+    enable_scenarios = True,
     visibility = ["//visibility:public"],
 )
 
@@ -80,6 +83,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

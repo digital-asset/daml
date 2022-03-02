@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,6 +17,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
+import com.daml.logging.LoggingContext
+
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -36,6 +38,8 @@ class CollectAuthorityState {
   private[perf] var dar: String = _
   @Param(Array("CollectAuthority:test"))
   private[perf] var scenario: String = _
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   var machine: Machine = null
   var the_sexpr: SExpr = null

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -57,7 +57,6 @@ trait CidContainer[+A] {
       case Value.ContractId.V1(discriminator, Bytes.Empty) =>
         Value.ContractId.V1.build(discriminator, f(discriminator))
       case acoid @ Value.ContractId.V1(_, _) => Right(acoid)
-      case acoid @ Value.ContractId.V0(_) => Right(acoid)
     }
 
 }

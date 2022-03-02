@@ -1,0 +1,86 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- | Try out some upcasts and downcasts, checking that everything works.
+module InterfaceUpcastDowncast where
+
+import DA.Assert ((===))
+
+interface A where
+  getOwner : Party
+  nonconsuming choice ChoiceA : Int
+    controller getOwner this
+    do pure 10
+
+interface B requires A where
+  getCoolness : Int
+  nonconsuming choice ChoiceB : Int
+    controller getOwner this
+    do pure (getCoolness this)
+
+template T1
+  with
+    p1 : Party
+  where
+    signatory p1
+    implements A where
+      getOwner = p1
+    implements B where
+      getCoolness = 20
+
+template T2
+  with
+    p2 : Party
+  where
+    signatory p2
+    implements A where
+      getOwner = p2
+
+main = scenario do
+    p <- getParty "Alice"
+    submit p do
+        let t1 = T1 p
+        let t2 = T2 p
+        let t1b = toInterface @B t1
+        let t1a = toInterface @A t1b
+        let t2a = toInterface @A t2
+
+        Some t1 === fromInterface @T1 t1b
+        Some t1 === fromInterface @T1 t1a
+        Some t1 === (fromInterface @B t1a >>= fromInterface @T1)
+
+        Some t2 === fromInterface @T2 t2a
+        None === (fromInterface @B t2a >> pure ())
+
+        getCoolness t1 === 20
+        getCoolness t1b === 20
+        getOwner t1 === p
+        getOwner t1a === p
+        getOwner t1b === p
+
+        cidt1 <- create t1
+        cidt2 <- create t2
+
+        let cidt1b = toInterfaceContractId @B cidt1
+        let cidt1a = toInterfaceContractId @A cidt1
+        cidt1a === toInterfaceContractId @A cidt1b
+
+        let cidt2a = toInterfaceContractId @A cidt2
+
+        cidt1b' <- fromInterfaceContractId @B cidt1a
+        cidt2b' <- fromInterfaceContractId @B cidt2a
+
+        cidt1b' === Some cidt1b
+        cidt2b' === None
+
+        exercise cidt1a ChoiceA
+        exercise cidt1b ChoiceA
+        exercise cidt1b ChoiceB
+        exercise cidt1 ChoiceA
+        exercise cidt1 ChoiceB
+
+        pure ()
+
+-- @ENABLE-SCENARIOS

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.config
@@ -32,6 +32,7 @@ case class Arguments(
     useDatabase: Boolean = false,
     ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
     ignoreProjectParties: Boolean = false,
+    enableUserManagement: Boolean = true,
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
@@ -172,6 +173,13 @@ object Arguments {
           "Ignore the parties specified in the project configuration file and query the ledger for parties instead."
         )
         .action((_, arguments) => arguments.copy(ignoreProjectParties = true))
+
+      opt[Boolean]("feature-user-management")
+        .optional()
+        .text(
+          "By default, the login screen is now populated by quering the user mgmt service. Disable to query party mgmt instead (the pre-2.0 default)."
+        )
+        .action((enabled, arguments) => arguments.copy(enableUserManagement = enabled))
 
       cmd("server")
         .text("serve data from platform")

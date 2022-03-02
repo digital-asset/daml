@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
@@ -33,7 +33,10 @@ class InMemoryLedgerReader(
               metrics.daml.ledger.log.read,
               state
                 .readLog(
-                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1)
+                  _.view.zipWithIndex
+                    .map(_.swap)
+                    .slice(startExclusive + 1, endInclusive + 1)
+                    .toVector // ensure we copy the results so we don't keep a reference to the log
                 )
                 .iterator,
             )

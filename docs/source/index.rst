@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml Documentation
@@ -21,6 +21,7 @@ Daml Documentation
    Building Your App <getting-started/index>
    getting-started/app-architecture
    getting-started/first-feature
+   getting-started/testing
    Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 .. toctree::
@@ -29,11 +30,8 @@ Daml Documentation
    :hidden:
    :caption: Writing Daml
 
-   daml/intro/0_Intro.rst
-   daml/reference/index
-   daml/stdlib/index
+   writing-daml
    daml/troubleshooting
-   /daml/patterns
 
 .. toctree::
    :titlesonly:
@@ -41,17 +39,7 @@ Daml Documentation
    :hidden:
    :caption: Building applications
 
-   app-dev/app-arch
-   app-dev/bindings-ts/index
-   json-api/index
-   Daml Script <daml-script/index>
-   Daml REPL <daml-repl/index>
-   upgrade/index
-   app-dev/authorization
-   app-dev/ledger-api
-   triggers/index
-   tools/trigger-service/index
-   tools/auth-middleware/index
+   building-applications
 
 .. toctree::
    :titlesonly:
@@ -59,9 +47,7 @@ Daml Documentation
    :hidden:
    :caption: Deploying to Daml ledgers
 
-   deploy/index
-   deploy/generic_ledger
-   deploy/ledger-topologies
+   deploying
 
 .. toctree::
    :titlesonly:
@@ -69,9 +55,7 @@ Daml Documentation
    :hidden:
    :caption: Operating Daml
 
-   ops/requirements
-   ops/pruning
-   ops/connect/index
+   operating-daml
 
 .. toctree::
    :titlesonly:
@@ -79,12 +63,7 @@ Daml Documentation
    :hidden:
    :caption: Developer Tools
 
-   tools/assistant
-   daml/daml-studio
-   tools/sandbox
-   tools/navigator/index
-   tools/codegen
-   tools/profiler
+   tools
 
 .. toctree::
    :titlesonly:
@@ -97,6 +76,7 @@ Daml Documentation
    concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
+
 
 .. toctree::
    :titlesonly:
@@ -112,12 +92,11 @@ Daml Documentation
    :hidden:
    :caption: Early Access Features
 
-   tools/extractor
    tools/export/index
-   daml-integration-kit/index
    tools/visual
    concepts/interoperability
    tools/non-repudiation
+   ops/connect/index
 
 .. toctree::
    :titlesonly:

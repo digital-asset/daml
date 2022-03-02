@@ -189,3 +189,5 @@ main = scenario do
 
   submitMustFail alice do
     exercise rest Merge with otherCid = iouEURCid
+
+-- @ENABLE-SCENARIOS

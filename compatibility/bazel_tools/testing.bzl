@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -88,6 +88,9 @@ grpc_error_code_breaking_change_exclusions_suites = [
     "SemanticTests",
     "ContractKeysIT",
 ]
+
+before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
+after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
 
 excluded_test_tool_tests = [
     {
@@ -472,6 +475,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.18.0-snapshot.20210928.7948.1",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
@@ -532,14 +536,25 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.18.0-snapshot.20211026.8179.0.e474b2d1",
+        "start": "1.18.0",
         "platform_ranges": [
             {
-                "end": "1.18.0-snapshot.20211117.8399.1",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.18.0",
+        "end": "2.0.0-snapshot.20220105.8777.1",  # was removed in 2.0
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Exclude dedup tests due to large number of changes (removed participant deduplication, switch to append-only schema, changes in deduplication duration)
                     "KVCommandDeduplicationIT",
-                    "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
                 ],
             },
         ],
@@ -558,12 +573,248 @@ excluded_test_tool_tests = [
     },
     {
         # Completion offset included in the CommandService responses
-        "start": "1.18.0-snapshot.20211117.8399.1",
+        "start": "1.18.0",
         "platform_ranges": [
             {
-                "end": "1.18.0-snapshot.20211117.8399.1",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     "CommandServiceIT:CSsubmitAndWaitCompletionOffset",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.0.0",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
+                    "CommandDeduplicationIT:DeduplicationMixedClients",
+                    # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
+                    "CommandDeduplicationIT:SimpleDeduplicationCommandClient",
+                    # Offsets are not supported for versions < 2.0.0
+                    "CommandDeduplicationIT:DeduplicateUsingOffsets",
+                    # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
+                    "ExceptionsIT:ExRollbackDuplicateKeyCreated",
+                    "ExceptionsIT:ExRollbackDuplicateKeyArchived",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20211123.8463.0.bd2a6852",
+                "exclusions": [
+                    # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
+                    "ExceptionsIT:ExRollbackDuplicateKeyCreated",
+                    "ExceptionsIT:ExRollbackDuplicateKeyArchived",
+                ],
+            },
+        ],
+    },
+    {
+        # max deduplication duration is no longer enforced in the ledger API
+        "start": first_granular_test_tool,
+        "end": "2.0.0-snapshot.20211210.8653.0.35beb44c ",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20211210.8653.0.35beb44c",
+                "exclusions": [
+                    "LedgerConfigurationServiceIT:CSLSuccessIfMaxDeduplicationTimeExceeded",
+                ],
+            },
+        ],
+    },
+    {
+        # max deduplication duration is no longer enforced in the ledger API
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20211210.8653.0.35beb44c",
+                "exclusions": [
+                    "LedgerConfigurationServiceIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.3.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    "CommandServiceIT:CSReturnStackTrace",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    "ExceptionsIT:ExUncaught",
+                ],
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    # Error message did not contain [\QParty not known on ledger\E], but was [Parties not known on ledger: [unallocated]].
+                    "ClosedWorldIT:ClosedWorldObserver",
+                ],
+            },
+        ],
+    },
+    {
+        # Contract ID and participant pruning tests are no longer optional.
+        "start": "2.0.0-snapshot.20220110.8812.1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220110.8812.1",
+                "exclusions": [
+                    "ContractIdIT",  # Contract ID tests are governed by feature descriptors.
+                    "ParticipantPruningIT",  # Now enabled by default, but some ledgers may need to disable certain tests.
+                ],
+            },
+        ],
+    },
+    {
+        # The test requires the "definite_answer" gRPC error metadata entry, which is not present in old releases.
+        "start": "2.0.0-snapshot.20220118.8919.1",
+        "platform_ranges": [
+            {
+                "end": "1.16.0",
+                "exclusions": [
+                    "MultiPartySubmissionIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Some command deduplication tests are no longer optional, but fail on older releases.
+        "start": "2.0.0-snapshot.20220118.8919.1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220118.8919.1",
+                "exclusions": [
+                    "CommandDeduplicationParallelIT",
+                    "CommandDeduplicationPeriodValidationIT",
+                    "CompletionDeduplicationInfoITCommandService",
+                    "CompletionDeduplicationInfoITCommandSubmissionService",
+                ],
+            },
+        ],
+    },
+    {
+        # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
+        # hence older tests will fail to assert it.
+        "start": "1.17.0",
+        "end": "1.18.1",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220126.9029.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:ParticipantCommandDeduplication",
+                ],
+            },
+        ],
+    },
+    {
+        # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
+        # hence older tests will fail to assert it.
+        "start": "1.18.0",
+        "end": "1.18.1",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220126.9029.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationMixedClients",
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic",
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic",
+                ],
+            },
+        ],
+    },
+    {
+        # Self-service error codes becomes the only supported option. They are deprecated as an experimental feature.
+        # Switching to the legacy codes is no longer available.
+        "start": after_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+                "end": "1.17.1",
+                "exclusions": [
+                    "ActiveContractsServiceIT",
+                    "ClosedWorldIT",
+                    "CommandServiceIT",
+                    "CommandSubmissionCompletionIT",
+                    "ConfigManagementServiceIT",
+                    "ContractKeysIT",
+                    "DeeplyNestedValueIT",
+                    "ExceptionsIT",
+                    "LedgerConfigurationServiceIT",
+                    "MultiPartySubmissionIT",
+                    "PackageManagementServiceIT",
+                    "PackageServiceIT",
+                    "PartyManagementServiceIT",
+                    "SemanticTests",
+                    "TransactionServiceAuthorizationIT",
+                    "TransactionServiceExerciseIT",
+                    "TransactionServiceQueryIT",
+                    "TransactionServiceStreamsIT",
+                    "TransactionServiceValidationIT",
+                    "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
+        "end": before_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+                "start": after_removing_legacy_error_codes,
+                "exclusions": [
+                    "CommandSubmissionCompletionIT",
+                    "ConfigManagementServiceIT",
+                    "ContractKeysIT",
+                    "SemanticTests",
+                    "TransactionService",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0",
+        "end": before_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+                "start": after_removing_legacy_error_codes,
+                "exclusions": [
+                    "ExceptionsIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Sandbox-on-X starts forwarding rejections on duplicate party allocation starting with next release
+        "start": "2.0.0-snapshot.20220201.9108.1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220201.9108.0.aa2494f1",
+                "exclusions": [
+                    "PartyManagementServiceIT:PMRejectionDuplicateHint",
                 ],
             },
         ],
@@ -608,33 +859,22 @@ def daml_ledger_test(
         sandbox_args = [],
         data = [],
         **kwargs):
+    # We wrap it in an SH test to pass different arguments.
     native.sh_test(
         name = name,
-        # TODO[AH]: rules_haskell's runfiles library uses the runfiles tree
-        # relative to the actual executable path (`getExecutablePath`) instead
-        # of argument 0, as [specified][runfiles-spec]. This means that the
-        # symlink generated by `sh_test` does not override the runfiles tree
-        # and `data` dependencies of the `sh_test` rule are not found by the
-        # test runner. This should be fixed in rules_haskell. In the meantime
-        # we work around the issue by using a wrapper script that does the
-        # `rlocation` lookup using the correct runfiles tree.
-        # [runfiles-spec]: https://docs.google.com/document/d/e/2PACX-1vSDIrFnFvEYhKsCMdGdD40wZRBX3m3aZ5HhVj4CtHPmiXKDCxioTUbYsDydjKtFDAzER5eg7OjJWs3V/pub
         srcs = ["//bazel_tools:daml_ledger_test.sh"],
         args = [
             "$(rootpath //bazel_tools/daml_ledger:runner)",
-            #"--sdk-version",
-            sdk_version,
-            #"--daml",
+            # "--daml",
             "$(rootpath %s)" % daml,
-            #"--certs",
-            "bazel_tools/test_certificates",
-            #"--sandbox",
+            # "--sandbox",
             "$(rootpath %s)" % sandbox,
+            "--sdk-version",
+            sdk_version,
         ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]),
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = data + depset(direct = [
             "//bazel_tools/daml_ledger:runner",
-            "//bazel_tools/daml_ledger:test-certificates",
             # Deduplicate if daml and sandbox come from the same release.
             daml,
             sandbox,
@@ -823,9 +1063,15 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # We need to use weak seeding to avoid our tests timing out
     # if the CI machine does not have enough entropy.
-    sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
+    sandbox_args = [
+        "sandbox",
+        "--contract-id-seeding=testing-weak",
+    ]
 
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
+
+    sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
 
     json_api_args = ["json-api"]
 
@@ -833,24 +1079,29 @@ def sdk_platform_test(sdk_version, platform_version):
     # for older versions we still have to disable ClosedWorldIT
     (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
     extra_sandbox_classic_args = []
+    extra_sandbox_on_x_args = []
 
     if versions.is_at_least("1.17.0", platform_version):
         extra_sandbox_next_args += ["--max-deduplication-duration=PT5S"]
 
     # https://github.com/digital-asset/daml/commit/60ffb79fb16b507d4143cfc991da342efea504a7
     # introduced a KV specific dedup test and we need to disable the non-kv test in return.
-    kv_dedup_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
-    if versions.is_at_least(kv_dedup_version, sdk_version) and versions.is_at_least(kv_dedup_version, platform_version):
+    kv_dedup_start_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
+    kv_dedup_end_version = "2.0.0-snapshot.20220110.8812.0.3a08380b"
+    if versions.is_at_least(kv_dedup_start_version, sdk_version) and versions.is_at_most(kv_dedup_end_version, sdk_version) and \
+       versions.is_at_least(kv_dedup_start_version, platform_version) and versions.is_at_most(kv_dedup_end_version, platform_version):
         extra_sandbox_next_exclusions += ["--exclude=CommandDeduplicationIT", "--additional=KVCommandDeduplicationIT"]
 
     # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
     # Before this SDK version, ledger-api-test-tool cannot correctly assert the self-service error codes.
-    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae will run against
-    # old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
+    # Turning on the compatibility mode with `--use-pre-1.18-error-codes` is available up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive).
+    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive)
+    # will run against old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
     error_codes_version_enabled_by_default = "1.18.0-snapshot.20211117.8399.0.a05a40ae"
-    if versions.is_at_most(error_codes_version_enabled_by_default, sdk_version):
+    if versions.is_at_most(error_codes_version_enabled_by_default, platform_version) and versions.is_at_least(before_removing_legacy_error_codes, platform_version):
         extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
         extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
+        extra_sandbox_on_x_args += ["--use-pre-1.18-error-codes"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -860,76 +1111,106 @@ def sdk_platform_test(sdk_version, platform_version):
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
     if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        client_server_test(
-            name = name,
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-            ] + exclusions + extra_sandbox_next_exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = sandbox,
-            server_args = sandbox_args + extra_sandbox_next_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-        )
+        if versions.is_at_least("2.0.0", platform_version):
+            # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
+            if versions.is_at_least("1.5.0", sdk_version):
+                client_server_test(
+                    name = name + "-on-x",
+                    client = ledger_api_test_tool,
+                    client_args = [
+                        "localhost:6865",
+                    ] + exclusions,
+                    data = [dar_files],
+                    runner = "@//bazel_tools/client_server:runner",
+                    runner_args = ["6865"],
+                    server = sandbox_on_x,
+                    server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+                )
+                client_server_test(
+                    name = name + "-on-x-postgresql",
+                    client = ledger_api_test_tool,
+                    client_args = [
+                        "localhost:6865",
+                    ] + exclusions,
+                    data = [dar_files],
+                    runner = "@//bazel_tools/client_server:runner",
+                    runner_args = ["6865"],
+                    server = ":sandbox-with-postgres-{}".format(platform_version),
+                    server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+                ) if is_linux else None
+        else:
+            client_server_test(
+                name = name,
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                ] + exclusions + extra_sandbox_next_exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = sandbox,
+                server_args = sandbox_args + extra_sandbox_next_args,
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            )
 
-        client_server_test(
-            name = name + "-classic",
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-                "--exclude=ClosedWorldIT",
-            ] + exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = sandbox,
-            server_args = sandbox_classic_args + extra_sandbox_classic_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-        )
+            client_server_test(
+                name = name + "-classic",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                    "--exclude=ClosedWorldIT",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = sandbox,
+                server_args = sandbox_classic_args + extra_sandbox_classic_args,
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            )
 
-        client_server_test(
-            name = name + "-postgresql",
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-            ] + exclusions + extra_sandbox_next_exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = ":sandbox-with-postgres-{}".format(platform_version),
-            server_args = [platform_version] + sandbox_args + extra_sandbox_next_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-        ) if is_linux else None
+            client_server_test(
+                name = name + "-postgresql",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                ] + exclusions + extra_sandbox_next_exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = ":sandbox-with-postgres-{}".format(platform_version),
+                server_args = [platform_version, "daml"] + sandbox_args + extra_sandbox_next_args + ["--jdbcurl=__jdbcurl__"],
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+            ) if is_linux else None
 
-        client_server_test(
-            name = name + "-classic-postgresql",
-            size = "large",
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-                "--exclude=ClosedWorldIT",
-            ] + exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = ":sandbox-with-postgres-{}".format(platform_version),
-            server_args = [platform_version] + sandbox_classic_args + extra_sandbox_classic_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-        ) if is_linux else None
+            client_server_test(
+                name = name + "-classic-postgresql",
+                size = "large",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                    "--exclude=ClosedWorldIT",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = ":sandbox-with-postgres-{}".format(platform_version),
+                server_args = [platform_version, "daml"] + sandbox_classic_args + extra_sandbox_classic_args + ["--jdbcurl=__jdbcurl__"],
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+            ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
@@ -940,8 +1221,8 @@ def sdk_platform_test(sdk_version, platform_version):
         name = name,
         sdk_version = sdk_version,
         daml = daml_assistant,
-        sandbox = sandbox,
-        sandbox_args = sandbox_args,
+        sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
+        sandbox_args = ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.
@@ -952,21 +1233,24 @@ def sdk_platform_test(sdk_version, platform_version):
     # sandbox and the JSON API come from the same SDK.
     # However, the test setup is flexible enough, that we
     # can control them individually.
-    create_daml_app_test(
-        name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
-        daml = daml_assistant,
-        sandbox = sandbox,
-        sandbox_version = platform_version,
-        json_api = json_api,
-        json_api_version = platform_version,
-        daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
-        daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
-        daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
-        messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
-        codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
-        dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
-        size = "large",
-        # Yarn gets really unhappy if it is called in parallel
-        # so we mark this exclusive for now.
-        tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
-    )
+
+    # We allocate parties via @daml/ledger which only supports this since SDK 1.8.0
+    if versions.is_at_least("1.8.0", sdk_version):
+        create_daml_app_test(
+            name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
+            daml = daml_assistant,
+            sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
+            sandbox_version = platform_version,
+            json_api = json_api,
+            json_api_version = platform_version,
+            daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
+            daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
+            daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
+            messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
+            codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
+            dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
+            size = "large",
+            # Yarn gets really unhappy if it is called in parallel
+            # so we mark this exclusive for now.
+            tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
+        )

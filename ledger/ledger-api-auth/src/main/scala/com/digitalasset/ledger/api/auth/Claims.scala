@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -56,43 +56,23 @@ object ClaimSet {
     * They also optionally specify an expiration epoch time that statically specifies the
     * time on or after which the token will no longer be considered valid by the Ledger API.
     *
-    * Please note that Health and ServerReflection services do NOT require authentication.
-    *
-    * The following is a full list of services and the corresponding required claims:
-    * +-------------------------------------+----------------------------+------------------------------------------+
-    * | Ledger API service                  | Method                     | Access with                              |
-    * +-------------------------------------+----------------------------+------------------------------------------+
-    * | LedgerIdentityService               | GetLedgerIdentity          | isPublic                                 |
-    * | ActiveContractsService              | GetActiveContracts         | for each requested party p: canReadAs(p) |
-    * | CommandSubmissionService            | Submit                     | for submitting party p: canActAs(p)      |
-    * | CommandCompletionService            | CompletionEnd              | isPublic                                 |
-    * | CommandCompletionService            | CompletionStream           | for each requested party p: canReadAs(p) |
-    * | CommandService                      | *                          | for submitting party p: canActAs(p)      |
-    * | Health                              | *                          | N/A (authentication not required)        |
-    * | LedgerConfigurationService          | GetLedgerConfiguration     | isPublic                                 |
-    * | PackageService                      | *                          | isPublic                                 |
-    * | PackageManagementService            | *                          | isAdmin                                  |
-    * | PartyManagementService              | *                          | isAdmin                                  |
-    * | ResetService                        | *                          | isAdmin                                  |
-    * | ServerReflection                    | *                          | N/A (authentication not required)        |
-    * | TimeService                         | GetTime                    | isPublic                                 |
-    * | TimeService                         | SetTime                    | isAdmin                                  |
-    * | TransactionService                  | LedgerEnd                  | isPublic                                 |
-    * | TransactionService                  | *                          | for each requested party p: canReadAs(p) |
-    * +-------------------------------------+----------------------------+------------------------------------------+
+    * The precise authorization rules are documented in "//docs/source/app-dev/authorization.rst".
+    * Please use that file when writing or reviewing tests; and keep it up to date when adding new endpoints.
     *
     * @param claims         List of [[Claim]]s describing the authorization this object describes.
     * @param ledgerId       If set, the claims will only be valid on the given ledger identifier.
     * @param participantId  If set, the claims will only be valid on the given participant identifier.
     * @param applicationId  If set, the claims will only be valid on the given application identifier.
     * @param expiration     If set, the claims will cease to be valid at the given time.
+    * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
     */
   final case class Claims(
       claims: Seq[Claim],
-      ledgerId: Option[String] = None,
-      participantId: Option[String] = None,
-      applicationId: Option[String] = None,
-      expiration: Option[Instant] = None,
+      ledgerId: Option[String],
+      participantId: Option[String],
+      applicationId: Option[String],
+      expiration: Option[Instant],
+      resolvedFromUser: Boolean,
   ) extends ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
@@ -155,6 +135,13 @@ object ClaimSet {
     }
   }
 
+  /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
+  final case class AuthenticatedUser(
+      userId: String,
+      participantId: Option[String],
+      expiration: Option[Instant],
+  ) extends ClaimSet
+
   object Claims {
 
     /** A set of [[Claims]] that does not have any authorization */
@@ -164,6 +151,7 @@ object ClaimSet {
       participantId = None,
       applicationId = None,
       expiration = None,
+      resolvedFromUser = false,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */

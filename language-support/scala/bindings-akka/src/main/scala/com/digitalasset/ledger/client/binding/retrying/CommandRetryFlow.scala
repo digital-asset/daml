@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.retrying
@@ -59,7 +59,7 @@ object CommandRetryFlow {
       maxRetryTime: TemporalAmount,
   ): SubmissionFlowType[RetryInfo[C, CommandSubmission]] =
     Flow
-      .fromGraph(GraphDSL.create(commandSubmissionFlow) { implicit b => commandSubmission =>
+      .fromGraph(GraphDSL.createGraph(commandSubmissionFlow) { implicit b => commandSubmission =>
         import GraphDSL.Implicits._
 
         val merge =

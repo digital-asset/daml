@@ -1,10 +1,29 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 terraform {
   backend "gcs" {
     bucket = "da-dev-gcp-daml-language-tfstate"
     prefix = "daml"
+  }
+
+  required_providers {
+    secret = {
+      source  = "numtide/secret"
+      version = "1.2.0"
+    }
+    google = {
+      source  = "hashicorp/google"
+      version = "4.9.0"
+    }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "4.9.0"
+    }
+    template = {
+      source  = "hashicorp/template"
+      version = "2.2.0"
+    }
   }
 }
 
@@ -21,11 +40,9 @@ provider "google-beta" {
 }
 
 provider "secret" {
-  version = "~>1.1"
 }
 
 provider "template" {
-  version = "~>2.2"
 }
 
 data "google_project" "current" {
@@ -41,7 +58,7 @@ locals {
     target          = "infra"
   }
 
-  machine-labels = merge(local.labels, map("env", "production"))
+  machine-labels = merge(local.labels, tomap({ "env" = "production" }))
 
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"

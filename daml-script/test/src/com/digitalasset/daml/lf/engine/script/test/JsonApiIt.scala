@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -17,8 +17,13 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
+import com.daml.ledger.api.domain.{LedgerId, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   OwnedResource,
@@ -27,6 +32,12 @@ import com.daml.ledger.api.testing.utils.{
   Resource => TestResource,
 }
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
@@ -36,6 +47,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -48,7 +60,6 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.AbstractSandboxFixture
-import com.daml.platform.sandboxnext
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -103,7 +114,7 @@ trait JsonApiFixture
   }
 
   protected def getToken(actAs: List[String], readAs: List[String], admin: Boolean): String = {
-    val payload = AuthServiceJWTPayload(
+    val payload = CustomDamlJWTPayload(
       ledgerId = Some("MyLedger"),
       participantId = None,
       exp = None,
@@ -111,6 +122,20 @@ trait JsonApiFixture
       actAs = actAs,
       readAs = readAs,
       admin = admin,
+    )
+    val header = """{"alg": "HS256", "typ": "JWT"}"""
+    val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
+    JwtSigner.HMAC256.sign(jwt, secret) match {
+      case -\/(e) => throw new IllegalStateException(e.toString)
+      case \/-(a) => a.value
+    }
+  }
+
+  protected def getUserToken(userId: UserId): String = {
+    val payload = StandardJWTPayload(
+      userId = userId,
+      participantId = None,
+      exp = None,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
@@ -128,7 +153,7 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        serverPort <- new sandboxnext.Runner(config.copy(jdbcUrl = jdbcUrl))
+        serverPort <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
@@ -240,6 +265,23 @@ final class JsonApiIt
         httpPort,
         Some(getToken(parties, readAs, true)),
         applicationId,
+      )
+    val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
+    Runner.jsonClients(participantParams, envIface)
+  }
+
+  private def getUserClients(
+      user: UserId,
+      envIface: EnvironmentInterface = envIface,
+  ) = {
+    // We give the default participant some nonsense party so the checks for party mismatch fail
+    // due to the mismatch and not because the token does not allow inferring a party
+    val defaultParticipant =
+      ApiParameters(
+        "http://localhost",
+        httpPort,
+        Some(getUserToken(user)),
+        None,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     Runner.jsonClients(participantParams, envIface)
@@ -362,7 +404,7 @@ final class JsonApiIt
         )
       } yield {
         exception.cause.getMessage should include(
-          "Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
+          "Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
         )
       }
     }
@@ -372,6 +414,28 @@ final class JsonApiIt
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"),
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "user management" in {
+      for {
+        clients <- getClients()
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonUserManagement"),
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "user management rights" in {
+      for {
+        clients <- getClients()
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonUserRightManagement"),
         )
       } yield {
         assert(result == SUnit)
@@ -506,6 +570,31 @@ final class JsonApiIt
       } yield {
         r shouldBe SUnit
       }
+    }
+    "user tokens" in {
+      for {
+        grpcClient <- LedgerClient(
+          channel,
+          LedgerClientConfiguration(
+            applicationId = "appid",
+            ledgerIdRequirement = LedgerIdRequirement.none,
+            commandClient = CommandClientConfiguration.default,
+            token = Some(getUserToken(UserId.assertFromString("participant_admin"))),
+          ),
+        )
+        p1 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
+        p2 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
+        u <- grpcClient.userManagementClient.createUser(
+          User(UserId.assertFromString("u"), None),
+          Seq(UserRight.CanActAs(p1), UserRight.CanActAs(p2)),
+        )
+        clients <- getUserClients(u.id)
+        r <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiPartyPartySets"),
+          inputValue = Some(JsArray(JsString(p1), JsString(p2))),
+        )
+      } yield r shouldBe SUnit
     }
     "invalid response" in {
       def withServer[A](f: ServerBinding => Future[A]) = {

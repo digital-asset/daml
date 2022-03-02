@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.quickstart.iou
@@ -14,6 +14,7 @@ import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
+  LedgerClientChannelConfiguration,
 }
 import com.daml.quickstart.iou.ClientUtil.workflowIdFromParty
 import com.daml.quickstart.iou.DecodeUtil.{decodeAllCreated, decodeArchived, decodeCreated}
@@ -65,13 +66,14 @@ object IouMain extends App with StrictLogging {
     applicationId = ApplicationId.unwrap(applicationId),
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
   // </doc-ref:ledger-client-configuration>
 
+  private val clientChannelConfig = LedgerClientChannelConfiguration.InsecureDefaults
+
   private val clientF: Future[LedgerClient] =
-    LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)
+    LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig, clientChannelConfig)(ec, aesf)
 
   private val clientUtilF: Future[ClientUtil] =
     clientF.map(client => new ClientUtil(client, applicationId))

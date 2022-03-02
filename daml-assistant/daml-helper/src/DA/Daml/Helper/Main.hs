@@ -1,10 +1,10 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception.Safe
-import Control.Monad
+import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
@@ -12,10 +12,10 @@ import Numeric.Natural
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
-import System.IO
+import System.IO.Extra
 import System.Process (showCommandForUser)
+import System.Process.Typed (unsafeProcessHandle)
 import Text.Read (readMaybe)
-
 import DA.Signals
 import DA.Daml.Helper.Init
 import DA.Daml.Helper.Ledger
@@ -24,6 +24,10 @@ import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
+import DA.PortFile
+import DA.Ledger.Types (ApplicationId(..))
+import Data.Text.Lazy (pack)
+import Data.Time.Calendar (Day(..))
 
 main :: IO ()
 main = do
@@ -49,11 +53,6 @@ data Command
         , remainingArguments :: [String]
         , shutdownStdinClose :: Bool
         }
-    | RunPlatformJar
-        { args :: [String]
-        , logbackConfig :: FilePath
-        , shutdownStdinClose :: Bool
-        }
     | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
     | CreateDamlApp { targetFolder :: FilePath }
     -- ^ CreateDamlApp is sufficiently special that in addition to
@@ -61,20 +60,9 @@ data Command
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
-      { sandboxPortM :: Maybe SandboxPortSpec
-      , openBrowser :: OpenBrowser
-      , startNavigator :: Maybe StartNavigator
-      , navigatorPort :: NavigatorPort
-      , jsonApiCfg :: JsonApiConfig
-      , onStartM :: Maybe String
-      , waitForSignal :: WaitForSignal
-      , sandboxOptions :: SandboxOptions
-      , navigatorOptions :: NavigatorOptions
-      , jsonApiOptions :: JsonApiOptions
-      , scriptOptions :: ScriptOptions
-      , shutdownStdinClose :: Bool
-      , sandboxClassic :: SandboxClassic
-      }
+        { startOptions :: StartOptions
+        , shutdownStdinClose :: Bool
+        }
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
@@ -82,13 +70,20 @@ data Command
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
-    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
+    | LedgerMeteringReport { flags :: LedgerFlags, from :: Day, to :: Maybe Day, application :: Maybe ApplicationId, compactOutput :: Bool }
     | CantonSandbox
-      { ports :: CantonPorts
-      , remainingArguments :: [String]
-      }
+        { cantonOptions :: CantonOptions
+        , portFileM :: Maybe FilePath
+        , darPaths :: [FilePath]
+        , remainingArguments :: [String]
+        , shutdownStdinClose :: Bool
+        }
+    | CantonRepl
+        { cantonReplOptions :: CantonReplOptions
+        , remainingArguments :: [String]
+        }
 
 data AppTemplate
   = AppTemplateDefault
@@ -107,10 +102,10 @@ commandParser = subparser $ fold
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
     , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
     , command "run-jar" (info runJarCmd forwardOptions)
-    , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
-    , command "canton-sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
+    , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
+    , command "canton-console" (info (cantonReplCmd <**> helper) cantonReplCmdInfo)
     ]
   where
 
@@ -139,11 +134,6 @@ commandParser = subparser $ fold
         <*> many (argument str (metavar "ARG"))
         <*> stdinCloseOpt
 
-    runPlatformJarCmd = RunPlatformJar
-        <$> many (argument str (metavar "ARG"))
-        <*> strOption (long "logback-config")
-        <*> stdinCloseOpt
-
     newCmd =
         let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
             appTemplateFlag = asum
@@ -166,37 +156,31 @@ commandParser = subparser $ fold
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
-    startCmd = Start
-        <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
-        <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
-        <*> optional navigatorFlag
-        <*> navigatorPortOption
-        <*> jsonApiCfg
-        <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
-        <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
-        <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
-        <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
-        <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
-        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter")))
-        <*> stdinCloseOpt
-        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
+    startCmd = do
+        sandboxPortM <- sandboxPortOpt "sandbox-port" "Port number for the sandbox"
+        shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
+        shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
+        navigatorPort <- navigatorPortOption
+        jsonApiConfig <- jsonApiCfg
+        onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
+        shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
+        sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
+        navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
+        jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
+        scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
+        shutdownStdinClose <- stdinCloseOpt
+        sandboxPortSpec <- sandboxCantonPortSpecOpt
+        pure $ Start StartOptions{..} shutdownStdinClose
 
-    navigatorFlag =
-        -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
-        -- if the flag was passed explicitly or not.
-        StartNavigator <$>
-        option reader (long "start-navigator" <> help helpText <> completeWith ["true", "false"] <> idm)
-        where
-            reader = eitherReader $ \case
-                -- We allow for both yes and true since we want a boolean in daml.yaml
-                "true" -> Right True
-                "yes" -> Right True
-                "false" -> Right False
-                "no" -> Right False
-                "auto" -> Right True
-                s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
-            -- To make things less confusing, we do not mention yes, no and auto here.
-            helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
+    sandboxPortOpt name desc =
+        optional (option (maybeReader (toSandboxPortSpec <=< readMaybe))
+            (long name <> metavar "PORT_NUM" <> help desc))
+
+    sandboxCantonPortSpecOpt = do
+        adminApiSpec <- sandboxPortOpt "sandbox-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
+        domainPublicApiSpec <- sandboxPortOpt "sandbox-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
+        domainAdminApiSpec <- sandboxPortOpt "sandbox-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
+        pure SandboxCantonPortSpec {..}
 
     navigatorPortOption = NavigatorPort <$> option auto
         (long "navigator-port"
@@ -241,13 +225,11 @@ commandParser = subparser $ fold
     codegenCmd = asum
         [ subparser $ fold
             [  command "java" $ info codegenJavaCmd forwardOptions
-            ,  command "scala" $ info codegenScalaCmd (progDesc "(deprecated)" <> forwardOptions)
             ,  command "js" $ info codegenJavaScriptCmd forwardOptions
             ]
         ]
 
     codegenJavaCmd = Codegen Java <$> many (argument str (metavar "ARG"))
-    codegenScalaCmd = Codegen Scala <$> many (argument str (metavar "ARG"))
     codegenJavaScriptCmd = Codegen JavaScript <$> many (argument str (metavar "ARG"))
 
     ledgerCmdInfo = mconcat
@@ -279,9 +261,9 @@ commandParser = subparser $ fold
             , command "fetch-dar" $ info
                 (ledgerFetchDarCmd <**> helper)
                 (progDesc "Fetch DAR from ledger into file")
-            , command "navigator" $ info
-                (ledgerNavigatorCmd <**> helper)
-                (forwardOptions <> progDesc "Launch Navigator on ledger")
+            , command "metering-report" $ info
+                (ledgerMeteringReportCmd <**> helper)
+                (forwardOptions <> progDesc "Report on Ledger Use")
             ]
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
@@ -352,9 +334,15 @@ commandParser = subparser $ fold
           <$> ledgerFlags (ShowJsonApi False)
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
 
-    ledgerNavigatorCmd = LedgerNavigator
-        <$> ledgerFlags (ShowJsonApi False)
-        <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
+    app :: ReadM ApplicationId
+    app = fmap (ApplicationId . pack) str
+
+    ledgerMeteringReportCmd = LedgerMeteringReport
+        <$> ledgerFlags (ShowJsonApi True)
+        <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
+        <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
+        <*> optional (option app (long "application" <> metavar "APP" <> help "Report application identifier."))
+        <*> switch (long "compact-output" <> help "Generate compact report.")
 
     ledgerFlags showJsonApi = LedgerFlags
         <$> httpJsonFlag showJsonApi
@@ -433,16 +421,75 @@ commandParser = subparser $ fold
         , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
-    cantonSandboxCmd = CantonSandbox
-      <$> (CantonPorts
-             <$> option auto (long "port" <> value 6865)
-             <*> option auto (long "admin-api-port" <> value 6866)
-             <*> option auto (long "domain-public-port" <> value 6867)
-             <*> option auto (long "domain-admin-port" <> value 6868)
-          )
-      <*> many (argument str (metavar "ARG"))
+    cantonHelpSwitch =
+      switch $
+      long "canton-help" <>
+      help "Display the help of the underlying Canton JAR instead of the Sandbox wrapper. This is only required for advanced options."
+
+    -- These options are common enough that we want them to show up in --help instead of only in
+    -- --canton-help.
+    cantonConfigOpts =
+      many $
+      option str $
+      long "config" <>
+      short 'c' <>
+      metavar "FILE" <>
+      help (unwords [ "Set configuration file(s)."
+                    , "If several configuration files assign values to the same key, the last value is taken."
+                    ])
+
+    cantonSandboxCmd = do
+        cantonOptions <- do
+            cantonLedgerApi <- option auto (long "port" <> value 6865)
+            cantonAdminApi <- option auto (long "admin-api-port" <> value 6866)
+            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value 6867)
+            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+            cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
+                <> help "File to write canton participant ports when ready")
+            cantonStaticTime <- StaticTime <$>
+                (flag' True (long "static-time") <|>
+                 flag' False (long "wall-clock-time") <|>
+                 pure False)
+            cantonHelp <- cantonHelpSwitch
+            cantonConfigFiles <- cantonConfigOpts
+            pure CantonOptions{..}
+        portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
+            <> help "File to write ledger API port when ready")
+        darPaths <- many $ option str (long "dar" <> metavar "PATH"
+            <> help "DAR file to upload to sandbox")
+        remainingArguments <- many (argument str (metavar "ARG"))
+        shutdownStdinClose <- stdinCloseOpt
+        pure CantonSandbox {..}
 
     cantonSandboxCmdInfo =
+        forwardOptions
+
+    cantonReplOpt = do
+        host <- option str (long "host" <> value "127.0.0.1")
+        ledgerApi <- option auto (long "port" <> value 6865)
+        adminApi <- option auto (long "admin-api-port" <> value 6866)
+        domainPublicApi <- option auto (long "domain-public-port" <> value 6867)
+        domainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+        pure $ CantonReplOptions
+            [ CantonReplParticipant
+                { crpName = "sandbox"
+                , crpLedgerApi = Just (CantonReplApi host ledgerApi)
+                , crpAdminApi = Just (CantonReplApi host adminApi)
+                }
+            ]
+            [ CantonReplDomain
+                { crdName = "local"
+                , crdPublicApi = Just (CantonReplApi host domainPublicApi)
+                , crdAdminApi = Just (CantonReplApi host domainAdminApi)
+                }
+            ]
+
+    cantonReplCmd = do
+        cantonReplOptions <- cantonReplOpt
+        remainingArguments <- many (argument str (metavar "ARG"))
+        pure CantonRepl {..}
+
+    cantonReplCmdInfo =
         forwardOptions
 
 runCommand :: Command -> IO ()
@@ -451,9 +498,6 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    RunPlatformJar {..} ->
-        (if shutdownStdinClose then withCloseOnStdin else id) $
-        runPlatformJar args logbackConfig
     New {..} -> do
         templateNameM <- case appTemplate of
             AppTemplateDefault -> pure Nothing
@@ -475,19 +519,7 @@ runCommand = \case
     ListTemplates -> runListTemplates
     Start {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
-        runStart
-            sandboxPortM
-            startNavigator
-            navigatorPort
-            jsonApiCfg
-            openBrowser
-            onStartM
-            waitForSignal
-            sandboxOptions
-            navigatorOptions
-            jsonApiOptions
-            scriptOptions
-            sandboxClassic
+        runStart startOptions
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     PackagesList {..} -> runLedgerListPackages0 flags
@@ -496,6 +528,20 @@ runCommand = \case
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
-    LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
-    CantonSandbox {..} -> runCantonSandbox ports remainingArguments
+    LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
+    CantonSandbox {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
+        withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
+            withCantonSandbox cantonOptions remainingArguments $ \ph -> do
+                putStrLn "Starting Canton sandbox."
+                sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
+                putStrLn ("Listening at port " <> show sandboxPort)
+                forM_ darPaths $ \darPath -> do
+                    runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+                whenJust portFileM $ \portFile -> do
+                    putStrLn ("Writing ledger API port to " <> portFile)
+                    writeFileUTF8 portFile (show sandboxPort)
+                putStrLn "Canton sandbox is ready."
+    CantonRepl {..} ->
+        runCantonRepl cantonReplOptions remainingArguments

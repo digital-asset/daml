@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -31,8 +31,8 @@ message Completion {
   // Optional
   string transaction_id = 3;
 
-  // The application ID that was used for the submission, as described in ``commands.proto``.
-  // Must be a valid LedgerString (as described in ``value.proto``).
+  // The application-id or user-id that was used for the submission, as described in ``commands.proto``.
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Optional for historic completions where this data is not available.
   string application_id = 4;
 
@@ -59,7 +59,7 @@ message Completion {
   //
   // Optional; the deduplication guarantee applies even if the completion omits this field.
   oneof deduplication_period {
-    // Specifies the start of the deduplication period by a completion stream offset.
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     //
     // Must be a valid LedgerString (as described in ``value.proto``).
     string deduplication_offset = 8;

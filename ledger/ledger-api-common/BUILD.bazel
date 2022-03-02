@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
@@ -43,7 +42,6 @@ da_scala_library(
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
@@ -81,7 +79,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-domain",
-        "//libs-scala/concurrent",
         "//libs-scala/grpc-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -94,9 +91,6 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common/test-certificates",
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     resources = ["src/test/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -105,17 +99,15 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_testkit",
         "@maven//:io_spray_spray_json",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_parallel_collections",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.parallel.CollectionConverters._",
     ],
     deps = [
         ":ledger-api-common",
@@ -130,13 +122,14 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-testing-utils",
         "//ledger-api/testing-utils",
         "//ledger/error",
+        "//ledger/error:error-test-lib",
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-offset",
         "//ledger/metrics",
         "//ledger/metrics:metrics-test-lib",
-        "//ledger/participant-state/kvutils",
         "//ledger/test-common",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",

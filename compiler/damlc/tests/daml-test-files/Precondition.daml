@@ -25,3 +25,5 @@ test = scenario do
     create Confirmation with
       confirmed = [alice]
       pending = []
+
+-- @ENABLE-SCENARIOS

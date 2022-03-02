@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _oauth2-middleware:
@@ -6,7 +6,7 @@
 OAuth 2.0 Auth Middleware
 #########################
 
-Daml Connect includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
+Daml includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
 The implementation aims to be configurable to support different OAuth 2.0 providers and to allow custom mappings from Daml ledger claims to OAuth 2.0 scopes.
 
 OAuth 2.0 Configuration
@@ -15,10 +15,10 @@ OAuth 2.0 Configuration
 `RFC 6749 <https://tools.ietf.org/html/rfc6749#section-3>`_ specifies that OAuth 2.0 providers offer two endpoints:
 The `authorization endpoint <https://tools.ietf.org/html/rfc6749#section-3.1>`_
 and the `token endpoint <https://tools.ietf.org/html/rfc6749#section-3.2>`_.
-The URIs for these endpoints can be configured independently using the following flags:
+The URIs for these endpoints can be configured independently using the following fields:
 
-- ``--oauth-auth``
-- ``--oauth-token``
+- ``oauth-auth``
+- ``oauth-token``
 
 The OAuth 2.0 provider may require that the application identify itself using a client identifier and client secret.
 These can be specified using the following environment variables:
@@ -42,9 +42,9 @@ Authorization Request
 =====================
 
 This template defines the format of the `Authorization request <https://tools.ietf.org/html/rfc6749#section-4.1.1>`_.
-Use the following command-line flag to use a custom template:
+Use the following config field to use a custom template:
 
-- ``--oauth-auth-template``
+- ``oauth-auth-template``
 
 Arguments
 ^^^^^^^^^
@@ -93,9 +93,9 @@ Token Request
 =============
 
 This template defines the format of the `Token request <https://tools.ietf.org/html/rfc6749#section-4.1.3>`_.
-Use the following command-line flag to use a custom template:
+Use the following config field to use a custom template:
 
-- ``--oauth-token-template``
+- ``oauth-token-template``
 
 Arguments
 ^^^^^^^^^
@@ -131,9 +131,9 @@ Refresh Request
 ===============
 
 This template defines the format of the `Refresh request <https://tools.ietf.org/html/rfc6749#section-6>`_.
-Use the following command-line flag to use a custom template:
+Use the following config field to use a custom template:
 
-- ``--oauth-refresh-template``
+- ``oauth-refresh-template``
 
 Arguments
 ^^^^^^^^^
@@ -190,9 +190,73 @@ You would invoke the OAuth 2.0 auth middleware with the following flags:
 .. code-block:: shell
 
     oauth2-middleware \
+        --config oauth-middleware.conf
+
+The required config would look like
+
+.. code-block:: none
+
+    {
+      // Environment variables:
+      // DAML_CLIENT_ID      The OAuth2 client-id - must not be empty
+      // DAML_CLIENT_SECRET  The OAuth2 client-secret - must not be empty
+      client-id = ${DAML_CLIENT_ID}
+      client-secret = ${DAML_CLIENT_SECRET}
+
+      //IP address that OAuth2 Middleware service listens on. Defaults to 127.0.0.1.
+      address = "127.0.0.1"
+      //OAuth2 Middleware service port number. Defaults to 3000. A port number of 0 will let the system pick an ephemeral port. Consider specifying `--port-file` option with port number 0.
+      port = 3000
+
+      //URI to the auth middleware's callback endpoint `/cb`. By default constructed from the incoming login request.
+      callback-uri = "https://example.com/auth/cb"
+
+      //Maximum number of simultaneously pending login requests. Requests will be denied when exceeded until earlier requests have been completed or timed out.
+      max-login-requests = 250
+
+      //Login request timeout. Requests will be evicted if the callback endpoint receives no corresponding request in time.
+      login-timeout = 60s
+
+      //Enable the Secure attribute on the cookie that stores the token. Defaults to true. Only disable this for testing and development purposes.
+      cookie-secure = "true"
+
+      //URI of the OAuth2 authorization endpoint
+      oauth-auth="https://oauth2-provider.com/auth_uri"
+
+      //URI of the OAuth2 token endpoint
+      oauth-token="https://oauth2-provider.com/token_uri"
+
+      //OAuth2 authorization request Jsonnet template
+      oauth-auth-template="file://path/oauth/auth/template"
+
+      //OAuth2 token request Jsonnet template
+      oauth-token-template = "file://path/oauth/token/template"
+
+      //OAuth2 refresh request Jsonnet template
+      oauth-refresh-template = "file://path/oauth/refresh/template"
+
+      // Enables JWT-based authorization, where the JWT is signed by one of the below Jwt based token verifiers
+      token-verifier {
+        // type can be rs256-crt, es256-crt, es512-crt or rs256-jwks
+        type = "rs256-jwks"
+        // X509 certificate file (.crt)/JWKS url from where the public key is loaded
+        uri = "https://example.com/.well-known/jwks.json"
+      }
+    }
+
+The oauth2-middleware can also be started using cli-args.
+
+.. note:: Configuration file is the recommended way to run oauth2-middleware, running via cli-args is now deprecated
+
+.. code-block:: shell
+
+    oauth2-middleware \
         --callback https://example.com/auth/cb \
-        --address localhost
-        --http-port 3000
+        --address localhost \
+        --http-port 3000 \
+        --oauth-auth https://oauth2-provider.com/auth_uri \
+        --oauth-token https://oauth2-provider.com/token_uri \
+        --auth-jwt-rs256-jwks https://example.com/.well-known/jwks.json
 
 Some browsers reject ``Secure`` cookies on unencrypted connections even on localhost.
 You can pass the command-line flag ``--cookie-secure no`` for testing and development on localhost to avoid this.

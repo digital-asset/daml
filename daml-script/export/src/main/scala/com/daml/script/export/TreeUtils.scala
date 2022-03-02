@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -20,7 +20,6 @@ import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
-import scala.collection.compat._
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
@@ -129,7 +128,7 @@ object TreeUtils {
     parties
   }
 
-  private def valueParties(v: Value.Sum): Set[Party] = v match {
+  private[export] def valueParties(v: Value.Sum): Set[Party] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
       value.fields.map(v => valueParties(v.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
@@ -156,9 +155,11 @@ object TreeUtils {
       }
     case Sum.Enum(_) => Set[Party]()
     case Sum.GenMap(value) =>
-      value.entries.map(e => valueParties(e.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
-        x.union(xs)
-      }
+      value.entries
+        .map(e => valueParties(e.getKey.sum) union valueParties(e.getValue.sum))
+        .foldLeft(Set[Party]()) { case (x, xs) =>
+          x.union(xs)
+        }
   }
 
   case class CreatedContract(cid: ContractId, tplId: Identifier, path: List[Selector])

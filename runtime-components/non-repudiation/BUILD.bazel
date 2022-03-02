@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,8 +10,6 @@ load(
 da_scala_library(
     name = "non-repudiation",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scala_deps =
-        ["@maven//:org_scala_lang_modules_scala_collection_compat"],
     visibility = [
         "//:__subpackages__",
     ],

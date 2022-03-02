@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
@@ -8,6 +8,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
 load(":util.bzl", "ghc_pkg")
+load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
 damlc_data = [
     "//compiler/damlc/daml-ide-core:dlint.yaml",
@@ -15,7 +16,7 @@ damlc_data = [
     "@static_asset_d3plus//:js/d3plus.min.js",
     ghc_pkg,
     "//compiler/damlc:ghcversion",
-    "//compiler/damlc:hpp",
+    "@stackage-exe//hpp",
     "//compiler/damlc/pkg-db",
     "//compiler/damlc/stable-packages",
     "//compiler/repl-service/server:repl_service_jar",
@@ -27,8 +28,8 @@ add_data(
     data = [
         ghc_pkg,
         "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp",
         "//compiler/damlc/pkg-db",
+        "@stackage-exe//hpp",
     ],
     executable = ":damlc-bootstrap",
     visibility = ["//visibility:public"],
@@ -60,17 +61,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "hpp-rule",
-    srcs = ["@stackage-exe//hpp"],
-    outs = ["hpp"],
-    cmd = """
-        cp $(location @stackage-exe//hpp) $(OUTS)
-    """,
-    tools = [],
-    visibility = ["//visibility:public"],
-)
-
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
 # package databases.
 da_haskell_binary(
@@ -85,8 +75,8 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp",
         "//compiler/damlc/stable-packages",
+        "@stackage-exe//hpp",
     ],
     hackage_deps = [
         "base",
@@ -105,7 +95,7 @@ package_app(
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
         "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp",
+        "//compiler/damlc:hpp-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -125,8 +115,33 @@ package_app(
     # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
     # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
     # actual executable.
-    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.10.7/bin/ghc-pkg",
+    binary = "@ghc_nix//:lib/ghc-9.0.2/bin/ghc-pkg",
     visibility = ["//visibility:public"],
+) if not is_windows else genrule(
+    name = "ghc-pkg-dist",
+    srcs = [
+        "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe",
+        "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg-9.0.2.exe",
+    ],
+    outs = ["ghc-pkg-dist.tar.gz"],
+    cmd = """
+      set -eou pipefail
+      DIR=$$(mktemp -d)
+      trap "rm -rf $$DIR" EXIT
+      mkdir $$DIR/ghc-pkg
+      cp $(location @rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe) $$DIR/ghc-pkg/
+      cp $(location @rules_haskell_ghc_windows_amd64//:bin/ghc-pkg-9.0.2.exe) $$DIR/ghc-pkg/
+      MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+      OUT=$$PWD/$(location ghc-pkg-dist.tar.gz)
+      cd $$DIR
+      $$MKTGZ $$OUT ghc-pkg
+    """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
+package_app(
+    name = "hpp-dist",
+    binary = "@stackage-exe//hpp",
 )
 
 da_haskell_library(
@@ -197,6 +212,7 @@ da_haskell_library(
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-ide",
         "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",

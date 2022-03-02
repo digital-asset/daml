@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.config
@@ -19,6 +19,7 @@ case class Config(
     maxInFlightCommands: Int,
     submissionBatchSize: Int,
     metricsReporter: MetricsReporter,
+    authorizationTokenSecret: Option[String],
 )
 
 object Config {
@@ -53,5 +54,6 @@ object Config {
       maxInFlightCommands = 100,
       submissionBatchSize = 100,
       metricsReporter = MetricsReporter.Console,
+      authorizationTokenSecret = None,
     )
 }

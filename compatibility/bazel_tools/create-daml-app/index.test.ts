@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // The tests here are identical to the ones in
@@ -12,9 +12,9 @@
 // even more complex and you can argue that there is value in testing
 // `daml start` which is what users use.
 
-import child_process from "child_process";
-import { ChildProcess, spawn, SpawnOptions } from "child_process";
+import child_process, { ChildProcess, execFileSync, spawn, SpawnOptions } from "child_process";
 import { promises as fs } from "fs";
+import { encode } from 'jwt-simple';
 import puppeteer, { Browser, Page } from "puppeteer";
 import waitOn from "wait-on";
 
@@ -54,24 +54,32 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
-// Function to generate unique party names for us.
-// This should be replaced by the party management service once that is exposed
-// in the HTTP JSON API.
-let nextPartyId = 1;
-function getParty(): string {
-  const party = `P${nextPartyId}`;
-  nextPartyId++;
-  return party;
+let publicParty: string | undefined = undefined;
+
+const adminTokenPayload = {
+  "https://daml.com/ledger-api": {
+    "ledgerId": "create-daml-app",
+    "admin": true,
+  }
+};
+
+const adminLedger = new Ledger({
+  token: encode(adminTokenPayload, "secret", "HS256")
+});
+
+const getParty = async(): string => {
+  const allocResult = await adminLedger.allocateParty({});
+  return allocResult.identifier;
 }
 
 test("Party names are unique", async () => {
-  const parties = new Set(
-    Array(10)
-      .fill({})
-      .map(() => getParty())
-  );
+  let r = [];
+  for (let i = 0; i < 10; ++i) {
+    r = r.concat(await getParty());
+  }
+  const parties = new Set(r);
   expect(parties.size).toEqual(10);
-});
+}, 20_000);
 
 const removeFile = async (path: string) => {
   try {
@@ -124,13 +132,21 @@ const npmExeName = process.platform == "win32" ? "npm" : "npm-cli.js";
 beforeAll(async () => {
   await removeFile(`../${SANDBOX_PORT_FILE_NAME}`);
   await removeFile(`../${JSON_API_PORT_FILE_NAME}`);
-  const sandboxOptions = [
+
+  const kvSandboxOptions = [
     "sandbox",
     `--ledgerid=${SANDBOX_LEDGER_ID}`,
     `--port=0`,
     `--port-file=${SANDBOX_PORT_FILE_NAME}`,
     DAR_PATH,
   ];
+
+
+  const sandboxOnXOptions = [
+    `--ledger-id=${SANDBOX_LEDGER_ID}`,
+    `--participant=participant-id=sandbox,port=0,port-file=${SANDBOX_PORT_FILE_NAME}`
+  ];
+  const sandboxOptions = process.env.SANDBOX_VERSION[0] == "1" ? kvSandboxOptions : sandboxOnXOptions;
 
   sandbox = spawn(process.env.DAML_SANDBOX, sandboxOptions, {
     cwd: "..",
@@ -143,6 +159,7 @@ beforeAll(async () => {
   const sandboxPort = parseInt(
     await fs.readFile(SANDBOX_PORT_FILE_PATH, "utf8")
   );
+  execFileSync(process.env.DAML, ["ledger", "upload-dar", "--host=localhost", `--port=${sandboxPort}`, DAR_PATH])
 
   const jsonApiOptions = [
     "json-api",
@@ -169,6 +186,7 @@ beforeAll(async () => {
   );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
+  publicParty = await getParty();
 
   uiProc =
     spawn(npmExeName, ["start"], {
@@ -200,12 +218,12 @@ afterAll(async () => {
 }, 60_000);
 
 test("create and look up user using ledger library", async () => {
-  const party = getParty();
+  const party = await getParty();
   const token = getToken(party);
   const ledger = new Ledger({ token });
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const user = { username: party, following: [] };
+  const user = { username: party, following: [], public: publicParty };
   const userContract1 = await ledger.create(User.User, user);
   const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
@@ -268,9 +286,11 @@ const logout = async (page: Page) => {
 
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
-  await page.click(".test-select-follow-input");
-  await page.type(".test-select-follow-input", userToFollow);
-  await page.click(".test-select-follow-button");
+  const followInput = await page.waitForSelector('.test-select-follow-input');
+  await followInput.click();
+  await followInput.type(userToFollow);
+  await followInput.press('Tab');
+  await page.click('.test-select-follow-button');
 
   // Wait for the request to complete, either successfully or after the error
   // dialog has been handled.
@@ -284,7 +304,7 @@ const follow = async (page: Page, userToFollow: string) => {
 
 // LOGIN_TEST_BEGIN
 test("log in as a new user, log out and log back in", async () => {
-  const partyName = getParty();
+  const partyName = await getParty();
 
   // Log in as a new user.
   const page = await newUiPage();
@@ -318,9 +338,9 @@ test("log in as a new user, log out and log back in", async () => {
 // These are all successful cases.
 
 test("log in as three different users and start following each other", async () => {
-  const party1 = getParty();
-  const party2 = getParty();
-  const party3 = getParty();
+  const party1 = await getParty();
+  const party2 = await getParty();
+  const party3 = await getParty();
 
   // Log in as Party 1.
   const page1 = await newUiPage();
@@ -424,7 +444,7 @@ test("log in as three different users and start following each other", async () 
 }, 60_000);
 
 test("error when following self", async () => {
-  const party = getParty();
+  const party = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn((dialog) => dialog.dismiss());
@@ -439,8 +459,8 @@ test("error when following self", async () => {
 }, 60_000);
 
 test("error when adding a user that you are already following", async () => {
-  const party1 = getParty();
-  const party2 = getParty();
+  const party1 = await getParty();
+  const party2 = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn((dialog) => dialog.dismiss());

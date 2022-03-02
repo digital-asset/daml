@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -262,6 +262,8 @@ object ErrorCode {
   def formatContextAsString(contextMap: Map[String, String]): String = {
     contextMap
       .filter(_._2.nonEmpty)
+      .toSeq
+      .sortBy(_._1)
       .map { case (k, v) =>
         s"$k=$v"
       }

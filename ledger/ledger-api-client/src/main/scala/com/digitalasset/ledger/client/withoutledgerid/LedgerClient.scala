@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.withoutledgerid
@@ -7,25 +7,36 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
-import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.configuration.{
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+}
 import com.daml.ledger.client.services.acs.withoutledgerid.ActiveContractSetClient
-import com.daml.ledger.client.services.admin.{PackageManagementClient, PartyManagementClient}
+import com.daml.ledger.client.services.admin.{
+  PackageManagementClient,
+  PartyManagementClient,
+  UserManagementClient,
+}
 import com.daml.ledger.client.services.commands.SynchronousCommandClient
 import com.daml.ledger.client.services.commands.withoutledgerid.CommandClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
 import com.daml.ledger.client.services.transactions.withoutledgerid.TransactionClient
 import com.daml.ledger.client.services.version.withoutledgerid.VersionClient
+import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.Channel
-
 import java.io.Closeable
+
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 class LedgerClient private (
@@ -77,6 +88,20 @@ class LedgerClient private (
       ClassicLedgerClient.stub(VersionServiceGrpc.stub(channel), config.token)
     )
 
+  val userManagementClient: UserManagementClient = new UserManagementClient(
+    ClassicLedgerClient.stub(UserManagementServiceGrpc.stub(channel), config.token)
+  )
+
+  val identityClient =
+    new LedgerIdentityClient(
+      ClassicLedgerClient.stub(
+        LedgerIdentityServiceGrpc.stub(channel): @nowarn(
+          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+        ),
+        config.token,
+      )
+    )
+
   override def close(): Unit = GrpcChannel.close(channel)
 }
 
@@ -84,7 +109,7 @@ object LedgerClient {
   def apply(
       channel: Channel,
       config: LedgerClientConfiguration,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory) =
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
     new LedgerClient(channel, config)
 
   /** Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
@@ -99,14 +124,20 @@ object LedgerClient {
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
-    LedgerClient(GrpcChannel.withShutdownHook(builder, configuration), configuration)
+    LedgerClient(GrpcChannel.withShutdownHook(builder), configuration)
 
   /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.
     */
-  def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(implicit
+  def singleHost(
+      hostIp: String,
+      port: Int,
+      configuration: LedgerClientConfiguration,
+      channelConfig: LedgerClientChannelConfiguration,
+  )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): LedgerClient =
-    fromBuilder(NettyChannelBuilder.forAddress(hostIp, port), configuration)
+    fromBuilder(channelConfig.builderFor(hostIp, port), configuration)
+
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -44,44 +44,18 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
-convertPrim v "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEEqualGeneric `ETyApp` a1
-convertPrim v "BELess" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BELess" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BELessGeneric `ETyApp` a1
-convertPrim v "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BELessEqGeneric `ETyApp` a1
-convertPrim v "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEGreaterGeneric `ETyApp` a1
-convertPrim v "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEGreaterEqGeneric `ETyApp` a1
-convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEEqual a1
-convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BELess a1
-convertPrim _ "BELessEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BELessEq a1
-convertPrim _ "BEGreaterEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEGreaterEq a1
-convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEGreater a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
-convertPrim v "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
-    if v `supports` featureGenericComparison
-        then EBuiltin BEEqualGeneric `ETyApp` TContractId a1
-        else EBuiltin BEEqualContractId `ETyApp` a1
-
--- Decimal arithmetic
-convertPrim _ "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEAddDecimal
-convertPrim _ "BESubDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BESubDecimal
-convertPrim _ "BEMulDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEMulDecimal
-convertPrim _ "BEDivDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEDivDecimal
-convertPrim _ "BERoundDecimal" (TInt64 :-> TDecimal :-> TDecimal) =
-    EBuiltin BERoundDecimal
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
@@ -106,12 +80,6 @@ convertPrim _ "BEDateToUnixDays" (TDate :-> TInt64) =
     EBuiltin BEDateToUnixDays
 convertPrim _ "BEUnixDaysToDate" (TInt64 :-> TDate) =
     EBuiltin BEUnixDaysToDate
-
--- Conversion to and from Decimal
-convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TDecimal) =
-    EBuiltin BEInt64ToDecimal
-convertPrim _ "BEDecimalToInt64" (TDecimal :-> TInt64) =
-    EBuiltin BEDecimalToInt64
 
 -- List operations
 convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
@@ -142,8 +110,6 @@ convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     EBuiltin BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
     EBuiltin BETextToInt64
-convertPrim _ "BETextToDecimal" (TText :-> TOptional TDecimal) =
-    EBuiltin BETextToDecimal
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     EBuiltin BETextToCodePoints
 convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
@@ -197,16 +163,6 @@ convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     EBuiltin BEDivNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
 convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
     ETyApp (EBuiltin BERoundNumeric) TNat10
-convertPrim _ "BEEqual" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BEEqualNumeric) TNat10
-convertPrim _ "BELess" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BELessNumeric) TNat10
-convertPrim _ "BELessEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BELessEqNumeric) TNat10
-convertPrim _ "BEGreaterEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BEGreaterEqNumeric) TNat10
-convertPrim _ "BEGreater" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BEGreaterNumeric) TNat10
 convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
     ETyApp (EBuiltin BEInt64ToNumeric) TNat10
 convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
@@ -231,26 +187,6 @@ convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
-convertPrim v "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BEEqualGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BEEqualNumeric) n1
-convertPrim v "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BELessGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BELessNumeric) n1
-convertPrim v "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BELessEqGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BELessEqNumeric) n1
-convertPrim v "BEGreaterEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BEGreaterEqGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BEGreaterEqNumeric) n1
-convertPrim v "BEGreaterNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BEGreaterGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BEGreaterNumeric) n1
 convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
     ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
@@ -335,14 +271,33 @@ convertPrim _ "UExercise"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "UExerciseInterface"
-    (TContractId (TCon iface) :-> TCon choice :-> TOptional TTypeRep :-> TUpdate _returnTy) =
+    (   TContractId (TCon iface)
+    :-> TCon choice
+    :-> TOptional TTypeRep
+    :-> (TCon iface2 :-> TBuiltin BTBool)
+    :->  TUpdate _returnTy)
+    | iface == iface2 =
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
     ETmLam (mkVar "typeRep", TOptional TTypeRep) $
-    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) (EVar (mkVar "typeRep"))
-        -- TODO https://github.com/digital-asset/daml/issues/11703
-        --   Pass the guard argument in from daml.
-        (ETmLam (mkVar "payload", TCon iface) (EBuiltin (BEBool True)))
+    ETmLam (mkVar "pred", TCon iface :-> TBuiltin BTBool) $
+    EUpdate $ UExerciseInterface
+        { exeInterface  = iface
+        , exeChoice     = choiceName
+        , exeContractId = EVar (mkVar "this")
+        , exeArg        = EVar (mkVar "arg")
+        , exeTypeRep    = EVar (mkVar "typeRep")
+        , exeGuard      = EVar (mkVar "pred")
+        }
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
+convertPrim _ "UExerciseByKey"
+    (TApp proxy (TCon template) :-> key :-> TCon choice :-> TUpdate _returnTy) =
+    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    ETmLam (mkVar "key", key) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UExerciseByKey template choiceName (EVar (mkVar "key")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
@@ -364,77 +319,56 @@ convertPrim _ "UFetchByKey"
             , (mkIndexedField 2, EStructProj (FieldName "contract") (EVar (mkVar "res")))
             ])
 
-convertPrim version "ETemplateTypeRep"
-    ty@(TApp proxy (TCon template) :-> tTypeRep)
-    | tTypeRep `elem` [TTypeRep, TUnit] =
-    -- TODO: restrict to known templates
-    whenRuntimeSupports version featureTypeRep ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
-        ETypeRep (TCon template)
+convertPrim _ "ETemplateTypeRep"
+    (TApp proxy (TCon template) :-> TTypeRep) =
+    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    ETypeRep (TCon template)
 
-convertPrim version "EFromAnyTemplate"
-    ty@(tAny :-> TOptional (TCon template))
-    | tAny `elem` [TAny, TUnit] =
-    -- TODO: restrict to known templates
-    whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "any", TAny) $
-        EFromAny (TCon template) (EVar $ mkVar "any")
+convertPrim _ "EFromAnyTemplate"
+    (TAny :-> TOptional (TCon template)) =
+    ETmLam (mkVar "any", TAny) $
+    EFromAny (TCon template) (EVar $ mkVar "any")
 
-convertPrim version "EFromAnyChoice"
-    ty@(tProxy :-> tAny :-> TOptional choice)
-    | tAny `elem` [TAny, TUnit] =
-    -- TODO: restrict to known template/choice pairs
-    whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", tProxy) $
-        ETmLam (mkVar "any", TAny) $
-        EFromAny choice (EVar $ mkVar "any")
+convertPrim _ "EFromAnyChoice"
+    (tProxy :-> TAny :-> TOptional choice) =
+    ETmLam (mkVar "_", tProxy) $
+    ETmLam (mkVar "any", TAny) $
+    EFromAny choice (EVar $ mkVar "any")
 
-convertPrim version "EFromAnyContractKey"
-    ty@(TApp proxy (TCon template) :-> tAny :-> TOptional key)
-    | tAny `elem` [TAny, TUnit] =
-    -- TODO: restrict to known template/key pairs
-    whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
-        ETmLam (mkVar "any", TAny) $
-        EFromAny key (EVar $ mkVar "any")
+convertPrim _ "EFromAnyContractKey"
+    (TApp proxy (TCon template) :-> TAny :-> TOptional key) =
+    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    ETmLam (mkVar "any", TAny) $
+    EFromAny key (EVar $ mkVar "any")
 
-convertPrim version "EToAnyTemplate"
-    ty@(TCon template :-> tAny)
-    | tAny `elem` [TAny, TUnit] =
-    -- TODO: restrict to known templates
-    whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "template", TCon template) $
-        EToAny (TCon template) (EVar $ mkVar "template")
+convertPrim _ "EToAnyTemplate"
+    (TCon template :-> TAny) =
+    ETmLam (mkVar "template", TCon template) $
+    EToAny (TCon template) (EVar $ mkVar "template")
 
-convertPrim version "EToAnyChoice"
-    ty@(tProxy :-> choice :-> tAny)
-    | tAny `elem` [TAny, TUnit] =
-    -- TODO: restrict to known template/choice pairs
-    whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", tProxy) $
-        ETmLam (mkVar "choice", choice) $
-        EToAny choice (EVar $ mkVar "choice")
+convertPrim _ "EToAnyChoice"
+    (tProxy :-> choice :-> TAny) =
+    ETmLam (mkVar "_", tProxy) $
+    ETmLam (mkVar "choice", choice) $
+    EToAny choice (EVar $ mkVar "choice")
 
-convertPrim version "EToAnyContractKey"
-    ty@(TApp proxy (TCon template) :-> key :-> tAny)
-    | tAny `elem` [TAny, TUnit] =
-    -- TODO: restrict to known template/key pairs
-    whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
-        ETmLam (mkVar "key", key) $
-        EToAny key (EVar $ mkVar "key")
+convertPrim _ "EToAnyContractKey"
+    (TApp proxy (TCon template) :-> key :-> TAny) =
+    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    ETmLam (mkVar "key", key) $
+    EToAny key (EVar $ mkVar "key")
+
+convertPrim _ "EInterfaceTemplateTypeRep" (TCon interface :-> TTypeRep) =
+    ETmLam (mkVar "this", TCon interface) $
+    EInterfaceTemplateTypeRep interface (EVar (mkVar "this"))
 
 convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_SIGNATORY"
-        (TCon interface :-> TCon interface :-> TList TParty)
-        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
+    ESignatoryInterface interface (EVar (mkVar "this"))
 
 convertPrim _ "EObserverInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_OBSERVERS"
-        (TCon interface :-> TCon interface :-> TList TParty)
-        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
+    EObserverInterface interface (EVar (mkVar "this"))
 
 -- Exceptions
 convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
@@ -457,32 +391,21 @@ convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :
             (mkVar "x")
             (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
 
-convertPrim _ "UFromInterfaceContractId" (TContractId (TCon iface) :-> TUpdate (TOptional (TContractId (TCon tpid)))) =
-  ETmLam (mkVar "cid", TContractId (TCon iface)) $
-    if iface == tpid
-      then EUpdate $ UPure (TOptional (TContractId (TCon iface))) (ESome (TContractId (TCon iface)) $ EVar $ mkVar "cid")
-      else EUpdate $
-           UBind
-             (Binding (mkVar "iface", TCon iface) (EUpdate $ UFetchInterface iface (EVar $ mkVar "cid"))) $
-             EUpdate $ UPure (TOptional (TContractId (TCon tpid))) $ ECase (EFromInterface iface tpid (EVar $ mkVar "iface"))
-               [ CaseAlternative CPNone (ENone (TContractId (TCon tpid)))
-               , CaseAlternative (CPSome $ mkVar "_") (ESome (TContractId (TCon tpid)) (EBuiltin BECoerceContractId `ETyApp` TCon iface `ETyApp` TCon tpid `ETmApp` (EVar $ mkVar "cid")))
-               ]
-
-convertPrim _ "EToInterfaceContractId" (TContractId tpid :-> TContractId iface) =
-    EBuiltin BECoerceContractId `ETyApp` tpid `ETyApp` iface
-
 convertPrim _ "EToInterface" (TCon tpid :-> TCon iface) =
     ETmLam (mkVar "t", TCon tpid) $
-    if tpid == iface
-      then EVar (mkVar "t")
-      else EToInterface iface tpid (EVar $ mkVar "t")
+        EToInterface iface tpid (EVar $ mkVar "t")
 
 convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
     ETmLam (mkVar "i", TCon iface) $
-    if tpid == iface
-      then ESome (TCon tpid) (EVar $ mkVar "i")
-      else EFromInterface iface tpid (EVar $ mkVar "i")
+        EFromInterface iface tpid (EVar $ mkVar "i")
+
+convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
+    ETmLam (mkVar "i", TCon subIface) $
+        EToRequiredInterface superIface subIface (EVar $ mkVar "i")
+
+convertPrim _ "EFromRequiredInterface" (TCon superIface :-> TOptional (TCon subIface)) =
+    ETmLam (mkVar "i", TCon superIface) $
+        EFromRequiredInterface superIface subIface (EVar $ mkVar "i")
 
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ

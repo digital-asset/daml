@@ -1,18 +1,63 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
 
 Glossary of concepts
 ####################
 
-Daml
-****
+Key Concepts
+************
 
-**Daml** is a programming language for writing `smart contracts <#contract>`__, that you can use to build an application based on a `ledger <#ledger-daml-ledger>`__. You can run Daml contracts on many different ledgers.
+Daml
+====
+
+Daml is a platform for building and running sophisticated, multi-party applications. At its core, it contains a smart contract `language <#daml-language>`__ and `tooling <#developer-tools>`__ 
+that defines the schema, semantics, and execution of transactions between parties. Daml includes `Canton <#canton-ledger>`__, a privacy-enabled distributed ledger that is enhanced when deployed 
+with complementary blockchains.
+
+Daml Language
+=============
+
+The Daml language is a purpose-built language for rapid development of composable multi-party applications. It is a modern, ergonomically designed functional language that carefully avoids many 
+of the pitfalls that hinder multi-party application development in other languages.
+
+Daml Ledger
+===========
+
+A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :doc:`Daml ledger model </concepts/ledger-model/index>` and exposes the Daml Ledger APIs.
+All current implementations of Daml ledgers consists of a Daml driver that utilises and underlying Synchronization Technology to either implement the Daml ledger directly, or run the Canton protocol.
+
+Canton Ledger
+-------------
+
+A Canton ledger is a privacy-enabled Daml ledger implemented using the Canton application, nodes, and protocol.
+
+Canton Protocol
+===============
+
+The Canton protocol is the technology which synchronizes `participant nodes <#participant-node>`__ across any Daml-enabled blockchain or database.  The Canton protocol not only makes Daml 
+applications portable between different underlying `synchronization technologies <#synchronization-technology>`__, but also allows applications to transact with each other across them.
+
+.. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
+
+Synchronization Technology
+==========================
+
+The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
+databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
+
+Daml Drivers
+============
+
+Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology. 
+
+Daml Language Concepts
+**********************
 
 Contract
-===========================
+========
 
-A **contract** is an item on a `ledger <#ledger-daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
+A **contract** is an item on a `ledger <#daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
 
 - data (parameters)
 - roles (`signatory`_, `observer`_)
@@ -23,7 +68,7 @@ Contracts are immutable: once they are created on the ledger, the information in
 Active contract, archived contract
 ----------------------------------
 
-When a `contract <#contract>`__ is created on a `ledger <#ledger-daml-ledger>`__, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
+When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
 
 - if the `signatories <#signatory>`__ of the contract decide to archive it
 - if a `consuming choice <#consuming-choice>`__ is exercised on the contract
@@ -85,14 +130,17 @@ Party
 
 A **party** represents a person or legal entity. Parties can `create contracts <#create>`__ and `exercise choices <#exercise>`__.
 
-`Signatories <#signatory>`_, `observers <#observer>`__, `controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be parties, represented by the ``Party`` data type in Daml.
+`Signatories <#signatory>`_, `observers <#observer>`__, `controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be parties, represented by the ``Party`` data type in Daml and determine who may see
+  contract data.
+
+Parties are hosted on participant nodes and a participant node can host more than one party. A party can be hosted on several participant nodes simultaneously.
 
 .. Something about how they work in the `execution engine`.
 
 Signatory
 ---------
 
-A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail.
+A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts and all exercises of that contract.
 
 For documentation on signatories, see :doc:`/daml/reference/templates`.
 
@@ -186,7 +234,7 @@ See :doc:`/daml/reference/templates`.
 Create
 ======
 
-A **create** is an update that creates a `contract <#contract>`__ on the `ledger <#ledger-daml-ledger>`__.
+A **create** is an update that creates a `contract <#contract>`__ on the `ledger <#daml-ledger>`__.
 
 Contract creation requires `authorization <#authorization-signing>`__ from all its `signatories <#signatory>`__, or the create will fail. For how to get authorization, see the :doc:`propose-accept </daml/patterns/initaccept>` and :doc:`multi-party agreement </daml/patterns/multiparty-agreement>` patterns.
 
@@ -197,7 +245,7 @@ See :doc:`/daml/reference/updates`.
 Exercise
 ========
 
-An **exercise** is an action that exercises a `choice <#choice>`__ on a `contract <#contract>`__ on the `ledger <#ledger-daml-ledger>`__. If the choice is `consuming <#consuming-choice>`__, the exercise will `archive <#active-contract-archived-contract>`__ the contract; if it is `nonconsuming <#nonconsuming-choice>`__, the contract will stay active.
+An **exercise** is an action that exercises a `choice <#choice>`__ on a `contract <#contract>`__ on the `ledger <#daml-ledger>`__. If the choice is `consuming <#consuming-choice>`__, the exercise will `archive <#active-contract-archived-contract>`__ the contract; if it is `nonconsuming <#nonconsuming-choice>`__, the contract will stay active.
 
 Exercising a choice requires `authorization <#authorization-signing>`__ from all of the `controllers <#controller>`__ of the choice.
 
@@ -239,9 +287,9 @@ See :doc:`/daml/reference/contract-keys`.
 DAR file, DALF file
 ===================
 
-A ``.dar`` file is the result of compiling Daml using the `Assistant <#assistant>`__.
+A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ which can be interpreted using a Daml interpreter.
 
-You upload ``.dar`` files to a `ledger <#ledger-daml-ledger>`__ in order to be able to create contracts from the templates in that file.
+You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to create contracts from the templates in that file.
 
 A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled Daml package or library. Its underlying format is `Daml-LF <#daml-lf>`__.
 
@@ -288,35 +336,28 @@ This is the version of Navigator that runs as a web app.
 
 See :doc:`/tools/navigator/index`.
 
-Extractor
-=========
-
-**Extractor** is a tool for extracting contract data for a single party into a PostgreSQL database.
-
-See :doc:`/tools/extractor`.
-
 Building applications
 *********************
 
 Application, ledger client, integration
 =======================================
 
-**Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#ledger-daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
+**Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
 
 There's a lot of information available about application development, starting with the :doc:`/app-dev/app-arch` page.
 
 Ledger API
 ==========
 
-The **Ledger API** is an API that's exposed by any `Daml ledger <#ledger-daml-ledger>`__.
-Alternative names: **Daml Ledger API** and **gRPC Ledger API** if disambiguation from other technologies is needed.
+The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the leger API.
+An alternative name for the Ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
 Command submission service
 --------------------------
 
-Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#ledger-daml-ledger>`__. See :ref:`command-submission-service`.
+Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
 
 Command completion service
 --------------------------
@@ -331,27 +372,27 @@ Use the **command service** when you want to `submit a command <#submitting-comm
 Transaction service
 -------------------
 
-Use the **transaction service** to listen to changes in the `ledger <#ledger-daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
+Use the **transaction service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
 
 Active contract service
 -----------------------
 
-Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#ledger-daml-ledger>`__. See :ref:`active-contract-service`.
+Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`active-contract-service`.
 
 Package service
 ---------------
 
-Use the **package service** to obtain information about Daml packages available on the `ledger <#ledger-daml-ledger>`__. See :ref:`package-service`.
+Use the **package service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
 Ledger identity service
 -----------------------
 
-Use the **ledger identity service** to get the identity string of the `ledger <#ledger-daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
+Use the **ledger identity service** to get the identity string of the `ledger <#daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
 
 Ledger configuration service
 ----------------------------
 
-Use the **ledger configuration service** to subscribe to changes in `ledger <#ledger-daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
+Use the **ledger configuration service** to subscribe to changes in `ledger <#daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
 
 Ledger API libraries
 ====================
@@ -363,29 +404,24 @@ Java bindings
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
 
-Scala bindings
---------------
-
-An idiomatic Scala library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-scala/index`.
-
 Reading from the ledger
 =======================
 
-`Applications <#application-ledger-client-integration>`__ get information about the `ledger <#ledger-daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
+`Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
 
 Submitting commands, writing to the ledger
 ==========================================
 
-`Applications <#application-ledger-client-integration>`__ make changes to the `ledger <#ledger-daml-ledger>`__ by **submitting commands**. You can't change it directly: an application submits a command of `transactions <#transactions>`__. The command gets evaluated by the runtime, and will only be accepted if it's valid.
+`Applications <#application-ledger-client-integration>`__ make changes to the `ledger <#daml-ledger>`__ by **submitting commands**. You can't change it directly: an application submits a command of `transactions <#transactions>`__. The command gets evaluated by the runtime, and will only be accepted if it's valid.
 
 For example, a command might get rejected because the transactions aren't `well-authorized <#authorization-signing>`__; because the contract isn't `active <#active-contract-archived-contract>`__ (perhaps someone else archived it); or for other reasons.
 
-This is echoed in `scenarios <#scenario>`__, where you can mock an application by having parties submit transactions/updates to the ledger. You can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
+This is echoed in :ref:`Daml script <daml-script>`, where you can mock an application by having parties submit transactions/updates to the ledger. You can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
 
 Commands
 --------
 
-A **command** is an instruction to add a transaction to the `ledger <#ledger-daml-ledger>`__.
+A **command** is an instruction to add a transaction to the `ledger <#daml-ledger>`__.
 
 .. Events
 .. ======
@@ -393,6 +429,18 @@ A **command** is an instruction to add a transaction to the `ledger <#ledger-dam
 .. TODO.
 
 .. _daml-lf:
+
+Participant Node
+================
+
+The participant node is a server that provides users a consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handles transaction signing and 
+validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
+
+Sub-Transaction Privacy
+=======================
+
+Sub-transaction privacy is where participants to a transaction only `learn about the subset of the transaction <https://docs.daml.com/concepts/ledger-model/ledger-privacy.html>`__ they are 
+directly involved in, but not about any other part of the transaction. This applies to both the content of the transaction as well as other involved participants.
 
 Daml-LF
 =======
@@ -405,25 +453,75 @@ As a user, you don't need to interact with Daml-LF directly. But internally, it'
 - sending and receiving values via the Ledger API (using a protocol such as gRPC)
 - generating code in other languages for interacting with Daml models (often called “codegen”)
 
-General concepts
-****************
+Composability
+=============
 
-Ledger, Daml ledger
-===================
-
-**Ledger** can refer to a lot of things, but a ledger is essentially the underlying storage mechanism for a running Daml applications: it's where the contracts live. A **Daml ledger** is a ledger that you can store Daml contracts on, because it implements the `ledger API <#ledger-api>`__.
-
-Daml ledgers provide various guarantees about what you can expect from it, all laid out in the :doc:`/concepts/ledger-model/index` page.
-
-When you're developing, you'll use `Sandbox <#sandbox>`__ as your ledger.
+Composability is the ability of a participant to extend an existing system with new Daml applications or new topologies unilaterally without requiring cooperation from anyone except the 
+directly involved participants who wish to be part of the new application functionality.
 
 .. _trust-domain:
 
 Trust domain
 ============
 
-A **trust domain** encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
+A trust domain encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
 
+
+
+
+
+Canton Concepts
+***************
+
+Domain
+======
+
+The domain provides total ordered, guaranteed delivery multi-cast to the participants. This means that participant nodes communicate with each other by sending end-to-end encrypted messages 
+through the domain. 
+
+The `sequencer service <#sequencer>`__ of the domain orders these messages without knowing about the content and ensures that every participant receives the messages in the same order. 
+
+The other services of the domain are the `mediator <#mediator>`__ and the `domain identity manager <#domain-identity-manager>`__.
+
+Private Contract Store
+======================
+
+Every participant node manages its own private contract store (PCS) which contains only contracts the participant is privy to. There is no global state or global contract store.
+
+Virtual Global Ledger
+=====================
+
+While every participant has their own private contract store (PCS), the `Canton protocol <#canton-protocol>`__ guarantees that the contracts which are stored in the PCS are well-authorized 
+and that any change to the store is justified, authorized and valid. The result is that every participant only possesses a small part of the *virtual global ledger*. All the local 
+stores together make up that *virtual global ledger* and they are thus synchronized. The Canton protocol guarantees that the virtual ledger provides integrity, privacy, 
+transparency and auditability. The ledger is logically global, even though physically, it runs on segregated and isolated domains that are not aware of each other.
+
+Mediator
+========
+
+The mediator is a service provided by the `domain <#domain>`__ and used by the `Canton protocol <#canton-protocol>`__. The mediator acts as commit coordinator, collecting individual transaction verdicts issued by validating 
+participants and aggregates them into a single result. The mediator does not learn about the content of the transaction, they only learn about the involved participants.
+
+Sequencer
+=========
+
+The sequencer is a service provided by the `domain <#domain>`__, used by the `Canton protocol <#canton-protocol>`__. The sequencer forwards encrypted addressed messages from participants and ensures that every member receives 
+the messages in the same order. Think about registered and sealed mail delivered according to the postal datestamp.
+
+Domain Identity Manager
+=======================
+
+The Domain Identity Manager is a service provided by the `domain <#domain>`__, used by the `Canton protocol <#canton-protocol>`__. Participants join a new domain by registering with the domain identity manager. The domain 
+identity manager establishes a consistent identity state among all participants. The domain identity manager only forwards identity updates. It can not invent them.
+
+
+Consensus
+=========
+
+The Canton protocol does not use PBFT or any similar consensus algorithm. There is no proof of work or proof of stake involved. Instead, Canton uses a variant of a stakeholder based 
+two-phase commit protocol. As such, only stakeholders of a transaction are involved in it and need to process it, providing efficiency, privacy and horizontal scalability. Canton based 
+ledgers are resilient to malicious participants as long as there is at least a single honest participant. A domain integration itself might be using the consensus mechanism of the underlying 
+platform, but participant nodes will not be involved in that process.
 
 .. Transaction
 .. ===========

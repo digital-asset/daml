@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -166,7 +166,9 @@ object LedgerClientBinding {
     LedgerIdentityServiceGrpc
       .stub(channel)
       .getLedgerIdentity(GetLedgerIdentityRequest())
-      .map(_.ledgerId)
+      .map(_.ledgerId): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 
   def transactionFilter(party: Party, templateSelector: TemplateSelector): TransactionFilter =
     TransactionFilter(Map(party.unwrap -> templateSelector.toApi))

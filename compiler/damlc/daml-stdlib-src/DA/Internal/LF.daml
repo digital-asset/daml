@@ -1,4 +1,4 @@
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -89,7 +89,7 @@ partyToText = primitive @"BEToText"
 -- This function, together with `partyToText`, forms an isomorphism between
 -- valid party strings and parties. In other words, the following equations hold:
 --
--- ```
+-- ```daml-force
 -- ∀ p. partyFromText (partyToText p) = Some p
 -- ∀ txt p. partyFromText txt = Some p ==> partyToText p = txt
 -- ```
@@ -133,7 +133,7 @@ data Map a b =
 --   You can use the ID to fetch the contract, among other things.
 data ContractId a =
   ContractId Opaque
-instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
+instance Eq (ContractId a) where (==) = primitive @"BEEqual"
 
 instance Ord (ContractId a) where
   (<) = primitive @"BELess"
@@ -142,13 +142,9 @@ instance Ord (ContractId a) where
   (>=) = primitive @"BEGreaterEq"
 
 instance Show (ContractId a) where
-#ifdef DAML_CONTRACT_ID_TO_TEXT
   show cid = case primitive @"BEContractIdToText" cid of
     None -> "<contract-id>"
     Some t -> t
-#else
-  show _ = "<contract-id>"
-#endif
 
 -- | HIDE This is currently used in the internals of Daml script and Daml triggers
 -- but not really something that we want to expose to users.
@@ -259,7 +255,6 @@ data Any = Any Opaque
 -- We do not expose this directly and instead only expose TemplateTypeRep.
 data TypeRep = TypeRep Opaque
 
-#ifdef DAML_TYPE_REP
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
 
@@ -268,7 +263,6 @@ instance Ord TypeRep where
   (>=) = primitive @"BEGreaterEq"
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
-#endif
 
 #ifdef DAML_EXCEPTIONS
 
