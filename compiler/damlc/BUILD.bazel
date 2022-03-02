@@ -16,7 +16,7 @@ damlc_data = [
     "@static_asset_d3plus//:js/d3plus.min.js",
     ghc_pkg,
     "//compiler/damlc:ghcversion",
-    "//compiler/damlc:hpp",
+    "@stackage-exe//hpp",
     "//compiler/damlc/pkg-db",
     "//compiler/damlc/stable-packages",
     "//compiler/repl-service/server:repl_service_jar",
@@ -28,8 +28,8 @@ add_data(
     data = [
         ghc_pkg,
         "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp",
         "//compiler/damlc/pkg-db",
+        "@stackage-exe//hpp",
     ],
     executable = ":damlc-bootstrap",
     visibility = ["//visibility:public"],
@@ -61,17 +61,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "hpp-rule",
-    srcs = ["@stackage-exe//hpp"],
-    outs = ["hpp"],
-    cmd = """
-        cp $(location @stackage-exe//hpp) $(OUTS)
-    """,
-    tools = [],
-    visibility = ["//visibility:public"],
-)
-
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
 # package databases.
 da_haskell_binary(
@@ -86,8 +75,8 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp",
         "//compiler/damlc/stable-packages",
+        "@stackage-exe//hpp",
     ],
     hackage_deps = [
         "base",
@@ -106,7 +95,7 @@ package_app(
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
         "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp",
+        "//compiler/damlc:hpp-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -148,6 +137,11 @@ package_app(
       $$MKTGZ $$OUT ghc-pkg
     """,
     tools = ["//bazel_tools/sh:mktgz"],
+)
+
+package_app(
+    name = "hpp-dist",
+    binary = "@stackage-exe//hpp",
 )
 
 da_haskell_library(
