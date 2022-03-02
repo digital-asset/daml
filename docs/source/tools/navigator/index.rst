@@ -37,7 +37,7 @@ Logging in
 **********
 
 By default, Navigator shows a drop-down list with the users that have been
-created via the :ref:`user management service <user-service>`. During
+created via the :ref:`user management service <user-management-service>`. During
 development, it is common to create these users in a
 :ref:`Daml script <script-ledger-initialization>`: that you specify in the
 ``init-script`` section of your ``daml.yaml`` file so it is executed

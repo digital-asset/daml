@@ -133,7 +133,7 @@ and there are two formats of the JSON payload in use by Daml ledgers.
 User access tokens
 ==================
 
-Daml ledgers that support participant :ref:`user management <user-service>` also accept user access tokens.
+Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
 They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
 
 User access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
