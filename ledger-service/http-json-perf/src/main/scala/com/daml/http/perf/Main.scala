@@ -10,7 +10,7 @@ import com.daml.dbutils
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
-import com.daml.http.domain.{JwtPayloadLedgerIdOnly, LedgerId}
+import com.daml.http.domain.LedgerId
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
@@ -27,7 +27,7 @@ import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
 import Config.QueryStoreIndex
 import com.daml.dbutils.ConnectionPool
-import com.daml.http.EndpointsCompanion.{CreateFromUserToken, ParsePayload}
+import com.daml.http.EndpointsCompanion.CreateFromUserToken
 import com.daml.ledger.api.auth.{CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.User
 import com.daml.ledger.api.domain.UserRight.CanActAs
@@ -148,23 +148,22 @@ object Main extends StrictLogging {
         .decodeJwt(config.jwt)
         .leftMap(_.message)
         .flatMap { decodedJwt =>
-          implicitly(ParsePayload[JwtPayloadLedgerIdOnly])
-            .parsePayload(decodedJwt)
-            .bimap(_.toString, it => (None, it.ledgerId))
-            .recoverWith[String, (Option[String], LedgerId)] { case _ =>
-              CreateFromUserToken
-                .parseAndDecodeUserToken(decodedJwt)
-                .fold(
-                  error =>
-                    -\/(s"This is neither a custom token nor an user token: ${error.message}"),
-                  {
-                    case StandardJWTPayload(userId, _, _) =>
-                      \/-(Some(userId), LedgerId("perf-runner"))
-                    case CustomDamlJWTPayload(_, _, _, _, _, _, _) =>
-                      -\/(s"This state is impossible")
-                  },
-                )
-            }
+          CreateFromUserToken
+            .parseAndDecodeUserToken(decodedJwt)
+            .bimap(
+              error => s"This is neither a custom token nor an user token: ${error.message}",
+              {
+                case StandardJWTPayload(userId, _, _) =>
+                  (Some(userId), LedgerId("perf-runner"))
+                case CustomDamlJWTPayload(ledgerId, _, _, _, _, _, _) =>
+                  (
+                    None,
+                    LedgerId(
+                      ledgerId.getOrElse(throw new Exception("No ledger id given in custom token"))
+                    ),
+                  )
+              },
+            )
         }
         .fold((error: String) => throw new Exception(error), identity)
     withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, ledgerClient, _) =>
