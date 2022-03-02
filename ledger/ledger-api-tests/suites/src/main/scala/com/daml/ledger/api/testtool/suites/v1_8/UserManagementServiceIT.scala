@@ -20,6 +20,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   GetUserRequest,
   GetUserResponse,
   GrantUserRightsRequest,
+  GrantUserRightsResponse,
   ListUserRightsRequest,
   ListUserRightsResponse,
   ListUsersRequest,
@@ -32,7 +33,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 final class UserManagementServiceIT extends LedgerTestSuite {
 
@@ -181,7 +182,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   })
 
   userManagementTest(
-    "CreateUsersRaceCondition",
+    "RaceConditionCreateUsers",
     "Tests scenario of multiple concurrent create-user calls for the same user",
     runConcurrently = false,
   ) {
@@ -201,20 +202,61 @@ final class UserManagementServiceIT extends LedgerTestSuite {
             "successful user creation",
             results.filter(_.isSuccess),
           )
-          val unexpectedErrors = results
-            .collect { case x if x.isFailure => x.failed.get }
-            .filterNot(t =>
-              ErrorDetails.matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists) ||
-                ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError) ||
-                ErrorDetails.isInternalError(t)
-            )
-          assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
+          val unexpectedErrors = results.collect {
+            case Failure(t)
+                if !ErrorDetails.matchesOneOf(
+                  t,
+                  IndexErrors.DatabaseErrors.SqlTransientError,
+                  LedgerApiErrors.AdminServices.UserAlreadyExists,
+                )
+                  && !ErrorDetails.isInternalError(t) =>
+              t
+          }
+          assertIsEmpty(unexpectedErrors)
         }
       }
   }
 
   userManagementTest(
-    "GrantRightsRaceCondition",
+    "RaceConditionDeleteUsers",
+    "Tests scenario of multiple concurrent delete-user calls for the same user",
+    runConcurrently = false,
+  ) {
+    implicit ec =>
+      { participant =>
+        val attempts = (1 to 10).toVector
+        val userId = participant.nextUserId()
+        val createUserRequest =
+          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
+        val deleteUserRequest = DeleteUserRequest(userId = userId)
+        for {
+          _ <- participant.createUser(createUserRequest)
+          results <- Future
+            .traverse(attempts) { _ =>
+              participant.deleteUser(deleteUserRequest).transform(Success(_))
+            }
+        } yield {
+          assertSingleton(
+            "successful user deletion",
+            results.filter(_.isSuccess),
+          )
+          val unexpectedErrors = results
+            .collect {
+              case Failure(t)
+                  if !ErrorDetails.matchesOneOf(
+                    t,
+                    IndexErrors.DatabaseErrors.SqlTransientError,
+                    LedgerApiErrors.AdminServices.UserNotFound,
+                  ) && !ErrorDetails.isInternalError(t) =>
+                t
+            }
+          assertIsEmpty(unexpectedErrors)
+        }
+      }
+  }
+
+  userManagementTest(
+    "RaceConditionGrantRights",
     "Tests scenario of multiple concurrent grant-right calls for the same user and the same rights",
     runConcurrently = false,
   ) {
@@ -231,18 +273,55 @@ final class UserManagementServiceIT extends LedgerTestSuite {
             participant.userManagement.grantUserRights(grantRightsRequest).transform(Success(_))
           }
         } yield {
-          assert(
-            results.exists(_.isSuccess),
-            "Expected at least one successful user right grant",
-          )
+          val successes = results.collect {
+            case Success(resp @ GrantUserRightsResponse(newlyGrantedRights))
+                if newlyGrantedRights.nonEmpty =>
+              resp
+          }
+          assertSingleton("Success response", successes)
+          assertSameElements(successes.head.newlyGrantedRights, userRightsBatch)
           val unexpectedErrors = results
-            .collect { case x if x.isFailure => x.failed.get }
-            // Note: `IndexErrors.DatabaseErrors.SqlNonTransientError` is signalled on H2 and the original cause being `org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException`
-            .filterNot(e =>
-              ErrorDetails.isInternalError(e) || ErrorDetails
-                .matches(e, IndexErrors.DatabaseErrors.SqlTransientError)
-            )
-          assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
+            .collect {
+              case Failure(t)
+                  if
+                  // Transient db error caused by unique constraint violation on H2
+                  !ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError)
+                    &&
+                      // Internal error caused by unique constraint violation on Postgres
+                      !ErrorDetails.isInternalError(t) =>
+                t
+            }
+          assertIsEmpty(unexpectedErrors)
+        }
+      }
+  }
+
+  userManagementTest(
+    "RaceConditionRevokeRights",
+    "Tests scenario of multiple concurrent revoke-right calls for the same user and the same rights",
+    runConcurrently = false,
+  ) {
+    implicit ec =>
+      { participant =>
+        val attempts = (1 to 10).toVector
+        val userId = participant.nextUserId()
+        val createUserRequest =
+          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = userRightsBatch)
+        val revokeRightsRequest = RevokeUserRightsRequest(userId = userId, rights = userRightsBatch)
+        for {
+          _ <- participant.createUser(createUserRequest)
+          results <- Future.traverse(attempts) { _ =>
+            participant.userManagement.revokeUserRights(revokeRightsRequest).transform(Success(_))
+          }
+        } yield {
+          assertSingleton(
+            "Non empty revoke-rights responses",
+            results.collect {
+              case Success(RevokeUserRightsResponse(actuallyRevoked)) if actuallyRevoked.nonEmpty =>
+                actuallyRevoked
+            },
+          )
+          assertIsEmpty(results.filter(_.isFailure))
         }
       }
   }
