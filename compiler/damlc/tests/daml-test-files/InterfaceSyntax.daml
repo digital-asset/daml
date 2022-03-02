@@ -1,0 +1,41 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ENABLE-SCENARIOS
+
+module InterfaceSyntax where
+
+interface I where
+  m0 : Bool -> Party
+  m1 : Either Int Bool -> Text
+
+-- empty interfaces with 'where'
+interface J where
+interface K where
+
+template T
+  with
+    p0 : Party
+    p1 : Party
+    f : Int
+  where
+    signatory p0, p1
+
+    implements I where
+      -- method defined over multiple clauses with pattern matches
+      m0 False = p0
+      m0 True = p1
+
+      -- method defined over multiple clauses with pattern matches and guards
+      m1 (Left n)
+        | n >= 0 = "non-negative number"
+        | otherwise = "negative number"
+      m1 (Right True) = "true"
+      m1 (Right False) = "false"
+
+    -- empty implements block without 'where'
+    implements J
+
+    -- empty implements block with 'where'
+    implements K where
