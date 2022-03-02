@@ -825,7 +825,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // Previous transaction
       // └─ #1 Create
       // Transaction
-      // └─ #2 Fetch
+      // └─ #2 Exercise (divulges #1 to 'divulgee')
       val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = TransactionBuilder()
