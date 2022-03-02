@@ -19,7 +19,7 @@ template Asset
     signatory issuer
     observer issuer, owner
     implements Token where
-      let getAmount = amount
+      getAmount = amount
 
 main = scenario do
     alice <- getParty "Alice"

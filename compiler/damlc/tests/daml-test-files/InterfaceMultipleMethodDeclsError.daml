@@ -1,0 +1,27 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ENABLE-SCENARIOS
+-- @ERROR range=24:7-24:20; Multiple declarations of method ‘m0’ in template ‘T’ implementation of interface ‘I’
+
+module InterfaceMultipleMethodDeclsError where
+
+interface I where
+  m0 : Bool -> Party
+  m1 : Text
+
+template T
+  with
+    p0 : Party
+    p1 : Party
+    f : Int
+  where
+    signatory p0, p1
+
+    implements I where
+      -- first m0 declaration
+      m0 False = p0
+      m1 = "m1"
+      -- second m0 declaration
+      m0 True = p1
