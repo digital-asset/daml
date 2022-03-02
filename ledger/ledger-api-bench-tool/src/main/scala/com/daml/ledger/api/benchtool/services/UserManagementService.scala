@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -32,9 +33,7 @@ class UserManagementService(channel: Channel, authorizationToken: Option[String]
     val rights = userRights(observerPartyNames, signatoryPartyName)
     createUser(userId, rights).recoverWith {
       case e: StatusRuntimeException
-          if e.getStatus.getDescription.startsWith(
-            LedgerApiErrors.AdminServices.UserAlreadyExists.id
-          ) =>
+          if ErrorDetails.matches(e, LedgerApiErrors.AdminServices.UserAlreadyExists) =>
         logger.info(
           s"Benchmark user already exists (received error: ${e.getStatus.getDescription}) so granting rights the existing user."
         )
