@@ -82,6 +82,8 @@ alongside a few annotations with regards to the meaning of the configuration key
       allow-existing-schema = "false"
 
       // Configuration for the persistent store that will be used to keep track of running triggers across restarts.
+      // Mandatory if `init-db` is true. Otherwise optional. If not provided, the trigger state will not be persisted
+      // and restored across restarts.
       trigger-store {
 
         // Mandatory. Database coordinates.
@@ -93,17 +95,17 @@ alongside a few annotations with regards to the meaning of the configuration key
         // Prefix for table names to avoid collisions. EXPERT ONLY. By default, this is empty and not used.
         //table-prefix = "foo"
 
-        // Maximum size for the database connection pool. Defaults to 12.
-        pool-size = 12
+        // Maximum size for the database connection pool. Defaults to 8.
+        pool-size = 8
 
-        // Minimum idle connections for the database connection pool. Defaults to FIXME.
-        min-idle = 4
+        // Minimum idle connections for the database connection pool. Defaults to 8.
+        min-idle = 8
 
-        // Idle timeout for the database connection pool. Defaults to FIXME.
-        idle-timeout = 12s
+        // Idle timeout for the database connection pool. Defaults to 10 seconds.
+        idle-timeout = 10s
 
-        // Timeout for database connection pool. Defaults to FIXME.
-        connection-timeout = 90s
+        // Timeout for database connection pool. Defaults to 5 seconds.
+        connection-timeout = 5s
       }
 
       authorization {
