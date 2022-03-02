@@ -60,6 +60,8 @@ class ErrorFactoriesSpec
     ErrorDetails.RequestInfoDetail(originalCorrelationId)
   private val expectedLocationLogMarkerRegex =
     "\\{err-context: \"\\{location=ErrorFactories.scala:\\d+\\}\"\\}"
+  private val errorFactoriesSpecLocationLogMarkerRegex =
+    "\\{err-context: \"\\{location=ErrorFactoriesSpec.scala:\\d+\\}\"\\}"
   private val expectedInternalErrorMessage =
     s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId"
   private val expectedInternalErrorDetails =
@@ -418,7 +420,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegex),
+          Some(errorFactoriesSpecLocationLogMarkerRegex),
         ),
       )
     }
