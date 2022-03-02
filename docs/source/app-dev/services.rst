@@ -204,7 +204,9 @@ For more information, refer to the pages on :doc:`Identity Management</concepts/
 User management service
 =======================
 
-Use the **user management service** to manage the set of users on a participant node and their :ref:`access rights <authorization-claims>` to that node's Ledger API services.
+Use the **user management service** to manage the set of users on a participant node and
+their :ref:`access rights <authorization-claims>` to that node's Ledger API services
+and as the integration point for your organization's IAM (Identity and Access Management) framework.
 
 In contrast to parties, users are local to a participant node.
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
@@ -214,7 +216,10 @@ For more information, consult the :ref:`the API reference documentation <com.dam
 See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about limits of the user management service, e.g., the maximum number of rights per user.
 The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
 
+With user management enabled you can use both new user-based and old custom Daml authorization tokens.
 Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
+
+User management is by default enabled in the Canton driver and disabled in the VMware Blockchain driver.
 
 .. _package-service:
 
