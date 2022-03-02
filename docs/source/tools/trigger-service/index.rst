@@ -91,7 +91,7 @@ alongside a few annotations with regards to the meaning of the configuration key
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
 
         // Prefix for table names to avoid collisions. EXPERT ONLY. By default, this is empty and not used.
-        table-prefix = "foo"
+        //table-prefix = "foo"
 
         // Maximum size for the database connection pool. Defaults to 12.
         pool-size = 12
