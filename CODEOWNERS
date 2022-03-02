@@ -65,7 +65,6 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 
 # KV Committer
 /ledger/ledger-on-memory/           @digital-asset/kv-committer
-/ledger/ledger-on-sql/              @digital-asset/kv-committer
 /ledger/participant-state/kvutils/  @digital-asset/kv-committer
 
 
