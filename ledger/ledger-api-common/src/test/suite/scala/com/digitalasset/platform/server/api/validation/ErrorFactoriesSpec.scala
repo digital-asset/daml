@@ -401,7 +401,11 @@ class ErrorFactoriesSpec
     "return an offsetAfterLedgerEnd error" in {
       val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
       val msg = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage"
-      assertError(errorFactories.offsetAfterLedgerEnd("Absolute", "AABBCC", "E"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+          .Reject("Absolute", "AABBCC", "E")
+          .asGrpcError
+      )(
         code = Code.OUT_OF_RANGE,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -415,30 +419,6 @@ class ErrorFactoriesSpec
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
-        ),
-      )
-    }
-
-    "return an offsetAfterLedgerEnd_wasInvalidArgument error" in {
-      val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
-      val msg = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage"
-      assertVersionedError(_.offsetAfterLedgerEnd_wasInvalidArgument("Absolute", "AABBCC", "E"))(
-        v1_code = Code.INVALID_ARGUMENT,
-        v1_message = "Invalid argument: prune_up_to needs to be before ledger end E",
-        v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "OFFSET_AFTER_LEDGER_END",
-            Map("category" -> "12", "definite_answer" -> "false"),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        v2_logEntry = ExpectedLogEntry(
-          Level.INFO,
-          msg,
-          Some(excpectedLocationLogMarkerRegex),
         ),
       )
     }

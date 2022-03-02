@@ -4,8 +4,9 @@
 package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-
 import java.util.UUID
+
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
@@ -170,17 +171,13 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString <= ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            errorFactories.offsetAfterLedgerEnd_wasInvalidArgument(
-              offsetType = "Absolute",
-              requestedOffset = pruneUpToString,
-              ledgerEnd = ledgerEnd.value,
-            )
-            Future.failed(
-            // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
-            //                   and use offsetAfterLedgerEnd
-            offsetOutOfRange(
-              s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
-            )
+            LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+              .Reject(
+                _offsetType = "Absolute",
+                _requestedOffset = pruneUpToString,
+                _ledgerEnd = ledgerEnd.value,
+              )
+              .asGrpcError
           )
     } yield pruneUpToProto
 
