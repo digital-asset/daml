@@ -124,10 +124,6 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
-        // TODO append-only:
-        //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
-        //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
-        //   Investigate possibility to encapsulate this logic in a common place
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(
