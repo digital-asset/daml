@@ -140,13 +140,13 @@ object Main extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       elg: EventLoopGroup,
-  ): Future[ExitCode] = {
-    // For custom tokens we need to extract the expected ledger id, however for
-    // user tokens we can just choose any ledger id, because it doesn't contain any.
-    // If we have a user token we also extract it here so we can allocate the user later
-    // after we started the ledger.
-    val (userIdOpt, ledgerId) =
-      HttpService
+  ): Future[ExitCode] =
+    for {
+      // For custom tokens we need to extract the expected ledger id, however for
+      // user tokens we can just choose any ledger id, because it doesn't contain any.
+      // If we have a user token we also extract it here so we can allocate the user later
+      // after we started the ledger.
+      userAndLedgerId <- HttpService
         .decodeJwt(config.jwt)
         .leftMap(_.message)
         .flatMap { decodedJwt =>
@@ -157,43 +157,44 @@ object Main extends StrictLogging {
               {
                 case StandardJWTPayload(userId, _, _) =>
                   (Some(userId), LedgerId("perf-runner"))
-                case CustomDamlJWTPayload(ledgerId, _, _, _, _, _, _) =>
-                  (None, LedgerId(ledgerId.getOrElse("perf-runner")))
+                case CustomDamlJWTPayload(ledgerIdPayload, _, _, _, _, _, _) =>
+                  (None, LedgerId(ledgerIdPayload.getOrElse("perf-runner")))
               },
             )
         }
-        .fold((error: String) => throw new Exception(error), identity)
-    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, ledgerClient, _) =>
-      // For a user token to work the user has to be created beforehand.
-      for {
-        _ <-
-          userIdOpt.traverse { userId =>
-            ledgerClient.userManagementClient
-              .createUser(
-                User(UserId.assertFromString(userId), None),
-                List(CanActAs(Party.assertFromString("Alice"))),
-              )
+        .fold((error: String) => Future.failed(new Exception(error)), Future.successful)
+      (userIdOpt, ledgerId) = userAndLedgerId
+      exitCode <- withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, ledgerClient, _) =>
+        // For a user token to work the user has to be created beforehand.
+        for {
+          _ <-
+            userIdOpt.traverse { userId =>
+              ledgerClient.userManagementClient
+                .createUser(
+                  User(UserId.assertFromString(userId), None),
+                  List(CanActAs(Party.assertFromString("Alice"))),
+                )
+            }
+          res <- withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
+            withHttpService(
+              ledgerId.unwrap,
+              ledgerPort,
+              jsonApiJdbcConfig,
+              None,
+            ) { (uri, _, _, _) =>
+              runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
+                .flatMap { case (exitCode, dir) =>
+                  toFuture(generateReport(dir))
+                    .map { _ =>
+                      logger.info(s"Report directory: ${dir.toAbsolutePath}")
+                      exitCode
+                    }
+                }: Future[ExitCode]
+            }
           }
-        res <- withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
-          withHttpService(
-            ledgerId.unwrap,
-            ledgerPort,
-            jsonApiJdbcConfig,
-            None,
-          ) { (uri, _, _, _) =>
-            runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-              .flatMap { case (exitCode, dir) =>
-                toFuture(generateReport(dir))
-                  .map { _ =>
-                    logger.info(s"Report directory: ${dir.toAbsolutePath}")
-                    exitCode
-                  }
-              }: Future[ExitCode]
-          }
-        }
-      } yield res
-    }
-  }
+        } yield res
+      }
+    } yield exitCode
 
   private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: QueryStoreIndex)(
       fn: Option[JdbcConfig] => Future[A]
