@@ -21,7 +21,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ValueNil}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -31,9 +31,8 @@ import java.time.Duration
 
 class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val logger = ContextualizedLogger.get(getClass)
   private implicit val errorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
+    DamlContextualizedErrorLogger.forTesting(getClass)
 
   private val prepareSubmission = new PrepareSubmissionImpl(
     new BridgeMetrics(new Metrics(new MetricRegistry))

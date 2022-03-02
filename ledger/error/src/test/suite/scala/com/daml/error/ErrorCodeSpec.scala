@@ -8,7 +8,6 @@ import com.daml.error.ErrorCategory.TransientServerFailure
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors.NotSoSeriousError
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import io.grpc.StatusRuntimeException
@@ -23,11 +22,9 @@ class ErrorCodeSpec
     with LogCollectorAssertions
     with ErrorAssertionsWithLogCollectorAssertions {
 
-  implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
-  private val logger = ContextualizedLogger.get(getClass)
   private val contextualizedErrorLoggerF =
     (correlationId: Option[String]) =>
-      new DamlContextualizedErrorLogger(logger, testLoggingContext, correlationId)
+      DamlContextualizedErrorLogger.forTesting(getClass, correlationId)
 
   private val className = classOf[ErrorCode].getSimpleName
 
