@@ -2697,6 +2697,7 @@ exact output.
       'from_interface' @Mod:I @Mod':T e  ⇓  Err E
 
       e  ⇓  Ok ('to_interface' @Mod:I @Mod'':T' v)
+      Mod':T ≠ Mod'':T'
     —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceNone [Daml-LF ≥ 1.dev]
       'from_interface' @Mod:I @Mod':T e  ⇓  Ok ('None' @Mod':T)
 
@@ -2712,7 +2713,7 @@ exact output.
       'tpl' (x : T) ↦ { …, 'implements' Mod:I { 'methods' { …, f = eₘ, … }, … }, … }  ∈ 〚Ξ〛Mod'
       eₘ v  ⇓  r
     —————————————————————————————————————————————————————————————————————— EvExpCallInterface [Daml-LF ≥ 1.dev]
-      'call_interface' @Mod:I e  ⇓  r
+      'call_interface' @Mod:I f e  ⇓  r
 
       e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpToRequiredInterfaceErr [Daml-LF ≥ 1.dev]
