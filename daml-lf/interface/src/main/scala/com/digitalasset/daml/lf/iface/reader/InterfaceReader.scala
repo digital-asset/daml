@@ -10,6 +10,7 @@ import com.daml.lf.archive.ArchivePayload
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
+import scalaz.syntax.std.option._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
@@ -142,11 +143,14 @@ object InterfaceReader {
             case dfn: Ast.DataEnum =>
               enumeration(fullName, tyVars, dfn)
             case Ast.DataInterface =>
-              \/-(
-                None
-              )
-            // TODO https://github.com/digital-asset/daml/issues/12051
-            //    Add support for interfaces.
+              module.interfaces
+                .get(name)
+                .toRightDisjunction(
+                  InvalidDataTypeDefinition(
+                    s"missing interface definition: $fullName"
+                  ): InterfaceReaderError
+                )
+                .flatMap(astInterface(fullName, tyVars, _))
           }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {
@@ -233,6 +237,14 @@ object InterfaceReader {
     fields.toSeq traverse { case (fieldName, typ) =>
       toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
+
+  private[this] def astInterface(
+      name: QualifiedName,
+      tyVars: ImmArraySeq[Ast.TypeVarName],
+      astIf: Ast.DefInterface,
+  ) = \/-(None)
+  // TODO https://github.com/digital-asset/daml/issues/12051
+  //    Add support for interfaces.
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,
