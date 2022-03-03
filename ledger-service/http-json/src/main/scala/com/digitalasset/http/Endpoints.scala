@@ -4,7 +4,8 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model._, headers.`Content-Type`
+import akka.http.scaladsl.model._
+import headers.`Content-Type`
 import akka.http.scaladsl.server
 import akka.http.scaladsl.server.Directives.extractClientIP
 import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
@@ -36,8 +37,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
+import com.daml.http.endpoints.MeteringReportEndpoint
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+
 import scala.util.control.NonFatal
 
 class Endpoints(
@@ -47,6 +50,7 @@ class Endpoints(
     contractsService: ContractsService,
     partiesService: PartiesService,
     packageManagementService: PackageManagementService,
+    meteringReportService: MeteringReportService,
     healthService: HealthService,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
@@ -64,7 +68,8 @@ class Endpoints(
     ledgerIdentityClient,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
   )
-  import routeSetup._, endpoints.RouteSetup._
+  import endpoints.RouteSetup._
+  import routeSetup._
 
   private[this] val commandsHelper: endpoints.CreateAndExercise =
     new endpoints.CreateAndExercise(routeSetup, decoder, commandService, contractsService)
@@ -82,6 +87,9 @@ class Endpoints(
     packageManagementService,
   )
   import packagesDars._
+
+  private[this] val meteringReportEndpoint =
+    new MeteringReportEndpoint(routeSetup, meteringReportService)
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -268,6 +276,7 @@ class Endpoints(
             allocatePartyTimer
           ) apply toRoute(allocateParty(req)),
           path("packages") apply toRoute(uploadDarFile(req)),
+          path("metering-report") apply toRoute(meteringReportEndpoint.generateReportResponse(req)),
         ),
         get apply concat(
           path("query") & withTimer(queryAllTimer) apply
