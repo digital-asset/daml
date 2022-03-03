@@ -17,13 +17,14 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
+import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.io.StdIn
 
 class IndexerBenchmark() {
@@ -49,23 +50,22 @@ class IndexerBenchmark() {
       config: Config,
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
-      val metricRegistry = new MetricRegistry
-      val metrics = new Metrics(metricRegistry)
+      val metrics = new Metrics(new MetricRegistry)
       metrics.registry.registerAll(new JvmMetricSet)
 
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)
       implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
 
-      val indexerE = Executors.newWorkStealingPool()
-      val indexerEC = ExecutionContext.fromExecutor(indexerE)
+      val indexerExecutor = Executors.newWorkStealingPool()
+      val indexerExecutionContext = ExecutionContext.fromExecutor(indexerExecutor)
 
       println("Generating state updates...")
       val updates = Await.result(createUpdates(), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val indexerFactory = new JdbcIndexer.Factory(
+      val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
         config.indexerConfig,
         readService,
         metrics,
@@ -73,35 +73,17 @@ class IndexerBenchmark() {
       )
 
       val resource = for {
-        _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
-          ResourceOwner
-            .forCloseable(() => reporter.register(metrics.registry))
-            .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-            .acquire()
-        )
-
+        _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
-        indexer <- Await
-          .result(
-            StandaloneIndexerServer
-              .migrateOnly(
-                jdbcUrl = config.indexerConfig.jdbcUrl
-              )
-              .map(_ => indexerFactory.initialized())(indexerEC),
-            Duration(5, "minute"),
-          )
-          .acquire()
-
+        indexer <- indexer(config, indexerExecutionContext, indexerFactory)
         _ = println("Starting the indexing...")
         startTime = System.nanoTime()
         handle <- indexer.acquire()
-
         _ <- Resource.fromFuture(handle)
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
-
-        _ = system.terminate()
-        _ = indexerE.shutdown()
+        _ <- Resource.fromFuture(system.terminate())
+        _ = indexerExecutor.shutdown()
       } yield {
         val result = new IndexerBenchmarkResult(config, metrics, startTime, stopTime)
 
@@ -119,6 +101,31 @@ class IndexerBenchmark() {
       resource.asFuture
     }
   }
+
+  private def indexer(
+      config: Config,
+      indexerExecutionContext: ExecutionContextExecutor,
+      indexerFactory: JdbcIndexer.Factory,
+  )(implicit
+      loggingContext: LoggingContext,
+      rc: ResourceContext,
+  ): resources.Resource[ResourceContext, Indexer] =
+    Await
+      .result(
+        StandaloneIndexerServer
+          .migrateOnly(jdbcUrl = config.indexerConfig.jdbcUrl)
+          .map(_ => indexerFactory.initialized())(indexerExecutionContext),
+        Duration(5, "minute"),
+      )
+      .acquire()
+
+  private def metricsResource(config: Config, metrics: Metrics)(implicit rc: ResourceContext) =
+    config.metricsReporter.fold(Resource.unit)(reporter =>
+      ResourceOwner
+        .forCloseable(() => reporter.register(metrics.registry))
+        .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+        .acquire()
+    )
 
   private[this] def createReadService(
       updates: Iterator[(Offset, Update)]
