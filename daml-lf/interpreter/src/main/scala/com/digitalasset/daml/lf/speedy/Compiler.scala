@@ -329,7 +329,7 @@ private[lf] final class Compiler(
         addDef(compileCreateByInterface(identifier, tmpl, impl.interfaceId))
         addDef(compileImplements(identifier, impl.interfaceId))
         impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(identifier, impl.interfaceId, method))
+          addDef(compileImplementsMethod(tmpl.param, identifier, impl.interfaceId, method))
         )
       }
 
@@ -726,12 +726,14 @@ private[lf] final class Compiler(
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
+      tmplParam: Name,
       tmplId: Identifier,
       ifaceId: Identifier,
       method: TemplateImplementsMethod,
   ): (t.SDefinitionRef, SDefinition) = {
-    val ref = t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)
-    ref -> SDefinition(withLabelT(ref, compileExp(method.value)))
+    topLevelFunction1(t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    }
   }
 
   private[this] def translateCreateBody(
