@@ -167,8 +167,8 @@ object Main extends StrictLogging {
   )(implicit ec: ExecutionContext): Future[ExitCode] = {
     fa.transform { res =>
       res match {
-        case Success(_) => logger.info(s"Scenario completed")
-        case Failure(e) => logger.error(s"Scenario failed", e)
+        case Success(_) => logger.info("Scenario completed")
+        case Failure(e) => logger.error("Scenario failed", e)
       }
       res
     }
