@@ -116,10 +116,10 @@ object Main extends StrictLogging {
 
     def runScenario(config: Config[String]) =
       resolveSimulationClass(config.scenario).flatMap { _ =>
-        withLedger(config.dars, name) { (ledgerPort, _, _) =>
+        withLedger(config.dars, SimulationConfig.LedgerId) { (ledgerPort, _, _) =>
           QueryStoreBracket.withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
             withHttpService(
-              name,
+              SimulationConfig.LedgerId,
               ledgerPort,
               jsonApiJdbcConfig,
               None,
