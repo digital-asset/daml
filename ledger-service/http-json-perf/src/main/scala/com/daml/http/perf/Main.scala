@@ -142,7 +142,7 @@ object Main extends StrictLogging {
         // error is printed out by scopt
         ExitCode.InvalidUsage
       case Some(config) =>
-        logger.info(config)
+        logger.info(config.toString)
         waitForResult(
           logCompletion(runScenario(config)),
           config.maxDuration.getOrElse(Duration.Inf),
