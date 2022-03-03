@@ -1,0 +1,15 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- | Checks that interfaces choices and method names cannot collide.
+-- @ERROR name collision between interface method InterfaceNameCollision:Iface.foobar and interface choice InterfaceNameCollision:Iface.FooBar
+module InterfaceNameCollision where
+
+interface Iface where
+    owner : Party
+    foobar : ()
+    choice FooBar : ()
+        controller owner this
+        do pure ()

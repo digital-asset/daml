@@ -10,7 +10,7 @@ When developing Daml applications using SDK tools,
 your local setup will most likely not perform any Ledger API request authorization --
 by default, any valid Ledger API request will be accepted by the sandbox.
 
-This is not the case for participant nodes of :doc:`deployed ledgers </deploy/index>`.
+This is not the case for participant nodes of :doc:`deployed ledgers </deploying>`.
 They check for every Ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
 You thus need to add support for authorization using access token to your application to run it against a deployed ledger.
 
@@ -133,7 +133,7 @@ and there are two formats of the JSON payload in use by Daml ledgers.
 User access tokens
 ==================
 
-Daml ledgers that support participant user management also accept user access tokens.
+Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
 They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
 
 User access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
@@ -157,7 +157,7 @@ User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ t
       "scope": "daml_ledger_api"
    }
 
-where
+The above notations are explained below:
 
 - ``aud`` is an optional field, which restricts the token to participant nodes with the given id
 - ``sub`` is a required field, which specifies the participant user's id

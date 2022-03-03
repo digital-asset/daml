@@ -199,19 +199,27 @@ Applications and their operators are expected to allocate and use parties to man
 
 For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
 
-.. _user-service:
+.. _user-management-service:
 
 User management service
 =======================
 
-Use the **user management service** to manage the set of users on a participant node and their :ref:`access rights <authorization-claims>` to that node's Ledger API services.
+Use the **user management service** to manage the set of users on a participant node and
+their :ref:`access rights <authorization-claims>` to that node's Ledger API services
+and as the integration point for your organization's IAM (Identity and Access Management) framework.
 
 In contrast to parties, users are local to a participant node.
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
 a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
 
-For more information, refer to :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about limits of the user management service, e.g., the maximum number of rights per user.
+The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
+
+With user management enabled you can use both new user-based and old custom Daml authorization tokens.
 Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
+
+User management is available in Canton-enabled drivers and not yet available in the Daml for VMware Blockchain driver.
 
 .. _package-service:
 
@@ -252,7 +260,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Version service
 ============================
 
-Use the **version service** to retrieve information about the Ledger API version.
+Use the **version service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
 
@@ -264,15 +272,6 @@ Pruning service
 Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
-
-.. _user-management-service:
-
-User Management service
-============================
-
-Use the **user management service** to manage users and their rights on a given participant.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.UserManagementService>`.
 
 .. _metering-report-service:
 

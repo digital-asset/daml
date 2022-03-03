@@ -334,14 +334,6 @@ object EndpointsCompanion {
 
   private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def customDecodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
-      parse: ParsePayload[A]
-  ) =
-    for {
-      a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
-      p <- parse.parsePayload(a)
-    } yield (jwt, p)
-
   private[http] def decodeAndParsePayload[A](
       jwt: Jwt,
       decodeJwt: ValidateJwt,

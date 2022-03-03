@@ -57,12 +57,10 @@ private[apiserver] final class ApiLedgerIdentityService private (
 }
 
 private[apiserver] object ApiLedgerIdentityService {
-  def create(
-      getLedgerId: () => Future[LedgerId]
-  )(implicit
+  def create(ledgerId: LedgerId)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ApiLedgerIdentityService with BindableService = {
-    new ApiLedgerIdentityService(getLedgerId)
+    new ApiLedgerIdentityService(() => Future.successful(ledgerId))
   }
 }

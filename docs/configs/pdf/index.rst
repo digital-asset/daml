@@ -15,6 +15,7 @@ Getting Started
    Building Your App <getting-started/index>
    getting-started/app-architecture
    getting-started/first-feature
+   getting-started/testing
    Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 Writing Daml
@@ -53,7 +54,6 @@ Operating Daml
    :maxdepth: 2
 
    operating-daml
-   ops/requirements
 
 Developer Tools
 ---------------
@@ -97,6 +97,7 @@ Early Access Features
    tools/visual
    concepts/interoperability
    tools/non-repudiation
+   ops/connect/index
 
 Daml Ecosystem
 --------------

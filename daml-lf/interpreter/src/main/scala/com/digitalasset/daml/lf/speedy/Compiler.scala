@@ -216,46 +216,61 @@ private[lf] final class Compiler(
   )(body: s.SExpr): (SDefRef, SDefinition) =
     ref -> SDefinition(pipeline(withLabelS(ref, body)))
 
-  private val Position1 = Env.Empty.nextPosition
+  private val Pos1 = Env.Empty.nextPosition
   private val Env1 = Env.Empty.pushVar
-  private val Position2 = Env1.nextPosition
+  private val Pos2 = Env1.nextPosition
   private val Env2 = Env1.pushVar
-  private val Position3 = Env2.nextPosition
+  private val Pos3 = Env2.nextPosition
   private val Env3 = Env2.pushVar
-  private val Position4 = Env3.nextPosition
+  private val Pos4 = Env3.nextPosition
   private val Env4 = Env3.pushVar
-  private val Position5 = Env4.nextPosition
+  private val Pos5 = Env4.nextPosition
   private val Env5 = Env4.pushVar
+
+  private[this] def fun1(body: (Position, Env) => s.SExpr) =
+    s.SEAbs(1, body(Pos1, Env1))
+
+  private[this] def fun2(body: (Position, Position, Env) => s.SExpr) =
+    s.SEAbs(2, body(Pos1, Pos2, Env2))
+
+  private[this] def fun3(body: (Position, Position, Position, Env) => s.SExpr) =
+    s.SEAbs(3, body(Pos1, Pos2, Pos3, Env3))
+
+  private[this] def fun5(body: (Position, Position, Position, Position, Position, Env) => s.SExpr) =
+    s.SEAbs(5, body(Pos1, Pos2, Pos3, Pos4, Pos5, Env5))
 
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(1, body(Position1, Env1)))
+    topLevelFunction(ref)(fun1(body))
+
+  private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
+      body: (Position, Position, Env) => s.SExpr
+  ): (t.SDefinitionRef, SDefinition) =
+    ref -> SDefinition(pipeline(fun2(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(2, body(Position1, Position2, Env2)))
+    topLevelFunction(ref)(fun2(body))
 
   private[this] def topLevelFunction3[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(3, body(Position1, Position2, Position3, Env3)))
+    topLevelFunction(ref)(fun3(body))
 
   private[this] def topLevelFunction5[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Position, Position, Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(
-      s.SEAbs(5, body(Position1, Position2, Position3, Position4, Position5, Env5))
-    )
+    topLevelFunction(ref)(fun5(body))
 
   val phaseOne = {
     val config1 =
@@ -307,14 +322,14 @@ private[lf] final class Compiler(
       val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(identifier, tmpl))
       addDef(compileFetch(identifier, tmpl))
-      addDef(compileKey(identifier, tmpl))
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
+      addDef(compileToCachedContract(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
         addDef(compileCreateByInterface(identifier, tmpl, impl.interfaceId))
         addDef(compileImplements(identifier, impl.interfaceId))
         impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(identifier, impl.interfaceId, method))
+          addDef(compileImplementsMethod(tmpl.param, identifier, impl.interfaceId, method))
         )
       }
 
@@ -388,9 +403,6 @@ private[lf] final class Compiler(
     result
   }
 
-  @inline
-  private[this] def translateIdentity(env: Env) = s.SEAbs(1, s.SEVarLevel(env.position))
-
   private[this] val KeyWithMaintainersStruct =
     SBStructCon(Struct.assertFromSeq(List(keyFieldName, maintainersFieldName).zipWithIndex))
 
@@ -403,18 +415,6 @@ private[lf] final class Compiler(
       env.toSEVar(keyPos),
       app(translateExp(env, tmplKey.maintainers), env.toSEVar(keyPos)),
     )
-
-  private[this] def translateKeyWithMaintainers(
-      env: Env,
-      maybeTmplKey: Option[TemplateKey],
-  ): s.SExpr =
-    maybeTmplKey match {
-      case None => s.SEValue.None
-      case Some(tmplKey) =>
-        let(env, translateExp(env, tmplKey.body)) { (keyPos, env) =>
-          SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-        }
-    }
 
   private[this] def translateChoiceBody(
       env: Env,
@@ -435,6 +435,7 @@ private[lf] final class Compiler(
     ) { (tmplArgPos, _env) =>
       val env =
         _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+
       let(
         env,
         SBUBeginExercise(
@@ -446,9 +447,9 @@ private[lf] final class Compiler(
         )(
           env.toSEVar(choiceArgPos),
           env.toSEVar(cidPos),
-          translateExp(env, choice.controllers),
+          s.SEPreventCatch(translateExp(env, choice.controllers)),
           choice.choiceObservers match {
-            case Some(observers) => translateExp(env, observers)
+            case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
             case None => s.SEValue.EmptyList
           },
         ),
@@ -665,14 +666,6 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(param, argPos), expr)
     )
 
-  private[this] def compileKey(
-      tmplId: Identifier,
-      tmpl: Template,
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction1(t.KeyDefRef(tmplId)) { (tmplArgPos, env) =>
-      translateKeyWithMaintainers(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.key)
-    }
-
   private[this] def compileSignatories(
       tmplId: Identifier,
       tmpl: Template,
@@ -689,6 +682,39 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
     }
 
+  private[this] def compileToCachedContract(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (t.SDefinitionRef, SDefinition) =
+    unlabelledTopLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+      SBuildCachedContract(
+        s.SEValue(STypeRep(TTyCon(tmplId))),
+        env.toSEVar(tmplArgPos),
+        t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos)),
+        t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos)),
+        tmpl.key match {
+          case None =>
+            s.SEValue.None
+          case Some(tmplKey) =>
+            s.SECase(
+              env.toSEVar(mbKeyPos),
+              List(
+                s.SCaseAlt(
+                  t.SCPNone,
+                  let(env, translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body)) {
+                    (keyPos, env) =>
+                      SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                  },
+                ),
+                s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+              ),
+            )
+        },
+      )
+    }
+
+  private[this] val IdentityDef = SDefinition(pipeline(fun1((pos, env) => env.toSEVar(pos))))
+
   // Turn a template value into an interface value. Since interfaces have a
   // toll-free representation (for now), this is just the identity function.
   // But the existence of ImplementsDefRef implies that the template implements
@@ -697,17 +723,18 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
-    t.ImplementsDefRef(tmplId, ifaceId) ->
-      SDefinition(pipeline(translateIdentity(Env.Empty)))
+    t.ImplementsDefRef(tmplId, ifaceId) -> IdentityDef
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
+      tmplParam: Name,
       tmplId: Identifier,
       ifaceId: Identifier,
       method: TemplateImplementsMethod,
   ): (t.SDefinitionRef, SDefinition) = {
-    val ref = t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)
-    ref -> SDefinition(withLabelT(ref, compileExp(method.value)))
+    topLevelFunction1(t.ImplementsMethodDefRef(tmplId, ifaceId, method.name)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmplParam, tmplArgPos), method.value)
+    }
   }
 
   private[this] def translateCreateBody(
@@ -731,12 +758,9 @@ private[lf] final class Compiler(
     )
 
     let(env2, preconds) { (_, env) =>
-      SBUCreate(tmplId, byInterface)(
-        env.toSEVar(tmplArgPos),
+      SBUCreate(byInterface)(
         translateExp(env, tmpl.agreementText),
-        translateExp(env, tmpl.signatories),
-        translateExp(env, tmpl.observers),
-        translateKeyWithMaintainers(env, tmpl.key),
+        t.ToCachedContractDefRef(tmplId)(env.toSEVar(tmplArgPos), s.SEValue.None),
       )
     }
   }

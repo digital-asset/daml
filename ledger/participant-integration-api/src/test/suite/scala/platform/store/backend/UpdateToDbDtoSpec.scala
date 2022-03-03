@@ -30,6 +30,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
+// Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
+// (e.g., because the ledger removes rollback nodes before sending them to the index database).
+// Should you ever consider replacing this suite by something else, make sure all functionality is still covered.
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
   import TransactionBuilder.Implicits._
@@ -748,6 +751,76 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
+    "handle TransactionAccepted (fetch and lookup nodes)" in {
+      // Previous transaction
+      // └─ #1 Create
+      // Transaction
+      // ├─ #1 Fetch
+      // ├─ #2 Fetch by key
+      // └─ #3 Lookup by key
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val builder = TransactionBuilder()
+      val createNode = builder.create(
+        id = builder.newCid,
+        templateId = "M:T",
+        argument = Value.ValueUnit,
+        signatories = List("signatory"),
+        observers = List("observer"),
+        key = Some(Value.ValueUnit),
+      )
+      val fetchNode = builder.fetch(
+        contract = createNode,
+        byKey = false,
+        byInterface = None,
+      )
+      val fetchByKeyNode = builder.fetch(
+        contract = createNode,
+        byKey = true,
+        byInterface = None,
+      )
+      val lookupByKeyNode = builder.lookupByKey(
+        contract = createNode,
+        found = true,
+      )
+      builder.add(fetchNode)
+      builder.add(fetchByKeyNode)
+      builder.add(lookupByKeyNode)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        recordTime = someRecordTime,
+        divulgedContracts = List.empty,
+        blindingInfo = None,
+      )
+      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
+        someOffset
+      )(update).toList
+
+      // Note: fetch and lookup nodes are not indexed
+      dtos should contain theSameElementsInOrderAs List(
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.toHexString,
+          record_time = update.recordTime.micros,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
+          transaction_id = Some(update.transactionId),
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
+          submission_id = completionInfo.submissionId,
+          deduplication_offset = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
+          deduplication_start = None,
+        )
+      )
+    }
+
     "handle TransactionAccepted (single exercise node with divulgence)" in {
       // Previous transaction
       // └─ #1 Create
@@ -1129,7 +1202,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )(update).toList
 
       dtos should contain theSameElementsInOrderAs List(
-        // TODO append-only: Why is there a divulgence event? The divulged contract doesn't exist because it was rolled back.
+        // Note: this divulgence event references a contract that was never created. This is correct:
+        // the divulgee only sees the exercise node under the rollback node, it doesn't know that the contract creation
+        // was rolled back (similar to how divulgees may not learn that a contract divulged to them was archived).
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
           command_id = Some(completionInfo.commandId),

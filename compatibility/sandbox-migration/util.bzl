@@ -40,12 +40,13 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
         **kwargs
     )
 
-    # Oracle was introduced after the switch to the append-only schema
+    # Oracle was introduced after the switch to the append-only schema, no need to run with --append-only.
+    # Oracle tests only run on Linux by default, because we don't have docker on macOS or Windows CI nodes.
     native.sh_test(
         name = "{}-oracle".format(name),
         srcs = ["//sandbox-migration:test.sh"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
-        tags = tags,
+        tags = tags + (["manual"] if not is_linux else []),
         data = [
             "//sandbox-migration:sandbox-migration-runner",
             "//sandbox-migration:migration-model.dar",

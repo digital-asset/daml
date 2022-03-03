@@ -24,10 +24,11 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
   import RollbackTest._
 
-  private def runUpdateExprGetTx(
+  private[this] val transactionSeed = crypto.Hash.hashPrivateKey("RollbackTest.scala")
+
+  private[this] def runUpdateExprGetTx(
       pkgs1: PureCompiledPackages
   )(e: Expr, party: Party): SubmittedTransaction = {
-    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("RollbackTest.scala")
     val se = pkgs1.compiler.unsafeCompile(e)
     val example = SEApp(se, Array(SEValue(SParty(party))))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
@@ -65,10 +66,6 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                 u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
               in upure @Unit ();
-          choice ChControllerThrow (self) (i : Unit) : Unit,
-            controllers (throw @(List Party) @M:MyException (M:MyException {message = "oops"}))
-            to
-              upure @Unit ();
         };
 
         val create0 : Party -> Update Unit = \(party: Party) ->
@@ -175,19 +172,6 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
             in upure @Unit ();
 
-        val exer3 : Party -> Update Unit = \(party: Party) ->
-            ubind
-              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
-
-              u: Unit <-
-                try @Unit
-                  ubind
-                    u: Unit <- exercise @M:T1 ChControllerThrow x1 ()
-                  in upure @Unit ()
-                catch e -> Some @(Update Unit) (upure @Unit ())
-
-            in upure @Unit ();
-
        }
       """)
 
@@ -203,7 +187,6 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
     ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
-    ("exer3", List[Tree](C(100))),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>

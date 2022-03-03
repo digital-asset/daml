@@ -7,4 +7,14 @@ class TriggerServiceTestAuthWithOracle
     extends AbstractTriggerServiceTest
     with AbstractTriggerServiceTestWithDatabase
     with TriggerDaoOracleFixture
-    with AbstractTriggerServiceTestAuthMiddleware {}
+    with AbstractTriggerServiceTestAuthMiddleware
+    with DisableOauthClaimsTests
+
+class TriggerServiceTestAuthWithOracleClaims
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestWithDatabase
+    with TriggerDaoOracleFixture
+    with AbstractTriggerServiceTestAuthMiddleware {
+  protected[this] override def oauth2YieldsUserTokens = false
+  protected[this] override def sandboxClientTakesUserToken = false
+}

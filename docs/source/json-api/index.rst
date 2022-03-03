@@ -266,12 +266,36 @@ The JSON API essentially performs two separate tasks:
 
 .. note:: By default, the Daml Sandbox does not does not require access tokens. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
-Party-specific Access Tokens
-----------------------------
+Party-specific Requests
+-----------------------
 
-Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to general :ref:`Daml ledger access token formats <access-token-formats>`. For command submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at least one party in either ``actAs`` or ``readAs``. The application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+Party-specific requests, i.e., command submissions and queries, are subject to additional restrictions. For command
+submissions the token must provide a proof that the bearer can act on behalf of at least one party (and possibly read
+on behalf of any number of parties). For queries the token must provide a proof that the bearer can either act and/or
+read of at least one party. This happens regardless of the used :ref:`access token format<access-token-formats>`. The
+following paragraphs provide guidance as to how different token formats are used by the HTTP JSON API in this regard.
 
-.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
+Using User Tokens
+^^^^^^^^^^^^^^^^^
+
+If the underlying ledger supports :ref:`user management <user-management-service>` (this includes Canton and the sandbox), you are
+recommended to use user tokens. For command submissions, the user of the bearer should have ``actAs`` rights for at
+least one party and ``readAs`` rights for any number of parties. Queries require the bearer's user to have at least
+one ``actAs`` or ``readAs`` user right. The application id of the Ledger API request will be the user id.
+
+Using Claim Tokens
+^^^^^^^^^^^^^^^^^^
+
+These tokens can be used if the underlying ledger does not support :ref:`user management <user-management-service>`. For command
+submissions, ``actAs`` must contain at least one party and ``readAs`` can contain any number of parties. Queries
+require at least one party in either ``actAs`` or ``readAs``. The application id is mandatory.
+
+.. note::
+
+    While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it,
+    and all data contained within the request, on to the Ledger API's AuthService which will then determine if the
+    token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id
+    and party so it requires that you use :ref:`a valid Daml ledger access token format<access-token-formats>`.
 
 For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.atGiYNc9HfBFbm8s9j5vvMv2sJUlVprFiRmLeoUpJeY>`_ (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:

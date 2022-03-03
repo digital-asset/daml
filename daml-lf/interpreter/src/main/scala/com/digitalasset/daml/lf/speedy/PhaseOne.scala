@@ -13,12 +13,11 @@ import com.daml.lf.language.{LookupError, PackageInterface}
 import com.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.{SExpr => t}
-import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
-import scala.reflect.ClassTag
 
 private[speedy] object PhaseOne {
 
@@ -27,23 +26,12 @@ private[speedy] object PhaseOne {
       stacktracing: StackTraceMode,
   )
 
-  private val SEGetTime = s.SEBuiltin(SBGetTime)
+  private val SEGetTime = SEBuiltin(SBGetTime)
 
-  private val SBEToTextNumeric = s.SEAbs(1, s.SEBuiltin(SBToText))
+  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
 
-  private val SENat: Numeric.Scale => Some[s.SEValue] =
-    Numeric.Scale.values.map(n => Some(s.SEValue(STNat(n))))
-
-  // Hand-implemented `map` uses less stack.
-  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): List[B] = {
-    val output = Array.ofDim[B](input.length)
-    var i = 0
-    input.foreach { value =>
-      output(i) = f(value)
-      i += 1
-    }
-    output.toList
-  }
+  private val SENat: Numeric.Scale => Some[SEValue] =
+    Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
 
   private[speedy] abstract class VarRef { def name: Name }
   // corresponds to Daml-LF expression variable.
@@ -62,7 +50,7 @@ private[speedy] object PhaseOne {
       varIndices: Map[VarRef, Position],
   ) {
 
-    def toSEVar(p: Position) = s.SEVarLevel(p.idx)
+    def toSEVar(p: Position) = SEVarLevel(p.idx)
 
     def nextPosition = Position(position)
 
@@ -94,17 +82,24 @@ private[speedy] object PhaseOne {
 
     private[this] def vars: List[VarRef] = varIndices.keys.toList
 
-    private[this] def lookupVar(varRef: VarRef): Option[s.SExpr] =
+    private[this] def lookupVar(varRef: VarRef): Option[SExpr] =
       varIndices.get(varRef).map(toSEVar)
 
-    def lookupExprVar(name: ExprVarName): s.SExpr =
+    def lookupExprVar(name: ExprVarName): SExpr =
       lookupVar(EVarRef(name))
         .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
 
-    def lookupTypeVar(name: TypeVarName): Option[s.SExpr] =
+    def lookupTypeVar(name: TypeVarName): Option[SExpr] =
       lookupVar(TVarRef(name))
   }
 
+  // A type to represent a step of compilation Work
+  sealed abstract class Work
+  object Work {
+    final case class Return(result: SExpr) extends Work
+    final case class CompileExp(env: Env, exp: Expr, cont: SExpr => Work) extends Work
+    final case class Bind(work: Work, f: SExpr => Work) extends Work
+  }
 }
 
 private[lf] final class PhaseOne(
@@ -113,13 +108,16 @@ private[lf] final class PhaseOne(
 ) {
 
   import PhaseOne._
+  import Work.{Return, Bind, CompileExp}
+
+  private[this] def bindWork(work: Work)(f: SExpr => Work): Work = {
+    Bind(work, f)
+  }
 
   // Entry point for stage1 of speedy compilation pipeline
-  // TODO https://github.com/digital-asset/daml/issues/11561
-  // - reimplement this function to be stack safe
   @throws[CompilationError]
-  private[speedy] def translateFromLF(env: Env, expr0: Expr): s.SExpr = {
-    compile(env, expr0)
+  private[speedy] def translateFromLF(env: Env, exp: Expr): SExpr = {
+    outerCompile(env, exp)
   }
 
   private[this] def handleLookup[X](location: String, x: Either[LookupError, X]) =
@@ -129,181 +127,247 @@ private[lf] final class PhaseOne(
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
-  private[this] def maybeSELocation(loc: Location, sexp: s.SExpr): s.SExpr = {
+  private[this] def maybeSELocation(loc: Location, sexp: SExpr): SExpr = {
     config.stacktracing match {
       case Compiler.NoStackTrace => sexp
-      case Compiler.FullStackTrace => s.SELocation(loc, sexp)
+      case Compiler.FullStackTrace => SELocation(loc, sexp)
     }
   }
 
-  private[this] val withLabelS: (Profile.Label, s.SExpr) => s.SExpr =
+  private[this] def withLabel(label: Profile.Label, sexp: SExpr): SExpr =
     config.profiling match {
-      case Compiler.NoProfile => { (_, expr) =>
-        expr
-      }
-      case Compiler.FullProfile => { (label, expr) =>
-        expr match {
-          case s.SELabelClosure(_, expr1) => s.SELabelClosure(label, expr1)
-          case _ => s.SELabelClosure(label, expr)
+      case Compiler.NoProfile => sexp
+      case Compiler.FullProfile =>
+        sexp match {
+          case SELabelClosure(_, sexp) => SELabelClosure(label, sexp)
+          case sexp => SELabelClosure(label, sexp)
         }
+    }
+
+  private[this] def app(f: SExpr, a: SExpr) = SEApp(f, List(a))
+
+  private[this] def let(env: Env, bound: SExpr)(f: (Position, Env) => Work): Work = {
+    bindWork(f(env.nextPosition, env.pushVar)) {
+      case SELet(bounds, body) =>
+        Return(SELet(bound :: bounds, body))
+      case otherwise =>
+        Return(SELet(List(bound), otherwise))
+    }
+  }
+
+  private[this] def unaryFunction(env: Env)(f: (Position, Env) => Work): Work = {
+    bindWork(f(env.nextPosition, env.pushVar)) {
+      case SEAbs(n, body) => Return(SEAbs(n + 1, body))
+      case otherwise => Return(SEAbs(1, otherwise))
+    }
+  }
+
+  private[this] def outerCompile(env: Env, exp: Expr): SExpr = {
+    import Work._
+
+    @tailrec
+    def loop(work: Work): SExpr = {
+      work match {
+        case Return(result) => result // The final result of the tail-recursive 'loop'.
+        case CompileExp(env, exp, cont) => loop(Bind(processExp(env, exp), cont))
+        case Bind(work0, f0) => loop(processBind(work0, f0))
       }
     }
 
-  private[this] def withOptLabelS[L: Profile.LabelModule.Allowed](
-      optLabel: Option[L with AnyRef],
-      expr: s.SExpr,
-  ): s.SExpr =
-    optLabel match {
-      case Some(label) => withLabelS(label, expr)
-      case None => expr
+    @tailrec
+    def processBind(work: Work, f: SExpr => Work): Work = {
+      work match {
+        case Return(result) => f(result)
+        case CompileExp(env, exp, cont) =>
+          Bind(processExp(env, exp), { result => Bind(cont(result), f) })
+        case Bind(work, cont) =>
+          processBind(work, { result => Bind(cont(result), f) })
+      }
     }
 
-  private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, List(a))
+    loop(CompileExp(env, exp, Return))
+  }
 
-  private[this] def let(env: Env, bound: s.SExpr)(f: (Position, Env) => s.SExpr): s.SELet =
-    f(env.nextPosition, env.pushVar) match {
-      case s.SELet(bounds, body) =>
-        s.SELet(bound :: bounds, body)
-      case otherwise =>
-        s.SELet(List(bound), otherwise)
+  private[this] def compileExp(env: Env, exp: Expr)(cont: SExpr => Work): Work = {
+    CompileExp(env, exp, cont)
+  }
+
+  private[this] def compileExps(env: Env, exps: List[Expr])(
+      k: List[SExpr] => Work
+  ): Work = {
+    def loop(acc: List[SExpr], exps: List[Expr]): Work = {
+      exps match {
+        case Nil => k(acc.reverse)
+        case exp :: exps =>
+          compileExp(env, exp) { exp =>
+            loop(exp :: acc, exps)
+          }
+      }
     }
+    loop(Nil, exps)
+  }
 
-  private[this] def unaryFunction(env: Env)(f: (Position, Env) => s.SExpr): s.SEAbs =
-    f(env.nextPosition, env.pushVar) match {
-      case s.SEAbs(n, body) => s.SEAbs(n + 1, body)
-      case otherwise => s.SEAbs(1, otherwise)
-    }
-
-  private[this] def labeledUnaryFunction[L: Profile.LabelModule.Allowed](
-      label: L with AnyRef,
-      env: Env,
-  )(
-      body: (Position, Env) => s.SExpr
-  ): s.SExpr =
-    unaryFunction(env)((positions, env) => withLabelS(label, body(positions, env)))
-
-  private[this] def compile(env: Env, expr0: Expr): s.SExpr =
-    expr0 match {
+  private[this] def processExp(env: Env, exp: Expr): Work = {
+    exp match {
       case EVar(name) =>
-        env.lookupExprVar(name)
+        Return(env.lookupExprVar(name))
       case EVal(ref) =>
-        s.SEVal(t.LfDefRef(ref))
+        Return(SEVal(t.LfDefRef(ref)))
       case EBuiltin(bf) =>
-        compileBuiltin(env, bf)
+        Return(compileBuiltin(env, bf))
       case EPrimCon(con) =>
-        compilePrimCon(con)
+        Return(compilePrimCon(con))
       case EPrimLit(lit) =>
-        compilePrimLit(lit)
+        Return(compilePrimLit(lit))
       case EAbs(_, _, _) | ETyAbs(_, _) =>
-        compileAbss(env, expr0)
+        compileAbss(env, exp, arity = 0)
       case EApp(_, _) | ETyApp(_, _) =>
-        compileApps(env, expr0)
+        compileApps(env, exp, args = List.empty)
       case ERecCon(tApp, fields) =>
         compileERecCon(env, tApp, fields)
       case ERecProj(tapp, field, record) =>
-        SBRecProj(
-          tapp.tycon,
-          handleLookup(
-            NameOf.qualifiedNameOfCurrentFunc,
-            interface.lookupRecordFieldInfo(tapp.tycon, field),
-          ).index,
-        )(compile(env, record))
+        compileExp(env, record) { record =>
+          Return(
+            SBRecProj(
+              tapp.tycon,
+              handleLookup(
+                NameOf.qualifiedNameOfCurrentFunc,
+                interface.lookupRecordFieldInfo(tapp.tycon, field),
+              ).index,
+            )(record)
+          )
+        }
       case erecupd: ERecUpd =>
         compileERecUpd(env, erecupd)
       case EStructCon(fields) =>
-        val fieldsInputOrder =
-          Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
-        s.SEApp(
-          s.SEBuiltin(SBStructCon(fieldsInputOrder)),
-          mapToArray(fields) { case (_, e) => compile(env, e) },
-        )
+        val exps = fields.toList.map { case (_, e) => e }
+        compileExps(env, exps) { exps =>
+          val fieldsInputOrder =
+            Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
+          Return(SEApp(SEBuiltin(SBStructCon(fieldsInputOrder)), exps))
+        }
       case EStructProj(field, struct) =>
-        SBStructProj(field)(compile(env, struct))
+        compileExp(env, struct) { struct =>
+          Return(SBStructProj(field)(struct))
+        }
       case EStructUpd(field, struct, update) =>
-        SBStructUpd(field)(compile(env, struct), compile(env, update))
+        compileExp(env, struct) { struct =>
+          compileExp(env, update) { update =>
+            Return(SBStructUpd(field)(struct, update))
+          }
+        }
       case ECase(scrut, alts) =>
         compileECase(env, scrut, alts)
       case ENil(_) =>
-        s.SEValue.EmptyList
+        Return(SEValue.EmptyList)
       case ECons(_, front, tail) =>
-        // TODO(JM): Consider emitting SEValue(SList(...)) for
-        // constant lists?
-        val args =
-          (front.iterator.map(compile(env, _)) ++ Seq(compile(env, tail))).toList
-        if (front.length == 1) {
-          s.SEApp(s.SEBuiltin(SBCons), args)
-        } else {
-          s.SEApp(s.SEBuiltin(SBConsMany(front.length)), args)
+        val exps: List[Expr] = front.toList ++ List(tail)
+        compileExps(env, exps) { exps =>
+          if (front.length == 1) {
+            Return(SEApp(SEBuiltin(SBCons), exps))
+          } else {
+            Return(SEApp(SEBuiltin(SBConsMany(front.length)), exps))
+          }
         }
       case ENone(_) =>
-        s.SEValue.None
+        Return(SEValue.None)
       case ESome(_, body) =>
-        SBSome(compile(env, body))
+        compileExp(env, body) { body =>
+          Return(SBSome(body))
+        }
       case EEnumCon(tyCon, consName) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
           interface.lookupEnumConstructor(tyCon, consName),
         )
-        s.SEValue(SEnum(tyCon, consName, rank))
+        Return(SEValue(SEnum(tyCon, consName, rank)))
       case EVariantCon(tapp, variant, arg) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
           interface.lookupVariantConstructor(tapp.tycon, variant),
         ).rank
-        SBVariantCon(tapp.tycon, variant, rank)(compile(env, arg))
+        compileExp(env, arg) { arg =>
+          Return(SBVariantCon(tapp.tycon, variant, rank)(arg))
+        }
       case let: ELet =>
-        compileELet(env, let)
+        compileELet(env, let, List.empty)
       case EUpdate(upd) =>
         compileEUpdate(env, upd)
       case ELocation(loc, EScenario(scen)) =>
-        maybeSELocation(loc, compileScenario(env, scen, Some(loc)))
+        bindWork(compileScenario(env, scen, Some(loc))) { result =>
+          Return(maybeSELocation(loc, result))
+        }
       case EScenario(scen) =>
         compileScenario(env, scen, None)
-      case ELocation(loc, e) =>
-        maybeSELocation(loc, compile(env, e))
-      case EToAny(ty, e) =>
-        SBToAny(ty)(compile(env, e))
-      case EFromAny(ty, e) =>
-        SBFromAny(ty)(compile(env, e))
+      case ELocation(loc, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(maybeSELocation(loc, exp))
+        }
+      case EToAny(ty, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBToAny(ty)(exp))
+        }
+      case EFromAny(ty, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBFromAny(ty)(exp))
+        }
       case ETypeRep(typ) =>
-        s.SEValue(STypeRep(typ))
-      case EToAnyException(ty, e) =>
-        SBToAny(ty)(compile(env, e))
-      case EFromAnyException(ty, e) =>
-        SBFromAny(ty)(compile(env, e))
-      case EThrow(_, ty, e) =>
-        SBThrow(SBToAny(ty)(compile(env, e)))
-      case EToInterface(iface @ _, tpl @ _, e) =>
-        SBToInterface(tpl)(compile(env, e))
-      case EFromInterface(iface @ _, tpl, e) =>
-        SBFromInterface(tpl)(compile(env, e))
-      case ECallInterface(iface, methodName, e) =>
-        SBCallInterface(iface, methodName)(compile(env, e))
-      case EToRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
-        compile(env, body)
-      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, body @ _) =>
-        SBFromRequiredInterface(requiringIfaceId)(compile(env, body))
-      case EInterfaceTemplateTypeRep(ifaceId, body @ _) =>
-        SBInterfaceTemplateTypeRep(ifaceId)(compile(env, body))
-      case ESignatoryInterface(ifaceId, body @ _) =>
-        val arg = compile(env, body)
-        SBSignatoryInterface(ifaceId)(arg)
-      case EObserverInterface(ifaceId, body @ _) =>
-        val arg = compile(env, body)
-        SBObserverInterface(ifaceId)(arg)
+        Return(SEValue(STypeRep(typ)))
+      case EToAnyException(ty, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBToAny(ty)(exp))
+        }
+      case EFromAnyException(ty, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBFromAny(ty)(exp))
+        }
+      case EThrow(_, ty, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBThrow(SBToAny(ty)(exp)))
+        }
+      case EToInterface(iface @ _, tpl @ _, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBToInterface(tpl)(exp))
+        }
+      case EFromInterface(iface @ _, tpl, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBFromInterface(tpl)(exp))
+        }
+      case ECallInterface(iface, methodName, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBCallInterface(iface, methodName)(exp))
+        }
+      case EToRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, exp) =>
+        compileExp(env, exp)(Return)
+      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBFromRequiredInterface(requiringIfaceId)(exp))
+        }
+      case EInterfaceTemplateTypeRep(ifaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBInterfaceTemplateTypeRep(ifaceId)(exp))
+        }
+      case ESignatoryInterface(ifaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBSignatoryInterface(ifaceId)(exp))
+        }
+      case EObserverInterface(ifaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBObserverInterface(ifaceId)(exp))
+        }
       case EExperimental(name, _) =>
-        SBExperimental(name)
+        Return(SBExperimental(name))
     }
 
-  @inline
-  private[this] def compileIdentity(env: Env) = s.SEAbs(1, s.SEVarLevel(env.position))
+  }
 
-  @inline
-  private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): s.SExpr = {
+  private[this] def compileIdentity(env: Env) = SEAbs(1, SEVarLevel(env.position))
+
+  private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): SExpr = {
 
     def SBCompareNumeric(b: SBuiltinPure) = {
       val d = env.position
-      s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVarLevel(d + 1), s.SEVarLevel(d + 2))))
+      SEAbs(3, SEApp(SEBuiltin(b), List(SEVarLevel(d + 1), SEVarLevel(d + 2))))
     }
 
     val SBLessNumeric = SBCompareNumeric(SBLess)
@@ -322,10 +386,10 @@ private[lf] final class PhaseOne(
       case BEqualNumeric => SBEqualNumeric
       case BNumericToText => SBEToTextNumeric
 
-      case BTextMapEmpty => s.SEValue.EmptyTextMap
-      case BGenMapEmpty => s.SEValue.EmptyGenMap
+      case BTextMapEmpty => SEValue.EmptyTextMap
+      case BGenMapEmpty => SEValue.EmptyGenMap
       case _ =>
-        s.SEBuiltin(bf match {
+        SEBuiltin(bf match {
           case BTrace => SBTrace
 
           // Decimal arithmetic
@@ -438,17 +502,15 @@ private[lf] final class PhaseOne(
     }
   }
 
-  @inline
-  private[this] def compilePrimCon(con: PrimCon): s.SExpr =
+  private[this] def compilePrimCon(con: PrimCon): SExpr =
     con match {
-      case PCTrue => s.SEValue.True
-      case PCFalse => s.SEValue.False
-      case PCUnit => s.SEValue.Unit
+      case PCTrue => SEValue.True
+      case PCFalse => SEValue.False
+      case PCUnit => SEValue.Unit
     }
 
-  @inline
-  private[this] def compilePrimLit(lit: PrimLit): s.SExpr =
-    s.SEValue(lit match {
+  private[this] def compilePrimLit(lit: PrimLit): SExpr =
+    SEValue(lit match {
       case PLInt64(i) => SInt64(i)
       case PLNumeric(d) => SNumeric(d)
       case PLText(t) => SText(t)
@@ -458,36 +520,39 @@ private[lf] final class PhaseOne(
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
-  @inline
-  private[this] def collectRecUpds(expr: Expr): (Expr, List[Name], List[Expr]) = {
+  private[this] def collectRecUpds(exp: Expr): (Expr, List[Name], List[Expr]) = {
     @tailrec
-    def go(expr: Expr, fields: List[Name], updates: List[Expr]): (Expr, List[Name], List[Expr]) =
-      stripLocs(expr) match {
+    def go(exp: Expr, fields: List[Name], updates: List[Expr]): (Expr, List[Name], List[Expr]) =
+      stripLocs(exp) match {
         case ERecUpd(_, field, record, update) =>
           go(record, field :: fields, update :: updates)
         case _ =>
-          (expr, fields, updates)
+          (exp, fields, updates)
       }
-    go(expr, List.empty, List.empty)
+    go(exp, List.empty, List.empty)
   }
 
   private def noArgs = new util.ArrayList[SValue](0)
 
-  @inline
   private[this] def compileERecCon(
       env: Env,
-      tApp: TypeConApp,
+      tapp: TypeConApp,
       fields: ImmArray[(FieldName, Expr)],
-  ): s.SExpr =
-    if (fields.isEmpty)
-      s.SEValue(SRecord(tApp.tycon, ImmArray.Empty, noArgs))
-    else
-      s.SEApp(
-        s.SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
-        fields.iterator.map(f => compile(env, f._2)).toList,
-      )
+  ): Work =
+    tapp match {
+      case TypeConApp(tycon, _) =>
+        if (fields.isEmpty)
+          Return(SEValue(SRecord(tycon, ImmArray.Empty, noArgs)))
+        else {
+          val exps = fields.toList.map(_._2)
+          compileExps(env, exps) { exps =>
+            val fieldNames = fields.map(_._1)
+            Return(SEApp(SEBuiltin(SBRecCon(tycon, fieldNames)), exps))
+          }
+        }
+    }
 
-  private[this] def compileERecUpd(env: Env, erecupd: ERecUpd): s.SExpr = {
+  private[this] def compileERecUpd(env: Env, erecupd: ERecUpd): Work = {
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
@@ -495,7 +560,11 @@ private[lf] final class PhaseOne(
         NameOf.qualifiedNameOfCurrentFunc,
         interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
       ).index
-      SBRecUpd(tapp.tycon, index)(compile(env, record), compile(env, updates.head))
+      compileExp(env, record) { record =>
+        compileExp(env, updates.head) { update =>
+          Return(SBRecUpd(tapp.tycon, index)(record, update))
+        }
+      }
     } else {
       val indices =
         fields.map(name =>
@@ -504,131 +573,185 @@ private[lf] final class PhaseOne(
             interface.lookupRecordFieldInfo(tapp.tycon, name),
           ).index
         )
-      SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))(
-        (record :: updates).map(compile(env, _)): _*
-      )
+      compileExps(env, record :: updates) { exps =>
+        Return(SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))(exps: _*))
+      }
     }
   }
 
-  private[this] def compileECase(env: Env, scrut: Expr, alts: ImmArray[CaseAlt]): s.SExpr =
-    s.SECase(
-      compile(env, scrut),
-      mapToArray(alts) { case CaseAlt(pat, expr) =>
-        pat match {
-          case CPVariant(tycon, variant, binder) =>
-            val rank = handleLookup(
-              NameOf.qualifiedNameOfCurrentFunc,
-              interface.lookupVariantConstructor(tycon, variant),
-            ).rank
-            s.SCaseAlt(
-              t.SCPVariant(tycon, variant, rank),
-              compile(env.pushExprVar(binder), expr),
-            )
+  private[this] def compileECase(env: Env, scrut: Expr, alts: ImmArray[CaseAlt]): Work = {
+    compileExp(env, scrut) { scrut =>
+      compileAlts(Nil, env, alts.toList) { alts =>
+        Return(SECase(scrut, alts))
+      }
+    }
+  }
 
-          case CPEnum(tycon, constructor) =>
-            val rank = handleLookup(
-              NameOf.qualifiedNameOfCurrentFunc,
-              interface.lookupEnumConstructor(tycon, constructor),
-            )
-            s.SCaseAlt(t.SCPEnum(tycon, constructor, rank), compile(env, expr))
-
-          case CPNil =>
-            s.SCaseAlt(t.SCPNil, compile(env, expr))
-
-          case CPCons(head, tail) =>
-            s.SCaseAlt(t.SCPCons, compile(env.pushExprVar(head).pushExprVar(tail), expr))
-
-          case CPPrimCon(pc) =>
-            s.SCaseAlt(t.SCPPrimCon(pc), compile(env, expr))
-
-          case CPNone =>
-            s.SCaseAlt(t.SCPNone, compile(env, expr))
-
-          case CPSome(body) =>
-            s.SCaseAlt(t.SCPSome, compile(env.pushExprVar(body), expr))
-
-          case CPDefault =>
-            s.SCaseAlt(t.SCPDefault, compile(env, expr))
-        }
-      },
-    )
-
-  // Compile nested lets using constant stack.
-  @tailrec
-  private[this] def compileELet(
-      env0: Env,
-      eLet0: ELet,
-      bounds0: List[s.SExpr] = List.empty,
-  ): s.SELet = {
-    val binding = eLet0.binding
-    val bounds = withOptLabelS(binding.binder, compile(env0, binding.bound)) :: bounds0
-    val env1 = env0.pushExprVar(binding.binder)
-    eLet0.body match {
-      case eLet1: ELet =>
-        compileELet(env1, eLet1, bounds)
-      case body0 =>
-        compile(env1, body0) match {
-          case s.SELet(bounds1, body1) =>
-            s.SELet(bounds.foldLeft(bounds1)((acc, b) => b :: acc), body1)
-          case otherwise =>
-            s.SELet(bounds.reverse, otherwise)
+  private[this] def compileAlts(acc: List[SCaseAlt], env: Env, exps: List[CaseAlt])(
+      k: List[SCaseAlt] => Work
+  ): Work = {
+    exps match {
+      case Nil => k(acc.reverse)
+      case alt :: alts =>
+        alt match {
+          case CaseAlt(pat, rhs) =>
+            compileAlt(env, pat, rhs) { rhs =>
+              compileAlts(rhs :: acc, env, alts)(k)
+            }
         }
     }
   }
 
-  @inline
-  private[this] def compileEUpdate(env: Env, update: Update): s.SExpr =
+  private[this] def compileAlt(env: Env, pat: CasePat, rhs: Expr)(k: SCaseAlt => Work): Work = {
+    pat match {
+      case CPVariant(tycon, variant, binder) =>
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupVariantConstructor(tycon, variant),
+        ).rank
+        compileExp(env.pushExprVar(binder), rhs) { rhs =>
+          k(SCaseAlt(t.SCPVariant(tycon, variant, rank), rhs))
+        }
+      case CPEnum(tycon, constructor) =>
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupEnumConstructor(tycon, constructor),
+        )
+        compileExp(env, rhs) { rhs =>
+          k(SCaseAlt(t.SCPEnum(tycon, constructor, rank), rhs))
+        }
+      case CPNil =>
+        compileExp(env, rhs) { rhs =>
+          k(SCaseAlt(t.SCPNil, rhs))
+        }
+      case CPCons(head, tail) =>
+        compileExp(env.pushExprVar(head).pushExprVar(tail), rhs) { rhs =>
+          k(SCaseAlt(t.SCPCons, rhs))
+        }
+      case CPPrimCon(pc) =>
+        compileExp(env, rhs) { rhs =>
+          k(SCaseAlt(t.SCPPrimCon(pc), rhs))
+        }
+      case CPNone =>
+        compileExp(env, rhs) { rhs =>
+          k(SCaseAlt(t.SCPNone, rhs))
+        }
+      case CPSome(e) =>
+        compileExp(env.pushExprVar(e), rhs) { rhs =>
+          k(SCaseAlt(t.SCPSome, rhs))
+        }
+      case CPDefault =>
+        compileExp(env, rhs) { rhs =>
+          k(SCaseAlt(t.SCPDefault, rhs))
+        }
+    }
+  }
+
+  private[this] def compileELet(env0: Env, eLet0: ELet, bounds0: List[SExpr]): Work = {
+    eLet0 match {
+      case ELet(Binding(binder, _, bound), body) =>
+        compileExp(env0, bound) { bound0 =>
+          val bound =
+            binder match {
+              case Some(label) => withLabel(label, bound0)
+              case None => bound0
+            }
+          val bounds = bound :: bounds0
+          val env1 = env0.pushExprVar(binder)
+          body match {
+            case eLet1: ELet =>
+              compileELet(env1, eLet1, bounds) //recursive call in compileExp is stack-safe
+            case _ =>
+              compileExp(env1, body) {
+                case SELet(bounds1, body1) =>
+                  Return(SELet(bounds.foldLeft(bounds1)((acc, b) => b :: acc), body1))
+                case body =>
+                  Return(SELet(bounds.reverse, body))
+              }
+          }
+        }
+    }
+  }
+
+  private[this] def compileEUpdate(env: Env, update: Update): Work =
     update match {
       case UpdatePure(_, e) =>
         compilePure(env, e)
       case UpdateBlock(bindings, body) =>
         compileBlock(env, bindings, body)
-      case UpdateFetch(tmplId, coidE) =>
-        t.FetchDefRef(tmplId)(compile(env, coidE))
-      case UpdateFetchInterface(ifaceId, coidE) =>
-        t.FetchDefRef(ifaceId)(compile(env, coidE))
-      case UpdateEmbedExpr(_, e) =>
-        compileEmbedExpr(env, e)
+      case UpdateFetch(tmplId, coid) =>
+        compileExp(env, coid) { coid =>
+          Return(t.FetchDefRef(tmplId)(coid))
+        }
+      case UpdateFetchInterface(ifaceId, coid) =>
+        compileExp(env, coid) { coid =>
+          Return(t.FetchDefRef(ifaceId)(coid))
+        }
+      case UpdateEmbedExpr(_, exp) =>
+        compileEmbedExpr(env, exp)
       case UpdateCreate(tmplId, arg) =>
-        t.CreateDefRef(tmplId)(compile(env, arg))
+        compileExp(env, arg) { arg =>
+          Return(t.CreateDefRef(tmplId)(arg))
+        }
       case UpdateCreateInterface(iface, arg) =>
-        t.CreateDefRef(iface)(compile(env, arg))
-      case UpdateExercise(tmplId, chId, cidE, argE) =>
-        t.ChoiceDefRef(tmplId, chId)(compile(env, cidE), compile(env, argE))
-      case UpdateExerciseInterface(ifaceId, chId, cidE, argE, typeRepE, guardE) =>
-        t.GuardedChoiceDefRef(ifaceId, chId)(
-          compile(env, cidE),
-          compile(env, argE),
-          compile(env, typeRepE),
-          compile(env, guardE),
-        )
-      case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
-        t.ChoiceByKeyDefRef(tmplId, chId)(compile(env, keyE), compile(env, argE))
+        compileExp(env, arg) { arg =>
+          Return(t.CreateDefRef(iface)(arg))
+        }
+      case UpdateExercise(tmplId, chId, cid, arg) =>
+        compileExp(env, cid) { cid =>
+          compileExp(env, arg) { arg =>
+            Return(t.ChoiceDefRef(tmplId, chId)(cid, arg))
+          }
+        }
+      case UpdateExerciseInterface(ifaceId, chId, cid, arg, trep, guard) =>
+        compileExp(env, cid) { cid =>
+          compileExp(env, arg) { arg =>
+            compileExp(env, trep) { trep =>
+              compileExp(env, guard) { guard =>
+                Return(t.GuardedChoiceDefRef(ifaceId, chId)(cid, arg, trep, guard))
+              }
+            }
+          }
+        }
+      case UpdateExerciseByKey(tmplId, chId, key, arg) =>
+        compileExp(env, key) { key =>
+          compileExp(env, arg) { arg =>
+            Return(t.ChoiceByKeyDefRef(tmplId, chId)(key, arg))
+          }
+        }
       case UpdateGetTime =>
-        SEGetTime
+        Return(SEGetTime)
       case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
-        t.LookupByKeyDefRef(templateId)(compile(env, key))
+        compileExp(env, key) { key =>
+          Return(t.LookupByKeyDefRef(templateId)(key))
+        }
       case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
-        t.FetchByKeyDefRef(templateId)(compile(env, key))
-
+        compileExp(env, key) { key =>
+          Return(t.FetchByKeyDefRef(templateId)(key))
+        }
       case UpdateTryCatch(_, body, binder, handler) =>
-        unaryFunction(env) { (tokenPos, env0) =>
-          s.SETryCatch(
-            app(compile(env0, body), env0.toSEVar(tokenPos)), {
-              val env1 = env0.pushExprVar(binder)
-              SBTryHandler(
-                compile(env1, handler),
-                env1.lookupExprVar(binder),
-                env1.toSEVar(tokenPos),
+        unaryFunction(env) { (tokenPos, env) =>
+          compileExp(env, body) { body =>
+            val env1 = env.pushExprVar(binder)
+            compileExp(env1, handler) { handler =>
+              Return(
+                SETryCatch(
+                  app(body, env.toSEVar(tokenPos)),
+                  SBTryHandler(
+                    handler,
+                    env1.lookupExprVar(binder),
+                    env1.toSEVar(tokenPos),
+                  ),
+                )
               )
-            },
-          )
+            }
+          }
         }
     }
 
   @tailrec
-  private[this] def compileAbss(env: Env, expr0: Expr, arity: Int = 0): s.SExpr =
-    expr0 match {
+  private[this] def compileAbss(env: Env, exp: Expr, arity: Int): Work = {
+    exp match {
       case EAbs((binder, typ @ _), body, ref @ _) =>
         compileAbss(env.pushExprVar(binder), body, arity + 1)
       case ETyAbs((binder, KNat), body) =>
@@ -636,36 +759,45 @@ private[lf] final class PhaseOne(
       case ETyAbs((binder, _), body) =>
         compileAbss(env.hideTypeVar(binder), body, arity)
       case _ if arity == 0 =>
-        compile(env, expr0)
+        compileExp(env, exp)(Return)
       case _ =>
-        withLabelS(t.AnonymousClosure, s.SEAbs(arity, compile(env, expr0)))
+        compileExp(env, exp) { exp =>
+          Return(withLabel(t.AnonymousClosure, SEAbs(arity, exp)))
+        }
     }
+  }
 
-  @tailrec
-  private[this] def compileApps(
-      env: Env,
-      expr0: Expr,
-      args: List[s.SExpr] = List.empty,
-  ): s.SExpr =
-    expr0 match {
+  val compileAppsX = compileApps _ // This allows silencing the @tailrec warning in one place...
+  @tailrec // ...while still ensuring tail-recursion for the call in the ETyApp case.
+  private[this] def compileApps(env: Env, exp: Expr, args: List[SExpr]): Work = {
+    exp match {
       case EApp(fun, arg) =>
-        compileApps(env, fun, compile(env, arg) :: args)
+        compileExp(env, arg) { arg =>
+          compileAppsX(env, fun, arg :: args) //recursive call in compileExp is stack-safe
+        }
       case ETyApp(fun, arg) =>
         compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))
       case _ if args.isEmpty =>
-        compile(env, expr0)
+        compileExp(env, exp)(Return)
       case _ =>
-        s.SEApp(compile(env, expr0), args)
+        compileExp(env, exp) { fun =>
+          Return(SEApp(fun, args))
+        }
     }
+  }
 
-  private[this] def translateType(env: Env, typ: Type): Option[s.SExpr] =
+  private[this] def translateType(env: Env, typ: Type): Option[SExpr] =
     typ match {
       case TNat(n) => SENat(n)
       case TVar(name) => env.lookupTypeVar(name)
       case _ => None
     }
 
-  private[this] def compileScenario(env: Env, scen: Scenario, optLoc: Option[Location]): s.SExpr =
+  private[this] def compileScenario(
+      env: Env,
+      scen: Scenario,
+      optLoc: Option[Location],
+  ): Work =
     scen match {
       case ScenarioPure(_, e) =>
         compilePure(env, e)
@@ -676,7 +808,7 @@ private[lf] final class PhaseOne(
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
         compileCommit(env, partyE, updateE, optLoc, mustFail = true)
       case ScenarioGetTime =>
-        SEGetTime
+        Return(SEGetTime)
       case ScenarioGetParty(e) =>
         compileGetParty(env, e)
       case ScenarioPass(relTime) =>
@@ -685,56 +817,73 @@ private[lf] final class PhaseOne(
         compileEmbedExpr(env, e)
     }
 
-  @inline
   private[this] def compileCommit(
       env: Env,
       partyE: Expr,
       updateE: Expr,
       optLoc: Option[Location],
       mustFail: Boolean,
-  ): s.SExpr =
+  ): Work = {
     // let party = <partyE>
     //     update = <updateE>
     // in $submit(mustFail)(party, update)
-    let(env, compile(env, partyE)) { (partyLoc, env) =>
-      let(env, compile(env, updateE)) { (updateLoc, env) =>
-        SBSSubmit(optLoc, mustFail)(env.toSEVar(partyLoc), env.toSEVar(updateLoc))
+    compileExp(env, partyE) { party =>
+      let(env, party) { (partyLoc, env) =>
+        compileExp(env, updateE) { update =>
+          let(env, update) { (updateLoc, env) =>
+            Return(
+              SBSSubmit(optLoc, mustFail)(env.toSEVar(partyLoc), env.toSEVar(updateLoc))
+            )
+          }
+        }
       }
     }
+  }
 
-  @inline
-  private[this] def compileGetParty(env: Env, expr: Expr): s.SExpr =
-    labeledUnaryFunction(Profile.GetPartyLabel, env) { (tokenPos, env) =>
-      SBSGetParty(compile(env, expr), env.toSEVar(tokenPos))
+  private[this] def compileGetParty(env: Env, exp: Expr): Work = {
+    unaryFunction(env) { (tokenPos, env) =>
+      compileExp(env, exp) { exp =>
+        Return(withLabel(Profile.GetPartyLabel, SBSGetParty(exp, env.toSEVar(tokenPos))))
+      }
     }
+  }
 
-  @inline
-  private[this] def compilePass(env: Env, time: Expr): s.SExpr =
-    labeledUnaryFunction(Profile.PassLabel, env) { (tokenPos, env) =>
-      SBSPass(compile(env, time), env.toSEVar(tokenPos))
+  private[this] def compilePass(env: Env, time: Expr): Work = {
+    unaryFunction(env) { (tokenPos, env) =>
+      compileExp(env, time) { time =>
+        Return(withLabel(Profile.PassLabel, SBSPass(time, env.toSEVar(tokenPos))))
+      }
     }
+  }
 
-  @inline
-  private[this] def compileEmbedExpr(env: Env, expr: Expr): s.SExpr =
+  private[this] def compileEmbedExpr(env: Env, exp: Expr): Work =
     // EmbedExpr's get wrapped into an extra layer of abstraction
     // to delay evaluation.
     // e.g.
     // embed (error "foo") => \token -> error "foo"
     unaryFunction(env) { (tokenPos, env) =>
-      app(compile(env, expr), env.toSEVar(tokenPos))
-    }
-
-  private[this] def compilePure(env: Env, body: Expr): s.SExpr =
-    // pure <E>
-    // =>
-    // ((\x token -> x) <E>)
-    let(env, compile(env, body)) { (bodyPos, env) =>
-      unaryFunction(env) { (tokenPos, env) =>
-        SBSPure(env.toSEVar(bodyPos), env.toSEVar(tokenPos))
+      compileExp(env, exp) { exp =>
+        Return(app(exp, env.toSEVar(tokenPos)))
       }
     }
 
-  private[this] def compileBlock(env: Env, bindings: ImmArray[Binding], body: Expr): s.SExpr =
+  private[this] def compilePure(env: Env, body: Expr): Work =
+    // pure <E>
+    // =>
+    // ((\x token -> x) <E>)
+    compileExp(env, body) { body =>
+      let(env, body) { (bodyPos, env) =>
+        unaryFunction(env) { (tokenPos, env) =>
+          Return(SBSPure(env.toSEVar(bodyPos), env.toSEVar(tokenPos)))
+        }
+      }
+    }
+
+  private[this] def compileBlock(
+      env: Env,
+      bindings: ImmArray[Binding],
+      body: Expr,
+  ): Work =
     // do
     //   x <- f
     //   y <- g x
@@ -745,30 +894,37 @@ private[lf] final class PhaseOne(
     //   let x = f' token
     //       y = g x token
     //   in z x y token
-    let(env, compile(env, bindings.head.bound)) { (firstPos, env) =>
-      unaryFunction(env) { (tokenPos, env) =>
-        let(env, app(env.toSEVar(firstPos), env.toSEVar(tokenPos))) { (firstBoundPos, _env) =>
-          val env = bindings.head.binder.fold(_env)(_env.bindExprVar(_, firstBoundPos))
+    compileExp(env, bindings.head.bound) { first =>
+      let(env, first) { (firstPos, env) =>
+        unaryFunction(env) { (tokenPos, env) =>
+          let(env, app(env.toSEVar(firstPos), env.toSEVar(tokenPos))) { (firstBoundPos, _env) =>
+            val env = bindings.head.binder.fold(_env)(_env.bindExprVar(_, firstBoundPos))
 
-          def loop(env: Env, list: List[Binding]): s.SExpr = list match {
-            case Binding(binder, _, bound) :: tail =>
-              let(env, app(compile(env, bound), env.toSEVar(tokenPos))) { (boundPos, _env) =>
-                val env = binder.fold(_env)(_env.bindExprVar(_, boundPos))
-                loop(env, tail)
+            def loop(env: Env, list: List[Binding]): Work =
+              list match {
+                case Binding(binder, _, bound) :: tail =>
+                  compileExp(env, bound) { bound =>
+                    let(env, app(bound, env.toSEVar(tokenPos))) { (boundPos, _env) =>
+                      val env = binder.fold(_env)(_env.bindExprVar(_, boundPos))
+                      loop(env, tail)
+                    }
+                  }
+                case Nil =>
+                  compileExp(env, body) { body =>
+                    Return(app(body, env.toSEVar(tokenPos)))
+                  }
               }
-            case Nil =>
-              app(compile(env, body), env.toSEVar(tokenPos))
-          }
 
-          loop(env, bindings.tail.toList)
+            loop(env, bindings.tail.toList)
+          }
         }
       }
     }
 
   @tailrec
-  private[this] def stripLocs(expr: Expr): Expr =
-    expr match {
-      case ELocation(_, expr1) => stripLocs(expr1)
-      case _ => expr
+  private[this] def stripLocs(exp: Expr): Expr =
+    exp match {
+      case ELocation(_, exp) => stripLocs(exp)
+      case _ => exp
     }
 }

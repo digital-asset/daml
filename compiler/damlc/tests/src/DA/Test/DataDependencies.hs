@@ -152,6 +152,140 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
+    [ testCaseSteps ("Cross DAML-LF version with stdlib orphan instances: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [ "module A where"
+              , "f : ()"
+              , "f = ()"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+          projaPkgIds <- darPackageIds (proja </> "proja.dar")
+          -- daml-stdlib, daml-prim and proja
+          length projaPkgIds @?= numStablePackagesForVersion depLfVer + 2 + 1
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A qualified"
+              , "f : ()"
+              , "f = A.f"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projb </> "projb.dar" ]
+          step "Validating DAR"
+          validate $ projb </> "projb.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
+    [ testCaseSteps ("Cross DAML-LF version with custom orphan instance: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+          let projc = tmpDir </> "projc"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "AC.daml") $ unlines
+              [ "module AC where"
+              , "class AC a where"
+              , "  ac : a -> a"
+              ]
+          writeFileUTF8 (proja </> "src" </> "AT.daml") $ unlines
+              [ "module AT where"
+              , "data AT"
+              ]
+          writeFileUTF8 (proja </> "src" </> "AI.daml") $ unlines
+              [ "module AI where"
+              , "import AC"
+              , "import AT"
+              , "instance AC AT where"
+              , "  ac a = a"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import AI ()"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+            ["build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion depLfVer
+            , "-o", projb </> "projb.dar"
+            ]
+
+          step "Build projc"
+          createDirectoryIfMissing True (projc </> "src")
+          writeFileUTF8 (projc </> "src" </> "C.daml") $ unlines
+              [ "module C where"
+              , "import B ()"
+              ]
+          writeFileUTF8 (projc </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projc"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (projb </> "projb.dar") <> "]"
+              ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projc
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projc </> "projc.dar" ]
+          step "Validating DAR"
+          validate $ projc </> "projc.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")
@@ -1446,23 +1580,23 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "  where"
             , "    signatory issuer, owner"
             , "    implements Token where"
-            , "      let getOwner = owner"
-            , "      let getAmount = amount"
-            , "      let setAmount = \\x -> toInterface @Token (this with amount = x)"
+            , "      getOwner = owner"
+            , "      getAmount = amount"
+            , "      setAmount x = toInterface @Token (this with amount = x)"
 
-            , "      let splitImpl = \\splitAmount -> do"
-            , "            assert (splitAmount < amount)"
-            , "            cid1 <- create this with amount = splitAmount"
-            , "            cid2 <- create this with amount = amount - splitAmount"
-            , "            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+            , "      splitImpl splitAmount = do"
+            , "        assert (splitAmount < amount)"
+            , "        cid1 <- create this with amount = splitAmount"
+            , "        cid2 <- create this with amount = amount - splitAmount"
+            , "        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
 
-            , "      let transferImpl = \\newOwner -> do"
-            , "            cid <- create this with owner = newOwner"
-            , "            pure (toInterfaceContractId @Token cid)"
+            , "      transferImpl newOwner = do"
+            , "        cid <- create this with owner = newOwner"
+            , "        pure (toInterfaceContractId @Token cid)"
 
-            , "      let noopImpl = \\nothing -> do"
-            , "            [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
-            , "            pure ()"
+            , "      noopImpl nothing = do"
+            , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "        pure ()"
 
             , "main = scenario do"
             , "  p <- getParty \"Alice\""
@@ -1560,23 +1694,23 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "  where"
             , "    signatory issuer, owner"
             , "    implements Token where"
-            , "      let getOwner = owner"
-            , "      let getAmount = amount"
-            , "      let setAmount = \\x -> toInterface @Token (this with amount = x)"
+            , "      getOwner = owner"
+            , "      getAmount = amount"
+            , "      setAmount x = toInterface @Token (this with amount = x)"
 
-            , "      let splitImpl = \\splitAmount -> do"
-            , "            assert (splitAmount < amount)"
-            , "            cid1 <- create this with amount = splitAmount"
-            , "            cid2 <- create this with amount = amount - splitAmount"
-            , "            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+            , "      splitImpl splitAmount = do"
+            , "        assert (splitAmount < amount)"
+            , "        cid1 <- create this with amount = splitAmount"
+            , "        cid2 <- create this with amount = amount - splitAmount"
+            , "        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
 
-            , "      let transferImpl = \\newOwner -> do"
-            , "            cid <- create this with owner = newOwner"
-            , "            pure (toInterfaceContractId @Token cid)"
+            , "      transferImpl newOwner = do"
+            , "        cid <- create this with owner = newOwner"
+            , "        pure (toInterfaceContractId @Token cid)"
 
-            , "      let noopImpl = \\nothing -> do"
-            , "            [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
-            , "            pure ()"
+            , "      noopImpl nothing = do"
+            , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "        pure ()"
             ]
         ]
         [

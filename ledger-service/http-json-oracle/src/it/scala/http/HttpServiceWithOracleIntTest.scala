@@ -3,8 +3,8 @@
 
 package com.daml.http
 
-class HttpServiceWithOracleIntTest
-    extends AbstractHttpServiceIntegrationTest
+abstract class HttpServiceWithOracleIntTest
+    extends AbstractHttpServiceIntegrationTestTokenIndependent
     with HttpServiceOracleInt {
 
   // XXX SC in reality, the only tests that need this to be true are "1kb of
@@ -17,3 +17,7 @@ class HttpServiceWithOracleIntTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 }
+
+final class HttpServiceWithOracleIntTestCustomToken
+    extends HttpServiceWithOracleIntTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

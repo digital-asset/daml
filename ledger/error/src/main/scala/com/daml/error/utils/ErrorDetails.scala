@@ -68,7 +68,7 @@ object ErrorDetails {
       case ErrorInfoDetail(errorCodeId, _) => errorCodeId == errorCode.id
       case _ => false
     }
-    val matchesMessagePrefix = e.getStatus.getDescription.startsWith(errorCode.id)
+    val matchesMessagePrefix = Option(e.getStatus.getDescription).exists(_.startsWith(errorCode.id))
     val matchesStatusCode = errorCode.category.grpcCode.contains(e.getStatus.getCode)
     matchesErrorCodeId && matchesMessagePrefix && matchesStatusCode
   }

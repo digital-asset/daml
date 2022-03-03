@@ -41,6 +41,8 @@ data Name
     | NChoice ModuleName TypeConName ChoiceName
     | NChoiceViaInterface ModuleName TypeConName ChoiceName (Qualified TypeConName)
     | NInterface ModuleName TypeConName
+    | NInterfaceChoice ModuleName TypeConName ChoiceName
+    | NInterfaceMethod ModuleName TypeConName MethodName
 
 -- | Display a name in a super unambiguous way.
 displayName :: Name -> T.Text
@@ -69,6 +71,10 @@ displayName = \case
         T.concat ["choice ", dot m, ":", dot t, ".", c, " (via interface ", dot imod, ":", dot ityp, ")"]
     NInterface (ModuleName m) (TypeConName t) ->
         T.concat ["interface ", dot m, ":", dot t]
+    NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        T.concat ["interface choice ", dot m, ":", dot t, ".", c]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
+        T.concat ["interface method ", dot m, ":", dot t, ".", f]
   where
     dot = T.intercalate "."
 
@@ -127,6 +133,10 @@ fullyResolve = FRName . map T.toLower . \case
         m ++ t ++ [c]
     NInterface (ModuleName m) (TypeConName t) ->
         m ++ t
+    NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        m ++ t ++ [c]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
+        m ++ t ++ [f]
 
 -- | State of the name collision checker. This is a
 -- map from fully resolved names within a package to their
@@ -200,6 +210,13 @@ checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
 checkSynonym moduleName DefTypeSyn{..} =
     checkName (NTypeSynonym moduleName synName)
 
+checkInterface :: ModuleName -> DefInterface -> NCMonad ()
+checkInterface moduleName DefInterface{..} = do
+    forM_ intFixedChoices $ \TemplateChoice{..} ->
+        checkName (NInterfaceChoice moduleName intName chcName)
+    forM_ intMethods $ \InterfaceMethod{..} ->
+        checkName (NInterfaceMethod moduleName intName ifmName)
+
 checkModuleName :: Module -> NCMonad ()
 checkModuleName m =
     checkName (NModule (moduleName m))
@@ -216,6 +233,8 @@ checkModuleBody m = do
         checkTemplate (moduleName m) tpl
     forM_ (moduleSynonyms m) $ \synonym ->
         checkSynonym (moduleName m) synonym
+    forM_ (moduleInterfaces m) $ \iface ->
+        checkInterface (moduleName m) iface
 
 checkModule :: Module -> NCMonad ()
 checkModule m = do

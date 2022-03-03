@@ -88,7 +88,8 @@ private[lf] object ValidateCompilation {
           goBody(maxS + 1, maxA, maxF)(handler)
         case SEScopeExercise(body) =>
           go(body)
-
+        case SEPreventCatch(body) =>
+          go(body)
         case _: SEDamlException | _: SEImportValue =>
           throw CompilationError(s"validate: unexpected $expr")
       }

@@ -141,13 +141,13 @@ private[lf] object Speedy {
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
 
-    private[this] def updateCachedContracts(coid: V.ContractId, contract: CachedContract): Unit = {
+    private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
         limits.contractSignatories,
         IError.Limit
           .ContractSignatories(
-            coid,
+            cid,
             contract.templateId,
             contract.value.toUnnormalizedValue,
             contract.signatories,
@@ -159,28 +159,15 @@ private[lf] object Speedy {
         limits.contractObservers,
         IError.Limit
           .ContractObservers(
-            coid,
+            cid,
             contract.templateId,
             contract.value.toUnnormalizedValue,
             contract.observers,
             _,
           ),
       )
-      cachedContracts = cachedContracts.updated(coid, contract)
+      cachedContracts = cachedContracts.updated(cid, contract)
     }
-
-    private[speedy] def addLocalContract(
-        coid: V.ContractId,
-        templateId: Ref.TypeConName,
-        value: SValue,
-        signatories: Set[Party],
-        observers: Set[Party],
-        key: Option[Node.KeyWithMaintainers],
-    ): Unit =
-      updateCachedContracts(
-        coid,
-        CachedContract(templateId, value, signatories, observers, key),
-      )
 
     private[speedy] def addGlobalContract(coid: V.ContractId, contract: CachedContract): Unit = {
       numInputContracts += 1
@@ -1355,15 +1342,12 @@ private[lf] object Speedy {
     }
   }
 
-  private[speedy] final case class KCacheContract(
-      machine: Machine,
-      templateId: Ref.TypeConName,
-      cid: V.ContractId,
-  ) extends Kont {
+  private[speedy] final case class KCacheContract(machine: Machine, cid: V.ContractId)
+      extends Kont {
 
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
-        val cached = SBuiltin.extractCachedContract(machine, templateId, sv)
+        val cached = SBuiltin.extractCachedContract(machine, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.value
@@ -1458,7 +1442,7 @@ private[lf] object Speedy {
               onLedger.ptx = onLedger.ptx.abortExercises
             }
             unwind()
-          case k: KCheckChoiceGuard => {
+          case k: KCheckChoiceGuard =>
             // We must abort, because the transaction has failed in a way that is
             // unrecoverable (it depends on the state of an input contract that
             // we may not have the authority to fetch).
@@ -1466,7 +1450,13 @@ private[lf] object Speedy {
             machine.env.clear()
             machine.envBase = 0
             k.abort()
-          }
+          case KPreventException(_) =>
+            throw SError.SErrorDamlException(
+              interpretation.Error.UnhandledException(
+                excep.ty,
+                excep.value.toUnnormalizedValue,
+              )
+            )
           case _ =>
             unwind()
         }
@@ -1520,6 +1510,11 @@ private[lf] object Speedy {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v
     }
+  }
+
+  private[speedy] final case class KPreventException(machine: Machine) extends Kont {
+    def execute(v: SValue) =
+      machine.returnValue = v
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.

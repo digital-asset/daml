@@ -26,10 +26,6 @@ import java.sql.Connection
 
 private[backend] object MeteringStorageBackendTemplate {
 
-  val applicationCountParser: RowParser[(ApplicationId, Long)] =
-    (applicationId(columnName = "application_id") ~ long(columnPosition = 2))
-      .map { case applicationId ~ count => applicationId -> count }
-
   val participantMeteringParser: RowParser[ParticipantMetering] = {
     (
       applicationId("application_id") ~
@@ -94,6 +90,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
     com.daml.platform.store.Conversions.TimestampToStatement
   implicit val timestampParamMeta: ParameterMetaData[Timestamp] =
     com.daml.platform.store.Conversions.TimestampParamMeta
+
+  def applicationCountParser: RowParser[(ApplicationId, Long)] =
+    (applicationId(columnName = "application_id") ~ long(columnPosition = 2))
+      .map { case applicationId ~ count => applicationId -> count }
 
   override def reportData(
       from: Time.Timestamp,
@@ -171,6 +171,10 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
   implicit val timestampParamMeta: ParameterMetaData[Timestamp] =
     com.daml.platform.store.Conversions.TimestampParamMeta
 
+  def applicationCountParser: RowParser[(ApplicationId, Int)] =
+    (applicationId(columnName = "application_id") ~ int(columnPosition = 2))
+      .map { case applicationId ~ count => applicationId -> count }
+
   def transactionMeteringMaxOffset(from: Offset, to: Timestamp)(
       connection: Connection
   ): Option[Offset] = {
@@ -186,19 +190,20 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
 
   def selectTransactionMetering(from: Offset, to: Offset)(
       connection: Connection
-  ): Vector[TransactionMetering] = {
+  ): Map[ApplicationId, Int] = {
 
     SQL"""
       select
         application_id,
-        action_count,
-        metering_timestamp,
-        ledger_offset
+        sum(action_count)
       from transaction_metering
       where (${hasBegun(from)} = 0 or ledger_offset > $from)
       and ledger_offset <= $to
+      group by application_id
     """
-      .asVectorOf(transactionMeteringParser)(connection)
+      .asVectorOf(applicationCountParser)(connection)
+      .toMap
+
   }
 
   def deleteTransactionMetering(from: Offset, to: Offset)(
