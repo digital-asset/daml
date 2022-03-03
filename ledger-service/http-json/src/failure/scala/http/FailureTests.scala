@@ -15,7 +15,6 @@ import scala.util.{Failure, Success}
 import com.daml.http.domain.Offset
 import com.daml.http.json.{JsonError, SprayJson}
 import com.daml.http.util.FutureUtil
-import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.metrics.Metrics
 import com.daml.timer.RetryStrategy
@@ -35,6 +34,7 @@ import scala.concurrent.duration._
 final class FailureTests
     extends AsyncFreeSpec
     with HttpFailureTestFixture
+    with HttpServiceUserFixture.CustomToken
     with Matchers
     with SuiteResourceManagementAroundAll
     with Eventually
@@ -42,22 +42,10 @@ final class FailureTests
   import HttpServiceTestFixture.{jwtForParties => _, _}
   import WebsocketTestFixture._
 
+  protected override final def testId = getClass.getSimpleName
+
   private def headersWithParties(actAs: List[String]) =
     Future successful headersWithPartyAuth(actAs, List(), ledgerId().unwrap)
-
-  private def jwtForParties(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
-  ): Future[Jwt] = Future successful HttpServiceTestFixture.jwtForParties(
-    actAs,
-    readAs,
-    ledgerId,
-    withoutNamespace,
-    admin,
-  )
 
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>

@@ -5,7 +5,6 @@ package com.daml.http
 
 import java.security.DigestInputStream
 import java.time.Instant
-import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Authorization
@@ -15,7 +14,6 @@ import akka.util.ByteString
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.Ref
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
@@ -24,8 +22,7 @@ import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.{FutureUtil, SandboxTestLedger}
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
@@ -85,6 +82,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns
     extends StrictLogging
+    with HttpServiceUserFixture
     with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
@@ -110,26 +108,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt]
 
-  protected val jwtAdminNoParty: Jwt
-
-  protected def headersWithAdminAuth: List[Authorization] = authorizationHeader(jwtAdminNoParty)
-
-  import com.typesafe.config.ConfigFactory
-  private val customConf = ConfigFactory.parseString("""
-    akka.http.server.request-timeout = 60s
-  """)
-
-  implicit val `AHS asys`: ActorSystem = ActorSystem(testId, ConfigFactory.load(customConf))
-  implicit val `AHS mat`: Materializer = Materializer(`AHS asys`)
-  implicit val `AHS aesf`: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool(testId)(`AHS asys`)
-  import shapeless.tag
-  import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
-  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
-
   override def packageFiles = List(dar1, dar2, userDar)
-
-  protected def getUniqueParty(name: String) = domain.Party(s"${name}_${uniqueId()}")
 
   protected def getUniquePartyAndAuthHeaders(uri: Uri)(
       name: String
@@ -207,13 +186,6 @@ trait AbstractHttpServiceIntegrationTestFuns
     usingLedger[A](testId, token = Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
-  def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt]
 
   protected def headersWithAuth(uri: Uri)(implicit
       ec: ExecutionContext
@@ -769,34 +741,14 @@ trait AbstractHttpServiceIntegrationTestFuns
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AsyncFreeSpec
     with AbstractHttpServiceIntegrationTestFuns
+    with HttpServiceUserFixture.CustomToken
     with Matchers
     with Inside {
 
   import json.JsonProtocol._
 
-  def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt] =
-    Future.successful(
-      HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
-    )
-
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
     jwtForParties(uri)(List("Alice"), List(), testId)
-
-  protected lazy val jwtAdminNoParty: Jwt = {
-    val decodedJwt = DecodedJwt(
-      """{"alg": "HS256", "typ": "JWT"}""",
-      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
-    )
-    JwtSigner.HMAC256
-      .sign(decodedJwt, "secret")
-      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
-  }
 
   protected def headersWithPartyAuthLegacyFormat(
       actAs: List[String],
