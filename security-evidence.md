@@ -105,7 +105,7 @@
 - Evaluation order of successful lookup_by_key of a non-cached global contract: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L1784)
 - Evaluation order: Interface preconditions are evaluated in the order given by the implementation list.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L422)
 - Evaluation order: Template precondition before interface preconditions.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L406)
-- Exceptions, throw/catch.: [ExceptionTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/ExceptionTest.scala#L24)
+- Exceptions, throw/catch.: [ExceptionTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/ExceptionTest.scala#L25)
 - contract key behaviour (non-unique mode): [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L386)
 - contract key behaviour (unique mode): [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L392)
 - contract keys must have a non-empty set of maintainers: [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L221)

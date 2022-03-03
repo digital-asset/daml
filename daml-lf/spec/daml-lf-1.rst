@@ -1727,9 +1727,9 @@ for the ``DefTemplate`` rule). ::
         }  ∈ 〚Ξ〛Mod'
     'tpl' (x : T) ↦ { …, 'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈ 〚Ξ〛Mod
     R  ⊆  { Mod₁:I₁, …, Modₖ:Iₖ }
-    τ₁  ↠  τ₁'      ⊢  e₁  :  Mod:T -> τ₁'
+    τ₁  ↠  τ₁'      x : Mod:T  ⊢  e₁  :  τ₁'
       ⋮
-    τₘ  ↠  τₘ'      ⊢  eₘ  :  Mod:T -> τₘ'
+    τₘ  ↠  τₘ'      x : Mod:T  ⊢  eₘ  :  τₘ'
   ——————————————————————————————————————————————————————————————— ImplDef
     x : Mod:T  ⊢  'implements' Mod':I
                       { 'methods' { f₁ = e₁, …, fₙ = eₙ }

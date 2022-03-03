@@ -923,21 +923,20 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
+    forM_ implements $ checkIfaceImplementation t
   whenJust mbKey $ checkTemplateKey param tcon
-  forM_ implements $ checkIfaceImplementation t tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Template -> Qualified TypeConName -> TemplateImplements -> m ()
-checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} = do
-  let tplName = qualObject tplTcon
+checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
+checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
   DefInterface {intFixedChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
   whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
-    throwWithContext (EMissingRequiredInterface tplName tpiInterface missingInterface)
+    throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
 
   -- check fixed choices
   let inheritedChoices = S.fromList (NM.names intFixedChoices)
@@ -947,12 +946,12 @@ checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
   whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
-    throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
+    throwWithContext (EMissingInterfaceMethod tplTypeCon tpiInterface methodName)
   forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
     case NM.lookup tpiMethodName intMethods of
-      Nothing -> throwWithContext (EUnknownInterfaceMethod tplName tpiInterface tpiMethodName)
+      Nothing -> throwWithContext (EUnknownInterfaceMethod tplTypeCon tpiInterface tpiMethodName)
       Just InterfaceMethod{ifmType} ->
-        checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
+        checkExpr tpiMethodExpr ifmType
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
@@ -962,8 +961,8 @@ checkFeature feature = do
 
 checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
 checkTemplateKey param tcon TemplateKey{..} = do
+    checkType tplKeyType KStar
     introExprVar param (TCon tcon) $ do
-      checkType tplKeyType KStar
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 

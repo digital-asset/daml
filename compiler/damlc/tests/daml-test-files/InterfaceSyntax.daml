@@ -14,6 +14,10 @@ interface I where
 interface J where
 interface K where
 
+-- empty interfaces without 'where'
+interface L
+interface M
+
 template T
   with
     p0 : Party
@@ -34,8 +38,10 @@ template T
       m1 (Right True) = "true"
       m1 (Right False) = "false"
 
-    -- empty implements block without 'where'
+    -- empty implements blocks without 'where'
     implements J
+    implements L
 
-    -- empty implements block with 'where'
+    -- empty implements blocks with 'where'
     implements K where
+    implements M where

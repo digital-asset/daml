@@ -409,7 +409,7 @@ class CommonCliBase(name: LedgerName) {
           config.withUserManagementConfig(_.copy(maxCacheSize = value))
         )
 
-      opt[Int]("max-users-page-size")
+      opt[Int]("user-management-max-users-page-size")
         .optional()
         .text(
           s"Maximum number of users that the server can return in a single response. " +
@@ -423,7 +423,9 @@ class CommonCliBase(name: LedgerName) {
         if (v == 0 || v >= 100) {
           success
         } else {
-          failure(s"max-users-page-size must be either 0 or greater than 99, was: $v")
+          failure(
+            s"user-management-max-users-page-size must be either 0 or greater than 99, was: $v"
+          )
         }
       })
 

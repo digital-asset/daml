@@ -108,7 +108,7 @@ object ErrorFactories {
       .asGrpcError
 
   /** @param expected Expected ledger id.
-    * @param received  Received ledger id.
+    * @param received Received ledger id.
     * @return An exception with the [[Code.NOT_FOUND]] status code.
     */
   def ledgerIdMismatch(
@@ -184,7 +184,7 @@ object ErrorFactories {
       .asGrpcError
 
   /** @param fieldName An invalid field's name.
-    * @param message    A status' message.
+    * @param message A status' message.
     * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
     */
   def invalidField(
@@ -200,7 +200,7 @@ object ErrorFactories {
       .Reject(s"Invalid field $fieldName: $message")
   }
 
-  /** @param message       A status' message.
+  /** @param message A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.ABORTED]] status code.
     */
@@ -292,7 +292,7 @@ object ErrorFactories {
     * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
     *
     * NOTE: The length of the Status message is truncated to a reasonable size for satisfying
-    * the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    *        the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
     *
     * @param status A Protobuf [[Status]] object.
     * @return An exception without a stack trace.
