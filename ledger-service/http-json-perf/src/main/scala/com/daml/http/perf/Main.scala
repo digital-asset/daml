@@ -158,7 +158,7 @@ object Main extends StrictLogging {
         .result(fa, timeout)
     } catch {
       case e: TimeoutException =>
-        logger.error(s"Scenario failed", e)
+        logger.error("Scenario failed", e)
         ExitCode.TimedOutScenario
     }
 
