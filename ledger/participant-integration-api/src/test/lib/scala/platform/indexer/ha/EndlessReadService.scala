@@ -3,16 +3,15 @@
 
 package com.daml.platform.indexer.ha
 
-import java.time.Instant
 import akka.NotUsed
-import akka.stream.{KillSwitches, SharedKillSwitch}
-import akka.stream.scaladsl.Source
+import akka.stream.KillSwitches
+import akka.stream.scaladsl.{Flow, Source}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.lf.crypto
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, ReadService, TransactionMeta, Update}
+import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
@@ -21,8 +20,8 @@ import com.daml.lf.value.Value
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
-import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration._
+import java.time.Instant
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 
 /** An infinite stream of state updates that fully conforms to the Daml ledger model.
   *
@@ -31,8 +30,8 @@ import scala.concurrent.duration._
   *  @param updatesPerSecond The maximum number of updates per second produced.
   */
 case class EndlessReadService(
-    updatesPerSecond: Int,
     name: String,
+    additionalSourceFlow: Flow[Int, Int, NotUsed] = Flow[Int],
 )(implicit loggingContext: LoggingContext)
     extends ReadService
     with AutoCloseable {
@@ -41,15 +40,15 @@ case class EndlessReadService(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def currentHealth(): HealthStatus = synchronized {
-    if (aborted) HealthStatus.unhealthy else HealthStatus.healthy
+    if (aborted.get()) HealthStatus.unhealthy else HealthStatus.healthy
   }
 
-  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = synchronized {
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
     logger.info("EndlessReadService.ledgerInitialConditions() called")
     initialConditionCalls.incrementAndGet()
     Source
       .single(LedgerInitialConditions(ledgerId, configuration, recordTime(0)))
-      .via(killSwitch.flow)
+      .via(killSwitch.get().flow)
   }
 
   /** Produces the following stream of updates:
@@ -63,85 +62,84 @@ case class EndlessReadService(
     */
   override def stateUpdates(
       beginAfter: Option[Offset]
-  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
-    synchronized {
-      logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
-      stateUpdatesCalls.incrementAndGet()
-      val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
-      Source
-        .fromIterator(() => Iterator.from(startIndex))
-        .throttle(updatesPerSecond, 1.second)
-        .map {
-          case i @ 1 =>
-            offset(i) -> Update.ConfigurationChanged(
-              recordTime(i),
-              submissionId(i),
-              participantId,
-              configuration,
-            )
-          case i @ 2 =>
-            offset(i) -> Update.PartyAddedToParticipant(
-              party,
-              "Operator",
-              participantId,
-              recordTime(i),
-              Some(submissionId(i)),
-            )
-          case i @ 3 =>
-            offset(i) -> Update.PublicPackageUpload(
-              List(archive),
-              Some("Package"),
-              recordTime(i),
-              Some(submissionId(i)),
-            )
-          case i if i % 2 == 0 =>
-            offset(i) -> Update.TransactionAccepted(
-              optCompletionInfo = Some(completionInfo(i)),
-              transactionMeta = transactionMeta(i),
-              transaction = createTransaction(i),
-              transactionId = transactionId(i),
-              recordTime = recordTime(i),
-              divulgedContracts = List.empty,
-              blindingInfo = None,
-            )
-          case i =>
-            offset(i) -> Update.TransactionAccepted(
-              optCompletionInfo = Some(completionInfo(i)),
-              transactionMeta = transactionMeta(i),
-              transaction = exerciseTransaction(i),
-              transactionId = transactionId(i),
-              recordTime = recordTime(i),
-              divulgedContracts = List.empty,
-              blindingInfo = None,
-            )
-        }
-        .via(killSwitch.flow)
-    }
-
-  def abort(cause: Throwable): Unit = synchronized {
-    logger.info(s"EndlessReadService.abort() called")
-    aborted = true
-    killSwitch.abort(cause)
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
+    logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
+    stateUpdatesCalls.incrementAndGet()
+    val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
+    Source
+      .fromIterator(() => Iterator.from(startIndex))
+      .via(additionalSourceFlow)
+      .map {
+        case i @ 1 =>
+          offset(i) -> Update.ConfigurationChanged(
+            recordTime(i),
+            submissionId(i),
+            participantId,
+            configuration,
+          )
+        case i @ 2 =>
+          offset(i) -> Update.PartyAddedToParticipant(
+            party,
+            "Operator",
+            participantId,
+            recordTime(i),
+            Some(submissionId(i)),
+          )
+        case i @ 3 =>
+          offset(i) -> Update.PublicPackageUpload(
+            List(archive),
+            Some("Package"),
+            recordTime(i),
+            Some(submissionId(i)),
+          )
+        case i if i % 2 == 0 =>
+          offset(i) -> Update.TransactionAccepted(
+            optCompletionInfo = Some(completionInfo(i)),
+            transactionMeta = transactionMeta(i),
+            transaction = createTransaction(i),
+            transactionId = transactionId(i),
+            recordTime = recordTime(i),
+            divulgedContracts = List.empty,
+            blindingInfo = None,
+          )
+        case i =>
+          offset(i) -> Update.TransactionAccepted(
+            optCompletionInfo = Some(completionInfo(i)),
+            transactionMeta = transactionMeta(i),
+            transaction = exerciseTransaction(i),
+            transactionId = transactionId(i),
+            recordTime = recordTime(i),
+            divulgedContracts = List.empty,
+            blindingInfo = None,
+          )
+      }
+      .via(killSwitch.get().flow)
   }
 
-  def reset(): Unit = synchronized {
-    assert(aborted)
+  def abort(cause: Throwable): Unit = {
+    logger.info(s"EndlessReadService.abort() called")
+    aborted.set(true)
+    killSwitch.get().abort(cause)
+  }
+
+  def reset(): Unit = {
+    assert(aborted.get())
     logger.info(s"EndlessReadService.reset() called")
     stateUpdatesCalls.set(0)
     initialConditionCalls.set(0)
-    aborted = false
-    killSwitch = KillSwitches.shared("EndlessReadService")
+    aborted.set(false)
+    killSwitch.set(KillSwitches.shared("EndlessReadService"))
   }
 
-  override def close(): Unit = synchronized {
+  override def close(): Unit = {
     logger.info(s"EndlessReadService.close() called")
-    killSwitch.shutdown()
+    killSwitch.get().shutdown()
   }
 
   val stateUpdatesCalls: AtomicInteger = new AtomicInteger(0)
   val initialConditionCalls: AtomicInteger = new AtomicInteger(0)
-  var aborted: Boolean = false
-  private var killSwitch: SharedKillSwitch = KillSwitches.shared("EndlessReadService")
+  val aborted: AtomicBoolean = new AtomicBoolean(false)
+  private val killSwitch = new AtomicReference(KillSwitches.shared("EndlessReadService"))
 }
 
 object EndlessReadService {
