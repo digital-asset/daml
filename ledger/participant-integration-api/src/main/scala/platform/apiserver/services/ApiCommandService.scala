@@ -213,7 +213,6 @@ private[apiserver] object ApiCommandService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
-    val ledgerOffsetValidator = new LedgerOffsetValidator()
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
@@ -222,7 +221,6 @@ private[apiserver] object ApiCommandService {
         submissionFlow,
         completionServices,
         metrics,
-        ledgerOffsetValidator,
       ),
       trackerCleanupInterval,
     )
@@ -268,7 +266,6 @@ private[apiserver] object ApiCommandService {
         submissionFlow: SubmissionFlow,
         completionServices: CommandCompletionService,
         metrics: Metrics,
-        offsetValidator: LedgerOffsetValidator,
     )(
         key: Tracking.Key
     )(implicit
@@ -287,7 +284,7 @@ private[apiserver] object ApiCommandService {
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
             commandSubmissionFlow = submissionFlow,
             createCommandCompletionSource = offset =>
-              offsetValidator
+              LedgerOffsetValidator
                 .validate(offset, "command_tracker_offset")
                 .fold(
                   Source.failed,

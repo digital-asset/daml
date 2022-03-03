@@ -13,10 +13,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigurationService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.{
-  FieldValidations,
-  LedgerConfigurationServiceValidation,
-}
+import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
@@ -65,11 +62,9 @@ private[apiserver] object ApiLedgerConfigurationService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService = {
-    val fieldValidations = FieldValidations()
     new LedgerConfigurationServiceValidation(
       service = new ApiLedgerConfigurationService(configurationService),
       ledgerId = ledgerId,
-      fieldValidations = fieldValidations,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, executionContext)

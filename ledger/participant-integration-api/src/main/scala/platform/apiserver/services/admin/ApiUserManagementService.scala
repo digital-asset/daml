@@ -43,9 +43,8 @@ private[apiserver] final class ApiUserManagementService(
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val fieldValidations = FieldValidations()
 
-  import fieldValidations._
+  import FieldValidations._
 
   override def close(): Unit = ()
 
@@ -150,7 +149,7 @@ private[apiserver] final class ApiUserManagementService(
   ): Future[proto.RevokeUserRightsResponse] = withSubmissionId { implicit loggingContext =>
     withValidation(
       for {
-        userId <- fieldValidations.requireUserId(request.userId, "user_id")
+        userId <- FieldValidations.requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>

@@ -13,11 +13,9 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-class TransactionFilterValidator {
+object TransactionFilterValidator {
 
-  private val fieldValidations = FieldValidations()
-
-  import fieldValidations._
+  import FieldValidations._
   import ErrorFactories._
 
   def validate(

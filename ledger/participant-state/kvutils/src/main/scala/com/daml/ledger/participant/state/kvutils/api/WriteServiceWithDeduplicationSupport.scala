@@ -21,7 +21,6 @@ import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.DeduplicationPeriodValidator
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.ExecutionContext
@@ -122,8 +121,7 @@ object WriteServiceWithDeduplicationSupport {
     new WriteServiceWithDeduplicationSupport(
       delegate,
       new DeduplicationPeriodSupport(
-        new CompletionBasedDeduplicationPeriodConverter(indexCompletionService),
-        new DeduplicationPeriodValidator(),
+        new CompletionBasedDeduplicationPeriodConverter(indexCompletionService)
       ),
     )
   }

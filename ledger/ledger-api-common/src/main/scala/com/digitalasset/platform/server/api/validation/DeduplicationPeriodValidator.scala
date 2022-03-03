@@ -9,7 +9,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.DeduplicationPeriod
 import io.grpc.StatusRuntimeException
 
-class DeduplicationPeriodValidator {
+object DeduplicationPeriodValidator {
   private val fieldName = "deduplication_period"
 
   def validate(

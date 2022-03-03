@@ -43,7 +43,6 @@ private[apiserver] final class ApiConfigManagementService private (
 ) extends ConfigManagementService
     with GrpcApiService {
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val fieldValidations = FieldValidations()
 
   import ErrorFactories._
 
@@ -166,7 +165,7 @@ private[apiserver] final class ApiConfigManagementService private (
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, SetTimeModelParameters] = {
-    import fieldValidations._
+    import FieldValidations._
     for {
       pTimeModel <- requirePresence(request.newTimeModel, "new_time_model")
       pAvgTransactionLatency <- requirePresence(

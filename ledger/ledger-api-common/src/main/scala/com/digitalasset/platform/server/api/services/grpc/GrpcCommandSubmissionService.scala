@@ -18,7 +18,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
-import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.daml.telemetry.{DefaultTelemetry, SpanAttribute, TelemetryContext}
 import com.google.protobuf.empty.Empty
@@ -42,8 +41,7 @@ class GrpcCommandSubmissionService(
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId),
-    FieldValidations(),
+    new CommandsValidator(ledgerId)
   )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {

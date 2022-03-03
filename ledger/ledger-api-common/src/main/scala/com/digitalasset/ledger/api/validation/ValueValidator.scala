@@ -15,9 +15,9 @@ import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.syntax.bifunctor._
 
-class ValueValidator(fieldValidations: FieldValidations) {
+object ValueValidator {
   import ErrorFactories._
-  import fieldValidations._
+  import FieldValidations._
 
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
@@ -162,15 +162,11 @@ class ValueValidator(fieldValidations: FieldValidations) {
 }
 
 object NoLoggingValueValidator {
-  // TODO error codes: re-check if using legacy error codes here is ok
-  private val valueValidator = new ValueValidator(
-    fieldValidations = FieldValidations()
-  )
 
   def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
-    valueValidator.validateRecord(rec)(NoLogging)
+    ValueValidator.validateRecord(rec)(NoLogging)
 
   def validateValue(v0: api.Value): Either[StatusRuntimeException, Lf] =
-    valueValidator.validateValue(v0)(NoLogging)
+    ValueValidator.validateValue(v0)(NoLogging)
 
 }

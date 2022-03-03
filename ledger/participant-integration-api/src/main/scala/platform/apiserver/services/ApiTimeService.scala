@@ -41,10 +41,9 @@ private[apiserver] final class ApiTimeService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val fieldValidations = FieldValidations()
   private val dispatcher = SignalDispatcher[Instant]()
 
-  import fieldValidations._
+  import FieldValidations._
   import ErrorFactories.invalidArgument
 
   logger.debug(
@@ -100,7 +99,7 @@ private[apiserver] final class ApiTimeService private (
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
-      expectedTime <- fieldValidations
+      expectedTime <- FieldValidations
         .requirePresence(request.currentTime, "current_time")
         .map(toInstant)
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)

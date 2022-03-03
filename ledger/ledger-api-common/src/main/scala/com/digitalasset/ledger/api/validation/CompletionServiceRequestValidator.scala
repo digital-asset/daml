@@ -19,12 +19,10 @@ class CompletionServiceRequestValidator(
     partyNameChecker: PartyNameChecker,
 ) {
 
-  private val fieldValidations = FieldValidations()
   private val partyValidator =
-    new PartyValidator(partyNameChecker, fieldValidations)
-  private val ledgerOffsetValidator = new LedgerOffsetValidator()
+    new PartyValidator(partyNameChecker)
 
-  import fieldValidations._
+  import FieldValidations._
 
   def validateGrpcCompletionStreamRequest(
       request: GrpcCompletionStreamRequest
@@ -35,7 +33,7 @@ class CompletionServiceRequestValidator(
       validLedgerId <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       appId <- requireApplicationId(request.applicationId, "application_id")
       parties <- requireParties(request.parties.toSet)
-      convertedOffset <- ledgerOffsetValidator.validateOptional(request.offset, "offset")
+      convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")
     } yield CompletionStreamRequest(
       validLedgerId,
       appId,
@@ -51,7 +49,7 @@ class CompletionServiceRequestValidator(
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(request.ledgerId)
-      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         request.offset,
         ledgerEnd,

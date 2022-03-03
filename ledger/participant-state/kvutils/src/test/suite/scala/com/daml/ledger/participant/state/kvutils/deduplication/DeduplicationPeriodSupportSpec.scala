@@ -5,7 +5,8 @@ package com.daml.ledger.participant.state.kvutils.deduplication
 
 import java.time.{Duration, Instant}
 
-import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.ErrorsAssertions
 import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -13,7 +14,6 @@ import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Ref, Time}
-import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -27,21 +27,15 @@ class DeduplicationPeriodSupportSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with TestLoggers
-    with ArgumentMatchersSugar {
+    with ArgumentMatchersSugar
+    with ErrorsAssertions {
 
   "using deduplication duration" should {
     "validate and return success" in {
       val fixture = getFixture
       import fixture._
-      when(
-        periodValidator.validate(any[DeduplicationPeriod], any[Duration])(
-          any[ContextualizedErrorLogger]
-        )
-      ).thenReturn(Right(durationPeriod))
       callServiceWithDeduplicationPeriod(durationPeriod)
         .map { result =>
-          verifyNoMoreInteractions(periodConverter)
-          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
           result shouldBe durationPeriod
         }
     }
@@ -49,17 +43,14 @@ class DeduplicationPeriodSupportSpec
     "validate and return failure" in {
       val fixture = getFixture
       import fixture._
-      when(
-        periodValidator.validate(any[DeduplicationPeriod], any[Duration])(
-          any[ContextualizedErrorLogger]
-        )
-      ).thenReturn(Left(statusRuntimeException))
       recoverToExceptionIf[StatusRuntimeException](
-        callServiceWithDeduplicationPeriod(durationPeriod)
+        callServiceWithDeduplicationPeriod(durationPeriodGreaterThanMax)
       )
         .map { result =>
-          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
-          result shouldBe statusRuntimeException
+          assertMatchesErrorCode(
+            actual = result,
+            expectedErrorCode = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField,
+          )
         }
     }
   }
@@ -79,8 +70,6 @@ class DeduplicationPeriodSupportSpec
           maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(Future.successful(Right(durationPeriod.duration)))
-      when(periodValidator.validate(durationPeriod, maxDeduplicationDuration))
-        .thenReturn(Right(durationPeriod))
       callServiceWithDeduplicationPeriod(offsetPeriod)
         .map { result =>
           verify(periodConverter).convertOffsetToDuration(
@@ -89,7 +78,6 @@ class DeduplicationPeriodSupportSpec
             Set.empty,
             maxRecordTimeFromSubmissionTime,
           )
-          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
           result shouldBe durationPeriod
         }
     }
@@ -107,9 +95,7 @@ class DeduplicationPeriodSupportSpec
           Set.empty,
           maxRecordTimeFromSubmissionTime,
         )
-      ).thenReturn(Future.successful(Right(durationPeriod.duration)))
-      when(periodValidator.validate(durationPeriod, maxDeduplicationDuration))
-        .thenReturn(Left(statusRuntimeException))
+      ).thenReturn(Future.successful(Right(durationPeriodGreaterThanMax.duration)))
       recoverToExceptionIf[StatusRuntimeException](callServiceWithDeduplicationPeriod(offsetPeriod))
         .map { result =>
           verify(periodConverter).convertOffsetToDuration(
@@ -118,8 +104,10 @@ class DeduplicationPeriodSupportSpec
             Set.empty,
             maxRecordTimeFromSubmissionTime,
           )
-          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
-          result shouldBe statusRuntimeException
+          assertMatchesErrorCode(
+            actual = result,
+            expectedErrorCode = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField,
+          )
         }
     }
 
@@ -139,12 +127,6 @@ class DeduplicationPeriodSupportSpec
       ).thenReturn(
         Future.successful(Left(DeduplicationConversionFailure.CompletionOffsetNotMatching))
       )
-      when(
-        ErrorFactories.invalidDeduplicationPeriod(
-          any[String],
-          any[Option[Duration]],
-        )(any[ContextualizedErrorLogger])
-      ).thenReturn(statusRuntimeException)
       recoverToExceptionIf[StatusRuntimeException](callServiceWithDeduplicationPeriod(offsetPeriod))
         .map { result =>
           verify(
@@ -155,11 +137,10 @@ class DeduplicationPeriodSupportSpec
             Set.empty,
             maxRecordTimeFromSubmissionTime,
           )
-          verify(ErrorFactories).invalidDeduplicationPeriod(
-            any[String],
-            any[Option[Duration]],
-          )(any[ContextualizedErrorLogger])
-          result shouldBe statusRuntimeException
+          assertMatchesErrorCode(
+            actual = result,
+            LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField,
+          )
         }
     }
 
@@ -167,10 +148,8 @@ class DeduplicationPeriodSupportSpec
 
   private def getFixture = new {
     val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
-    val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
     val service = new DeduplicationPeriodSupport(
-      periodConverter,
-      periodValidator,
+      periodConverter
     )
     val maxDeduplicationDuration = Duration.ofSeconds(5)
     val ledgerTimeModel = LedgerTimeModel.reasonableDefault
@@ -183,6 +162,8 @@ class DeduplicationPeriodSupportSpec
       Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
     val offset = deduplicationPeriodOffset.toHexString
     val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
+    val durationPeriodGreaterThanMax =
+      DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration.plusSeconds(1))
 
     def callServiceWithDeduplicationPeriod(
         offsetPeriod: DeduplicationPeriod

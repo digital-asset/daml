@@ -23,12 +23,11 @@ class DeduplicationPeriodValidatorSpec
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
   private val maxDeduplicationDuration = time.Duration.ofSeconds(5)
-  private val validator = new DeduplicationPeriodValidator()
 
   "not allow deduplication duration exceeding maximum deduplication duration" in {
     val durationSecondsExceedingMax = maxDeduplicationDuration.plusSeconds(1).getSeconds
     requestMustFailWith(
-      request = validator.validate(
+      request = DeduplicationPeriodValidator.validate(
         DeduplicationDuration(
           Duration.ofSeconds(durationSecondsExceedingMax)
         ),

@@ -15,20 +15,18 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
-  private val fieldValidations = FieldValidations()
-
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
   }
 
   "validating identifiers" should {
     "convert a valid identifier" in {
-      fieldValidations.validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
+      FieldValidations.validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
     }
 
     "not allow missing package ids" in {
       requestMustFailWith(
-        fieldValidations.validateIdentifier(api.identifier.withPackageId("")),
+        FieldValidations.validateIdentifier(api.identifier.withPackageId("")),
         code = INVALID_ARGUMENT,
         description =
           "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: package_id",
@@ -39,7 +37,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
     "not allow missing names" in {
       requestMustFailWith(
         request =
-          fieldValidations.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
+          FieldValidations.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
         code = INVALID_ARGUMENT,
         description =
           "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field module_name: Expected a non-empty string",

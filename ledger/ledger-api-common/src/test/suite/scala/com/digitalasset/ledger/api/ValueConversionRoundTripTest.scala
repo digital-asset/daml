@@ -11,7 +11,6 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import org.mockito.MockitoSugar
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
@@ -28,12 +27,9 @@ class ValueConversionRoundTripTest
 
   private val constructor: String = "constructor"
 
-  private val fieldValidations = FieldValidations()
-  private val valueValidator = new ValueValidator(fieldValidations)
-
   private def roundTrip(v: api.Value): Either[String, api.Value] =
     for {
-      lfValue <- valueValidator.validateValue(v)(NoLogging).left.map(_.getMessage)
+      lfValue <- ValueValidator.validateValue(v)(NoLogging).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 

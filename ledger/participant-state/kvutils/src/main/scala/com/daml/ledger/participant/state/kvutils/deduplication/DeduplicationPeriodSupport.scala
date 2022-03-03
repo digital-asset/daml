@@ -16,8 +16,7 @@ import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, Er
 import scala.concurrent.{ExecutionContext, Future}
 
 class DeduplicationPeriodSupport(
-    converter: DeduplicationPeriodConverter,
-    validation: DeduplicationPeriodValidator,
+    converter: DeduplicationPeriodConverter
 ) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -37,7 +36,7 @@ class DeduplicationPeriodSupport(
   ): Future[DeduplicationPeriod] = {
     val validatedDeduplicationPeriod = deduplicationPeriod match {
       case period: DeduplicationPeriod.DeduplicationDuration =>
-        Future { validation.validate(period, maxDeduplicationDuration) }
+        Future { DeduplicationPeriodValidator.validate(period, maxDeduplicationDuration) }
       case DeduplicationPeriod.DeduplicationOffset(offset) =>
         logger.debug(s"Converting deduplication period offset $offset to duration")
         converter
@@ -73,7 +72,7 @@ class DeduplicationPeriodSupport(
                 // We therefore extend the deduplication period to include all offsets with the same record time
                 // as `offset`, including `offset` itself which would not have to be included in the deduplication period.
                 // This is allowed as the ledger implementation may extend the deduplication period.
-                validation.validate(
+                DeduplicationPeriodValidator.validate(
                   DeduplicationPeriod.DeduplicationDuration(duration),
                   maxDeduplicationDuration,
                 )

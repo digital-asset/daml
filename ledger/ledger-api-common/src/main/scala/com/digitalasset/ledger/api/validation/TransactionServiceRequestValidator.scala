@@ -30,13 +30,10 @@ class TransactionServiceRequestValidator(
 
   import TransactionServiceRequestValidator.Result
 
-  private val fieldValidations = FieldValidations()
   private val partyValidator =
-    new PartyValidator(partyNameChecker, fieldValidations)
-  private val ledgerOffsetValidator = new LedgerOffsetValidator()
-  private val transactionFilterValidator = new TransactionFilterValidator()
+    new PartyValidator(partyNameChecker)
 
-  import fieldValidations._
+  import FieldValidations._
   import ErrorFactories.invalidArgument
 
   private def matchId(input: Option[LedgerId])(implicit
@@ -58,8 +55,8 @@ class TransactionServiceRequestValidator(
       ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
-      convertedBegin <- ledgerOffsetValidator.validate(requiredBegin, "begin")
-      convertedEnd <- ledgerOffsetValidator.validateOptional(req.end, "end")
+      convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
+      convertedEnd <- LedgerOffsetValidator.validateOptional(req.end, "end")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       ledgerId,
@@ -80,17 +77,17 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- transactionFilterValidator.validate(partial.transactionFilter)
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         partial.ledgerId,
@@ -111,12 +108,12 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
