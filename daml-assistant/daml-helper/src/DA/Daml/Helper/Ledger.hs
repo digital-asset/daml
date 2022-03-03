@@ -77,7 +77,7 @@ import qualified SdkVersion
 import DA.Ledger.Types (Timestamp(..), ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
-
+import DA.Ledger.Services.MeteringReportService(MeteringRequest(..))
 
 data LedgerApi
   = Grpc
@@ -650,7 +650,6 @@ meteringReport :: LedgerArgs -> Timestamp -> Maybe Timestamp -> Maybe Applicatio
 meteringReport args from to application =
   case api args of
     Grpc -> runWithLedgerArgs args $ do L.getMeteringReport from to application
-    HttpJson -> do
-      hPutStrLn stderr "Error: daml ledger metering can only be run via gRPC at the moment."
-      exitFailure
+    HttpJson -> httpJsonRequest args "POST" "/v1/metering-report" $
+            setRequestBodyJSON $ MeteringRequest { from = from, to = to, application = application }
 
