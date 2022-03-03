@@ -50,8 +50,10 @@ locals {
   appr_team = [
     "user:gary.verhaegen@digitalasset.com",
     "user:moritz.kiefer@digitalasset.com",
+    "user:raymond.roestenburg@digitalasset.com",
     "user:stefano.baghino@digitalasset.com",
     "user:stephen.compall@digitalasset.com",
+    "user:stewart.stewart@digitalasset.com",
     "user:victor.mueller@digitalasset.com",
   ]
 }

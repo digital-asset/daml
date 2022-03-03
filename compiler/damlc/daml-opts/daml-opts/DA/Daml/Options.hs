@@ -447,10 +447,8 @@ locateGhcVersionHeader = GhcVersionHeader <$> do
 
 locateCppPath :: IO (Maybe FilePath)
 locateCppPath = do
-    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "hpp")
-    isDirectory <- doesDirectoryExist resourcesDir
-    let path | isDirectory = resourcesDir </> "hpp"
-             | otherwise = resourcesDir
+    resourcesDir <- locateRunfiles $ "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
+    let path  = resourcesDir </> exe "hpp"
     exists <- doesFileExist path
     pure (guard exists >> Just path)
 
