@@ -5,9 +5,6 @@ package com.daml.http.perf
 
 import java.io.File
 
-import com.daml.jwt.JwtDecoder
-import com.daml.jwt.domain.Jwt
-import scalaz.{Applicative, Traverse}
 import scopt.RenderingMode
 
 import Config.QueryStoreIndex
@@ -19,7 +16,6 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 private[perf] final case class Config[+S](
     scenario: S,
     dars: List[File],
-    jwt: Jwt,
     reportsDir: File,
     maxDuration: Option[FiniteDuration],
     queryStoreIndex: QueryStoreIndex,
@@ -40,20 +36,10 @@ private[perf] object Config {
     Config[String](
       scenario = "",
       dars = List.empty,
-      jwt = Jwt(""),
       reportsDir = new File(""),
       maxDuration = None,
       queryStoreIndex = QueryStoreIndex.No,
     )
-
-  implicit val configInstance: Traverse[Config] = new Traverse[Config] {
-    override def traverseImpl[G[_]: Applicative, A, B](
-        fa: Config[A]
-    )(f: A => G[B]): G[Config[B]] = {
-      import scalaz.syntax.functor._
-      f(fa.scenario).map(b => fa.copy(scenario = b))
-    }
-  }
 
   def parseConfig(args: collection.Seq[String]): Option[Config[String]] =
     configParser.parse(args, Config.Empty)
@@ -77,12 +63,6 @@ private[perf] object Config {
         .required()
         .text("DAR files to pass to Sandbox.")
 
-      opt[String]("jwt")
-        .action((x, c) => c.copy(jwt = Jwt(x)))
-        .required()
-        .validate(validateJwt)
-        .text("JWT token to use when connecting to JSON API.")
-
       opt[QueryStoreIndex]("query-store-index")
         .action((x, c) => c.copy(queryStoreIndex = x))
         .optional()
@@ -102,18 +82,6 @@ private[perf] object Config {
           s"Optional maximum perf test duration. Default value infinity. Examples: 500ms, 5s, 10min, 1h, 1d."
         )
     }
-
-  private def validateJwt(s: String): Either[String, Unit] = {
-    import scalaz.syntax.show._
-
-    JwtDecoder
-      .decode(Jwt(s))
-      .bimap(
-        error => error.shows,
-        _ => (),
-      )
-      .toEither
-  }
 
   sealed abstract class QueryStoreIndex extends Product with Serializable
   object QueryStoreIndex {
