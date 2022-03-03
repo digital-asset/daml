@@ -23,7 +23,7 @@ import com.daml.lf.engine.{
   ResultNeedPackage,
   Error => DamlLfError,
 }
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.packages.DeduplicatingPackageLoader
@@ -50,60 +50,87 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
-    // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
-    // When looking up contracts during command interpretation, the engine should only see contracts
-    // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
-    // Daml ledger model.
-    // When checking Daml authorization rules, the engine verifies that the actAs parties are sufficient to
-    // authorize the resulting transaction.
-    val commitAuthorizers = commands.actAs
-    val submissionResult = Timed.trackedValue(
-      metrics.daml.execution.engineRunning,
-      engine.submit(
-        commitAuthorizers,
-        commands.readAs,
-        commands.commands,
-        participant,
-        submissionSeed,
-      ),
-    )
-    consume(commands.actAs, commands.readAs, submissionResult)
-      .map { submission =>
-        (for {
-          result <- submission
-          (updateTx, meta) = result
-        } yield {
+    for {
+      submissionResult <- submitToEngine(commands, submissionSeed)
+      submission <- consume(commands.actAs, commands.readAs, submissionResult)
+    } yield {
+      submission
+        .map { case (updateTx, meta) =>
           val interpretationTimeNanos = System.nanoTime() - start
-          CommandExecutionResult(
-            submitterInfo = state.SubmitterInfo(
-              commands.actAs.toList,
-              commands.readAs.toList,
-              commands.applicationId,
-              commands.commandId.unwrap,
-              commands.deduplicationPeriod,
-              commands.submissionId.map(_.unwrap),
-              ledgerConfiguration,
-            ),
-            transactionMeta = state.TransactionMeta(
-              commands.commands.ledgerEffectiveTime,
-              commands.workflowId.map(_.unwrap),
-              meta.submissionTime,
-              submissionSeed,
-              Some(meta.usedPackages),
-              Some(meta.nodeSeeds),
-              Some(
-                updateTx.nodes
-                  .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
-                  .to(ImmArray)
-              ),
-            ),
-            transaction = updateTx,
-            dependsOnLedgerTime = meta.dependsOnTime,
-            interpretationTimeNanos = interpretationTimeNanos,
+          commandExecutionResult(
+            commands,
+            submissionSeed,
+            ledgerConfiguration,
+            updateTx,
+            meta,
+            interpretationTimeNanos,
           )
-        }).left.map(ErrorCause.DamlLf)
-      }
+        }
+        .left
+        .map(ErrorCause.DamlLf)
+    }
   }
+
+  private def commandExecutionResult(
+      commands: ApiCommands,
+      submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
+      updateTx: SubmittedTransaction,
+      meta: Transaction.Metadata,
+      interpretationTimeNanos: Long,
+  ) = {
+    CommandExecutionResult(
+      submitterInfo = state.SubmitterInfo(
+        commands.actAs.toList,
+        commands.readAs.toList,
+        commands.applicationId,
+        commands.commandId.unwrap,
+        commands.deduplicationPeriod,
+        commands.submissionId.map(_.unwrap),
+        ledgerConfiguration,
+      ),
+      transactionMeta = state.TransactionMeta(
+        commands.commands.ledgerEffectiveTime,
+        commands.workflowId.map(_.unwrap),
+        meta.submissionTime,
+        submissionSeed,
+        Some(meta.usedPackages),
+        Some(meta.nodeSeeds),
+        Some(
+          updateTx.nodes
+            .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
+            .to(ImmArray)
+        ),
+      ),
+      transaction = updateTx,
+      dependsOnLedgerTime = meta.dependsOnTime,
+      interpretationTimeNanos = interpretationTimeNanos,
+    )
+  }
+
+  private def submitToEngine(commands: ApiCommands, submissionSeed: crypto.Hash)(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
+    Timed.trackedFuture(
+      metrics.daml.execution.engineRunning,
+      Future {
+        // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
+        // When looking up contracts during command interpretation, the engine should only see contracts
+        // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
+        // Daml ledger model.
+        // When checking Daml authorization rules, the engine verifies that the actAs parties are sufficient to
+        // authorize the resulting transaction.
+        val commitAuthorizers = commands.actAs
+        engine.submit(
+          commitAuthorizers,
+          commands.readAs,
+          commands.commands,
+          participant,
+          submissionSeed,
+        )
+      },
+    )
 
   private def consume[A](actAs: Set[Ref.Party], readAs: Set[Ref.Party], result: Result[A])(implicit
       ec: ExecutionContext,
