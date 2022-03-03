@@ -6,10 +6,14 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy}
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
+import com.daml.ledger.api.benchtool.metrics.LatencyMetric.LatencyNanos
+import com.daml.ledger.api.benchtool.metrics.MetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import org.slf4j.LoggerFactory
@@ -17,21 +21,22 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining._
 import scala.util.control.NonFatal
 
 case class CommandSubmitter(
     names: Names,
     benchtoolUserServices: LedgerApiServices,
     adminServices: LedgerApiServices,
+    metricRegistry: MetricRegistry,
+    metricsManager: MetricsManager[LatencyNanos],
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
+  private val submitAndWaitTimer = metricRegistry.timer("daml_submit_and_wait_latency")
 
-  def submit(
-      config: SubmissionConfig,
-      maxInFlightCommands: Int,
-      submissionBatchSize: Int,
-  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] = {
-
+  def prepare(config: SubmissionConfig)(implicit
+      ec: ExecutionContext
+  ): Future[(client.binding.Primitive.Party, List[client.binding.Primitive.Party])] = {
     val observerPartyNames =
       names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
 
@@ -41,6 +46,28 @@ case class CommandSubmitter(
       signatory <- allocateSignatoryParty()
       observers <- allocateObserverParties(observerPartyNames)
       _ <- uploadTestDars()
+    } yield {
+      logger.info("Prepared command submission.")
+      signatory -> observers
+    })
+      .recoverWith { case NonFatal(ex) =>
+        logger.error(
+          s"Command submission preparation failed. Details: ${ex.getLocalizedMessage}",
+          ex,
+        )
+        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+      }
+  }
+
+  def submit(
+      config: SubmissionConfig,
+      signatory: client.binding.Primitive.Party,
+      observers: List[client.binding.Primitive.Party],
+      maxInFlightCommands: Int,
+      submissionBatchSize: Int,
+  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] = {
+    logger.info("Generating contracts...")
+    (for {
       _ <- submitCommands(
         config,
         signatory,
@@ -50,9 +77,7 @@ case class CommandSubmitter(
       )
     } yield {
       logger.info("Commands submitted successfully.")
-      CommandSubmitter.SubmissionSummary(
-        observers = observers
-      )
+      CommandSubmitter.SubmissionSummary(observers = observers)
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
@@ -155,10 +180,12 @@ case class CommandSubmitter(
             .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
             .mapAsync(maxInFlightCommands) { case (index, commands) =>
-              submitAndWait(
-                id = names.commandId(index),
-                party = signatory,
-                commands = commands,
+              timed(submitAndWaitTimer, metricsManager)(
+                submitAndWait(
+                  id = names.commandId(index),
+                  party = signatory,
+                  commands = commands,
+                )
               )
                 .map(_ => index + commands.length - 1)
                 .recoverWith { case ex =>
@@ -182,6 +209,16 @@ case class CommandSubmitter(
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
     } yield materializer
   }
+
+  private def timed[O](timer: Timer, metricsManager: MetricsManager[LatencyNanos])(
+      f: => Future[O]
+  )(implicit ec: ExecutionContext) = {
+    val ctx = timer.time()
+    f.map(_.tap { _ =>
+      val latencyNanos = ctx.stop()
+      metricsManager.sendNewValue(latencyNanos)
+    })
+  }
 }
 
 object CommandSubmitter {
@@ -197,7 +234,7 @@ object CommandSubmitter {
     }
 
     def getProgress(index: Int): String =
-      f"Progress: $index/${totalItems} (${percentage(index)}%1.1f%%). Elapsed time: ${elapsedSeconds}%1.1f s. Remaining time: ${remainingSeconds(index)}%1.1f s"
+      f"Progress: $index/$totalItems (${percentage(index)}%1.1f%%). Elapsed time: ${elapsedSeconds}%1.1f s. Remaining time: ${remainingSeconds(index)}%1.1f s"
 
     private def percentage(index: Int): Double = (index.toDouble / totalItems) * 100
 

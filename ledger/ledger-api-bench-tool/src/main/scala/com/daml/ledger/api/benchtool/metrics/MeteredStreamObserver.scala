@@ -11,15 +11,15 @@ import scala.concurrent.Future
 class MeteredStreamObserver[T](
     val streamName: String,
     logger: Logger,
-    manager: MetricsManager[T],
-) extends ObserverWithResult[T, StreamResult](logger) {
+    manager: MetricsManagerImpl[T],
+) extends ObserverWithResult[T, BenchmarkResult](logger) {
 
   override def onNext(value: T): Unit = {
     manager.sendNewValue(value)
     super.onNext(value)
   }
 
-  override def completeWith(): Future[StreamResult] = {
+  override def completeWith(): Future[BenchmarkResult] = {
     manager.result()
   }
 

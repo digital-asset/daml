@@ -14,18 +14,23 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-case class MetricsManager[T](
+trait MetricsManager[T] {
+  def sendNewValue(value: T): Unit
+  def result(): Future[BenchmarkResult]
+}
+
+case class MetricsManagerImpl[T](
     collector: ActorRef[MetricsCollector.Message],
     logInterval: FiniteDuration,
-    streamName: String,
+    observedMetric: String,
 )(implicit
     system: ActorSystem[SpawnProtocol.Command]
-) {
+) extends MetricsManager[T] {
   def sendNewValue(value: T): Unit =
     collector ! MetricsCollector.Message.NewValue(value)
 
-  def result[Result](): Future[StreamResult] = {
-    logger.debug(s"Requesting result of stream: $streamName")
+  def result(): Future[BenchmarkResult] = {
+    logger.debug(s"Requesting result of stream: $observedMetric")
     periodicRequest.cancel()
     implicit val timeout: Timeout = Timeout(3.seconds)
     collector
@@ -33,15 +38,13 @@ case class MetricsManager[T](
       .map { response: MetricsCollector.Response.FinalReport =>
         logger.info(
           ReportFormatter.formatFinalReport(
-            streamName = streamName,
+            streamName = observedMetric,
             finalReport = response,
           )
         )
         val atLeastOneObjectiveViolated = response.metricsData.exists(_.violatedObjectives.nonEmpty)
-        if (atLeastOneObjectiveViolated)
-          StreamResult.ObjectivesViolated
-        else
-          StreamResult.Ok
+        if (atLeastOneObjectiveViolated) BenchmarkResult.ObjectivesViolated
+        else BenchmarkResult.Ok
       }(system.executionContext)
   }
 
@@ -49,7 +52,7 @@ case class MetricsManager[T](
     phase = CoordinatedShutdown.PhaseBeforeServiceUnbind,
     taskName = "report-results",
   ) { () =>
-    logger.debug(s"Shutting down infrastructure for stream: $streamName")
+    logger.debug(s"Shutting down infrastructure for stream: $observedMetric")
     result().map(_ => akka.Done)(system.executionContext)
   }
 
@@ -63,7 +66,7 @@ case class MetricsManager[T](
           case response: Response.PeriodicReport =>
             logger.info(
               ReportFormatter.formatPeriodicReport(
-                streamName = streamName,
+                streamName = observedMetric,
                 periodicReport = response,
               )
             )
@@ -76,14 +79,14 @@ case class MetricsManager[T](
 
 object MetricsManager {
   def apply[StreamElem](
-      streamName: String,
+      observedMetric: String,
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
       exposedMetrics: Option[ExposedMetrics[StreamElem]],
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
-  ): Future[MetricsManager[StreamElem]] = {
+  ): Future[MetricsManagerImpl[StreamElem]] = {
     implicit val timeout: Timeout = Timeout(3.seconds)
 
     val collectorActor: Future[ActorRef[MetricsCollector.Message]] = system.ask(
@@ -92,18 +95,25 @@ object MetricsManager {
           metrics = metrics,
           exposedMetrics = exposedMetrics,
         ),
-        name = s"${streamName}-collector",
+        name = s"$observedMetric-collector",
         props = Props.empty,
         _,
       )
     )
 
     collectorActor.map(collector =>
-      MetricsManager[StreamElem](
+      MetricsManagerImpl[StreamElem](
         collector = collector,
         logInterval = logInterval,
-        streamName = streamName,
+        observedMetric = observedMetric,
       )
     )
+  }
+
+  case class NoOpMetricsManager[T]() extends MetricsManager[T] {
+    override def sendNewValue(value: T): Unit = {
+      val _ = value
+    }
+    override def result(): Future[BenchmarkResult] = Future.successful(BenchmarkResult.Ok)
   }
 }

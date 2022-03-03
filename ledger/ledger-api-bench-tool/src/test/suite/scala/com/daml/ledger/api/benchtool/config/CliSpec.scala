@@ -298,9 +298,27 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       }
     }
 
+    "parse `latency-test` flag" in {
+      val expectedConfig = Config.Default.copy(latencyTest = true)
+      parse("--latency-test") shouldBe expectedConfig
+    }
+
+    "parse `max-latency-objective` flag" in {
+      val expectedConfig = Config.Default.copy(maxLatencyObjectiveMillis = 6000L)
+      parse("--max-latency-objective", "6000") shouldBe expectedConfig
+    }
+
+    "`latency-test` cannot be enabled with configured workflow streams" in {
+      Cli.config(
+        Array(
+          "--latency-test",
+          "--consume-stream",
+          s"stream-type=transactions,name=some-name,filters=some-filter,end-offset=ABC",
+        )
+      ) shouldBe empty
+    }
   }
 
   private def parse(args: String*): Config =
     Cli.config(args.toArray).value
-
 }

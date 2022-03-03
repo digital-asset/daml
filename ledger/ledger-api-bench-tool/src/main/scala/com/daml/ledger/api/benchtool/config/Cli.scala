@@ -30,6 +30,7 @@ object Cli {
 
     opt[WorkflowConfig.StreamConfig]("consume-stream")
       .abbr("s")
+      .optional()
       .unbounded()
       .text(
         s"Stream configuration."
@@ -59,6 +60,20 @@ object Cli {
       .optional()
       .action { case (size, config) =>
         config.copy(maxInFlightCommands = size)
+      }
+
+    opt[Unit]("latency-test")
+      .text("Run a SubmitAndWait latency benchmark")
+      .optional()
+      .action { case (_, config) => config.copy(latencyTest = true) }
+
+    opt[Long]("max-latency-objective")
+      .text(
+        "The maximum average latency allowed for latency benchmarks (in millis). Only relevant with `latency-test` enabled."
+      )
+      .optional()
+      .action { case (maxLatencyMillis, config) =>
+        config.copy(maxLatencyObjectiveMillis = maxLatencyMillis)
       }
 
     opt[Int]("submission-batch-size")
@@ -102,6 +117,12 @@ object Cli {
 
     TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
       c.copy(tls = f(c.tls))
+    )
+
+    checkConfig(c =>
+      if (c.latencyTest && c.workflow.streams.nonEmpty)
+        Left("Latency test cannot have configured streams")
+      else Right(())
     )
 
     help("help").text("Prints this information")
