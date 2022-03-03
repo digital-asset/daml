@@ -91,13 +91,13 @@ object CompletionResponse {
         success.completion
     }
 
-  private[daml] def toException(response: TrackedCompletionFailure, errorFactories: ErrorFactories)(
-      implicit contextualizedErrorLogger: ContextualizedErrorLogger
+  private[daml] def toException(response: TrackedCompletionFailure)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     val status = response match {
       case QueueCompletionFailure(failure) =>
         val metadata = extractMetadata(failure)
-        extractStatus(failure, errorFactories, metadata)
+        extractStatus(failure, metadata)
       case QueueSubmitFailure(status) => status
     }
     protobuf.StatusProto.toStatusRuntimeException(status)
@@ -110,7 +110,6 @@ object CompletionResponse {
 
   private def extractStatus(
       response: CompletionFailure,
-      errorFactories: ErrorFactories,
       metadata: Map[String, String],
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusJavaProto =
     response match {
@@ -118,9 +117,9 @@ object CompletionResponse {
         val statusBuilder = GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
         GrpcStatus.buildStatus(metadata, statusBuilder)
       case CompletionResponse.TimeoutResponse(_) =>
-        errorFactories.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()
+        ErrorFactories.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()
       case CompletionResponse.NoStatusInResponse(_, _) =>
-        errorFactories.SubmissionQueueErrors.noStatusInCompletionResponse()
+        ErrorFactories.SubmissionQueueErrors.noStatusInCompletionResponse()
     }
 
 }

@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 
 class CompletionServiceRequestValidator(
@@ -19,11 +19,10 @@ class CompletionServiceRequestValidator(
     partyNameChecker: PartyNameChecker,
 ) {
 
-  private val errorFactories = ErrorFactories()
-  private val fieldValidations = FieldValidations(errorFactories)
+  private val fieldValidations = FieldValidations()
   private val partyValidator =
-    new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
-  private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
+    new PartyValidator(partyNameChecker, fieldValidations)
+  private val ledgerOffsetValidator = new LedgerOffsetValidator()
 
   import fieldValidations._
 

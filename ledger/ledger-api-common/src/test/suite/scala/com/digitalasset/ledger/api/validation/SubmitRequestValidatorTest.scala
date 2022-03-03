@@ -18,7 +18,7 @@ import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCom
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
@@ -135,10 +135,8 @@ class SubmitRequestValidatorTest
   private val testedCommandValidator =
     new CommandsValidator(ledgerId)
   private val testedValueValidator = {
-    val errorFactories = ErrorFactories()
     new ValueValidator(
-      errorFactories,
-      FieldValidations(errorFactories),
+      FieldValidations()
     )
   }
 

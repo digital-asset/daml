@@ -37,12 +37,11 @@ import scala.annotation.nowarn
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
-  private val errorFactories = ErrorFactories()
-  private val fieldValidations = FieldValidations(errorFactories)
-  private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
-  private val deduplicationValidator = new DeduplicationPeriodValidator(errorFactories)
+  private val fieldValidations = FieldValidations()
+  private val valueValidator = new ValueValidator(fieldValidations)
+  private val deduplicationValidator = new DeduplicationPeriodValidator()
 
-  import errorFactories._
+  import ErrorFactories._
   import fieldValidations._
   import valueValidator._
 

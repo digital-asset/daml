@@ -18,7 +18,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class DeduplicationPeriodSupport(
     converter: DeduplicationPeriodConverter,
     validation: DeduplicationPeriodValidator,
-    errorFactories: ErrorFactories,
 ) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -59,7 +58,7 @@ class DeduplicationPeriodSupport(
                     s"Failed to convert deduplication offset $offset to duration: $reason"
                   )
                   Left(
-                    errorFactories.invalidDeduplicationPeriod(
+                    ErrorFactories.invalidDeduplicationPeriod(
                       s"Cannot convert deduplication offset to duration because there is no completion at given offset $offset.",
                       None,
                     )

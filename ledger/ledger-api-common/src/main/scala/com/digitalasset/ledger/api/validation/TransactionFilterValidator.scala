@@ -13,12 +13,12 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-class TransactionFilterValidator(errorFactories: ErrorFactories) {
+class TransactionFilterValidator {
 
-  private val fieldValidations = FieldValidations(errorFactories)
+  private val fieldValidations = FieldValidations()
 
   import fieldValidations._
-  import errorFactories._
+  import ErrorFactories._
 
   def validate(
       txFilter: TransactionFilter

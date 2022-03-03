@@ -31,8 +31,6 @@ private[apiserver] final class ApiPackageService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories()
-
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
 
@@ -55,7 +53,7 @@ private[apiserver] final class ApiPackageService private (
           .flatMap {
             case None =>
               Future.failed[GetPackageResponse](
-                errorFactories.packageNotFound(packageId = packageId)(
+                ErrorFactories.packageNotFound(packageId = packageId)(
                   createContextualizedErrorLogger
                 )
               )
@@ -95,7 +93,7 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailure(
               request,
-              errorFactories
+              ErrorFactories
                 .invalidArgument(s"Invalid package id: $errorMessage")(
                   createContextualizedErrorLogger
                 ),
@@ -133,7 +131,7 @@ private[platform] object ApiPackageService {
     val service = new ApiPackageService(
       backend = backend
     )
-    val fieldValidations = FieldValidations(ErrorFactories())
+    val fieldValidations = FieldValidations()
     new PackageServiceValidation(
       service = service,
       ledgerId = ledgerId,

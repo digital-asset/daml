@@ -26,19 +26,18 @@ object TransactionServiceRequestValidator {
 class TransactionServiceRequestValidator(
     ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
-    errorFactories: ErrorFactories,
 ) {
 
   import TransactionServiceRequestValidator.Result
 
-  private val fieldValidations = FieldValidations(errorFactories)
+  private val fieldValidations = FieldValidations()
   private val partyValidator =
-    new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
-  private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
-  private val transactionFilterValidator = new TransactionFilterValidator(errorFactories)
+    new PartyValidator(partyNameChecker, fieldValidations)
+  private val ledgerOffsetValidator = new LedgerOffsetValidator()
+  private val transactionFilterValidator = new TransactionFilterValidator()
 
   import fieldValidations._
-  import errorFactories.invalidArgument
+  import ErrorFactories.invalidArgument
 
   private def matchId(input: Option[LedgerId])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

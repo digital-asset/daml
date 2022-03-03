@@ -10,12 +10,11 @@ import io.grpc.StatusRuntimeException
 
 class PartyValidator(
     partyNameChecker: PartyNameChecker,
-    errorFactories: ErrorFactories,
     fieldValidations: FieldValidations,
 ) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  import errorFactories.invalidArgument
+  import ErrorFactories.invalidArgument
   import fieldValidations.requireParties
 
   def requireKnownParties(

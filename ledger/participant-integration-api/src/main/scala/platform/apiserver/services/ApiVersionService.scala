@@ -41,7 +41,6 @@ private[apiserver] final class ApiVersionService private (
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
@@ -94,7 +93,7 @@ private[apiserver] final class ApiVersionService private (
 
   private lazy val internalError: Future[Nothing] =
     Future.failed(
-      errorFactories.versionServiceInternalError(message = "Cannot read Ledger API version")
+      ErrorFactories.versionServiceInternalError(message = "Cannot read Ledger API version")
     )
 
   private def readVersion(versionFileName: String): Try[String] =

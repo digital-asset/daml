@@ -28,7 +28,6 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,
-    errorFactories: ErrorFactories,
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -58,15 +57,15 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .recoverWith {
               case _: TimeoutException =>
                 Future.failed(
-                  errorFactories
+                  ErrorFactories
                     .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
                       new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
                     )
                 )
               case _: NoSuchElementException =>
                 Future.failed(
-                  errorFactories.grpcError(
-                    errorFactories.SubmissionQueueErrors
+                  ErrorFactories.grpcError(
+                    ErrorFactories.SubmissionQueueErrors
                       .queueClosed("Party submission")(
                         new DamlContextualizedErrorLogger(
                           logger,

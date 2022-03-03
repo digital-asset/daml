@@ -29,7 +29,6 @@ import scala.util.{Failure, Success, Try}
 private[services] final class QueueBackedTracker(
     queue: BoundedSourceQueue[QueueBackedTracker.QueueInput],
     done: Future[Done],
-    errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
     extends Tracker {
 
@@ -53,18 +52,18 @@ private[services] final class QueueBackedTracker(
         )
       case Success(QueueOfferResult.Failure(throwable)) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors
+          ErrorFactories.SubmissionQueueErrors
             .failedToEnqueueCommandSubmission("Failed to enqueue")(throwable)
         )
       case Success(QueueOfferResult.Dropped) =>
-        toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
+        toQueueSubmitFailure(ErrorFactories.bufferFull("The submission ingress buffer is full"))
       case Success(QueueOfferResult.QueueClosed) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
+          ErrorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
         )
       case Failure(throwable) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission(
+          ErrorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission(
             "Unexpected `BoundedSourceQueue.offer` exception"
           )(throwable)
         )
@@ -101,7 +100,6 @@ private[services] object QueueBackedTracker {
       capacityCounter: Counter,
       lengthCounter: Counter,
       delayTimer: Timer,
-      errorFactories: ErrorFactories,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
     val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
@@ -142,13 +140,13 @@ private[services] object QueueBackedTracker {
         val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
         promises.foreach(p =>
           p.failure(
-            errorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
+            ErrorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
           )
         )
       })(ExecutionContext.parasitic)
     }(ExecutionContext.parasitic)
 
-    new QueueBackedTracker(queue, done, errorFactories)
+    new QueueBackedTracker(queue, done)
   }
 
   type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]

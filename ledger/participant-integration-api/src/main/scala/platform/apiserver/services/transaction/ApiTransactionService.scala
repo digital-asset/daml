@@ -54,7 +54,6 @@ private[apiserver] object ApiTransactionService {
       new ApiTransactionService(transactionsService, metrics),
       ledgerId,
       PartyNameChecker.AllowAllParties,
-      ErrorFactories(),
     )
 }
 
@@ -65,10 +64,9 @@ private[apiserver] final class ApiTransactionService private (
     extends TransactionService {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
 
-  import errorFactories.transactionNotFound
-  import errorFactories.invalidArgumentWasNotFound
+  import ErrorFactories.transactionNotFound
+  import ErrorFactories.invalidArgumentWasNotFound
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])

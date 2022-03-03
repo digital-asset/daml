@@ -15,7 +15,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.platform.server.api.validation.ErrorFactories.addDefiniteAnswerDetails
 import com.daml.platform.server.api.{ApiException => NoStackTraceApiException}
 import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.{ErrorInfo, Status}
@@ -24,7 +23,8 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
-class ErrorFactories private () {
+object ErrorFactories {
+
   object SubmissionQueueErrors {
     def failedToEnqueueCommandSubmission(message: String)(t: Throwable)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
@@ -108,7 +108,7 @@ class ErrorFactories private () {
       .asGrpcError
 
   /** @param expected Expected ledger id.
-    * @param received Received ledger id.
+    * @param received  Received ledger id.
     * @return An exception with the [[Code.NOT_FOUND]] status code.
     */
   def ledgerIdMismatch(
@@ -184,7 +184,7 @@ class ErrorFactories private () {
       .asGrpcError
 
   /** @param fieldName An invalid field's name.
-    * @param message A status' message.
+    * @param message    A status' message.
     * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
     */
   def invalidField(
@@ -200,7 +200,7 @@ class ErrorFactories private () {
       .Reject(s"Invalid field $fieldName: $message")
   }
 
-  /** @param message A status' message.
+  /** @param message       A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.ABORTED]] status code.
     */
@@ -292,7 +292,8 @@ class ErrorFactories private () {
     * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
     *
     * NOTE: The length of the Status message is truncated to a reasonable size for satisfying
-    *        the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    * the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    *
     * @param status A Protobuf [[Status]] object.
     * @return An exception without a stack trace.
     */
@@ -424,12 +425,8 @@ class ErrorFactories private () {
           LedgerApiErrors.WriteServiceRejections.OutOfQuota.Reject(reason).asGrpcStatusFromContext
         )
     }
+
   }
-}
-
-object ErrorFactories {
-
-  def apply() = new ErrorFactories
 
   private[daml] lazy val definiteAnswers = Map(
     true -> AnyProto.pack[ErrorInfo](

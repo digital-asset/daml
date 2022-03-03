@@ -18,11 +18,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{
-  ActiveContractsServiceValidation,
-  ErrorFactories,
-  FieldValidations,
-}
+import com.daml.platform.server.api.validation.{ActiveContractsServiceValidation, FieldValidations}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
@@ -75,12 +71,11 @@ private[apiserver] object ApiActiveContractsService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService = {
-    val errorFactories = ErrorFactories()
-    val field = FieldValidations(ErrorFactories())
+    val field = FieldValidations()
     val service = new ApiActiveContractsService(
       backend = backend,
       metrics = metrics,
-      transactionFilterValidator = new TransactionFilterValidator(errorFactories),
+      transactionFilterValidator = new TransactionFilterValidator(),
     )
     new ActiveContractsServiceValidation(
       service = service,

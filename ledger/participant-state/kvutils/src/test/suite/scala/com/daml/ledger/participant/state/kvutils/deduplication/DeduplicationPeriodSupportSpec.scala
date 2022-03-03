@@ -140,7 +140,7 @@ class DeduplicationPeriodSupportSpec
         Future.successful(Left(DeduplicationConversionFailure.CompletionOffsetNotMatching))
       )
       when(
-        errorFactories.invalidDeduplicationPeriod(
+        ErrorFactories.invalidDeduplicationPeriod(
           any[String],
           any[Option[Duration]],
         )(any[ContextualizedErrorLogger])
@@ -155,7 +155,7 @@ class DeduplicationPeriodSupportSpec
             Set.empty,
             maxRecordTimeFromSubmissionTime,
           )
-          verify(errorFactories).invalidDeduplicationPeriod(
+          verify(ErrorFactories).invalidDeduplicationPeriod(
             any[String],
             any[Option[Duration]],
           )(any[ContextualizedErrorLogger])
@@ -168,11 +168,9 @@ class DeduplicationPeriodSupportSpec
   private def getFixture = new {
     val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
     val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
-    val errorFactories: ErrorFactories = mock[ErrorFactories]
     val service = new DeduplicationPeriodSupport(
       periodConverter,
       periodValidator,
-      errorFactories,
     )
     val maxDeduplicationDuration = Duration.ofSeconds(5)
     val ledgerTimeModel = LedgerTimeModel.reasonableDefault
