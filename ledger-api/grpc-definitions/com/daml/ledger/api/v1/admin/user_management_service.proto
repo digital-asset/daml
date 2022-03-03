@@ -229,7 +229,7 @@ message RevokeUserRightsRequest {
 }
 
 message RevokeUserRightsResponse {
-    // The rights actually revoked by a request.
+    // The rights that were actually revoked by the request.
     repeated Right newly_revoked_rights = 1;
 }
 

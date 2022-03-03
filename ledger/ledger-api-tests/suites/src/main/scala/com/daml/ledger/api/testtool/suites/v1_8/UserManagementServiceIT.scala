@@ -240,48 +240,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
             "successful user deletion",
             results.filter(_.isSuccess),
           )
-          val unexpectedErrors = results.collect {
-            case Failure(t)
-                if !ErrorDetails.matchesOneOf(
-                  t,
-                  IndexErrors.DatabaseErrors.SqlTransientError,
-                  LedgerApiErrors.AdminServices.UserAlreadyExists,
-                ) =>
-              t
-          }
-          assertIsEmpty(unexpectedErrors)
-        }
-      }
-  }
-
-  userManagementTest(
-    "RaceConditionDeleteUsers",
-    "Tests scenario of multiple concurrent delete-user calls for the same user",
-    runConcurrently = false,
-  ) {
-    implicit ec =>
-      { participant =>
-        val attempts = (1 to 10).toVector
-        val userId = participant.nextUserId()
-        val createUserRequest =
-          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
-        val deleteUserRequest = DeleteUserRequest(userId = userId)
-        for {
-          _ <- participant.createUser(createUserRequest)
-          results <- Future
-            .traverse(attempts) { _ =>
-              participant.deleteUser(deleteUserRequest).transform(Success(_))
-            }
-        } yield {
-          assertSingleton(
-            "successful user deletion",
-            results.filter(_.isSuccess),
-          )
           val unexpectedErrors = results
             .collect {
               case Failure(t)
                   if !ErrorDetails.matches(t, LedgerApiErrors.AdminServices.UserNotFound) =>
-                // TODO     IndexErrors.DatabaseErrors.SqlTransientError,
                 t
             }
           assertIsEmpty(unexpectedErrors)
