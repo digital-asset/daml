@@ -435,6 +435,7 @@ private[lf] final class Compiler(
     ) { (tmplArgPos, _env) =>
       val env =
         _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+
       let(
         env,
         SBUBeginExercise(
@@ -446,9 +447,9 @@ private[lf] final class Compiler(
         )(
           env.toSEVar(choiceArgPos),
           env.toSEVar(cidPos),
-          translateExp(env, choice.controllers),
+          s.SEPreventCatch(translateExp(env, choice.controllers)),
           choice.choiceObservers match {
-            case Some(observers) => translateExp(env, observers)
+            case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
             case None => s.SEValue.EmptyList
           },
         ),

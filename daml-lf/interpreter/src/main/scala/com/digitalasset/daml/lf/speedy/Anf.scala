@@ -356,6 +356,11 @@ private[lf] object Anf {
       case source.SEScopeExercise(body0) =>
         val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
         Bounce(() => transform(depth, target.SEScopeExercise(body), k))
+
+      case source.SEPreventCatch(body0) =>
+        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
+        Bounce(() => transform(depth, target.SEPreventCatch(body), k))
+
     }
 
   private[this] def atomizeExps[A](
