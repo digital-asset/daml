@@ -9,7 +9,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 private[apiserver] trait CommandExecutor {
   def execute(
@@ -17,7 +17,6 @@ private[apiserver] trait CommandExecutor {
       submissionSeed: crypto.Hash,
       ledgerConfiguration: Configuration,
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Either[ErrorCause, CommandExecutionResult]]
 }
