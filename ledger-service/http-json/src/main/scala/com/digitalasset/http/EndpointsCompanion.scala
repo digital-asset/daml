@@ -87,7 +87,7 @@ object EndpointsCompanion {
       def apply(userId: String, actAs: List[String], readAs: List[String], ledgerId: String): A \/ B
     }
 
-    private[http] def parseAndDecodeUserToken(jwt: DecodedJwt[String]) = {
+    private def parseAndDecodeUserToken(jwt: DecodedJwt[String]) = {
       import spray.json._
       for {
         jsValue <- Try(jwt.payload.parseJson).toEither.disjunction
