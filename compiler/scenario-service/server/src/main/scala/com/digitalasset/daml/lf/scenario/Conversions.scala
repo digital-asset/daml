@@ -98,8 +98,6 @@ final class Conversions(
             interpretationError match {
               case UnhandledException(_, value) =>
                 builder.setUnhandledException(convertValue(value))
-              case UncatchableException(_, value, _) =>
-                builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>
                 builder.setUserError(msg)
               case ContractNotFound(cid) =>
