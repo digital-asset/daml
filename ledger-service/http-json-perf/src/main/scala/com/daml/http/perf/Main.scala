@@ -16,9 +16,8 @@ import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
 import io.gatling.netty.util.Transports
 import io.netty.channel.EventLoopGroup
-import scalaz.std.scalaFuture._
 import scalaz.std.string._
-import scalaz.{-\/, \/, \/-}
+import scalaz.\/
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
@@ -36,16 +35,14 @@ object Main extends StrictLogging {
     case object GatlingError extends ExitCode(104)
   }
 
-  private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {
-    try {
+  private def resolveSimulationClass(
+      str: String
+  )(implicit ec: ExecutionContext): Future[Class[_ <: Simulation]] = {
+    Future {
       val klass: Class[_] = Class.forName(str)
       val simClass = klass.asSubclass(classOf[Simulation])
-      \/-(simClass)
-    } catch {
-      case e: Throwable =>
-        logger.error(s"Cannot resolve scenario: '$str'", e)
-        -\/(e)
-    }
+      simClass
+    }.transform(identity, new Exception(s"Cannot resolve scenario: '$str'", _))
   }
 
   private def runGatlingScenario(
@@ -94,30 +91,6 @@ object Main extends StrictLogging {
     simulationLog.map(_ => ())
   }
 
-  private def waitForResult[A](fa: Future[Throwable \/ ExitCode], timeout: Duration): ExitCode =
-    try {
-      Await
-        .result(fa, timeout)
-        .valueOr(_ => ExitCode.GatlingError)
-    } catch {
-      case e: TimeoutException =>
-        logger.error(s"Scenario failed", e)
-        ExitCode.TimedOutScenario
-    }
-
-  private def logCompletion(
-      fa: Future[Throwable \/ ExitCode]
-  )(implicit ec: ExecutionContext): Future[Throwable \/ ExitCode] = {
-    fa.transform { res =>
-      res match {
-        case Success(\/-(_)) => logger.info(s"Scenario completed")
-        case Success(-\/(e)) => logger.error(s"Scenario failed", e)
-        case Failure(e) => logger.error(s"Scenario failed", e)
-      }
-      res
-    }
-  }
-
   def main(args: Array[String]): Unit = {
     val name = "http-json-perf"
     val terminationTimeout: FiniteDuration = 30.seconds
@@ -141,36 +114,63 @@ object Main extends StrictLogging {
       discard { Await.result(promise.future, terminationTimeout) }
     }
 
+    def runScenario(config: Config[String]) =
+      resolveSimulationClass(config.scenario).flatMap { _ =>
+        withLedger(config.dars, name) { (ledgerPort, _, _) =>
+          QueryStoreBracket.withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
+            withHttpService(
+              name,
+              ledgerPort,
+              jsonApiJdbcConfig,
+              None,
+            ) { (uri, _, _, _) =>
+              runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
+                .flatMap { case (exitCode, dir) =>
+                  toFuture(generateReport(dir))
+                    .map { _ =>
+                      logger.info(s"Report directory: ${dir.toAbsolutePath}")
+                      exitCode
+                    }
+                }
+            }
+          }
+        }
+      }
+
     val exitCode: ExitCode = Config.parseConfig(args) match {
       case None =>
         // error is printed out by scopt
         ExitCode.InvalidUsage
       case Some(config) =>
         logger.info(s"$config")
-        val res = eitherT(resolveSimulationClass(config.scenario).traverse { _ =>
-          withLedger(config.dars, name) { (ledgerPort, _, _) =>
-            QueryStoreBracket.withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
-              withHttpService(
-                name,
-                ledgerPort,
-                jsonApiJdbcConfig,
-                None,
-              ) { (uri, _, _, _) =>
-                runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-                  .flatMap { case (exitCode, dir) =>
-                    toFuture(generateReport(dir))
-                      .map { _ =>
-                        logger.info(s"Report directory: ${dir.toAbsolutePath}")
-                        exitCode
-                      }
-                  }
-              }
-            }
-          }
-        })
-        waitForResult(logCompletion(res.run), config.maxDuration.getOrElse(Duration.Inf))
+        waitForResult(
+          logCompletion(runScenario(config)),
+          config.maxDuration.getOrElse(Duration.Inf),
+        )
     }
     terminate()
     sys.exit(exitCode.unwrap)
+  }
+
+  private def waitForResult[A](fa: Future[ExitCode], timeout: Duration): ExitCode =
+    try {
+      Await
+        .result(fa, timeout)
+    } catch {
+      case e: TimeoutException =>
+        logger.error(s"Scenario failed", e)
+        ExitCode.TimedOutScenario
+    }
+
+  private def logCompletion(
+      fa: Future[ExitCode]
+  )(implicit ec: ExecutionContext): Future[ExitCode] = {
+    fa.transform { res =>
+      res match {
+        case Success(_) => logger.info(s"Scenario completed")
+        case Failure(e) => logger.error(s"Scenario failed", e)
+      }
+      res
+    }
   }
 }
