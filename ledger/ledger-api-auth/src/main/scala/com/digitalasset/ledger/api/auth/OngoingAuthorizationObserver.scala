@@ -11,7 +11,6 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 
@@ -113,7 +112,9 @@ private[auth] final class OngoingAuthorizationObserver[A](
       .notExpired(now)
       .left
       .map(authorizationError =>
-        ErrorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+        LedgerApiErrors.AuthorizationChecks.PermissionDenied
+          .Reject(authorizationError.reason)(errorLogger)
+          .asGrpcError
       )
 
   private def staleStreamAuthError: StatusRuntimeException =

@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.kvutils.deduplication
 
 import java.time.{Duration, Instant}
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.ErrorsAssertions
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll

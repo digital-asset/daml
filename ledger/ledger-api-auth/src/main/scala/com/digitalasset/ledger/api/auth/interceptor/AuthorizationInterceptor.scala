@@ -58,10 +58,12 @@ final class AuthorizationInterceptor(
           case Failure(error: StatusRuntimeException) =>
             closeWithError(error)
           case Failure(exception: Throwable) =>
-            val error = ErrorFactories.internalAuthenticationError(
-              securitySafeMessage = "Failed to get claims from request metadata",
-              exception = exception,
-            )(errorLogger)
+            val error = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+              .Reject(
+                message = "Failed to get claims from request metadata",
+                throwable = exception,
+              )(errorLogger)
+              .asGrpcError
             closeWithError(error)
           case Success(claimSet) =>
             val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
@@ -85,9 +87,11 @@ final class AuthorizationInterceptor(
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
-                ErrorFactories.permissionDenied(
-                  s"Could not resolve rights for user '$userId' due to '$msg'"
-                )(errorLogger)
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                  .Reject(
+                    s"Could not resolve rights for user '$userId' due to '$msg'"
+                  )(errorLogger)
+                  .asGrpcError
               )
             case Right(userRights: Set[UserRight]) =>
               Future.successful(

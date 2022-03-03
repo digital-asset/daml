@@ -4,6 +4,7 @@
 package com.daml.platform.server.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
@@ -24,7 +25,12 @@ object FieldValidations {
     case None => Right(None)
     case Some(`ledgerId`) => Right(Some(ledgerId))
     case Some(mismatching) =>
-      Left(ledgerIdMismatch(ledgerId, mismatching))
+      import scalaz.syntax.tag._
+      Left(
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch
+          .Reject(ledgerId.unwrap, mismatching.unwrap)
+          .asGrpcError
+      )
   }
 
   def requireNonEmptyString(s: String, fieldName: String)(implicit

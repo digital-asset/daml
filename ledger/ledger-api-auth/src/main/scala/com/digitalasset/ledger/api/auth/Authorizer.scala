@@ -213,7 +213,11 @@ final class Authorizer(
   private def authorizationErrorAsGrpc[T](
       errOrV: Either[AuthorizationError, T]
   ): Either[StatusRuntimeException, T] =
-    errOrV.fold(err => Left(ErrorFactories.permissionDenied(err.reason)), Right(_))
+    errOrV.fold(
+      err =>
+        Left(LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(err.reason).asGrpcError),
+      Right(_),
+    )
 
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
@@ -247,15 +251,21 @@ final class Authorizer(
       .extractClaimSetFromContext()
       .flatMap({
         case ClaimSet.Unauthenticated =>
-          Failure(ErrorFactories.unauthenticatedMissingJwtToken())
+          Failure(
+            LedgerApiErrors.AuthorizationChecks.Unauthenticated
+              .MissingJwtToken()
+              .asGrpcError
+          )
         case authenticatedUser: ClaimSet.AuthenticatedUser =>
           Failure(
-            ErrorFactories.internalAuthenticationError(
-              s"Unexpected unresolved authenticated user claim",
-              new RuntimeException(
-                s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"
-              ),
-            )
+            LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+              .Reject(
+                s"Unexpected unresolved authenticated user claim",
+                new RuntimeException(
+                  s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"
+                ),
+              )
+              .asGrpcError
           )
         case claims: ClaimSet.Claims => Success(claims)
       })

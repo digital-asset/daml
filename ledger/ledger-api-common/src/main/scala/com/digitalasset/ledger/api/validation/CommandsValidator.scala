@@ -7,6 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
@@ -230,7 +231,11 @@ final class CommandsValidator(ledgerId: LedgerId) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(missingLedgerConfig())
+      Left(
+        LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+          .Reject()
+          .asGrpcError
+      )
     ) { maxDeduplicationDuration =>
       deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
@@ -251,12 +256,14 @@ final class CommandsValidator(ledgerId: LedgerId) {
             .fold(
               _ =>
                 Left(
-                  nonHexOffset(
-                    fieldName = "deduplication_period",
-                    offsetValue = offset,
-                    message =
-                      s"the deduplication offset has to be a hexadecimal string and not $offset",
-                  )
+                  LedgerApiErrors.RequestValidation.NonHexOffset
+                    .Error(
+                      _fieldName = "deduplication_period",
+                      _offsetValue = offset,
+                      _message =
+                        s"the deduplication offset has to be a hexadecimal string and not $offset",
+                    )
+                    .asGrpcError
                 ),
               hexOffset =>
                 Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
