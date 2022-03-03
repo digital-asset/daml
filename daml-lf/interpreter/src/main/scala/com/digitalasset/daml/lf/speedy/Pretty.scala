@@ -42,8 +42,6 @@ private[lf] object Pretty {
         text(prettyFailedAuthorization(nid, fa))
       case UnhandledException(_, value) =>
         text(s"Unhandled Daml exception:") & prettyValue(true)(value)
-      case UncatchableException(_, value, _) =>
-        text(s"Uncatchable Daml exception:") & prettyValue(true)(value)
       case UserError(message) =>
         text(s"User abort: $message")
       case TemplatePreconditionViolated(templateId, loc @ _, arg) =>

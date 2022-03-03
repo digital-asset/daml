@@ -1452,10 +1452,9 @@ private[lf] object Speedy {
             k.abort()
           case KPreventException(_) =>
             throw SError.SErrorDamlException(
-              interpretation.Error.UncatchableException(
+              interpretation.Error.UnhandledException(
                 excep.ty,
                 excep.value.toUnnormalizedValue,
-                machine.lastLocation,
               )
             )
           case _ =>

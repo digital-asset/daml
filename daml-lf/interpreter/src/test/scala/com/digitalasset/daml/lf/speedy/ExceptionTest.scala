@@ -468,6 +468,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
     }
   }
 
+  // TODO https://github.com/digital-asset/daml/issues/12821
+  //  add tests for interface
   "uncatchable exceptions" should {
     "not be caught" in {
 
@@ -488,7 +490,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
                  controllers Cons @Party [M:T {party} this] Nil @Party,
                  observers Nil @Party
                to upure @Unit (throw @Unit @M:E (M:E {}));
-             choice SignatoriesCrash (self) (u: Unit) : Unit, 
+             choice ControllersCrash (self) (u: Unit) : Unit, 
                  controllers throw @(List Party) @M:E (M:E {}),
                  observers Nil @Party
                to upure @Unit ();
@@ -505,7 +507,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val testCases = Table[String, Boolean](
         ("choice", "caught"),
         ("BodyCrash", true),
-        ("SignatoriesCrash", false),
+        ("ControllersCrash", false),
         ("ObserversCrash", false),
       )
 
@@ -524,7 +526,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           res shouldBe SResult.SResultFinalValue(SValue.SValue.Unit)
         else
           inside(res) { case SResult.SResultError(SErrorDamlException(err)) =>
-            err shouldBe a[IE.UncatchableException]
+            err shouldBe a[IE.UnhandledException]
           }
       }
     }
