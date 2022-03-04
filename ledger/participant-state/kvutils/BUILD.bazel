@@ -177,6 +177,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/caching",
         "//ledger/error",
+        "//ledger/error:error-test-lib",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",

@@ -15,7 +15,6 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.index.IndexServiceBuilder
 import com.daml.platform.packages.InMemoryPackageStore
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import java.io.File
@@ -90,7 +89,6 @@ object StandaloneIndexService {
         maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
         maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-        errorFactories = ErrorFactories(),
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

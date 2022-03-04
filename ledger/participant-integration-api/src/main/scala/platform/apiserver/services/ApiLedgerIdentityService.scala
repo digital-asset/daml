@@ -31,8 +31,6 @@ private[apiserver] final class ApiLedgerIdentityService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories()
-
   @volatile var closed = false
 
   @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
@@ -41,7 +39,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
   ): Future[GetLedgerIdentityResponse] = {
     logger.info(s"Received request for ledger identity: $request")
     if (closed)
-      Future.failed(errorFactories.serviceNotRunning("Ledger Identity Service"))
+      Future.failed(ErrorFactories.serviceNotRunning("Ledger Identity Service"))
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))

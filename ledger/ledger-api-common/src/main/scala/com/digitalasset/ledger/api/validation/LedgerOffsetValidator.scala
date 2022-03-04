@@ -12,14 +12,12 @@ import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered._
 
-class LedgerOffsetValidator(errorFactories: ErrorFactories) {
+object LedgerOffsetValidator {
 
   private val boundary = "boundary"
 
-  private val fieldValidations = FieldValidations(errorFactories)
-
-  import errorFactories.{invalidArgument, missingField, offsetAfterLedgerEnd}
-  import fieldValidations.requireLedgerString
+  import ErrorFactories.{invalidArgument, missingField, offsetAfterLedgerEnd}
+  import FieldValidations.requireLedgerString
 
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],

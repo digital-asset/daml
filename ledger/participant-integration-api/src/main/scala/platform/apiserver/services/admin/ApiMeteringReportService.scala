@@ -38,7 +38,6 @@ private[apiserver] final class ApiMeteringReportService(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val generator = new MeteringReportGenerator(participantId)
-  private val errorFactories = ErrorFactories()
 
   override def bindService(): ServerServiceDefinition =
     MeteringReportServiceGrpc.bindService(this, executionContext)
@@ -69,7 +68,7 @@ private[apiserver] final class ApiMeteringReportService(
       case Right(f) => f
       case Left(error) =>
         Future.failed(
-          ValidationLogger.logFailure(request, errorFactories.invalidArgument(error))
+          ValidationLogger.logFailure(request, ErrorFactories.invalidArgument(error))
         )
     }
   }

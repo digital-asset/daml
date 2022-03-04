@@ -13,8 +13,8 @@ import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
 // TODO error codes: Remove default usage of ErrorFactories
-class FieldValidations private (errorFactories: ErrorFactories) {
-  import errorFactories._
+object FieldValidations {
+  import ErrorFactories._
 
   def matchLedgerId(
       ledgerId: LedgerId
@@ -167,9 +167,4 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, Option[T]] =
     if (s.isEmpty) Right(None)
     else someValidation(s).map(Option(_))
-}
-
-object FieldValidations {
-  def apply(errorFactories: ErrorFactories): FieldValidations =
-    new FieldValidations(errorFactories)
 }

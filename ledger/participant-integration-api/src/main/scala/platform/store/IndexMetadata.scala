@@ -14,7 +14,6 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
@@ -26,15 +25,14 @@ import scala.concurrent.{ExecutionContext, Future}
 object IndexMetadata {
 
   def read(
-      jdbcUrl: String,
-      errorFactories: ErrorFactories,
+      jdbcUrl: String
   )(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
-    ownDao(jdbcUrl, errorFactories).use { dao =>
+    ownDao(jdbcUrl).use { dao =>
       for {
         ledgerId <- dao.lookupLedgerId()
         participantId <- dao.lookupParticipantId()
@@ -46,8 +44,7 @@ object IndexMetadata {
     }
 
   private def ownDao(
-      jdbcUrl: String,
-      errorFactories: ErrorFactories,
+      jdbcUrl: String
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -77,7 +74,6 @@ object IndexMetadata {
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
-          errorFactories = errorFactories,
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning =
             new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used

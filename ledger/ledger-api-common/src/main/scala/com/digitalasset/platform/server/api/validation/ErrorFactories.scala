@@ -15,7 +15,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.platform.server.api.validation.ErrorFactories.addDefiniteAnswerDetails
 import com.daml.platform.server.api.{ApiException => NoStackTraceApiException}
 import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.{ErrorInfo, Status}
@@ -24,7 +23,8 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
-class ErrorFactories private () {
+object ErrorFactories {
+
   object SubmissionQueueErrors {
     def failedToEnqueueCommandSubmission(message: String)(t: Throwable)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
@@ -293,6 +293,7 @@ class ErrorFactories private () {
     *
     * NOTE: The length of the Status message is truncated to a reasonable size for satisfying
     *        the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    *
     * @param status A Protobuf [[Status]] object.
     * @return An exception without a stack trace.
     */
@@ -424,12 +425,8 @@ class ErrorFactories private () {
           LedgerApiErrors.WriteServiceRejections.OutOfQuota.Reject(reason).asGrpcStatusFromContext
         )
     }
+
   }
-}
-
-object ErrorFactories {
-
-  def apply() = new ErrorFactories
 
   private[daml] lazy val definiteAnswers = Map(
     true -> AnyProto.pack[ErrorInfo](

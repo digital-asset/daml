@@ -18,7 +18,6 @@ import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
 import java.time.Duration
@@ -81,7 +80,6 @@ private[bridge] object ConflictCheckingLedgerBridge {
       initialAllocatedParties: Set[Ref.Party],
       initialLedgerConfiguration: Option[Configuration],
       bridgeMetrics: BridgeMetrics,
-      errorFactories: ErrorFactories,
       validatePartyAllocation: Boolean,
       servicesThreadPoolSize: Int,
       maxDeduplicationDuration: Duration,
@@ -92,8 +90,7 @@ private[bridge] object ConflictCheckingLedgerBridge {
       bridgeMetrics = bridgeMetrics,
       prepareSubmission = new PrepareSubmissionImpl(bridgeMetrics),
       tagWithLedgerEnd = new TagWithLedgerEndImpl(indexService, bridgeMetrics),
-      conflictCheckWithCommitted =
-        new ConflictCheckWithCommittedImpl(indexService, bridgeMetrics, errorFactories),
+      conflictCheckWithCommitted = new ConflictCheckWithCommittedImpl(indexService, bridgeMetrics),
       sequence = new SequenceImpl(
         participantId = participantId,
         timeProvider = timeProvider,
@@ -102,7 +99,6 @@ private[bridge] object ConflictCheckingLedgerBridge {
         initialLedgerConfiguration = initialLedgerConfiguration,
         validatePartyAllocation = validatePartyAllocation,
         bridgeMetrics = bridgeMetrics,
-        errorFactories = errorFactories,
         maxDeduplicationDuration = maxDeduplicationDuration,
       ),
       servicesThreadPoolSize = servicesThreadPoolSize,
