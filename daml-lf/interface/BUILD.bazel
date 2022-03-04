@@ -8,6 +8,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_scala_library(
     name = "interface",
@@ -34,16 +35,23 @@ da_scala_library(
     ],
 )
 
+daml_compile(
+    name = "InterfaceTestPackage",
+    srcs = ["src/test/daml/InterfaceTestPackage.daml"],
+)
+
 da_scala_test(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
+    data = [":InterfaceTestPackage.dar"],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
     deps = [
         ":interface",
+            "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",

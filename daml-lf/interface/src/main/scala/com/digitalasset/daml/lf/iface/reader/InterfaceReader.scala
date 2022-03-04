@@ -238,6 +238,7 @@ object InterfaceReader {
       toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 
+  @annotation.nowarn("cat=unused&msg=(name|tyVars|astIf)") // TODO SC remove
   private[this] def astInterface(
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
