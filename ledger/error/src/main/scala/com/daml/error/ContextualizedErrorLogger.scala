@@ -24,11 +24,12 @@ trait ContextualizedErrorLogger {
 
 object DamlContextualizedErrorLogger {
 
-  def forTesting(clazz: Class[_]) = new DamlContextualizedErrorLogger(
-    ContextualizedLogger.get(clazz),
-    LoggingContext.ForTesting,
-    None,
-  )
+  def forTesting(clazz: Class[_], correlationId: Option[String] = None) =
+    new DamlContextualizedErrorLogger(
+      ContextualizedLogger.get(clazz),
+      LoggingContext.ForTesting,
+      correlationId,
+    )
 }
 
 /** Implementation of [[ContextualizedErrorLogger]] leveraging the //libs-scala/contextualized-logging

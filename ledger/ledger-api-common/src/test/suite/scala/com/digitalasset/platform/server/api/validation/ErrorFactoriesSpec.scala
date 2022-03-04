@@ -19,7 +19,6 @@ import com.daml.error.{
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
@@ -47,14 +46,11 @@ class ErrorFactoriesSpec
     with LogCollectorAssertions
     with ErrorAssertionsWithLogCollectorAssertions {
 
-  private val logger = ContextualizedLogger.get(getClass)
-  private val loggingContext = LoggingContext.ForTesting
-
   private val originalCorrelationId = "cor-id-12345679"
   private val truncatedCorrelationId = "cor-id-1"
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, Some(originalCorrelationId))
+    DamlContextualizedErrorLogger.forTesting(getClass, Some(originalCorrelationId))
 
   private val expectedCorrelationIdRequestInfo =
     ErrorDetails.RequestInfoDetail(originalCorrelationId)

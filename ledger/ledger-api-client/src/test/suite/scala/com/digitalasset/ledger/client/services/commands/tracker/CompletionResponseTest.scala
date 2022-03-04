@@ -8,7 +8,6 @@ import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.any.Any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
@@ -72,11 +71,8 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
     }
 
     "convert to exception" should {
-      val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-
-      implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
       implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-        new DamlContextualizedErrorLogger(logger, loggingContext, None)
+        DamlContextualizedErrorLogger.forTesting(getClass)
 
       "convert queue completion failure" in {
         val exception =
