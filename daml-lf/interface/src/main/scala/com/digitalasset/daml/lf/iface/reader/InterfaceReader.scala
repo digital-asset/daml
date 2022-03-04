@@ -237,13 +237,12 @@ object InterfaceReader {
       toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 
-  @annotation.nowarn("cat=unused&msg=(name|tyVars|astIf)") // TODO SC remove
   private[this] def astInterface(
       name: QualifiedName,
       astIf: Ast.DefInterface,
-  ) = \/-(None)
-  // TODO https://github.com/digital-asset/daml/issues/12051
-  //    Add support for interfaces.
+  ) = for {
+    choices <- astIf.fixedChoices.traverse(visitChoice(name, _))
+  } yield name -> iface.DefInterface(choices)
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,
