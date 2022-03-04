@@ -77,6 +77,7 @@ case class CommandSubmitter(
       )
     } yield {
       logger.info("Commands submitted successfully.")
+      // TODO Refactor: Extract the SubmissionSummery construction out of this method
       CommandSubmitter.SubmissionSummary(observers = observers)
     })
       .recoverWith { case NonFatal(ex) =>

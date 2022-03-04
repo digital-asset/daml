@@ -19,10 +19,31 @@ class LatencyMetricSpec extends AnyWordSpec with Matchers {
       LatencyMetric
         .empty(maxLatencyObjectiveMillis = 0L)
         .tap(_.finalValue(dummyPeriod) shouldBe LatencyMetric.Value(0L))
+        .tap(
+          _.periodicValue(dummyPeriod) shouldBe (LatencyMetric(
+            0L,
+            0,
+            MaxLatency(0),
+          ) -> LatencyMetric.Value(0L))
+        )
         .onNext(1000L)
         .tap(_.finalValue(dummyPeriod) shouldBe LatencyMetric.Value(1000L))
+        .tap(
+          _.periodicValue(dummyPeriod) shouldBe (LatencyMetric(
+            1000L,
+            1,
+            MaxLatency(0),
+          ) -> LatencyMetric.Value(1000L))
+        )
         .onNext(2000L)
         .tap(_.finalValue(dummyPeriod) shouldBe LatencyMetric.Value(1500L))
+        .tap(
+          _.periodicValue(dummyPeriod) shouldBe (LatencyMetric(
+            3000L,
+            2,
+            MaxLatency(0),
+          ) -> LatencyMetric.Value(1500L))
+        )
     }
   }
 

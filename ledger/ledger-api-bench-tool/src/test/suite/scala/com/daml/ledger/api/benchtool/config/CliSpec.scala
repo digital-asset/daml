@@ -305,7 +305,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
 
     "parse `max-latency-objective` flag" in {
       val expectedConfig = Config.Default.copy(maxLatencyObjectiveMillis = 6000L)
-      parse("--max-latency-objective", "6000") shouldBe expectedConfig
+      parse("--max-latency", "6000") shouldBe expectedConfig
     }
 
     "`latency-test` cannot be enabled with configured workflow streams" in {

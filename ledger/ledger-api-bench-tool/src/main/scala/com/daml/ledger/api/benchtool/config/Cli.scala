@@ -67,7 +67,7 @@ object Cli {
       .optional()
       .action { case (_, config) => config.copy(latencyTest = true) }
 
-    opt[Long]("max-latency-objective")
+    opt[Long]("max-latency")
       .text(
         "The maximum average latency allowed for latency benchmarks (in millis). Only relevant with `latency-test` enabled."
       )

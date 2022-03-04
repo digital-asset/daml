@@ -86,7 +86,7 @@ object MetricsManager {
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
-  ): Future[MetricsManagerImpl[StreamElem]] = {
+  ): Future[MetricsManager[StreamElem]] = {
     implicit val timeout: Timeout = Timeout(3.seconds)
 
     val collectorActor: Future[ActorRef[MetricsCollector.Message]] = system.ask(
