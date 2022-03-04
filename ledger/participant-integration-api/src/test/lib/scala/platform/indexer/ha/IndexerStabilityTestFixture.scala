@@ -29,7 +29,7 @@ case class ReadServiceAndIndexer(
 case class Indexers(indexers: List[ReadServiceAndIndexer]) {
   // The list of all indexers that are running (determined by whether they have subscribed to the read service)
   def runningIndexers: List[ReadServiceAndIndexer] =
-    indexers.filter(x => x.readService.stateUpdatesCalls.get() > 0 && !x.readService.aborted.get())
+    indexers.filter(_.readService.isRunning)
   def resetAll(): Unit = indexers.foreach(_.readService.reset())
 }
 
