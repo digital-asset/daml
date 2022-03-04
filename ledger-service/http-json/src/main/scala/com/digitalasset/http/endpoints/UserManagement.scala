@@ -212,7 +212,7 @@ private[http] object UserManagement {
       mf: Monad[Future]
   ): ET[UserId] =
     EitherT.either(decodeAndParseJwt(rawJwt, decodeJwt).flatMap {
-      case token @ StandardJWTPayload(_, _, _) => userIdFromToken(token)
+      case token: StandardJWTPayload => userIdFromToken(token)
       case _ =>
         -\/(Unauthorized("A user token was expected but a custom token was given"): Error)
     })
