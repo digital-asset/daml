@@ -26,7 +26,8 @@ import java.time.Instant
   *
   *  All instances of this class produce the same stream of state updates.
   *
-  *  @param updatesPerSecond The maximum number of updates per second produced.
+  *  @param additionalSourceFlow Additional stream Flow after the offset to extend the service with additional
+  *                              functionality like throttling,  etc.
   */
 case class EndlessReadService(
     name: String,
