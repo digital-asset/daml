@@ -39,7 +39,7 @@ case class EndlessReadService(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def currentHealth(): HealthStatus = synchronized {
+  override def currentHealth(): HealthStatus = {
     if (aborted.get()) HealthStatus.unhealthy else HealthStatus.healthy
   }
 
