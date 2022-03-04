@@ -3,12 +3,9 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
-import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
@@ -18,6 +15,8 @@ import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test.CallablePayout
 import scalaz.Tag
+
+import java.util.regex.Pattern
 
 final class ContractKeysIT extends LedgerTestSuite {
   test(
@@ -55,9 +54,7 @@ final class ContractKeysIT extends LedgerTestSuite {
       _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
 
       // fetch delegated
-      _ <- eventually {
-        beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
-      }
+      _ <- beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
 
       // fetch by key should fail during interpretation
       // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee

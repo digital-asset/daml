@@ -37,14 +37,10 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-        agreement <- eventually {
-          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
-        }
+        agreement <- alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, receiver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
-        tree <- eventually {
-          beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
-        }
+        tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
       } yield {
         val contract = assertSingleton("AcceptTriProposal", createdEvents(tree))
         assertEquals(
@@ -66,9 +62,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
         beta.exerciseAndGetContract(giver, agreementFactory.exerciseAgreementFactoryAccept)
       triProposalTemplate = TriProposal(operator, giver, giver)
       triProposal <- alpha.create(operator, triProposalTemplate)
-      tree <- eventually {
-        beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
-      }
+      tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
     } yield {
       val contract = assertSingleton("AcceptTriProposalCoinciding", createdEvents(tree))
       assertEquals(
@@ -120,9 +114,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
         // TODO eventually is a temporary workaround. It should take into account
         // TODO that the contract needs to hit the target node before a choice
         // TODO is executed on it.
-        agreement <- eventually {
-          alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
-        }
+        agreement <- alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, giver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         _ <- eventually {
