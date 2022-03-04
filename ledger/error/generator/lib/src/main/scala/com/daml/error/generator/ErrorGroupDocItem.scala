@@ -11,7 +11,7 @@ import com.daml.error.{ErrorClass, Explanation}
   * @param explanation The detailed error explanation.
   * @param errorClass Hierarchical grouping of this error group.
   */
-case class GroupDocItem(
+case class ErrorGroupDocItem(
     className: String,
     explanation: Option[Explanation],
     errorClass: ErrorClass,

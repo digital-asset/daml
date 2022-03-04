@@ -281,4 +281,3 @@ case class Explanation(explanation: String) extends StaticAnnotation
 case class Resolution(resolution: String) extends StaticAnnotation
 case class Description(description: String) extends StaticAnnotation
 case class RetryStrategy(retryStrategy: String) extends StaticAnnotation
-case class DeprecatedDocs(deprecation: String) extends StaticAnnotation

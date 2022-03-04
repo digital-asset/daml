@@ -1048,9 +1048,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Explanation("An invalid transaction submission was not detected by the participant.")
     @Resolution("Contact support.")
     @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-    @DeprecatedDocs(
-      "Corresponds to transaction submission rejections that are not produced anymore."
-    )
     object Disputed
         extends ErrorCode(
           id = "DISPUTED",
@@ -1071,9 +1068,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       "Inspect the error message and retry after after correcting the underlying issue."
     )
     @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-    @DeprecatedDocs(
-      "Corresponds to transaction submission rejections that are not produced anymore."
-    )
     object OutOfQuota
         extends ErrorCode(id = "OUT_OF_QUOTA", ErrorCategory.ContentionOnSharedResources) {
       case class Reject(reason: String)(implicit
