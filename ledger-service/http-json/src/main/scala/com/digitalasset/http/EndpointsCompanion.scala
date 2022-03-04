@@ -291,13 +291,13 @@ object EndpointsCompanion {
     for {
       token <- EitherT.either(decodeAndParseJwt(jwt, decodeJwt))
       p <- token match {
-        case standardToken @ StandardJWTPayload(_, _, _) =>
+        case standardToken: StandardJWTPayload =>
           createFromUserToken(
             standardToken,
             userId => userManagementClient.listUserRights(userId, Some(jwt.value)),
             () => ledgerIdentityClient.getLedgerId(Some(jwt.value)),
           ).leftMap(identity[Error])
-        case customToken @ CustomDamlJWTPayload(_, _, _, _, _, _, _) =>
+        case customToken: CustomDamlJWTPayload =>
           EitherT.either(createFromCustomToken(customToken): Error \/ A)
       }
     } yield (jwt, p: A)
