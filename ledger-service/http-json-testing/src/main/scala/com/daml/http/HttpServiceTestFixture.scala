@@ -316,15 +316,15 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def jwtForParties(
       actAs: List[String],
       readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
+      ledgerIdOpt: Option[String],
+      withoutNamespace: Boolean,
+      admin: Boolean,
   ): Jwt = {
     import AuthServiceJWTCodec.JsonImplicits._
     val payload =
       if (withoutNamespace)
         s"""{
-               |  "ledgerId": "$ledgerId",
+               |  ${ledgerIdOpt.map(it => s""""ledgerId": "$it",""").getOrElse("")}
                |  "applicationId": "test",
                |  "exp": 0,
                |  "admin": $admin,
@@ -334,7 +334,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
               """.stripMargin
       else
         (CustomDamlJWTPayload(
-          ledgerId = Some(ledgerId),
+          ledgerId = ledgerIdOpt,
           applicationId = Some("test"),
           actAs = actAs,
           participantId = None,
@@ -352,6 +352,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       )
       .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
   }
+
+  def jwtForParties(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+      admin: Boolean = false,
+  ): Jwt = jwtForParties(actAs, readAs, Some(ledgerId), withoutNamespace, admin)
 
   def headersWithPartyAuth(
       actAs: List[String],
