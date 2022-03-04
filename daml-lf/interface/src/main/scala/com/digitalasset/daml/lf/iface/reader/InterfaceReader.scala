@@ -12,6 +12,7 @@ import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.std.list._
+import scalaz.std.map._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.ImmArray.ImmArraySeq
@@ -125,23 +126,27 @@ object InterfaceReader {
   ): Errors[ErrorLoc, InvalidDataTypeDefinition] =
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
-  private[reader] def foldModule(module: Ast.Module): State =
-    (module.definitions foldLeft State()) {
-      case (state, (name, Ast.DDataType(true, params, dataType))) =>
+  private[reader] def foldModule(module: Ast.Module): State = {
+    val (errors, elements) = (module.definitions: Iterable[(Ref.DottedName, Ast.Definition)])
+      .collect { case (name, Ast.DDataType(true, params, dataType)) =>
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: InterfaceReaderError \/ Option[(QualifiedName, iface.InterfaceType)] =
+        val result: InterfaceReaderError \/ Either[
+          (QualifiedName, DefInterface.FWT),
+          (QualifiedName, iface.InterfaceType),
+        ] =
           dataType match {
             case dfn: Ast.DataRecord =>
-              module.templates.get(name) match {
+              val it = module.templates.get(name) match {
                 case Some(tmpl) => template(fullName, dfn, tmpl)
                 case None => record(fullName, tyVars, dfn)
               }
+              it.map(Right(_))
             case dfn: Ast.DataVariant =>
-              variant(fullName, tyVars, dfn)
+              variant(fullName, tyVars, dfn).map(Right(_))
             case dfn: Ast.DataEnum =>
-              enumeration(fullName, tyVars, dfn)
+              enumeration(fullName, tyVars, dfn).map(Right(_))
             case Ast.DataInterface =>
               module.interfaces
                 .get(name)
@@ -150,19 +155,17 @@ object InterfaceReader {
                     s"missing interface definition: $fullName"
                   ): InterfaceReaderError
                 )
-                .flatMap(astInterface(fullName, tyVars, _))
+                .flatMap(astInterface(fullName, _))
+                .map(Left(_))
           }
+        locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
+      }
+      .partitionMap(identity)
+    val (astIfs @ _, ddts) = elements partitionMap identity // TODO SC use astIfs
 
-        locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {
-          case -\/(e) =>
-            state.addError(e)
-          case \/-(Some(d)) =>
-            state.addTypeDecl(d)
-          case \/-(None) => state
-        }
-      case (state, _) =>
-        state
-    }
+    import scalaz.std.iterable._
+    State(typeDecls = ddts.toMap, errors = errors.suml)
+  }
 
   private[reader] def record[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
@@ -171,7 +174,7 @@ object InterfaceReader {
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-    } yield Some(name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T))
+    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
 
   private[reader] def template[T >: iface.InterfaceType.Template](
       name: QualifiedName,
@@ -184,12 +187,10 @@ object InterfaceReader {
         visitChoice(name, choice) map (x => choiceName -> x)
       }
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-    } yield Some(
-      name -> (iface.InterfaceType.Template(
-        Record(fields),
-        DefTemplate(choices.toMap, key),
-      ): T)
-    )
+    } yield name -> (iface.InterfaceType.Template(
+      Record(fields),
+      DefTemplate(choices.toMap, key),
+    ): T)
 
   private def visitChoice(
       ctx: QualifiedName,
@@ -211,20 +212,18 @@ object InterfaceReader {
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
-    } yield Some(name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T))
+    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
   }
 
   private[reader] def enumeration[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enumeration: Ast.DataEnum,
-  ): InterfaceReaderError \/ Some[(QualifiedName, T)] =
+  ): InterfaceReaderError \/ (QualifiedName, T) =
     if (tyVars.isEmpty)
       \/-(
-        Some(
-          name -> iface.InterfaceType.Normal(
-            DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
-          )
+        name -> iface.InterfaceType.Normal(
+          DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
         )
       )
     else
@@ -241,7 +240,6 @@ object InterfaceReader {
   @annotation.nowarn("cat=unused&msg=(name|tyVars|astIf)") // TODO SC remove
   private[this] def astInterface(
       name: QualifiedName,
-      tyVars: ImmArraySeq[Ast.TypeVarName],
       astIf: Ast.DefInterface,
   ) = \/-(None)
   // TODO https://github.com/digital-asset/daml/issues/12051
