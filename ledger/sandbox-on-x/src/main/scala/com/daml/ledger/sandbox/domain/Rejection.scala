@@ -31,13 +31,12 @@ private[sandbox] sealed trait Rejection extends Product with Serializable {
 private[sandbox] object Rejection {
 
   final case class DuplicateKey(key: GlobalKey)(
-      val completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      val completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.duplicateContractKey(
+      ErrorFactories.CommandRejections.duplicateContractKey(
         reason = "DuplicateKey: contract key is not unique",
         key = key,
       )
@@ -46,11 +45,11 @@ private[sandbox] object Rejection {
   final case class InconsistentContractKey(
       expectation: Option[ContractId],
       result: Option[ContractId],
-  )(val completionInfo: CompletionInfo, errorFactories: ErrorFactories)(implicit
+  )(val completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.inconsistentContractKeys(expectation, result)
+      ErrorFactories.CommandRejections.inconsistentContractKeys(expectation, result)
   }
 
   final case class LedgerBridgeInternalError(_err: Throwable, completionInfo: CompletionInfo)(
@@ -99,33 +98,31 @@ private[sandbox] object Rejection {
   final case class CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Timestamp,
       transactionLedgerEffectiveTime: Timestamp,
-  )(val completionInfo: CompletionInfo, errorFactories: ErrorFactories)(implicit
+  )(val completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.invalidLedgerTime(
+      ErrorFactories.CommandRejections.invalidLedgerTime(
         s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
       )
   }
 
   final case class UnknownContracts(ids: Set[ContractId])(
-      val completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      val completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.contractsNotFound(ids.map(_.coid))
+      ErrorFactories.CommandRejections.contractsNotFound(ids.map(_.coid))
   }
 
   final case class UnallocatedParties(unallocatedParties: Set[String])(
-      val completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      val completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
+      ErrorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
   }
 
   final case class DuplicateCommand(
@@ -157,12 +154,11 @@ private[sandbox] object Rejection {
   }
 
   final case class NoLedgerConfiguration(
-      completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = errorFactories.missingLedgerConfig(
+    override def toStatus: Status = ErrorFactories.missingLedgerConfig(
       "Cannot validate ledger time"
     )
   }
@@ -170,12 +166,10 @@ private[sandbox] object Rejection {
   final case class InvalidLedgerTime(
       completionInfo: CompletionInfo,
       outOfRange: LedgerTimeModel.OutOfRange,
-  )(
-      errorFactories: ErrorFactories
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = errorFactories.CommandRejections.invalidLedgerTime(
+    override def toStatus: Status = ErrorFactories.CommandRejections.invalidLedgerTime(
       outOfRange.ledgerTime.toInstant,
       outOfRange.lowerBound.toInstant,
       outOfRange.upperBound.toInstant,

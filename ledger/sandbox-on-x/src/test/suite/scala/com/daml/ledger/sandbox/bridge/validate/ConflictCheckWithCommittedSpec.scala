@@ -23,7 +23,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.server.api.validation.ErrorFactories
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -154,14 +153,11 @@ class ConflictCheckWithCommittedSpec
       DamlContextualizedErrorLogger.forTesting(getClass)
 
     val indexServiceMock: IndexService = mock[IndexService]
-    val errorFactories: ErrorFactories =
-      ErrorFactories()
 
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(
         indexService = indexServiceMock,
         bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry())),
-        errorFactories = errorFactories,
       )(scala.concurrent.ExecutionContext.global)
 
     val inputContract: ContractId = cid(1)

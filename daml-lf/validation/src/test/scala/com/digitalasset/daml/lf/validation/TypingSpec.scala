@@ -1000,7 +1000,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , observers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                method getParties = \(self: NegativeTestCase:T) -> Cons @Party [NegativeTestCase:T {person} self] (Nil @Party);
+                method getParties = Cons @Party [NegativeTestCase:T {person} this] (Nil @Party);
               };
               key @Mod:Key
                   (Mod:Key { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
@@ -1240,7 +1240,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                method getParties = \(self: PositiveCase_InterfaceMethodShouldBeProperType:T) -> (); // should Be of type
+                method getParties = (); // should be of type List Party
               };
             };
           }
@@ -1273,9 +1273,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
-                method getParties = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) ->
+                method getParties =
                   Cons @Party [(PositiveCase_ImplementsShouldOverrideOnlyMethods:T {person} this)] (Nil @Party);
-                method getName = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) ->
+                method getName =
                   PositiveCase_ImplementsShouldOverrideOnlyMethods:T {name} this;
               };
             };

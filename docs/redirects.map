@@ -5,8 +5,8 @@ daml.html -> /daml/reference/index.html
 daml/reference/template-reference.html -> /daml/reference/index.html
 daml/anti-patterns.html
 daml/models-versus-application.html
-daml/stdlib/base.html -> daml/stdlib/index.html
-daml/reference/base.html -> daml/stdlib/index.html
+daml/stdlib/base.html -> /daml/stdlib/index.html
+daml/reference/base.html -> /daml/stdlib/index.html
 concepts.html -> /concepts/ledger-model/index.html
 getting-started.html -> /getting-started/index.html
 packages/da-docs-example-upgrade/index.html -> /examples/upgrade/index.html
@@ -798,7 +798,7 @@ daml/intro/11_Testing.html -> /daml/intro/12_Testing.html
 daml-script/daml-script-docs.html -> /daml-script/api/index.html
 triggers/trigger-docs.html -> /triggers/api/index.html
 support.html -> /support/support.html
-release-notes.html -> support/releases.html#release-notes
-support/release-notes.html -> support/releases.html#release-notes
-support/roadmap.html -> support/releases.html#roadmap
-getting-started/testing.html -> app-dev/bindings-ts/testing.html
+release-notes.html -> /support/releases.html#release-notes
+support/release-notes.html -> /support/releases.html#release-notes
+support/roadmap.html -> /support/releases.html#roadmap
+app-dev/bindings-ts/testing.html -> /getting-started/testing.html

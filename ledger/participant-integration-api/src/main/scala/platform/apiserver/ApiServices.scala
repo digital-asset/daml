@@ -116,14 +116,13 @@ private[daml] object ApiServices {
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
       for {
-        ledgerId <- Resource.fromFuture(indexService.getLedgerId())
         currentLedgerConfiguration <- configurationInitializer.initialize(
           initialLedgerConfiguration = initialLedgerConfiguration,
           configurationLoadTimeout = ScalaDuration.fromNanos(configurationLoadTimeout.toNanos),
         )
         services <- Resource(
           Future(
-            createServices(ledgerId, currentLedgerConfiguration, checkOverloaded)(
+            createServices(identityService.ledgerId, currentLedgerConfiguration, checkOverloaded)(
               servicesExecutionContext
             )
           )
@@ -147,7 +146,7 @@ private[daml] object ApiServices {
         ApiTransactionService.create(ledgerId, transactionsService, metrics)
 
       val apiLedgerIdentityService =
-        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
+        ApiLedgerIdentityService.create(ledgerId)
 
       val apiVersionService =
         ApiVersionService.create(

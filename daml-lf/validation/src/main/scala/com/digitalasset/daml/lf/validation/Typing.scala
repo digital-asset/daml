@@ -443,13 +443,13 @@ private[validation] object Typing {
       env.checkExpr(observers, TParties)
       env.checkExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
+      env.checkIfaceImplementations(tplName, implementations)
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkExpr(key.body, key.typ)
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
-      env.checkIfaceImplementations(tplName, implementations)
     }
 
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
@@ -509,7 +509,7 @@ private[validation] object Typing {
             case None =>
               throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interfaceId, tplMethod.name)
             case Some(method) =>
-              checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
+              checkExpr(tplMethod.value, method.returnType)
           }
         }
       }

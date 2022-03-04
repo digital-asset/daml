@@ -8,7 +8,6 @@ import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.any.Any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
@@ -75,13 +74,10 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
       implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
         DamlContextualizedErrorLogger.forTesting(getClass)
 
-      val errorFactories = ErrorFactories()
-
       "convert queue completion failure" in {
         val exception =
           CompletionResponse.toException(
-            QueueCompletionFailure(TimeoutResponse(commandId)),
-            errorFactories,
+            QueueCompletionFailure(TimeoutResponse(commandId))
           )
         exception.getStatus.getCode shouldBe Code.DEADLINE_EXCEEDED
       }
@@ -93,8 +89,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         )
         val exception =
           CompletionResponse.toException(
-            QueueSubmitFailure(status),
-            errorFactories,
+            QueueSubmitFailure(status)
           )
         exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
       }
@@ -114,8 +109,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
               ),
               None,
             )
-          ),
-          errorFactories,
+          )
         )
         val status = protobuf.StatusProto.fromThrowable(exception)
         val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
@@ -144,8 +138,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
               ),
               None,
             )
-          ),
-          errorFactories,
+          )
         )
         val status = protobuf.StatusProto.fromThrowable(exception)
         val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
@@ -174,8 +167,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
               ),
               None,
             )
-          ),
-          errorFactories,
+          )
         )
 
         val status = protobuf.StatusProto.fromThrowable(exception)

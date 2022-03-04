@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.admin.user_management_service.{
@@ -15,7 +16,6 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   DeleteUserResponse,
   User,
 }
-import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -70,10 +70,7 @@ trait UserManagementTestContext {
           )
           .map(_ => ())
           .recover {
-            case e: StatusRuntimeException
-                if e.getStatus.getDescription.startsWith(
-                  LedgerApiErrors.AdminServices.UserNotFound.id
-                ) =>
+            case e if ErrorDetails.matches(e, LedgerApiErrors.AdminServices.UserNotFound) =>
               ()
           }
       )

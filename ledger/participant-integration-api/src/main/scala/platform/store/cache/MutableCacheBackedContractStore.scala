@@ -12,7 +12,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.events.ContractStateEvent
 import com.daml.platform.store.appendonlydao.events.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.cache.ContractKeyStateValue._
@@ -147,10 +147,7 @@ private[platform] class MutableCacheBackedContractStore(
   ) = {
     val currentCacheSequentialId = cacheIndex()._2
     val fetchStateRequest =
-      Timed.future(
-        metrics.daml.index.lookupContract,
-        contractsReader.lookupContractState(contractId, currentCacheSequentialId),
-      )
+      contractsReader.lookupContractState(contractId, currentCacheSequentialId)
     val eventualValue = fetchStateRequest.map(toContractCacheValue)
 
     for {

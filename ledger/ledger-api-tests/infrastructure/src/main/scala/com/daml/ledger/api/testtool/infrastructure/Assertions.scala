@@ -64,6 +64,10 @@ object Assertions {
     )
   }
 
+  def assertIsEmpty(actual: Iterable[_]): Unit = {
+    assertSameElements(actual, Seq.empty)
+  }
+
   def assertGrpcError(
       t: Throwable,
       errorCode: ErrorCode,

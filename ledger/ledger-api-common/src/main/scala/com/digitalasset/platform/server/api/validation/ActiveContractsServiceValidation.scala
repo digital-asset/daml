@@ -23,7 +23,6 @@ import scala.concurrent.ExecutionContext
 class ActiveContractsServiceValidation(
     protected val service: ActiveContractsService with AutoCloseable,
     val ledgerId: LedgerId,
-    fieldValidations: FieldValidations,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ActiveContractsService
     with ProxyCloseable
@@ -37,7 +36,7 @@ class ActiveContractsServiceValidation(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit =
-    fieldValidations
+    FieldValidations
       .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .fold(
         t => responseObserver.onError(ValidationLogger.logFailure(request, t)),

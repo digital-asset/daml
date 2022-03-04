@@ -33,7 +33,6 @@ final class Authorizer(
     akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
   private implicit val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
@@ -204,7 +203,7 @@ final class Authorizer(
         case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
-            errorFactories.invalidArgument(
+            ErrorFactories.invalidArgument(
               "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
             )
           )
@@ -214,7 +213,7 @@ final class Authorizer(
   private def authorizationErrorAsGrpc[T](
       errOrV: Either[AuthorizationError, T]
   ): Either[StatusRuntimeException, T] =
-    errOrV.fold(err => Left(errorFactories.permissionDenied(err.reason)), Right(_))
+    errOrV.fold(err => Left(ErrorFactories.permissionDenied(err.reason)), Right(_))
 
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
@@ -233,7 +232,6 @@ final class Authorizer(
     observer = observer,
     originalClaims = claims,
     nowF = now,
-    errorFactories = errorFactories,
     userManagementStore = userManagementStore,
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
     akkaScheduler = akkaScheduler,
@@ -249,10 +247,10 @@ final class Authorizer(
       .extractClaimSetFromContext()
       .flatMap({
         case ClaimSet.Unauthenticated =>
-          Failure(errorFactories.unauthenticatedMissingJwtToken())
+          Failure(ErrorFactories.unauthenticatedMissingJwtToken())
         case authenticatedUser: ClaimSet.AuthenticatedUser =>
           Failure(
-            errorFactories.internalAuthenticationError(
+            ErrorFactories.internalAuthenticationError(
               s"Unexpected unresolved authenticated user claim",
               new RuntimeException(
                 s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"

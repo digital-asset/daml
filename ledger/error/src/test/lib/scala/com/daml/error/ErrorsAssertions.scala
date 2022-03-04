@@ -4,6 +4,7 @@
 package com.daml.error
 
 import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.ErrorDetails.ErrorInfoDetail
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
@@ -11,18 +12,39 @@ import com.daml.scalautil.Statement
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import org.scalatest.{Assertion, OptionValues}
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 import org.scalatest.Checkpoints.Checkpoint
 
-trait ErrorsAssertions {
-  self: Matchers =>
+trait ErrorsAssertions extends Matchers with OptionValues {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+  /** NOTE: This method is not suitable for:
+    * 1) security sensitive error codes (e.g. internal or authentication related) as they are stripped from all the details when being converted to instances of [[StatusRuntimeException]],
+    * 2) error codes that do not translate to gRPC level errors (i.e. error codes that don't have a corresponding gRPC status)
+    */
+  def assertMatchesErrorCode(
+      actual: StatusRuntimeException,
+      expectedErrorCode: ErrorCode,
+  ): Assertion = {
+    val actualErrorCodeId = ErrorDetails.from(actual).collectFirst {
+      case ErrorInfoDetail(errorCodeId, _) => errorCodeId
+    }
+    val actualDescription = Option(actual.getStatus.getDescription)
+    val actualStatusCode = actual.getStatus.getCode
+    val cp = new Checkpoint
+    cp { Statement.discard { actualErrorCodeId.value shouldBe expectedErrorCode.id } }
+    cp { Statement.discard { Some(actualStatusCode) shouldBe expectedErrorCode.category.grpcCode } }
+    cp { Statement.discard { actualDescription.value should startWith(expectedErrorCode.id) } }
+    cp.reportAll()
+    succeed
+  }
 
   def assertError(
       actual: StatusRuntimeException,

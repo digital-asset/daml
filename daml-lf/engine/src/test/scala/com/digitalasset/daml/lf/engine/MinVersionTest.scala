@@ -29,8 +29,8 @@ import com.daml.ledger.runner.common.{
   ParticipantIndexerConfig,
   ParticipantRunMode,
 }
-import com.daml.ledger.on.memory.Owner
 import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
@@ -144,9 +144,9 @@ final class MinVersionTest
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- Owner(
+        _ <- SandboxOnXRunner.owner(
           Config
-            .createDefault(())
+            .createDefault[BridgeConfig](BridgeConfigProvider.defaultExtraConfig)
             .copy(
               participants = Seq(participant),
               // Bump min version to 1.14 and check that older stable packages are still accepted.

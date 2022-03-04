@@ -31,9 +31,9 @@ template Asset
     signatory owner
 
     implements Token where
-      let getOwner = owner
-      let getAmount = amount
-      let setAmount = \x -> toInterface @Token (this with amount = x)
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
 
 exception GuardException
     with

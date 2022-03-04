@@ -21,7 +21,6 @@ private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     originalClaims: ClaimSet.Claims,
     nowF: () => Instant,
-    errorFactories: ErrorFactories,
     userRightsCheckerO: Option[UserRightsChangeAsyncChecker],
     userRightsCheckIntervalInSeconds: Int,
     lastUserRightsCheckTime: AtomicReference[Instant],
@@ -114,7 +113,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
       .notExpired(now)
       .left
       .map(authorizationError =>
-        errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+        ErrorFactories.permissionDenied(authorizationError.reason)(errorLogger)
       )
 
   private def staleStreamAuthError: StatusRuntimeException =
@@ -134,7 +133,6 @@ private[auth] object OngoingAuthorizationObserver {
       observer: ServerCallStreamObserver[A],
       originalClaims: ClaimSet.Claims,
       nowF: () => Instant,
-      errorFactories: ErrorFactories,
       userManagementStore: UserManagementStore,
       userRightsCheckIntervalInSeconds: Int,
       akkaScheduler: Scheduler,
@@ -158,7 +156,6 @@ private[auth] object OngoingAuthorizationObserver {
       observer = observer,
       originalClaims = originalClaims,
       nowF = nowF,
-      errorFactories = errorFactories,
       userRightsCheckerO = userRightsCheckerO,
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       lastUserRightsCheckTime = lastUserRightsCheckTime,

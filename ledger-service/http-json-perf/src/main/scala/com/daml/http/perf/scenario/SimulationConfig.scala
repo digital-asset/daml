@@ -32,4 +32,5 @@ private[scenario] trait SimulationConfig {
 object SimulationConfig {
   val HostAndPortKey = "com.daml.http.perf.hostAndPort"
   val JwtKey = "com.daml.http.perf.jwt"
+  val LedgerId = "MyLedger"
 }

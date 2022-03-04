@@ -365,6 +365,13 @@ object SExpr {
     }
   }
 
+  final case class SEPreventCatch(body: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KPreventException(machine))
+      machine.ctrl = body
+    }
+  }
+
   /** Case patterns */
   sealed trait SCasePat {
 

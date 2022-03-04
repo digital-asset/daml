@@ -102,3 +102,24 @@ version that has been marked as a non-prerelease on Github.
 ## Testing code in docs
 
 TBD
+
+## Building the assembly repo against HEAD
+
+Especially for changes to the table of contents, it can often be
+useful to see the final version of the docs that is built by the
+assembly repo based on the current HEAD of the daml repository. For
+that, you can build and copy the artifacts from the Daml repository to
+the `download` directory of the assembly repository as follows:
+
+
+```
+./docs/scripts/copy-assembly path/to/assembly/docs/download
+```
+
+Afterwards, you can use the usual commands from the [assembly
+repository](https://github.com/DACH-NY/assembly/blob/main/docs/README.md)
+to build documentation where you use `0.0.0` as the SDK version, e.g.,
+
+```
+./live-preview.sh 0.0.0 2.0.0-rc9
+```

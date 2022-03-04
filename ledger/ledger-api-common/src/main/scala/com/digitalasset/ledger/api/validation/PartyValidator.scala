@@ -9,14 +9,12 @@ import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations
 import io.grpc.StatusRuntimeException
 
 class PartyValidator(
-    partyNameChecker: PartyNameChecker,
-    errorFactories: ErrorFactories,
-    fieldValidations: FieldValidations,
+    partyNameChecker: PartyNameChecker
 ) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  import errorFactories.invalidArgument
-  import fieldValidations.requireParties
+  import ErrorFactories.invalidArgument
+  import FieldValidations.requireParties
 
   def requireKnownParties(
       parties: Iterable[String]
