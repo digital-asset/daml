@@ -27,6 +27,8 @@
 
 1. Merge the PR and wait for the corresponding `main` build to finish.
 
+1. Go back to the general [release instructions](RELEASE.md).
+
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
 [DACH-NY/assembly]: https://github.com/DACH-NY/assembly
 [digital-asset/daml]: https://github.com/digital-asset/daml
