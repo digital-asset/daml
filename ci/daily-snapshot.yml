@@ -32,13 +32,20 @@ jobs:
         prefix=$(head -1 LATEST | awk '{print $2}' | sed -e 's/\([^-]*\).*/\1/')
         release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
 
-        setvar is_release true
-        setvar trigger_sha "$(branch_sha)"
-        setvar release_sha "$(branch_sha)"
-        setvar release_tag "$release"
-        setvar split_release_process true
+        if ! curl -u $AUTH https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release --fail; then
+            setvar is_release true
+            setvar trigger_sha "$(branch_sha)"
+            setvar release_sha "$(branch_sha)"
+            setvar release_tag "$release"
+            setvar split_release_process true
+        else
+            echo "Version $release already exists on Artifactory, aborting."
+            setvar is_release false
+        fi
         setvar scala_2_13 true
       name: out
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
 - template: build.yml
 - template: split-release-job.yml
 - job: release
