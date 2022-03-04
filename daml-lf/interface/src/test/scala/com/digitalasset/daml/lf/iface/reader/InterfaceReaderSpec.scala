@@ -201,7 +201,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    "TODO SC remove" in {
+    "load without errors" in {
       itp shouldBe itp
     }
   }
