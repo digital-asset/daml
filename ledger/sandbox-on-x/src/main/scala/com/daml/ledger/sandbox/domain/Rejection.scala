@@ -165,14 +165,13 @@ private[sandbox] object Rejection {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = {
+    override def toStatus: Status =
       LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
         .Reject(
           s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
           Some(maxDeduplicationDuration),
         )
         .rpcStatus(None)
-    }
   }
 
   final case class NoLedgerConfiguration(
