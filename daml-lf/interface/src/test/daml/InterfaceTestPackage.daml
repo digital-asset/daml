@@ -13,14 +13,14 @@ template Foo with
         return ()
 
     implements TIf where
-      dup = create this <* exercise Archive self
+      getOwner = party
+      dup = toInterfaceContractId <$> create this
 
-interface TIf t
-  dup: ContractId t -> Update (ContractId t)
-  choice Useless: (ContractId t, ContractId TIf) with
-      concrete: ContractId t
+interface TIf where
+  getOwner: Party
+  dup: Update (ContractId TIf)
+  choice Useless: ContractId TIf with
       interfacely: ContractId TIf
     controller getOwner this
     do
-      tid <- dup concrete
-      return (tid, toInterfaceContractId tid)
+      dup this
