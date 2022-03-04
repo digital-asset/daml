@@ -9,9 +9,11 @@ import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import EndpointsCompanion._
 import Endpoints.ET
+import com.daml.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.auth.StandardJWTPayload
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Monad, \/, \/-}
@@ -209,12 +211,11 @@ private[http] object UserManagement {
   private def decodeAndParseUserIdFromToken(rawJwt: Jwt, decodeJwt: ValidateJwt)(implicit
       mf: Monad[Future]
   ): ET[UserId] =
-    for {
-      decodedJwt <- EitherT.either(decodeJwt(rawJwt): Error \/ DecodedJwt[String])
-      result <- EitherT.either(
-        CreateFromUserToken.parseUserIdFromToken(decodedJwt): Error \/ UserId
-      )
-    } yield result
+    EitherT.either(decodeAndParseJwt(rawJwt, decodeJwt).flatMap {
+      case token @ StandardJWTPayload(_, _, _) => userIdFromToken(token)
+      case _ =>
+        -\/(Unauthorized("A user token was expected but a custom token was given"): Error)
+    })
 
   private val emptyObjectResponse: domain.SyncResponse[spray.json.JsObject] =
     domain.OkResponse(spray.json.JsObject())
