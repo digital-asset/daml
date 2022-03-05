@@ -60,15 +60,6 @@ object InterfaceReader {
       astInterfaces: Map[QualifiedName, iface.DefInterface.FWT] = Map.empty,
       errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree],
   ) {
-
-    def addTypeDecl(nd: (Ref.QualifiedName, iface.InterfaceType)): State =
-      copy(typeDecls + nd)
-
-    def addError(e: InterfaceReaderError.Tree): State = alterErrors(_ |+| e)
-
-    def alterErrors(e: InterfaceReaderError.Tree => InterfaceReaderError.Tree): State =
-      copy(errors = e(errors))
-
     def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): iface.Interface =
       iface.Interface(packageId, metadata, typeDecls, astInterfaces)
   }
