@@ -204,6 +204,17 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     "load without errors" in {
       itp shouldBe itp
     }
+
+    "have an interface with a choice" in {
+      itp.main.astInterfaces should ===(
+        Map[QualifiedName, DefInterface.FWT](
+          QualifiedName.assertFromString("InterfaceTestPackage:TIf") ->
+            DefInterface(
+              Map(Ref.ChoiceName.assertFromString("Useless") -> TemplateChoice(null, true, null))
+            )
+        )
+      )
+    }
   }
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
