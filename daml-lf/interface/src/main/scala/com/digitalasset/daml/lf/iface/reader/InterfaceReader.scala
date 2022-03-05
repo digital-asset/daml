@@ -57,6 +57,7 @@ object InterfaceReader {
 
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, iface.InterfaceType] = Map.empty,
+      astInterfaces: Map[QualifiedName, iface.DefInterface.FWT] = Map.empty,
       errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree],
   ) {
 
@@ -69,12 +70,20 @@ object InterfaceReader {
       copy(errors = e(errors))
 
     def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): iface.Interface =
-      iface.Interface(packageId, metadata, this.typeDecls)
+      iface.Interface(packageId, metadata, typeDecls, astInterfaces)
   }
 
   private[reader] object State {
     implicit val stateMonoid: Monoid[State] =
-      Monoid.instance((l, r) => State(l.typeDecls ++ r.typeDecls, l.errors |+| r.errors), State())
+      Monoid.instance(
+        (l, r) =>
+          State(
+            l.typeDecls ++ r.typeDecls,
+            l.astInterfaces ++ r.astInterfaces,
+            l.errors |+| r.errors,
+          ),
+        State(),
+      )
   }
 
   def readInterface(
@@ -95,7 +104,7 @@ object InterfaceReader {
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
-  private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty)
+  private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty, Map.empty)
 
   def readInterface(
       f: () => String \/ (PackageId, Ast.Package)
@@ -161,10 +170,10 @@ object InterfaceReader {
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
       }
       .partitionMap(identity)
-    val (astIfs @ _, ddts) = elements partitionMap identity // TODO SC use astIfs
+    val (astIfs, ddts) = elements partitionMap identity
 
     import scalaz.std.iterable._
-    State(typeDecls = ddts.toMap, errors = errors.suml)
+    State(typeDecls = ddts.toMap, astInterfaces = astIfs.toMap, errors = errors.suml)
   }
 
   private[reader] def record[T >: iface.InterfaceType.Normal](

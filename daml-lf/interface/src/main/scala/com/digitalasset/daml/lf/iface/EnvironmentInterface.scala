@@ -15,17 +15,22 @@ import scalaz.Semigroup
 final case class EnvironmentInterface(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, InterfaceType],
+    astInterfaces: Map[Identifier, DefInterface.FWT],
 )
 
 object EnvironmentInterface {
   def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface = {
-    val typeDecls = (i +: o).iterator.flatMap { case Interface(packageId, _, typeDecls) =>
+    val typeDecls = (i +: o).iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
-    val metadata = (i +: o).iterator.flatMap { case Interface(packageId, metadata, _) =>
+    val astInterfaces = (i +: o).iterator.flatMap {
+      case Interface(packageId, _, _, astInterfaces) =>
+        astInterfaces mapKeys (Identifier(packageId, _))
+    }.toMap
+    val metadata = (i +: o).iterator.flatMap { case Interface(packageId, metadata, _, _) =>
       metadata.iterator.map(md => packageId -> md)
     }.toMap
-    EnvironmentInterface(metadata, typeDecls)
+    EnvironmentInterface(metadata, typeDecls, astInterfaces)
   }
 
   def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
@@ -33,6 +38,10 @@ object EnvironmentInterface {
 
   implicit val environmentInterfaceSemigroup: Semigroup[EnvironmentInterface] = Semigroup instance {
     (f1, f2) =>
-      EnvironmentInterface(f1.metadata ++ f2.metadata, f1.typeDecls ++ f2.typeDecls)
+      EnvironmentInterface(
+        f1.metadata ++ f2.metadata,
+        f1.typeDecls ++ f2.typeDecls,
+        f1.astInterfaces ++ f2.astInterfaces,
+      )
   }
 }

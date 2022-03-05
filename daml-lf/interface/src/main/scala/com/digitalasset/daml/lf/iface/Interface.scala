@@ -58,8 +58,10 @@ final case class Interface(
     packageId: PackageId,
     metadata: Option[PackageMetadata],
     typeDecls: Map[QualifiedName, InterfaceType],
+    astInterfaces: Map[QualifiedName, DefInterface.FWT],
 ) {
   def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
+  def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = astInterfaces.asJava
 }
 
 object Interface {
