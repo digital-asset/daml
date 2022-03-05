@@ -11,7 +11,6 @@ import com.daml.error.ErrorsAssertions
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.LoggingContext
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
@@ -50,7 +49,6 @@ class OngoingAuthorizationObserverSpec
         applicationId = Some("some_user_id"),
       ),
       nowF = clock.instant,
-      errorFactories = mock[ErrorFactories],
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,

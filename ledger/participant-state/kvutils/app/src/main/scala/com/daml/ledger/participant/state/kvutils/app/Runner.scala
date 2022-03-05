@@ -39,7 +39,6 @@ import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
@@ -64,8 +63,7 @@ final class Runner[T <: ReadWriteService, Extra](
       val config = configProvider.manipulateConfig(originalConfig)
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
-          val errorFactories = ErrorFactories()
-          DumpIndexMetadata(jdbcUrls, errorFactories, name)
+          DumpIndexMetadata(jdbcUrls, name)
           sys.exit(0)
         case Mode.Run =>
           run(config)

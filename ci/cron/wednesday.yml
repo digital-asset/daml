@@ -88,4 +88,4 @@ jobs:
       rotate
       open_pr "rotate-after-release-$(date -I)" \
               "rotate release duty after $(date -I)" \
-              "@$NEXT_GH is taking care of testing today's release, so they get pushed back to the end of the line.\n\nPlease do not merge this before the release is fully tested."
+              "@$NEXT_GH is taking care of [testing](https://github.com/digital-asset/daml/blob/main/release/RELEASE.md) today's release, so they get pushed back to the end of the line.\n\nPlease do not merge this before the release is fully tested."

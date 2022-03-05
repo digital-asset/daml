@@ -17,7 +17,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker.QueueInput
 import com.daml.platform.apiserver.services.tracking.QueueBackedTrackerSpec._
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.rpc.status.{Status => StatusProto}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
@@ -56,7 +55,7 @@ class QueueBackedTrackerSpec
   "Tracker Implementation" when {
     "input is submitted, and the queue is available" should {
       "work successfully" in {
-        val tracker = new QueueBackedTracker(queue, Future.successful(Done), mock[ErrorFactories])
+        val tracker = new QueueBackedTracker(queue, Future.successful(Done))
         val completion1F = tracker.track(input(1))
         consumer.requestNext()
         val completion2F = tracker.track(input(2))
@@ -73,7 +72,6 @@ class QueueBackedTrackerSpec
         val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
-          ErrorFactories(),
         )
 
         tracker.track(input(1))
@@ -93,7 +91,6 @@ class QueueBackedTrackerSpec
         val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
-          ErrorFactories(),
         )
         queue.complete()
         tracker.track(input(2)).map { completion =>
@@ -112,7 +109,6 @@ class QueueBackedTrackerSpec
         val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
-          ErrorFactories(),
         )
 
         queue.fail(TestingException("The queue fails with this error."))
@@ -142,7 +138,6 @@ class QueueBackedTrackerSpec
         val tracker = new QueueBackedTracker(
           fakeQueue,
           Future.successful(Done),
-          ErrorFactories(),
         )
 
         tracker.track(input(1))

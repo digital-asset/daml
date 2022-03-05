@@ -15,7 +15,6 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
 }
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.Status.Code._
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
@@ -71,7 +70,6 @@ class TransactionServiceRequestValidatorTest
   private val validator = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
     PartyNameChecker.AllowAllParties,
-    ErrorFactories(),
   )
 
   "TransactionRequestValidation" when {
@@ -438,7 +436,6 @@ class TransactionServiceRequestValidatorTest
       val partyRestrictiveValidator = new TransactionServiceRequestValidator(
         domain.LedgerId(expectedLedgerId),
         PartyNameChecker.AllowPartySet(Set(party)),
-        ErrorFactories(),
       )
 
       val partyWithUnknowns = List("party", "Alice", "Bob")

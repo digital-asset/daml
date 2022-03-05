@@ -40,9 +40,8 @@ class GrpcHealthService(
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val errorFactories = ErrorFactories()
 
-  import errorFactories.invalidArgumentWasNotFound
+  import ErrorFactories.invalidArgumentWasNotFound
 
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, executionContext)

@@ -37,14 +37,9 @@ import scala.annotation.nowarn
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
-  private val errorFactories = ErrorFactories()
-  private val fieldValidations = FieldValidations(errorFactories)
-  private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
-  private val deduplicationValidator = new DeduplicationPeriodValidator(errorFactories)
-
-  import errorFactories._
-  import fieldValidations._
-  import valueValidator._
+  import ErrorFactories._
+  import FieldValidations._
+  import ValueValidator._
 
   def validateCommands(
       commands: ProtoCommands,
@@ -242,12 +237,12 @@ final class CommandsValidator(ledgerId: LedgerId) {
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationValidator
+          DeduplicationPeriodValidator
             .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationValidator
+          DeduplicationPeriodValidator
             .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>

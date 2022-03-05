@@ -9,9 +9,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.DeduplicationPeriod
 import io.grpc.StatusRuntimeException
 
-class DeduplicationPeriodValidator(
-    errorFactories: ErrorFactories
-) {
+object DeduplicationPeriodValidator {
   private val fieldName = "deduplication_period"
 
   def validate(
@@ -33,7 +31,7 @@ class DeduplicationPeriodValidator(
     validateNonNegativeDuration(duration).flatMap { duration =>
       if (duration.compareTo(maxDeduplicationDuration) > 0)
         Left(
-          errorFactories.invalidDeduplicationPeriod(
+          ErrorFactories.invalidDeduplicationPeriod(
             s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
             Some(maxDeduplicationDuration),
           )
@@ -45,7 +43,7 @@ class DeduplicationPeriodValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Duration] = if (duration.isNegative)
     Left(
-      errorFactories
+      ErrorFactories
         .invalidField(
           fieldName,
           "Duration must be positive",

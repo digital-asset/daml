@@ -23,8 +23,7 @@ trait QueryNonPruned {
 }
 
 case class QueryNonPrunedImpl(
-    storageBackend: ParameterStorageBackend,
-    errorFactories: ErrorFactories,
+    storageBackend: ParameterStorageBackend
 ) extends QueryNonPruned {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -59,7 +58,7 @@ case class QueryNonPrunedImpl(
         result
 
       case Some(pruningOffsetUpToInclusive) =>
-        throw errorFactories.participantPrunedDataAccessed(
+        throw ErrorFactories.participantPrunedDataAccessed(
           message = error(pruningOffsetUpToInclusive),
           pruningOffsetUpToInclusive,
         )(

@@ -57,16 +57,13 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories()
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
       packagesIndex,
       packagesWrite,
-      errorFactories,
     ),
     timeToLive = managementServiceTimeout,
-    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()
@@ -176,7 +173,6 @@ private[apiserver] object ApiPackageManagementService {
       ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
       packagesWrite: state.WritePackagesService,
-      errorFactories: ErrorFactories,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         Dar[Archive],
@@ -206,7 +202,7 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        errorFactories.packageUploadRejected(reason)(
+        ErrorFactories.packageUploadRejected(reason)(
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
         )
     }

@@ -100,7 +100,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
 
   override def submit(
       request: SubmitRequest
@@ -123,7 +122,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             .transform(handleSubmissionResult)
         case None =>
           Future.failed(
-            errorFactories.missingLedgerConfig()
+            ErrorFactories.missingLedgerConfig()
           )
       }
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])

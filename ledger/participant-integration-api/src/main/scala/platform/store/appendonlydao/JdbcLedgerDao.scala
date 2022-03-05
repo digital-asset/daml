@@ -54,7 +54,6 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
-    errorFactories: ErrorFactories,
     materializer: Materializer,
 ) extends LedgerDao {
 
@@ -411,7 +410,7 @@ private class JdbcLedgerDao(
             conn,
           )
         ) {
-          throw errorFactories.offsetOutOfRange(
+          throw ErrorFactories.offsetOutOfRange(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
         }
@@ -454,7 +453,7 @@ private class JdbcLedgerDao(
       loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
     )
 
-  private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend, errorFactories)
+  private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend)
 
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
@@ -577,7 +576,6 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
-      errorFactories: ErrorFactories,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
@@ -600,7 +598,6 @@ private[platform] object JdbcLedgerDao {
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
-        errorFactories,
         materializer = materializer,
       ),
       metrics,
@@ -621,7 +618,6 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
-      errorFactories: ErrorFactories,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
@@ -644,7 +640,6 @@ private[platform] object JdbcLedgerDao {
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
-        errorFactories,
         materializer = materializer,
       ),
       metrics,

@@ -62,7 +62,6 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
-    errorFactories: ErrorFactories,
 ) extends IndexService {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -352,7 +351,7 @@ private[index] class IndexServiceImpl(
             Source.empty
           case Some(end) if begin > end =>
             Source.failed(
-              errorFactories.offsetOutOfRange(
+              ErrorFactories.offsetOutOfRange(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
               )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
             )

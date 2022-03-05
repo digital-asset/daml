@@ -48,16 +48,13 @@ private[apiserver] final class ApiPartyManagementService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories()
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionService,
       writeService,
       partyManagementService,
-      errorFactories,
     ),
     timeToLive = managementServiceTimeout,
-    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()
@@ -110,7 +107,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 error =>
                   Future.failed(
                     ValidationLogger
-                      .logFailure(request, errorFactories.invalidArgument(error))
+                      .logFailure(request, ErrorFactories.invalidArgument(error))
                   ),
                 party => Future.successful(Some(party)),
               )
@@ -185,7 +182,6 @@ private[apiserver] object ApiPartyManagementService {
       ledgerEndService: LedgerEndService,
       writeService: state.WritePartyService,
       partyManagementService: IndexPartyManagementService,
-      errorFactories: ErrorFactories,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Option[Ref.Party], Option[String]),
@@ -218,7 +214,7 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        errorFactories.invalidArgument(reason)(
+        ErrorFactories.invalidArgument(reason)(
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
         )
     }

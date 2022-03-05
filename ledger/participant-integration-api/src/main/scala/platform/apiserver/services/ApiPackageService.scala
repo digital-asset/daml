@@ -14,11 +14,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{
-  ErrorFactories,
-  FieldValidations,
-  PackageServiceValidation,
-}
+import com.daml.platform.server.api.validation.{ErrorFactories, PackageServiceValidation}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,8 +26,6 @@ private[apiserver] final class ApiPackageService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  private val errorFactories = ErrorFactories()
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
@@ -55,7 +49,7 @@ private[apiserver] final class ApiPackageService private (
           .flatMap {
             case None =>
               Future.failed[GetPackageResponse](
-                errorFactories.packageNotFound(packageId = packageId)(
+                ErrorFactories.packageNotFound(packageId = packageId)(
                   createContextualizedErrorLogger
                 )
               )
@@ -95,7 +89,7 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailure(
               request,
-              errorFactories
+              ErrorFactories
                 .invalidArgument(s"Invalid package id: $errorMessage")(
                   createContextualizedErrorLogger
                 ),
@@ -133,11 +127,9 @@ private[platform] object ApiPackageService {
     val service = new ApiPackageService(
       backend = backend
     )
-    val fieldValidations = FieldValidations(ErrorFactories())
     new PackageServiceValidation(
       service = service,
       ledgerId = ledgerId,
-      fieldValidations = fieldValidations,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, executionContext)

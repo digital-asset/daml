@@ -120,9 +120,9 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
 
   override def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
-  ): Boolean = {
+  ): Unit = {
     val (userRight: Int, forParty: Option[Ref.Party]) = fromUserRight(right)
-    val rowsUpdated: Int =
+    val _ =
       SQL"""
          INSERT INTO participant_user_rights (user_internal_id, user_right, for_party, granted_at)
          VALUES (
@@ -132,7 +132,6 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
             $grantedAt
          )
          """.executeUpdate()(connection)
-    rowsUpdated == 1
   }
 
   override def getUserRights(

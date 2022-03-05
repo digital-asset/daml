@@ -30,7 +30,6 @@ final class AuthorizationInterceptor(
     extends ServerInterceptor {
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val errorFactories = ErrorFactories()
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -59,7 +58,7 @@ final class AuthorizationInterceptor(
           case Failure(error: StatusRuntimeException) =>
             closeWithError(error)
           case Failure(exception: Throwable) =>
-            val error = errorFactories.internalAuthenticationError(
+            val error = ErrorFactories.internalAuthenticationError(
               securitySafeMessage = "Failed to get claims from request metadata",
               exception = exception,
             )(errorLogger)
@@ -86,7 +85,7 @@ final class AuthorizationInterceptor(
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
-                errorFactories.permissionDenied(
+                ErrorFactories.permissionDenied(
                   s"Could not resolve rights for user '$userId' due to '$msg'"
                 )(errorLogger)
               )
@@ -126,7 +125,7 @@ final class AuthorizationInterceptor(
     Ref.UserId.fromString(userIdStr) match {
       case Left(err) =>
         Future.failed(
-          errorFactories.invalidArgument(s"token $err")(errorLogger)
+          ErrorFactories.invalidArgument(s"token $err")(errorLogger)
         )
       case Right(userId) =>
         Future.successful(userId)
