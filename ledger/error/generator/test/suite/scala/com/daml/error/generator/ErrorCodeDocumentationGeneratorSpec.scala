@@ -16,7 +16,6 @@ import org.scalatest.matchers.should.Matchers
 import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
-@nowarn("cat=deprecation")
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
 
   it should "return the correct doc items from the error classes" in {
@@ -39,7 +38,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         resolution = Some(Resolution("Turn it off and on again.")),
       ),
       ErrorCodeDocItem(
-        className = DeprecatedError.getClass.getTypeName,
+        className = DeprecatedError.getClass.getTypeName: @nowarn("cat=deprecation"),
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
@@ -130,25 +129,25 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
     }
 
     ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
-      getFirstAnnotation(Foo1)
+      getFirstAnnotation(Foo1): @nowarn("cat=deprecation")
     ) shouldBe DeprecatedItem(
       since = Some("since 123"),
       message = "message 123",
     )
     ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
-      getFirstAnnotation(Foo2)
+      getFirstAnnotation(Foo2): @nowarn("cat=deprecation")
     ) shouldBe DeprecatedItem(
       since = None,
       message = "message 123",
     )
     ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
-      getFirstAnnotation(Foo3)
+      getFirstAnnotation(Foo3): @nowarn("cat=deprecation")
     ) shouldBe DeprecatedItem(
       since = Some("since 123"),
       message = "",
     )
     ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
-      getFirstAnnotation(Foo4)
+      getFirstAnnotation(Foo4): @nowarn("cat=deprecation")
     ) shouldBe DeprecatedItem(
       since = Some("since 123"),
       message = "message 123",
