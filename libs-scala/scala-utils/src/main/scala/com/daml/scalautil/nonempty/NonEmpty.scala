@@ -65,6 +65,9 @@ sealed abstract class NonEmptyColl {
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
   def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
+
+  /** Like `unapply`, but when you don't want pattern matching. */
+  def from[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
 }
 
 /** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
