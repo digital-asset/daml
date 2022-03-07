@@ -173,7 +173,6 @@ object EndpointsCompanion {
   }
 
   object CreateFromCustomToken {
-    @inline def apply[A](implicit ev: CreateFromCustomToken[A]): CreateFromCustomToken[A] = ev
 
     private[http] implicit val jwtWritePayloadFromCustomToken
         : CreateFromCustomToken[JwtWritePayload] =
