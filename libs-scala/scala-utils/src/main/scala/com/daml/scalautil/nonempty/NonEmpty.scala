@@ -155,6 +155,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     // (not so valuable unless also using wartremover to disable partial Seq ops)
     @`inline` def head1: A = self.head
     @`inline` def tail1: C = self.tail
+    def reduceLeft[B >: A](op: (B, A) => B): B = (self: ESelf).reduceLeft(op)
+    @`inline` def last1: A = self.last
   }
 
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
@@ -170,6 +172,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     // do not compose
     @`inline` def +-:[B >: A](elem: B): NonEmpty[CC[B]] = elem +: self
     @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
+
+    def distinct: NonEmpty[C] = un((self: ESelf).distinct)
   }
 
   implicit final class `Seq Ops`[A, CC[_], C](
