@@ -27,6 +27,7 @@ import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
+import com.daml.logging.LoggingContext.enrichedLoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -121,16 +122,14 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionResponse] = {
-    // There is no problem in leaking the loggingContext in here, but the construction looks suspicious
-    // TODO error codes: Replace with non-closure-based enriched loggingContext builder here and in other constructions as well
-    implicit val errorLogger: ContextualizedErrorLogger = withEnrichedLoggingContext(
+    val loggingContext2 = enrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
-    ) { implicit loggingContext =>
-      logger.info("Received request for transaction by event ID.")
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    }
+    )(loggingContext = loggingContext)
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext2, None)
+    logger.info("Received request for transaction by event ID.")(loggingContext2)
     logger.trace(s"Transaction by event ID request: $request")
 
     LfEventId
