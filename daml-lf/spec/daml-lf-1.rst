@@ -3106,7 +3106,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, …,
         'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
-     eₚ[x ↦ vₜ]  ⇓  Ok 'False'
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
      'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
      e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
      'interface' (x₂ : I₂) ↦ { …, 'precondition' e₂ₚ, … } ∈ 〚Ξ〛Mod₂
@@ -3119,7 +3119,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, …,
         'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
-     eₚ[x ↦ vₜ]  ⇓  Ok 'False'
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
      'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
      e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
      'interface' (x₂ : I₂) ↦ { …, 'precondition' e₂ₚ, … } ∈ 〚Ξ〛Mod₂
