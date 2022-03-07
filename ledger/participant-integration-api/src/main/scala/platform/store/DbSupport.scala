@@ -3,6 +3,7 @@
 
 package com.daml.platform.store
 
+import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -14,7 +15,7 @@ import com.daml.resources.{PureResource, Resource}
 import scala.concurrent.duration.FiniteDuration
 
 case class DbSupport(
-    dbDispatcher: DbDispatcher,
+    dbDispatcher: DbDispatcher with ReportsHealth,
     storageBackendFactory: StorageBackendFactory,
 )
 

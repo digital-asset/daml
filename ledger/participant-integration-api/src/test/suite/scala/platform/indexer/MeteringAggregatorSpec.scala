@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.store.appendonlydao.SqlExecutor
+import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
@@ -53,7 +53,7 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
       val lastAggOffset: Offset = Offset.fromHexString(Ref.HexString.assertFromString("01"))
 
       val conn: Connection = mock[Connection]
-      val dispatcher: SqlExecutor = new SqlExecutor {
+      val dispatcher: DbDispatcher = new DbDispatcher {
         override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
             loggingContext: LoggingContext
         ): Future[T] = Future.successful {

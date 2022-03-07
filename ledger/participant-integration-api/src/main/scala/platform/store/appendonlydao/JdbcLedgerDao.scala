@@ -9,7 +9,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
@@ -38,7 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 private class JdbcLedgerDao(
-    dbDispatcher: DbDispatcher,
+    dbDispatcher: DbDispatcher with ReportsHealth,
     servicesExecutionContext: ExecutionContext,
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
