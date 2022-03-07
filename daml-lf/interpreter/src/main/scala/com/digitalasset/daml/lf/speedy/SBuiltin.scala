@@ -1025,25 +1025,22 @@ private[lf] object SBuiltin {
     }
   }
 
+  // SBCastAnyContract: ContractId templateId -> Any -> templateId
   final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]) = {
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
-      if (actualTemplateId != templateId) {
+      if (actualTemplateId != templateId)
         throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, actualTemplateId))
-      }
       record
     }
   }
 
+  // SBCastAnyInterface: ContractId ifaceId -> Option TypRep -> Any -> ifaceId
   final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(3) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       def coid = getSContractId(args, 0)
-      val any = getSAny(args, 2)
-      val actualTmplId = any.ty match {
-        case Ast.TTyCon(tycon) => tycon
-        case _ => unexpectedType(2, "SAnyContract", any)
-      }
+      val (actualTmplId, _) = getSAnyContract(args, 2)
       getSOptional(args, 1).foreach {
         case STypeRep(Ast.TTyCon(expectedTmplId)) =>
           if (actualTmplId != expectedTmplId)
