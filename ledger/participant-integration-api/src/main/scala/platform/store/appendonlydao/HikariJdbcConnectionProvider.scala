@@ -6,15 +6,14 @@ package com.daml.platform.store.appendonlydao
 import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Timer, TimerTask}
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.daml.metrics.{DatabaseMetrics, TimedNative}
 import com.daml.platform.configuration.ServerRole
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
-import javax.sql.DataSource
 
+import javax.sql.DataSource
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
@@ -73,11 +72,11 @@ object DataSourceConnectionProvider {
           val conn = dataSource.getConnection()
           conn.setAutoCommit(false)
           try {
-            val res = Timed.value(
+            val res = TimedNative.value(
               databaseMetrics.queryTimer,
               block(conn),
             )
-            Timed.value(
+            TimedNative.value(
               databaseMetrics.commitTimer,
               conn.commit(),
             )

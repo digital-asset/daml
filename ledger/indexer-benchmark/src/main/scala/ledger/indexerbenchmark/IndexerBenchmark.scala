@@ -4,7 +4,6 @@
 package com.daml.ledger.indexerbenchmark
 
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -162,14 +161,10 @@ class IndexerBenchmark() {
              |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
              |  seqMapping.duration: ${metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot}|
              |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
-             |  ingestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
-          )}
-             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
-             |  tailIngestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
-          )}
-             |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
+             |  ingestion.duration:         TODO Prometheus metrics
+             |  ingestion.duration.rate:    TODO Prometheus metrics
+             |  tailIngestion.duration:         TODO Prometheus metrics
+             |  tailIngestion.duration.rate:    TODO Prometheus metrics
              |
              |Notes:
              |  The above numbers include all ingested updates, including package uploads.

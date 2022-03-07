@@ -7,6 +7,7 @@ import com.codahale.metrics._
 import io.prometheus.client
 import io.prometheus.client.cache.caffeine.CacheMetricsCollector
 import com.github.benmanes.caffeine.{cache => caffeine}
+import io.prometheus.client.Summary
 
 final class Metrics(val registry: MetricRegistry) {
 
@@ -19,7 +20,7 @@ final class Metrics(val registry: MetricRegistry) {
   object test {
     private val Prefix: MetricName = MetricName("test")
 
-    val db: DatabaseMetrics = new DatabaseMetrics(registry, Prefix, "db")
+    val db: DatabaseMetrics = new DatabaseMetrics(Prefix, "db")
   }
 
   object daml {
@@ -344,7 +345,7 @@ final class Metrics(val registry: MetricRegistry) {
       val cache = CacheMetrics(Prefix :+ "cache")
 
       private def createDbMetrics(name: String): DatabaseMetrics =
-        new DatabaseMetrics(registry, Prefix, name)
+        new DatabaseMetrics(Prefix, name)
       val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
       val createUser: DatabaseMetrics = createDbMetrics("create_user")
       val deleteUser: DatabaseMetrics = createDbMetrics("delete_user")
@@ -428,11 +429,11 @@ final class Metrics(val registry: MetricRegistry) {
         val prune: client.Histogram = histogram(Prefix :+ "prune")
 
         private val createDbMetrics: String => DatabaseMetrics =
-          new DatabaseMetrics(registry, Prefix, _)
+          new DatabaseMetrics(Prefix, _)
 
         private val overall = createDbMetrics("all")
-        val waitAll: Timer = overall.waitTimer
-        val execAll: Timer = overall.executionTimer
+        val waitAll: Summary = overall.waitTimer
+        val execAll: Summary = overall.executionTimer
 
         val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
@@ -459,7 +460,7 @@ final class Metrics(val registry: MetricRegistry) {
         )
 
         object storeTransactionDbMetrics
-            extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
+            extends DatabaseMetrics(Prefix, "store_ledger_entry") {
           // outside of SQL transaction
           val prepareBatches: client.Histogram = histogram(dbPrefix :+ "prepare_batches")
 
@@ -581,7 +582,7 @@ final class Metrics(val registry: MetricRegistry) {
     object parallelIndexer {
       private val Prefix: MetricName = daml.Prefix :+ "parallel_indexer"
 
-      val initialization = new DatabaseMetrics(registry, Prefix, "initialization")
+      val initialization = new DatabaseMetrics(Prefix, "initialization")
 
       // Number of state updates persisted to the database
       // (after the effect of the corresponding Update is persisted into the database,
@@ -622,11 +623,11 @@ final class Metrics(val registry: MetricRegistry) {
 
       // Ingestion stage
       // Parallel ingestion of prepared data into the database
-      val ingestion = new DatabaseMetrics(registry, Prefix, "ingestion")
+      val ingestion = new DatabaseMetrics(Prefix, "ingestion")
 
       // Tail ingestion stage
       // The throttled update of ledger end parameters
-      val tailIngestion = new DatabaseMetrics(registry, Prefix, "tail_ingestion")
+      val tailIngestion = new DatabaseMetrics(Prefix, "tail_ingestion")
     }
 
     object services {

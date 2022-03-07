@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao
 
-import com.codahale.metrics.{InstrumentedExecutorService, Timer}
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
@@ -12,9 +12,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import io.prometheus.client.Summary
 
 import java.sql.Connection
-import java.util.concurrent.{Executor, Executors, TimeUnit}
+import java.util.concurrent.{Executor, Executors}
 import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,8 +24,8 @@ import scala.util.control.NonFatal
 private[platform] final class DbDispatcher private (
     connectionProvider: JdbcConnectionProvider,
     executor: Executor,
-    overallWaitTimer: Timer,
-    overallExecutionTimer: Timer,
+    overallWaitTimer: Summary,
+    overallExecutionTimer: Summary,
 )(implicit loggingContext: LoggingContext)
     extends SqlExecutor
     with ReportsHealth {
@@ -47,31 +48,29 @@ private[platform] final class DbDispatcher private (
       sql: Connection => T
   )(implicit loggingContext: LoggingContext): Future[T] =
     withEnrichedLoggingContext("metric" -> databaseMetrics.name) { implicit loggingContext =>
-      val startWait = System.nanoTime()
+      val waitTimer: Summary.Timer = databaseMetrics.waitTimer.startTimer()
       Future {
-        val waitNanos = System.nanoTime() - startWait
-        logger.trace(s"Waited ${(waitNanos / 1e6).toLong} ms to acquire connection")
-        databaseMetrics.waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-        overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-        val startExec = System.nanoTime()
+        val waitSeconds: Double = waitTimer.observeDuration()
+        logger.trace(s"Waited ${(waitSeconds * 1e3).toLong} ms to acquire connection")
+        overallWaitTimer.observe(waitSeconds)
+        val executionTimer: Summary.Timer = databaseMetrics.executionTimer.startTimer()
         try {
           connectionProvider.runSQL(databaseMetrics)(sql)
         } catch {
           case throwable: Throwable => handleError(throwable)
         } finally {
-          updateMetrics(databaseMetrics, startExec)
+          updateExecutionMetrics(executionTimer)
         }
       }(executionContext)
     }
 
-  private def updateMetrics(databaseMetrics: DatabaseMetrics, startExec: Long)(implicit
+  private def updateExecutionMetrics(execTimer: Summary.Timer)(implicit
       loggingContext: LoggingContext
   ): Unit =
     try {
-      val execNanos = System.nanoTime() - startExec
-      logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
-      databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-      overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+      val execSeconds: Double = execTimer.observeDuration()
+      logger.trace(s"Executed query in ${(execSeconds * 1e3).toLong} ms")
+      overallExecutionTimer.observe(execSeconds)
     } catch {
       case NonFatal(e) =>
         logger.info("Got an exception while updating timer metrics. Ignoring.", e)

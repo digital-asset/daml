@@ -3,21 +3,20 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.{MetricRegistry, Timer}
+import io.prometheus.client.Summary
 
 class DatabaseMetrics private[metrics] (
-    registry: MetricRegistry,
     prefix: MetricName,
     val name: String,
 ) {
   protected val dbPrefix: MetricName = prefix :+ name
 
-  val waitTimer: Timer = registry.timer(dbPrefix :+ "wait")
-  val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
-  val translationTimer: Timer = registry.timer(dbPrefix :+ "translation")
-  val compressionTimer: Timer = registry.timer(dbPrefix :+ "compression")
-  val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
-  val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
+  val waitTimer: Summary = summary(dbPrefix :+ "wait")
+  val executionTimer: Summary = summary(dbPrefix :+ "exec")
+  val translationTimer: Summary = summary(dbPrefix :+ "translation")
+  val compressionTimer: Summary = summary(dbPrefix :+ "compression")
+  val commitTimer: Summary = summary(dbPrefix :+ "commit")
+  val queryTimer: Summary = summary(dbPrefix :+ "query")
 }
 
 

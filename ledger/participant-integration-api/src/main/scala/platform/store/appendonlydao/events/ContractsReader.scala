@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import com.codahale.metrics.Timer
 import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -14,6 +13,7 @@ import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+import io.prometheus.client.Summary
 
 import java.io.ByteArrayInputStream
 import scala.concurrent.{ExecutionContext, Future}
@@ -156,21 +156,21 @@ private[appendonlydao] object ContractsReader {
   // unnecessary for interpretation and validation. The contracts returned
   // from this table will _always_ have an empty agreement text.
   private def toContract(
-      contractId: ContractId,
-      templateId: String,
-      createArgument: Array[Byte],
-      createArgumentCompression: Compression.Algorithm,
-      decompressionTimer: Timer,
-      deserializationTimer: Timer,
+                          contractId: ContractId,
+                          templateId: String,
+                          createArgument: Array[Byte],
+                          createArgumentCompression: Compression.Algorithm,
+                          decompressionTimer: Summary,
+                          deserializationTimer: Summary,
   ): Contract = {
     val decompressed =
-      Timed.value(
-        timer = decompressionTimer,
+      TimedNative.value(
+        summary = decompressionTimer,
         value = createArgumentCompression.decompress(new ByteArrayInputStream(createArgument)),
       )
     val deserialized =
-      Timed.value(
-        timer = deserializationTimer,
+      TimedNative.value(
+        summary = deserializationTimer,
         value = ValueSerializer.deserializeValue(
           stream = decompressed,
           errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",

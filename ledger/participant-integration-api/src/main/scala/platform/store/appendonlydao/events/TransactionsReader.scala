@@ -166,8 +166,8 @@ private[appendonlydao] final class TransactionsReader(
         )
       )
       .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupFlatTransactionById.translationTimer,
+        TimedNative.value(
+          summary = dbMetrics.lookupFlatTransactionById.translationTimer,
           value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
         )
       )
@@ -267,8 +267,8 @@ private[appendonlydao] final class TransactionsReader(
         )
       )
       .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupTransactionTreeById.translationTimer,
+        TimedNative.value(
+          summary = dbMetrics.lookupTransactionTreeById.translationTimer,
           value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
         )
       )
@@ -374,13 +374,13 @@ private[appendonlydao] final class TransactionsReader(
           .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
       .mapAsync(eventProcessingParallelism) { rawResult =>
-        Timed.future(
+        TimedNative.future(
           future = Future(
             Future.traverse(rawResult)(
               deserializeEntry(verbose)
             )
           ).flatMap(identity),
-          timer = dbMetrics.getActiveContracts.translationTimer,
+          summary = dbMetrics.getActiveContracts.translationTimer,
         )
       }
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
@@ -516,9 +516,9 @@ private[appendonlydao] final class TransactionsReader(
         val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
           dispatcher.executeSql(queryMetric)(query(range1))
         rawEvents.flatMap(es =>
-          Timed.future(
+          TimedNative.future(
             future = Future.traverse(es)(deserializeEntry(verbose)),
-            timer = queryMetric.translationTimer,
+            summary = queryMetric.translationTimer,
           )
         )
       }
