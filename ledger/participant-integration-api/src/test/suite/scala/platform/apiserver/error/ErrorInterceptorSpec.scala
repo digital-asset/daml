@@ -23,7 +23,6 @@ import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -252,11 +251,8 @@ object ErrorInterceptorSpec {
   trait HelloService_Base extends BindableService {
     self: HelloService =>
 
-    private val logger = ContextualizedLogger.get(getClass)
-    private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
-
     implicit protected val damlLogger: DamlContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
+      DamlContextualizedErrorLogger.forTesting(getClass)
 
     override def bindService(): ServerServiceDefinition =
       HelloServiceGrpc.bindService(this, scala.concurrent.ExecutionContext.Implicits.global)

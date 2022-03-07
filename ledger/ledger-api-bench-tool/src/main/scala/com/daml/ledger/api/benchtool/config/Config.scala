@@ -20,6 +20,8 @@ case class Config(
     submissionBatchSize: Int,
     metricsReporter: MetricsReporter,
     authorizationTokenSecret: Option[String],
+    latencyTest: Boolean,
+    maxLatencyObjectiveMillis: Long,
 )
 
 object Config {
@@ -55,5 +57,7 @@ object Config {
       submissionBatchSize = 100,
       metricsReporter = MetricsReporter.Console,
       authorizationTokenSecret = None,
+      latencyTest = false,
+      maxLatencyObjectiveMillis = 1000L,
     )
 }

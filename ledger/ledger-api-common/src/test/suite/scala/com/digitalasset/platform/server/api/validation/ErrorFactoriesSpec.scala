@@ -17,7 +17,6 @@ import com.daml.error.{
   ErrorAssertionsWithLogCollectorAssertions,
 }
 import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.google.rpc._
@@ -40,14 +39,11 @@ class ErrorFactoriesSpec
     with LogCollectorAssertions
     with ErrorAssertionsWithLogCollectorAssertions {
 
-  private val logger = ContextualizedLogger.get(getClass)
-  private val loggingContext = LoggingContext.ForTesting
-
   private val originalCorrelationId = "cor-id-12345679"
   private val truncatedCorrelationId = "cor-id-1"
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, Some(originalCorrelationId))
+    DamlContextualizedErrorLogger.forTesting(getClass, Some(originalCorrelationId))
 
   private val expectedCorrelationIdRequestInfo =
     ErrorDetails.RequestInfoDetail(originalCorrelationId)

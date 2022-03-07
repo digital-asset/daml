@@ -31,7 +31,6 @@ import com.daml.lf.kv.contracts.RawContractInstance
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueOuterClass
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.rpc.error_details.{ErrorInfo, ResourceInfo}
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
@@ -46,10 +45,8 @@ import scala.jdk.CollectionConverters._
 
 @nowarn("msg=deprecated")
 class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
-  implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
-  private val logger = ContextualizedLogger.get(getClass)
   implicit private val errorLoggingContext: DamlContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, testLoggingContext, None)
+    DamlContextualizedErrorLogger.forTesting(getClass)
 
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
