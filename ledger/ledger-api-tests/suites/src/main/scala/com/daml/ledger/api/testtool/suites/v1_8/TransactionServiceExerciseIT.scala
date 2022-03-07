@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
@@ -76,7 +77,9 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
     for {
       agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-      _ <- alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+      _ <- eventually {
+        alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+      }
       _ <- synchronize(alpha, beta)
       transactions <- alpha.flatTransactions(receiver, giver)
     } yield {

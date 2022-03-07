@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
@@ -174,7 +175,7 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-        tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
+        tree <- eventually { alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou)) }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
@@ -203,12 +204,13 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
-        counter <- alpha.exerciseAndGetContract[PaintCounterOffer](
-          houseOwner,
-          offer.exercisePaintOffer_Counter(_, iou),
-        )
-
-        tree <- beta.exercise(painter, counter.exercisePaintCounterOffer_Accept)
+        counter <- eventually {
+          alpha.exerciseAndGetContract[PaintCounterOffer](
+            houseOwner,
+            offer.exercisePaintOffer_Counter(_, iou),
+          )
+        }
+        tree <- eventually { beta.exercise(painter, counter.exercisePaintCounterOffer_Accept) }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintCounterOffer",
@@ -406,7 +408,9 @@ final class SemanticTests extends LedgerTestSuite {
           // Successful divulgence and delegation
           divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
           _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
-          _ <- beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+          _ <- eventually {
+            beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+          }
         } yield {
           assertGrpcError(
             failure,
