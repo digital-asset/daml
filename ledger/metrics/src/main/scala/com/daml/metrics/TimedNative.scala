@@ -17,6 +17,9 @@ object TimedNative {
   def value[T](histogram: Histogram, value: => T): T =
     histogram.time(() => value)
 
+  def value[T](summary: Summary, value: => T): T =
+    summary.time(() => value)
+
   def trackedValue[T](gauge: Gauge, value: => T): T = {
     gauge.inc()
     val result = value
@@ -24,12 +27,22 @@ object TimedNative {
     result
   }
 
-  def timedAndTrackedValue[T](histogram: Histogram, gauge: Gauge, value: => T): T = {
+  def timedAndTrackedValue[T](histogram: Histogram, gauge: Gauge, value: => T): T =
     TimedNative.value(histogram, trackedValue(gauge, value))
-  }
+
+  def timedAndTrackedValue[T](summary: Summary, gauge: Gauge, value: => T): T =
+    TimedNative.value(summary, trackedValue(gauge, value))
 
   def completionStage[T](histogram: Histogram, future: => CompletionStage[T]): CompletionStage[T] = {
     val timer = histogram.startTimer()
+    future.whenComplete { (_, _) =>
+      timer.observeDuration()
+      ()
+    }
+  }
+
+  def completionStage[T](summary: Summary, future: => CompletionStage[T]): CompletionStage[T] = {
+    val timer = summary.startTimer()
     future.whenComplete { (_, _) =>
       timer.observeDuration()
       ()
@@ -48,9 +61,15 @@ object TimedNative {
       histogram: Histogram,
       gauge: Gauge,
       future: => CompletionStage[T],
-  ): CompletionStage[T] = {
+  ): CompletionStage[T] =
     TimedNative.completionStage(histogram, trackedCompletionStage(gauge, future))
-  }
+
+  def timedAndTrackedCompletionStage[T](
+                                         summary: Summary,
+                                         gauge: Gauge,
+                                         future: => CompletionStage[T],
+                                       ): CompletionStage[T] =
+    TimedNative.completionStage(summary, trackedCompletionStage(gauge, future))
 
   def future[T](histogram: Histogram, future: => Future[T]): Future[T] = {
     val timer = histogram.startTimer()
@@ -59,8 +78,22 @@ object TimedNative {
     result
   }
 
+  def future[T](summary: Summary, future: => Future[T]): Future[T] = {
+    val timer = summary.startTimer()
+    val result = future
+    result.onComplete(_ => timer.observeDuration())(ExecutionContext.parasitic)
+    result
+  }
+
   def future[EC, T](histogram: Histogram, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
     val timer = histogram.startTimer()
+    val result = future
+    result.onComplete(_ => timer.observeDuration())(concurrent.ExecutionContext.parasitic)
+    result
+  }
+
+  def future[EC, T](summary: Summary, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
+    val timer = summary.startTimer()
     val result = future
     result.onComplete(_ => timer.observeDuration())(concurrent.ExecutionContext.parasitic)
     result
@@ -74,8 +107,21 @@ object TimedNative {
   def timedAndTrackedFuture[T](histogram: Histogram, gauge: Gauge, future: => Future[T]): Future[T] =
     TimedNative.future(histogram, trackedFuture(gauge, future))
 
+  def timedAndTrackedFuture[T](summary: Summary, gauge: Gauge, future: => Future[T]): Future[T] =
+    TimedNative.future(summary, trackedFuture(gauge, future))
+
   def source[Out, Mat](histogram: Histogram, source: => Source[Out, Mat]): Source[Out, Mat] = {
     val timer = histogram.startTimer()
+    source
+      .watchTermination()(Keep.both[Mat, Future[Done]])
+      .mapMaterializedValue { case (mat, done) =>
+        done.onComplete(_ => timer.observeDuration())(ExecutionContext.parasitic)
+        mat
+      }
+  }
+
+  def source[Out, Mat](summary: Summary, source: => Source[Out, Mat]): Source[Out, Mat] = {
+    val timer = summary.startTimer()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
       .mapMaterializedValue { case (mat, done) =>
