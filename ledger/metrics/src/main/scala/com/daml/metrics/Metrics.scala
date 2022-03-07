@@ -11,10 +11,10 @@ import io.prometheus.client.Summary
 
 final class Metrics(val registry: MetricRegistry) {
 
-  private[metrics] val cacheMetricsCollector: CacheMetricsCollector = new CacheMetricsCollector().register[CacheMetricsCollector]()
+  private[metrics] val cacheMetricsCollector: CacheMetricsCollector =
+    new CacheMetricsCollector().register[CacheMetricsCollector]()
 
-  def registerCaffeineCache(cacheMetrics: CacheMetrics,
-                            caffeineCache: caffeine.Cache[_, _]): Unit =
+  def registerCaffeineCache(cacheMetrics: CacheMetrics, caffeineCache: caffeine.Cache[_, _]): Unit =
     cacheMetricsCollector.addCache(cacheMetrics.cacheName, caffeineCache)
 
   object test {
@@ -403,13 +403,19 @@ final class Metrics(val registry: MetricRegistry) {
         val storeTransaction: client.Histogram = histogram(Prefix :+ "store_ledger_entry")
         val storeTransactionCombined: Timer =
           registry.timer(Prefix :+ "store_ledger_entry_combined")
-        val storeTransactionEvents: client.Histogram = histogram(Prefix :+ "store_ledger_entry_events")
-        val storeTransactionState: client.Histogram = histogram(Prefix :+ "store_ledger_entry_state")
+        val storeTransactionEvents: client.Histogram = histogram(
+          Prefix :+ "store_ledger_entry_events"
+        )
+        val storeTransactionState: client.Histogram = histogram(
+          Prefix :+ "store_ledger_entry_state"
+        )
         val storeTransactionCompletion: Timer =
           registry.timer(Prefix :+ "store_ledger_entry_completion")
 
         val storeRejection: client.Histogram = histogram(Prefix :+ "store_rejection")
-        val storeConfigurationEntry: client.Histogram = histogram(Prefix :+ "store_configuration_entry")
+        val storeConfigurationEntry: client.Histogram = histogram(
+          Prefix :+ "store_configuration_entry"
+        )
 
         val lookupLedgerId: client.Histogram = histogram(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: client.Histogram = histogram(Prefix :+ "lookup_participant_id")
@@ -421,7 +427,9 @@ final class Metrics(val registry: MetricRegistry) {
           registry.timer(Prefix :+ "lookup_ledger_configuration")
         val lookupKey: client.Histogram = histogram(Prefix :+ "lookup_key")
         val lookupActiveContract: client.Histogram = histogram(Prefix :+ "lookup_active_contract")
-        val lookupMaximumLedgerTime: client.Histogram = histogram(Prefix :+ "lookup_maximum_ledger_time")
+        val lookupMaximumLedgerTime: client.Histogram = histogram(
+          Prefix :+ "lookup_maximum_ledger_time"
+        )
         val getParties: client.Histogram = histogram(Prefix :+ "get_parties")
         val listKnownParties: client.Histogram = histogram(Prefix :+ "list_known_parties")
         val listLfPackages: client.Histogram = histogram(Prefix :+ "list_lf_packages")
@@ -459,8 +467,7 @@ final class Metrics(val registry: MetricRegistry) {
           "get_transaction_log_updates"
         )
 
-        object storeTransactionDbMetrics
-            extends DatabaseMetrics(Prefix, "store_ledger_entry") {
+        object storeTransactionDbMetrics extends DatabaseMetrics(Prefix, "store_ledger_entry") {
           // outside of SQL transaction
           val prepareBatches: client.Histogram = histogram(dbPrefix :+ "prepare_batches")
 
@@ -468,10 +475,14 @@ final class Metrics(val registry: MetricRegistry) {
           val eventsBatch: client.Histogram = histogram(dbPrefix :+ "events_batch")
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
-          val deleteContractsBatch: client.Histogram = histogram(dbPrefix :+ "delete_contracts_batch")
+          val deleteContractsBatch: client.Histogram = histogram(
+            dbPrefix :+ "delete_contracts_batch"
+          )
           val nullifyPastKeysBatch: Timer =
             registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
-          val insertContractsBatch: client.Histogram = histogram(dbPrefix :+ "insert_contracts_batch")
+          val insertContractsBatch: client.Histogram = histogram(
+            dbPrefix :+ "insert_contracts_batch"
+          )
           val insertContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
 

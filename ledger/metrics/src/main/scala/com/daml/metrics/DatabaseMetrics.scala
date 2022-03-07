@@ -18,5 +18,3 @@ class DatabaseMetrics private[metrics] (
   val commitTimer: Summary = summary(dbPrefix :+ "commit")
   val queryTimer: Summary = summary(dbPrefix :+ "query")
 }
-
-

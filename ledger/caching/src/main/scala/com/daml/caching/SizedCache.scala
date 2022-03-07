@@ -20,8 +20,8 @@ object SizedCache {
     from(configuration, Some(metrics))
 
   private def from[Key <: AnyRef, Value <: AnyRef](
-                                                    configuration: Configuration,
-                                                    metrics: Option[(CacheMetrics, Metrics)],
+      configuration: Configuration,
+      metrics: Option[(CacheMetrics, Metrics)],
   ): ConcurrentCache[Key, Value] =
     configuration match {
       case Configuration(maximumSize) if maximumSize <= 0 =>

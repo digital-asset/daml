@@ -156,12 +156,12 @@ private[appendonlydao] object ContractsReader {
   // unnecessary for interpretation and validation. The contracts returned
   // from this table will _always_ have an empty agreement text.
   private def toContract(
-                          contractId: ContractId,
-                          templateId: String,
-                          createArgument: Array[Byte],
-                          createArgumentCompression: Compression.Algorithm,
-                          decompressionTimer: Summary,
-                          deserializationTimer: Summary,
+      contractId: ContractId,
+      templateId: String,
+      createArgument: Array[Byte],
+      createArgumentCompression: Compression.Algorithm,
+      decompressionTimer: Summary,
+      deserializationTimer: Summary,
   ): Contract = {
     val decompressed =
       TimedNative.value(

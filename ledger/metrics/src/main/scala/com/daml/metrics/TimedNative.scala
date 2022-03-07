@@ -33,7 +33,10 @@ object TimedNative {
   def timedAndTrackedValue[T](summary: Summary, gauge: Gauge, value: => T): T =
     TimedNative.value(summary, trackedValue(gauge, value))
 
-  def completionStage[T](histogram: Histogram, future: => CompletionStage[T]): CompletionStage[T] = {
+  def completionStage[T](
+      histogram: Histogram,
+      future: => CompletionStage[T],
+  ): CompletionStage[T] = {
     val timer = histogram.startTimer()
     future.whenComplete { (_, _) =>
       timer.observeDuration()
@@ -65,10 +68,10 @@ object TimedNative {
     TimedNative.completionStage(histogram, trackedCompletionStage(gauge, future))
 
   def timedAndTrackedCompletionStage[T](
-                                         summary: Summary,
-                                         gauge: Gauge,
-                                         future: => CompletionStage[T],
-                                       ): CompletionStage[T] =
+      summary: Summary,
+      gauge: Gauge,
+      future: => CompletionStage[T],
+  ): CompletionStage[T] =
     TimedNative.completionStage(summary, trackedCompletionStage(gauge, future))
 
   def future[T](histogram: Histogram, future: => Future[T]): Future[T] = {
@@ -85,14 +88,20 @@ object TimedNative {
     result
   }
 
-  def future[EC, T](histogram: Histogram, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
+  def future[EC, T](
+      histogram: Histogram,
+      future: => concurrent.Future[EC, T],
+  ): concurrent.Future[EC, T] = {
     val timer = histogram.startTimer()
     val result = future
     result.onComplete(_ => timer.observeDuration())(concurrent.ExecutionContext.parasitic)
     result
   }
 
-  def future[EC, T](summary: Summary, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
+  def future[EC, T](
+      summary: Summary,
+      future: => concurrent.Future[EC, T],
+  ): concurrent.Future[EC, T] = {
     val timer = summary.startTimer()
     val result = future
     result.onComplete(_ => timer.observeDuration())(concurrent.ExecutionContext.parasitic)
@@ -104,7 +113,11 @@ object TimedNative {
     future.andThen { case _ => gauge.dec() }(ExecutionContext.parasitic)
   }
 
-  def timedAndTrackedFuture[T](histogram: Histogram, gauge: Gauge, future: => Future[T]): Future[T] =
+  def timedAndTrackedFuture[T](
+      histogram: Histogram,
+      gauge: Gauge,
+      future: => Future[T],
+  ): Future[T] =
     TimedNative.future(histogram, trackedFuture(gauge, future))
 
   def timedAndTrackedFuture[T](summary: Summary, gauge: Gauge, future: => Future[T]): Future[T] =

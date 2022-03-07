@@ -20,8 +20,8 @@ object WeightedCache {
     from(configuration, Some(metrics))
 
   private def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-                                                                    configuration: Configuration,
-                                                                    metrics: Option[(CacheMetrics, Metrics)],
+      configuration: Configuration,
+      metrics: Option[(CacheMetrics, Metrics)],
   ): ConcurrentCache[Key, Value] =
     configuration match {
       case Configuration(maximumWeight) if maximumWeight <= 0 =>

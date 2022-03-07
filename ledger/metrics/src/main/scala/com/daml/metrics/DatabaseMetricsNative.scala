@@ -5,12 +5,12 @@ package com.daml.metrics
 
 import io.prometheus.client.Histogram
 
-class DatabaseMetricsNative private[metrics](
+class DatabaseMetricsNative private[metrics] (
     prefix: MetricName,
     val name: String,
 ) {
   protected val dbPrefix: MetricName = prefix :+ name
-  
+
   val waitTimer: Histogram = histogram(dbPrefix :+ "wait")
   val executionTimer: Histogram = histogram(dbPrefix :+ "exec")
   val translationTimer: Histogram = histogram(dbPrefix :+ "translation")
@@ -18,5 +18,3 @@ class DatabaseMetricsNative private[metrics](
   val commitTimer: Histogram = histogram(dbPrefix :+ "commit")
   val queryTimer: Histogram = histogram(dbPrefix :+ "query")
 }
-
-

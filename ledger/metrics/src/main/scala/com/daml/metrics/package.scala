@@ -7,16 +7,19 @@ import io.prometheus.client
 
 package object metrics {
 
-  private[metrics] def gauge(name: String): client.Gauge = client.Gauge.build()
+  private[metrics] def gauge(name: String): client.Gauge = client.Gauge
+    .build()
     .name(name)
     .help(name)
     .register()
-  private[metrics] def counter(name: String): client.Counter = client.Counter.build()
+  private[metrics] def counter(name: String): client.Counter = client.Counter
+    .build()
     .name(name)
     .help(name)
     .register()
 
-  def summary(name: String): client.Summary = client.Summary.build()
+  def summary(name: String): client.Summary = client.Summary
+    .build()
     .name(name)
     .quantile(0.5, 0.01)
     .quantile(0.75, 0.01)
@@ -28,7 +31,8 @@ package object metrics {
     .ageBuckets(10)
     .register()
 
-  private[metrics] def histogram(name: String): client.Histogram = client.Histogram.build()
+  private[metrics] def histogram(name: String): client.Histogram = client.Histogram
+    .build()
     .name(name)
     .help(name)
     .register()
