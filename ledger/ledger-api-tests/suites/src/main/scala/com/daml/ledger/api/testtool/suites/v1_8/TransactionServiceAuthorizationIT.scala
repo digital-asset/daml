@@ -37,10 +37,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-        agreement <- alpha.exerciseAndGetContract(
-          receiver,
-          agreementFactory.exerciseAgreementFactoryAccept,
-        )
+        agreement <- alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, receiver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
@@ -117,10 +114,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
         // TODO eventually is a temporary workaround. It should take into account
         // TODO that the contract needs to hit the target node before a choice
         // TODO is executed on it.
-        agreement <- alpha.exerciseAndGetContract(
-          receiver,
-          agreementFactory.exerciseAgreementFactoryAccept,
-        )
+        agreement <- alpha.exerciseAndGetContract(receiver, agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, giver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         _ <- eventually {
