@@ -29,6 +29,7 @@ import scala.concurrent.Future
   * Note that metrics are in general light-weight and add negligible overhead.
   * They are not visible to everyday users so they can be safely enabled all the time.
   */
+// TODO Prometheus metrics: replace this
 final class MetricsReporting(
     jmxDomain: String,
     extraMetricsReporter: Option[MetricsReporter],
@@ -36,7 +37,7 @@ final class MetricsReporting(
 ) extends ResourceOwner[Metrics] {
   def acquire()(implicit context: ResourceContext): Resource[Metrics] = {
     val registry = new MetricRegistry
-    registry.registerAll(new JvmMetricSet)
+    JvmMetrics.initialize()
     for {
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))

@@ -17,7 +17,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{JvmMetrics, Metrics}
 import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
@@ -52,7 +52,7 @@ class IndexerBenchmark() {
     newLoggingContext { implicit loggingContext =>
       val metricRegistry = new MetricRegistry
       val metrics = new Metrics(metricRegistry)
-      metrics.registry.registerAll(new JvmMetricSet)
+      JvmMetrics.initialize()
 
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)

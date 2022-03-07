@@ -35,7 +35,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.JvmMetrics
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -144,7 +144,7 @@ final class Runner[T <: ReadWriteService, Extra](
     withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
         val metrics = configProvider.createMetrics(participantConfig, config)
-        metrics.registry.registerAll(new JvmMetricSet)
+        JvmMetrics.initialize()
         val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
           eventConfiguration = config.lfValueTranslationEventCache,
           contractConfiguration = config.lfValueTranslationContractCache,

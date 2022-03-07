@@ -33,7 +33,7 @@ import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{JvmMetrics, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -309,7 +309,7 @@ object SandboxOnXRunner {
   ): ResourceOwner[Metrics] =
     BridgeConfigProvider
       .createMetrics(participantConfig, config)
-      .tap(_.registry.registerAll(new JvmMetricSet))
+      .tap(_ => JvmMetrics.initialize())
       .pipe { metrics =>
         config.metricsReporter
           .fold(ResourceOwner.unit)(reporter =>

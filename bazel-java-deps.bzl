@@ -52,6 +52,7 @@ protobuf_version = "3.19.3"
 akka_version = "2.6.18"
 gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
+prometheus_version = "0.15.0"
 
 def install_java_deps():
     maven_install(
@@ -108,11 +109,12 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-sdk-testing:1.1.0",
             "io.opentelemetry:opentelemetry-sdk-trace:1.1.0",
             "io.opentelemetry:opentelemetry-semconv:1.1.0-alpha",
-            "io.prometheus:simpleclient:0.15.0",
-            "io.prometheus:simpleclient_caffeine:0.15.0",
-            "io.prometheus:simpleclient_dropwizard:0.15.0",
-            "io.prometheus:simpleclient_httpserver:0.15.0",
-            "io.prometheus:simpleclient_servlet:0.15.0",
+            "io.prometheus:simpleclient:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_caffeine:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_hotspot:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
