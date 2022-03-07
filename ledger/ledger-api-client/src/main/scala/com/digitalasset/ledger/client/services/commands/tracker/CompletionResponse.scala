@@ -4,11 +4,11 @@
 package com.daml.ledger.client.services.commands.tracker
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.rpc.status.{Status => StatusProto}
 import com.google.rpc.{Status => StatusJavaProto}
 import io.grpc.Status.Code
@@ -117,9 +117,20 @@ object CompletionResponse {
         val statusBuilder = GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
         GrpcStatus.buildStatus(metadata, statusBuilder)
       case CompletionResponse.TimeoutResponse(_) =>
-        ErrorFactories.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()
+        LedgerApiErrors.RequestTimeOut
+          .Reject(
+            "Timed out while awaiting for a completion corresponding to a command submission.",
+            _definiteAnswer = false,
+          )
+          .asGrpcStatusFromContext
       case CompletionResponse.NoStatusInResponse(_, _) =>
-        ErrorFactories.SubmissionQueueErrors.noStatusInCompletionResponse()
+        LedgerApiErrors.InternalError
+          .Generic(
+            "Missing status in completion response.",
+            throwableO = None,
+          )
+          .asGrpcStatusFromContext
+
     }
 
 }

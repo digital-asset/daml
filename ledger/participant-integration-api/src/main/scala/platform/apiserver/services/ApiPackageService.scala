@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services
 
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
@@ -49,9 +50,11 @@ private[apiserver] final class ApiPackageService private (
           .flatMap {
             case None =>
               Future.failed[GetPackageResponse](
-                ErrorFactories.packageNotFound(packageId = packageId)(
-                  createContextualizedErrorLogger
-                )
+                LedgerApiErrors.RequestValidation.NotFound.Package
+                  .Reject(_packageId = packageId)(
+                    createContextualizedErrorLogger
+                  )
+                  .asGrpcError
               )
             case Some(archive) => Future.successful(toGetPackageResponse(archive))
           }

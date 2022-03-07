@@ -5,9 +5,11 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -57,22 +59,26 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .recoverWith {
               case _: TimeoutException =>
                 Future.failed(
-                  ErrorFactories
-                    .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
+                  LedgerApiErrors.RequestTimeOut
+                    .Reject("Request timed out", _definiteAnswer = false)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
                     )
+                    .asGrpcError
                 )
               case _: NoSuchElementException =>
+                val errorLogger = new DamlContextualizedErrorLogger(
+                  logger,
+                  loggingContext,
+                  Some(submissionId),
+                )
                 Future.failed(
+                  // TODO error codes: simplify
                   ErrorFactories.grpcError(
-                    ErrorFactories.SubmissionQueueErrors
-                      .queueClosed("Party submission")(
-                        new DamlContextualizedErrorLogger(
-                          logger,
-                          loggingContext,
-                          Some(submissionId),
-                        )
+                    LedgerApiErrors.ServiceNotRunning
+                      .Reject("Party submission")(
+                        errorLogger
                       )
+                      .asGrpcStatusFromContext(errorLogger)
                   )
                 )
             }

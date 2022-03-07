@@ -6,6 +6,7 @@ package com.daml.platform.server.api.validation
 import java.time.Duration
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.DeduplicationPeriod
 import io.grpc.StatusRuntimeException
 
@@ -31,10 +32,12 @@ object DeduplicationPeriodValidator {
     validateNonNegativeDuration(duration).flatMap { duration =>
       if (duration.compareTo(maxDeduplicationDuration) > 0)
         Left(
-          ErrorFactories.invalidDeduplicationPeriod(
-            s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
-            Some(maxDeduplicationDuration),
-          )
+          LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+            .Reject(
+              s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
+              Some(maxDeduplicationDuration),
+            )
+            .asGrpcError
         )
       else Right(duration)
     }

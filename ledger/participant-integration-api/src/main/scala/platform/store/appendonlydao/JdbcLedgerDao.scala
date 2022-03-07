@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
@@ -24,7 +25,6 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -410,9 +410,11 @@ private class JdbcLedgerDao(
             conn,
           )
         ) {
-          throw ErrorFactories.offsetOutOfRange(
-            "Pruning offset for all divulged contracts needs to be after the migration offset"
-          )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+          throw LedgerApiErrors.RequestValidation.OffsetOutOfRange
+            .Reject(
+              "Pruning offset for all divulged contracts needs to be after the migration offset"
+            )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+            .asGrpcError
         }
 
         readStorageBackend.eventStorageBackend.pruneEvents(

@@ -10,6 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -44,7 +45,6 @@ import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
@@ -162,7 +162,7 @@ private[apiserver] final class ApiCommandService private[services] (
     } else {
       Future
         .failed(
-          ErrorFactories.serviceNotRunning("Command Service")
+          LedgerApiErrors.ServiceNotRunning.Reject("Command Service").asGrpcError
         )
     }
 

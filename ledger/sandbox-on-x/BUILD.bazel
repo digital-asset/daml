@@ -49,6 +49,7 @@ da_scala_library(
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",

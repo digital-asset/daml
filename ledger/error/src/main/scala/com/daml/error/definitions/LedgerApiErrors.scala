@@ -16,8 +16,8 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
-
 import java.time.{Duration, Instant}
+
 import scala.concurrent.duration._
 
 @Explanation(
@@ -528,10 +528,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "LEDGER_ID_MISMATCH",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject(override val cause: String)(implicit
+      case class Reject(_expectedLedgerId: String, _receivedLegerId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = cause,
+            cause =
+              s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
             definiteAnswer = true,
           )
     }

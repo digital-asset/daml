@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
@@ -15,7 +16,6 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{BindableService, ServerServiceDefinition}
 import scalaz.syntax.tag._
 
@@ -39,7 +39,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
   ): Future[GetLedgerIdentityResponse] = {
     logger.info(s"Received request for ledger identity: $request")
     if (closed)
-      Future.failed(ErrorFactories.serviceNotRunning("Ledger Identity Service"))
+      Future.failed(LedgerApiErrors.ServiceNotRunning.Reject("Ledger Identity Service").asGrpcError)
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))
