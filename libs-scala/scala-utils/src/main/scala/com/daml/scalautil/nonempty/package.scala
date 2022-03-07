@@ -34,10 +34,10 @@ package object nonempty {
     * properly.  When attempting to fit a type to the type params `C[T]`, scalac
     * will infer the following:
     *
-    * type shape      | C              | T
-    * ----------------+----------------+-----
-    * NonEmpty[F[A]]  | NonEmpty       | F[A]
-    * NonEmptyF[F, A] | NonEmpty[F, *] | A
+    * | type shape      | C              | T    |
+    * | --------------- | -------------- | ---- |
+    * | NonEmpty[F[A]]  | NonEmpty       | F[A] |
+    * | NonEmptyF[F, A] | NonEmpty[F, *] | A    |
     *
     * If you want to `traverse` or `foldLeft` or `map` on A, the latter is far
     * more convenient.  So any value whose type is the former can be converted
