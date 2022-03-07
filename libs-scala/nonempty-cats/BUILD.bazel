@@ -23,7 +23,7 @@ da_scala_library(
         kind_projector_plugin,
     ],
     scala_deps = [
-            "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_core",
     ],
     scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
