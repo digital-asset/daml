@@ -44,7 +44,7 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
-        "@maven//:com_chuusai_shapeless",
+        # "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
@@ -53,6 +53,6 @@ da_scala_test(
     deps = [
         ":nonempty-cats",
         "//libs-scala/scala-utils",
-        "//libs-scala/scalatest-utils",
+        # "//libs-scala/scalatest-utils",
     ],
 )

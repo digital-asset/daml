@@ -7,8 +7,10 @@ package catsinstances.impl
 import cats.{Eval, Foldable, Reducible}
 
 abstract class CatsInstancesLow extends CatsInstancesLow1 {
-  implicit def `cats nonempty foldable`[F[_]](implicit F: Foldable[F]): Foldable[NonEmptyF[F, *]] =
-    NonEmpty substF F
+  implicit def `cats nonempty foldable`[F[_]](implicit
+      F: Foldable[F]
+  ): Foldable[NonEmptyF[F, *]] with ImplicitPreference[Nothing] =
+    ImplicitPreference[Foldable[NonEmptyF[F, *]], Nothing](NonEmpty substF F)
 }
 
 abstract class CatsInstancesLow1 {
