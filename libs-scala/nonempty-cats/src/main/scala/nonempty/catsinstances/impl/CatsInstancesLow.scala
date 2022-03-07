@@ -4,7 +4,7 @@
 package com.daml.scalautil.nonempty
 package catsinstances.impl
 
-import cats.{Eval, Foldable, Reducible, Traverse}
+import cats.{Eval, Foldable, Reducible}
 
 abstract class CatsInstancesLow extends CatsInstancesLow1 {
   implicit def `cats nonempty foldable`[F[_]](implicit F: Foldable[F]): Foldable[NonEmptyF[F, *]] =
