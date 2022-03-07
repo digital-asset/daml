@@ -422,7 +422,7 @@ object ScenarioRunner {
           }
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
-        case SResultNeedContract(coid, tid @ _, committers, callback) =>
+        case SResultNeedContract(coid, committers, callback) =>
           ledger.lookupContract(coid, committers, readAs, callback) match {
             case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
             case Right(_) => go()

@@ -623,7 +623,7 @@ class EngineTest
         speedy.Command.CreateAndExercise(
           templateId = tmplId,
           createArgument =
-            SRecord(null, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
+            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
           choiceId = ChoiceName.assertFromString("Exercise"),
           choiceArgument = SUnit,
         )
