@@ -45,14 +45,18 @@ da_scala_test(
     ],
     scala_deps = [
         # "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_cats_laws",
+        "@maven//:org_typelevel_discipline_core",
     ],
     scalacopts = scalacopts,
     deps = [
         ":nonempty-cats",
         "//libs-scala/scala-utils",
-        # "//libs-scala/scalatest-utils",
+        "//libs-scala/scalatest-utils",
     ],
 )
