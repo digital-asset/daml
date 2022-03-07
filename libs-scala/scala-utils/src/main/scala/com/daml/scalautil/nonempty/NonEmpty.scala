@@ -103,10 +103,10 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit final class UnwrapOps[A](private val self: NonEmpty[A]) extends AnyVal {
 
-    /** `x.toNotNE` is `(x: A)` but possibly shorter. If code compiles without
-      * the call to `toNotNE`, you don't need the call.
+    /** `x.forgetNE` is `(x: A)` but possibly shorter. If code compiles without
+      * the call to `forgetNE`, you don't need the call.
       */
-    def toNotNE: A = self
+    def forgetNE: A = self
   }
 
   /** Operations that can ''return'' new maps.  There is no reason to include any other
