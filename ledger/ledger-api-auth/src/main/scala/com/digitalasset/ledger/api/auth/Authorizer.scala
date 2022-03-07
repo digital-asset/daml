@@ -10,9 +10,9 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
@@ -203,7 +203,7 @@ final class Authorizer(
         case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
-            ErrorFactories.invalidArgument(
+            ValidationErrors.invalidArgument(
               "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
             )
           )

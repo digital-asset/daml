@@ -49,8 +49,6 @@ class ErrorFactoriesSpec
     ErrorDetails.RequestInfoDetail(originalCorrelationId)
   private val expectedLocationLogMarkerRegex =
     "\\{err-context: \"\\{location=ErrorFactoriesSpec.scala:\\d+\\}\"\\}"
-  private val expectedLocationLogMarkerRegexErrorFactories =
-    "\\{err-context: \"\\{location=ErrorFactories.scala:\\d+\\}\"\\}"
   private val expectedInternalErrorMessage =
     s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId"
   private val expectedInternalErrorDetails =
@@ -60,7 +58,7 @@ class ErrorFactoriesSpec
     LogCollector.clear[this.type]
   }
 
-  "ErrorFactories" should {
+  "Errors " should {
 
     "return sqlTransientException" in {
       val failureReason = "some db transient failure"
@@ -556,7 +554,10 @@ class ErrorFactoriesSpec
       val fieldName = "my field"
       val msg =
         s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field $fieldName: my message"
-      assertError(ErrorFactories.invalidField(fieldName, "my message"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.InvalidField
+          .Reject(fieldName, "my message")
+      )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -569,7 +570,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegexErrorFactories),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -670,7 +671,10 @@ class ErrorFactoriesSpec
 
       val msg =
         s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: $fieldName"
-      assertError(ErrorFactories.missingField(fieldName))(
+      assertError(
+        LedgerApiErrors.RequestValidation.MissingField
+          .Reject(fieldName)
+      )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -683,7 +687,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          expectedMarkerRegexErrorFactories("field_name=my field"),
+          expectedMarkerRegex("field_name=my field"),
         ),
       )
     }
@@ -691,7 +695,10 @@ class ErrorFactoriesSpec
     val msg =
       s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message"
     "return an invalidArgument error" in {
-      assertError(ErrorFactories.invalidArgument("my message"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.InvalidArgument
+          .Reject("my message")
+      )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -704,7 +711,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegexErrorFactories),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -718,15 +725,6 @@ class ErrorFactoriesSpec
 
   private def expectedMarkerRegex(extraInner: String): Some[String] = {
     val locationRegex = "location=ErrorFactoriesSpec.scala:\\d+"
-    val inner = List(extraInner -> Pattern.quote(extraInner), locationRegex -> locationRegex)
-      .sortBy(_._1)
-      .map(_._2)
-      .mkString("\"\\{", ", ", "\\}\"")
-    Some(s"\\{err-context: $inner\\}")
-  }
-
-  private def expectedMarkerRegexErrorFactories(extraInner: String): Some[String] = {
-    val locationRegex = "location=ErrorFactories.scala:\\d+"
     val inner = List(extraInner -> Pattern.quote(extraInner), locationRegex -> locationRegex)
       .sortBy(_._1)
       .map(_._2)

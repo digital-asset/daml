@@ -24,7 +24,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -46,7 +46,7 @@ private[apiserver] final class ApiConfigManagementService private (
     with GrpcApiService {
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  import ErrorFactories._
+  import com.daml.ledger.api.validation.ValidationErrors._
 
   override def close(): Unit = ()
 

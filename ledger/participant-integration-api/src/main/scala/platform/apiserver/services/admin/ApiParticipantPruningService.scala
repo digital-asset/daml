@@ -22,7 +22,6 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -37,7 +36,7 @@ final class ApiParticipantPruningService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  import ErrorFactories._
+  import com.daml.ledger.api.validation.ValidationErrors._
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)

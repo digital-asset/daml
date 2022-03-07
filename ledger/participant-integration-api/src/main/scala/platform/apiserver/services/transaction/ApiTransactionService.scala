@@ -34,7 +34,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -66,7 +65,7 @@ private[apiserver] final class ApiTransactionService private (
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  import ErrorFactories.invalidArgument
+  import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])

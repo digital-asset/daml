@@ -9,13 +9,14 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{ErrorFactories, PackageServiceValidation}
+import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -92,7 +93,7 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailure(
               request,
-              ErrorFactories
+              ValidationErrors
                 .invalidArgument(s"Invalid package id: $errorMessage")(
                   createContextualizedErrorLogger
                 ),

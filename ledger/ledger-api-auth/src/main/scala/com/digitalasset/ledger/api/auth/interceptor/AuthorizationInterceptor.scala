@@ -7,10 +7,10 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -129,7 +129,7 @@ final class AuthorizationInterceptor(
     Ref.UserId.fromString(userIdStr) match {
       case Left(err) =>
         Future.failed(
-          ErrorFactories.invalidArgument(s"token $err")(errorLogger)
+          ValidationErrors.invalidArgument(s"token $err")(errorLogger)
         )
       case Right(userId) =>
         Future.successful(userId)

@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionsRequest,
 }
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 
 object TransactionServiceRequestValidator {
@@ -34,7 +34,7 @@ class TransactionServiceRequestValidator(
     new PartyValidator(partyNameChecker)
 
   import FieldValidations._
-  import ErrorFactories.invalidArgument
+  import ValidationErrors.invalidArgument
 
   private def matchId(input: Option[LedgerId])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

@@ -17,7 +17,7 @@ import com.daml.platform.akkastreams.dispatcher.SignalDispatcher
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
@@ -44,7 +44,7 @@ private[apiserver] final class ApiTimeService private (
   private val dispatcher = SignalDispatcher[Instant]()
 
   import FieldValidations._
-  import ErrorFactories.invalidArgument
+  import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"

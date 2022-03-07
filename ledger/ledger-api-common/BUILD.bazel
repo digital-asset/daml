@@ -46,7 +46,6 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
