@@ -255,7 +255,7 @@ object SValue {
 
     def unapply(any: SAny): Option[(TypeConName, SRecord)] =
       any match {
-        case SAny(TTyCon(tyCon0), record: SRecord) =>
+        case SAny(TTyCon(tyCon0), record: SRecord) if record.id == tyCon0 =>
           Some(tyCon0, record)
         case _ =>
           None

@@ -1057,8 +1057,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $fetch[T]
+  /** $fetchAny[T]
     *    :: ContractId a
+    *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
   final case object SBFetchAny extends OnLedgerBuiltin(2) {
@@ -1100,13 +1101,10 @@ private[lf] object SBuiltin {
 
   final case object SBCheckTemplateType extends SBuiltinPure(3) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
-      val expectedTmplId = args.get(0) match {
-        case STypeRep(Ast.TTyCon(tplId)) =>
-          tplId
-        case STypeRep(_) =>
-          throw SErrorDamlException(IE.UserError("unexpected typerep during interface fetch"))
+      val expectedTmplId = getSTypeRep(args, 0) match {
+        case Ast.TTyCon(tplId) => tplId
         case _ =>
-          crash(s"expected a TypeRep")
+          throw SErrorDamlException(IE.UserError("unexpected typerep during interface fetch"))
       }
       def coid = getSContractId(args, 1)
       val (actualTemplateId, _) = getSAnyContract(args, 2)
