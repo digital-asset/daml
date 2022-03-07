@@ -17,6 +17,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
 import java.time.{Duration, Instant}
+
 import scala.concurrent.duration._
 
 @Explanation(
@@ -531,7 +532,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause =
-              s"Ledger ID '${_expectedLedgerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
+              s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
             definiteAnswer = true,
           )
     }
@@ -647,17 +648,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(cause = message)
-
-    object Generic {
-      def apply(message: String, t: Throwable)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ): Generic = {
-        Generic(
-          message = s"$message: ${t.getClass.getSimpleName}: ${t.getMessage}",
-          throwableO = Some(t),
-        )
-      }
-    }
 
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency

@@ -53,7 +53,10 @@ private[services] final class QueueBackedTracker(
       case Success(QueueOfferResult.Failure(throwable)) =>
         toQueueSubmitFailure(
           LedgerApiErrors.InternalError
-            .Generic("Failed to enqueue", throwable)
+            .Generic(
+              s"Failed to enqueue: ${throwable.getClass.getSimpleName}: ${throwable.getMessage}",
+              Some(throwable),
+            )
             .asGrpcStatusFromContext
         )
       case Success(QueueOfferResult.Dropped) =>
@@ -71,7 +74,10 @@ private[services] final class QueueBackedTracker(
       case Failure(throwable) =>
         toQueueSubmitFailure(
           LedgerApiErrors.InternalError
-            .Generic("Unexpected `BoundedSourceQueue.offer` exception", throwable)
+            .Generic(
+              s"Unexpected `BoundedSourceQueue.offer` exception: ${throwable.getClass.getSimpleName}: ${throwable.getMessage}",
+              Some(throwable),
+            )
             .asGrpcStatusFromContext
         )
     }

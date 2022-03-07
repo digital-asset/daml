@@ -52,6 +52,8 @@ class ErrorFactoriesSpec
   private val expectedCorrelationIdRequestInfo =
     ErrorDetails.RequestInfoDetail(originalCorrelationId)
   private val expectedLocationLogMarkerRegex =
+    "\\{err-context: \"\\{location=ErrorFactoriesSpec.scala:\\d+\\}\"\\}"
+  private val expectedLocationLogMarkerRegexErrorFactories =
     "\\{err-context: \"\\{location=ErrorFactories.scala:\\d+\\}\"\\}"
   private val expectedInternalErrorMessage =
     s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId"
@@ -115,7 +117,7 @@ class ErrorFactoriesSpec
         val t = new Exception("message123")
         assertStatus(
           LedgerApiErrors.InternalError
-            .Generic("some message", t)(
+            .Generic("some message", Some(t))(
               contextualizedErrorLogger
             )
             .asGrpcStatusFromContext
@@ -125,7 +127,7 @@ class ErrorFactoriesSpec
           details = expectedInternalErrorDetails,
           logEntry = ExpectedLogEntry(
             Level.ERROR,
-            s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message: Exception: message123",
+            s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message",
             expectedMarkerRegex("throwableO=Some(java.lang.Exception: message123)"),
           ),
         )
@@ -571,7 +573,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegexErrorFactories),
         ),
       )
     }
@@ -685,7 +687,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          expectedMarkerRegex("field_name=my field"),
+          expectedMarkerRegexErrorFactories("field_name=my field"),
         ),
       )
     }
@@ -706,7 +708,7 @@ class ErrorFactoriesSpec
         logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegexErrorFactories),
         ),
       )
     }
@@ -719,6 +721,15 @@ class ErrorFactoriesSpec
   }
 
   private def expectedMarkerRegex(extraInner: String): Some[String] = {
+    val locationRegex = "location=ErrorFactoriesSpec.scala:\\d+"
+    val inner = List(extraInner -> Pattern.quote(extraInner), locationRegex -> locationRegex)
+      .sortBy(_._1)
+      .map(_._2)
+      .mkString("\"\\{", ", ", "\\}\"")
+    Some(s"\\{err-context: $inner\\}")
+  }
+
+  private def expectedMarkerRegexErrorFactories(extraInner: String): Some[String] = {
     val locationRegex = "location=ErrorFactories.scala:\\d+"
     val inner = List(extraInner -> Pattern.quote(extraInner), locationRegex -> locationRegex)
       .sortBy(_._1)
