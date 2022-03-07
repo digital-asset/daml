@@ -5,21 +5,21 @@ package com.daml.metrics
 
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
-import com.codahale.metrics.{Counter, Timer}
+import io.prometheus.client.{Gauge, Summary}
 
 object InstrumentedSource {
 
   final class InstrumentedBoundedSourceQueue[T](
-      delegate: BoundedSourceQueue[(Timer.Context, T)],
+      delegate: BoundedSourceQueue[(Summary.Timer, T)],
       bufferSize: Int,
-      capacityCounter: Counter,
-      lengthCounter: Counter,
-      delayTimer: Timer,
+      capacityGauge: Gauge,
+      lengthGauge: Gauge,
+      delayTimer: Summary,
   ) extends BoundedSourceQueue[T] {
 
     override def complete(): Unit = {
       delegate.complete()
-      capacityCounter.dec(bufferSize.toLong)
+      capacityGauge.dec(bufferSize.toDouble)
     }
 
     override def size(): Int = bufferSize
@@ -28,11 +28,11 @@ object InstrumentedSource {
 
     override def offer(elem: T): QueueOfferResult = {
       val result = delegate.offer(
-        delayTimer.time() -> elem
+        delayTimer.startTimer() -> elem
       )
       result match {
         case QueueOfferResult.Enqueued =>
-          lengthCounter.inc()
+          lengthGauge.inc()
 
         case _ => // do nothing
       }
@@ -60,28 +60,28 @@ object InstrumentedSource {
     */
   def queue[T](
       bufferSize: Int,
-      capacityCounter: Counter,
-      lengthCounter: Counter,
-      delayTimer: Timer,
+      capacityGauge: Gauge,
+      lengthGauge: Gauge,
+      delayTimer: Summary,
   )(implicit
       materializer: Materializer
   ): Source[T, BoundedSourceQueue[T]] = {
     val (boundedQueue, source) =
-      Source.queue[(Timer.Context, T)](bufferSize).preMaterialize()
+      Source.queue[(Summary.Timer, T)](bufferSize).preMaterialize()
 
     val instrumentedQueue =
       new InstrumentedBoundedSourceQueue[T](
         boundedQueue,
         bufferSize,
-        capacityCounter,
-        lengthCounter,
+        capacityGauge,
+        lengthGauge,
         delayTimer,
       )
-    capacityCounter.inc(bufferSize.toLong)
+    capacityGauge.inc(bufferSize.toDouble)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
-      timingContext.stop()
-      lengthCounter.dec()
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timer, item) =>
+      timer.observeDuration()
+      lengthGauge.dec()
       item
     }
   }

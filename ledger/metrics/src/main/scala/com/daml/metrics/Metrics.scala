@@ -40,9 +40,9 @@ final class Metrics(val registry: MetricRegistry) {
       val validSubmissions: Meter =
         registry.meter(Prefix :+ "valid_submissions")
 
-      val inputBufferLength: Counter = registry.counter(Prefix :+ "input_buffer_length")
-      val inputBufferCapacity: Counter = registry.counter(Prefix :+ "input_buffer_capacity")
-      val inputBufferDelay: Timer = registry.timer(Prefix :+ "input_buffer_delay")
+      val inputBufferLength: client.Gauge = gauge(Prefix :+ "input_buffer_length")
+      val inputBufferCapacity: client.Gauge = gauge(Prefix :+ "input_buffer_capacity")
+      val inputBufferDelay: client.Summary = summary(Prefix :+ "input_buffer_delay")
       val maxInFlightLength: Counter = registry.counter(Prefix :+ "max_in_flight_length")
       val maxInFlightCapacity: Counter = registry.counter(Prefix :+ "max_in_flight_capacity")
     }

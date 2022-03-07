@@ -4,7 +4,7 @@
 package com.daml.ledger.sandbox
 
 import akka.NotUsed
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.definitions.LedgerApiErrors
@@ -133,12 +133,12 @@ class BridgeWriteService(
     )
 
   private val queue: BoundedSourceQueue[Submission] = {
-    val (queue, queueSource) =
+    val (queue: BoundedSourceQueue[Submission], queueSource: Source[(Offset, Update), NotUsed]) =
       InstrumentedSource
         .queue[Submission](
           bufferSize = submissionBufferSize,
-          capacityCounter = bridgeMetrics.BridgeInputQueue.conflictQueueCapacity,
-          lengthCounter = bridgeMetrics.BridgeInputQueue.conflictQueueLength,
+          capacityGauge = bridgeMetrics.BridgeInputQueue.conflictQueueCapacity,
+          lengthGauge = bridgeMetrics.BridgeInputQueue.conflictQueueLength,
           delayTimer = bridgeMetrics.BridgeInputQueue.conflictQueueDelay,
         )
         .via(ledgerBridge.flow)

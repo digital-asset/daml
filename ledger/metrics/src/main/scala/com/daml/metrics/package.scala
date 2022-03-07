@@ -7,7 +7,7 @@ import io.prometheus.client
 
 package object metrics {
 
-  private[metrics] def gauge(name: String): client.Gauge = client.Gauge
+  def gauge(name: String): client.Gauge = client.Gauge
     .build()
     .name(name)
     .help(name)
@@ -31,7 +31,7 @@ package object metrics {
     .ageBuckets(10)
     .register()
 
-  private[metrics] def histogram(name: String): client.Histogram = client.Histogram
+  def histogram(name: String): client.Histogram = client.Histogram
     .build()
     .name(name)
     .help(name)

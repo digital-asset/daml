@@ -6,7 +6,6 @@ package com.daml.platform.apiserver.services.tracking
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
-import com.codahale.metrics.{Counter, Timer}
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
@@ -17,6 +16,7 @@ import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.google.rpc.Status
+import io.prometheus.client.{Gauge, Summary}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -98,9 +98,9 @@ private[services] object QueueBackedTracker {
         Materialized[NotUsed, Promise[Either[CompletionFailure, CompletionSuccess]]],
       ],
       inputBufferSize: Int,
-      capacityCounter: Counter,
-      lengthCounter: Counter,
-      delayTimer: Timer,
+      capacityCounter: Gauge,
+      lengthCounter: Gauge,
+      delayTimer: Summary,
       errorFactories: ErrorFactories,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
     val ((queue, mat), done) = InstrumentedSource

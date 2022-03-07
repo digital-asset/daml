@@ -5,6 +5,8 @@ package com.daml.ledger.sandbox.bridge
 
 import com.daml.metrics.{MetricName, Metrics}
 import com.codahale.metrics.{Counter, Histogram, MetricRegistry, Timer}
+import io.prometheus.client
+import com.daml.metrics.{gauge, summary}
 
 class BridgeMetrics(metrics: Metrics) {
   val registry: MetricRegistry = metrics.registry
@@ -39,8 +41,8 @@ class BridgeMetrics(metrics: Metrics) {
   object BridgeInputQueue {
     val Prefix: MetricName = BridgeMetrics.this.Prefix :+ "input_queue"
 
-    val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "capacity")
-    val conflictQueueLength: Counter = registry.counter(Prefix :+ "length")
-    val conflictQueueDelay: Timer = registry.timer(Prefix :+ "delay")
+    val conflictQueueCapacity: client.Gauge = gauge(Prefix :+ "capacity")
+    val conflictQueueLength: client.Gauge = gauge(Prefix :+ "length")
+    val conflictQueueDelay: client.Summary = summary(Prefix :+ "delay")
   }
 }
