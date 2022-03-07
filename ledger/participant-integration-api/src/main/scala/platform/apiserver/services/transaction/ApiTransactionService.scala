@@ -65,7 +65,8 @@ private[apiserver] final class ApiTransactionService private (
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  import ErrorFactories.{invalidArgumentWasNotFound, transactionNotFound}
+  import ErrorFactories.transactionNotFound
+  import ErrorFactories.invalidArgumentWasNotFound
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
