@@ -112,7 +112,7 @@ private[apiserver] final class ApiTransactionService private (
         request.verbose,
       )
       .via(
-        logger.enrichedDebugStream("Responding with transaction tree.", transactionTreesLoggable)
+        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
       )
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
