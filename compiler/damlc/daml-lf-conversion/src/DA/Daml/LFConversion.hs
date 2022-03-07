@@ -965,7 +965,7 @@ convertImplements env tpl = NM.fromList <$>
       pure (TemplateImplements con methods inheritedChoiceNames)
 
     convertMethods ms = fmap NM.fromList . sequence $
-      [ TemplateImplementsMethod (MethodName k) <$> convertExpr env v
+      [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
       | (k, v) <- ms
       ]
 

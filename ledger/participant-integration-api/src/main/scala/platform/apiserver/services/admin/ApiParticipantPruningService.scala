@@ -4,8 +4,9 @@
 package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-
 import java.util.UUID
+
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
@@ -35,9 +36,8 @@ final class ApiParticipantPruningService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
 
-  import errorFactories._
+  import ErrorFactories._
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
@@ -149,12 +149,14 @@ final class ApiParticipantPruningService private (
       .toEither
       .left
       .map(t =>
-        nonHexOffset(
-          fieldName = "prune_up_to",
-          offsetValue = pruneUpToString,
-          message =
-            s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
-        )
+        LedgerApiErrors.RequestValidation.NonHexOffset
+          .Error(
+            _fieldName = "prune_up_to",
+            _offsetValue = pruneUpToString,
+            _message =
+              s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
+          )
+          .asGrpcError
       )
 
   private def checkOffsetIsBeforeLedgerEnd(
@@ -172,9 +174,11 @@ final class ApiParticipantPruningService private (
           Future.failed(
             // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
             //                   and use offsetAfterLedgerEnd
-            offsetOutOfRange(
-              s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
-            )
+            LedgerApiErrors.RequestValidation.OffsetOutOfRange
+              .Reject(
+                s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
+              )
+              .asGrpcError
           )
     } yield pruneUpToProto
 

@@ -26,7 +26,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.ContextualizedLogger
 import com.daml.metrics.Timed
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
 import java.time.Duration
@@ -43,7 +42,6 @@ private[validate] class SequenceImpl(
     initialLedgerConfiguration: Option[Configuration],
     validatePartyAllocation: Boolean,
     bridgeMetrics: BridgeMetrics,
-    errorFactories: ErrorFactories,
     maxDeduplicationDuration: Duration,
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
@@ -211,26 +209,26 @@ private[validate] class SequenceImpl(
   ): Validation[Unit] =
     inputContracts.intersect(consumedContractsState) pipe {
       case alreadyArchived if alreadyArchived.nonEmpty =>
-        Left(UnknownContracts(alreadyArchived)(completionInfo, errorFactories))
+        Left(UnknownContracts(alreadyArchived)(completionInfo))
       case _ =>
         keyInputs
           .foldLeft[Validation[Unit]](Right(())) {
             case (Right(_), (key, LfTransaction.KeyCreate)) =>
               keysState.get(key) match {
                 case None | Some((None, _)) => Right(())
-                case Some((Some(_), _)) => Left(DuplicateKey(key)(completionInfo, errorFactories))
+                case Some((Some(_), _)) => Left(DuplicateKey(key)(completionInfo))
               }
             case (Right(_), (key, LfTransaction.NegativeKeyLookup)) =>
               keysState.get(key) match {
                 case None | Some((None, _)) => Right(())
                 case Some((Some(actual), _)) =>
-                  Left(InconsistentContractKey(None, Some(actual))(completionInfo, errorFactories))
+                  Left(InconsistentContractKey(None, Some(actual))(completionInfo))
               }
             case (Right(_), (key, LfTransaction.KeyActive(cid))) =>
               keysState.get(key) match {
                 case None | Some((Some(`cid`), _)) => Right(())
                 case Some((other, _)) =>
-                  Left(InconsistentContractKey(other, Some(cid))(completionInfo, errorFactories))
+                  Left(InconsistentContractKey(other, Some(cid))(completionInfo))
               }
             case (left, _) => left
           }
@@ -268,7 +266,7 @@ private[validate] class SequenceImpl(
       Either.cond(
         unallocatedInformees.isEmpty,
         (),
-        UnallocatedParties(unallocatedInformees.toSet)(completionInfo, errorFactories),
+        UnallocatedParties(unallocatedInformees.toSet)(completionInfo),
       )
     } else Right(())
 
@@ -279,7 +277,7 @@ private[validate] class SequenceImpl(
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Validation[Unit] = {
     val completionInfo = transaction.submitterInfo.toCompletionInfo()
     ledgerConfiguration
-      .toRight(Rejection.NoLedgerConfiguration(completionInfo, errorFactories))
+      .toRight(Rejection.NoLedgerConfiguration(completionInfo))
       .flatMap(configuration =>
         configuration.timeModel
           .checkTime(
@@ -287,7 +285,7 @@ private[validate] class SequenceImpl(
             recordTime,
           )
           .left
-          .map(Rejection.InvalidLedgerTime(completionInfo, _)(errorFactories))
+          .map(Rejection.InvalidLedgerTime(completionInfo, _))
       )
   }
 

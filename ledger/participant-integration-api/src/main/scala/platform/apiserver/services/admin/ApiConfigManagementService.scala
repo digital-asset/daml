@@ -4,9 +4,11 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.{Duration => JDuration}
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
@@ -43,10 +45,8 @@ private[apiserver] final class ApiConfigManagementService private (
 ) extends ConfigManagementService
     with GrpcApiService {
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
-  private val fieldValidations = FieldValidations(errorFactories)
 
-  import errorFactories._
+  import ErrorFactories._
 
   override def close(): Unit = ()
 
@@ -62,9 +62,11 @@ private[apiserver] final class ApiConfigManagementService private (
           Future.successful(configurationToResponse(configuration))
         case None =>
           Future.failed(
-            missingLedgerConfig()(
-              new DamlContextualizedErrorLogger(logger, loggingContext, None)
-            )
+            LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+              .Reject()(
+                new DamlContextualizedErrorLogger(logger, loggingContext, None)
+              )
+              .asGrpcError
           )
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
@@ -111,7 +113,11 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(missingLedgerConfig())
+                Future.failed(
+                  LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+                    .Reject()
+                    .asGrpcError
+                )
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -144,10 +150,8 @@ private[apiserver] final class ApiConfigManagementService private (
               writeService,
               index,
               ledgerEndBeforeRequest,
-              errorFactories,
             ),
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
-            errorFactories = errorFactories,
           )
           entry <- synchronousResponse.submitAndWait(
             augmentedSubmissionId,
@@ -169,7 +173,7 @@ private[apiserver] final class ApiConfigManagementService private (
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, SetTimeModelParameters] = {
-    import fieldValidations._
+    import FieldValidations._
     for {
       pTimeModel <- requirePresence(request.newTimeModel, "new_time_model")
       pAvgTransactionLatency <- requirePresence(
@@ -224,7 +228,6 @@ private[apiserver] object ApiConfigManagementService {
       writeConfigService: state.WriteConfigService,
       configManagementService: IndexConfigManagementService,
       ledgerEnd: LedgerOffset.Absolute,
-      errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Time.Timestamp, Configuration),
@@ -261,9 +264,11 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        errorFactories.configurationEntryRejected(reason)(
-          new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
-        )
+        LedgerApiErrors.AdminServices.ConfigurationEntryRejected
+          .Reject(reason)(
+            new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+          )
+          .asGrpcError
     }
   }
 

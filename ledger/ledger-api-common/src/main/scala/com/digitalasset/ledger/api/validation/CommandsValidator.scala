@@ -7,6 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
@@ -37,14 +38,9 @@ import scala.annotation.nowarn
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
-  private val errorFactories = ErrorFactories()
-  private val fieldValidations = FieldValidations(errorFactories)
-  private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
-  private val deduplicationValidator = new DeduplicationPeriodValidator(errorFactories)
-
-  import errorFactories._
-  import fieldValidations._
-  import valueValidator._
+  import ErrorFactories._
+  import FieldValidations._
+  import ValueValidator._
 
   def validateCommands(
       commands: ProtoCommands,
@@ -235,19 +231,23 @@ final class CommandsValidator(ledgerId: LedgerId) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(missingLedgerConfig())
+      Left(
+        LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+          .Reject()
+          .asGrpcError
+      )
     ) { maxDeduplicationDuration =>
       deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationValidator
+          DeduplicationPeriodValidator
             .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationValidator
+          DeduplicationPeriodValidator
             .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
@@ -256,12 +256,14 @@ final class CommandsValidator(ledgerId: LedgerId) {
             .fold(
               _ =>
                 Left(
-                  nonHexOffset(
-                    fieldName = "deduplication_period",
-                    offsetValue = offset,
-                    message =
-                      s"the deduplication offset has to be a hexadecimal string and not $offset",
-                  )
+                  LedgerApiErrors.RequestValidation.NonHexOffset
+                    .Error(
+                      _fieldName = "deduplication_period",
+                      _offsetValue = offset,
+                      _message =
+                        s"the deduplication offset has to be a hexadecimal string and not $offset",
+                    )
+                    .asGrpcError
                 ),
               hexOffset =>
                 Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),

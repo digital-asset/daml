@@ -40,9 +40,8 @@ class GrpcHealthService(
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val errorFactories = ErrorFactories()
 
-  import errorFactories.invalidArgumentWasNotFound
+  import ErrorFactories.invalidArgument
 
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, executionContext)
@@ -61,7 +60,7 @@ class GrpcHealthService(
       .collect {
         case component if !healthChecks.hasComponent(component) =>
           Failure(
-            invalidArgumentWasNotFound(s"Component $component does not exist.")(errorLogger)
+            invalidArgument(s"Component $component does not exist.")(errorLogger)
           )
       }
       .getOrElse {

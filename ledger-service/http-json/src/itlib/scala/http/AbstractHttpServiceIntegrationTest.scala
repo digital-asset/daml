@@ -782,7 +782,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       admin: Boolean = false,
   )(implicit ec: ExecutionContext): Future[Jwt] =
     Future.successful(
-      HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
+      HttpServiceTestFixture.jwtForParties(actAs, readAs, Some(ledgerId), withoutNamespace)
     )
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
@@ -802,7 +802,12 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       actAs: List[String],
       readAs: List[String] = List(),
   ) =
-    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId, withoutNamespace = true)
+    HttpServiceTestFixture.headersWithPartyAuth(
+      actAs,
+      readAs,
+      Some(testId),
+      withoutNamespace = true,
+    )
 
   "get all parties using the legacy token format" in withHttpServiceAndClient {
     (uri, _, _, client, _) =>
@@ -830,6 +835,32 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
                   allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
               }
             }
+        }: Future[Assertion]
+  }
+
+  "create should fail with custom tokens that contain no ledger id" in withHttpService {
+    (uri, encoder, _, _) =>
+      val alice = getUniqueParty("Alice")
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+
+      val headers = HttpServiceTestFixture.authorizationHeader(
+        HttpServiceTestFixture.jwtForParties(List("Alice"), List("Bob"), None, false, false)
+      )
+
+      postJsonRequest(
+        uri.withPath(Uri.Path("/v1/create")),
+        input,
+        headers,
+      )
+        .flatMap { case (status, output) =>
+          status shouldBe StatusCodes.Unauthorized
+          assertStatus(output, StatusCodes.Unauthorized)
+          HttpServiceTestFixture.getChild(
+            output,
+            "errors",
+          ) shouldBe JsArray(JsString("ledgerId missing in access token"))
+
         }: Future[Assertion]
   }
 }

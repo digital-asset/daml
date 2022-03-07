@@ -8,13 +8,13 @@ import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.google.rpc.Status
 
@@ -29,7 +29,6 @@ import scala.util.{Failure, Success, Try}
 private[services] final class QueueBackedTracker(
     queue: BoundedSourceQueue[QueueBackedTracker.QueueInput],
     done: Future[Done],
-    errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
     extends Tracker {
 
@@ -53,20 +52,33 @@ private[services] final class QueueBackedTracker(
         )
       case Success(QueueOfferResult.Failure(throwable)) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors
-            .failedToEnqueueCommandSubmission("Failed to enqueue")(throwable)
+          LedgerApiErrors.InternalError
+            .Generic(
+              s"Failed to enqueue: ${throwable.getClass.getSimpleName}: ${throwable.getMessage}",
+              Some(throwable),
+            )
+            .asGrpcStatusFromContext
         )
       case Success(QueueOfferResult.Dropped) =>
-        toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
+        toQueueSubmitFailure(
+          LedgerApiErrors.ParticipantBackpressure
+            .Rejection("The submission ingress buffer is full")
+            .asGrpcStatusFromContext
+        )
       case Success(QueueOfferResult.QueueClosed) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
+          LedgerApiErrors.ServiceNotRunning
+            .Reject("Command service queue")
+            .asGrpcStatusFromContext
         )
       case Failure(throwable) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission(
-            "Unexpected `BoundedSourceQueue.offer` exception"
-          )(throwable)
+          LedgerApiErrors.InternalError
+            .Generic(
+              s"Unexpected `BoundedSourceQueue.offer` exception: ${throwable.getClass.getSimpleName}: ${throwable.getMessage}",
+              Some(throwable),
+            )
+            .asGrpcStatusFromContext
         )
     }
   }
@@ -101,7 +113,6 @@ private[services] object QueueBackedTracker {
       capacityCounter: Counter,
       lengthCounter: Counter,
       delayTimer: Timer,
-      errorFactories: ErrorFactories,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
     val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
@@ -142,13 +153,15 @@ private[services] object QueueBackedTracker {
         val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
         promises.foreach(p =>
           p.failure(
-            errorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
+            LedgerApiErrors.InternalError
+              .Generic(promiseCancellationDescription)(errorLogger)
+              .asGrpcError
           )
         )
       })(ExecutionContext.parasitic)
     }(ExecutionContext.parasitic)
 
-    new QueueBackedTracker(queue, done, errorFactories)
+    new QueueBackedTracker(queue, done)
   }
 
   type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]

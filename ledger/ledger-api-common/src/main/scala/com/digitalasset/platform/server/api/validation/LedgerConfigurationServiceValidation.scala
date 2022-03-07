@@ -22,7 +22,6 @@ import scala.concurrent.ExecutionContext
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
     protected val ledgerId: LedgerId,
-    fieldValidations: FieldValidations,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends LedgerConfigurationService
     with ProxyCloseable
@@ -36,7 +35,7 @@ class LedgerConfigurationServiceValidation(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
   ): Unit =
-    fieldValidations
+    FieldValidations
       .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .fold(
         t => responseObserver.onError(ValidationLogger.logFailure(request, t)),

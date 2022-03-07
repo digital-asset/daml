@@ -18,7 +18,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
     val ledgerId: LedgerId,
-    fieldValidations: FieldValidations,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with ProxyCloseable
@@ -29,7 +28,7 @@ class PackageServiceValidation(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    fieldValidations
+    FieldValidations
       .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .map(const(request))
       .fold(
@@ -38,7 +37,7 @@ class PackageServiceValidation(
       )
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
-    fieldValidations
+    FieldValidations
       .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .map(const(request))
       .fold(
@@ -49,7 +48,7 @@ class PackageServiceValidation(
   override def getPackageStatus(
       request: GetPackageStatusRequest
   ): Future[GetPackageStatusResponse] =
-    fieldValidations
+    FieldValidations
       .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .map(const(request))
       .fold(

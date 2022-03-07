@@ -8,7 +8,7 @@ import java.util.UUID
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
-import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
+import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
@@ -28,7 +28,6 @@ import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
@@ -100,36 +99,34 @@ private[apiserver] final class ApiSubmissionService private[services] (
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
 
   override def submit(
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
-      // TODO: Replace the workaround below with a proper solution.
-      // Spin up a Future so that all the work is done not on the dispatcher thread
-      // but using the pool provided with the ExecutionContext of this class instance.
-      Future {
-        logger.info("Submitting transaction")
-        logger.trace(s"Commands: ${request.commands.commands.commands}")
+      logger.info("Submitting transaction")
+      logger.trace(s"Commands: ${request.commands.commands.commands}")
+
+      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(
           logger,
           loggingContext,
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
-      }.flatMap { implicit contextualizedErrorLogger: ContextualizedErrorLogger =>
-        val evaluatedCommand = ledgerConfigurationSubscription
-          .latestConfiguration() match {
-          case Some(ledgerConfiguration) =>
-            evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
-              .transform(handleSubmissionResult)
-          case None =>
-            Future.failed(
-              errorFactories.missingLedgerConfig()
-            )
-        }
-        evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
+
+      val evaluatedCommand = ledgerConfigurationSubscription
+        .latestConfiguration() match {
+        case Some(ledgerConfiguration) =>
+          evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
+            .transform(handleSubmissionResult)
+        case None =>
+          Future.failed(
+            LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+              .Reject()
+              .asGrpcError
+          )
       }
+      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit

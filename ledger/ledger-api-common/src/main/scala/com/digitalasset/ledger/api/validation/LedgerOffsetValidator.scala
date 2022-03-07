@@ -4,6 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -12,14 +13,12 @@ import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered._
 
-class LedgerOffsetValidator(errorFactories: ErrorFactories) {
+object LedgerOffsetValidator {
 
   private val boundary = "boundary"
 
-  private val fieldValidations = FieldValidations(errorFactories)
-
-  import errorFactories.{invalidArgument, missingField, offsetAfterLedgerEnd}
-  import fieldValidations.requireLedgerString
+  import ErrorFactories.{invalidArgument, missingField}
+  import FieldValidations.requireLedgerString
 
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
@@ -58,7 +57,11 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset match {
       case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
-        Left(offsetAfterLedgerEnd(offsetType, abs.value, ledgerEnd.value))
+        Left(
+          LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+            .Reject(offsetType, abs.value, ledgerEnd.value)
+            .asGrpcError
+        )
       case _ => Right(())
     }
 

@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
@@ -54,7 +55,6 @@ private[apiserver] object ApiTransactionService {
       new ApiTransactionService(transactionsService, metrics),
       ledgerId,
       PartyNameChecker.AllowAllParties,
-      ErrorFactories(),
     )
 }
 
@@ -65,10 +65,8 @@ private[apiserver] final class ApiTransactionService private (
     extends TransactionService {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
 
-  import errorFactories.transactionNotFound
-  import errorFactories.invalidArgumentWasNotFound
+  import ErrorFactories.invalidArgument
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
@@ -140,7 +138,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         Future.failed {
-          invalidArgumentWasNotFound(s"invalid eventId: ${request.eventId}")
+          invalidArgument(s"invalid eventId: ${request.eventId}")
         }
       }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -183,7 +181,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         val msg = s"eventId: ${request.eventId}"
-        Future.failed(invalidArgumentWasNotFound(msg))
+        Future.failed(invalidArgument(msg))
       }
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
@@ -212,7 +210,12 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .getTransactionTreeById(transactionId, requestingParties)
       .flatMap {
-        case None => Future.failed(transactionNotFound(transactionId.unwrap))
+        case None =>
+          Future.failed(
+            LedgerApiErrors.RequestValidation.NotFound.Transaction
+              .Reject(transactionId.unwrap)
+              .asGrpcError
+          )
         case Some(transaction) => Future.successful(transaction)
       }
 
@@ -223,7 +226,12 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .getTransactionById(transactionId, requestingParties)
       .flatMap {
-        case None => Future.failed(transactionNotFound(transactionId.unwrap))
+        case None =>
+          Future.failed(
+            LedgerApiErrors.RequestValidation.NotFound.Transaction
+              .Reject(transactionId.unwrap)
+              .asGrpcError
+          )
         case Some(transaction) => Future.successful(transaction)
       }
 

@@ -18,11 +18,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{
-  ActiveContractsServiceValidation,
-  ErrorFactories,
-  FieldValidations,
-}
+import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
@@ -30,7 +26,6 @@ import scala.concurrent.ExecutionContext
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
     metrics: Metrics,
-    transactionFilterValidator: TransactionFilterValidator,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -46,7 +41,7 @@ private[apiserver] final class ApiActiveContractsService private (
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
-    transactionFilterValidator
+    TransactionFilterValidator
       .validate(request.getFilter)
       .fold(
         t => Source.failed(ValidationLogger.logFailure(request, t)),
@@ -75,17 +70,13 @@ private[apiserver] object ApiActiveContractsService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService = {
-    val errorFactories = ErrorFactories()
-    val field = FieldValidations(ErrorFactories())
     val service = new ApiActiveContractsService(
       backend = backend,
       metrics = metrics,
-      transactionFilterValidator = new TransactionFilterValidator(errorFactories),
     )
     new ActiveContractsServiceValidation(
       service = service,
       ledgerId = ledgerId,
-      fieldValidations = field,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, executionContext)

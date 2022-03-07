@@ -233,7 +233,7 @@ specify an ``init-script: ScriptExample:initializeUser`` field in your
 ``daml.yaml``. This will automatically be picked up by ``daml start``
 and used to initialize sandbox. During development not being able to
 control party ids can often be inconvenient. Here, we rely on
-:ref:`users <user-service>` which do put us in control of
+:ref:`users <user-management-service>` which do put us in control of
 their id. User ids can be used in Navigator, triggers & other tools
 instead of party ids.
 

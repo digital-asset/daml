@@ -411,10 +411,10 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "handle '--max-users-page-size' flag correctly" in {
+    "handle '--user-management-max-users-page-size' flag correctly" in {
       // missing value
       checkOptionFail(
-        Array("--max-users-page-size")
+        Array("--user-management-max-users-page-size")
       )
       // default
       checkOption(
@@ -424,7 +424,7 @@ abstract class CommonCliSpecBase(
       // custom value
       checkOption(
         Array(
-          "--max-users-page-size",
+          "--user-management-max-users-page-size",
           "123",
         ),
         _.withUserManagementConfig(_.copy(maxUsersPageSize = 123)),
@@ -432,20 +432,20 @@ abstract class CommonCliSpecBase(
       // values in range [1, 99] are disallowed
       checkOptionFail(
         Array(
-          "--max-users-page-size",
+          "--user-management-max-users-page-size",
           "1",
         )
       )
       checkOptionFail(
         Array(
-          "--max-users-page-size",
+          "--user-management-max-users-page-size",
           "99",
         )
       )
       // negative values are disallowed
       checkOptionFail(
         Array(
-          "--max-users-page-size",
+          "--user-management-max-users-page-size",
           "-1",
         )
       )
