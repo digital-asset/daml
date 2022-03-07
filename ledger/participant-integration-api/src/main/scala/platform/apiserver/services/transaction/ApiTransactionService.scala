@@ -28,7 +28,7 @@ import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.entries.LoggingEntries
+import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
@@ -86,7 +86,7 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Transaction request: $request")
     transactionsService
       .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.debugStream(transactionsLoggable))
+      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
@@ -111,7 +111,9 @@ private[apiserver] final class ApiTransactionService private (
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
         request.verbose,
       )
-      .via(logger.debugStream(transactionTreesLoggable))
+      .via(
+        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
+      )
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
   }
@@ -235,21 +237,30 @@ private[apiserver] final class ApiTransactionService private (
         case Some(transaction) => Future.successful(transaction)
       }
 
-  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
-    s"Responding with transactions: ${transactions.transactions.toList
-      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): LoggingEntries =
+    LoggingEntries(
+      "transactions" -> LoggingValue.OfIterable(
+        trees.transactions.toList.map(t =>
+          entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
+        )
+      )
+    )
 
-  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
-    s"Responding with transaction trees: ${trees.transactions.toList
-      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+  private def transactionsLoggable(trees: GetTransactionsResponse): LoggingEntries = LoggingEntries(
+    "transactions" -> LoggingValue.OfIterable(
+      trees.transactions.toList.map(t =>
+        entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
+      )
+    )
+  )
 
   private def entityLoggable(
       commandId: String,
       transactionId: String,
       workflowId: String,
       offset: String,
-  ): LoggingEntries =
-    LoggingEntries(
+  ): LoggingValue.Nested =
+    LoggingValue.Nested.fromEntries(
       logging.commandId(commandId),
       logging.transactionId(transactionId),
       logging.workflowId(workflowId),
