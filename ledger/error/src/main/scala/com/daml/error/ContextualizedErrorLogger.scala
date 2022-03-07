@@ -24,6 +24,17 @@ trait ContextualizedErrorLogger {
 
 object DamlContextualizedErrorLogger {
 
+  def forClass(
+      clazz: Class[_],
+      loggingContext: LoggingContext = LoggingContext.empty,
+      correlationId: Option[String] = None,
+  ): DamlContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(
+      ContextualizedLogger.get(clazz),
+      loggingContext,
+      correlationId,
+    )
+
   def forTesting(clazz: Class[_], correlationId: Option[String] = None) =
     new DamlContextualizedErrorLogger(
       ContextualizedLogger.get(clazz),
