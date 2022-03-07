@@ -12,7 +12,9 @@ abstract class CatsInstancesLow extends CatsInstancesLow1 {
 }
 
 abstract class CatsInstancesLow1 {
-  implicit def reducibleNonEmpty[F[_]](implicit F: Foldable[F]): Reducible[NonEmptyF[F, *]] =
+  implicit def `cats nonempty reducible`[F[_]](implicit
+      F: Foldable[F]
+  ): Reducible[NonEmptyF[F, *]] =
     new Reducible[NonEmptyF[F, *]] {
       private def errOnEmpty[A](x: NonEmptyF[F, A]): Nothing =
         throw new IllegalArgumentException(
