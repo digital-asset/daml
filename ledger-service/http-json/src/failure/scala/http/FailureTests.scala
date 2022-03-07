@@ -42,7 +42,7 @@ final class FailureTests
   import WebsocketTestFixture._
 
   private def headersWithParties(actAs: List[String]) =
-    headersWithPartyAuth(actAs, List(), ledgerId().unwrap)
+    headersWithPartyAuth(actAs, List(), Some(ledgerId().unwrap))
 
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
@@ -344,7 +344,7 @@ final class FailureTests
       _ = status shouldBe a[StatusCodes.Success]
       cid = getContractId(getResult(r))
       r <- (singleClientQueryStream(
-        jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
+        jwtForParties(List(p.unwrap), List(), Some(ledgerId().unwrap)),
         uri,
         query,
       ) via parseResp runWith respBefore(cid)).transform(x => Success(x))
@@ -363,7 +363,7 @@ final class FailureTests
       cid = getContractId(getResult(r))
       _ = status shouldBe a[StatusCodes.Success]
       (stop, source) = singleClientQueryStream(
-        jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
+        jwtForParties(List(p.unwrap), List(), Some(ledgerId().unwrap)),
         uri,
         query,
         Some(offset),
