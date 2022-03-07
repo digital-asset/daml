@@ -121,8 +121,6 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionResponse] = {
-    // There is no problem in leaking the loggingContext in here, but the construction looks suspicious
-    // TODO error codes: Replace with non-closure-based enriched loggingContext builder here and in other constructions as well
     implicit val errorLogger: ContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
