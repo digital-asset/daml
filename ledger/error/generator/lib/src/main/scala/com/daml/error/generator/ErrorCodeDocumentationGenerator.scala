@@ -8,10 +8,8 @@ import java.lang.reflect.Modifier
 import com.daml.error._
 import org.reflections.Reflections
 
-import scala.annotation.nowarn
-
-//import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
+import scala.reflect.runtime.universe._
 import scala.reflect.runtime.{universe => ru}
 
 /** Utility that indexes all error code implementations.
@@ -93,16 +91,15 @@ object ErrorCodeDocumentationGenerator {
     val resolution = new SettableOnce[String]
     val retryStrategy = new SettableOnce[String]
     annotations.foreach { annotation =>
-      lazy val parsedValue = parseAnnotationValue(annotation.tree)
       getAnnotationTypeName(annotation) match {
         case DescriptionTypeName =>
-          description.set(parsedValue, DescriptionTypeName)
+          description.set(parseAnnotationValue(annotation.tree), DescriptionTypeName)
         case ResolutionTypeName =>
-          resolution.set(parsedValue, ResolutionTypeName)
+          resolution.set(parseAnnotationValue(annotation.tree), ResolutionTypeName)
         case RetryStrategyTypeName =>
-          retryStrategy.set(parsedValue, RetryStrategyTypeName)
+          retryStrategy.set(parseAnnotationValue(annotation.tree), RetryStrategyTypeName)
         case otherAnnotationTypeName =>
-          throw new IllegalStateException(
+          throw new IllegalArgumentException(
             s"Unexpected annotation of type: $otherAnnotationTypeName"
           )
       }
@@ -138,7 +135,7 @@ object ErrorCodeDocumentationGenerator {
             ScalaDeprecatedTypeName,
           )
         case otherAnnotationTypeName =>
-          throw new IllegalStateException(
+          throw new IllegalArgumentException(
             s"Unexpected annotation of type: $otherAnnotationTypeName"
           )
       }
@@ -150,9 +147,6 @@ object ErrorCodeDocumentationGenerator {
     )
   }
 
-  @nowarn(
-    "cat=unchecked&msg=abstract type pattern reflect.runtime.universe..* is unchecked since it is eliminated by erasure"
-  )
   private[generator] def parseScalaDeprecatedAnnotation(
       annotation: ru.Annotation
   ): DeprecatedItem = {
@@ -179,7 +173,7 @@ object ErrorCodeDocumentationGenerator {
         case ExplanationTypeName =>
           explanation.set(Explanation(parseAnnotationValue(annotation.tree)), ExplanationTypeName)
         case otherAnnotationTypeName =>
-          throw new IllegalStateException(
+          throw new IllegalArgumentException(
             s"Unexpected annotation of type: ${otherAnnotationTypeName}"
           )
       }
@@ -203,9 +197,6 @@ object ErrorCodeDocumentationGenerator {
   private def simpleClassName(any: Any): String =
     any.getClass.getSimpleName.replace("$", "")
 
-  @nowarn(
-    "cat=unchecked&msg=abstract type pattern reflect.runtime.universe..* is unchecked since it is eliminated by erasure"
-  )
   private def parseAnnotationValue(tree: ru.Tree): String = {
     tree.children.tail match {
       case ru.Literal(ru.Constant(text: String)) :: Nil => text.stripMargin
