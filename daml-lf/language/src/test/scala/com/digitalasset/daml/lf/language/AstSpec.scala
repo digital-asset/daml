@@ -60,6 +60,14 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       key = None,
       implements = VectorMap.empty,
     )
+    def interface = DefInterface(
+      param = Name.assertFromString("x"),
+      precond = ETrue,
+      fixedChoices = Map.empty,
+      methods = Map.empty,
+      requires = Set.empty,
+    )
+
     def exception = DefException(
       message = eText
     )
@@ -132,6 +140,40 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           exceptions = List.empty,
           interfaces = List.empty,
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    }
+
+    "catch interface collisions" in {
+
+      Module.build(
+        name = modName1,
+        definitions = List(
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
+        ),
+        interfaces = List(
+          defName("defName1") -> interface
+        ),
+        exceptions = List.empty,
+        templates = List.empty,
+        featureFlags = FeatureFlags.default,
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.build(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+          ),
+          interfaces = List(
+            defName("defName1") -> interface,
+            defName("defName1") -> interface,
+          ),
+          templates = List.empty,
+          exceptions = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )
