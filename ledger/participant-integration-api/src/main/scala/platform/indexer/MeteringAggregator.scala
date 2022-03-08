@@ -143,7 +143,7 @@ class MeteringAggregator(
     }
 
     future.onComplete({
-      case Success(None) => logger.info("No transaction metering aggregation required")
+      case Success(None) => logger.debug("No transaction metering aggregation required")
       case Success(Some(lme)) =>
         logger.info(s"Aggregating transaction metering completed up to $lme")
       case Failure(e) => logger.error("Failed to aggregate transaction metering", e)
