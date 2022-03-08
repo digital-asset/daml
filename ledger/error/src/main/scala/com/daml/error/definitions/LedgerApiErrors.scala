@@ -586,10 +586,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidField
         extends ErrorCode(id = "INVALID_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
+      case class Reject(_fieldName: String, _message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"The submitted command has a field with invalid value: ${_reason}"
+            cause =
+              s"The submitted command has a field with invalid value: Invalid field ${_fieldName}: ${_message}"
           )
     }
 

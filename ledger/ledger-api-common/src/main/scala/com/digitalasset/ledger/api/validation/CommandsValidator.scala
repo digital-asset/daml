@@ -24,11 +24,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.{
-  DeduplicationPeriodValidator,
-  ErrorFactories,
-  FieldValidations,
-}
+import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, FieldValidations}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
@@ -38,7 +34,7 @@ import scala.annotation.nowarn
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
-  import ErrorFactories._
+  import ValidationErrors._
   import FieldValidations._
   import ValueValidator._
 

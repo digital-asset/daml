@@ -8,14 +8,13 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
-// TODO error codes: Remove default usage of ErrorFactories
 object FieldValidations {
-  import ErrorFactories._
 
   def matchLedgerId(
       ledgerId: LedgerId

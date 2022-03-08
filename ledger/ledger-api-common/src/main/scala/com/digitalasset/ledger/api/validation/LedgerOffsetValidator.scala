@@ -8,7 +8,7 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered._
@@ -17,7 +17,7 @@ object LedgerOffsetValidator {
 
   private val boundary = "boundary"
 
-  import ErrorFactories.{invalidArgument, missingField}
+  import ValidationErrors.{invalidArgument, missingField}
   import FieldValidations.requireLedgerString
 
   def validateOptional(
