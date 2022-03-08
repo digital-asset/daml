@@ -166,7 +166,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("app1", app1),
         ("app2", app2),
         ("app1of3", app1of3),
-        //("app2of3", app2of3),
+        ("app2of3", app2of3),
         ("app3of3", app3of3),
         ("esome", esome),
         ("eabs", eabs),
