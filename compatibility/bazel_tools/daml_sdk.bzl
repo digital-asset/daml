@@ -61,7 +61,7 @@ def _daml_sdk_impl(ctx):
             ctx.download(
                 output = "sandbox-on-x.jar",
                 url = ["{mirror}/com/daml/sandbox-on-x-app-jar/{version}/sandbox-on-x-app-jar-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
-                sha256 = ctx.attr.test_tool_sha256,
+                sha256 = ctx.attr.sandbox_on_x_sha256,
             )
         ctx.file(
             "sandbox-on-x.sh",
