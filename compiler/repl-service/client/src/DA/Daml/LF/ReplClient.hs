@@ -121,7 +121,9 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
       clientBarrier <- newBarrier
-      terminateBarrier <- newBarrier
+      -- Barrier for when we exit the scope of this `withCreateProcess`.
+      -- We need that to make the client process stay open until then.
+      exitBarrier <- newBarrier
       let handle = Handle
             { hClient = waitBarrier clientBarrier
             , hStdout = stdout
@@ -134,8 +136,8 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
             withGRPCClient grpcConfig $ \client -> do
                 replClient <- Grpc.replServiceClient client
                 signalBarrier clientBarrier replClient
-                waitBarrier terminateBarrier
-      withAsync clientAct $ const $ f handle `finally` signalBarrier terminateBarrier ()
+                waitBarrier exitBarrier
+      withAsync clientAct $ const $ f handle `finally` signalBarrier exitBarrier ()
 
 loadPackages :: Handle -> [BS.ByteString] -> IO (Either BackendError ())
 loadPackages Handle{..} packages = do
