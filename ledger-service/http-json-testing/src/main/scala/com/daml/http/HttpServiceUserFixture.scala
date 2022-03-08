@@ -32,7 +32,7 @@ trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
       admin: Boolean = false,
   )(implicit ec: ExecutionContext): Future[Jwt]
 
-  protected val jwtAdminNoParty: Jwt
+  protected def jwtAdminNoParty: Jwt
 
   protected final def headersWithAdminAuth: List[Authorization] =
     authorizationHeader(jwtAdminNoParty)
