@@ -353,7 +353,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             },
           )
 
-        case SResultNeedContract(contractId, _, _, callback) =>
+        case SResultNeedContract(contractId, _, callback) =>
           return Result.needContract(
             contractId,
             { coinst =>

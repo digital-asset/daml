@@ -54,7 +54,7 @@ private[speedy] object SpeedyTestLib {
             case None =>
               throw UnexpectedSResultNeedTime
           }
-        case SResultNeedContract(contractId, _, _, callback) =>
+        case SResultNeedContract(contractId, _, callback) =>
           getContract.lift(contractId) match {
             case Some(value) =>
               callback(value)

@@ -99,7 +99,7 @@ class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
-        case SResultNeedContract(_, _, _, _) =>
+        case SResultNeedContract(_, _, _) =>
           crash("Off-ledger need contract callback")
         case SResultFinalValue(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
