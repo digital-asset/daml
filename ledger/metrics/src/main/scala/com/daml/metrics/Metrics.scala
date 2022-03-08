@@ -64,6 +64,7 @@ final class Metrics(val registry: MetricRegistry) {
       val totalRunning: Meter = registry.meter(Prefix :+ "total_running")
 
       // Commands being executed by the engine (not currently fetching data)
+      val engine: Timer = registry.timer(Prefix :+ "engine")
       val engineRunning: Meter = registry.meter(Prefix :+ "engine_running")
 
       object cache {
