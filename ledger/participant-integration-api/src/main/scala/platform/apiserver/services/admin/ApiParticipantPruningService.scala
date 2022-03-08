@@ -3,15 +3,16 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import java.util.UUID
 
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
 }
+import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.{v2 => state}
@@ -24,8 +25,8 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
 
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
@@ -35,8 +36,6 @@ final class ApiParticipantPruningService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  import com.daml.ledger.api.validation.ValidationErrors._
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)

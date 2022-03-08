@@ -9,6 +9,7 @@ import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.DropRepeated
@@ -39,8 +40,6 @@ class GrpcHealthService(
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
-  import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, executionContext)

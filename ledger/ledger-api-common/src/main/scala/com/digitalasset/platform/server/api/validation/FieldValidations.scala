@@ -8,13 +8,13 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
 object FieldValidations {
-  import com.daml.ledger.api.validation.ValidationErrors._
 
   def matchLedgerId(
       ledgerId: LedgerId
