@@ -986,7 +986,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ledger_time_lower_bound: Instant,
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause)
+          extends LoggingTransactionErrorImpl(cause = cause) {
+        override def context: Map[String, String] = super.context ++ Map(
+          "ledger_time" -> ledger_time.toString,
+          "ledger_time_lower_bound" -> ledger_time_lower_bound.toString,
+          "ledger_time_upper_bound" -> ledger_time_upper_bound.toString,
+        )
+      }
 
       case class RejectSimple(
           override val cause: String
