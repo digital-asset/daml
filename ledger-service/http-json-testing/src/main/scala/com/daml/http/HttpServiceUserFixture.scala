@@ -61,7 +61,7 @@ object HttpServiceUserFixture {
         admin: Boolean = false,
     )(implicit ec: ExecutionContext): Future[Jwt] =
       Future.successful(
-        HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
+        HttpServiceTestFixture.jwtForParties(actAs, readAs, Some(ledgerId), withoutNamespace)
       )
   }
 

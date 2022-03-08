@@ -378,7 +378,7 @@ sealed abstract class FailureTests
       )
       _ = status shouldBe a[StatusCodes.Success]
       cid = getContractId(getResult(r))
-      jwt <- jwtForParties(List(p.unwrap), List(), Some(ledgerId().unwrap))
+      jwt <- jwtForParties(uri)(List(p.unwrap), List(), ledgerId().unwrap)
       r <- (singleClientQueryStream(
         jwt,
         uri,
@@ -400,7 +400,7 @@ sealed abstract class FailureTests
       )
       cid = getContractId(getResult(r))
       _ = status shouldBe a[StatusCodes.Success]
-      jwt <- jwtForParties(List(p.unwrap), List(), Some(ledgerId().unwrap))
+      jwt <- jwtForParties(uri)(List(p.unwrap), List(), ledgerId().unwrap)
       (stop, source) = singleClientQueryStream(
         jwt,
         uri,
