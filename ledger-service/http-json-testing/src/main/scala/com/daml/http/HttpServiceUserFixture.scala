@@ -3,40 +3,26 @@
 
 package com.daml.http
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.headers.Authorization
-import akka.stream.Materializer
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{authorizationHeader, postRequest}
 import com.daml.http.util.ClientUtil.uniqueId
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{Jwt, DecodedJwt}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
+import org.scalatest.Suite
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait HttpServiceUserFixture {
+trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
 
-  // TODO(SC) we make asys, mat, and aesf "win" to match the prior behavior when
-  // these defns were in AbstractHttpServiceIntegrationTestFuns.  But it
-  // might be possible to phase them out entirely in favor of AkkaBeforeAndAfterAll
   import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
-  implicit val `AHS asys`: ActorSystem @@ this.type = tag[this.type] {
-    import com.typesafe.config.ConfigFactory
-    val customConf = ConfigFactory.parseString("""
-      akka.http.server.request-timeout = 60s
-    """)
-    ActorSystem(testId, ConfigFactory.load(customConf))
-  }
-  implicit val `AHS mat`: Materializer @@ this.type = tag[this.type](Materializer(`AHS asys`))
-  implicit val `AHS aesf`: ExecutionSequencerFactory @@ this.type =
-    tag[this.type](new AkkaExecutionSequencerPool(testId)(`AHS asys`))
-  // XXX(SC) `AHS ec` has beat executionContext for much longer
-  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
+  // XXX(SC) see #3936 5b52999da2858
+  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](system.dispatcher)
 
   def jwtForParties(uri: Uri)(
       actAs: List[String],
@@ -56,7 +42,7 @@ trait HttpServiceUserFixture {
 }
 
 object HttpServiceUserFixture {
-  trait CustomToken extends HttpServiceUserFixture { this: org.scalatest.Assertions =>
+  trait CustomToken extends HttpServiceUserFixture { this: Suite =>
     protected override lazy val jwtAdminNoParty: Jwt = {
       val decodedJwt = DecodedJwt(
         """{"alg": "HS256", "typ": "JWT"}""",
@@ -80,6 +66,7 @@ object HttpServiceUserFixture {
   }
 
   trait UserToken extends HttpServiceUserFixture with SandboxRequiringAuthorizationFuns {
+    this: Suite =>
     override lazy val jwtAdminNoParty: Jwt = Jwt(toHeader(adminTokenStandardJWT))
 
     override final def jwtForParties(
