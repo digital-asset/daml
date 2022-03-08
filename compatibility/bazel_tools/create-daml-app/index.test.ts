@@ -199,7 +199,9 @@ beforeAll(async () => {
   await waitOn({ resources: [`tcp:localhost:${UI_PORT}`] });
 
   // Launch a single browser for all tests.
-  browser = await puppeteer.launch();
+    browser = await puppeteer.launch();
+
+    await adminLedger.allocateParty({identifierHint: "public"});
 }, 60_000);
 
 afterAll(async () => {

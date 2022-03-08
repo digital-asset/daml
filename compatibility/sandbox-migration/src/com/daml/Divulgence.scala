@@ -13,6 +13,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerIdRequirement,
 }
 import spray.json.RootJsonFormat
@@ -113,7 +114,12 @@ final class Divulgence(
       mat: Materializer,
   ): Future[Unit] =
     for {
-      client <- LedgerClient.singleHost(config.host, config.port, clientConfig)
+      client <- LedgerClient.singleHost(
+        config.host,
+        config.port,
+        clientConfig,
+        LedgerClientChannelConfiguration.InsecureDefaults,
+      )
       owner = new Application.Party(ownerName, client, KeyTransfer.ApplicationId)
       divulgee = new Application.Party(divulgeeName, client, KeyTransfer.ApplicationId)
       model = new Divulgence.Model(packageId)

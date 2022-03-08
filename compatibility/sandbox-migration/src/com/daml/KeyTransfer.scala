@@ -10,6 +10,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerIdRequirement,
 }
 import com.daml.platform.participant.util.ValueConversions._
@@ -83,7 +84,12 @@ final class KeyTransfer(
       mat: Materializer,
   ): Future[Unit] =
     for {
-      client <- LedgerClient.singleHost(config.host, config.port, clientConfig)
+      client <- LedgerClient.singleHost(
+        config.host,
+        config.port,
+        clientConfig,
+        LedgerClientChannelConfiguration.InsecureDefaults,
+      )
       owner = new Application.Party(ownerName, client, KeyTransfer.ApplicationId)
       receiver = new Application.Party(receiverName, client, KeyTransfer.ApplicationId)
       model = new KeyTransfer.Model(packageId)
