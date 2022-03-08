@@ -158,7 +158,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
     result.fold(
       error => {
-        metrics.daml.commands.failedCommandInterpretations.mark()
+        metrics.daml.commands.failedCommandInterpretations.inc()
         failedOnCommandExecution(error)
       },
       Future.successful,
@@ -242,7 +242,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
               submitTransaction(transactionInfo)
             else {
               logger.info(s"Delaying submission by $submissionDelay")
-              metrics.daml.commands.delayedSubmissions.mark()
+              metrics.daml.commands.delayedSubmissions.inc()
               val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
               Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
             }
@@ -255,7 +255,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   private def submitTransaction(
       result: CommandExecutionResult
   )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
-    metrics.daml.commands.validSubmissions.mark()
+    metrics.daml.commands.validSubmissions.inc()
     writeService
       .submitTransaction(
         result.submitterInfo,

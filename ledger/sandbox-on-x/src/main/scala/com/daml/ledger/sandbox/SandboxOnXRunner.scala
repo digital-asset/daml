@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{
@@ -147,8 +146,7 @@ object SandboxOnXRunner {
 
           servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
           servicesExecutionContext <- buildServicesExecutionContext(
-            metrics,
-            servicesThreadPoolSize,
+            servicesThreadPoolSize
           )
 
           readServiceWithSubscriber = new BridgeReadService(
@@ -189,7 +187,6 @@ object SandboxOnXRunner {
           writeService <- buildWriteService(
             stateUpdatesFeedSink,
             indexService,
-            metrics,
             servicesExecutionContext,
             servicesThreadPoolSize,
             timeServiceBackend,
@@ -290,16 +287,15 @@ object SandboxOnXRunner {
     )
 
   private def buildServicesExecutionContext(
-      metrics: Metrics,
-      servicesThreadPoolSize: Int,
+      servicesThreadPoolSize: Int
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
-      .forExecutorService(() =>
-        new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(servicesThreadPoolSize),
-          metrics.registry,
-          metrics.daml.lapi.threadpool.apiServices.toString,
-        )
+      .forExecutorService(() => Executors.newWorkStealingPool(servicesThreadPoolSize)
+//        new InstrumentedExecutorService(
+//          Executors.newWorkStealingPool(servicesThreadPoolSize),
+//          metrics.registry,
+//          metrics.daml.lapi.threadpool.apiServices.toString,
+//        )
       )
       .map(ExecutionContext.fromExecutorService)
 
@@ -320,7 +316,6 @@ object SandboxOnXRunner {
   private def buildWriteService(
       feedSink: Sink[(Offset, Update), NotUsed],
       indexService: IndexService,
-      metrics: Metrics,
       servicesExecutionContext: ExecutionContext,
       servicesThreadPoolSize: Int,
       timeServiceBackend: Option[TimeServiceBackend],
@@ -331,7 +326,7 @@ object SandboxOnXRunner {
       loggingContext: LoggingContext,
   ): ResourceOwner[WriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext
-    val bridgeMetrics = new BridgeMetrics(metrics)
+    val bridgeMetrics = new BridgeMetrics()
     for {
       ledgerBridge <- LedgerBridge.owner(
         config,

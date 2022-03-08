@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.validati
 
 import java.util.UUID
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
@@ -52,7 +51,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private val metrics = new Metrics(new MetricRegistry)
+  private val metrics = new Metrics()
   private val rejections = new Rejections(metrics)
   private val txBuilder = TransactionBuilder()
 

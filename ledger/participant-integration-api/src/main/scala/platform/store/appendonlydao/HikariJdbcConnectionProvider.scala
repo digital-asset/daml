@@ -6,7 +6,6 @@ package com.daml.platform.store.appendonlydao
 import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Timer, TimerTask}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.{DatabaseMetrics, TimedNative}
@@ -25,7 +24,7 @@ private[platform] object HikariDataSourceOwner {
       minimumIdle: Int,
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
-      metrics: Option[MetricRegistry],
+//      metrics: Option[MetricRegistry],
       connectionPoolPrefix: String = "daml.index.db.connection",
   ): ResourceOwner[DataSource] =
     ResourceOwner.forCloseable { () =>
@@ -36,7 +35,8 @@ private[platform] object HikariDataSourceOwner {
       config.setMinimumIdle(minimumIdle)
       config.setConnectionTimeout(connectionTimeout.toMillis)
       config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
-      metrics.foreach(config.setMetricRegistry)
+      //TODO Prometheus metrics: find a replacement
+//      metrics.foreach(config.setMetricRegistry)
       new HikariDataSource(config)
     }
 }

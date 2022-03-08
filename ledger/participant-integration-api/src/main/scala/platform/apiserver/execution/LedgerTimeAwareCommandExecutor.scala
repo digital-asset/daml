@@ -66,7 +66,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           def failed = Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
           def success(c: CommandExecutionResult) = Future.successful(Right(c))
           def retry(c: Commands) = {
-            metrics.daml.execution.retry.mark()
+            metrics.daml.execution.retry.inc()
             loop(c, submissionSeed, ledgerConfiguration, retriesLeft - 1)
           }
 

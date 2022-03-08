@@ -100,7 +100,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
         Envelope.open(submissionEnvelope) match {
           case Right(Envelope.SubmissionMessage(submission)) =>
             metrics.daml.kvutils.submission.validator.receivedSubmissionBytes
-              .update(submission.getSerializedSize)
+              .observe(submission.getSerializedSize.toDouble)
             submission
 
           case Right(Envelope.SubmissionBatchMessage(_)) =>

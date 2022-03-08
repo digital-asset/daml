@@ -3,10 +3,10 @@
 
 package com.daml.platform.apiserver
 
-import com.codahale.metrics.Timer
 import com.daml.metrics.Metrics
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc._
+import io.prometheus.client.Summary
 
 import scala.collection.concurrent.TrieMap
 
@@ -30,7 +30,7 @@ private[apiserver] final class MetricsInterceptor(metrics: Metrics) extends Serv
 
   // Cache the result of calling MetricsInterceptor.nameFor, which practically has a
   // limited co-domain and whose cost we don't want to pay every time an endpoint is hit
-  private val fullServiceToMetricNameCache = TrieMap.empty[String, Timer]
+  private val fullServiceToMetricNameCache = TrieMap.empty[String, Summary]
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -42,17 +42,17 @@ private[apiserver] final class MetricsInterceptor(metrics: Metrics) extends Serv
       fullMethodName,
       metrics.daml.lapi.forMethod(MetricsNaming.nameFor(fullMethodName)),
     )
-    val timerCtx = timer.time
+    val timerCtx = timer.startTimer()
     next.startCall(new TimedServerCall(call, timerCtx), headers)
   }
 
   private final class TimedServerCall[ReqT, RespT](
       delegate: ServerCall[ReqT, RespT],
-      timer: Timer.Context,
+      timer: Summary.Timer,
   ) extends SimpleForwardingServerCall[ReqT, RespT](delegate) {
     override def close(status: Status, trailers: Metadata): Unit = {
       delegate.close(status, trailers)
-      timer.stop()
+      timer.observeDuration()
       ()
     }
   }

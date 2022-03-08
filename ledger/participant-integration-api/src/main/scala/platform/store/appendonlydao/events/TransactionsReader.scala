@@ -299,8 +299,8 @@ private[appendonlydao] final class TransactionsReader(
           .iterator
       )
       .map { range =>
-        metrics.daml.services.index.getTransactionLogUpdatesChunkSize.update(
-          range.endInclusive - range.startExclusive
+        metrics.daml.services.index.getTransactionLogUpdatesChunkSize.observe(
+          (range.endInclusive - range.startExclusive).toDouble
         )
         range
       }
@@ -418,8 +418,8 @@ private[appendonlydao] final class TransactionsReader(
           .iterator
       )
       .map { range =>
-        metrics.daml.services.index.getContractStateEventsChunkSize.update(
-          range.endInclusive - range.startExclusive
+        metrics.daml.services.index.getContractStateEventsChunkSize.observe(
+          (range.endInclusive - range.startExclusive).toDouble
         )
         range
       }

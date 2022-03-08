@@ -18,6 +18,6 @@ final class MetricsReporting(
       _ <- extraMetricsReporter.fold(Resource.unit) { reporter =>
         MetricsReporter.owner(reporter).acquire()
       }
-    } yield new Metrics(null) // TODO Prometheus metrics
+    } yield new Metrics() // TODO Prometheus metrics
   }
 }

@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.BidiFlow
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, BidiShape, Inlet, Outlet}
-import com.codahale.metrics.Counter
+import io.prometheus.client.Gauge
 import org.slf4j.LoggerFactory
 
 /** Enforces that at most [[maxInFlight]] items traverse the flow underneath this one.
@@ -16,10 +16,10 @@ import org.slf4j.LoggerFactory
   * except that if the output stream is failed, cancelled or completed, the input stream is completed.
   */
 // TODO(mthvedt): This should have unit tests.
-class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounter: Counter)
+class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Gauge, lengthCounter: Gauge)
     extends GraphStage[BidiShape[I, I, O, O]] {
 
-  capacityCounter.inc(maxInFlight.toLong)
+  capacityCounter.inc(maxInFlight.toDouble)
 
   private val logger = LoggerFactory.getLogger(MaxInFlight.getClass.getName)
 
@@ -100,12 +100,12 @@ class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounte
           }
 
           override def onUpstreamFinish(): Unit = {
-            capacityCounter.dec(maxInFlight.toLong)
+            capacityCounter.dec(maxInFlight.toDouble)
             super.onUpstreamFinish()
           }
 
           override def onUpstreamFailure(ex: Throwable): Unit = {
-            capacityCounter.dec(maxInFlight.toLong)
+            capacityCounter.dec(maxInFlight.toDouble)
             fail(out2, ex)
             completeStage()
           }
@@ -137,8 +137,8 @@ object MaxInFlight {
 
   def apply[I, O](
       maxInFlight: Int,
-      capacityCounter: Counter,
-      lengthCounter: Counter,
+      capacityCounter: Gauge,
+      lengthCounter: Gauge,
   ): BidiFlow[I, I, O, O, NotUsed] =
     BidiFlow.fromGraph(new MaxInFlight[I, O](maxInFlight, capacityCounter, lengthCounter))
 }

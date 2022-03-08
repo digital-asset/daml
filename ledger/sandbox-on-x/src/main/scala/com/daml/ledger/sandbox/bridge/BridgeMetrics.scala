@@ -3,13 +3,13 @@
 
 package com.daml.ledger.sandbox.bridge
 
-import com.daml.metrics.{MetricName, Metrics}
-import com.codahale.metrics.{Counter, Histogram, MetricRegistry, Timer}
+import com.daml.metrics.{MetricName}
 import io.prometheus.client
 import com.daml.metrics.{gauge, summary}
+import io.prometheus.client.{Gauge, Summary}
 
-class BridgeMetrics(metrics: Metrics) {
-  val registry: MetricRegistry = metrics.registry
+class BridgeMetrics() {
+//  val registry: MetricRegistry = metrics.registry
 
   val Prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"
 
@@ -20,8 +20,8 @@ class BridgeMetrics(metrics: Metrics) {
 
     case class StageMetrics(stageName: String) {
       protected val prefix: MetricName = Stages.this.Prefix :+ stageName
-      val timer: Timer = registry.timer(prefix :+ "timer")
-      val bufferBefore: Counter = registry.counter(prefix :+ "buffer")
+      val timer: Summary = summary(prefix :+ "timer")
+      val bufferBefore: Gauge = gauge(prefix :+ "buffer")
     }
 
     object PrepareSubmission extends StageMetrics("prepare_submission")
@@ -29,12 +29,12 @@ class BridgeMetrics(metrics: Metrics) {
     object ConflictCheckWithCommitted extends StageMetrics("conflict_check_with_committed")
     object Sequence extends StageMetrics("sequence") {
       val statePrefix: MetricName = prefix :+ "state"
-      val keyStateSize: Histogram = registry.histogram(statePrefix :+ "keys")
-      val consumedContractsStateSize: Histogram =
-        registry.histogram(statePrefix :+ "consumed_contracts")
-      val sequencerQueueLength: Histogram = registry.histogram(statePrefix :+ "queue")
-      val deduplicationQueueLength: Histogram =
-        registry.histogram(statePrefix :+ "deduplication_queue")
+      val keyStateSize: Summary = summary(statePrefix :+ "keys")
+      val consumedContractsStateSize: Summary =
+        summary(statePrefix :+ "consumed_contracts")
+      val sequencerQueueLength: Summary = summary(statePrefix :+ "queue")
+      val deduplicationQueueLength: Summary =
+        summary(statePrefix :+ "deduplication_queue")
     }
   }
 

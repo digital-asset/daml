@@ -52,7 +52,7 @@ class BatchedSubmissionValidatorSpec
     with ArgumentMatchersSugar {
 
   private val engine = Engine.DevEngine()
-  private val metrics = new Metrics(new MetricRegistry)
+  private val metrics = new Metrics()
 
   private def newBatchedSubmissionValidator[CommitResult](
       params: BatchedSubmissionValidatorParameters,

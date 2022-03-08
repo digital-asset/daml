@@ -43,7 +43,7 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:io_dropwizard_metrics_metrics_core",
+        #        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
     ],
 )

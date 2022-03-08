@@ -3,12 +3,11 @@
 
 package com.daml.platform.index
 
-import com.codahale.metrics.Timer
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
 import com.daml.scalautil.Statement.discard
+import io.prometheus.client.Summary
 
-import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 
 /** Computes the lag between the contract state events dispatcher and the general dispatcher.
@@ -22,7 +21,7 @@ private[index] class InstrumentedSignalNewLedgerHead(
     delegate: SignalNewLedgerHead,
     maxSize: Long = 1000L,
 )(
-    timer: Timer
+    timer: Summary
 ) extends SignalNewLedgerHead {
   private val ledgerHeads = mutable.Map.empty[Offset, Long]
 
@@ -31,7 +30,7 @@ private[index] class InstrumentedSignalNewLedgerHead(
     ledgerHeads.synchronized {
       ledgerHeads.remove(offset).foreach { startNanos =>
         val endNanos = System.nanoTime()
-        timer.update(endNanos - startNanos, TimeUnit.NANOSECONDS)
+        timer.observe((endNanos - startNanos).toDouble / 1e9)
       }
     }
   }

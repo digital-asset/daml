@@ -52,12 +52,12 @@ object ParallelIndexerFactory {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
         "input-mapping-pool",
-        Some(metrics.daml.parallelIndexer.inputMapping.executor -> metrics.registry),
+//        Some(metrics.daml.parallelIndexer.inputMapping.executor -> metrics.registry),
       )
       batcherExecutor <- asyncPool(
         batchingParallelism,
         "batching-pool",
-        Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
+//        Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       haCoordinator <-
         if (dbLockStorageBackend.dbLockSupported) {

@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, TimedNative}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
@@ -61,10 +61,10 @@ class GrpcCommandSubmissionService(
       loggingContext = loggingContext,
       correlationId = requestWithSubmissionId.commands.map(_.submissionId),
     )
-    Timed.timedAndTrackedFuture(
+    TimedNative.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
-      Timed
+      TimedNative
         .value(
           metrics.daml.commands.validation,
           validator.validate(

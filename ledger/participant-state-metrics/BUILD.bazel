@@ -30,6 +30,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
+        #        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_prometheus_simpleclient",
     ],
 )

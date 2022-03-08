@@ -4,7 +4,6 @@
 package com.daml.platform.store
 
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
@@ -53,7 +52,7 @@ object IndexMetadata {
       loggingContext: LoggingContext,
       materializer: Materializer,
   ) = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new Metrics()
     DbSupport
       .owner(
         jdbcUrl = jdbcUrl,

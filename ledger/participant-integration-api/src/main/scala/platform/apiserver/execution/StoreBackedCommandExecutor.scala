@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.execution
 
 import com.daml.error.ErrorCause
 
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
@@ -168,14 +167,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
       }
 
     resolveStep(result).andThen { case _ =>
+      // TODO Prometheus metrics: proper units
       metrics.daml.execution.lookupActiveContractPerExecution
-        .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
+        .observe(lookupActiveContractTime.get().toDouble)
       metrics.daml.execution.lookupActiveContractCountPerExecution
-        .update(lookupActiveContractCount.get)
+        .observe(lookupActiveContractCount.get.toDouble)
       metrics.daml.execution.lookupContractKeyPerExecution
-        .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
+        .observe(lookupContractKeyTime.get().toDouble)
       metrics.daml.execution.lookupContractKeyCountPerExecution
-        .update(lookupContractKeyCount.get())
+        .observe(lookupContractKeyCount.get().toDouble)
     }
   }
 }

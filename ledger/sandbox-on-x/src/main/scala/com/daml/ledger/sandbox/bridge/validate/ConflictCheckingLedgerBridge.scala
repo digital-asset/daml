@@ -20,6 +20,7 @@ import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
+import io.prometheus.client.Gauge
 
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,7 +45,7 @@ private[validate] class ConflictCheckingLedgerBridge(
       .statefulMapConcat(sequence)
 
   private implicit class FlowWithBuffers[T, R](flow: Flow[T, R, NotUsed]) {
-    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Flow[T, R, NotUsed] =
+    def buffered(bufferLength: Int)(counter: Gauge): Flow[T, R, NotUsed] =
       flow
         .map { in =>
           counter.inc()

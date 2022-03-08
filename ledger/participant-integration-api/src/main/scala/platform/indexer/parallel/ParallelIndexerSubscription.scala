@@ -125,7 +125,7 @@ object ParallelIndexerSubscription {
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
-    metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
+    metrics.daml.parallelIndexer.inputMapping.batchSize.observe(input.size.toDouble)
     input.foreach { case (offset, update) =>
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
         implicit loggingContext =>
@@ -231,7 +231,7 @@ object ParallelIndexerSubscription {
     batch =>
       withEnrichedLoggingContext("updateOffsets" -> batch.offsets) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
+          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toDouble)
           ingestFunction(connection, batch.batch)
           batch
         }

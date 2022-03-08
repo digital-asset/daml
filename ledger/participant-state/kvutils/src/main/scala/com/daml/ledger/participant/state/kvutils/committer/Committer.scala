@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.codahale.metrics.Timer
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -22,6 +21,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import io.prometheus.client.Summary
 
 /** A committer either processes or pre-executes a submission, with its inputs into an ordered set of output state and
   * a log entry or multiple log entries in case of pre-execution.
@@ -56,10 +56,10 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   // These are lazy because they rely on `committerName`, which is defined in the subclass and
   // therefore not set at object initialization.
-  private lazy val runTimer: Timer = metrics.daml.kvutils.committer.runTimer(committerName)
-  private lazy val preExecutionRunTimer: Timer =
+  private lazy val runTimer: Summary = metrics.daml.kvutils.committer.runTimer(committerName)
+  private lazy val preExecutionRunTimer: Summary =
     metrics.daml.kvutils.committer.preExecutionRunTimer(committerName)
-  private lazy val stepTimers: Map[StepInfo, Timer] =
+  private lazy val stepTimers: Map[StepInfo, Summary] =
     steps.map { case (info, _) =>
       info -> metrics.daml.kvutils.committer.stepTimer(committerName, info)
     }.toMap

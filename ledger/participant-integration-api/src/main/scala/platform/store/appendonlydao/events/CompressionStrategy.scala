@@ -62,8 +62,8 @@ object FieldCompressionStrategy {
         }
         val compressed = output.toByteArray
         output.close()
-        metric.compressed.update(compressed.length)
-        metric.uncompressed.update(uncompressed.length)
+        metric.compressed.observe(compressed.length.toDouble)
+        metric.uncompressed.observe(uncompressed.length.toDouble)
         compressed
       },
     )

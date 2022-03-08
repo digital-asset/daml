@@ -190,7 +190,7 @@ object KeyValueParticipantStateWriterSpec {
     optByKeyNodes = None,
   )
 
-  private def newMetrics(): Metrics = new Metrics(new MetricRegistry)
+  private def newMetrics(): Metrics = new Metrics()
 
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

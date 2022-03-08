@@ -3,7 +3,6 @@
 
 package com.daml.ledger.runner.common
 
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.metrics.Metrics
@@ -116,13 +115,10 @@ trait ConfigProvider[ExtraConfig] {
     List.empty
 
   def createMetrics(
-      participantConfig: ParticipantConfig,
+      @unused participantConfig: ParticipantConfig,
       @unused config: Config[ExtraConfig],
   ): Metrics = {
-    val registryName = participantConfig.participantId + participantConfig.shardName
-      .map("-" + _)
-      .getOrElse("")
-    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
+    new Metrics()
   }
 }
 

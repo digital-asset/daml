@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.appendonlydao
 
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
@@ -109,24 +108,34 @@ object DbDispatcher {
         connectionPoolSize,
         connectionPoolSize,
         connectionTimeout,
-        Some(metrics.registry),
+//        Some(metrics.registry),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>
-        new InstrumentedExecutorService(
-          Executors.newFixedThreadPool(
-            connectionPoolSize,
-            new ThreadFactoryBuilder()
-              .setNameFormat(s"$threadPoolName-%d")
-              .setUncaughtExceptionHandler((_, e) =>
-                logger.error("Uncaught exception in the SQL executor.", e)
-              )
-              .build(),
-          ),
-          metrics.registry,
-          threadPoolName,
+        Executors.newFixedThreadPool(
+          connectionPoolSize,
+          new ThreadFactoryBuilder()
+            .setNameFormat(s"$threadPoolName-%d")
+            .setUncaughtExceptionHandler((_, e) =>
+              logger.error("Uncaught exception in the SQL executor.", e)
+            )
+            .build(),
         )
+      // TODO Prometheus metrics: implement a replacement
+//        new InstrumentedExecutorService(
+//          Executors.newFixedThreadPool(
+//            connectionPoolSize,
+//            new ThreadFactoryBuilder()
+//              .setNameFormat(s"$threadPoolName-%d")
+//              .setUncaughtExceptionHandler((_, e) =>
+//                logger.error("Uncaught exception in the SQL executor.", e)
+//              )
+//              .build(),
+//          ),
+////          metrics.registry,
+//          threadPoolName,
+//        )
       )
     } yield new DbDispatcher(
       connectionProvider = connectionProvider,

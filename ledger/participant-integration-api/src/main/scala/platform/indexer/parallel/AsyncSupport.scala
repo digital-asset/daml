@@ -5,10 +5,8 @@ package com.daml.platform.indexer.parallel
 
 import java.util.concurrent.Executors
 
-import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.MetricName
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,7 +28,7 @@ object AsyncSupport {
   def asyncPool(
       size: Int,
       namePrefix: String,
-      withMetric: Option[(MetricName, MetricRegistry)] = None,
+//      withMetric: Option[(MetricName, MetricRegistry)] = None,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Executor] =
     ResourceOwner
       .forExecutorService(() =>
@@ -42,16 +40,19 @@ object AsyncSupport {
                 .setNameFormat(s"$namePrefix-%d")
                 .build,
             )
-            withMetric match {
-              case Some((metricName, metricRegistry)) =>
-                new InstrumentedExecutorService(
-                  executor,
-                  metricRegistry,
-                  metricName,
-                )
-
-              case None => executor
-            }
+            executor
+//            withMetric match {
+//              case Some((metricName, metricRegistry)) =>
+            // TODO Prometheus metrics: implement
+//                new InstrumentedExecutorService(
+//                  executor,
+//                  metricRegistry,
+//                  metricName,
+//                )
+//                executor
+//
+//              case None => executor
+//            }
           },
           throwable =>
             ContextualizedLogger

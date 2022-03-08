@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
-import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.committer.{StepResult, StepStop}
@@ -14,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import io.prometheus.client.Gauge
 
 private[transaction] class Rejections(metrics: Metrics) {
 
@@ -58,7 +58,7 @@ private[transaction] class Rejections(metrics: Metrics) {
       .build
 
   private object Metrics {
-    val rejections: Map[Int, Counter] =
+    val rejections: Map[Int, Gauge] =
       DamlTransactionRejectionEntry.ReasonCase.values
         .map(reasonCase =>
           reasonCase.getNumber -> metrics.daml.kvutils.committer.transaction

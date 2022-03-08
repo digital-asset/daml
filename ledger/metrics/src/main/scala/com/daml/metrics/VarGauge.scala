@@ -4,7 +4,6 @@
 package com.daml.metrics
 
 import java.util.concurrent.atomic.AtomicReference
-
 import com.codahale.metrics.Gauge
 
 case class VarGauge[T](initial: T) extends Gauge[T] {

@@ -9,7 +9,6 @@ import java.util.concurrent.CompletionStage
 
 import akka.{Done, NotUsed}
 import akka.stream.scaladsl.{Sink, Source}
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.HealthStatus
@@ -102,7 +101,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         participantId,
         testId,
         offsetVersion,
-        new Metrics(new MetricRegistry),
+        new Metrics(),
       )
     }
 

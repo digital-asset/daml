@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -63,7 +62,7 @@ object KVTest {
     SimplePackagePartyTestDar
   )
 
-  private[kvutils] val metrics = new Metrics(new MetricRegistry)
+  private[kvutils] val metrics = new Metrics()
 
   private def initialTestState: KVTestState = {
     val engine = Engine.DevEngine()

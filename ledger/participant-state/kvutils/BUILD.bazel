@@ -69,6 +69,7 @@ da_scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_prometheus_simpleclient",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -125,7 +126,7 @@ da_scala_library(
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
+        #        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",

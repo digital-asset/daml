@@ -3,12 +3,12 @@
 
 package com.daml.platform.store.cache
 
-import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard
+import io.prometheus.client.Summary
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** This class is a wrapper around a Caffeine cache designed to handle
   * correct resolution of concurrent updates for the same key.
   */
-private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdateTimer: Timer)(
+private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdateTimer: Summary)(
     implicit ec: ExecutionContext
 ) {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)

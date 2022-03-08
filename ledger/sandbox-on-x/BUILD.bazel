@@ -56,7 +56,7 @@ da_scala_library(
         "//libs-scala/resources-grpc",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
+        #        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_prometheus_simpleclient",
         "@maven//:org_slf4j_slf4j_api",
     ],

@@ -3,12 +3,12 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import com.codahale.metrics.Histogram
 import com.daml.metrics.Metrics
+import io.prometheus.client.Summary
 
 object CompressionMetrics {
 
-  final class Field(val compressed: Histogram, val uncompressed: Histogram)
+  final class Field(val compressed: Summary, val uncompressed: Summary)
 
   def createArgument(metrics: Metrics): CompressionMetrics.Field =
     new Field(

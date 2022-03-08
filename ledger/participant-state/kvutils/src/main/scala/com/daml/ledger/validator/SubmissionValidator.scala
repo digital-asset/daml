@@ -4,8 +4,6 @@
 package com.daml.ledger.validator
 
 import java.util.concurrent.atomic.AtomicBoolean
-
-import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
@@ -23,6 +21,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import io.prometheus.client.Summary
 
 import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.{ExecutionContext, Future}
@@ -155,7 +154,7 @@ class SubmissionValidator[LogResult] private[validator] (
           LogEntryAndState,
           LedgerStateOperations[LogResult],
       ) => Future[T],
-      postProcessResultTimer: Option[Timer],
+      postProcessResultTimer: Option[Summary],
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -279,28 +278,31 @@ class SubmissionValidator[LogResult] private[validator] (
       // These need to be measured separately as they may have very different characteristics.
       val acquisitionWasRecorded = new AtomicBoolean(false)
       val successfulAcquisitionTimer =
-        metrics.daml.kvutils.submission.validator.acquireTransactionLock.time()
+        metrics.daml.kvutils.submission.validator.acquireTransactionLock.startTimer()
       val failedAcquisitionTimer =
-        metrics.daml.kvutils.submission.validator.failedToAcquireTransaction.time()
+        metrics.daml.kvutils.submission.validator.failedToAcquireTransaction.startTimer()
       delegate
         .inTransaction { operations =>
           if (acquisitionWasRecorded.compareAndSet(false, true)) {
-            successfulAcquisitionTimer.stop()
+            successfulAcquisitionTimer.observeDuration()
           }
           body(operations)
             .transform(result =>
               Success(
-                (result, metrics.daml.kvutils.submission.validator.releaseTransactionLock.time())
+                (
+                  result,
+                  metrics.daml.kvutils.submission.validator.releaseTransactionLock.startTimer(),
+                )
               )
             )
         }
         .transform {
           case Success((result, releaseTimer)) =>
-            releaseTimer.stop()
+            releaseTimer.observeDuration()
             result
           case Failure(exception) =>
             if (acquisitionWasRecorded.compareAndSet(false, true)) {
-              failedAcquisitionTimer.stop()
+              failedAcquisitionTimer.observeDuration()
             }
             Failure(exception)
         }

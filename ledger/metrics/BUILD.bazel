@@ -35,7 +35,7 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_prometheus_simpleclient",
         "@maven//:io_prometheus_simpleclient_caffeine",
-        "@maven//:io_prometheus_simpleclient_dropwizard",
+        #        "@maven//:io_prometheus_simpleclient_dropwizard",
         "@maven//:io_prometheus_simpleclient_hotspot",
         "@maven//:io_prometheus_simpleclient_httpserver",
     ],

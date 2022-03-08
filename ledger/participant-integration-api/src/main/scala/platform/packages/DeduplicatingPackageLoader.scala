@@ -4,14 +4,13 @@
 package com.daml.platform.packages
 
 import java.util.concurrent.ConcurrentHashMap
-
-import com.codahale.metrics.Timer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.metrics.Timed
+import io.prometheus.client.Summary
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -27,7 +26,7 @@ private[platform] class DeduplicatingPackageLoader() {
   def loadPackage(
       packageId: PackageId,
       delegate: PackageId => Future[Option[DamlLf.Archive]],
-      metric: Timer,
+      metric: Summary,
   )(implicit ec: ExecutionContext): Future[Option[Package]] = {
     var gettingPackage = false
 

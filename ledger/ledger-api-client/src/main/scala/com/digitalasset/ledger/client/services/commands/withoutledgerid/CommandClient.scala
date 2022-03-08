@@ -6,7 +6,6 @@ package com.daml.ledger.client.services.commands.withoutledgerid
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -32,6 +31,7 @@ import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
+import io.prometheus.client.Gauge
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
@@ -126,7 +126,11 @@ private[daml] final class CommandClient(
       tracker <- trackCommandsUnbounded[Context](parties, ledgerIdToUse, token)
     } yield {
       // The counters are ignored on the client
-      MaxInFlight(config.maxCommandsInFlight, new Counter, new Counter)
+      MaxInFlight(
+        config.maxCommandsInFlight,
+        (new Gauge.Builder()).create(),
+        (new Gauge.Builder()).create(),
+      )
         .joinMat(tracker)(Keep.right)
     }
   }

@@ -5,7 +5,6 @@ package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction.{TransactionTree, Transaction => FlatTransaction}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -25,6 +24,7 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{Transaction => TxUpdate}
+import io.prometheus.client.{Gauge, Summary}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -174,12 +174,12 @@ private[platform] object BufferedTransactionsReader {
       toApiTx: (TxUpdate, FILTER, Boolean) => Future[Option[API_TX]],
       apiResponseCtor: Seq[API_TX] => API_RESPONSE,
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
-      sourceTimer: Timer,
-      toApiTxTimer: Timer,
-      resolvedFromBufferCounter: Counter,
-      totalRetrievedCounter: Counter,
+      sourceTimer: Summary,
+      toApiTxTimer: Summary,
+      resolvedFromBufferCounter: Gauge,
+      totalRetrievedCounter: Gauge,
       outputStreamBufferSize: Int,
-      bufferSizeCounter: Counter,
+      bufferSizeCounter: Gauge,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
     def bufferedSource(
         slice: Vector[(Offset, TransactionLogUpdate)]

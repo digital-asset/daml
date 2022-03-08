@@ -124,8 +124,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
 
             case Right(Envelope.SubmissionBatchMessage(batch)) =>
               logger.trace(s"Validating a batch of ${batch.getSubmissionsCount} submissions")
-              metrics.batchSizes.update(batch.getSubmissionsCount)
-              metrics.receivedBatchSubmissionBytes.update(batch.getSerializedSize)
+              metrics.batchSizes.observe(batch.getSubmissionsCount.toDouble)
+              metrics.receivedBatchSubmissionBytes.observe(batch.getSerializedSize.toDouble)
               processBatch(
                 participantId,
                 recordTime,
@@ -188,7 +188,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
               val submission = Envelope
                 .openSubmission(rawEnvelope)
                 .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
-              metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
+              metrics.receivedSubmissionBytes.observe(submission.getSerializedSize.toDouble)
               CorrelatedSubmission(
                 correlationId,
                 logEntryId,

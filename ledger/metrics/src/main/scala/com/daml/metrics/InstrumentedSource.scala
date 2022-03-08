@@ -101,7 +101,7 @@ object InstrumentedSource {
     */
   def bufferedSource[T, U](
       original: Source[T, U],
-      counter: com.codahale.metrics.Counter,
+      counter: Gauge,
       size: Int,
   ): Source[T, U] = {
     def tap(block: => Unit): T => T = t => {

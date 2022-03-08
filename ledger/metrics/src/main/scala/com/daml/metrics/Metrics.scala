@@ -3,13 +3,12 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics._
 import io.prometheus.client
 import io.prometheus.client.cache.caffeine.CacheMetricsCollector
 import com.github.benmanes.caffeine.{cache => caffeine}
 import io.prometheus.client.Summary
 
-final class Metrics(val registry: MetricRegistry) {
+final class Metrics() {
 
   private[metrics] val cacheMetricsCollector: CacheMetricsCollector =
     new CacheMetricsCollector().register[CacheMetricsCollector]()
@@ -29,46 +28,46 @@ final class Metrics(val registry: MetricRegistry) {
     object commands {
       private val Prefix: MetricName = daml.Prefix :+ "commands"
 
-      val validation: Timer = registry.timer(Prefix :+ "validation")
-      val submissions: Timer = registry.timer(Prefix :+ "submissions")
-      val submissionsRunning: Meter = registry.meter(Prefix :+ "submissions_running")
+      val validation: client.Summary = summary(Prefix :+ "validation")
+      val submissions: client.Summary = summary(Prefix :+ "submissions")
+      val submissionsRunning: client.Gauge = gauge(Prefix :+ "submissions_running")
 
-      val failedCommandInterpretations: Meter =
-        registry.meter(Prefix :+ "failed_command_interpretations")
-      val delayedSubmissions: Meter =
-        registry.meter(Prefix :+ "delayed_submissions")
-      val validSubmissions: Meter =
-        registry.meter(Prefix :+ "valid_submissions")
+      val failedCommandInterpretations: client.Counter =
+        counter(Prefix :+ "failed_command_interpretations")
+      val delayedSubmissions: client.Counter =
+        counter(Prefix :+ "delayed_submissions")
+      val validSubmissions: client.Counter =
+        counter(Prefix :+ "valid_submissions")
 
       val inputBufferLength: client.Gauge = gauge(Prefix :+ "input_buffer_length")
       val inputBufferCapacity: client.Gauge = gauge(Prefix :+ "input_buffer_capacity")
       val inputBufferDelay: client.Summary = summary(Prefix :+ "input_buffer_delay")
-      val maxInFlightLength: Counter = registry.counter(Prefix :+ "max_in_flight_length")
-      val maxInFlightCapacity: Counter = registry.counter(Prefix :+ "max_in_flight_capacity")
+      val maxInFlightLength: client.Gauge = gauge(Prefix :+ "max_in_flight_length")
+      val maxInFlightCapacity: client.Gauge = gauge(Prefix :+ "max_in_flight_capacity")
     }
 
     object execution {
       private val Prefix: MetricName = daml.Prefix :+ "execution"
 
-      val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
-      val lookupActiveContractPerExecution: Timer =
-        registry.timer(Prefix :+ "lookup_active_contract_per_execution")
-      val lookupActiveContractCountPerExecution: Histogram =
-        registry.histogram(Prefix :+ "lookup_active_contract_count_per_execution")
-      val lookupContractKey: Timer = registry.timer(Prefix :+ "lookup_contract_key")
-      val lookupContractKeyPerExecution: Timer =
-        registry.timer(Prefix :+ "lookup_contract_key_per_execution")
-      val lookupContractKeyCountPerExecution: Histogram =
-        registry.histogram(Prefix :+ "lookup_contract_key_count_per_execution")
-      val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
-      val retry: Meter = registry.meter(Prefix :+ "retry")
+      val lookupActiveContract: client.Summary = summary(Prefix :+ "lookup_active_contract")
+      val lookupActiveContractPerExecution: client.Summary =
+        summary(Prefix :+ "lookup_active_contract_per_execution")
+      val lookupActiveContractCountPerExecution: client.Summary =
+        summary(Prefix :+ "lookup_active_contract_count_per_execution")
+      val lookupContractKey: client.Summary = summary(Prefix :+ "lookup_contract_key")
+      val lookupContractKeyPerExecution: client.Summary =
+        summary(Prefix :+ "lookup_contract_key_per_execution")
+      val lookupContractKeyCountPerExecution: client.Summary =
+        summary(Prefix :+ "lookup_contract_key_count_per_execution")
+      val getLfPackage: client.Summary = summary(Prefix :+ "get_lf_package")
+      val retry: client.Counter = counter(Prefix :+ "retry")
 
       // Total time for command execution (including data fetching)
-      val total: Timer = registry.timer(Prefix :+ "total")
-      val totalRunning: Meter = registry.meter(Prefix :+ "total_running")
+      val total: client.Summary = summary(Prefix :+ "total")
+      val totalRunning: client.Gauge = gauge(Prefix :+ "total_running")
 
       // Commands being executed by the engine (not currently fetching data)
-      val engineRunning: Meter = registry.meter(Prefix :+ "engine_running")
+      val engineRunning: client.Gauge = gauge(Prefix :+ "engine_running")
 
       object cache {
         private val Prefix: MetricName = execution.Prefix :+ "cache"
@@ -77,23 +76,24 @@ final class Metrics(val registry: MetricRegistry) {
         val contractState: CacheMetrics =
           CacheMetrics(Prefix :+ "contract_state")
 
-        val registerCacheUpdate: Timer = registry.timer(Prefix :+ "register_update")
+        val registerCacheUpdate: client.Summary = summary(Prefix :+ "register_update")
 
-        val dispatcherLag: Timer = registry.timer(Prefix :+ "dispatcher_lag")
+        val dispatcherLag: client.Summary = summary(Prefix :+ "dispatcher_lag")
 
-        val resolveDivulgenceLookup: Counter =
-          registry.counter(Prefix :+ "resolve_divulgence_lookup")
+        val resolveDivulgenceLookup: client.Gauge =
+          gauge(Prefix :+ "resolve_divulgence_lookup")
 
-        val resolveFullLookup: Counter =
-          registry.counter(Prefix :+ "resolve_full_lookup")
+        val resolveFullLookup: client.Gauge =
+          gauge(Prefix :+ "resolve_full_lookup")
 
-        val readThroughNotFound: Counter = registry.counter(Prefix :+ "read_through_not_found")
+        val readThroughNotFound: client.Gauge = gauge(Prefix :+ "read_through_not_found")
 
+        // TODO Prometheus metrics: implement
         val indexSequentialId = new VarGauge[Long](0L)
-        registry.register(
-          Prefix :+ "index_sequential_id",
-          indexSequentialId,
-        )
+//        registry.register(
+//          Prefix :+ "index_sequential_id",
+//          indexSequentialId,
+//        )
       }
     }
 
@@ -104,49 +104,51 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = kvutils.Prefix :+ "committer"
 
         // Timer (and count) of how fast submissions have been processed.
-        val runTimer: Timer = registry.timer(Prefix :+ "run_timer")
+        val runTimer: client.Summary = summary(Prefix :+ "run_timer")
 
         // Counter to monitor how many at a time and when kvutils is processing a submission.
-        val processing: Counter = registry.counter(Prefix :+ "processing")
+        val processing: client.Gauge = gauge(Prefix :+ "processing")
 
-        def runTimer(committerName: String): Timer =
-          registry.timer(Prefix :+ committerName :+ "run_timer")
-        def preExecutionRunTimer(committerName: String): Timer =
-          registry.timer(Prefix :+ committerName :+ "preexecution_run_timer")
-        def stepTimer(committerName: String, stepName: String): Timer =
-          registry.timer(Prefix :+ committerName :+ "step_timers" :+ stepName)
+        def runTimer(committerName: String): client.Summary = summary(
+          Prefix :+ committerName :+ "run_timer"
+        )
+        def preExecutionRunTimer(committerName: String): client.Summary =
+          summary(Prefix :+ committerName :+ "preexecution_run_timer")
+        def stepTimer(committerName: String, stepName: String): client.Summary =
+          summary(Prefix :+ committerName :+ "step_timers" :+ stepName)
 
         object last {
-          private val Prefix: MetricName = committer.Prefix :+ "last"
+//          private val Prefix: MetricName = committer.Prefix :+ "last"
 
+          // TODO Prometheus metrics: implement
           val lastRecordTimeGauge = new VarGauge[String]("<none>")
-          registry.register(Prefix :+ "record_time", lastRecordTimeGauge)
-
+//          registry.register(Prefix :+ "record_time", lastRecordTimeGauge)
+//
           val lastEntryIdGauge = new VarGauge[String]("<none>")
-          registry.register(Prefix :+ "entry_id", lastEntryIdGauge)
-
+//          registry.register(Prefix :+ "entry_id", lastEntryIdGauge)
+//
           val lastParticipantIdGauge = new VarGauge[String]("<none>")
-          registry.register(Prefix :+ "participant_id", lastParticipantIdGauge)
-
+//          registry.register(Prefix :+ "participant_id", lastParticipantIdGauge)
+//
           val lastExceptionGauge = new VarGauge[String]("<none>")
-          registry.register(Prefix :+ "exception", lastExceptionGauge)
+//          registry.register(Prefix :+ "exception", lastExceptionGauge)
         }
 
         object config {
           private val Prefix: MetricName = committer.Prefix :+ "config"
 
-          val accepts: Counter = registry.counter(Prefix :+ "accepts")
-          val rejections: Counter = registry.counter(Prefix :+ "rejections")
+          val accepts: client.Gauge = gauge(Prefix :+ "accepts")
+          val rejections: client.Gauge = gauge(Prefix :+ "rejections")
         }
 
         object packageUpload {
           private val Prefix: MetricName = committer.Prefix :+ "package_upload"
 
-          val validateTimer: Timer = registry.timer(Prefix :+ "validate_timer")
-          val preloadTimer: Timer = registry.timer(Prefix :+ "preload_timer")
-          val decodeTimer: Timer = registry.timer(Prefix :+ "decode_timer")
-          val accepts: Counter = registry.counter(Prefix :+ "accepts")
-          val rejections: Counter = registry.counter(Prefix :+ "rejections")
+          val validateTimer: client.Summary = summary(Prefix :+ "validate_timer")
+          val preloadTimer: client.Summary = summary(Prefix :+ "preload_timer")
+          val decodeTimer: client.Summary = summary(Prefix :+ "decode_timer")
+          val accepts: client.Gauge = gauge(Prefix :+ "accepts")
+          val rejections: client.Gauge = gauge(Prefix :+ "rejections")
 
           // TODO Prometheus cache: implement a replacement
 //          def loadedPackages(value: () => Int): Unit = {
@@ -157,27 +159,27 @@ final class Metrics(val registry: MetricRegistry) {
         object partyAllocation {
           private val Prefix: MetricName = committer.Prefix :+ "party_allocation"
 
-          val accepts: Counter = registry.counter(Prefix :+ "accepts")
-          val rejections: Counter = registry.counter(Prefix :+ "rejections")
+          val accepts: client.Gauge = gauge(Prefix :+ "accepts")
+          val rejections: client.Gauge = gauge(Prefix :+ "rejections")
         }
 
         object transaction {
           private val Prefix: MetricName = committer.Prefix :+ "transaction"
 
-          val runTimer: Timer = registry.timer(Prefix :+ "run_timer")
-          val interpretTimer: Timer = registry.timer(Prefix :+ "interpret_timer")
-          val accepts: Counter = registry.counter(Prefix :+ "accepts")
+          val runTimer: client.Summary = summary(Prefix :+ "run_timer")
+          val interpretTimer: client.Summary = summary(Prefix :+ "interpret_timer")
+          val accepts: client.Gauge = gauge(Prefix :+ "accepts")
 
-          def rejection(name: String): Counter =
-            registry.counter(Prefix :+ s"rejections_$name")
+          def rejection(name: String): client.Gauge =
+            gauge(Prefix :+ s"rejections_$name")
         }
       }
 
       object reader {
         private val Prefix: MetricName = kvutils.Prefix :+ "reader"
 
-        val openEnvelope: Timer = registry.timer(Prefix :+ "open_envelope")
-        val parseUpdates: Timer = registry.timer(Prefix :+ "parse_updates")
+        val openEnvelope: client.Summary = summary(Prefix :+ "open_envelope")
+        val parseUpdates: client.Summary = summary(Prefix :+ "parse_updates")
       }
 
       object submission {
@@ -186,97 +188,97 @@ final class Metrics(val registry: MetricRegistry) {
         object conversion {
           private val Prefix: MetricName = submission.Prefix :+ "conversion"
 
-          val transactionOutputs: Timer =
-            registry.timer(Prefix :+ "transaction_outputs")
-          val transactionToSubmission: Timer =
-            registry.timer(Prefix :+ "transaction_to_submission")
-          val archivesToSubmission: Timer =
-            registry.timer(Prefix :+ "archives_to_submission")
-          val partyToSubmission: Timer =
-            registry.timer(Prefix :+ "party_to_submission")
-          val configurationToSubmission: Timer =
-            registry.timer(Prefix :+ "configuration_to_submission")
+          val transactionOutputs: client.Summary =
+            summary(Prefix :+ "transaction_outputs")
+          val transactionToSubmission: client.Summary =
+            summary(Prefix :+ "transaction_to_submission")
+          val archivesToSubmission: client.Summary =
+            summary(Prefix :+ "archives_to_submission")
+          val partyToSubmission: client.Summary =
+            summary(Prefix :+ "party_to_submission")
+          val configurationToSubmission: client.Summary =
+            summary(Prefix :+ "configuration_to_submission")
         }
 
         object validator {
           private val Prefix: MetricName = submission.Prefix :+ "validator"
 
-          val openEnvelope: Timer = registry.timer(Prefix :+ "open_envelope")
-          val fetchInputs: Timer = registry.timer(Prefix :+ "fetch_inputs")
-          val validate: Timer = registry.timer(Prefix :+ "validate")
-          val commit: Timer = registry.timer(Prefix :+ "commit")
-          val transformSubmission: Timer = registry.timer(Prefix :+ "transform_submission")
+          val openEnvelope: client.Summary = summary(Prefix :+ "open_envelope")
+          val fetchInputs: client.Summary = summary(Prefix :+ "fetch_inputs")
+          val validate: client.Summary = summary(Prefix :+ "validate")
+          val commit: client.Summary = summary(Prefix :+ "commit")
+          val transformSubmission: client.Summary = summary(Prefix :+ "transform_submission")
 
-          val acquireTransactionLock: Timer = registry.timer(Prefix :+ "acquire_transaction_lock")
-          val failedToAcquireTransaction: Timer =
-            registry.timer(Prefix :+ "failed_to_acquire_transaction")
-          val releaseTransactionLock: Timer = registry.timer(Prefix :+ "release_transaction_lock")
+          val acquireTransactionLock: client.Summary = summary(Prefix :+ "acquire_transaction_lock")
+          val failedToAcquireTransaction: client.Summary =
+            summary(Prefix :+ "failed_to_acquire_transaction")
+          val releaseTransactionLock: client.Summary = summary(Prefix :+ "release_transaction_lock")
 
           val stateValueCache = CacheMetrics(Prefix :+ "state_value_cache")
 
           // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
-          val batchSizes: Histogram = registry.histogram(Prefix :+ "batch_sizes")
-          val receivedBatchSubmissionBytes: Histogram =
-            registry.histogram(Prefix :+ "received_batch_submission_bytes")
-          val receivedSubmissionBytes: Histogram =
-            registry.histogram(Prefix :+ "received_submission_bytes")
+          val batchSizes: client.Summary = summary(Prefix :+ "batch_sizes")
+          val receivedBatchSubmissionBytes: client.Summary =
+            summary(Prefix :+ "received_batch_submission_bytes")
+          val receivedSubmissionBytes: client.Summary =
+            summary(Prefix :+ "received_submission_bytes")
 
-          val validateAndCommit: Timer = registry.timer(Prefix :+ "validate_and_commit")
-          val decode: Timer = registry.timer(Prefix :+ "decode")
-          val detectConflicts: Timer = registry.timer(Prefix :+ "detect_conflicts")
+          val validateAndCommit: client.Summary = summary(Prefix :+ "validate_and_commit")
+          val decode: client.Summary = summary(Prefix :+ "decode")
+          val detectConflicts: client.Summary = summary(Prefix :+ "detect_conflicts")
 
-          val decodeRunning: Counter = registry.counter(Prefix :+ "decode_running")
-          val fetchInputsRunning: Counter = registry.counter(Prefix :+ "fetch_inputs_running")
-          val validateRunning: Counter = registry.counter(Prefix :+ "validate_running")
-          val commitRunning: Counter = registry.counter(Prefix :+ "commit_running")
+          val decodeRunning: client.Gauge = gauge(Prefix :+ "decode_running")
+          val fetchInputsRunning: client.Gauge = gauge(Prefix :+ "fetch_inputs_running")
+          val validateRunning: client.Gauge = gauge(Prefix :+ "validate_running")
+          val commitRunning: client.Gauge = gauge(Prefix :+ "commit_running")
 
           // The below metrics are only generated for pre-execution.
-          val validatePreExecute: Timer = registry.timer(Prefix :+ "validate_pre_execute")
-          val generateWriteSets: Timer = registry.timer(Prefix :+ "generate_write_sets")
+          val validatePreExecute: client.Summary = summary(Prefix :+ "validate_pre_execute")
+          val generateWriteSets: client.Summary = summary(Prefix :+ "generate_write_sets")
 
-          val validatePreExecuteRunning: Counter =
-            registry.counter(Prefix :+ "validate_pre_execute_running")
+          val validatePreExecuteRunning: client.Gauge =
+            gauge(Prefix :+ "validate_pre_execute_running")
         }
       }
 
       object writer {
         private val Prefix: MetricName = kvutils.Prefix :+ "writer"
 
-        val commit: Timer = registry.timer(Prefix :+ "commit")
+        val commit: client.Summary = summary(Prefix :+ "commit")
 
-        val preExecutedCount: Counter = registry.counter(Prefix :+ "pre_executed_count")
-        val preExecutedInterpretationCosts: Histogram =
-          registry.histogram(Prefix :+ "pre_executed_interpretation_costs")
-        val committedCount: Counter = registry.counter(Prefix :+ "committed_count")
-        val committedInterpretationCosts: Histogram =
-          registry.histogram(Prefix :+ "committed_interpretation_costs")
+        val preExecutedCount: client.Gauge = gauge(Prefix :+ "pre_executed_count")
+        val preExecutedInterpretationCosts: client.Summary =
+          summary(Prefix :+ "pre_executed_interpretation_costs")
+        val committedCount: client.Gauge = gauge(Prefix :+ "committed_count")
+        val committedInterpretationCosts: client.Summary =
+          summary(Prefix :+ "committed_interpretation_costs")
       }
 
       object conflictdetection {
         private val Prefix = kvutils.Prefix :+ "conflict_detection"
 
-        val accepted: Counter =
-          registry.counter(Prefix :+ "accepted")
+        val accepted: client.Gauge =
+          gauge(Prefix :+ "accepted")
 
-        val conflicted: Counter =
-          registry.counter(Prefix :+ "conflicted")
+        val conflicted: client.Gauge =
+          gauge(Prefix :+ "conflicted")
 
-        val removedTransientKey: Counter =
-          registry.counter(Prefix :+ "removed_transient_key")
+        val removedTransientKey: client.Gauge =
+          gauge(Prefix :+ "removed_transient_key")
 
-        val recovered: Counter =
-          registry.counter(Prefix :+ "recovered")
+        val recovered: client.Gauge =
+          gauge(Prefix :+ "recovered")
 
-        val dropped: Counter =
-          registry.counter(Prefix :+ "dropped")
+        val dropped: client.Gauge =
+          gauge(Prefix :+ "dropped")
       }
     }
 
     object lapi {
       private val Prefix: MetricName = daml.Prefix :+ "lapi"
 
-      def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
+      def forMethod(name: String): client.Summary = summary(Prefix :+ name)
 
       object threadpool {
         private val Prefix: MetricName = lapi.Prefix :+ "threadpool"
@@ -287,10 +289,11 @@ final class Metrics(val registry: MetricRegistry) {
       object streams {
         private val Prefix: MetricName = lapi.Prefix :+ "streams"
 
-        val transactionTrees: Counter = registry.counter(Prefix :+ "transaction_trees_sent")
-        val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
-        val completions: Counter = registry.counter(Prefix :+ "completions_sent")
-        val acs: Counter = registry.counter(Prefix :+ "acs_sent")
+        // TODO Prometheus metrics: change this to counters
+        val transactionTrees: client.Gauge = gauge(Prefix :+ "transaction_trees_sent")
+        val transactions: client.Gauge = gauge(Prefix :+ "transactions_sent")
+        val completions: client.Gauge = gauge(Prefix :+ "completions_sent")
+        val acs: client.Gauge = gauge(Prefix :+ "acs_sent")
       }
     }
 
@@ -303,39 +306,41 @@ final class Metrics(val registry: MetricRegistry) {
         object queries {
           private val Prefix: MetricName = database.Prefix :+ "queries"
 
-          val selectLatestLogEntryId: Timer = registry.timer(Prefix :+ "select_latest_log_entry_id")
-          val selectFromLog: Timer = registry.timer(Prefix :+ "select_from_log")
-          val selectStateValuesByKeys: Timer =
-            registry.timer(Prefix :+ "select_state_values_by_keys")
-          val updateOrRetrieveLedgerId: Timer =
-            registry.timer(Prefix :+ "update_or_retrieve_ledger_id")
-          val insertRecordIntoLog: Timer = registry.timer(Prefix :+ "insert_record_into_log")
-          val updateState: Timer = registry.timer(Prefix :+ "update_state")
-          val truncate: Timer = registry.timer(Prefix :+ "truncate")
+          val selectLatestLogEntryId: client.Summary = summary(
+            Prefix :+ "select_latest_log_entry_id"
+          )
+          val selectFromLog: client.Summary = summary(Prefix :+ "select_from_log")
+          val selectStateValuesByKeys: client.Summary =
+            summary(Prefix :+ "select_state_values_by_keys")
+          val updateOrRetrieveLedgerId: client.Summary =
+            summary(Prefix :+ "update_or_retrieve_ledger_id")
+          val insertRecordIntoLog: client.Summary = summary(Prefix :+ "insert_record_into_log")
+          val updateState: client.Summary = summary(Prefix :+ "update_state")
+          val truncate: client.Summary = summary(Prefix :+ "truncate")
         }
 
         object transactions {
           private val Prefix: MetricName = database.Prefix :+ "transactions"
 
-          def acquireConnection(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "acquire_connection")
-          def run(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "run")
+          def acquireConnection(name: String): client.Summary =
+            summary(Prefix :+ name :+ "acquire_connection")
+          def run(name: String): client.Summary =
+            summary(Prefix :+ name :+ "run")
         }
       }
 
       object log {
         private val Prefix: MetricName = ledger.Prefix :+ "log"
 
-        val append: Timer = registry.timer(Prefix :+ "append")
-        val read: Timer = registry.timer(Prefix :+ "read")
+        val append: client.Summary = summary(Prefix :+ "append")
+        val read: client.Summary = summary(Prefix :+ "read")
       }
 
       object state {
         private val Prefix: MetricName = ledger.Prefix :+ "state"
 
-        val read: Timer = registry.timer(Prefix :+ "read")
-        val write: Timer = registry.timer(Prefix :+ "write")
+        val read: client.Summary = summary(Prefix :+ "read")
+        val write: client.Summary = summary(Prefix :+ "write")
       }
     }
 
@@ -356,42 +361,44 @@ final class Metrics(val registry: MetricRegistry) {
     object index {
       private val Prefix = daml.Prefix :+ "index"
 
-      val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
-      val lookupContract: Timer = registry.timer(Prefix :+ "lookup_contract")
-      val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
-      val lookupFlatTransactionById: Timer =
-        registry.timer(Prefix :+ "lookup_flat_transaction_by_id")
-      val lookupTransactionTreeById: Timer =
-        registry.timer(Prefix :+ "lookup_transaction_tree_by_id")
-      val lookupLedgerConfiguration: Timer = registry.timer(Prefix :+ "lookup_ledger_configuration")
-      val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
-      val getParties: Timer = registry.timer(Prefix :+ "get_parties")
-      val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
-      val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
-      val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
-      val prune: Timer = registry.timer(Prefix :+ "prune")
-      val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
+      val decodeStateEvent: client.Summary = summary(Prefix :+ "decode_state_event")
+      val lookupContract: client.Summary = summary(Prefix :+ "lookup_contract")
+      val lookupKey: client.Summary = summary(Prefix :+ "lookup_key")
+      val lookupFlatTransactionById: client.Summary =
+        summary(Prefix :+ "lookup_flat_transaction_by_id")
+      val lookupTransactionTreeById: client.Summary =
+        summary(Prefix :+ "lookup_transaction_tree_by_id")
+      val lookupLedgerConfiguration: client.Summary = summary(
+        Prefix :+ "lookup_ledger_configuration"
+      )
+      val lookupMaximumLedgerTime: client.Summary = summary(Prefix :+ "lookup_maximum_ledger_time")
+      val getParties: client.Summary = summary(Prefix :+ "get_parties")
+      val listKnownParties: client.Summary = summary(Prefix :+ "list_known_parties")
+      val listLfPackages: client.Summary = summary(Prefix :+ "list_lf_packages")
+      val getLfArchive: client.Summary = summary(Prefix :+ "get_lf_archive")
+      val prune: client.Summary = summary(Prefix :+ "prune")
+      val getTransactionMetering: client.Summary = summary(Prefix :+ "get_transaction_metering")
 
-      val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
-      val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
-      val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
-      val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
+      val publishTransaction: client.Summary = summary(Prefix :+ "publish_transaction")
+      val publishPartyAllocation: client.Summary = summary(Prefix :+ "publish_party_allocation")
+      val uploadPackages: client.Summary = summary(Prefix :+ "upload_packages")
+      val publishConfiguration: client.Summary = summary(Prefix :+ "publish_configuration")
 
-      val decodeTransactionLogUpdate: Timer =
-        registry.timer(Prefix :+ "transaction_log_update_decode")
-      val transactionLogUpdatesBufferSize: Counter =
-        registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+      val decodeTransactionLogUpdate: client.Summary =
+        summary(Prefix :+ "transaction_log_update_decode")
+      val transactionLogUpdatesBufferSize: client.Gauge =
+        gauge(Prefix :+ "transaction_log_updates_buffer_size")
 
-      val transactionTreesBufferSize: Counter =
-        registry.counter(Prefix :+ "transaction_trees_buffer_size")
-      val flatTransactionsBufferSize: Counter =
-        registry.counter(Prefix :+ "flat_transactions_buffer_size")
+      val transactionTreesBufferSize: client.Gauge =
+        gauge(Prefix :+ "transaction_trees_buffer_size")
+      val flatTransactionsBufferSize: client.Gauge =
+        gauge(Prefix :+ "flat_transactions_buffer_size")
 
-      val contractStateEventsBufferSize: Counter =
-        registry.counter(Prefix :+ "contract_state_events_buffer_size")
+      val contractStateEventsBufferSize: client.Gauge =
+        gauge(Prefix :+ "contract_state_events_buffer_size")
 
-      val acsRetrievalSequentialProcessing: Timer =
-        registry.timer(Prefix :+ "acs_retrieval_sequential_processing")
+      val acsRetrievalSequentialProcessing: client.Summary =
+        summary(Prefix :+ "acs_retrieval_sequential_processing")
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
@@ -401,16 +408,16 @@ final class Metrics(val registry: MetricRegistry) {
         val storePackageEntry: client.Histogram = histogram(Prefix :+ "store_package_entry")
 
         val storeTransaction: client.Histogram = histogram(Prefix :+ "store_ledger_entry")
-        val storeTransactionCombined: Timer =
-          registry.timer(Prefix :+ "store_ledger_entry_combined")
+        val storeTransactionCombined: client.Summary =
+          summary(Prefix :+ "store_ledger_entry_combined")
         val storeTransactionEvents: client.Histogram = histogram(
           Prefix :+ "store_ledger_entry_events"
         )
         val storeTransactionState: client.Histogram = histogram(
           Prefix :+ "store_ledger_entry_state"
         )
-        val storeTransactionCompletion: Timer =
-          registry.timer(Prefix :+ "store_ledger_entry_completion")
+        val storeTransactionCompletion: client.Summary =
+          summary(Prefix :+ "store_ledger_entry_completion")
 
         val storeRejection: client.Histogram = histogram(Prefix :+ "store_rejection")
         val storeConfigurationEntry: client.Histogram = histogram(
@@ -420,11 +427,11 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerId: client.Histogram = histogram(Prefix :+ "lookup_ledger_id")
         val lookupParticipantId: client.Histogram = histogram(Prefix :+ "lookup_participant_id")
         val lookupLedgerEnd: client.Histogram = histogram(Prefix :+ "lookup_ledger_end")
-        val lookupLedgerEndSequentialId: Timer =
-          registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
+        val lookupLedgerEndSequentialId: client.Summary =
+          summary(Prefix :+ "lookup_ledger_end_sequential_id")
         val lookupTransaction: client.Histogram = histogram(Prefix :+ "lookup_transaction")
-        val lookupLedgerConfiguration: Timer =
-          registry.timer(Prefix :+ "lookup_ledger_configuration")
+        val lookupLedgerConfiguration: client.Summary =
+          summary(Prefix :+ "lookup_ledger_configuration")
         val lookupKey: client.Histogram = histogram(Prefix :+ "lookup_key")
         val lookupActiveContract: client.Histogram = histogram(Prefix :+ "lookup_active_contract")
         val lookupMaximumLedgerTime: client.Histogram = histogram(
@@ -473,18 +480,18 @@ final class Metrics(val registry: MetricRegistry) {
 
           // in order within SQL transaction
           val eventsBatch: client.Histogram = histogram(dbPrefix :+ "events_batch")
-          val deleteContractWitnessesBatch: Timer =
-            registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
+          val deleteContractWitnessesBatch: client.Summary =
+            summary(dbPrefix :+ "delete_contract_witnesses_batch")
           val deleteContractsBatch: client.Histogram = histogram(
             dbPrefix :+ "delete_contracts_batch"
           )
-          val nullifyPastKeysBatch: Timer =
-            registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
+          val nullifyPastKeysBatch: client.Summary =
+            summary(dbPrefix :+ "nullify_contract_keys_batch")
           val insertContractsBatch: client.Histogram = histogram(
             dbPrefix :+ "insert_contracts_batch"
           )
-          val insertContractWitnessesBatch: Timer =
-            registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
+          val insertContractWitnessesBatch: client.Summary =
+            summary(dbPrefix :+ "insert_contract_witnesses_batch")
 
           val insertCompletion: client.Histogram = histogram(dbPrefix :+ "insert_completion")
           val updateLedgerEnd: client.Histogram = histogram(dbPrefix :+ "update_ledger_end")
@@ -539,28 +546,28 @@ final class Metrics(val registry: MetricRegistry) {
         object translation {
           private val Prefix: MetricName = db.Prefix :+ "translation"
           val cache = CacheMetrics(Prefix :+ "cache")
-          val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
+          val getLfPackage: client.Summary = summary(Prefix :+ "get_lf_package")
         }
 
         object compression {
           private val Prefix: MetricName = db.Prefix :+ "compression"
 
-          val createArgumentCompressed: Histogram =
-            registry.histogram(Prefix :+ "create_argument_compressed")
-          val createArgumentUncompressed: Histogram =
-            registry.histogram(Prefix :+ "create_argument_uncompressed")
-          val createKeyValueCompressed: Histogram =
-            registry.histogram(Prefix :+ "create_key_value_compressed")
-          val createKeyValueUncompressed: Histogram =
-            registry.histogram(Prefix :+ "create_key_value_uncompressed")
-          val exerciseArgumentCompressed: Histogram =
-            registry.histogram(Prefix :+ "exercise_argument_compressed")
-          val exerciseArgumentUncompressed: Histogram =
-            registry.histogram(Prefix :+ "exercise_argument_uncompressed")
-          val exerciseResultCompressed: Histogram =
-            registry.histogram(Prefix :+ "exercise_result_compressed")
-          val exerciseResultUncompressed: Histogram =
-            registry.histogram(Prefix :+ "exercise_result_uncompressed")
+          val createArgumentCompressed: client.Summary =
+            summary(Prefix :+ "create_argument_compressed")
+          val createArgumentUncompressed: client.Summary =
+            summary(Prefix :+ "create_argument_uncompressed")
+          val createKeyValueCompressed: client.Summary =
+            summary(Prefix :+ "create_key_value_compressed")
+          val createKeyValueUncompressed: client.Summary =
+            summary(Prefix :+ "create_key_value_uncompressed")
+          val exerciseArgumentCompressed: client.Summary =
+            summary(Prefix :+ "exercise_argument_compressed")
+          val exerciseArgumentUncompressed: client.Summary =
+            summary(Prefix :+ "exercise_argument_uncompressed")
+          val exerciseResultCompressed: client.Summary =
+            summary(Prefix :+ "exercise_result_compressed")
+          val exerciseResultUncompressed: client.Summary =
+            summary(Prefix :+ "exercise_result_uncompressed")
 
         }
 
@@ -570,11 +577,12 @@ final class Metrics(val registry: MetricRegistry) {
     object indexer {
       private val Prefix: MetricName = daml.Prefix :+ "indexer"
 
+      // TODO Prometheus metrics: implement
       val lastReceivedRecordTime = new VarGauge[Long](0)
-      registry.register(Prefix :+ "last_received_record_time", lastReceivedRecordTime)
+//      registry.register(Prefix :+ "last_received_record_time", lastReceivedRecordTime)
 
       val lastReceivedOffset = new VarGauge[String]("<none>")
-      registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
+//      registry.register(Prefix :+ "last_received_offset", lastReceivedOffset)
 
       // TODO Prometheus metrics: implement this
 //      registerGauge(
@@ -583,10 +591,11 @@ final class Metrics(val registry: MetricRegistry) {
 //        registry,
 //      )
 
-      val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
+      val stateUpdateProcessing: client.Summary = summary(Prefix :+ "processed_state_updates")
 
+      // TODO Prometheus metrics: implement
       val ledgerEndSequentialId = new VarGauge[Long](0L)
-      registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
+//      registry.register(Prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
     }
 
     // TODO append-only: streamline metrics upon cleanup
@@ -598,10 +607,10 @@ final class Metrics(val registry: MetricRegistry) {
       // Number of state updates persisted to the database
       // (after the effect of the corresponding Update is persisted into the database,
       // and before this effect is visible via moving the ledger end forward)
-      val updates: Counter = registry.counter(Prefix :+ "updates")
+      val updates: client.Gauge = gauge(Prefix :+ "updates")
 
       // The size of the queue before the indexer
-      val inputBufferLength: Counter = registry.counter(Prefix :+ "input_buffer_length")
+      val inputBufferLength: client.Gauge = gauge(Prefix :+ "input_buffer_length")
 
       // Input mapping stage
       // Translating state updates to data objects corresponding to individual SQL insert statements
@@ -612,7 +621,7 @@ final class Metrics(val registry: MetricRegistry) {
         val executor: MetricName = Prefix :+ "executor"
 
         // The batch size, i.e., the number of state updates per database submission
-        val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
+        val batchSize: client.Summary = summary(Prefix :+ "batch_size")
       }
 
       // Batching stage
@@ -629,7 +638,7 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = parallelIndexer.Prefix :+ "seqmapping"
 
         // The latency, which during an update element is residing in the seq-mapping-stage.
-        val duration: Timer = registry.timer(Prefix :+ "duration")
+        val duration: client.Summary = summary(Prefix :+ "duration")
       }
 
       // Ingestion stage
@@ -647,85 +656,87 @@ final class Metrics(val registry: MetricRegistry) {
       object index {
         private val Prefix: MetricName = services.Prefix :+ "index"
 
-        val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
-        val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
-        val packageEntries: Timer = registry.timer(Prefix :+ "package_entries")
-        val getLedgerConfiguration: Timer = registry.timer(Prefix :+ "get_ledger_configuration")
-        val currentLedgerEnd: Timer = registry.timer(Prefix :+ "current_ledger_end")
-        val getCompletions: Timer = registry.timer(Prefix :+ "get_completions")
-        val getCompletionsLimited: Timer = registry.timer(Prefix :+ "get_completions_limited")
-        val transactions: Timer = registry.timer(Prefix :+ "transactions")
-        val transactionTrees: Timer = registry.timer(Prefix :+ "transaction_trees")
-        val getTransactionById: Timer = registry.timer(Prefix :+ "get_transaction_by_id")
-        val getTransactionTreeById: Timer = registry.timer(Prefix :+ "get_transaction_tree_by_id")
-        val getActiveContracts: Timer = registry.timer(Prefix :+ "get_active_contracts")
-        val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
-        val lookupContractKey: Timer = registry.timer(Prefix :+ "lookup_contract_key")
-        val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
-        val getLedgerId: Timer = registry.timer(Prefix :+ "get_ledger_id")
-        val getParticipantId: Timer = registry.timer(Prefix :+ "get_participant_id")
-        val getParties: Timer = registry.timer(Prefix :+ "get_parties")
-        val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
-        val partyEntries: Timer = registry.timer(Prefix :+ "party_entries")
-        val lookupConfiguration: Timer = registry.timer(Prefix :+ "lookup_configuration")
-        val configurationEntries: Timer = registry.timer(Prefix :+ "configuration_entries")
-        val prune: Timer = registry.timer(Prefix :+ "prune")
-        val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
+        val listLfPackages: client.Summary = summary(Prefix :+ "list_lf_packages")
+        val getLfArchive: client.Summary = summary(Prefix :+ "get_lf_archive")
+        val packageEntries: client.Summary = summary(Prefix :+ "package_entries")
+        val getLedgerConfiguration: client.Summary = summary(Prefix :+ "get_ledger_configuration")
+        val currentLedgerEnd: client.Summary = summary(Prefix :+ "current_ledger_end")
+        val getCompletions: client.Summary = summary(Prefix :+ "get_completions")
+        val getCompletionsLimited: client.Summary = summary(Prefix :+ "get_completions_limited")
+        val transactions: client.Summary = summary(Prefix :+ "transactions")
+        val transactionTrees: client.Summary = summary(Prefix :+ "transaction_trees")
+        val getTransactionById: client.Summary = summary(Prefix :+ "get_transaction_by_id")
+        val getTransactionTreeById: client.Summary = summary(Prefix :+ "get_transaction_tree_by_id")
+        val getActiveContracts: client.Summary = summary(Prefix :+ "get_active_contracts")
+        val lookupActiveContract: client.Summary = summary(Prefix :+ "lookup_active_contract")
+        val lookupContractKey: client.Summary = summary(Prefix :+ "lookup_contract_key")
+        val lookupMaximumLedgerTime: client.Summary = summary(
+          Prefix :+ "lookup_maximum_ledger_time"
+        )
+        val getLedgerId: client.Summary = summary(Prefix :+ "get_ledger_id")
+        val getParticipantId: client.Summary = summary(Prefix :+ "get_participant_id")
+        val getParties: client.Summary = summary(Prefix :+ "get_parties")
+        val listKnownParties: client.Summary = summary(Prefix :+ "list_known_parties")
+        val partyEntries: client.Summary = summary(Prefix :+ "party_entries")
+        val lookupConfiguration: client.Summary = summary(Prefix :+ "lookup_configuration")
+        val configurationEntries: client.Summary = summary(Prefix :+ "configuration_entries")
+        val prune: client.Summary = summary(Prefix :+ "prune")
+        val getTransactionMetering: client.Summary = summary(Prefix :+ "get_transaction_metering")
 
         object streamsBuffer {
           private val Prefix: MetricName = index.Prefix :+ "streams_buffer"
 
-          def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
-          def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
-          def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+          def push(qualifier: String): client.Summary = summary(Prefix :+ qualifier :+ "push")
+          def slice(qualifier: String): client.Summary = summary(Prefix :+ qualifier :+ "slice")
+          def prune(qualifier: String): client.Summary = summary(Prefix :+ qualifier :+ "prune")
 
-          val transactionTreesTotal: Counter =
-            registry.counter(Prefix :+ "transaction_trees_total")
-          val transactionTreesBuffered: Counter =
-            registry.counter(Prefix :+ "transaction_trees_buffered")
+          val transactionTreesTotal: client.Gauge =
+            gauge(Prefix :+ "transaction_trees_total")
+          val transactionTreesBuffered: client.Gauge =
+            gauge(Prefix :+ "transaction_trees_buffered")
 
-          val flatTransactionsTotal: Counter =
-            registry.counter(Prefix :+ "flat_transactions_total")
-          val flatTransactionsBuffered: Counter =
-            registry.counter(Prefix :+ "flat_transactions_buffered")
+          val flatTransactionsTotal: client.Gauge =
+            gauge(Prefix :+ "flat_transactions_total")
+          val flatTransactionsBuffered: client.Gauge =
+            gauge(Prefix :+ "flat_transactions_buffered")
 
-          val getTransactionTrees: Timer =
-            registry.timer(Prefix :+ "get_transaction_trees")
-          val getFlatTransactions: Timer =
-            registry.timer(Prefix :+ "get_flat_transactions")
+          val getTransactionTrees: client.Summary =
+            summary(Prefix :+ "get_transaction_trees")
+          val getFlatTransactions: client.Summary =
+            summary(Prefix :+ "get_flat_transactions")
 
-          val toFlatTransactions: Timer = registry.timer(Prefix :+ "to_flat_transactions")
-          val toTransactionTrees: Timer = registry.timer(Prefix :+ "to_transaction_trees")
+          val toFlatTransactions: client.Summary = summary(Prefix :+ "to_flat_transactions")
+          val toTransactionTrees: client.Summary = summary(Prefix :+ "to_transaction_trees")
 
-          val transactionTreesBufferSize: Counter =
-            registry.counter(Prefix :+ "transaction_trees_buffer_size")
-          val flatTransactionsBufferSize: Counter =
-            registry.counter(Prefix :+ "flat_transactions_buffer_size")
+          val transactionTreesBufferSize: client.Gauge =
+            gauge(Prefix :+ "transaction_trees_buffer_size")
+          val flatTransactionsBufferSize: client.Gauge =
+            gauge(Prefix :+ "flat_transactions_buffer_size")
         }
 
-        val getContractStateEventsChunkSize: Histogram =
-          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
-        val getTransactionLogUpdatesChunkSize: Histogram =
-          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
+        val getContractStateEventsChunkSize: client.Summary =
+          summary(Prefix :+ "get_contract_state_events_chunk_fetch_size")
+        val getTransactionLogUpdatesChunkSize: client.Summary =
+          summary(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {
         private val Prefix: MetricName = services.Prefix :+ "read"
 
-        val getLedgerInitialConditions: Timer =
-          registry.timer(Prefix :+ "get_ledger_initial_conditions")
-        val stateUpdates: Timer = registry.timer(Prefix :+ "state_updates")
+        val getLedgerInitialConditions: client.Summary =
+          summary(Prefix :+ "get_ledger_initial_conditions")
+        val stateUpdates: client.Summary = summary(Prefix :+ "state_updates")
       }
 
       object write {
         private val Prefix: MetricName = services.Prefix :+ "write"
 
-        val submitTransaction: Timer = registry.timer(Prefix :+ "submit_transaction")
-        val submitTransactionRunning: Meter = registry.meter(Prefix :+ "submit_transaction_running")
-        val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
-        val allocateParty: Timer = registry.timer(Prefix :+ "allocate_party")
-        val submitConfiguration: Timer = registry.timer(Prefix :+ "submit_configuration")
-        val prune: Timer = registry.timer(Prefix :+ "prune")
+        val submitTransaction: client.Summary = summary(Prefix :+ "submit_transaction")
+        val submitTransactionRunning: client.Gauge = gauge(Prefix :+ "submit_transaction_running")
+        val uploadPackages: client.Summary = summary(Prefix :+ "upload_packages")
+        val allocateParty: client.Summary = summary(Prefix :+ "allocate_party")
+        val submitConfiguration: client.Summary = summary(Prefix :+ "submit_configuration")
+        val prune: client.Summary = summary(Prefix :+ "prune")
       }
     }
 
@@ -734,55 +745,55 @@ final class Metrics(val registry: MetricRegistry) {
 
       object Db {
         private val Prefix: MetricName = HttpJsonApi.Prefix :+ "db"
-        val fetchByIdFetch: Timer = registry.timer(Prefix :+ "fetch_by_id_fetch")
-        val fetchByIdQuery: Timer = registry.timer(Prefix :+ "fetch_by_id_query")
-        val fetchByKeyFetch: Timer = registry.timer(Prefix :+ "fetch_by_key_fetch")
-        val fetchByKeyQuery: Timer = registry.timer(Prefix :+ "fetch_by_key_query")
-        val searchFetch: Timer = registry.timer(Prefix :+ "search_fetch")
-        val searchQuery: Timer = registry.timer(Prefix :+ "search_query")
+        val fetchByIdFetch: client.Summary = summary(Prefix :+ "fetch_by_id_fetch")
+        val fetchByIdQuery: client.Summary = summary(Prefix :+ "fetch_by_id_query")
+        val fetchByKeyFetch: client.Summary = summary(Prefix :+ "fetch_by_key_fetch")
+        val fetchByKeyQuery: client.Summary = summary(Prefix :+ "fetch_by_key_query")
+        val searchFetch: client.Summary = summary(Prefix :+ "search_fetch")
+        val searchQuery: client.Summary = summary(Prefix :+ "search_query")
       }
 
       val surrogateTemplateIdCache = CacheMetrics(Prefix :+ "surrogate_tpid_cache")
 
       // Meters how long processing of a command submission request takes
-      val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
+      val commandSubmissionTimer: client.Summary = summary(Prefix :+ "command_submission_timing")
       // Meters how long processing of a query GET request takes
-      val queryAllTimer: Timer = registry.timer(Prefix :+ "query_all_timing")
+      val queryAllTimer: client.Summary = summary(Prefix :+ "query_all_timing")
       // Meters how long processing of a query POST request takes
-      val queryMatchingTimer: Timer = registry.timer(Prefix :+ "query_matching_timing")
+      val queryMatchingTimer: client.Summary = summary(Prefix :+ "query_matching_timing")
       // Meters how long processing of a fetch request takes
-      val fetchTimer: Timer = registry.timer(Prefix :+ "fetch_timing")
+      val fetchTimer: client.Summary = summary(Prefix :+ "fetch_timing")
       // Meters how long processing of a get party/parties request takes
-      val getPartyTimer: Timer = registry.timer(Prefix :+ "get_party_timing")
+      val getPartyTimer: client.Summary = summary(Prefix :+ "get_party_timing")
       // Meters how long processing of a party management request takes
-      val allocatePartyTimer: Timer = registry.timer(Prefix :+ "allocate_party_timing")
+      val allocatePartyTimer: client.Summary = summary(Prefix :+ "allocate_party_timing")
       // Meters how long processing of a package download request takes
-      val downloadPackageTimer: Timer = registry.timer(Prefix :+ "download_package_timing")
+      val downloadPackageTimer: client.Summary = summary(Prefix :+ "download_package_timing")
       // Meters how long processing of a package upload request takes
-      val uploadPackageTimer: Timer = registry.timer(Prefix :+ "upload_package_timing")
+      val uploadPackageTimer: client.Summary = summary(Prefix :+ "upload_package_timing")
       // Meters how long parsing and decoding of an incoming json payload takes
-      val incomingJsonParsingAndValidationTimer: Timer =
-        registry.timer(Prefix :+ "incoming_json_parsing_and_validation_timing")
+      val incomingJsonParsingAndValidationTimer: client.Summary =
+        summary(Prefix :+ "incoming_json_parsing_and_validation_timing")
       // Meters how long the construction of the response json payload takes
-      val responseCreationTimer: Timer = registry.timer(Prefix :+ "response_creation_timing")
+      val responseCreationTimer: client.Summary = summary(Prefix :+ "response_creation_timing")
       // Meters how long a find by contract key database operation takes
-      val dbFindByContractKey: Timer = registry.timer(Prefix :+ "db_find_by_contract_key_timing")
+      val dbFindByContractKey: client.Summary = summary(Prefix :+ "db_find_by_contract_key_timing")
       // Meters how long a find by contract id database operation takes
-      val dbFindByContractId: Timer = registry.timer(Prefix :+ "db_find_by_contract_id_timing")
+      val dbFindByContractId: client.Summary = summary(Prefix :+ "db_find_by_contract_id_timing")
       // Meters how long processing of the command submission request takes on the ledger
-      val commandSubmissionLedgerTimer: Timer =
-        registry.timer(Prefix :+ "command_submission_ledger_timing")
+      val commandSubmissionLedgerTimer: client.Summary =
+        summary(Prefix :+ "command_submission_ledger_timing")
       // Meters http requests throughput
-      val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
+      val httpRequestThroughput: client.Counter = counter(Prefix :+ "http_request_throughput")
       // Meters how many websocket connections are currently active
-      val websocketRequestCounter: Counter = registry.counter(Prefix :+ "websocket_request_count")
+      val websocketRequestCounter: client.Gauge = gauge(Prefix :+ "websocket_request_count")
       // Meters command submissions throughput
-      val commandSubmissionThroughput: Meter =
-        registry.meter(Prefix :+ "command_submission_throughput")
+      val commandSubmissionThroughput: client.Counter =
+        counter(Prefix :+ "command_submission_throughput")
       // Meters package uploads throughput
-      val uploadPackagesThroughput: Meter = registry.meter(Prefix :+ "upload_packages_throughput")
+      val uploadPackagesThroughput: client.Counter = counter(Prefix :+ "upload_packages_throughput")
       // Meters party allocation throughput
-      val allocatePartyThroughput: Meter = registry.meter(Prefix :+ "allocation_party_throughput")
+      val allocatePartyThroughput: client.Counter = counter(Prefix :+ "allocation_party_throughput")
     }
   }
 }

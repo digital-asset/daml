@@ -86,7 +86,7 @@ class KeyValueCommitting private[daml] (
     metrics.daml.kvutils.committer.last.lastRecordTimeGauge.updateValue(recordTime.toString)
     metrics.daml.kvutils.committer.last.lastEntryIdGauge.updateValue(Pretty.prettyEntryId(entryId))
     metrics.daml.kvutils.committer.last.lastParticipantIdGauge.updateValue(participantId)
-    val ctx = metrics.daml.kvutils.committer.runTimer.time()
+    val ctx = metrics.daml.kvutils.committer.runTimer.startTimer()
     try {
       val committer = createCommitter(engine, defaultConfig, submission)
       val (logEntry, outputState) = committer.run(
@@ -105,7 +105,7 @@ class KeyValueCommitting private[daml] (
         )
         throw exception
     } finally {
-      val _ = ctx.stop()
+      val _ = ctx.observeDuration()
       metrics.daml.kvutils.committer.processing.dec()
     }
   }
