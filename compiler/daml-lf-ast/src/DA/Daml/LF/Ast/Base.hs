@@ -6,7 +6,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeFamilies #-}
--- | Types and pretty-printer for the AST of the DAML Ledger Fragment.
+-- | Types and pretty-printer for the AST of the Daml Ledger Fragment.
 module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
     ) where
@@ -878,7 +878,7 @@ data TemplateKey = TemplateKey
   -- ^ Note that the protobuf imposes strict restrictions on what this can be (see
   -- proto file). However the compiler produces things that are _not_ in that fragment,
   -- and thus we gradually simplify them to try to turn them into something as part
-  -- of that fragment in DAML-LF directly.
+  -- of that fragment in Daml-LF directly.
   , tplKeyMaintainers :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -989,7 +989,7 @@ data TemplateChoice = TemplateChoice
 data FeatureFlags = FeatureFlags
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | Feature flags for DAML 1.2.
+-- | Feature flags for Daml 1.2.
 daml12FeatureFlags :: FeatureFlags
 daml12FeatureFlags = FeatureFlags
 

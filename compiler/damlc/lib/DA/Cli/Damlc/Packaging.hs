@@ -67,8 +67,8 @@ import SdkVersion
 --
 -- data-deps (data-dependencies in daml.yaml):
 --   This is intended for packages that have already been uploaded to the
---   ledger. Based on the DAML-LF we generate dummy interface files
---   and then remap references to those dummy packages to the original DAML-LF
+--   ledger. Based on the Daml-LF we generate dummy interface files
+--   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes

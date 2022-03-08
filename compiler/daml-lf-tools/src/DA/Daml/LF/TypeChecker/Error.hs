@@ -362,7 +362,7 @@ instance Pretty Error where
       "expected list type, but found: " <> pretty typ
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
-      <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
+      <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
     EForbiddenNameCollision name names ->
       "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
@@ -438,7 +438,7 @@ toDiagnostic sev err = Diagnostic
     , _severity = Just sev
     , _code = Nothing
     , _tags = Nothing
-    , _source = Just "DAML-LF typechecker"
+    , _source = Just "Daml-LF typechecker"
     , _message = renderPretty err
     , _relatedInformation = Nothing
     }

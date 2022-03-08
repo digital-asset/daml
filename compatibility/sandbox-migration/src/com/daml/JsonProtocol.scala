@@ -13,7 +13,7 @@ import spray.json._
 object JsonProtocol extends DefaultJsonProtocol {
 
   private def cannotReadDamlLf(): RuntimeException =
-    new UnsupportedOperationException("Reading JSON-encoded DAML-LF value is not supported")
+    new UnsupportedOperationException("Reading JSON-encoded Daml-LF value is not supported")
 
   implicit object RecordJsonFormat extends JsonFormat[Record] {
     override def read(json: JsValue): Record =

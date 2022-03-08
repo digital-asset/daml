@@ -290,7 +290,7 @@ testParseDecimal = scenario do
 
 
 testReverse = scenario do
-  T.reverse "DAML" === "LMAD"
+  T.reverse "Daml" === "lmaD"
 
 testNuls = scenario do
   "\0" === "\0"

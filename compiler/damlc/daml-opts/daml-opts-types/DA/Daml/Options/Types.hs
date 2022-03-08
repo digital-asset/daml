@@ -50,7 +50,7 @@ import System.FilePath
 instance Show PackageFlag where
     show = prettyPrint
 
--- | Compiler run configuration for DAML-GHC.
+-- | Compiler run configuration for Daml-GHC.
 data Options = Options
   { optImportPath :: [FilePath]
     -- ^ import path for both user modules and standard library

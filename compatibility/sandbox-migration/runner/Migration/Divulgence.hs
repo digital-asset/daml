@@ -51,7 +51,7 @@ test step modelDar = Test {..}
     testDivulgee = Party "divulgee"
 
 -- The datatypes are defined such that the autoderived Aeson instances
--- match the DAML-LF JSON encoding.
+-- match the Daml-LF JSON encoding.
 --
 data Asset = Asset
   { owner :: Party

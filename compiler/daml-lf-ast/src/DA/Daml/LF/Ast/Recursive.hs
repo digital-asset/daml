@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | This module provides all the boilerplate necessary to make the DAML-LF AST
+-- | This module provides all the boilerplate necessary to make the Daml-LF AST
 -- work with the recursion-schemes package.
 module DA.Daml.LF.Ast.Recursive(
     ExprF(..),

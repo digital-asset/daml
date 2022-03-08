@@ -143,7 +143,7 @@ cmdLicense =
 cmdCompile :: Int -> Mod CommandFields Command
 cmdCompile numProcessors =
     command "compile" $ info (helper <*> cmd) $
-        progDesc "Compile the Daml program into a Core/DAML-LF archive."
+        progDesc "Compile the Daml program into a Core/Daml-LF archive."
     <> fullDesc
   where
     cmd = execCompile

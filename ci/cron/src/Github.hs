@@ -108,5 +108,5 @@ http_get url = do
 
 add_github_contact_header :: HTTP.Request -> HTTP.Request
 add_github_contact_header req =
-    req { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-app-runtime@digitalasset.com)") : HTTP.requestHeaders req }
+    req { HTTP.requestHeaders = ("User-Agent", "Daml cron (team-daml-app-runtime@digitalasset.com)") : HTTP.requestHeaders req }
 
