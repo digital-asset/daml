@@ -310,6 +310,20 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
+  @Explanation("This rejection is given when the participant server is shutting down.")
+  @Resolution("Contact the participant operator.")
+  object ServerIsShuttingDown
+      extends ErrorCode(
+        id = "SERVER_IS_SHUTTING_DOWN",
+        ErrorCategory.TransientServerFailure,
+      ) {
+    case class Reject()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause = "Server is shutting down"
+        )
+  }
+
   @Explanation("Authentication and authorization errors.")
   object AuthorizationChecks extends ErrorGroup() {
 
