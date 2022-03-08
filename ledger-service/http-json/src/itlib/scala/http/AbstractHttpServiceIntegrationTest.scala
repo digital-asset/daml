@@ -48,7 +48,7 @@ import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 import scalaz.syntax.apply._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ports.Port
@@ -106,7 +106,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected val metadataUser: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(userDar).valueOr(e => fail(s"Cannot read userDar metadata: $e"))
 
-  protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt]
+  protected def jwt(uri: Uri): Future[Jwt]
 
   override def packageFiles = List(dar1, dar2, userDar)
 
@@ -187,10 +187,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       testFn(client, ledgerId)
     }
 
-  protected def headersWithAuth(uri: Uri)(implicit
-      ec: ExecutionContext
-  ): Future[List[Authorization]] =
-    jwt(uri)(ec).map(authorizationHeader)
+  protected def headersWithAuth(uri: Uri): Future[List[Authorization]] =
+    jwt(uri).map(authorizationHeader)
 
   protected def headersWithPartyAuth(uri: Uri)(
       actAs: List[String],
@@ -198,8 +196,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       ledgerId: String = "",
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
-    jwtForParties(uri)(actAs, readAs, ledgerId, withoutNamespace, admin)(ec)
+  ): Future[List[Authorization]] =
+    jwtForParties(uri)(actAs, readAs, ledgerId, withoutNamespace, admin)
       .map(authorizationHeader)
 
   protected def postJsonStringRequest(
@@ -747,7 +745,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 
   import json.JsonProtocol._
 
-  protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
+  protected def jwt(uri: Uri): Future[Jwt] =
     jwtForParties(uri)(List("Alice"), List(), testId)
 
   protected def headersWithPartyAuthLegacyFormat(

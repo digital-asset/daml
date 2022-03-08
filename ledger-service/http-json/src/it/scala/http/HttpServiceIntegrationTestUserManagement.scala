@@ -24,7 +24,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.show._
 import spray.json.JsValue
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -37,7 +37,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
 
   this: AsyncTestSuite with Matchers with Inside =>
 
-  override def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
+  override def jwt(uri: Uri): Future[Jwt] =
     jwtForParties(uri)(List("Alice"), List())
 
   def createUser(ledgerClient: DamlLedgerClient)(

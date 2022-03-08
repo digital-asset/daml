@@ -20,10 +20,6 @@ import scala.concurrent.{ExecutionContext, Future}
 trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
 
-  import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
-  // XXX(SC) see #3936 5b52999da2858
-  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](system.dispatcher)
-
   def jwtForParties(uri: Uri)(
       actAs: List[String],
       readAs: List[String],
