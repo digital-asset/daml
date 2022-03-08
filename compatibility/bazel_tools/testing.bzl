@@ -1139,7 +1139,7 @@ def sdk_platform_test(sdk_version, platform_version):
                     server = ":sandbox-with-postgres-{}".format(platform_version),
                     server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
                     tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-                ) if not is_windows else None
+                ) if is_linux else None
         else:
             client_server_test(
                 name = name,
@@ -1191,7 +1191,7 @@ def sdk_platform_test(sdk_version, platform_version):
                     dar_files = dar_files,
                 )],
                 tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-            ) if not is_windows else None
+            ) if is_linux else None
 
             client_server_test(
                 name = name + "-classic-postgresql",
@@ -1210,7 +1210,7 @@ def sdk_platform_test(sdk_version, platform_version):
                     dar_files = dar_files,
                 )],
                 tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-            ) if not is_windows else None
+            ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
