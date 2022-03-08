@@ -170,6 +170,20 @@ da_scala_library(
     ],
 )
 
+da_scala_binary(
+    name = "entries-extractor",
+    srcs = glob(["entries-extractor/src/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.extractor.Extractor",
+    scala_deps = ["@maven//:com_github_scopt_scopt"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/snapshot:snapshot-proto_java",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
 da_scala_benchmark_jmh(
     name = "engine-replay-benchmark",
     srcs = glob(["engine-replay/src/benchmark/**/*.scala"]),
