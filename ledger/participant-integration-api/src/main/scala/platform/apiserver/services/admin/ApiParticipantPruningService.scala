@@ -169,11 +169,10 @@ final class ApiParticipantPruningService private (
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
+        // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value)
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
-            //                   and use offsetAfterLedgerEnd
             LedgerApiErrors.RequestValidation.OffsetOutOfRange
               .Reject(
                 s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
