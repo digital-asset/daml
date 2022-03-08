@@ -507,7 +507,7 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
                 , file ]
                 ""
             stdout @?= ""
-            assertInfixOf "Scenario execution failed" stderr
+            assertInfixOf "Script execution failed" stderr
             exitCode @?= ExitFailure 1
     , testCase "damlc test --files outside of project" $
         -- TODO: does this test make sense with a daml.yaml file?

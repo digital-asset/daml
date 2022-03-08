@@ -967,7 +967,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
         setBufferModified f $ T.unlines $ goodScenario ++ badScenario
         let vr2 = VRScenario f "example2"
         setOpenVirtualResources [vr1, vr2]
-        expectOneError (f, 2, 0) "Scenario execution failed"
+        expectOneError (f, 2, 0) "Script execution failed"
         expectVirtualResource vr2 "Assertion failed"
         setBufferModified f $ T.unlines goodScenario
         expectNoErrors
