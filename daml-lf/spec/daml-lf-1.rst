@@ -3094,32 +3094,78 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Err E
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1a
      'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'False'
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateFail1a
      'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
      (Err (Fatal "Precondition failed on {Mod:T}."), ε)
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modᵢ:Iᵢ { … }, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+     'interface' (x₂ : I₂) ↦ { …, 'precondition' e₂ₚ, … } ∈ 〚Ξ〛Mod₂
+     e₂ₚ[x₂ ↦ 'to_interface' @Mod₂:I₂ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xᵢ : Iᵢ) ↦ { …, 'precondition' eᵢₚ, … } ∈ 〚Ξ〛Modᵢ
+     eᵢₚ[x₂ ↦ 'to_interface' @Modᵢ:Iᵢ @Mod:T vₜ]  ⇓  Err E
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1b
+     'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err E, ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modᵢ:Iᵢ { … }, … }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+     'interface' (x₂ : I₂) ↦ { …, 'precondition' e₂ₚ, … } ∈ 〚Ξ〛Mod₂
+     e₂ₚ[x₂ ↦ 'to_interface' @Mod₂:I₂ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xᵢ : Iᵢ) ↦ { …, 'precondition' eᵢₚ, … } ∈ 〚Ξ〛Modᵢ
+     eᵢₚ[xᵢ ↦ 'to_interface' @Modᵢ:Iᵢ @Mod:T vₜ]  ⇓  Ok 'False'
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateFail1b
+     'create' @Mod:T vₜ ‖ S₀
+       ⇓ᵤ
+     (Err (Fatal "Precondition failed on {Mod:T}."), ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, …
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr2
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, 'signatories' eₛ, … }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, 'signatories' eₛ, …
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr3
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Err E
@@ -3127,8 +3173,14 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3139,8 +3191,14 @@ as described by the ledger model::
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'no_key' }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'no_key',
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3154,8 +3212,14 @@ as described by the ledger model::
      Ok (cid, tr) ‖ (st₁, keys₀)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3164,8 +3228,14 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3175,8 +3245,14 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3189,8 +3265,14 @@ as described by the ledger model::
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3204,8 +3286,14 @@ as described by the ledger model::
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3219,8 +3307,14 @@ as described by the ledger model::
      (Err (Fatal "Mod:T template key violation"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
