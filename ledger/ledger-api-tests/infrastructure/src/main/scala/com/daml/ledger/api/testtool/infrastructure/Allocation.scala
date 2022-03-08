@@ -50,6 +50,10 @@ object Allocation {
   final case class Parties(override val count: Int) extends PartyCount
 
   /** Exposes information about configured participants and allocated parties to a test case.
+    *
+    * In case of multiple participants, it should be assumed they could be distributed across JVMs and
+    * interactions between them should be synchronised with the help of
+    * `com.daml.ledger.api.testtool.infrastructure.Eventually` or `com.daml.ledger.api.testtool.infrastructure.Synchronize`
     */
   final case class Participants private[infrastructure] (participants: Participant*)
 

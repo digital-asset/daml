@@ -9,6 +9,9 @@ import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 
 object Eventually {
+  /*
+  Runs provided closure with the exponential back-off retry strategy for a number of `attempts`.
+   */
   def eventually[A](
       runAssertion: => Future[A],
       attempts: Int = 10,
