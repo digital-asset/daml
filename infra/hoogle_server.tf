@@ -46,7 +46,7 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 3,
+      size           = 0,
     }
   ]
 }
