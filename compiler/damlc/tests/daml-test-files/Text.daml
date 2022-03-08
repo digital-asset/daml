@@ -297,8 +297,8 @@ testNuls = scenario do
   "£" === "£"
   "£\0" === "£\0"
   "\0Daml" === "\0Daml"
-  "DA\0ML" === "DA\0ML"
-  T.reverse "DA\0⛄ML" === "LM⛄\0AD"
+  "Da\0ml" === "Da\0ml"
+  T.reverse "Da\0⛄ml" === "lm⛄\0aD"
   T.reverse "\0\1\2\3" === "\3\2\1\0"
   parseInt (T.drop 1 "\0\&123") === Some 123
   T.splitOn "\0" "Hello\0World" === ["Hello","World"]
@@ -311,7 +311,7 @@ testAsciiToLower = scenario do
   T.asciiToLower "HELLO WORLD" === "hello world"
   T.asciiToLower "HELLO world" === "hello world"
   T.asciiToLower "\0Daml" === "\0daml"
-  T.asciiToLower "DA\0⛄ML" === "da\0⛄ml"
+  T.asciiToLower "Da\0⛄ml" === "da\0⛄ml"
   T.asciiToLower "ÁÈÏÕǓ" === "ÁÈÏÕǓ" -- non-ASCII characters are unchanged
 
 testAsciiToUpper = scenario do
