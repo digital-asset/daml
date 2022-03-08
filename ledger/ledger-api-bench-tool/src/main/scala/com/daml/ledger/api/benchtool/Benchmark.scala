@@ -4,16 +4,10 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.benchtool.metrics.{
-  MetricRegistryOwner,
-  MetricsSet,
-  StreamMetrics,
-  StreamResult,
-}
+import com.daml.ledger.api.benchtool.metrics.{MetricsSet, StreamMetrics, StreamResult}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.resources.ResourceContext
-import com.daml.metrics.MetricsReporter
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
@@ -26,21 +20,16 @@ object Benchmark {
       streamConfigs: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
-      metricsReporter: MetricsReporter,
   )(implicit
       ec: ExecutionContext,
       resourceContext: ResourceContext,
   ): Future[Either[String, Unit]] = {
     val resources = for {
       system <- TypedActorSystemResourceOwner.owner()
-      registry <- new MetricRegistryOwner(
-        reporter = metricsReporter,
-        reportingInterval = reportingPeriod,
-        logger = logger,
-      )
-    } yield (system, registry)
+    } yield system
 
-    resources.use { case (system, registry) =>
+    // TODO Prometheus metrics: implement exposed metrics
+    resources.use { case system =>
       Future
         .traverse(streamConfigs) {
           case streamConfig: StreamConfig.TransactionsStreamConfig =>
@@ -50,10 +39,7 @@ object Benchmark {
                 logInterval = reportingPeriod,
                 metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
                 logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet
-                    .transactionExposedMetrics(streamConfig.name, registry, reportingPeriod)
-                ),
+                exposedMetrics = None,
               )(system, ec)
               .flatMap { observer =>
                 apiServices.transactionService.transactions(streamConfig, observer)
@@ -65,13 +51,7 @@ object Benchmark {
                 logInterval = reportingPeriod,
                 metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
                 logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet.transactionTreesExposedMetrics(
-                    streamConfig.name,
-                    registry,
-                    reportingPeriod,
-                  )
-                ),
+                exposedMetrics = None,
               )(system, ec)
               .flatMap { observer =>
                 apiServices.transactionService.transactionTrees(streamConfig, observer)
@@ -83,13 +63,7 @@ object Benchmark {
                 logInterval = reportingPeriod,
                 metrics = MetricsSet.activeContractsMetrics(streamConfig.objectives),
                 logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet.activeContractsExposedMetrics(
-                    streamConfig.name,
-                    registry,
-                    reportingPeriod,
-                  )
-                ),
+                exposedMetrics = None,
               )(system, ec)
               .flatMap { observer =>
                 apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
@@ -101,10 +75,7 @@ object Benchmark {
                 logInterval = reportingPeriod,
                 metrics = MetricsSet.completionsMetrics(streamConfig.objectives),
                 logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet
-                    .completionsExposedMetrics(streamConfig.name, registry, reportingPeriod)
-                ),
+                exposedMetrics = None,
               )(system, ec)
               .flatMap { observer =>
                 apiServices.commandCompletionService.completions(streamConfig, observer)

@@ -39,7 +39,7 @@ object Metrics {
     opt[MetricsReporter]("metrics-reporter")
       .action((reporter, config) => metricsReporter(_ => Some(reporter), config))
       .optional()
-      .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
+      .text(s"Start a metrics reporter. ${MetricsReporter.Cli.Hint}")
 
     opt[DurationFormat]("metrics-reporting-interval")
       .action((interval, config) => metricsReportingInterval(_ => interval.unwrap, config))

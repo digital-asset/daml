@@ -33,7 +33,7 @@ import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetrics, Metrics}
+import com.daml.metrics.{JvmMetrics, Metrics, MetricsReporter}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -41,7 +41,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -312,11 +312,7 @@ object SandboxOnXRunner {
       .tap(_ => JvmMetrics.initialize())
       .pipe { metrics =>
         config.metricsReporter
-          .fold(ResourceOwner.unit)(reporter =>
-            ResourceOwner
-              .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-          )
+          .fold(ResourceOwner.unit)(reporter => MetricsReporter.owner(reporter))
           .map(_ => metrics)
       }
 

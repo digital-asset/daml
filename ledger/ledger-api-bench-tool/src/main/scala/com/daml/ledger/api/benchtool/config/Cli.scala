@@ -90,7 +90,7 @@ object Cli {
 
     opt[MetricsReporter]("metrics-reporter")
       .optional()
-      .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
+      .text(s"Start a metrics reporter. ${MetricsReporter.Cli.Hint}")
       .action((reporter, config) => config.copy(metricsReporter = reporter))
 
     opt[String]("user-based-authorization-secret")

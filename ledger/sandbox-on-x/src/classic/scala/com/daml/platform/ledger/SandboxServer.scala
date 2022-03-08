@@ -134,11 +134,7 @@ object SandboxServer {
 
   def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[Port] =
     for {
-      metrics <- new MetricsReporting(
-        classOf[SandboxServer].getName,
-        config.metricsReporter,
-        config.metricsReportingInterval,
-      )
+      metrics <- new MetricsReporting(config.metricsReporter)
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- new SandboxServer(config, metrics)(materializer)

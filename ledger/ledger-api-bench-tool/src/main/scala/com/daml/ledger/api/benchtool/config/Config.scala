@@ -53,7 +53,7 @@ object Config {
       workflowConfigFile = None,
       maxInFlightCommands = 100,
       submissionBatchSize = 100,
-      metricsReporter = MetricsReporter.Console,
+      metricsReporter = MetricsReporter.PrometheusReporter.Default,
       authorizationTokenSecret = None,
     )
 }

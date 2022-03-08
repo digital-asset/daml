@@ -94,7 +94,6 @@ object LedgerApiBenchTool {
           streamConfigs = streamConfigs,
           reportingPeriod = config.reportingPeriod,
           apiServices = regularUserServices,
-          metricsReporter = config.metricsReporter,
         )
       }
 

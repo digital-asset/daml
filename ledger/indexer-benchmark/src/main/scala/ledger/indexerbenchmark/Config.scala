@@ -121,7 +121,7 @@ object Config {
 
       opt[MetricsReporter]("metrics-reporter")
         .optional()
-        .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
+        .text(s"Start a metrics reporter. ${MetricsReporter.Cli.Hint}")
         .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
 
       opt[Duration]("metrics-reporting-interval")

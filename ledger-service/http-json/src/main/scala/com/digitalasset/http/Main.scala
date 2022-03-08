@@ -95,9 +95,7 @@ object Main {
     implicit val ec: ExecutionContext = asys.dispatcher
     implicit val rc: ResourceContext = ResourceContext(ec)
     val metricsReporting = new MetricsReporting(
-      getClass.getName,
-      config.metricsReporter,
-      config.metricsReportingInterval,
+      config.metricsReporter
     )
     val metricsResource = metricsReporting.acquire()
 

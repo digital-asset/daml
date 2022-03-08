@@ -3,7 +3,7 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -13,11 +13,11 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{ReadService, Update}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.{JvmMetrics, Metrics}
+import com.daml.metrics.{JvmMetrics, Metrics, MetricsReporter}
 import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
@@ -75,10 +75,7 @@ class IndexerBenchmark() {
 
       val resource = for {
         _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
-          ResourceOwner
-            .forCloseable(() => reporter.register(metrics.registry))
-            .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-            .acquire()
+          MetricsReporter.owner(reporter).acquire()
         )
 
         _ = println("Setting up the index database...")

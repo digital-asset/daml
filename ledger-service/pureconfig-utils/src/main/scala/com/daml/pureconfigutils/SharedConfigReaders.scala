@@ -119,7 +119,7 @@ object SharedConfigReaders {
 
   implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
     ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
-      MetricsReporter.parseMetricsReporter(s.toLowerCase())
+      MetricsReporter.Cli.parseReporter(s.toLowerCase())
     })
   }
   implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]

@@ -304,7 +304,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         ),
         jdbcConfig = Some(JdbcConfig(baseConfig, DbStartupMode.StartOnly, Map("foo" -> "bar"))),
         staticContentConfig = Some(StaticContentConfig("static", new File("static-content-dir"))),
-        metricsReporter = Some(MetricsReporter.Console),
+        metricsReporter = Some(MetricsReporter.PrometheusReporter.Default),
         metricsReportingInterval = 30.seconds,
         wsConfig = Some(expectedWsConfig),
         surrogateTpIdCacheMaxEntries = Some(2000L),

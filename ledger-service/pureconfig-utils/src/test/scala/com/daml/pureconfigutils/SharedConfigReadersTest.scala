@@ -12,6 +12,7 @@ import pureconfig.error.{ConfigReaderFailures, ConvertFailure}
 import pureconfig.generic.semiauto.deriveReader
 import pureconfig.{ConfigReader, ConfigSource}
 
+import java.net.InetSocketAddress
 import java.nio.file.Paths
 import scala.concurrent.duration._
 
@@ -42,7 +43,7 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
       |    port = 8098
       |  }
       |  metrics {
-      |    reporter = "console"
+      |    reporter = "prometheus://localhost:1234"
       |    reporting-interval = 10s
       |  }
       |}
@@ -51,7 +52,10 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
     val expectedConf = SampleServiceConfig(
       HttpServerConfig("127.0.0.1", 8890, Some(Paths.get("port-file"))),
       LedgerApiConfig("127.0.0.1", 8098),
-      MetricsConfig(MetricsReporter.Console, 10.seconds),
+      MetricsConfig(
+        MetricsReporter.PrometheusReporter(new InetSocketAddress("localhost", 1234)),
+        10.seconds,
+      ),
     )
 
     ConfigSource.string(conf).load[SampleServiceConfig] shouldBe Right(expectedConf)

@@ -38,8 +38,8 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
+        #        "//libs-scala/resources-akka",
+        #        "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

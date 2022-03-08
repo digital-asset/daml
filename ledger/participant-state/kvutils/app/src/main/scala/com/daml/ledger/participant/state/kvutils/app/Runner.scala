@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -35,7 +35,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.JvmMetrics
+import com.daml.metrics.{JvmMetrics, MetricsReporter}
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -152,10 +152,7 @@ final class Runner[T <: ReadWriteService, Extra](
         )
         for {
           _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
-            ResourceOwner
-              .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-              .acquire()
+            MetricsReporter.owner(reporter).acquire()
           )
           servicesExecutionContext <- ResourceOwner
             .forExecutorService(() =>
