@@ -54,6 +54,11 @@ sealed abstract class NonEmptyColl {
     unsafeNarrow(bb.result())
   }
 
+  final def mk[Fct, A, C[X] <: imm.Iterable[X]](into: Fct, hd: A, tl: A*)(implicit
+      fct: Fct => Factory[A, C[A]]
+  ): NonEmpty[C[A]] =
+    apply(into, hd, tl: _*)
+
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
     * to `ne` if the pattern matches.

@@ -18,6 +18,22 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "mk" should {
+    "infer A from expected type" in {
+      trait Animal
+      trait Ok
+      object Elephant extends Animal with Ok
+      object Rhino extends Animal with Ok
+      illTyped(
+        "NonEmpty(imm.Set, Elephant, Rhino): imm.Set[Animal]",
+        "(?s).*?cannot be instantiated to expected type.*",
+      )
+      val s = NonEmpty.mk(imm.Set, Elephant, Rhino)
+      val sw = NonEmpty.mk(imm.Set, Elephant, Rhino): NonEmpty[imm.Set[Animal]]
+      (s: imm.Set[Animal with Ok]) should ===(sw: imm.Set[Animal])
+    }
+  }
+
   "unapply" should {
     "compile on immutable maps" in {
       val NonEmpty(m) = imm.Map(1 -> 2)
