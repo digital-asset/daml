@@ -1002,9 +1002,10 @@ class DecodeV1Spec
 
     s"Reject interface definitions in modules iff version < ${LV.Features.interfaces}" in {
       val i = DamlLf1.DefInterface.newBuilder()
-      i.setTyconInternedDname(1)
-      i.setParamInternedStr(0)
-      i.setPrecond(unitExpr)
+        .setTyconInternedDname(1)
+        .setParamInternedStr(0)
+        .setPrecond(unitExpr)
+        .build()
 
       val m = DamlLf1.Module.newBuilder()
       m.setNameInternedDname(0)
