@@ -142,7 +142,7 @@ a custom root CA certificate used to validate client certificates via ``trust-co
 Using the cli options (deprecated), you can specify tls options using``daml json-api --pem server.pem --crt server.crt``.
 Custom root CA certificate can be set via ``--cacrt ca.crt``
 
-For more details on secure DAML infrastructure setup please refer to this `reference implementation <https://github.com/digital-asset/ex-secure-daml-infra>`__
+For more details on secure Daml infrastructure setup please refer to this `reference implementation <https://github.com/digital-asset/ex-secure-daml-infra>`__
 
 
 Architecture

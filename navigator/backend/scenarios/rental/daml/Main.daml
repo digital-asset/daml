@@ -244,7 +244,7 @@ data UnserializableF = UnserializableF {f : Int -> Int}
 -- Tuple
 data UnserializableT = UnserializableT {x : (Int, Int)}
 
--- Forall (DAML 1.2)
+-- Forall (Daml 1.2)
 data Box = Box (forall a. a -> a)
 
 --------------------------------------------------------------------------------

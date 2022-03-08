@@ -3,9 +3,9 @@
 
 name:                nim
 version:             0.1.0.0
-description:         Play Nim on a DAML Ledger
+description:         Play Nim on a Daml Ledger
 license:             Apache-2.0
-author:              The DAML Authors
+author:              The Daml Authors
 maintainer:          nick.chapman@digitalasset.com
 github:              https://github.com/digital-asset/daml
 

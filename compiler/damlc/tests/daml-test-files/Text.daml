@@ -296,7 +296,7 @@ testNuls = scenario do
   "\0" === "\0"
   "£" === "£"
   "£\0" === "£\0"
-  "\0DAML" === "\0DAML"
+  "\0Daml" === "\0Daml"
   "DA\0ML" === "DA\0ML"
   T.reverse "DA\0⛄ML" === "LM⛄\0AD"
   T.reverse "\0\1\2\3" === "\3\2\1\0"
@@ -310,7 +310,7 @@ testCodePoints = scenario do
 testAsciiToLower = scenario do
   T.asciiToLower "HELLO WORLD" === "hello world"
   T.asciiToLower "HELLO world" === "hello world"
-  T.asciiToLower "\0DAML" === "\0daml"
+  T.asciiToLower "\0Daml" === "\0daml"
   T.asciiToLower "DA\0⛄ML" === "da\0⛄ml"
   T.asciiToLower "ÁÈÏÕǓ" === "ÁÈÏÕǓ" -- non-ASCII characters are unchanged
 

@@ -138,7 +138,7 @@ set -euo pipefail
 log() {
   echo "[\$(date -Is)] \$1" >> /home/hoogle/cron_log.txt
 }
-log "Checking for new DAML version..."
+log "Checking for new Daml version..."
 cd /home/hoogle
 mkdir new-daml
 curl -s https://docs.daml.com/hoogle_db.tar.gz --output db.tar.gz

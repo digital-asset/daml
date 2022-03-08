@@ -52,7 +52,7 @@ private[events] object TransactionLogUpdatesConversions {
             .map(_.collect { case Some(value) => value })
             .map { flatEvents =>
               // Allows emitting flat transactions with no events, a use-case needed
-              // for the functioning of DAML triggers.
+              // for the functioning of Daml triggers.
               // (more details in https://github.com/digital-asset/daml/issues/6975)
               if (flatEvents.nonEmpty || first.commandId.nonEmpty) {
                 Some(

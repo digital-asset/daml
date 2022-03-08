@@ -13,6 +13,6 @@ stringEdit x = case x of
 main = scenario do
     stringEdit "USD" === "JPY"
     stringEdit "JPY" === "USD"
-    stringEdit "DAML" === "DAML"
+    stringEdit "Daml" === "Daml"
 
 -- @ENABLE-SCENARIOS
