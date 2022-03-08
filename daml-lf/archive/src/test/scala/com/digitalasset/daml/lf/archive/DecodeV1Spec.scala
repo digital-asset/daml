@@ -932,39 +932,45 @@ class DecodeV1Spec
       val ifaceTyConName =
         DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
 
-      val i = DamlLf1.DefTemplate.Implements.newBuilder()
-      i.setInterface(ifaceTyConName)
+      val i = DamlLf1.DefTemplate.Implements
+        .newBuilder()
+        .setInterface(ifaceTyConName)
+        .build()
 
-      val t = DamlLf1.DefTemplate.newBuilder()
-      t.setTyconInternedDname(1)
-      t.setParamInternedStr(0)
-      t.setPrecond(unitExpr)
-      t.setSignatories(unitExpr)
-      t.setAgreement(unitExpr)
-      t.setObservers(unitExpr)
-      t.addImplements(i.build())
+      val t = DamlLf1.DefTemplate
+        .newBuilder()
+        .setTyconInternedDname(1)
+        .setParamInternedStr(0)
+        .setPrecond(unitExpr)
+        .setSignatories(unitExpr)
+        .setAgreement(unitExpr)
+        .setObservers(unitExpr)
+        .addImplements(i)
+        .build()
 
-      val m = DamlLf1.Module.newBuilder()
-      m.setNameInternedDname(0)
-      m.addTemplates(t.build())
-      m.setFlags(
-        DamlLf1.FeatureFlags
-          .newBuilder()
-          .setForbidPartyLiterals(true)
-          .setDontDivulgeContractIdsInCreateArguments(true)
-          .setDontDiscloseNonConsumingChoicesToObservers(true)
-      )
+      val m = DamlLf1.Module
+        .newBuilder()
+        .setNameInternedDname(0)
+        .addTemplates(t)
+        .setFlags(
+          DamlLf1.FeatureFlags
+            .newBuilder()
+            .setForbidPartyLiterals(true)
+            .setDontDivulgeContractIdsInCreateArguments(true)
+            .setDontDiscloseNonConsumingChoicesToObservers(true)
+        )
+        .build()
 
       val ifaceTemplateScala = GenModule(
         Ref.DottedName.assertFromString("Mod"),
-        Map(),
+        Map.empty,
         Map(
           Ref.DottedName.assertFromString("Mod.T") -> GenTemplate(
             Ref.IdString.Name.assertFromString("test"),
             EPrimCon(PCUnit),
             EPrimCon(PCUnit),
             EPrimCon(PCUnit),
-            Map(),
+            Map.empty,
             EPrimCon(PCUnit),
             None,
             VectorMap(
@@ -977,12 +983,11 @@ class DecodeV1Spec
             ),
           )
         ),
-        Map(),
-        Map(),
+        Map.empty,
+        Map.empty,
         FeatureFlags(),
       )
 
-      val mod = m.build()
       forEveryVersion { version =>
         val decoder = moduleDecoder(
           version,
@@ -990,7 +995,7 @@ class DecodeV1Spec
           ImmArraySeq("Mod", "Mod.T", "Mod.I").map(Ref.DottedName.assertFromString),
           typeTable,
         )
-        val result = Try(decoder.decodeModule(mod))
+        val result = Try(decoder.decodeModule(m))
         if (version >= LV.Features.interfaces)
           result shouldBe Success(ifaceTemplateScala)
         else
@@ -1001,29 +1006,32 @@ class DecodeV1Spec
     }
 
     s"Reject interface definitions in modules iff version < ${LV.Features.interfaces}" in {
-      val i = DamlLf1.DefInterface.newBuilder()
+      val i = DamlLf1.DefInterface
+        .newBuilder()
         .setTyconInternedDname(1)
         .setParamInternedStr(0)
         .setPrecond(unitExpr)
         .build()
 
-      val m = DamlLf1.Module.newBuilder()
-      m.setNameInternedDname(0)
-      m.addInterfaces(i.build())
-      m.setFlags(
-        DamlLf1.FeatureFlags
-          .newBuilder()
-          .setForbidPartyLiterals(true)
-          .setDontDivulgeContractIdsInCreateArguments(true)
-          .setDontDiscloseNonConsumingChoicesToObservers(true)
-      )
+      val m = DamlLf1.Module
+        .newBuilder()
+        .setNameInternedDname(0)
+        .addInterfaces(i)
+        .setFlags(
+          DamlLf1.FeatureFlags
+            .newBuilder()
+            .setForbidPartyLiterals(true)
+            .setDontDivulgeContractIdsInCreateArguments(true)
+            .setDontDiscloseNonConsumingChoicesToObservers(true)
+        )
+        .build()
 
       val ifaceTemplateScala =
         GenModule(
           Ref.DottedName.assertFromString("Mod"),
           Map.empty,
-          Map(),
-          Map(),
+          Map.empty,
+          Map.empty,
           Map(
             Ref.DottedName.assertFromString("Mod.I") ->
               GenDefInterface(
@@ -1037,7 +1045,6 @@ class DecodeV1Spec
           FeatureFlags(),
         )
 
-      val mod = m.build()
       forEveryVersion { version =>
         val decoder = moduleDecoder(
           version,
@@ -1045,7 +1052,7 @@ class DecodeV1Spec
           ImmArraySeq("Mod", "Mod.I").map(Ref.DottedName.assertFromString),
           typeTable,
         )
-        val result = Try(decoder.decodeModule(mod))
+        val result = Try(decoder.decodeModule(m))
         if (version >= LV.Features.interfaces)
           result shouldBe Success(ifaceTemplateScala)
         else
