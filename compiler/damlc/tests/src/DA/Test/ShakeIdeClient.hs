@@ -1016,7 +1016,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
         expectNoErrors
         expectVirtualResource vr1F "Return value: &quot;f1&quot;"
         expectVirtualResource vr2F "Return value: &quot;f2&quot;"
-        expectVirtualResourceNote vr2F "This scenario no longer exists in the source file"
+        expectVirtualResourceNote vr2F "This script no longer exists in the source file"
         expectVirtualResourceNote vr2F "F.daml"
 
         setBufferModified f $ T.unlines scenario12F
@@ -1062,7 +1062,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           expectOneError (f,1,0) "Parse error"
 
           expectVirtualResource vr1F "Return value: &quot;f1&quot;"
-          expectVirtualResourceNote vr1F "The source file containing this scenario no longer compiles"
+          expectVirtualResourceNote vr1F "The source file containing this script no longer compiles"
           expectVirtualResourceNote vr1F "F.daml"
 
           expectVirtualResource vr1G "Return value: &quot;g1&quot;"
