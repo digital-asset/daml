@@ -7,8 +7,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
 /**
- * This test suite encompasses all tests that should be run for all DAML-LF target versions, and
- * should be included in the AllTests class for specific DAML-LF target versions.
+ * This test suite encompasses all tests that should be run for all Daml-LF target versions, and
+ * should be included in the AllTests class for specific Daml-LF target versions.
  */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({

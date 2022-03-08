@@ -104,7 +104,7 @@ featureBigNumeric = Feature
 
 featureExceptions :: Feature
 featureExceptions = Feature
-    { featureName = "DAML Exceptions"
+    { featureName = "Daml Exceptions"
     , featureMinVersion = version1_14
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
@@ -125,7 +125,7 @@ featureInterfaces = Feature
 
 featureExperimental :: Feature
 featureExperimental = Feature
-    { featureName = "DAML Experimental"
+    { featureName = "Daml Experimental"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }

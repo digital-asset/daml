@@ -61,7 +61,7 @@ tests :: TestTree
 tests =
     withSdkResource $ \_ ->
     askOption $ \(ProjectName projectName) -> do
-    testGroup "Create DAML App tests" [gettingStartedGuideTest projectName]
+    testGroup "Create Daml App tests" [gettingStartedGuideTest projectName]
   where
     gettingStartedGuideTest projectName = testCaseSteps "Getting Started Guide" $ \step ->
       withTempDir $ \tmpDir' -> do
@@ -78,7 +78,7 @@ tests =
         setupNpmEnv uiDir
         -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
-          step "Build DAML model for base application"
+          step "Build Daml model for base application"
           callCommandSilent "daml build --ghc-option=-Werror"
           step "Run JavaScript codegen"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
@@ -114,9 +114,9 @@ tests =
           callCommandSilent $ unwords [patchTool, "-s", "-p2", "<", cdaDir </> "messaging.patch"]
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
-          step "Build the new DAML model"
+          step "Build the new Daml model"
           callCommandSilent "daml build --ghc-option=-Werror"
-          step "Run JavaScript codegen for new DAML model"
+          step "Run JavaScript codegen for new Daml model"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
           genFiles <- listFilesRecursive "ui/daml.js"
           forM_ [file | file <- genFiles, takeFileName file == "package.json"] (patchTsDependencies uiDir)

@@ -612,7 +612,7 @@ class EngineTest
     }
   }
 
-  "DAML exercise-by-key" should {
+  "Daml exercise-by-key" should {
     val seed = hash("exercise-by-key")
     val now = Time.Timestamp.now()
 
