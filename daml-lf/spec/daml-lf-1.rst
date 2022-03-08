@@ -3366,7 +3366,9 @@ as described by the ledger model::
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Choice controller evaluation failed"), ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ …, … }, … }  ∈  〚Ξ〛Mod
@@ -3377,7 +3379,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err E, ε)
+     (Err (Fatal "Choice observer evaluation failed"), ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
