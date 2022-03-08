@@ -306,7 +306,7 @@ parseReplInput input dflags =
 
 -- | Load all packages in the given session.
 --
--- Returns the list of modules in the specified import packages.
+-- Returns the list of modules in the specified import packages and an action that waits for them to be loaded by the repl client.
 loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle -> IdeState -> IO ([ImportDecl GhcPs], IO ())
 loadPackages importPkgs replClient ideState = do
     -- Load packages
