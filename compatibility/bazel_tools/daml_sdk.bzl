@@ -54,8 +54,15 @@ def _daml_sdk_impl(ctx):
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
 
-    if ctx.attr.sandbox_on_x:
-        ctx.symlink(ctx.attr.sandbox_on_x, "sandbox-on-x.jar")
+    if ctx.attr.sandbox_on_x or ctx.attr.sandbox_on_x_sha256:
+        if ctx.attr.sandbox_on_x:
+            ctx.symlink(ctx.attr.sandbox_on_x, "sandbox-on-x.jar")
+        else:
+            ctx.download(
+                output = "sandbox-on-x.jar",
+                url = ["{mirror}/com/daml/sandbox-on-x/{version}/sandbox-on-x-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
+                sha256 = ctx.attr.test_tool_sha256,
+            )
         ctx.file(
             "sandbox-on-x.sh",
             content =
@@ -215,6 +222,7 @@ _daml_sdk = repository_rule(
         "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
         "create_daml_app_patch_sha256": attr.string(mandatory = False),
         "sandbox_on_x": attr.label(allow_single_file = True, mandatory = False),
+        "sandbox_on_x_sha256": attr.string(mandatory = False),
     },
 )
 
