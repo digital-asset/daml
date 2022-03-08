@@ -21,9 +21,8 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Transaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.server.api.validation.ErrorFactories
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -148,22 +147,17 @@ class ConflictCheckWithCommittedSpec
   }
 
   private class TestContext extends FixtureContext {
-    implicit val logger: ContextualizedLogger =
-      ContextualizedLogger.get(getClass)
     implicit val loggingContext: LoggingContext =
       LoggingContext.ForTesting
     implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+      DamlContextualizedErrorLogger.forTesting(getClass)
 
     val indexServiceMock: IndexService = mock[IndexService]
-    val errorFactories: ErrorFactories =
-      ErrorFactories()
 
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(
         indexService = indexServiceMock,
         bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry())),
-        errorFactories = errorFactories,
       )(scala.concurrent.ExecutionContext.global)
 
     val inputContract: ContractId = cid(1)

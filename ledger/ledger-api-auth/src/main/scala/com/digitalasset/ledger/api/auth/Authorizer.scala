@@ -10,9 +10,9 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
@@ -33,7 +33,6 @@ final class Authorizer(
     akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
   private implicit val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
@@ -204,7 +203,7 @@ final class Authorizer(
         case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
-            errorFactories.invalidArgument(
+            ValidationErrors.invalidArgument(
               "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
             )
           )
@@ -214,7 +213,11 @@ final class Authorizer(
   private def authorizationErrorAsGrpc[T](
       errOrV: Either[AuthorizationError, T]
   ): Either[StatusRuntimeException, T] =
-    errOrV.fold(err => Left(errorFactories.permissionDenied(err.reason)), Right(_))
+    errOrV.fold(
+      err =>
+        Left(LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(err.reason).asGrpcError),
+      Right(_),
+    )
 
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
@@ -233,7 +236,6 @@ final class Authorizer(
     observer = observer,
     originalClaims = claims,
     nowF = now,
-    errorFactories = errorFactories,
     userManagementStore = userManagementStore,
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
     akkaScheduler = akkaScheduler,
@@ -249,15 +251,21 @@ final class Authorizer(
       .extractClaimSetFromContext()
       .flatMap({
         case ClaimSet.Unauthenticated =>
-          Failure(errorFactories.unauthenticatedMissingJwtToken())
+          Failure(
+            LedgerApiErrors.AuthorizationChecks.Unauthenticated
+              .MissingJwtToken()
+              .asGrpcError
+          )
         case authenticatedUser: ClaimSet.AuthenticatedUser =>
           Failure(
-            errorFactories.internalAuthenticationError(
-              s"Unexpected unresolved authenticated user claim",
-              new RuntimeException(
-                s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"
-              ),
-            )
+            LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+              .Reject(
+                s"Unexpected unresolved authenticated user claim",
+                new RuntimeException(
+                  s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"
+                ),
+              )
+              .asGrpcError
           )
         case claims: ClaimSet.Claims => Success(claims)
       })

@@ -34,7 +34,6 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",

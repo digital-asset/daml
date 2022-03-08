@@ -12,10 +12,9 @@ import io.grpc.StatusRuntimeException
 import java.time.{Duration, Instant}
 
 class SubmitAndWaitRequestValidator(
-    commandsValidator: CommandsValidator,
-    fieldValidations: FieldValidations,
+    commandsValidator: CommandsValidator
 ) {
-  import fieldValidations.requirePresence
+  import FieldValidations.requirePresence
 
   def validate(
       req: SubmitAndWaitRequest,

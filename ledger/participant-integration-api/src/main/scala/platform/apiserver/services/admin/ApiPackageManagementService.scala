@@ -5,11 +5,12 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.zip.ZipInputStream
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.definitions.LoggingPackageServiceError
+import com.daml.error.definitions.{LedgerApiErrors, LoggingPackageServiceError}
 import com.daml.error.definitions.PackageServiceError.Validation
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
@@ -29,7 +30,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
@@ -57,16 +57,13 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories()
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
       packagesIndex,
       packagesWrite,
-      errorFactories,
     ),
     timeToLive = managementServiceTimeout,
-    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()
@@ -176,7 +173,6 @@ private[apiserver] object ApiPackageManagementService {
       ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
       packagesWrite: state.WritePackagesService,
-      errorFactories: ErrorFactories,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         Dar[Archive],
@@ -206,9 +202,11 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        errorFactories.packageUploadRejected(reason)(
-          new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
-        )
+        LedgerApiErrors.AdminServices.PackageUploadRejected
+          .Reject(reason)(
+            new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+          )
+          .asGrpcError
     }
   }
 }

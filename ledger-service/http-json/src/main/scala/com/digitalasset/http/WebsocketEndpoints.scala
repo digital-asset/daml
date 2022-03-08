@@ -39,29 +39,26 @@ object WebsocketEndpoints {
       }
       .toRightDisjunction(Unauthorized(s"Missing required $tokenPrefix.[token] in subprotocol"))
 
-  private def preconnect[Err >: Unauthorized](
+  private def preconnect(
       decodeJwt: ValidateJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
       userManagementClient: UserManagementClient,
       ledgerIdentityClient: LedgerIdentityClient,
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      ec: ExecutionContext,
-  ): EitherT[Future, Err, (Jwt, JwtPayload)] =
+  )(implicit ec: ExecutionContext): EitherT[Future, Error, (Jwt, JwtPayload)] =
     for {
       _ <- EitherT.either(
         req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(
           s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
-        ): Err)
+        ): Error)
       )
-      jwt0 <- EitherT.either(findJwtFromSubProtocol[Err](req))
+      jwt0 <- EitherT.either(findJwtFromSubProtocol[Error](req))
       payload <- decodeAndParsePayload[JwtPayload](
         jwt0,
         decodeJwt,
         userManagementClient,
         ledgerIdentityClient,
-      ).leftMap(it => it: Err)
+      ).leftMap(it => it: Error)
     } yield payload
 }
 
@@ -94,7 +91,7 @@ class WebsocketEndpoints(
                 )
                 _ = logger.info(s"GOT $wsProtocol")
 
-                payload <- preconnect[Error](
+                payload <- preconnect(
                   decodeJwt,
                   upgradeReq,
                   wsProtocol,
@@ -120,7 +117,7 @@ class WebsocketEndpoints(
                     s"Cannot upgrade client's connection to websocket"
                   ): Error)
                 )
-                payload <- preconnect[Error](
+                payload <- preconnect(
                   decodeJwt,
                   upgradeReq,
                   wsProtocol,

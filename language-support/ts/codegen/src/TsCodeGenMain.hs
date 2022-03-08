@@ -177,7 +177,7 @@ daml2js Daml2jsParams {..} = do
     writeTsConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
     where
-      -- Write the .ts file for a single DAML-LF module.
+      -- Write the .ts file for a single Daml-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO (Maybe ModuleName, Set.Set Dependency)
       writeModuleTs packageSrcDir scope mod = do
         case genModule pkgMap scope pkgId mod of
@@ -998,11 +998,11 @@ writeIndexTs :: PackageId -> FilePath -> [ModuleName] -> IO ()
 writeIndexTs pkgId packageSrcDir modNames =
   processIndexTree pkgId packageSrcDir (buildIndexTree modNames)
 
--- NOTE(MH): The module structure of a DAML package can have "holes", i.e.,
+-- NOTE(MH): The module structure of a Daml package can have "holes", i.e.,
 -- you can have modules `A` and `A.B.C` but no module `A.B`. We call such a
 -- module `A.B` a "virtual module". In order to use ES2015 modules and form
 -- a hierarchy of these, we need to produce JavaScript modules for virtual
--- DAML modules as well. To this end, we assemble the names of all modules
+-- Daml modules as well. To this end, we assemble the names of all modules
 -- into a tree structure where each node is marked whether is is virtual or
 -- not. Afterwards, we take this tree structure and write a resembling
 -- directory structure full of `index.ts` files to disk.

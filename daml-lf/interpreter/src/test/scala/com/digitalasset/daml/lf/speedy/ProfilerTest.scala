@@ -131,7 +131,3 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     }
   }
 }
-
-/*
-
- */

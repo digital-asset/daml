@@ -108,17 +108,16 @@ private[http] final class RouteSetup(
     } yield domain.OkResponse(jsVal)
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
-      legacyParse: ParsePayload[P],
+      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Error, (Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
 
   def withJwtPayload[A, P](fa: (Jwt, A))(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      legacyParse: ParsePayload[P],
+      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
-  ): EitherT[Future, Unauthorized, (Jwt, P, A)] =
+  ): EitherT[Future, Error, (Jwt, P, A)] =
     decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
       (t2._1, t2._2, fa._2)
     )
@@ -126,10 +125,10 @@ private[http] final class RouteSetup(
   def inputAndJwtPayload[P](
       req: HttpRequest
   )(implicit
-      legacyParse: ParsePayload[P],
+      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): EitherT[Future, Unauthorized, (Jwt, P, String)] =
+  ): EitherT[Future, Error, (Jwt, P, String)] =
     eitherT(input(req)).flatMap(it => withJwtPayload[String, P](it))
 
   def getParseAndDecodeTimerCtx()(implicit
@@ -139,7 +138,7 @@ private[http] final class RouteSetup(
 
   private[http] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Unauthorized \/ (Jwt, String)] = {
+  ): Future[Error \/ (Jwt, String)] = {
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }

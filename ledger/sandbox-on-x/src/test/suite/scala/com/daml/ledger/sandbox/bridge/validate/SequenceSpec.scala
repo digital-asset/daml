@@ -29,7 +29,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.rpc.status.Status.toJavaProto
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -496,7 +495,6 @@ class SequenceSpec
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
-      errorFactories = ErrorFactories(),
       validatePartyAllocation = validatePartyAllocation,
       initialLedgerEnd = Offset.beforeBegin,
       initialAllocatedParties = allocatedInformees,

@@ -73,7 +73,7 @@ runDamlDoc options@DamldocOptions{..} = do
     docData <- inputDocData options
     renderDocData options (applyTransform do_transformOptions docData)
 
--- | Load doc data, either via the DAML typechecker or via JSON files.
+-- | Load doc data, either via the Daml typechecker or via JSON files.
 inputDocData :: DamldocOptions -> IO [ModuleDoc]
 inputDocData DamldocOptions{..} = do
 

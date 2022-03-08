@@ -11,7 +11,6 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 
@@ -21,7 +20,6 @@ private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     originalClaims: ClaimSet.Claims,
     nowF: () => Instant,
-    errorFactories: ErrorFactories,
     userRightsCheckerO: Option[UserRightsChangeAsyncChecker],
     userRightsCheckIntervalInSeconds: Int,
     lastUserRightsCheckTime: AtomicReference[Instant],
@@ -114,7 +112,9 @@ private[auth] final class OngoingAuthorizationObserver[A](
       .notExpired(now)
       .left
       .map(authorizationError =>
-        errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+        LedgerApiErrors.AuthorizationChecks.PermissionDenied
+          .Reject(authorizationError.reason)(errorLogger)
+          .asGrpcError
       )
 
   private def staleStreamAuthError: StatusRuntimeException =
@@ -134,7 +134,6 @@ private[auth] object OngoingAuthorizationObserver {
       observer: ServerCallStreamObserver[A],
       originalClaims: ClaimSet.Claims,
       nowF: () => Instant,
-      errorFactories: ErrorFactories,
       userManagementStore: UserManagementStore,
       userRightsCheckIntervalInSeconds: Int,
       akkaScheduler: Scheduler,
@@ -158,7 +157,6 @@ private[auth] object OngoingAuthorizationObserver {
       observer = observer,
       originalClaims = originalClaims,
       nowF = nowF,
-      errorFactories = errorFactories,
       userRightsCheckerO = userRightsCheckerO,
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       lastUserRightsCheckTime = lastUserRightsCheckTime,

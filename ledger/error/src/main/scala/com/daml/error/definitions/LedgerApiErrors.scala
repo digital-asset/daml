@@ -16,8 +16,8 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
-
 import java.time.{Duration, Instant}
+
 import scala.concurrent.duration._
 
 @Explanation(
@@ -310,6 +310,20 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
+  @Explanation("This rejection is given when the participant server is shutting down.")
+  @Resolution("Contact the participant operator.")
+  object ServerIsShuttingDown
+      extends ErrorCode(
+        id = "SERVER_IS_SHUTTING_DOWN",
+        ErrorCategory.TransientServerFailure,
+      ) {
+    case class Reject()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause = "Server is shutting down"
+        )
+  }
+
   @Explanation("Authentication and authorization errors.")
   object AuthorizationChecks extends ErrorGroup() {
 
@@ -528,10 +542,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "LEDGER_ID_MISMATCH",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject(override val cause: String)(implicit
+      case class Reject(_expectedLedgerId: String, _receivedLegerId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = cause,
+            cause =
+              s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
             definiteAnswer = true,
           )
     }
@@ -571,10 +586,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidField
         extends ErrorCode(id = "INVALID_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
+      case class Reject(_fieldName: String, _message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"The submitted command has a field with invalid value: ${_reason}"
+            cause =
+              s"The submitted command has a field with invalid value: Invalid field ${_fieldName}: ${_message}"
           )
     }
 

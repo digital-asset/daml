@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
@@ -46,7 +47,6 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
@@ -62,7 +62,6 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
-    errorFactories: ErrorFactories,
 ) extends IndexService {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -352,9 +351,11 @@ private[index] class IndexServiceImpl(
             Source.empty
           case Some(end) if begin > end =>
             Source.failed(
-              errorFactories.offsetOutOfRange(
-                s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
-              )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+              LedgerApiErrors.RequestValidation.OffsetOutOfRange
+                .Reject(
+                  s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
+                )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+                .asGrpcError
             )
           case endOpt: Option[Offset] =>
             f(Some(begin), endOpt)

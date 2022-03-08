@@ -22,7 +22,7 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   * The buffer allows appending only elements with strictly increasing offsets.
   *
   * @param maxBufferSize The maximum buffer size.
-  * @param metrics The DAML metrics.
+  * @param metrics The Daml metrics.
   * @param bufferQualifier The qualifier used for metrics tag specialization.
   * @param isRangeEndMarker Identifies if an element [[E]] should be treated
   *                         as a range end marker, in which case the element would be treated

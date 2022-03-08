@@ -16,7 +16,6 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.appendonlydao.{
   JdbcLedgerDao,
@@ -62,7 +61,6 @@ private[platform] case class IndexServiceBuilder(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
-    errorFactories: ErrorFactories,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -112,7 +110,6 @@ private[platform] case class IndexServiceBuilder(
       contractStore,
       pruneBuffers,
       generalDispatcher,
-      errorFactories,
     )
   }
 
@@ -319,7 +316,6 @@ private[platform] case class IndexServiceBuilder(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      errorFactories = errorFactories,
       materializer = mat,
     )
 }

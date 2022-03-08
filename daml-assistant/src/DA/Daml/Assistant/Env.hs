@@ -83,7 +83,7 @@ getLatestStableSdkVersion damlPath cachePath =
 testDamlEnv :: Env -> IO (Maybe Text)
 testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
     [ ( doesDirectoryExist (unwrapDamlPath envDamlPath)
-      ,  "The daml home directory does not exist. Please check if DAML_HOME is incorrectly set, "
+      ,  "The Daml home directory does not exist. Please check if DAML_HOME is incorrectly set, "
       <> "or run \n\n    daml install --initial\n\nto create the daml home directory and "
       <> "install the SDK." )
     , ( pure (isJust envSdkVersion)
@@ -146,7 +146,7 @@ getDamlPath = wrapErr "Determining daml home directory." $ do
         hasDamlConfig :: FilePath -> IO Bool
         hasDamlConfig p = doesFileExist (p </> damlConfigName)
 
--- | Get the DAML cache folder. This defaults to $XDG_CACHE_HOME/daml.
+-- | Get the Daml cache folder. This defaults to $XDG_CACHE_HOME/daml.
 getCachePath :: IO CachePath
 getCachePath =
     wrapErr "Determing daml cache directory." $ do

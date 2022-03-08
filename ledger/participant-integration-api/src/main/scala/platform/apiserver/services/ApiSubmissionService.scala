@@ -8,7 +8,7 @@ import java.util.UUID
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
-import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
+import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
@@ -28,7 +28,6 @@ import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
@@ -100,7 +99,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
 
   override def submit(
       request: SubmitRequest
@@ -123,7 +121,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
             .transform(handleSubmissionResult)
         case None =>
           Future.failed(
-            errorFactories.missingLedgerConfig()
+            LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+              .Reject()
+              .asGrpcError
           )
       }
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])

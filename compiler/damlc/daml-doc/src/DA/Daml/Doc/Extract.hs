@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | This module extracts docs from DAML modules. It does so by reading
+-- | This module extracts docs from Daml modules. It does so by reading
 -- haddock-style comments from the parsed syntax tree and correlating them
 -- with definitions in the typechecked module in order to obtain accurate
 -- type information.

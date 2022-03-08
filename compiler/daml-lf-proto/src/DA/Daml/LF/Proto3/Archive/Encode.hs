@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy     as BSL
 import qualified Data.Text.Lazy           as TL
 import qualified Proto3.Suite             as Proto
 
--- | Encode a LFv1 package payload into a DAML-LF archive using the default
+-- | Encode a LFv1 package payload into a Daml-LF archive using the default
 -- hash function.
 encodeArchiveLazy :: LF.Package -> BSL.ByteString
 encodeArchiveLazy = fst . encodeArchiveAndHash

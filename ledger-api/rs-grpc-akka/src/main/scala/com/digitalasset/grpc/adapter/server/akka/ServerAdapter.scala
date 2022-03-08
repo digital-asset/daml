@@ -8,7 +8,6 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.{StatusException, StatusRuntimeException}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
@@ -16,8 +15,7 @@ import scala.concurrent.{Future, Promise}
 
 object ServerAdapter {
 
-  private val logger = ContextualizedLogger.get(getClass)
-  private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
+  private val errorLogger = DamlContextualizedErrorLogger.forClass(getClass)
 
   def toSink[Resp](
       streamObserver: StreamObserver[Resp]
@@ -36,9 +34,7 @@ object ServerAdapter {
             case t: StatusRuntimeException => t
             case _ =>
               LedgerApiErrors.InternalError
-                .UnexpectedOrUnknownException(throwable)(
-                  new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
-                )
+                .UnexpectedOrUnknownException(throwable)(errorLogger)
                 .asGrpcError
           }
         }
@@ -55,6 +51,12 @@ object ServerAdapter {
         })
         promise.future
       })
+  }
+
+  /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]]
+    */
+  def closingError(): StatusRuntimeException = {
+    LedgerApiErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
   }
 
 }

@@ -17,7 +17,7 @@ import java.time.Instant;
 import java.util.List;
 import scala.collection.immutable.Seq;
 
-/** Using DAML Scala codegen classes from Java. */
+/** Using Daml Scala codegen classes from Java. */
 final class UsageFromJava {
   private UsageFromJava() {}
 

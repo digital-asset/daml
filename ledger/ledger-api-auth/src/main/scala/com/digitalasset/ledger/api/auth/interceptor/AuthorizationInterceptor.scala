@@ -7,10 +7,10 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -30,7 +30,6 @@ final class AuthorizationInterceptor(
     extends ServerInterceptor {
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val errorFactories = ErrorFactories()
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -59,10 +58,12 @@ final class AuthorizationInterceptor(
           case Failure(error: StatusRuntimeException) =>
             closeWithError(error)
           case Failure(exception: Throwable) =>
-            val error = errorFactories.internalAuthenticationError(
-              securitySafeMessage = "Failed to get claims from request metadata",
-              exception = exception,
-            )(errorLogger)
+            val error = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+              .Reject(
+                message = "Failed to get claims from request metadata",
+                throwable = exception,
+              )(errorLogger)
+              .asGrpcError
             closeWithError(error)
           case Success(claimSet) =>
             val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
@@ -86,9 +87,11 @@ final class AuthorizationInterceptor(
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
-                errorFactories.permissionDenied(
-                  s"Could not resolve rights for user '$userId' due to '$msg'"
-                )(errorLogger)
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                  .Reject(
+                    s"Could not resolve rights for user '$userId' due to '$msg'"
+                  )(errorLogger)
+                  .asGrpcError
               )
             case Right(userRights: Set[UserRight]) =>
               Future.successful(
@@ -126,7 +129,7 @@ final class AuthorizationInterceptor(
     Ref.UserId.fromString(userIdStr) match {
       case Left(err) =>
         Future.failed(
-          errorFactories.invalidArgument(s"token $err")(errorLogger)
+          ValidationErrors.invalidArgument(s"token $err")(errorLogger)
         )
       case Right(userId) =>
         Future.successful(userId)

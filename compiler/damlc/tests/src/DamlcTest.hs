@@ -30,14 +30,14 @@ main = do
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
 
     -- TODO https://github.com/digital-asset/daml/issues/12051
-    --   Remove once DAML-LF 1.15 is the default compiler output
+    --   Remove once Daml-LF 1.15 is the default compiler output
     script1DevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
 
     defaultMain (tests damlc scriptDar script1DevDar)
 
 
 -- TODO https://github.com/digital-asset/daml/issues/12051
---   Remove script1DevDar arg once DAML-LF 1.15 is the default compiler output
+--   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
 tests :: FilePath -> FilePath -> FilePath -> TestTree
 tests damlc scriptDar script1DevDar = testGroup "damlc"
   [ testsForDamlcValidate damlc
@@ -162,7 +162,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   ]
 
 -- TODO https://github.com/digital-asset/daml/issues/12051
---   Remove script1DevDar arg once DAML-LF 1.15 is the default compiler output
+--   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
 testsForDamlcTest :: FilePath -> FilePath -> FilePath -> TestTree
 testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do
@@ -264,12 +264,12 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
               [ "sdk-version: " <> sdkVersion
               , "name: full-test-coverage-report-with-interfaces"
               -- TODO https://github.com/digital-asset/daml/issues/12051
-              --   Remove once DAML-LF 1.15 is the default compiler output
+              --   Remove once Daml-LF 1.15 is the default compiler output
               , "build-options: [ --target=1.dev ]"
               , "version: 0.0.1"
               , "source: ."
               -- TODO https://github.com/digital-asset/daml/issues/12051
-              --   Replace with scriptDar once DAML-LF 1.15 is the default compiler output
+              --   Replace with scriptDar once Daml-LF 1.15 is the default compiler output
               , "dependencies: [daml-prim, daml-stdlib, " <> show script1DevDar <> "]"
               ]
             let file = dir </> "Foo.daml"

@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | AST of the DAML Ledger Fragment. Batteries included.
+-- | AST of the Daml Ledger Fragment. Batteries included.
 module DA.Daml.LF.Ast
   ( module LF
   ) where

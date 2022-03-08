@@ -3,9 +3,9 @@
 
 name:                daml-ledger
 version:             0.1.0.0
-description:         Haskell bindings for a DAML Ledger
+description:         Haskell bindings for a Daml Ledger
 license:             Apache-2.0
-author:              The DAML Authors
+author:              The Daml Authors
 maintainer:          nick.chapman@digitalasset.com
 github:              digital-asset/daml
 

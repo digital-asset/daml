@@ -10,6 +10,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerIdRequirement,
 }
 import com.daml.platform.participant.util.ValueConversions._
@@ -93,7 +94,12 @@ final class ProposeAccept(
       mat: Materializer,
   ): Future[Unit] =
     for {
-      client <- LedgerClient.singleHost(config.host, config.port, clientConfig)
+      client <- LedgerClient.singleHost(
+        config.host,
+        config.port,
+        clientConfig,
+        LedgerClientChannelConfiguration.InsecureDefaults,
+      )
       proposer = new Application.Party(proposerName, client, ProposeAccept.ApplicationId)
       accepter = new Application.Party(accepterName, client, ProposeAccept.ApplicationId)
       model = new ProposeAccept.Model(packageId)

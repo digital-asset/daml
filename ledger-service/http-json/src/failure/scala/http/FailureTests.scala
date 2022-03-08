@@ -45,7 +45,7 @@ sealed abstract class FailureTests
   protected override final def testId = getClass.getSimpleName
 
   private def headersWithParties(actAs: List[String]) =
-    Future successful headersWithPartyAuth(actAs, List(), ledgerId().unwrap)
+    Future successful headersWithPartyAuth(actAs, List(), Some(ledgerId().unwrap))
 
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
@@ -378,7 +378,7 @@ sealed abstract class FailureTests
       )
       _ = status shouldBe a[StatusCodes.Success]
       cid = getContractId(getResult(r))
-      jwt <- jwtForParties(uri)(List(p.unwrap), List(), ledgerId().unwrap)
+      jwt <- jwtForParties(List(p.unwrap), List(), Some(ledgerId().unwrap))
       r <- (singleClientQueryStream(
         jwt,
         uri,
@@ -400,7 +400,7 @@ sealed abstract class FailureTests
       )
       cid = getContractId(getResult(r))
       _ = status shouldBe a[StatusCodes.Success]
-      jwt <- jwtForParties(uri)(List(p.unwrap), List(), ledgerId().unwrap)
+      jwt <- jwtForParties(List(p.unwrap), List(), Some(ledgerId().unwrap))
       (stop, source) = singleClientQueryStream(
         jwt,
         uri,

@@ -10,14 +10,14 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.syntax.bifunctor._
 
-class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldValidations) {
-  import errorFactories._
-  import fieldValidations._
+object ValueValidator {
+  import ValidationErrors._
+  import FieldValidations._
 
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
@@ -162,17 +162,11 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
 }
 
 object NoLoggingValueValidator {
-  // TODO error codes: re-check if using legacy error codes here is ok
-  private val errorFactories = ErrorFactories()
-  private val valueValidator = new ValueValidator(
-    errorFactories = errorFactories,
-    fieldValidations = FieldValidations(errorFactories),
-  )
 
   def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
-    valueValidator.validateRecord(rec)(NoLogging)
+    ValueValidator.validateRecord(rec)(NoLogging)
 
   def validateValue(v0: api.Value): Either[StatusRuntimeException, Lf] =
-    valueValidator.validateValue(v0)(NoLogging)
+    ValueValidator.validateValue(v0)(NoLogging)
 
 }

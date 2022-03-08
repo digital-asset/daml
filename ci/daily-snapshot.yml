@@ -32,13 +32,41 @@ jobs:
         prefix=$(head -1 LATEST | awk '{print $2}' | sed -e 's/\([^-]*\).*/\1/')
         release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
 
-        setvar is_release true
-        setvar trigger_sha "$(branch_sha)"
-        setvar release_sha "$(branch_sha)"
-        setvar release_tag "$release"
-        setvar split_release_process true
+        ERR=$(mktemp)
+        OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
+                   -u $AUTH \
+                   -I \
+                   2>$ERR)
+        STATUS=$(echo "$OUT" | head -1 | sed 's:HTTP/1.1 \([^ ]\+\).*:\1:')
+        case "$STATUS" in
+          200)
+            echo "Version $release already exists on Artifactory, aborting."
+            setvar is_release false
+            ;;
+          404)
+            setvar is_release true
+            setvar trigger_sha "$(branch_sha)"
+            setvar release_sha "$(branch_sha)"
+            setvar release_tag "$release"
+            setvar split_release_process true
+            ;;
+          *)
+            echo "Unexpected status code: $STATUS"
+            echo "curl stdout:"
+            echo "--"
+            echo "$OUT"
+            echo "--"
+            echo "curl stderr:"
+            echo "--"
+            echo "$ERR"
+            echo "--"
+            exit 1
+            ;;
+        esac
         setvar scala_2_13 true
       name: out
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
 - template: build.yml
 - template: split-release-job.yml
 - job: release

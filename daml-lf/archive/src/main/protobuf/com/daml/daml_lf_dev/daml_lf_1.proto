@@ -1567,7 +1567,7 @@ message DefTemplate {
 
   Location location = 9;
 
-  // They key definition for the template, if present
+  // The key definition for the template, if present
   DefKey key = 10; // optional
 
   // Interfaces that this template implements.

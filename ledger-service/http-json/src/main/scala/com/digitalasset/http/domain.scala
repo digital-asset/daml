@@ -22,7 +22,32 @@ import spray.json.JsValue
 
 import scala.annotation.tailrec
 
-object domain extends com.daml.fetchcontracts.domain.Aliases {
+package object domain extends com.daml.fetchcontracts.domain.Aliases {
+  type InputContractRef[LfV] =
+    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
+
+  type ResolvedContractRef[LfV] =
+    (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
+
+  type LedgerIdTag = lar.LedgerIdTag
+  type LedgerId = lar.LedgerId
+  val LedgerId = lar.LedgerId
+
+  type ApplicationIdTag = lar.ApplicationIdTag
+  type ApplicationId = lar.ApplicationId
+  val ApplicationId = lar.ApplicationId
+
+  type Choice = lar.Choice
+  val Choice = lar.Choice
+
+  type CommandIdTag = lar.CommandIdTag
+  type CommandId = lar.CommandId
+  val CommandId = lar.CommandId
+
+  type LfType = iface.Type
+}
+
+package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
@@ -80,12 +105,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   }
 
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
-
-  type InputContractRef[LfV] =
-    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
-
-  type ResolvedContractRef[LfV] =
-    (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
 
   case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
@@ -238,21 +257,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   }
 
   final case class StartingOffset(offset: Offset)
-
-  type LedgerIdTag = lar.LedgerIdTag
-  type LedgerId = lar.LedgerId
-  val LedgerId = lar.LedgerId
-
-  type ApplicationIdTag = lar.ApplicationIdTag
-  type ApplicationId = lar.ApplicationId
-  val ApplicationId = lar.ApplicationId
-
-  type Choice = lar.Choice
-  val Choice = lar.Choice
-
-  type CommandIdTag = lar.CommandIdTag
-  type CommandId = lar.CommandId
-  val CommandId = lar.CommandId
 
   object Contract {
 
@@ -449,8 +453,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, *]] =
       HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
   }
-
-  type LfType = iface.Type
 
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg

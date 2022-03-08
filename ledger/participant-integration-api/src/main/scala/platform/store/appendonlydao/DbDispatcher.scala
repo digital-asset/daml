@@ -20,13 +20,19 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-private[platform] final class DbDispatcher private (
+private[platform] trait DbDispatcher {
+  def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+      loggingContext: LoggingContext
+  ): Future[T]
+}
+
+private[appendonlydao] final class DbDispatcherImpl private[appendonlydao] (
     connectionProvider: JdbcConnectionProvider,
     executor: Executor,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
 )(implicit loggingContext: LoggingContext)
-    extends SqlExecutor
+    extends DbDispatcher
     with ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -102,7 +108,7 @@ object DbDispatcher {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher with ReportsHealth] =
     for {
       hikariDataSource <- HikariDataSourceOwner(
         dataSource,
@@ -129,7 +135,7 @@ object DbDispatcher {
           threadPoolName,
         )
       )
-    } yield new DbDispatcher(
+    } yield new DbDispatcherImpl(
       connectionProvider = connectionProvider,
       executor = executor,
       overallWaitTimer = metrics.daml.index.db.waitAll,

@@ -316,37 +316,39 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def jwtForParties(
       actAs: List[String],
       readAs: List[String],
-      ledgerId: String,
+      ledgerId: Option[String] = None,
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
   ): Jwt = {
     import AuthServiceJWTCodec.JsonImplicits._
-    val payload =
-      if (withoutNamespace)
-        s"""{
-               |  "ledgerId": "$ledgerId",
-               |  "applicationId": "test",
-               |  "exp": 0,
-               |  "admin": $admin,
-               |  "actAs": ${actAs.toJson.prettyPrint},
-               |  "readAs": ${readAs.toJson.prettyPrint}
-               |}
-              """.stripMargin
-      else
-        (CustomDamlJWTPayload(
-          ledgerId = Some(ledgerId),
+    val payload: JsValue = {
+      val customJwtPayload: AuthServiceJWTPayload =
+        CustomDamlJWTPayload(
+          ledgerId = ledgerId,
           applicationId = Some("test"),
           actAs = actAs,
           participantId = None,
           exp = None,
-          admin = false,
+          admin = admin,
           readAs = readAs,
-        ): AuthServiceJWTPayload).toJson.prettyPrint
+        )
+      val payloadJson = customJwtPayload.toJson
+      if (withoutNamespace) {
+        // unsafe code but if someone changes the underlying structure
+        // they will notice the failing tests.
+        val payloadObj = payloadJson.asInstanceOf[JsObject]
+        val innerFieldsObj =
+          payloadObj.fields(AuthServiceJWTCodec.oidcNamespace).asInstanceOf[JsObject]
+        new JsObject(
+          payloadObj.fields ++ innerFieldsObj.fields - AuthServiceJWTCodec.oidcNamespace
+        )
+      } else payloadJson
+    }
     JwtSigner.HMAC256
       .sign(
         DecodedJwt(
           """{"alg": "HS256", "typ": "JWT"}""",
-          payload,
+          payload.prettyPrint,
         ),
         "secret",
       )
@@ -356,7 +358,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def headersWithPartyAuth(
       actAs: List[String],
       readAs: List[String],
-      ledgerId: String,
+      ledgerId: Option[String],
       withoutNamespace: Boolean = false,
   ): List[Authorization] = {
     authorizationHeader(jwtForParties(actAs, readAs, ledgerId, withoutNamespace))

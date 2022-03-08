@@ -176,8 +176,8 @@ This testing procedure starts once the release is listed on the [releases page].
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the script result appears within 30 seconds.
-   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
-      you get an error on line 26.
+   1. Add `+` at the end of line 26 after `(PartyIdHint "Alice")` and verify that
+      you get an error on line 27.
 
 1. On your PR, add the comment:
 

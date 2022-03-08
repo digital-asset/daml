@@ -12,7 +12,6 @@ import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplemen
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -90,14 +89,12 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
 
 object GrpcServerSpec {
 
-  private val logger = ContextualizedLogger.get(getClass)
-
   private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
 
   class TestedHelloService extends HelloServiceReferenceImplementation {
     override def fails(request: HelloRequest): Future[HelloResponse] = {
       val errorLogger =
-        new DamlContextualizedErrorLogger(logger, LoggingContext.newLoggingContext(identity), None)
+        DamlContextualizedErrorLogger.forTesting(getClass)
       Future.failed(
         LedgerApiErrors.RequestValidation.InvalidArgument
           .Reject(request.payload.toStringUtf8)(errorLogger)
