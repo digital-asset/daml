@@ -1026,7 +1026,7 @@ class DecodeV1Spec
           Map(
             Ref.DottedName.assertFromString("Mod.I") ->
               GenDefInterface(
-                Set(),
+                Set.empty,
                 Ref.IdString.Name.assertFromString("test"),
                 Map(),
                 Map(),
