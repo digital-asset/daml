@@ -18,6 +18,7 @@ import com.daml.lf.language.Ast.{
   EPrimCon,
   PCUnit,
   GenTemplate,
+  GenDefInterface,
   GenModule,
   GenTemplateImplements,
   FeatureFlags,
@@ -987,6 +988,60 @@ class DecodeV1Spec
           version,
           ImmArraySeq("test"),
           ImmArraySeq("Mod", "Mod.T", "Mod.I").map(Ref.DottedName.assertFromString),
+          typeTable,
+        )
+        val result = Try(decoder.decodeModule(mod))
+        if (version >= LV.Features.interfaces)
+          result shouldBe Success(ifaceTemplateScala)
+        else
+          inside(result) { case Failure(error) =>
+            error shouldBe an[Error.Parsing]
+          }
+      }
+    }
+
+    s"Reject interface definitions in modules iff version < ${LV.Features.interfaces}" in {
+      val i = DamlLf1.DefInterface.newBuilder()
+      i.setTyconInternedDname(1)
+      i.setParamInternedStr(0)
+      i.setPrecond(unitExpr)
+
+      val m = DamlLf1.Module.newBuilder()
+      m.setNameInternedDname(0)
+      m.addInterfaces(i.build())
+      m.setFlags(
+        DamlLf1.FeatureFlags
+          .newBuilder()
+          .setForbidPartyLiterals(true)
+          .setDontDivulgeContractIdsInCreateArguments(true)
+          .setDontDiscloseNonConsumingChoicesToObservers(true)
+      )
+
+      val ifaceTemplateScala =
+        GenModule(
+          Ref.DottedName.assertFromString("Mod"),
+          Map(),
+          Map(),
+          Map(),
+          Map(
+            Ref.DottedName.assertFromString("Mod.I") ->
+              GenDefInterface(
+                Set(),
+                Ref.IdString.Name.assertFromString("test"),
+                Map(),
+                Map(),
+                EPrimCon(PCUnit),
+              )
+          ),
+          FeatureFlags(),
+        )
+
+      val mod = m.build()
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(
+          version,
+          ImmArraySeq("test"),
+          ImmArraySeq("Mod", "Mod.I").map(Ref.DottedName.assertFromString),
           typeTable,
         )
         val result = Try(decoder.decodeModule(mod))
