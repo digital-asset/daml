@@ -73,11 +73,11 @@ createDarFile loggerH fp dar = do
 
 A (fat) dar file is a zip file containing
 
-* a dalf of a DAML library <name>.dalf
+* a dalf of a Daml library <name>.dalf
 * a MANIFEST.MF file that describes the package
 * all source files to that library
      - a dependency tree of imports
-     - starting from the given top-level DAML 'file'
+     - starting from the given top-level Daml 'file'
      - all these files _must_ reside in the same “source root” directory
      - the “source root” in the absolute path is replaced by 'name-hash'
 * all dalf dependencies
@@ -243,7 +243,7 @@ mergePkgs pkgName mbPkgVer ver pkgs =
         LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just $ LF.getPackageMetadata pkgName mbPkgVer }
         pkgs
 
--- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- | Find all Daml files below a given source root. If the source root is a file we interpret it as
 -- main and return that file and all dependencies.
 getDamlFiles :: FilePath -> MaybeT Action [NormalizedFilePath]
 getDamlFiles srcRoot = do
@@ -266,7 +266,7 @@ damlFilesInDir srcRoot = do
             srcRoot
     pure $ map toNormalizedFilePath' $ filter (".daml" `isExtensionOf`) fs
 
--- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- | Find all Daml files below a given source root. If the source root is a file we interpret it as
 -- main and return only that file. This is different from getDamlFiles which also returns
 -- all dependencies.
 getDamlRootFiles :: FilePath -> IO [NormalizedFilePath]

@@ -372,7 +372,7 @@ ondiskDesugar hsc tm =
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
 -- TypeCheckedModules or CoreModules. In addition to that, making this too fine-grained would probably also incur a performance penalty.
--- Therefore we have a single rule that performs the steps parsed module -> typechecked module -> core module -> DAML-LF module.
+-- Therefore we have a single rule that performs the steps parsed module -> typechecked module -> core module -> Daml-LF module.
 -- This rule writes both the .dalf and the .hi files.
 -- We use the ABI hash of the .hi files to detect if we need to recompile dependent files. Note that this is more aggressive
 -- than just looking at the file hash. E.g., consider module A depending on module B. If B changes but its ABI hash stays the same
@@ -711,7 +711,7 @@ writeDalfFile dalfFile mod = do
     liftIO $ createDirectoryIfMissing True (takeDirectory $ fromNormalizedFilePath dalfFile)
     liftIO $ BSL.writeFile (fromNormalizedFilePath dalfFile) $ Proto.toLazyByteString $ encodeScenarioModule lfVersion mod
 
--- Generates a DAML-LF archive without adding serializability information
+-- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
 generateRawPackageRule :: Options -> Rules ()
 generateRawPackageRule options =
@@ -1048,7 +1048,7 @@ vrNoteSetNotification vr note = do
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
--- TODO (MK): We should have a non-DAML version of this rule
+-- TODO (MK): We should have a non-Daml version of this rule
 ofInterestRule :: Options -> Rules ()
 ofInterestRule opts = do
     -- go through a rule (not just an action), so it shows up in the profile

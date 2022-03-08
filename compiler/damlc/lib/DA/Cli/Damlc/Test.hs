@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
--- | Main entry-point of the DAML compiler
+-- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc.Test (
     execTest
     , UseColor(..)
@@ -49,7 +49,7 @@ newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 
--- | Test a DAML file.
+-- | Test a Daml file.
 execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> IO ()
 execTest inFiles runAllTests coverage color mbJUnitOutput opts = do
     loggerH <- getLogger opts "test"

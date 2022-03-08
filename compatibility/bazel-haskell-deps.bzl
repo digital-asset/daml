@@ -18,7 +18,7 @@ load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 
 def daml_haskell_deps():
-    """Load all Haskell dependencies of the DAML repository."""
+    """Load all Haskell dependencies of the Daml repository."""
 
     stack_snapshot(
         name = "stackage",

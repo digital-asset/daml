@@ -96,7 +96,7 @@ alphaTests = testGroup "alpha equivalence"
         assertAlpha
             (ELet (Binding (ExprVarName "x", TInt64) (ENone TInt64)) (EVar (ExprVarName "x")))
             (ELet (Binding (ExprVarName "y", TInt64) (ENone TInt64)) (EVar (ExprVarName "y")))
-        assertNotAlpha -- NOTE: "let" is not recursive in DAML-LF
+        assertNotAlpha -- NOTE: "let" is not recursive in Daml-LF
             (ELet (Binding (ExprVarName "x", TInt64) (EVar (ExprVarName "x"))) (EVar (ExprVarName "x")))
             (ELet (Binding (ExprVarName "y", TInt64) (EVar (ExprVarName "y"))) (EVar (ExprVarName "y")))
         assertAlpha

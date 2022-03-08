@@ -135,7 +135,7 @@ shadowPat vars p
     go p@NPat{} = p
     go NPlusKPat{} = error "N+k patterns are not suppported"
     go (SigPat ext pat sig) = SigPat ext (go pat) sig
-    go SplicePat {} = error "DAML does not support Template Haskell"
+    go SplicePat {} = error "Daml does not support Template Haskell"
     go (CoPat ext wrap pat ty) = CoPat ext wrap (go pat) ty
     go (XPat locP) = XPat (fmap go locP)
 
