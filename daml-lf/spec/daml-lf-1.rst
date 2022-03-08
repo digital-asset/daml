@@ -3105,7 +3105,7 @@ as described by the ledger model::
      (Err (Fatal "Precondition failed on {Mod:T}."), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, …,
-        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modᵢ:Iᵢ { … }, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
      'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
      e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
@@ -3118,7 +3118,7 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, …,
-        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modᵢ:Iᵢ { … }, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
      'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
      e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
