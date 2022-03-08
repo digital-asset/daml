@@ -1020,7 +1020,7 @@ class DecodeV1Spec
       val ifaceTemplateScala =
         GenModule(
           Ref.DottedName.assertFromString("Mod"),
-          Map(),
+          Map.empty,
           Map(),
           Map(),
           Map(
