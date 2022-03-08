@@ -136,6 +136,9 @@ trait MeteringParameterStorageBackend {
   /** The timestamp and offset for which billable metering is available */
   def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd]
 
+  /** The timestamp and offset for which final metering is available */
+  def assertLedgerMeteringEnd(connection: Connection): LedgerMeteringEnd
+
   /** Update the timestamp and offset for which billable metering is available */
   def updateLedgerMeteringEnd(ledgerMeteringEnd: LedgerMeteringEnd)(connection: Connection): Unit
 }
