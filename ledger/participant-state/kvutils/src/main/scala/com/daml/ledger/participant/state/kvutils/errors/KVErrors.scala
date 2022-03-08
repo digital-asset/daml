@@ -55,7 +55,6 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
       case class Reject(
-          override val definiteAnswer: Boolean,
           override val cause: String,
           recordTime: Instant,
           tooEarlyUntil: Option[Instant],

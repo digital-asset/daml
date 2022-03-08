@@ -81,8 +81,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class Reject(_message: String, _definiteAnswer: Boolean)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(
-          cause = _message,
-          definiteAnswer = _definiteAnswer,
+          cause = _message
         )
   }
 
@@ -546,8 +545,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause =
-              s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
-            definiteAnswer = true,
+              s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'."
           )
     }
 
@@ -823,14 +821,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
 
       case class Reject(
-          _definiteAnswer: Boolean = false,
           _existingCommandSubmissionId: Option[String],
           _changeId: Option[ChangeId] = None,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = "A command with the given command id has already been successfully processed",
-            definiteAnswer = _definiteAnswer,
+            cause = "A command with the given command id has already been successfully processed"
           ) {
         override def context: Map[String, String] =
           super.context ++ _existingCommandSubmissionId

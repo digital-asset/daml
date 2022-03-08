@@ -11,11 +11,10 @@ import com.google.rpc.status.Status
 class KVLoggingTransactionErrorImpl(
     cause: String,
     throwable: Option[Throwable] = None,
-    definiteAnswer: Boolean = false,
 )(implicit
     code: ErrorCode,
     loggingContext: ContextualizedErrorLogger,
-) extends LoggingTransactionErrorImpl(cause, throwable, definiteAnswer) {
+) extends LoggingTransactionErrorImpl(cause, throwable) {
   override def context: Map[String, String] = Map.empty
 
   final def asStatus: Status = GrpcStatus.toProto(asGrpcStatusFromContext)

@@ -18,11 +18,6 @@ trait TransactionError extends BaseError {
     FinalReason(rpcStatus(correlationId))
   }
 
-  // Determines the value of the `definite_answer` key in the error details
-  def definiteAnswer: Boolean = false
-
-  final override def definiteAnswerO: Option[Boolean] = Some(definiteAnswer)
-
   def rpcStatus(
       correlationId: Option[String]
   )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus =
@@ -48,13 +43,10 @@ trait TransactionError extends BaseError {
       if (code.category.securitySensitive) messageWithoutContext
       else messageWithoutContext + "; " + formatContextAsString(contextMap)
 
-    val definiteAnswerKey =
-      "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
-
     val metadata = if (code.category.securitySensitive) Map.empty[String, String] else contextMap
     val errorInfo = com.google.rpc.error_details.ErrorInfo(
       reason = code.id,
-      metadata = metadata.updated(definiteAnswerKey, definiteAnswer.toString),
+      metadata = metadata,
     )
 
     val retryInfoO = retryable.map { ri =>
@@ -94,18 +86,16 @@ trait TransactionError extends BaseError {
 abstract class TransactionErrorImpl(
     override val cause: String,
     override val throwableO: Option[Throwable] = None,
-    override val definiteAnswer: Boolean = false,
 )(implicit override val code: ErrorCode)
     extends TransactionError
 
 abstract class LoggingTransactionErrorImpl(
     cause: String,
     throwableO: Option[Throwable] = None,
-    definiteAnswer: Boolean = false,
 )(implicit
     code: ErrorCode,
     loggingContext: ContextualizedErrorLogger,
-) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
+) extends TransactionErrorImpl(cause, throwableO)(code) {
 
   def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext
 

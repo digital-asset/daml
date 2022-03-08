@@ -41,7 +41,6 @@ private[kvutils] object TransactionRejections {
       reasonTemplate = FinalReason(
         KVErrors.Time.InvalidRecordTime
           .Reject(
-            rejectionEntry.getDefiniteAnswer,
             invalidRecordTimeReason(recordTime, tooEarlyUntil, tooLateFrom),
             recordTime.toInstant,
             tooEarlyUntil.map(_.toInstant),
@@ -57,7 +56,6 @@ private[kvutils] object TransactionRejections {
       rejectionEntry: DamlTransactionRejectionEntry,
       existingCommandSubmissionId: Option[String],
   )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
-    val definiteAnswer = rejectionEntry.getDefiniteAnswer
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
@@ -65,7 +63,7 @@ private[kvutils] object TransactionRejections {
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
-        duplicateCommandsRejectionStatus(definiteAnswer, existingCommandSubmissionId)
+        duplicateCommandsRejectionStatus(existingCommandSubmissionId)
       ),
     )
   }
@@ -295,12 +293,11 @@ private[kvutils] object TransactionRejections {
   }
 
   private def duplicateCommandsRejectionStatus(
-      definiteAnswer: Boolean = false,
-      existingCommandSubmissionId: Option[String],
+      existingCommandSubmissionId: Option[String]
   )(implicit loggingContext: ContextualizedErrorLogger): Status =
     GrpcStatus.toProto(
       LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-        .Reject(definiteAnswer, existingCommandSubmissionId)
+        .Reject(existingCommandSubmissionId)
         .asGrpcStatusFromContext
     )
 
