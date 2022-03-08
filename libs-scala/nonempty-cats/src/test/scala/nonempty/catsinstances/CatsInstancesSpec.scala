@@ -13,8 +13,6 @@ import org.scalacheck.Arbitrary, Arbitrary.arbitrary
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 
-// import shapeless.test.illTyped
-
 class CatsInstancesSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   import CatsInstancesSpec._
 
