@@ -18,13 +18,13 @@ CREATE TABLE packages
     upload_id          NVARCHAR2(1000)            not null,
     -- A human readable description of the package source
     source_description NVARCHAR2(1000),
-    -- The size of the archive payload (i.e., the serialized Daml-LF package), in bytes
+    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
     package_size       NUMBER                     not null,
     -- The time when the package was added
     known_since        NUMBER                     not null,
     -- The ledger end at the time when the package was added
     ledger_offset      VARCHAR2(4000)             not null,
-    -- The Daml-LF archive, serialized using the protobuf message `daml_lf.Archive`.
+    -- The DAML-LF archive, serialized using the protobuf message `daml_lf.Archive`.
     --  See also `daml-lf/archive/da/daml_lf.proto`.
     package            BLOB                       not null
 );
