@@ -64,7 +64,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     override def logLevel: Level = Level.WARN
 
     case class Rejection(reason: String)(implicit errorLogger: ContextualizedErrorLogger)
-        extends LoggingTransactionErrorImpl(cause = s"The participant is overloaded: $reason")
+        extends LoggingTransactionErrorImpl(cause = s"The participant is overloaded: $reason") {
+      override def context: Map[String, String] =
+        super.context ++ Map("reason" -> reason)
+
+    }
   }
 
   @Explanation(
@@ -661,7 +665,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         override val throwableO: Option[Throwable] = None,
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(cause = message)
+    ) extends LoggingTransactionErrorImpl(cause = message) {
+      override def context: Map[String, String] =
+        super.context ++ Map("throwableO" -> throwableO.toString)
+    }
 
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
