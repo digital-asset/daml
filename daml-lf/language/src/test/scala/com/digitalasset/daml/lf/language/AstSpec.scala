@@ -172,7 +172,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             defName("defName1") -> interface,
             defName("defName1") -> interface,
           ),
-          templates = List(),
+          templates = List.empty,
           exceptions = List.empty,
           featureFlags = FeatureFlags.default,
         )
