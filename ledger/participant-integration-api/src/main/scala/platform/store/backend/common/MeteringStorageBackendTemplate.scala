@@ -119,6 +119,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 
   }
 
+  /** @param from - Include rows after this offset
+    * @param to - If specified include rows before this timestamp
+    * @param appId - If specified only return rows for this application
+    */
   private def transactionMetering(
       from: Offset,
       to: Option[Time.Timestamp],
@@ -140,6 +144,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 
   }
 
+  /** @param from - Include rows whose aggregation period starts on or after this date
+    * @param to - If specified include rows whose aggregation period ends on or before this date
+    * @param appId - If specified only return rows for this application
+    */
   private def participantMetering(
       from: Time.Timestamp,
       to: Option[Time.Timestamp],

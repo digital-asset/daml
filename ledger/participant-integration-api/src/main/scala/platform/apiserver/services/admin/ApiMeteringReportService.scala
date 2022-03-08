@@ -88,10 +88,10 @@ private[apiserver] object ApiMeteringReportService {
     val utcTs =
       OffsetDateTime.ofInstant(Instant.ofEpochSecond(ts.seconds, ts.nanos.toLong), ZoneOffset.UTC)
     for {
-      _ <-
-        if (utcTs.truncatedTo(ChronoUnit.HOURS) == utcTs) Right(())
+      ts <-
+        if (utcTs.truncatedTo(ChronoUnit.HOURS) == utcTs)
+          Timestamp.fromInstant(utcTs.toInstant)
         else Left(s"Timestamp must be rounded to the hour: $utcTs")
-      ts <- Timestamp.fromInstant(utcTs.toInstant)
     } yield ts
   }
 
