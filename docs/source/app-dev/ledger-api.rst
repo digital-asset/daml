@@ -17,14 +17,14 @@ The Ledger API
    bindings-x-lang/index
 
 
-To write an application around a Daml ledger, you'll need to interact with the **Ledger API** from
-another language. Every ledger that Daml can run on exposes this same API.
+To write an application around a Daml ledger, you'll need to interact with the **Ledger API**.
+
+Every ledger that Daml can run on exposes this same API.
 
 What's in the Ledger API
 ************************
 
-You can access the Ledger API via the HTTP JSON API, Java bindings or gRPC. In
-all cases, the Ledger API exposes the same services:
+The Ledger API exposes the following services:
 
 - Submitting commands to the ledger
 
@@ -51,6 +51,22 @@ all cases, the Ledger API exposes the same services:
 For full information on the services see :doc:`/app-dev/services`.
 
 You may also want to read the :doc:`protobuf documentation </app-dev/grpc/proto-docs>`, which explains how each service is defined as protobuf messages.
+
+How to Access the Ledger API
+****************************
+
+You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>`.
+
+If you don't use a language that targets the JVM you can use gRPC to generate the code to access the Ledger API in
+several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
+pointers on how you may want to approach this.
+
+As an alternative way to tap into the Ledger API you can also use the :doc:`HTTP JSON API Service</json-api/index>`.
+
+At its core, it provides a simplified view of the active contract set and additional primities to query it and
+exposing it using a well-defined JSON-based encoding over a conventional HTTP connection.
+
+On top of that, a subset of the services mentioned above is also available as part of it.
 
 .. _daml-lf-intro:
 
