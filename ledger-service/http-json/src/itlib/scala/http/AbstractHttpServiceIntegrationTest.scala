@@ -4,7 +4,7 @@
 package com.daml.http
 
 import java.security.DigestInputStream
-import java.time.Instant
+import java.time.{Instant, LocalDate}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -19,6 +19,11 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.endpoints.MeteringReportEndpoint.{
+  MeteringReport,
+  MeteringReportDateRequest,
+  MeteringReportRequest,
+}
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
@@ -54,6 +59,7 @@ import scalaz.syntax.apply._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.ports.Port
 
 object AbstractHttpServiceIntegrationTestFuns {
@@ -66,8 +72,9 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
-    import java.security.MessageDigest
     import com.google.common.io.BaseEncoding
+
+    import java.security.MessageDigest
 
     val md = MessageDigest.getInstance("SHA-256")
     val is = source.runWith(StreamConverters.asInputStream())
@@ -89,8 +96,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
   import AbstractHttpServiceIntegrationTestFuns._
-  import json.JsonProtocol._
   import HttpServiceTestFixture._
+  import json.JsonProtocol._
 
   def jdbcConfig: Option[JdbcConfig]
 
@@ -338,10 +345,13 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   import com.daml.lf.data.{Numeric => LfNumeric}
   import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-  import shapeless.HList, shapeless.record.{Record => ShRecord}
+  import shapeless.HList
+  import shapeless.record.{Record => ShRecord}
 
   private[this] object RecordFromFields extends shapeless.Poly1 {
-    import shapeless.Witness, shapeless.labelled.{FieldType => :->>:}
+    import shapeless.Witness
+    import shapeless.labelled.{FieldType => :->>:}
+
     implicit def elem[V, K <: Symbol](implicit
         fn: Witness.Aux[K]
     ): Case.Aux[K :->>: V, (String, V)] =
@@ -362,8 +372,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
 
   private[this] val (_, iouVA) = {
+    import com.daml.lf.data.Numeric.Scale
     import com.daml.lf.value.test.TypedValueGenerators.RNil
-    import shapeless.syntax.singleton._, com.daml.lf.data.Numeric.Scale
+    import shapeless.syntax.singleton._
     val iouT = Symbol("issuer") ->> VA.party ::
       Symbol("owner") ->> VA.party ::
       Symbol("currency") ->> VA.text ::
@@ -486,6 +497,12 @@ trait AbstractHttpServiceIntegrationTestFuns
       choice = lar.Choice("MPFetchOther"),
       meta = None,
     )
+  }
+
+  protected def result(jsObj: JsValue): JsValue = {
+    inside(jsObj) { case JsObject(fields) =>
+      inside(fields.get("result")) { case Some(value: JsValue) => value }
+    }
   }
 
   protected def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
@@ -863,6 +880,31 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 
         }: Future[Assertion]
   }
+
+  "metering-report endpoint should return metering report" in withHttpServiceAndClient {
+    (uri, _, _, _, _) =>
+      {
+        val isoDate = "2022-02-03"
+        val request = MeteringReportDateRequest(
+          from = LocalDate.parse(isoDate),
+          to = None,
+          application = None,
+        )
+        val expected = MeteringReportRequest(
+          from = Timestamp.assertFromString(s"${isoDate}T00:00:00Z"),
+          to = None,
+          application = None,
+        )
+        postJsonRequestWithMinimumAuth(
+          uri.withPath(Uri.Path("/v1/metering-report")),
+          request.toJson,
+        ).map { case (status, value) =>
+          status shouldBe StatusCodes.OK
+          result(value).convertTo[MeteringReport].request shouldBe expected
+        }
+      }
+  }
+
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -873,8 +915,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import json.JsonProtocol._
   import HttpServiceTestFixture._
+  import json.JsonProtocol._
 
   override def useTls = UseTls.NoTls
 
@@ -2165,8 +2207,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "Should ignore conflicts on contract key hash constraint violation" in withHttpServiceAndClient {
     (uri, encoder, _, _, _) =>
-      import shapeless.record.{Record => ShRecord}
       import com.daml.ledger.api.refinements.{ApiTypes => lar}
+      import shapeless.record.{Record => ShRecord}
 
       val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
       val packageId: Ref.PackageId = MetadataReader
@@ -2189,6 +2231,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
         domain.CreateCommand(templateId, arg, None)
       }
+
       def userExerciseFollowCommand(
           contractId: lar.ContractId,
           toFollow: domain.Party,
@@ -2241,6 +2284,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             assertStatus(searchOutput, StatusCodes.OK)
           }
       }
+
       val commands = partyIds.map { p =>
         (p, userCreateCommand(p))
       }
@@ -2271,4 +2315,5 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         _ <- queryUsers(alice)
       } yield succeed
   }
+
 }
