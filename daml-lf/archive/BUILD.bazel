@@ -33,7 +33,6 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
                     package = package,
                     version = mangled_version,
                     directory = directory,
-                    version = mangled_version,
                 ),
             ]),
         ),
