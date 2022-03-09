@@ -78,7 +78,18 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
     when needsReinitalization $ do
       Logger.logDebug loggerH "package db is not up2date, reinitializing"
       clearPackageDb
+      recachePkgDb dbPath
 
+      -- since we haven't registered any dependencies yet, this only contains daml-prim and daml-stdlib
+      PackageMap baseDependencies <-
+        (>>= maybe (fail "Failed to generate package info") pure) $
+          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+            fst <$> useE GeneratePackageMap projectRoot
+
+      stablePkgs <-
+        (>>= maybe (fail "Failed to generate stable packages") pure) $
+          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+            useNoFileE GenerateStablePackages
 
       -- Register deps at the very beginning. This allows data-dependencies to
       -- depend on dependencies which is necessary so that we can reconstruct typeclass
@@ -87,43 +98,36 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- data-dependency but that seems acceptable.
       -- See https://github.com/digital-asset/daml/issues/4218 for more details.
       -- TODO Enforce this with useful error messages
-      registerDepsInPkgDb depsDir dbPath
+      -- registerDepsInPkgDb depsDir dbPath
 
-      mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-          (,) <$> useNoFileE GenerateStablePackages
-              <*> (fst <$> useE GeneratePackageMap projectRoot)
-      (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
+
       let stablePkgIds :: Set LF.PackageId
           stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
-      let dependenciesInPkgDbIds =
-              Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
+      let baseDependenciesIds =
+              Set.fromList $ map LF.dalfPackageId $ MS.elems baseDependencies
+
+      let decodeDalf_ dalf = do
+            bs <- BS.readFile dalf
+            (dalf,) <$> either fail pure (decodeDalf baseDependenciesIds dalf bs)
 
       -- This is only used for unit-id collision checks and dependencies on newer LF versions.
       dalfsFromDependencyFps <- queryDalfs (Just [depMarker]) depsDir
-      dalfsFromDependencies <- forM dalfsFromDependencyFps $ decodeDalf_ dependenciesInPkgDbIds
       dalfsFromDataDependencyFps <- queryDalfs (Just [dataDepMarker]) depsDir
-      dalfsFromDataDependencies <- forM dalfsFromDataDependencyFps $ decodeDalf_ dependenciesInPkgDbIds
       mainDalfFps <- queryDalfs (Just [mainMarker]) depsDir
-      mainDalfs <- forM mainDalfFps $ decodeDalf_ dependenciesInPkgDbIds
 
-      let dependencyInfo = DependencyInfo
-              { dependenciesInPkgDb
-              , dalfsFromDependencies
-              , dalfsFromDataDependencies
-              , mainUnitIds = map decodedUnitId mainDalfs
-              }
+      dalfsFromDependenciesWithFps <- mapM decodeDalf_ (dalfsFromDependencyFps \\ dalfsFromDataDependencyFps)
+      dalfsFromDataDependenciesWithFps <- mapM decodeDalf_ dalfsFromDataDependencyFps
+      mainDalfsWithFps <- mapM decodeDalf_ mainDalfFps
 
-      -- We perform these check before checking for unit id collisions
-      -- since it provides a more useful error message.
-      whenLeft
-          (checkForInconsistentLfVersions (optDamlLfVersion opts) dependencyInfo)
-          exitWithError
-      whenLeft
-          (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
-          exitWithError
-      whenLeft
-          (checkForUnitIdConflicts dependencyInfo)
-          exitWithError
+      let
+        dalfsFromDependencies = fmap snd dalfsFromDependenciesWithFps
+        dalfsFromDataDependencies = fmap snd dalfsFromDataDependenciesWithFps
+        mainDalfs = fmap snd mainDalfsWithFps
+
+        depPkgIds = Set.fromList $ fmap (LF.dalfPackageId . decodedDalfPkg) dalfsFromDependencies
+        dataDepPkgIds = Set.fromList $ fmap (LF.dalfPackageId . decodedDalfPkg) dalfsFromDataDependencies
+
+        mainUnitIds = map decodedUnitId mainDalfs
 
       -- We run the checks for duplicate unit ids before
       -- to avoid blowing up GHC when setting up the GHC session.
@@ -131,7 +135,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Building dependency package graph"
 
-      let (depGraph, vertexToNode) = buildLfPackageGraph (optDamlLfVersion opts) dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+      let (depGraph, vertexToNode) = buildLfPackageGraph (optDamlLfVersion opts) (dalfsFromDependenciesWithFps <> dalfsFromDataDependenciesWithFps) stablePkgs baseDependencies
 
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
@@ -147,45 +151,79 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         let (pkgNode, pkgId) = vertexToNode vertex in
         -- stable packages are mapped to the current version of daml-prim/daml-stdlib
         -- so we don’t need to generate interface files for them.
-        unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
-          let unitIdStr = unitIdString $ unitId pkgNode
-          let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-          let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
-          let deps =
-                  [ (unitId depPkgNode, dalfPackage depPkgNode)
-                  | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
-                  , pkgId /= depPkgId
-                  , not (depPkgId `Set.member` stablePkgIds)
-                  ]
-          let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-          let dalfDir = dbPath </> pkgIdStr
-          createDirectoryIfMissing True workDir
-          createDirectoryIfMissing True dalfDir
-          BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
+        -- unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
+        case () of
+          _ | pkgId `Set.member` stablePkgIds -> pure ()
+          _ | pkgId `Set.member` baseDependenciesIds -> pure ()
+          _ | pkgId `Set.member` depPkgIds -> do
+            registerDepInPkgDb (dalf pkgNode) depsDir dbPath
+          _ | pkgId `Set.member` dataDepPkgIds -> do
+            PackageMap dependenciesSoFar <-
+              (>>= maybe (fail "Failed to generate package info") pure) $
+                withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+                  fst <$> useE GeneratePackageMap projectRoot
 
-          generateAndInstallIfaceFiles
-              (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
-              (stubSources pkgNode)
-              opts
-              workDir
-              dbPath
-              projectPackageDatabase
-              pkgId
-              pkgName
-              mbPkgVersion
-              deps
-              dependenciesInPkgDb
-              exposedModules
+            let unitIdStr = unitIdString $ unitId pkgNode
+            let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+            let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
+            let deps =
+                    [ (unitId depPkgNode, dalfPackage depPkgNode)
+                    | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                    , pkgId /= depPkgId
+                    , not (depPkgId `Set.member` stablePkgIds)
+                    ]
+            let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+            let dalfDir = dbPath </> pkgIdStr
+            createDirectoryIfMissing True workDir
+            createDirectoryIfMissing True dalfDir
+            BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
+
+            generateAndInstallIfaceFiles
+                (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
+                (stubSources pkgNode)
+                opts
+                workDir
+                dbPath
+                projectPackageDatabase
+                pkgId
+                pkgName
+                mbPkgVersion
+                deps
+                dependenciesSoFar
+                exposedModules
+          _ -> do
+            putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
+
+      PackageMap dependenciesEnd <-
+        (>>= maybe (fail "Failed to generate package info") pure) $
+          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+            fst <$> useE GeneratePackageMap projectRoot
+
+      let dependencyInfo = DependencyInfo
+            { dependenciesInPkgDb = dependenciesEnd
+            , dalfsFromDependencies
+            , dalfsFromDataDependencies
+            , mainUnitIds
+            }
+
+      -- We perform these check before checking for unit id collisions
+      -- since it provides a more useful error message.
+      whenLeft
+          (checkForInconsistentLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
+      whenLeft
+          (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
+      whenLeft
+          (checkForUnitIdConflicts dependencyInfo)
+          exitWithError
 
       writeMetadata
           projectRoot
-          (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes depsFingerprint)
+          (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     depsDir = dependenciesDir opts projectRoot
-    decodeDalf_ pkgIds dalf = do
-        bs <- BS.readFile dalf
-        either fail pure $ decodeDalf pkgIds dalf bs
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
@@ -319,18 +357,27 @@ settings =
   ]
 
 -- Register a dar dependency in the package database
-registerDepsInPkgDb :: FilePath -> FilePath -> IO ()
-registerDepsInPkgDb depsPath dbPath = do
-    mains <- queryDalfs (Just [mainMarker, depMarker]) depsPath
-    let dirs = map takeDirectory mains
-    forM_ dirs $ \dir -> do
-      files <- listFilesRecursive dir
-      copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
-      copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
-    copyFiles depsPath mains dbPath
-    -- Note that we're not copying the `dalfs` directory, because we also only have interface files
-    -- for the mains.
-    recachePkgDb dbPath
+-- registerDepsInPkgDb :: FilePath -> FilePath -> IO ()
+-- registerDepsInPkgDb depsPath dbPath = do
+--     mains <- queryDalfs (Just [mainMarker, depMarker]) depsPath
+--     let dirs = map takeDirectory mains
+--     forM_ dirs $ \dir -> do
+--       files <- listFilesRecursive dir
+--       copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
+--       copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
+--     copyFiles depsPath mains dbPath
+--     -- Note that we're not copying the `dalfs` directory, because we also only have interface files
+--     -- for the mains.
+--     recachePkgDb dbPath
+
+registerDepInPkgDb :: FilePath -> FilePath -> FilePath -> IO ()
+registerDepInPkgDb dalfPath depsPath dbPath = do
+  let dir = takeDirectory dalfPath
+  files <- listFilesRecursive dir
+  copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
+  copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
+  copyFiles depsPath [dalfPath] dbPath
+  recachePkgDb dbPath
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
 copyFiles from srcs to = do
@@ -436,7 +483,7 @@ lfVersionString = DA.Pretty.renderPretty
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
     :: LF.Version
-    -> [DecodedDalf]
+    -> [(FilePath, DecodedDalf)]
     -> MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
     -> MS.Map UnitId LF.DalfPackage
     -> ( Graph
@@ -450,13 +497,13 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
         MS.fromList [ (LF.dalfPackageId pkg, unitId)
                     | (unitId, pkg) <-
                           MS.toList dependencyPkgs <>
-                          map (\DecodedDalf{..} -> (decodedUnitId, decodedDalfPkg)) pkgs
+                          map (\(_, DecodedDalf{..}) -> (decodedUnitId, decodedDalfPkg)) pkgs
                     ]
 
     packages =
         MS.fromList
             [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg)
-            | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs <> map decodedDalfPkg pkgs
+            | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs <> map (decodedDalfPkg . snd) pkgs
             ]
 
     allPackageRefs :: LF.Package -> [LF.PackageRef]
@@ -473,8 +520,8 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
         graphFromEdges
-            [ (PackageNode src decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
-            | DecodedDalf{decodedUnitId, decodedDalfPkg} <- pkgs
+            [ (PackageNode dalfPath src decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
+            | (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg}) <- pkgs
             , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
             , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
             , let src = generateSrcPkgFromLf (config (LF.dalfPackageId decodedDalfPkg) decodedUnitId) pkg
@@ -498,7 +545,8 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
         }
 
 data PackageNode = PackageNode
-  { stubSources :: [(NormalizedFilePath, String)]
+  { dalf :: FilePath
+  , stubSources :: [(NormalizedFilePath, String)]
   -- ^ Sources for the stub package containining data type definitions
   -- ^ Sources for the package containing instances for Template, Choice, …
   , unitId :: UnitId
