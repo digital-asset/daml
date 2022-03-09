@@ -43,6 +43,7 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/crypto",
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",

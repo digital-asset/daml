@@ -4,17 +4,17 @@
 package com.daml.lf
 package crypto
 
-import java.nio.ByteBuffer
-import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicLong
+import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
 
+import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicLong
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import scalaz.Order
+
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-
 import scala.util.control.NoStackTrace
 
 final class Hash private (val bytes: Bytes) {
@@ -239,7 +239,7 @@ object Hash {
       cid2Bytes: Value.ContractId => Bytes,
   ): Builder = new Builder(cid2Bytes) {
 
-    private val md = MessageDigest.getInstance("SHA-256")
+    private val md = MessageDigestPrototype.SHA_256.newDigest
 
     override protected def update(a: ByteBuffer): Unit =
       md.update(a)
@@ -255,13 +255,12 @@ object Hash {
 
   }
 
-  private val hMacAlgorithm = "HmacSHA256"
-
   private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(noCid2String) {
 
-    private val mac: Mac = Mac.getInstance(hMacAlgorithm)
+    private val macPrototype: MacPrototype = MacPrototype.HmacSHA_256
+    private val mac: Mac = macPrototype.newMac
 
-    mac.init(new SecretKeySpec(key.bytes.toByteArray, hMacAlgorithm))
+    mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))
 
     override protected def update(a: ByteBuffer): Unit =
       mac.update(a)

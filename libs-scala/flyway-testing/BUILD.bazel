@@ -16,6 +16,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:flyway-testing:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//libs-scala/crypto",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

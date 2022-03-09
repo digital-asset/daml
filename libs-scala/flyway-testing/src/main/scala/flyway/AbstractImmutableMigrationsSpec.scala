@@ -3,12 +3,7 @@
 
 package com.daml.flyway
 
-import java.io.{BufferedReader, FileNotFoundException}
-import java.math.BigInteger
-import java.nio.charset.Charset
-import java.security.MessageDigest
-import java.util
-
+import com.daml.crypto.MessageDigestPrototype
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.resource.LoadableResource
@@ -16,6 +11,10 @@ import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCac
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.io.{BufferedReader, FileNotFoundException}
+import java.math.BigInteger
+import java.nio.charset.Charset
+import java.util
 import scala.jdk.CollectionConverters._
 
 abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
@@ -50,7 +49,7 @@ abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
   }
 
   private def computeCurrentDigest(resource: LoadableResource, encoding: Charset): String = {
-    val sha256 = MessageDigest.getInstance("SHA-256")
+    val sha256 = MessageDigestPrototype.SHA_256.newDigest
     new BufferedReader(resource.read())
       .lines()
       .forEach(line => sha256.update((line + "\n").getBytes(encoding)))
