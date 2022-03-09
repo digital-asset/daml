@@ -35,7 +35,7 @@ class IndexerBenchmark() {
     * and functional tests.
     */
   def runWithEphemeralPostgres(
-      createUpdates: () => Future[Iterator[(Offset, Update)]],
+      createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
       config: Config,
   ): Future[Unit] =
     PostgresResource
@@ -46,7 +46,7 @@ class IndexerBenchmark() {
       })(ExecutionContext.parasitic)
 
   def run(
-      createUpdates: () => Future[Iterator[(Offset, Update)]],
+      createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
       config: Config,
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
@@ -128,7 +128,7 @@ class IndexerBenchmark() {
     )
 
   private[this] def createReadService(
-      updates: Iterator[(Offset, Update)]
+      updates: Source[(Offset, Update), NotUsed]
   ): ReadService = {
     val initialConditions = LedgerInitialConditions(
       IndexerBenchmark.LedgerId,
@@ -149,7 +149,7 @@ class IndexerBenchmark() {
           beginAfter: Option[Offset]
       )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
-        Source.fromIterator(() => updates)
+        updates
       }
 
       override def currentHealth(): HealthStatus = Healthy
@@ -162,7 +162,7 @@ object IndexerBenchmark {
 
   def runAndExit(
       config: Config,
-      updates: () => Future[Iterator[(Offset, Update)]],
+      updates: () => Future[Source[(Offset, Update), NotUsed]],
   ): Unit = {
     val result: Future[Unit] =
       (if (config.indexerConfig.jdbcUrl.isEmpty) {

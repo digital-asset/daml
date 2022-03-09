@@ -26,12 +26,11 @@ import java.time.Instant
   *
   *  All instances of this class produce the same stream of state updates.
   *
-  *  @param additionalSourceFlow Additional stream Flow after the offset to extend the service with additional
-  *                              functionality like throttling,  etc.
+  *  @param updatesPerSecond The maximum number of updates per second produced.
   */
 case class EndlessReadService(
+    updatesPerSecond: Int,
     name: String,
-    additionalSourceFlow: Flow[Int, Int, NotUsed] = Flow[Int],
 )(implicit loggingContext: LoggingContext)
     extends ReadService
     with AutoCloseable {
@@ -68,7 +67,6 @@ case class EndlessReadService(
     val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
     Source
       .fromIterator(() => Iterator.from(startIndex))
-      .via(additionalSourceFlow)
       .map {
         case i @ 1 =>
           offset(i) -> Update.ConfigurationChanged(
