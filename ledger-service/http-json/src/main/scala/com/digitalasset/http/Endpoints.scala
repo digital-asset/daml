@@ -414,12 +414,11 @@ class Endpoints(
       .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
 
   private def handleSourceFailure[E, A](implicit
-      E: IntoEndpointsError[E],
-      lc: LoggingContextOf[InstanceUUID with RequestID],
+      E: IntoEndpointsError[E]
   ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
       .fromFunction((_: E \/ A).leftMap(E.run))
-      .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
+      .recover(Error.fromThrowable andThen (-\/(_)))
 
   private def httpResponse[T](output: T)(implicit
       T: MkHttpResponse[T],
@@ -464,7 +463,7 @@ class Endpoints(
 
   private[this] def filterStreamErrors[E, A]: Flow[Error \/ A, Error \/ A, NotUsed] =
     Flow[Error \/ A].map {
-      case -\/(ServerError(_)) => -\/(ServerError("internal server error"))
+      case -\/(ServerError(_)) => -\/(ServerError.fromMsg("internal server error"))
       case o => o
     }
 
@@ -476,7 +475,7 @@ class Endpoints(
       metrics.daml.HttpJsonApi.responseCreationTimer,
       result
         .flatMap { x =>
-          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError))
+          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError.fromMsg))
         }
         .run
         .map {
@@ -506,8 +505,13 @@ object Endpoints {
     implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
 
     implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
-      case CommandService.InternalError(id, message) =>
-        ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
+      case CommandService.InternalError(id, reason) =>
+        ServerError(
+          new Exception(
+            s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}${reason.getMessage}",
+            reason,
+          )
+        )
       case CommandService.GrpcError(status) =>
         ParticipantServerError(status.getCode, Option(status.getDescription))
       case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
@@ -518,14 +522,14 @@ object Endpoints {
 
     implicit val fromContracts: IntoEndpointsError[ContractsService.Error] =
       new IntoEndpointsError({ case ContractsService.InternalError(id, msg) =>
-        ServerError(s"contracts service error, ${id.name}: $msg")
+        ServerError.fromMsg(s"contracts service error, ${id.name}: $msg")
       })
   }
 
   private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
 
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
     for {
@@ -547,6 +551,6 @@ object Endpoints {
   }
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
-    SprayJson.encode(a).liftErr(ServerError)
+    SprayJson.encode(a).liftErr(ServerError.fromMsg)
   }
 }
