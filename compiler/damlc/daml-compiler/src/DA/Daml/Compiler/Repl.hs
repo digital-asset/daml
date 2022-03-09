@@ -18,9 +18,9 @@ import BasicTypes (Boxity(..), PromotionFlag(..), Origin(..))
 import DynFlags
 import Bag (bagToList, unitBag)
 import Control.Applicative
+import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Exception.Safe
-import Control.Lens (toListOf)
 import Control.Monad.Except
 import Control.Monad.Extra
 import qualified Control.Monad.State.Strict as State
@@ -31,7 +31,6 @@ import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.Completer as LF
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
-import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion (convertModule)
 import DA.Daml.Options.Types
@@ -39,11 +38,11 @@ import qualified DA.Daml.Preprocessor.Records as Preprocessor
 import DA.Daml.UtilGHC
 import DA.Daml.UtilLF (buildPackage)
 import Data.Bifunctor (first)
+import Data.Either.Combinators (whenLeft)
 import Data.Functor.Alt
 import Data.Functor.Bind
 import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
-import Data.Graph
 import Data.IORef
 import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
@@ -226,20 +225,6 @@ stmtBoundVars (LetStatement binding) = case binding of
     FunBinding f _ -> [unLoc f]
     PatBinding pat _ -> collectPatBinders pat
 
--- | Sort DALF packages in topological order.
--- I.e. if @a@ appears before @b@, then @b@ does not depend on @a@.
-topologicalSort :: [LF.DalfPackage] -> [LF.DalfPackage]
-topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
-  where
-    (graph, fromVertex, _) = graphFromEdges
-      [ (lfPkg, pkgId, deps)
-      | lfPkg <- lfPkgs
-      , let pkgId = LF.dalfPackageId lfPkg
-      , let astPkg = LF.extPackagePkg (LF.dalfPackagePkg lfPkg)
-      , let deps = [dep | LF.PRImport dep <- toListOf packageRefs astPkg]
-      ]
-    toPkg = (\(pkg, _, _) -> pkg) . fromVertex
-
 -- | Mapping from module name to all imports for that module.
 --
 -- Invariant: Imports for a module should be associated to its module name and
@@ -321,19 +306,17 @@ parseReplInput input dflags =
 
 -- | Load all packages in the given session.
 --
--- Returns the list of modules in the specified import packages.
-loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
+-- Returns the list of modules in the specified import packages and an action that waits for them to be loaded by the repl client.
+loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle -> IdeState -> IO ([ImportDecl GhcPs], IO ())
 loadPackages importPkgs replClient ideState = do
     -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
     Just stablePkgs <- runAction ideState (useNoFile GenerateStablePackages)
-    for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
-        r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
-        case r of
-            Left err -> do
-                hPutStrLn stderr ("Package could not be loaded: " <> show err)
-                exitFailure
-            Right _ -> pure ()
+    t <- async $ do
+      r <- ReplClient.loadPackages replClient (map LF.dalfPackageBytes $ toList pkgs <> toList stablePkgs)
+      whenLeft r $ \err ->  do
+         hPutStrLn stderr ("Package could not be loaded: " <> show err)
+         exitFailure
     -- Determine module names in imported DALFs.
     let unversionedPkgs = Map.mapKeys (fst . LF.splitUnitId) pkgs
         toUnitId (pkgName, mbVersion) = pkgNameVersion pkgName mbVersion
@@ -347,11 +330,12 @@ loadPackages importPkgs replClient ideState = do
                     "Could not find package for import: " <> unitIdString (toUnitId importPkg) <> "\n"
                     <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
                 exitFailure
-    pure
-      [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
-      | pkg <- importLfPkgs
-      , mod <- NM.names $ LF.packageModules pkg
-      ]
+    let imports =
+          [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
+          | pkg <- importLfPkgs
+          , mod <- NM.names $ LF.packageModules pkg
+          ]
+    pure (imports, wait t)
 
 data ReplLogger = ReplLogger
   { withReplLogger :: forall a. ([FileDiagnostic] -> IO ()) -> IO a -> IO a
@@ -389,7 +373,7 @@ runRepl
     -> IdeState
     -> IO ()
 runRepl importPkgs opts replClient logger ideState = do
-    imports <- loadPackages importPkgs replClient ideState
+    (imports, waitForPackages) <- loadPackages importPkgs replClient ideState
     -- Typecheck once to get the GlobalRdrEnv
     let initialLineNumber = 0
     dflags <- liftIO $
@@ -409,8 +393,8 @@ runRepl importPkgs opts replClient logger ideState = do
           }
     let replM = Repl.evalReplOpts Repl.ReplOpts
           { banner = const (pure "daml> ")
-          , command = replLine
-          , options = replOptions
+          , command = replLine waitForPackages
+          , options = replOptions waitForPackages
           , prefix = Just ':'
           , multilineCommand = Nothing
           , tabComplete = Repl.Cursor $ \_ _ -> pure []
@@ -422,12 +406,13 @@ runRepl importPkgs opts replClient logger ideState = do
     State.evalStateT replM initReplState
   where
     handleStmt
-        :: DynFlags
+        :: IO ()
+        -> DynFlags
         -> String
         -> Stmt GhcPs (LHsExpr GhcPs)
         -> ReplClient.ReplResponseType
         -> ExceptT Error ReplM ()
-    handleStmt dflags line stmt rspType = do
+    handleStmt waitForPackages dflags line stmt rspType = do
         ReplState {imports, bindings, lineNumber} <- State.get
         supportedStmt <- maybe (throwError (UnsupportedStatement line)) pure (validateStmt stmt)
         let rendering = renderModule imports lineNumber bindings supportedStmt
@@ -451,6 +436,7 @@ runRepl importPkgs opts replClient logger ideState = do
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         -- If we get an error we don’t increment lineNumber and we
         -- do not get a new binding
+        liftIO waitForPackages
         result <- withExceptT ScriptBackendError $ ExceptT $ liftIO $
             ReplClient.runScript replClient (optDamlLfVersion opts) lfMod rspType
 
@@ -531,8 +517,8 @@ runRepl importPkgs opts replClient logger ideState = do
         -> ImportDecl GhcPs
         -> ExceptT Error ReplM ()
     handleImport dflags imp = addImports dflags [imp]
-    replLine :: String -> ReplM ()
-    replLine line = do
+    replLine :: IO () -> String -> ReplM ()
+    replLine waitForPackages line = do
         ReplState {lineNumber} <- State.get
         dflags <- liftIO $
             hsc_dflags . hscEnv <$>
@@ -540,7 +526,7 @@ runRepl importPkgs opts replClient logger ideState = do
         r <- runExceptT $ do
             input <- ExceptT $ pure $ parseReplInput line dflags
             case input of
-                ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplText
+                ReplStatement stmt -> handleStmt waitForPackages dflags line stmt ReplClient.ReplText
                 ReplImport imp -> handleImport dflags imp
         case r of
             Left err -> liftIO $ renderError dflags err
@@ -558,10 +544,10 @@ runRepl importPkgs opts replClient logger ideState = do
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
-    replOptions :: Repl.Options ReplM
-    replOptions =
+    replOptions :: IO () -> Repl.Options ReplM
+    replOptions waitForPackages =
       [ ("help", mkReplOption optHelp)
-      , ("json", mkReplOption optJson)
+      , ("json", mkReplOption (optJson waitForPackages))
       , ("module", mkReplOption optModule)
       , ("show", mkReplOption optShow)
       ]
@@ -573,10 +559,10 @@ runRepl importPkgs opts replClient logger ideState = do
       , "   :module [+/-] <mod> ...     add or remove the modules from the import list"
       , "   :show imports               show the current module imports"
       ]
-    optJson dflags (unwords -> line) = do
+    optJson waitForPackages dflags (unwords -> line) = do
         input <- ExceptT $ pure $ parseReplInput line dflags
         case input of
-            ReplStatement stmt -> handleStmt dflags line stmt ReplClient.ReplJson
+            ReplStatement stmt -> handleStmt waitForPackages dflags line stmt ReplClient.ReplJson
             ReplImport _ -> throwError (ExpectedExpression line)
     optModule dflags ("-" : names) =
         removeImports dflags $ map mkModuleName names

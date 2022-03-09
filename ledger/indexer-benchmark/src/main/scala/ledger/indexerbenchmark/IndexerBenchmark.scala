@@ -3,13 +3,11 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{MetricRegistry, Snapshot}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -19,12 +17,14 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
+import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.io.StdIn
 
 class IndexerBenchmark() {
@@ -35,39 +35,37 @@ class IndexerBenchmark() {
     * and functional tests.
     */
   def runWithEphemeralPostgres(
-      createUpdates: Config => Future[Iterator[(Offset, Update)]],
+      createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
       config: Config,
-  ): Future[Unit] = {
+  ): Future[Unit] =
     PostgresResource
       .owner()
       .use(db => {
         println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
         run(createUpdates, config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = db.url)))
       })(ExecutionContext.parasitic)
-  }
 
   def run(
-      createUpdates: Config => Future[Iterator[(Offset, Update)]],
+      createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
       config: Config,
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
-      val metricRegistry = new MetricRegistry
-      val metrics = new Metrics(metricRegistry)
+      val metrics = new Metrics(new MetricRegistry)
       metrics.registry.registerAll(new JvmMetricSet)
 
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)
       implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
 
-      val indexerE = Executors.newWorkStealingPool()
-      val indexerEC = ExecutionContext.fromExecutor(indexerE)
+      val indexerExecutor = Executors.newWorkStealingPool()
+      val indexerExecutionContext = ExecutionContext.fromExecutor(indexerExecutor)
 
       println("Generating state updates...")
-      val updates = Await.result(createUpdates(config), Duration(10, "minute"))
+      val updates = Await.result(createUpdates(), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val indexerFactory = new JdbcIndexer.Factory(
+      val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
         config.indexerConfig,
         readService,
         metrics,
@@ -75,110 +73,21 @@ class IndexerBenchmark() {
       )
 
       val resource = for {
-        _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
-          ResourceOwner
-            .forCloseable(() => reporter.register(metrics.registry))
-            .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-            .acquire()
-        )
-
+        _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
-        indexer <- Await
-          .result(
-            StandaloneIndexerServer
-              .migrateOnly(
-                jdbcUrl = config.indexerConfig.jdbcUrl
-              )
-              .map(_ => indexerFactory.initialized())(indexerEC),
-            Duration(5, "minute"),
-          )
-          .acquire()
-
+        indexer <- indexer(config, indexerExecutionContext, indexerFactory)
         _ = println("Starting the indexing...")
         startTime = System.nanoTime()
         handle <- indexer.acquire()
-
         _ <- Resource.fromFuture(handle)
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
-
-        _ = system.terminate()
-        _ = indexerE.shutdown()
+        _ <- Resource.fromFuture(system.terminate())
+        _ = indexerExecutor.shutdown()
       } yield {
-        val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
-        val updates: Long = metrics.daml.parallelIndexer.updates.getCount
-        val updateRate: Double = updates / duration
-        val inputMappingDurationMetric = metrics.registry.timer(
-          MetricRegistry.name(metrics.daml.parallelIndexer.inputMapping.executor, "duration")
-        )
-        val batchingDurationMetric = metrics.registry.timer(
-          MetricRegistry.name(metrics.daml.parallelIndexer.batching.executor, "duration")
-        )
-        val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
-          config.minUpdateRate match {
-            case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
-              (
-                true,
-                s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate",
-              )
-            case _ => (false, "")
-          }
-        println(
-          s"""
-             |--------------------------------------------------------------------------------
-             |Indexer benchmark results
-             |--------------------------------------------------------------------------------
-             |
-             |Input:
-             |  source:   ${config.updateSource}
-             |  count:    ${config.updateCount}
-             |  required updates/sec: ${config.minUpdateRate.getOrElse("-")}
-             |  jdbcUrl:  ${config.indexerConfig.jdbcUrl}
-             |
-             |Indexer parameters:
-             |  maxInputBufferSize:        ${config.indexerConfig.maxInputBufferSize}
-             |  inputMappingParallelism:   ${config.indexerConfig.inputMappingParallelism}
-             |  ingestionParallelism:      ${config.indexerConfig.ingestionParallelism}
-             |  submissionBatchSize:       ${config.indexerConfig.submissionBatchSize}
-             |  batchWithinMillis:         ${config.indexerConfig.batchWithinMillis}
-             |  tailingRateLimitPerSecond: ${config.indexerConfig.tailingRateLimitPerSecond}
-             |  full indexer config:       ${config.indexerConfig}
-             |
-             |Result:
-             |  duration:    $duration
-             |  updates:     $updates
-             |  updates/sec: $updateRate
-             |  $minimumUpdateRateFailureInfo
-             |
-             |Other metrics:
-             |  inputMapping.batchSize:     ${histogramToString(
-            metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
-          )}
-             |  inputMapping.duration:      ${histogramToString(
-            inputMappingDurationMetric.getSnapshot
-          )}
-             |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
-             |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
-             |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
-             |  seqMapping.duration: ${metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot}|
-             |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
-             |  ingestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
-          )}
-             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
-             |  tailIngestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
-          )}
-             |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
-             |
-             |Notes:
-             |  The above numbers include all ingested updates, including package uploads.
-             |  Inspect the metrics using a metrics reporter to better investigate how
-             |  the indexer performs.
-             |
-             |--------------------------------------------------------------------------------
-             |""".stripMargin
-        )
+        val result = new IndexerBenchmarkResult(config, metrics, startTime, stopTime)
+
+        println(result.banner)
 
         // Note: this allows the user to inpsect the contents of an ephemeral database
         if (config.waitForUserInput) {
@@ -186,15 +95,40 @@ class IndexerBenchmark() {
           StdIn.readLine("Press <enter> to terminate this process.")
         }
 
-        if (failure) throw new RuntimeException("Indexer Benchmark failure.")
+        if (result.failure) throw new RuntimeException("Indexer Benchmark failure.")
         ()
       }
       resource.asFuture
     }
   }
 
+  private def indexer(
+      config: Config,
+      indexerExecutionContext: ExecutionContextExecutor,
+      indexerFactory: JdbcIndexer.Factory,
+  )(implicit
+      loggingContext: LoggingContext,
+      rc: ResourceContext,
+  ): resources.Resource[ResourceContext, Indexer] =
+    Await
+      .result(
+        StandaloneIndexerServer
+          .migrateOnly(jdbcUrl = config.indexerConfig.jdbcUrl)
+          .map(_ => indexerFactory.initialized())(indexerExecutionContext),
+        Duration(5, "minute"),
+      )
+      .acquire()
+
+  private def metricsResource(config: Config, metrics: Metrics)(implicit rc: ResourceContext) =
+    config.metricsReporter.fold(Resource.unit)(reporter =>
+      ResourceOwner
+        .forCloseable(() => reporter.register(metrics.registry))
+        .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+        .acquire()
+    )
+
   private[this] def createReadService(
-      updates: Iterator[(Offset, Update)]
+      updates: Source[(Offset, Update), NotUsed]
   ): ReadService = {
     val initialConditions = LedgerInitialConditions(
       IndexerBenchmark.LedgerId,
@@ -215,15 +149,11 @@ class IndexerBenchmark() {
           beginAfter: Option[Offset]
       )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
-        Source.fromIterator(() => updates)
+        updates
       }
 
       override def currentHealth(): HealthStatus = Healthy
     }
-  }
-
-  private[this] def histogramToString(data: Snapshot): String = {
-    s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}]"
   }
 }
 
@@ -231,17 +161,8 @@ object IndexerBenchmark {
   val LedgerId = "IndexerBenchmarkLedger"
 
   def runAndExit(
-      args: Array[String],
-      updates: Config => Future[Iterator[(Offset, Update)]],
-  ): Unit =
-    Config.parse(args) match {
-      case Some(config) => IndexerBenchmark.runAndExit(config, updates)
-      case None => sys.exit(1)
-    }
-
-  def runAndExit(
       config: Config,
-      updates: Config => Future[Iterator[(Offset, Update)]],
+      updates: () => Future[Source[(Offset, Update), NotUsed]],
   ): Unit = {
     val result: Future[Unit] =
       (if (config.indexerConfig.jdbcUrl.isEmpty) {

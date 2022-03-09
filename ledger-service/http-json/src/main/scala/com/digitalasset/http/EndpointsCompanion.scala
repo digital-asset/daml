@@ -25,7 +25,6 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.scalautil.ExceptionOps._
 import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
@@ -44,19 +43,24 @@ object EndpointsCompanion {
 
   final case class Unauthorized(message: String) extends Error
 
-  final case class ServerError(message: String) extends Error
+  final case class ServerError(message: Throwable) extends Error
 
   final case class ParticipantServerError(grpcStatus: GrpcCode, description: Option[String])
       extends Error
 
   final case class NotFound(message: String) extends Error
 
+  object ServerError {
+    // We want stack traces also in the case of simple error messages.
+    def fromMsg(message: String): ServerError = ServerError(new Exception(message))
+  }
+
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
       case ParticipantServerError(s, d) =>
         s"Endpoints.ParticipantServerError: ${s: GrpcCode}${d.cata((": " + _), "")}"
-      case ServerError(e) => s"Endpoints.ServerError: ${e: String}"
+      case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
@@ -64,7 +68,7 @@ object EndpointsCompanion {
     def fromThrowable: Throwable PartialFunction Error = {
       case LedgerClientJwt.Grpc.StatusEnvelope(status) =>
         ParticipantServerError(status.getCode, Option(status.getDescription))
-      case NonFatal(t) => ServerError(t.description)
+      case NonFatal(t) => ServerError(t)
     }
   }
 
@@ -246,7 +250,7 @@ object EndpointsCompanion {
       case ParticipantServerError(grpcStatus, d) =>
         grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
       case ServerError(reason) =>
-        logger.error(s"Internal server error occured: $reason")
+        logger.error(s"Internal server error occured", reason)
         StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e

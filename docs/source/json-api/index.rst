@@ -1762,6 +1762,53 @@ HTTP Response with Error
         "status": 500
     }
 
+Metering Report
+***************
+
+For a description of participant metering, the parameters, and the report format see
+the :doc:`Participant Metering <../ops/metering>`.
+
+- URL: ``/v1/metering-report``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "from": "2022-01-01",
+      "to": "2022-02-01",
+      "application": "some-application"
+    }
+
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "status": 200,
+      "result": {
+        "participant": "some-participant",
+        "request": {
+          "from": "2022-01-01T00:00:00Z",
+          "to": "2022-02-01T00:00:00Z"
+        },
+        "final": true,
+        "applications": [
+          {
+            "application": "some-application",
+            "events": 42
+          }
+        ]
+      }
+    }
+
+
 Streaming API
 *************
 

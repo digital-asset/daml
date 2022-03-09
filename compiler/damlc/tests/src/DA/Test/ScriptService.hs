@@ -237,7 +237,7 @@ main =
                   matchRegex r "abortCrash"
                 expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
                   matchRegex r  $ T.unlines
-                    [ "Scenario execution failed on commit at Test:57:3:"
+                    [ "Script execution failed on commit at Test:57:3:"
                     , ".*"
                     , ".*failed due to a missing authorization.*"
                     , ".*"
@@ -250,7 +250,7 @@ main =
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
-                    [ "Scenario execution failed on commit at Test:62:3:"
+                    [ "Script execution failed on commit at Test:62:3:"
                     , "  Aborted:  Expected submit to fail but it succeeded"
                     , ".*"
                     , ".*"
