@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.extractor
+package com.daml.ledger.participant.state.kvutils.tools.snapshot
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.export.{
@@ -18,7 +18,7 @@ import java.nio.file.{Files, Path, Paths}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-object Extractor extends App {
+object TransactionEntriesExtractor extends App {
 
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
@@ -57,10 +57,14 @@ object Extractor extends App {
     }
   }
 
+  private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
+    decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
+
+
   private[this] def decodeEnvelope(
-      participantId: Ref.ParticipantId,
-      envelope: Raw.Envelope,
-  ): LazyList[Snapshot.SubmissionEntry] =
+                                    participantId: Ref.ParticipantId,
+                                    envelope: Raw.Envelope,
+                                  ): LazyList[Snapshot.SubmissionEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
         decodeSubmission(participantId, submission)
@@ -75,9 +79,6 @@ object Extractor extends App {
         LazyList.empty
     }
 
-  private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
-    decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
-
   case class Config(
       input: Option[Path] = None,
       output: Option[Path] = None,
@@ -89,7 +90,7 @@ object Extractor extends App {
   val parser = {
     import builder._
     OParser.sequence(
-      programName("extractor"),
+      programName("transaction-entries-extractor"),
       head("extractor", "1.0"),
       arg[String]("input")
         .action((x, c) => c.copy(input = Some(Paths.get(x)))),
