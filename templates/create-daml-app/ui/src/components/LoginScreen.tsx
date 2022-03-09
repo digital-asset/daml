@@ -38,7 +38,7 @@ const LoginScreen: React.FC<Props> = ({ onLogin }) => {
             Create
             <Image
               as="a"
-              href="https://www.daml.com/"
+              href="https://www.digitalasset.com/developers"
               target="_blank"
               src="/daml.svg"
               alt="Daml Logo"
