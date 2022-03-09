@@ -13,6 +13,9 @@ object LoggingContext {
 
   val empty: LoggingContext = new LoggingContext(LoggingEntries.empty)
 
+  def apply(entry: LoggingEntry, entries: LoggingEntry*): LoggingContext =
+    new LoggingContext(LoggingEntries(entry +: entries: _*))
+
   private[logging] def newLoggingContext[A](entries: LoggingEntries)(f: LoggingContext => A): A =
     f(new LoggingContext(entries))
 

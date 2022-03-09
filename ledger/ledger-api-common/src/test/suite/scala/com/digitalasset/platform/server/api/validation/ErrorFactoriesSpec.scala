@@ -256,7 +256,7 @@ class ErrorFactoriesSpec
             Map("category" -> "11", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
+          ErrorDetails.ResourceInfoDetail(typ = "PACKAGE", name = "packageId123"),
         ),
         logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -314,7 +314,7 @@ class ErrorFactoriesSpec
             Map("category" -> "11", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
+          ErrorDetails.ResourceInfoDetail(typ = "TRANSACTION_ID", name = "tId"),
         ),
         logEntry = ExpectedLogEntry(
           Level.INFO,

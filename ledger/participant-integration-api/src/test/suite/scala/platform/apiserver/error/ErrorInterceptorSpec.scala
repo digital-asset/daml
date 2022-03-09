@@ -200,7 +200,7 @@ final class ErrorInterceptorSpec
   private def assertSecuritySanitizedError(actual: StatusRuntimeException): Assertion = {
     assertError(
       actual,
-      expectedCode = Status.Code.INTERNAL,
+      expectedStatusCode = Status.Code.INTERNAL,
       expectedMessage =
         "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
       expectedDetails = Seq(),
@@ -214,7 +214,7 @@ final class ErrorInterceptorSpec
   ): Assertion = {
     assertError(
       actual,
-      expectedCode = FooMissingErrorCode.category.grpcCode.get,
+      expectedStatusCode = FooMissingErrorCode.category.grpcCode.get,
       expectedMessage = s"FOO_MISSING_ERROR_CODE(11,0): Foo is missing: $expectedMsg",
       expectedDetails =
         Seq(ErrorDetails.ErrorInfoDetail("FOO_MISSING_ERROR_CODE", Map("category" -> "11"))),

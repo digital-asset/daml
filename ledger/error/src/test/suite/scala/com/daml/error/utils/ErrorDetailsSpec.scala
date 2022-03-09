@@ -6,9 +6,12 @@ package com.daml.error.utils
 import com.daml.error.ErrorCategory.BackgroundProcessDegradationWarning
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorClass, ErrorCode}
+import com.google.protobuf
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.duration._
 
 class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
 
@@ -47,5 +50,17 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
       new StatusRuntimeException(Status.ABORTED),
       NonGrpcErrorCode,
     ) shouldBe false
+  }
+
+  it should "should preserve details when going through grpc Any" in {
+    val details = Seq(
+      ErrorDetails
+        .ErrorInfoDetail(errorCodeId = "errorCodeId1", metadata = Map("a" -> "b", "c" -> "d")),
+      ErrorDetails.ResourceInfoDetail(name = "name1", typ = "type1"),
+      ErrorDetails.RequestInfoDetail(correlationId = "correlationId1"),
+      ErrorDetails.RetryInfoDetail(1.seconds + 2.milliseconds),
+    )
+    val anys: Seq[protobuf.Any] = details.map(_.toRpcAny)
+    ErrorDetails.from(anys) shouldBe details
   }
 }
