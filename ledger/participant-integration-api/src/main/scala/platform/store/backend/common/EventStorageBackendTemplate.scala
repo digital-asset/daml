@@ -369,17 +369,27 @@ abstract class EventStorageBackendTemplate(
     "submitters",
   ).mkString(", ")
 
+  private class OrderEntryByEventSequentialId[T] extends Ordering[EventsTable.Entry[T]] {
+    override def compare(x: EventsTable.Entry[T], y: EventsTable.Entry[T]): Int = {
+      x.eventSequentialId.compare(y.eventSequentialId)
+    }
+  }
+  private val OrderFlatEventByEventSequentialId = new OrderEntryByEventSequentialId[Raw.FlatEvent]
+  private val OrderTreeEventByEventSequentialId = new OrderEntryByEventSequentialId[Raw.TreeEvent]
+
   private def events[T](
       joinClause: CompositeSql,
       additionalAndClause: CompositeSql,
-      rowParser: Set[Int] => RowParser[T],
       witnessesColumn: String,
-      partitions: List[(String, String)],
+      partitions: Vector[(String, String, Set[Int] => RowParser[T])],
+      ordering: Ordering[T],
   )(
       limit: Option[Int],
       fetchSizeHint: Option[Int],
       filterParams: FilterParams,
   )(connection: Connection): Vector[T] = {
+    require(partitions.nonEmpty)
+
     val internedAllParties: Set[Int] =
       filterParams.wildCardParties.iterator
         .++(filterParams.partiesAndTemplates.iterator.flatMap(_._1.iterator))
@@ -418,7 +428,7 @@ abstract class EventStorageBackendTemplate(
       val witnessesWhereClause =
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
-      def selectFrom(table: String, selectColumns: String) = cSQL"""
+      def selectFrom(table: String, selectColumns: String, rowParser: RowParser[T]) = SQL"""
         SELECT
           #$selectColumns, #$witnessesColumn as event_witnesses, command_id
         FROM
@@ -426,18 +436,17 @@ abstract class EventStorageBackendTemplate(
         WHERE
           $additionalAndClause
           $witnessesWhereClause
-      """
-
-      val selectClause = partitions
-        .map(p => selectFrom(p._1, p._2))
-        .mkComposite("", " UNION ALL", "")
-
-      SQL"""
-        $selectClause
         ORDER BY event_sequential_id
-        ${QueryStrategy.limitClause(limit)}"""
+        ${QueryStrategy.limitClause(limit)}
+      """
         .withFetchSize(fetchSizeHint)
-        .asVectorOf(rowParser(internedAllParties))(connection)
+        .asVectorOf(rowParser)(connection)
+
+      // TODO: we are merging multiple sorted Vectors and then only taking a few elements, this could be done more efficiently.
+      partitions
+        .flatMap(p => selectFrom(p._1, p._2, p._3(internedAllParties)))
+        .sorted(ordering)
+        .take(limit.getOrElse(Int.MaxValue))
     }
   }
 
@@ -450,15 +459,21 @@ abstract class EventStorageBackendTemplate(
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawFlatEventParser,
       witnessesColumn = "flat_event_witnesses",
-      partitions = List(
-        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
-        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
-        //"participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
+      partitions = Vector(
+        ("participant_events_create", selectColumnsForFlatTransactionsCreate, rawFlatEventParser _),
+        (
+          "participant_events_consuming_exercise",
+          selectColumnsForFlatTransactionsExercise,
+          rawFlatEventParser _,
+        ),
+        (
+          "participant_events_non_consuming_exercise",
+          selectColumnsForFlatTransactionsExercise,
+          rawFlatEventParser _,
+        ),
       ),
+      ordering = OrderFlatEventByEventSequentialId,
     )(
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
@@ -553,14 +568,22 @@ abstract class EventStorageBackendTemplate(
             AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND""",
-      rowParser = rawFlatEventParser,
       witnessesColumn = "flat_event_witnesses",
-      partitions = List(
+      partitions = Vector(
         // we do not want to fetch divulgence events
-        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
-        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
+        ("participant_events_create", selectColumnsForFlatTransactionsCreate, rawFlatEventParser _),
+        (
+          "participant_events_consuming_exercise",
+          selectColumnsForFlatTransactionsExercise,
+          rawFlatEventParser _,
+        ),
+        (
+          "participant_events_non_consuming_exercise",
+          selectColumnsForFlatTransactionsExercise,
+          rawFlatEventParser _,
+        ),
       ),
+      ordering = OrderFlatEventByEventSequentialId,
     )(
       limit = None,
       fetchSizeHint = None,
@@ -577,17 +600,29 @@ abstract class EventStorageBackendTemplate(
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawTreeEventParser,
       witnessesColumn = "tree_event_witnesses",
-      partitions = List(
+      partitions = Vector(
         // we do not want to fetch divulgence events
-        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
-        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(true)} as exercise_consuming",
-        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
+        (
+          "participant_events_create",
+          s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
+            .constBoolean(false)} as exercise_consuming",
+          rawTreeEventParser _,
+        ),
+        (
+          "participant_events_consuming_exercise",
+          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
+            .constBoolean(true)} as exercise_consuming",
+          rawTreeEventParser _,
+        ),
+        (
+          "participant_events_non_consuming_exercise",
+          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
+            .constBoolean(false)} as exercise_consuming",
+          rawTreeEventParser _,
+        ),
       ),
+      ordering = OrderTreeEventByEventSequentialId,
     )(
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
@@ -608,17 +643,29 @@ abstract class EventStorageBackendTemplate(
             AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND""",
-      rowParser = rawTreeEventParser,
       witnessesColumn = "tree_event_witnesses",
-      partitions = List(
+      partitions = Vector(
         // we do not want to fetch divulgence events
-        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
-        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(true)} as exercise_consuming",
-        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
+        (
+          "participant_events_create",
+          s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
+            .constBoolean(false)} as exercise_consuming",
+          rawTreeEventParser _,
+        ),
+        (
+          "participant_events_consuming_exercise",
+          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
+            .constBoolean(true)} as exercise_consuming",
+          rawTreeEventParser _,
+        ),
+        (
+          "participant_events_non_consuming_exercise",
+          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
+            .constBoolean(false)} as exercise_consuming",
+          rawTreeEventParser _,
+        ),
       ),
+      ordering = OrderTreeEventByEventSequentialId,
     )(
       limit = None,
       fetchSizeHint = None,
