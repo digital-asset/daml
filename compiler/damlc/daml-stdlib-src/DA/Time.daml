@@ -13,8 +13,8 @@ module DA.Time
   , hours
   , minutes
   , seconds
-  , milliseconds,
-  , microseconds,
+  , milliseconds
+  , microseconds
   , time
   , convertRelTimeToMicroseconds
   , convertMicrosecondsToRelTime
