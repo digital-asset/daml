@@ -4,7 +4,6 @@
 package com.daml.platform.indexer.ha
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -16,7 +15,6 @@ import com.daml.platform.store.LfValueTranslationCache
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 
 /** Stores a running indexer and the read service the indexer is reading from.
   * The read service is used exclusively by this indexer.
@@ -90,7 +88,7 @@ object IndexerStabilityTestFixture {
                     .forCloseable(() =>
                       withEnrichedLoggingContext("name" -> s"ReadService$i") {
                         readServiceLoggingContext =>
-                          EndlessReadService(s"$i", Flow[Int].throttle(updatesPerSecond, 1.second))(
+                          EndlessReadService(updatesPerSecond, s"$i")(
                             readServiceLoggingContext
                           )
                       }
