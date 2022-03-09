@@ -101,7 +101,7 @@ trait MultiParticipantFixture
             _ <- Future.traverse(
               Seq(p1LedgerApi, p2LedgerApi, p1AdminApi, p2AdminApi, domainPublicApi, domainAdminApi)
             )(p =>
-              RetryStrategy.constant(attempts = 60, waitTime = 1.seconds)((_, _) =>
+              RetryStrategy.constant(attempts = 120, waitTime = 1.seconds)((_, _) =>
                 Future(p.testAndUnlock(InetAddress.getLoopbackAddress))
               )
             )
