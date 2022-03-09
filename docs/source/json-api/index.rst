@@ -1778,7 +1778,7 @@ the :doc:`Participant Metering <../ops/metering>`.
     {
       "from": "2022-01-01",
       "to": "2022-02-01",
-      "application": "some-participant"
+      "application": "some-application"
     }
 
 

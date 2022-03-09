@@ -24,15 +24,16 @@ import com.daml.logging.LoggingContextOf
 import com.google.protobuf
 import scalaz.std.scalaFuture._
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsString, JsValue, RootJsonFormat}
+import spray.json.{JsValue, JsonFormat, RootJsonFormat, deserializationError, DefaultJsonProtocol}
 
 import java.time.{Instant, LocalDate, LocalTime, ZoneOffset}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 private[http] object MeteringReportEndpoint {
 
-  // These classes must use field names that match the Json fields defined in
-  // https://docs.google.com/document/d/1HQyVLCANqw_l_gbxBzgOqsiwmIDNlwCRQffVYJnYTeU/edit#heading=h.1mjra845v4le
+  // These classes must use field names that match the Json fields described at
+  // https://docs.daml.com/2.0.0/ops/metering.html
 
   case class MeteringReportDateRequest(
       from: LocalDate,
@@ -62,33 +63,31 @@ private[http] object MeteringReportEndpoint {
       events: Long,
   )
 
-  implicit val TimestampFormat: RootJsonFormat[Timestamp] = new RootJsonFormat[Timestamp] {
-    override def write(obj: Timestamp): JsValue = JsString(obj.toString)
-    override def read(json: JsValue): Timestamp =
-      Timestamp.assertFromString(json.asInstanceOf[JsString].value)
+  import DefaultJsonProtocol._
+  val JFS: JsonFormat[String] = implicitly[JsonFormat[String]]
+
+  def stringJsonFormat[A](
+      writeFn: A => String,
+      readFn: String => Either[String, A],
+  ): RootJsonFormat[A] = new RootJsonFormat[A] {
+    override def write(obj: A): JsValue = JFS.write(writeFn(obj))
+    override def read(json: JsValue): A =
+      readFn(JFS.read(json)).fold(e => deserializationError(e), identity)
   }
 
-  implicit val LocalDateFormat: RootJsonFormat[LocalDate] = new RootJsonFormat[LocalDate] {
-    override def write(obj: LocalDate): JsValue = JsString(obj.toString)
-    override def read(json: JsValue): LocalDate =
-      LocalDate.parse(json.asInstanceOf[JsString].value)
-  }
+  implicit val TimestampFormat: RootJsonFormat[Timestamp] =
+    stringJsonFormat(_.toString, Timestamp.fromString)
+
+  implicit val LocalDateFormat: RootJsonFormat[LocalDate] = stringJsonFormat(
+    _.toString,
+    s => Try(LocalDate.parse(s)).toEither.left.map(_.getMessage),
+  )
 
   implicit val ParticipantIdFormat: RootJsonFormat[ParticipantId] =
-    new RootJsonFormat[ParticipantId] {
-      override def write(obj: ParticipantId): JsValue = JsString(obj)
-      override def read(json: JsValue): ParticipantId =
-        ParticipantId.assertFromString(json.asInstanceOf[JsString].value)
-    }
+    stringJsonFormat(_.toString, ParticipantId.fromString)
 
   implicit val ApplicationIdFormat: RootJsonFormat[ApplicationId] =
-    new RootJsonFormat[ApplicationId] {
-      override def write(obj: ApplicationId): JsValue = JsString(obj)
-      override def read(json: JsValue): ApplicationId =
-        ApplicationId.assertFromString(json.asInstanceOf[JsString].value)
-    }
-
-  import spray.json.DefaultJsonProtocol._
+    stringJsonFormat(_.toString, ApplicationId.fromString)
 
   implicit val MeteringReportDateRequestFormat: RootJsonFormat[MeteringReportDateRequest] =
     jsonFormat3(MeteringReportDateRequest.apply)
@@ -139,17 +138,15 @@ private[http] object MeteringReportEndpoint {
     case None => Left(s"GetMeteringReportResponse missing field, expected $field")
   }
 
-  type StringOr[T] = Either[String, T]
-
   private[endpoints] def toMeteringReport(
       pbResponse: metering_report_service.GetMeteringReportResponse
   ): Error \/ MeteringReport = {
 
-    (for {
+    val report = for {
       pbParticipantReport <- mustHave(pbResponse.participantReport, "participantReport")
       participantId <- Ref.ParticipantId.fromString(pbParticipantReport.participantId)
       pbRequest <- mustHave(pbResponse.request, "request")
-      applicationId <- pbOption(pbRequest.applicationId).traverse[StringOr, Ref.ApplicationId](
+      applicationId <- pbOption(pbRequest.applicationId).traverse(
         Ref.ApplicationId.fromString
       )
       pbFrom <- mustHave(pbRequest.from, "from")
@@ -159,7 +156,7 @@ private[http] object MeteringReportEndpoint {
         application = applicationId,
       )
       applications <- pbParticipantReport.applicationReports
-        .traverse[StringOr, ApplicationMeteringReport] { r =>
+        .traverse { r =>
           ApplicationId.fromString(r.applicationId).map { app =>
             ApplicationMeteringReport(app, r.eventCount)
           }
@@ -169,7 +166,9 @@ private[http] object MeteringReportEndpoint {
       request,
       pbParticipantReport.isFinal,
       applications,
-    )) match {
+    )
+
+    report match {
       case Right(report) => \/-(report)
       case Left(message) => -\/(ServerError(message))
     }

@@ -40,7 +40,6 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
 
     "should read/write report" in {
       val json = report.toJson
-      println(json)
       val actual = json.convertTo[MeteringReport]
       actual shouldBe report
     }
@@ -60,10 +59,6 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
       )
       val actual = MeteringReportEndpoint.toPbRequest(request)
       actual shouldBe expected
-    }
-
-    "default protobuf strings are empty string" in {
-      metering_report_service.GetMeteringReportRequest.defaultInstance.applicationId shouldBe ""
     }
 
     "should convert from protobuf response" in {
