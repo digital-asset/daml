@@ -7,6 +7,7 @@ module DA.Ledger.Services.MeteringReportService (
     getMeteringReport, 
     MeteringReport(..),
     MeteringRequest(..),
+    MeteringRequestByDay(..),
     MeteredApplication(..),
     isoTimeToTimestamp,
     timestampToIso8601,
@@ -28,6 +29,22 @@ import GHC.Int (Int64)
 import GHC.Word (Word32)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
+
+data MeteringRequestByDay = MeteringRequestByDay {
+  from :: Day
+, to :: Maybe Day
+, application :: Maybe ApplicationId
+} deriving (Show, Eq)
+
+instance ToJSON MeteringRequestByDay where
+  toJSON (MeteringRequestByDay from to application) =
+    object (
+    [
+      "from" .= show from
+    ]
+    ++ maybeToList (fmap (("to" .=) . show) to)
+    ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
+    )
 
 data MeteringRequest = MeteringRequest {
   from :: Timestamp
