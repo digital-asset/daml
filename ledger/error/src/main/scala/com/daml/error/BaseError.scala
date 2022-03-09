@@ -37,7 +37,7 @@ trait BaseError extends LocationMixin {
     *
     * At the moment, we'll figure them out using reflection.
     */
-  def context: Map[String, String] = BaseError.extractContext(this)
+  def context: Map[String, String] = Map()
 
   /** The resources related to this error
     *
@@ -90,7 +90,6 @@ trait LocationMixin {
 }
 
 object BaseError {
-  private val ignoreFields = Set("cause", "throwable", "loggingContext")
   val SecuritySensitiveMessageOnApiPrefix =
     "An error occurred. Please contact the operator and inquire about the request"
 
@@ -100,15 +99,6 @@ object BaseError {
     // are free to choose whatever kind of value is most appropriate for them.
     msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
   }
-
-  def extractContext[D](obj: D): Map[String, String] =
-    obj.getClass.getDeclaredFields
-      .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
-      .map { field =>
-        field.setAccessible(true)
-        (field.getName, field.get(obj).toString)
-      }
-      .toMap
 
   abstract class Impl(
       override val cause: String,

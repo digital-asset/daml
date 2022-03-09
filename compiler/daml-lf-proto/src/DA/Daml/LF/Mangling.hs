@@ -18,16 +18,16 @@ import qualified Data.Text.Internal as T (text)
 import qualified Data.Text.Read as T
 import Data.Word
 
--- DAML-LF talks about *identifier* to build up different kind of
+-- Daml-LF talks about *identifier* to build up different kind of
 -- names.
 --
--- DAML-LF identifiers are non-empty string of ASCII letters, `$`,
+-- Daml-LF identifiers are non-empty string of ASCII letters, `$`,
 -- and `_` as first character, and ASCII letters, ASCII digits, `$`,
 -- and `_` afterwords.
 --
--- To mangle an DAML identifier into a DAML-LF identifier, we:
+-- To mangle an Daml identifier into a Daml-LF identifier, we:
 --
--- * Pass through characters DAML-LF allows apart from `$`. Note that
+-- * Pass through characters Daml-LF allows apart from `$`. Note that
 --   the first character is different -- we won't be able to accept
 --   digits.
 -- * We escape `$` to `$$`.

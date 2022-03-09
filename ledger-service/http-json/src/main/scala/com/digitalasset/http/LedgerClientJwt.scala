@@ -29,6 +29,10 @@ import scalaz.syntax.std.boolean._
 import scala.concurrent.{ExecutionContext => EC, Future}
 import scala.util.control.NonFatal
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.ledger.api.v1.admin.metering_report_service.{
+  GetMeteringReportRequest,
+  GetMeteringReportResponse,
+}
 
 object LedgerClientJwt {
   import Grpc.EFuture, Grpc.Category._
@@ -102,6 +106,11 @@ object LedgerClientJwt {
         LedgerApiDomain.LedgerId,
         protobuf.ByteString,
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
+
+  type GetMeteringReport =
+    (Jwt, GetMeteringReportRequest) => LoggingContextOf[InstanceUUID with RequestID] => Future[
+      GetMeteringReportResponse
+    ]
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
@@ -226,6 +235,13 @@ object LedgerClientJwt {
       implicit lc => {
         logger.trace("sending upload dar request to ledger")
         client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+      }
+
+  def getMeteringReport(client: DamlLedgerClient): GetMeteringReport =
+    (jwt, request) =>
+      implicit lc => {
+        logger.trace("sending metering report request to ledger")
+        client.meteringReportClient.getMeteringReport(request, bearer(jwt))
       }
 
   // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834

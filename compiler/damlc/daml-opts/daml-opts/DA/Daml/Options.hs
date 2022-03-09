@@ -110,7 +110,7 @@ damlKeywords =
   , "let", "in", "where"
   , "module"
 
-  -- DAML-specific keywords, sync with daml12.tmLanguage.xml when new
+  -- Daml-specific keywords, sync with daml12.tmLanguage.xml when new
   -- keywords are added.
   , "agreement", "controller", "can", "ensure", "signatory", "nonconsuming", "observer"
   , "preconsuming", "postconsuming", "with", "choice", "template", "key", "maintainer"
@@ -237,7 +237,7 @@ runGhcFast act = do
     setSession env
     GHC.withCleanupSession act
 
--- | Language options enabled in the DAML-1.2 compilation
+-- | Language options enabled in the Daml-1.2 compilation
 xExtensionsSet :: [Extension]
 xExtensionsSet =
   [ -- Haskell 2010 extensions which are enabled by default (we would need to
@@ -305,22 +305,22 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- on the IsList typeclass which in turn uses a type family.
   ]
 
--- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
+-- | Language settings _disabled_ ($-XNo...$) in the Daml-1.2 compilation
 xExtensionsUnset :: [Extension]
 xExtensionsUnset =
   [ -- This is part of Haskell 2010 and would hence be enabled by default,
-    -- which makes zero sense for DAML.
+    -- which makes zero sense for Daml.
     ForeignFunctionInterface
   ]
 
--- | Flags set for DAML-1.2 compilation
+-- | Flags set for Daml-1.2 compilation
 xFlagsSet :: Options -> [GeneralFlag]
 xFlagsSet options =
  [Opt_Ticky
  ] ++
  [ Opt_DoCoreLinting | optCoreLinting options ]
 
--- | Warning options set for DAML compilation. Note that these can be modified
+-- | Warning options set for Daml compilation. Note that these can be modified
 --   (per file) by the user via file headers '{-# OPTIONS -fwarn-... #-} and
 --   '{-# OPTIONS -no-warn-... #-}'.
 wOptsSet :: [ WarningFlag ]
@@ -343,14 +343,14 @@ wOptsSet =
   -- , Opt_WarnUnusedLocalBinds
   ]
 
--- | Warning options set for DAML compilation, which become errors.
+-- | Warning options set for Daml compilation, which become errors.
 wOptsSetFatal :: [ WarningFlag ]
 wOptsSetFatal =
   [ Opt_WarnMissingFields
   , Opt_WarnMissingMethods
   ]
 
--- | Warning options unset for DAML compilation. Note that these can be modified
+-- | Warning options unset for Daml compilation. Note that these can be modified
 --   (per file) by the user via file headers '{-# OPTIONS -fwarn-... #-} and
 --   '{-# OPTIONS -no-warn-... #-}'.
 wOptsUnset :: [ WarningFlag ]
@@ -452,13 +452,13 @@ locateCppPath = do
     exists <- doesFileExist path
     pure (guard exists >> Just path)
 
--- | Configures the @DynFlags@ for this session to DAML-1.2
+-- | Configures the @DynFlags@ for this session to Daml-1.2
 --  compilation:
 --     * Installs a custom log action;
 --     * Sets up the package databases;
 --     * Sets the import paths to the given list of 'FilePath'.
 --     * if present, parses and applies custom options for GHC
---       (may fail if the custom options are inconsistent with std DAML ones)
+--       (may fail if the custom options are inconsistent with std Daml ones)
 setupDamlGHC :: GhcMonad m => Maybe NormalizedFilePath -> Options -> m ()
 setupDamlGHC mbProjectRoot options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory

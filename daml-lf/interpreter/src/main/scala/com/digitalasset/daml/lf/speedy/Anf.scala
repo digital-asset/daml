@@ -460,14 +460,36 @@ private[lf] object Anf {
       atomizeExp(depth, env, func, k) { (depth, func, txK) =>
         val func1 = makeRelativeA(depth)(func)
         // we dont atomize the args here
-        val args1 = args.map(arg => flattenExp(depth, env, arg)(anf => Land(anf)).bounce.wrapped)
-        Bounce(() =>
-          // we build a non-atomic application here (only the function is atomic)
-          transform(depth, target.SEAppAtomicFun(func1, args1.toArray), txK)
-        )
+        flattenExpList(depth, env, args.toList) { args1 =>
+          Bounce(() =>
+            // we build a non-atomic application here (only the function is atomic)
+            transform(depth, target.SEAppAtomicFun(func1, args1.toArray), txK)
+          )
+        }
       }
     )
 
+  }
+
+  private[this] def flattenExpList[A](
+      depth: DepthA,
+      env: Env,
+      exps0: List[source.SExpr],
+  )(
+      k: List[target.SExpr] => Trampoline[A]
+  ): Trampoline[A] = {
+
+    def loop(acc: List[target.SExpr], exps: List[source.SExpr]): Trampoline[A] = {
+      exps match {
+        case exp1 :: exps =>
+          flattenExp(depth, env, exp1) { anf =>
+            loop(anf.wrapped :: acc, exps)
+          }
+        case Nil =>
+          k(acc.reverse)
+      }
+    }
+    loop(Nil, exps0)
   }
 
 }

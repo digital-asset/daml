@@ -2,7 +2,7 @@
   "private": false,
   "name": "@daml/types",
   "version": "0.0.0-SDKVERSION",
-  "description": "Primitive types of the DAML language and their serialization.",
+  "description": "Primitive types of the Daml language and their serialization.",
   "keywords": [
     "daml",
     "API",

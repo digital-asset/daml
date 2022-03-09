@@ -1,13 +1,13 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | This module provides functions to perform the DAML-LF constraint checks on
+-- | This module provides functions to perform the Daml-LF constraint checks on
 -- types in certain positions. In fact, we also need to do some form of
 -- "constraint inference". To perform this inference in an incremental fashion,
 -- we also provide a way to augment a 'ModuleInterface' with constraint
 -- information about the exported data types in 'augmentInterface'.
 --
--- Checking whether a function or template definition complies with the DAML-LF
+-- Checking whether a function or template definition complies with the Daml-LF
 -- type constraints is straightforward. It is implemented in 'checkModule', which
 -- assumes that the constraint information on the data types in the module being
 -- checked have already been inferred. In other words, the environment must
@@ -106,7 +106,7 @@ serializabilityConditionsType world0 _version mbCurrentModule vars = go
         BTUpdate -> Left URUpdate
         BTScenario -> Left URScenario
         BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
-                                           -- (or polymorphically in DAML-LF <= 1.4).
+                                           -- (or polymorphically in Daml-LF <= 1.4).
         BTArrow -> Left URFunction
         BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
         BTAny -> Left URAny

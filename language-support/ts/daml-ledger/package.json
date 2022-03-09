@@ -2,7 +2,7 @@
   "private": false,
   "name": "@daml/ledger",
   "version": "0.0.0-SDKVERSION",
-  "description": "Client side API implementation for a DAML based ledger. This library implements the JSON based API for a DAML ledger documented in https://docs.daml.com/json-api/index.html.",
+  "description": "Client side API implementation for a Daml based ledger. This library implements the JSON based API for a Daml ledger documented in https://docs.daml.com/json-api/index.html.",
   "keywords": [
     "daml",
     "API",

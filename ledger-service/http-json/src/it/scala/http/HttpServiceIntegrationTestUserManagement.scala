@@ -31,49 +31,11 @@ import scalaz.syntax.tag._
 class HttpServiceIntegrationTestUserManagementNoAuth
     extends AbstractHttpServiceIntegrationTestTokenIndependent
     with AbstractHttpServiceIntegrationTestFuns
+    with HttpServiceUserFixture.UserToken
     with SandboxRequiringAuthorizationFuns
     with StrictLogging {
 
   this: AsyncTestSuite with Matchers with Inside =>
-
-  override val jwtAdminNoParty: Jwt = Jwt(toHeader(adminTokenStandardJWT))
-
-  def jwtForUser(userId: String): Jwt =
-    Jwt(toHeader(standardToken(userId)))
-
-  override def jwtForParties(
-      uri: Uri
-  )(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String = "",
-      withoutNamespace: Boolean = true,
-      admin: Boolean = false,
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Jwt] = {
-    val username = getUniqueUserName("test")
-    val createUserRequest = domain.CreateUserRequest(
-      username,
-      None,
-      Some(
-        Option
-          .when(admin)(domain.ParticipantAdmin)
-          .toList ++
-          actAs.map(it => domain.CanActAs(domain.Party(it))) ++
-          readAs.map(it => domain.CanReadAs(domain.Party(it)))
-      ),
-    )
-    import spray.json._
-    for {
-      _ <- postRequest(
-        uri.withPath(Uri.Path("/v1/user/create")),
-        createUserRequest.toJson,
-        headers = headersWithAdminAuth,
-      )
-      jwt = jwtForUser(username)
-    } yield jwt
-  }
 
   override def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
     jwtForParties(uri)(List("Alice"), List())
@@ -91,8 +53,6 @@ class HttpServiceIntegrationTestUserManagementNoAuth
 
   def headersWithUserAuth(userId: String): List[Authorization] =
     authorizationHeader(jwtForUser(userId))
-
-  def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
   override def jdbcConfig: Option[JdbcConfig] = None
 

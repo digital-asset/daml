@@ -375,9 +375,9 @@ decodeBool = \case
 -- Type Synonyms --
 -------------------
 
--- | This encoding is needed since DAML-LF only supports @*@-kinded type synonyms.
+-- | This encoding is needed since Daml-LF only supports @*@-kinded type synonyms.
 --   @*@-kinded synonyms are unchanged.
---   @Nat@-kinded synonyms are wrapped in @DA.Internal.NatSyn.NatSyn@, so the DAML-LF
+--   @Nat@-kinded synonyms are wrapped in @DA.Internal.NatSyn.NatSyn@, so the Daml-LF
 --   synonym has kind @*@.
 --   For @(->)@-kinded synonyms, the required number of artificial parameters is
 --   added to the LHS and applied to the RHS of the type synonym.
@@ -438,7 +438,7 @@ decodeTypeSynonym defTypeSyn = do
             | c == natSynTCon = n
         unNatSyn t = t
 
--- | For saturating type synonym definitions in DAML-LF
+-- | For saturating type synonym definitions in Daml-LF
 artificialTypeVarName :: Integer -> LF.TypeVarName
 artificialTypeVarName i = LF.TypeVarName $ "$$artificial" <> T.pack (show i)
 

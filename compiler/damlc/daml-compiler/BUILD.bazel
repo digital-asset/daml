@@ -10,6 +10,7 @@ da_haskell_library(
     name = "daml-compiler",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "async",
         "base",
         "bytestring",
         "conduit",

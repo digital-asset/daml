@@ -107,7 +107,8 @@ private[lf] object Speedy {
       observers: Set[Party],
       key: Option[Node.KeyWithMaintainers],
   ) {
-    private[lf] val stakeholders: Set[Party] = signatories union observers;
+    private[lf] val stakeholders: Set[Party] = signatories union observers
+    private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
   }
 
   private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error) =
@@ -1348,9 +1349,9 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
-        machine.checkContractVisibility(onLedger, cid, cached);
+        machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
-        machine.returnValue = cached.value
+        machine.returnValue = cached.any
       }
     }
   }

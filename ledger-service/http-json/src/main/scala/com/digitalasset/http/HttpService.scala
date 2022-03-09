@@ -157,6 +157,12 @@ object HttpService {
         },
       )
 
+      meteringReportService = new MeteringReportService(
+        { case (jwt, request) =>
+          implicit lc => LedgerClientJwt.getMeteringReport(client)(jwt, request)(lc)
+        }
+      )
+
       ledgerHealthService = HealthGrpc.stub(client.channel)
 
       healthService = new HealthService(
@@ -174,6 +180,7 @@ object HttpService {
         contractsService,
         partiesService,
         packageManagementService,
+        meteringReportService,
         healthService,
         encoder,
         decoder,

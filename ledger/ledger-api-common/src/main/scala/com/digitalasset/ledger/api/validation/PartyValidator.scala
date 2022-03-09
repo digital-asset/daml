@@ -5,7 +5,7 @@ package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref.Party
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 
 class PartyValidator(
@@ -13,7 +13,7 @@ class PartyValidator(
 ) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  import ErrorFactories.invalidArgument
+  import ValidationErrors.invalidArgument
   import FieldValidations.requireParties
 
   def requireKnownParties(

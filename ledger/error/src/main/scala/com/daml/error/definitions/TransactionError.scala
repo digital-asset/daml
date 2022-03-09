@@ -28,6 +28,7 @@ trait TransactionError extends BaseError {
   )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus =
     _rpcStatus(None, correlationId)
 
+  // TODO error codes: this impl vs. GrpcStatus.toProto
   def _rpcStatus(
       overrideCode: Option[Status.Code],
       correlationId: Option[String],

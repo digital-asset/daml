@@ -5,7 +5,7 @@
 #
 # Actualize Golden scenario tests expected ledger
 #
-# Note: Use absolute path for the target DAML file as bazel seems to set the current directory...
+# Note: Use absolute path for the target Daml file as bazel seems to set the current directory...
 #
 # Usage: actualize.sh <path-to-daml-file>
 #

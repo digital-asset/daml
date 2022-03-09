@@ -4,7 +4,7 @@
 apiVersion: 1
 
 providers:
-- name: 'DAML'
+- name: 'Daml'
   orgId: 1
   folder: 'daml'
   folderUid: ''

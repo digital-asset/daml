@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
@@ -23,17 +24,17 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.entries.LoggingEntries
+import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -65,9 +66,6 @@ private[apiserver] final class ApiTransactionService private (
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  import ErrorFactories.transactionNotFound
-  import ErrorFactories.invalidArgumentWasNotFound
-
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
@@ -86,7 +84,7 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Transaction request: $request")
     transactionsService
       .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.debugStream(transactionsLoggable))
+      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
@@ -111,7 +109,9 @@ private[apiserver] final class ApiTransactionService private (
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
         request.verbose,
       )
-      .via(logger.debugStream(transactionTreesLoggable))
+      .via(
+        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
+      )
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
   }
@@ -138,7 +138,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         Future.failed {
-          invalidArgumentWasNotFound(s"invalid eventId: ${request.eventId}")
+          invalidArgument(s"invalid eventId: ${request.eventId}")
         }
       }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -181,7 +181,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         val msg = s"eventId: ${request.eventId}"
-        Future.failed(invalidArgumentWasNotFound(msg))
+        Future.failed(invalidArgument(msg))
       }
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
@@ -210,7 +210,12 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .getTransactionTreeById(transactionId, requestingParties)
       .flatMap {
-        case None => Future.failed(transactionNotFound(transactionId.unwrap))
+        case None =>
+          Future.failed(
+            LedgerApiErrors.RequestValidation.NotFound.Transaction
+              .Reject(transactionId.unwrap)
+              .asGrpcError
+          )
         case Some(transaction) => Future.successful(transaction)
       }
 
@@ -221,25 +226,39 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .getTransactionById(transactionId, requestingParties)
       .flatMap {
-        case None => Future.failed(transactionNotFound(transactionId.unwrap))
+        case None =>
+          Future.failed(
+            LedgerApiErrors.RequestValidation.NotFound.Transaction
+              .Reject(transactionId.unwrap)
+              .asGrpcError
+          )
         case Some(transaction) => Future.successful(transaction)
       }
 
-  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
-    s"Responding with transactions: ${transactions.transactions.toList
-      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): LoggingEntries =
+    LoggingEntries(
+      "transactions" -> LoggingValue.OfIterable(
+        trees.transactions.toList.map(t =>
+          entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
+        )
+      )
+    )
 
-  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
-    s"Responding with transaction trees: ${trees.transactions.toList
-      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+  private def transactionsLoggable(trees: GetTransactionsResponse): LoggingEntries = LoggingEntries(
+    "transactions" -> LoggingValue.OfIterable(
+      trees.transactions.toList.map(t =>
+        entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
+      )
+    )
+  )
 
   private def entityLoggable(
       commandId: String,
       transactionId: String,
       workflowId: String,
       offset: String,
-  ): LoggingEntries =
-    LoggingEntries(
+  ): LoggingValue.Nested =
+    LoggingValue.Nested.fromEntries(
       logging.commandId(commandId),
       logging.transactionId(transactionId),
       logging.workflowId(workflowId),

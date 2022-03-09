@@ -11,11 +11,11 @@ import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
 import lf.data.Time.Timestamp
 import lf.transaction.GlobalKey
-import platform.server.api.validation.ErrorFactories
 import platform.store.appendonlydao.events.ContractId
 import com.google.rpc.status.Status
-
 import java.time.Duration
+
+import com.daml.grpc.GrpcStatus
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {
   def toStatus: Status
@@ -36,9 +36,10 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      ErrorFactories.CommandRejections.duplicateContractKey(
-        reason = "DuplicateKey: contract key is not unique",
-        key = key,
+      GrpcStatus.toProto(
+        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+          .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", _key = key)
+          .asGrpcStatusFromContext
       )
   }
 
@@ -49,7 +50,13 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      ErrorFactories.CommandRejections.inconsistentContractKeys(expectation, result)
+      GrpcStatus.toProto(
+        LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+          .Reject(
+            s"Contract key lookup with different results: expected [$expectation], actual [$result]"
+          )
+          .asGrpcStatusFromContext
+      )
   }
 
   final case class LedgerBridgeInternalError(_err: Throwable, completionInfo: CompletionInfo)(
@@ -102,8 +109,12 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      ErrorFactories.CommandRejections.invalidLedgerTime(
-        s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
+      GrpcStatus.toProto(
+        LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+          .RejectSimple(
+            s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
+          )
+          .asGrpcStatusFromContext
       )
   }
 
@@ -112,8 +123,14 @@ private[sandbox] object Rejection {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status =
-      ErrorFactories.CommandRejections.contractsNotFound(ids.map(_.coid))
+    override def toStatus: Status = {
+      val missingContractIds = ids.map(_.coid)
+      GrpcStatus.toProto(
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound
+          .MultipleContractsNotFound(missingContractIds)
+          .asGrpcStatusFromContext
+      )
+    }
   }
 
   final case class UnallocatedParties(unallocatedParties: Set[String])(
@@ -122,7 +139,11 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      ErrorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
+      GrpcStatus.toProto(
+        LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+          .Reject(unallocatedParties)
+          .asGrpcStatusFromContext
+      )
   }
 
   final case class DuplicateCommand(
@@ -158,8 +179,12 @@ private[sandbox] object Rejection {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = ErrorFactories.missingLedgerConfig(
-      "Cannot validate ledger time"
+    override def toStatus: Status = GrpcStatus.toProto(
+      LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+        .RejectWithMessage(
+          "Cannot validate ledger time"
+        )
+        .asGrpcStatusFromContext
     )
   }
 
@@ -169,10 +194,20 @@ private[sandbox] object Rejection {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = ErrorFactories.CommandRejections.invalidLedgerTime(
-      outOfRange.ledgerTime.toInstant,
-      outOfRange.lowerBound.toInstant,
-      outOfRange.upperBound.toInstant,
-    )
+    override def toStatus: Status = {
+      val ledgerTime = outOfRange.ledgerTime.toInstant
+      val ledgerTimeLowerBound = outOfRange.lowerBound.toInstant
+      val ledgerTimeUpperBound = outOfRange.upperBound.toInstant
+      GrpcStatus.toProto(
+        LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+          .RejectEnriched(
+            s"Ledger time $ledgerTime outside of range [$ledgerTimeLowerBound, $ledgerTimeUpperBound]",
+            ledgerTime,
+            ledgerTimeLowerBound,
+            ledgerTimeUpperBound,
+          )
+          .asGrpcStatusFromContext
+      )
+    }
   }
 }

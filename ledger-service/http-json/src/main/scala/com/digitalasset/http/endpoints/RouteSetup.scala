@@ -35,7 +35,6 @@ import spray.json._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import scala.util.control.NonFatal
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
@@ -104,21 +103,20 @@ private[http] final class RouteSetup(
       resp <- withJwtPayloadLoggingContext(jwtPayload)(
         fn(jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx)
       )
-      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
+      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError.fromMsg)): ET[JsValue]
     } yield domain.OkResponse(jsVal)
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
-      legacyParse: ParsePayload[P],
+      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Error, (Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
 
   def withJwtPayload[A, P](fa: (Jwt, A))(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      legacyParse: ParsePayload[P],
+      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
-  ): EitherT[Future, Unauthorized, (Jwt, P, A)] =
+  ): EitherT[Future, Error, (Jwt, P, A)] =
     decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
       (t2._1, t2._2, fa._2)
     )
@@ -126,10 +124,10 @@ private[http] final class RouteSetup(
   def inputAndJwtPayload[P](
       req: HttpRequest
   )(implicit
-      legacyParse: ParsePayload[P],
+      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): EitherT[Future, Unauthorized, (Jwt, P, String)] =
+  ): EitherT[Future, Error, (Jwt, P, String)] =
     eitherT(input(req)).flatMap(it => withJwtPayload[String, P](it))
 
   def getParseAndDecodeTimerCtx()(implicit
@@ -139,7 +137,7 @@ private[http] final class RouteSetup(
 
   private[http] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Unauthorized \/ (Jwt, String)] = {
+  ): Future[Error \/ (Jwt, String)] = {
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
@@ -191,13 +189,6 @@ private[http] object RouteSetup {
   private val nonHttpsErrorMessage =
     "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
-  def logException(fromWhat: String)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Throwable PartialFunction Throwable = { case NonFatal(e) =>
-    logger.error(s"$fromWhat failed", e)
-    e
-  }
-
   def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
       fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
@@ -210,18 +201,15 @@ private[http] object RouteSetup {
     ).run(fn)
 
   private[http] def handleFutureFailure[A](fa: Future[A])(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID with RequestID],
+      ec: ExecutionContext
   ): Future[Error \/ A] =
-    fa.map(a => \/-(a)).recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
+    fa.map(a => \/-(a)).recover(Error.fromThrowable andThen (-\/(_)))
 
   private[endpoints] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
       ec: ExecutionContext,
       A: IntoEndpointsError[A],
-      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ B] =
-    fa.map(_ leftMap A.run)
-      .recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
+    fa.map(_ leftMap A.run).recover(Error.fromThrowable andThen (-\/(_)))
 
   private def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
     headers exists {

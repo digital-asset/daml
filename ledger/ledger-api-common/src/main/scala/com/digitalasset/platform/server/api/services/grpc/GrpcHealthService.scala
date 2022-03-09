@@ -9,11 +9,11 @@ import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.DropRepeated
 import com.daml.platform.server.api.services.grpc.GrpcHealthService._
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
@@ -41,8 +41,6 @@ class GrpcHealthService(
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  import ErrorFactories.invalidArgumentWasNotFound
-
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, executionContext)
 
@@ -60,7 +58,7 @@ class GrpcHealthService(
       .collect {
         case component if !healthChecks.hasComponent(component) =>
           Failure(
-            invalidArgumentWasNotFound(s"Component $component does not exist.")(errorLogger)
+            invalidArgument(s"Component $component does not exist.")(errorLogger)
           )
       }
       .getOrElse {

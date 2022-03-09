@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
--- | This module contains the DAML-LF type checker.
+-- | This module contains the Daml-LF type checker.
 --
 -- Some notes:
 --
@@ -507,7 +507,7 @@ typeOfAltsOptional elemType =
             CPDefault -> (,) AllRanks <$> typeOf rhs
             _ -> throwWithContext (EPatternTypeMismatch patn (TOptional elemType))
 
--- NOTE(MH): The DAML-LF spec says that `CPDefault` matches _every_ value,
+-- NOTE(MH): The Daml-LF spec says that `CPDefault` matches _every_ value,
 -- regardless of its type.
 typeOfAltsOnlyDefault :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsOnlyDefault scrutType =

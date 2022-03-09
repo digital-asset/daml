@@ -162,7 +162,7 @@ prettyBriefScenarioError world ScenarioError{..} = runM scenarioErrorNodes world
   ppError <- prettyScenarioErrorError scenarioErrorError
   pure $
     annotateSC ErrorSC
-      (text "Scenario execution" <->
+      (text "Script execution" <->
         (if isNothing scenarioErrorCommitLoc
          then "failed:"
          else "failed on commit at"
@@ -184,7 +184,7 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
          "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
-    [ Just $ error_ (text "Scenario execution" <->
+    [ Just $ error_ (text "Script execution" <->
       (if isNothing scenarioErrorCommitLoc
        then "failed:"
        else "failed on commit at"
@@ -334,9 +334,9 @@ prettyScenarioErrorError (Just err) =  do
         ]
 
     ScenarioErrorErrorUnknownContext ctxId ->
-      pure $ "Unknown scenario interpretation context:" <-> string (show ctxId)
+      pure $ "Unknown script interpretation context:" <-> string (show ctxId)
     ScenarioErrorErrorUnknownScenario name ->
-      pure $ "Unknown scenario:" <-> prettyDefName world name
+      pure $ "Unknown script:" <-> prettyDefName world name
     ScenarioErrorErrorScenarioContractNotEffective ScenarioError_ContractNotEffective{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a contract not yet effective."
@@ -500,7 +500,7 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
 
 prettyScenarioStep :: ScenarioStep -> M (Doc SyntaxClass)
 prettyScenarioStep (ScenarioStep _stepId Nothing) =
-  pure $ text "<missing scenario step>"
+  pure $ text "<missing script step>"
 prettyScenarioStep (ScenarioStep stepId (Just step)) = do
   world <- askWorld
   case step of
@@ -1032,7 +1032,7 @@ renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
         let tableView = do
                 table <- renderTableView world (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
-                  Pretty.renderHtml 128 $ annotateSC ErrorSC "Scenario execution failed, displaying state before failing transaction"
+                  Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table
         let transView =
                 let doc = prettyScenarioError world err
@@ -1070,11 +1070,11 @@ renderViews viewType tableView transView =
 
 scenarioNotInFileNote :: T.Text -> T.Text
 scenarioNotInFileNote file = htmlNote $ T.pack $
-    "This scenario no longer exists in the source file: " ++ T.unpack file
+    "This script no longer exists in the source file: " ++ T.unpack file
 
 fileWScenarioNoLongerCompilesNote :: T.Text -> T.Text
 fileWScenarioNoLongerCompilesNote file = htmlNote $ T.pack $
-    "The source file containing this scenario no longer compiles: " ++ T.unpack file
+    "The source file containing this script no longer compiles: " ++ T.unpack file
 
 htmlNote :: T.Text -> T.Text
 htmlNote t = TL.toStrict $ Blaze.renderHtml $ H.docTypeHtml $ H.span H.! A.class_ "da-hl-warning" $ H.toHtml t

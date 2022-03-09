@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | Test driver for DAML-GHC CompilerService.
+-- | Test driver for Daml-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.DamlcIntegration
@@ -86,7 +86,7 @@ instance IsOption LfVersionOpt where
   -- to `error`. However, this will always be set.
   parseValue = fmap LfVersionOpt . parseVersion
   optionName = Tagged "daml-lf-version"
-  optionHelp = Tagged "DAML-LF version to test"
+  optionHelp = Tagged "Daml-LF version to test"
 
 newtype SkipValidationOpt = SkipValidationOpt Bool
   deriving (Eq)
@@ -219,7 +219,7 @@ getIntegrationTests registerTODO scenarioService = do
             (mkIde opts { optEnableScenarios = EnableScenarios True })
             shutdown
             $ \serviceScenariosEnabled ->
-          testGroup ("Tests for DAML-LF " ++ renderPretty version) $
+          testGroup ("Tests for Daml-LF " ++ renderPretty version) $
             map (testCase version service outdir registerTODO) plainTests <>
             map (testCase version serviceScenariosEnabled outdir registerTODO) scenariosEnabledTests
 
@@ -243,7 +243,7 @@ testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String,
 testCase version getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
   service <- getService
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
-    pure (testFailed "Unsupported DAML-LF version in UNTIL-LF annotation")
+    pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
   else if any (ignoreVersion version) anns
     then pure $ Result
       { resultOutcome = Success
@@ -341,10 +341,10 @@ checkDiagnostics log expected got
 -- functionality
 data Ann
     = Ignore                             -- Don't run this test at all
-    | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version (inclusive)
-    | UntilLF LF.Version                 -- Only run this test until the given DAML-LF version (exclusive)
+    | SinceLF LF.Version                 -- Only run this test since the given Daml-LF version (inclusive)
+    | UntilLF LF.Version                 -- Only run this test until the given Daml-LF version (exclusive)
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
-    | QueryLF String                     -- The jq query against the produced DAML-LF returns "true"
+    | QueryLF String                     -- The jq query against the produced Daml-LF returns "true"
     | Todo String                        -- Just a note that is printed out
     | EnableScenariosYes                 -- Run this test with --enable-scenarios=yes
 

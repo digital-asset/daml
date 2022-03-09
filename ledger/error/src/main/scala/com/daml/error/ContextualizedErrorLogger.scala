@@ -24,6 +24,17 @@ trait ContextualizedErrorLogger {
 
 object DamlContextualizedErrorLogger {
 
+  def forClass(
+      clazz: Class[_],
+      loggingContext: LoggingContext = LoggingContext.empty,
+      correlationId: Option[String] = None,
+  ): DamlContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(
+      ContextualizedLogger.get(clazz),
+      loggingContext,
+      correlationId,
+    )
+
   def forTesting(clazz: Class[_], correlationId: Option[String] = None) =
     new DamlContextualizedErrorLogger(
       ContextualizedLogger.get(clazz),
@@ -71,14 +82,16 @@ class DamlContextualizedErrorLogger(
     ) { implicit loggingContext =>
       val message = errorCode.toMsg(err.cause, correlationId)
       (logLevel, err.throwableO) match {
-        case (Level.INFO, None) => logger.info(message)
-        case (Level.INFO, Some(tr)) => logger.info(message, tr)
+        case (Level.ERROR, None) => logger.error(message)
+        case (Level.ERROR, Some(tr)) => logger.error(message, tr)
         case (Level.WARN, None) => logger.warn(message)
         case (Level.WARN, Some(tr)) => logger.warn(message, tr)
-        // TODO error codes: Handle below INFO levels explicitly
-        // an error that is logged with < INFO is not an error ...
-        case (_, None) => logger.error(message)
-        case (_, Some(tr)) => logger.error(message, tr)
+        case (Level.INFO, None) => logger.info(message)
+        case (Level.INFO, Some(tr)) => logger.info(message, tr)
+        case (Level.DEBUG, None) => logger.debug(message)
+        case (Level.DEBUG, Some(tr)) => logger.debug(message, tr)
+        case (Level.TRACE, None) => logger.trace(message)
+        case (Level.TRACE, Some(tr)) => logger.trace(message, tr)
       }
     }(loggingContext)
   }
