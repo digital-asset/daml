@@ -180,6 +180,19 @@ final case class DefTemplate[+Ty](
 ) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
+  def resolveChoices[O >: Ty](
+      astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
+  ): DefTemplate[O] = {
+    val (missing, resolved) = inheritedChoices.partitionMap { case pair @ (choiceName, tcn) =>
+      val resolution = for {
+        astIf <- astInterfaces.lift(tcn)
+        tchoice <- astIf.choices get choiceName
+      } yield (choiceName, tchoice)
+      resolution toRight pair
+    }
+    DefTemplate(choices ++ resolved, missing.toMap, key)
+  }
+
   def getKey: j.Optional[_ <: Ty] =
     key.fold(j.Optional.empty[Ty])(k => j.Optional.of(k))
 }
