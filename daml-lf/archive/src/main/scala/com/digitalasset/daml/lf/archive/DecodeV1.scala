@@ -1346,7 +1346,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             choice = handleInternedName(exercise.getChoiceInternedStr),
             cidE = decodeExpr(exercise.getCid, definition),
             argE = decodeExpr(exercise.getArg, definition),
-            typeRepE = decodeExpr(exercise.getTypeRep, definition),
             guardE = decodeExpr(exercise.getGuard, definition),
           )
 
