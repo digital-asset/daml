@@ -206,21 +206,29 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     import QualifiedName.{assertFromString => qn}
+    val Foo = qn("InterfaceTestPackage:Foo")
+    val TIf = qn("InterfaceTestPackage:TIf")
 
-    "include interface choices with template choices" in {
-      inside(itp.main.typeDecls.get(qn("InterfaceTestPackage:Foo"))) {
-        case Some(InterfaceType.Template(_, tpl)) =>
-          tpl.choices.keySet should ===(Set("Bar", "Useless"))
+    "exclude interface choices with template choices" in {
+      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
+        tpl.choices.keySet should ===(Set("Bar", "Archive"))
+      }
+    }
+
+    "include interface choices in separate inheritedChoices" in {
+      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
+        tpl.inheritedChoices.transform((_, tcn) => tcn.qualifiedName) should ===(
+          Map("Useless" -> TIf)
+        )
       }
     }
 
     "have an interface with a choice" in {
       itp.main.astInterfaces should ===(
         Map[QualifiedName, DefInterface.FWT](
-          qn("InterfaceTestPackage:TIf") ->
-            DefInterface(
-              Map(Ref.ChoiceName.assertFromString("Useless") -> TemplateChoice(null, true, null))
-            )
+          TIf -> DefInterface(
+            Map(Ref.ChoiceName.assertFromString("Useless") -> TemplateChoice(null, true, null))
+          )
         )
       )
     }
