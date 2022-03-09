@@ -278,7 +278,13 @@ object KeyValueConsumption {
         None -> List.empty
       }
     val completionInfo = if (txEntry.hasSubmitterInfo) {
-      Some(parseCompletionInfo(recordTime, txEntry.getSubmitterInfo, Some(TransactionNodeStatistics(transaction))))
+      Some(
+        parseCompletionInfo(
+          recordTime,
+          txEntry.getSubmitterInfo,
+          Some(TransactionNodeStatistics(transaction)),
+        )
+      )
     } else {
       None
     }
