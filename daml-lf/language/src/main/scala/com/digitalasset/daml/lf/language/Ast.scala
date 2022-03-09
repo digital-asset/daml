@@ -992,10 +992,14 @@ object Ast {
       interfaces: Map[DottedName, GenDefInterface[E]],
       featureFlags: FeatureFlags,
   ) {
-    templates.keysIterator.foreach(name =>
-      if (exceptions.keySet.contains(name))
-        throw PackageError(s"Collision between exception and template name ${name.toString}")
+    if (
+      !(templates.keySet.intersect(exceptions.keySet).isEmpty
+        && templates.keySet.intersect(interfaces.keySet).isEmpty
+        && exceptions.keySet.intersect(interfaces.keySet).isEmpty)
     )
+      throw PackageError(
+        s"Collision between exception and template/interface name ${name.toString}"
+      )
   }
 
   private[this] def toMapWithoutDuplicate[Key, Value](

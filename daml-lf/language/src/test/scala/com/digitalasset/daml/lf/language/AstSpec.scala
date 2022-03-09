@@ -212,12 +212,13 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
     }
 
-    "catch collisions between exception and template" in {
+    "catch collisions between exceptions, templates and interfaces" in {
       Module.build(
         name = modName1,
         definitions = List(
           defName("defName1") -> recordDef,
           defName("defName2") -> recordDef,
+          defName("defName3") -> recordDef,
         ),
         templates = List(
           defName("defName1") -> template
@@ -225,7 +226,9 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         exceptions = List(
           defName("defName2") -> exception
         ),
-        interfaces = List.empty,
+        interfaces = List(
+          defName("defName3") -> interface
+        ),
         featureFlags = FeatureFlags.default,
       )
 
@@ -242,7 +245,51 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           exceptions = List(
             defName("defName1") -> exception
           ),
-          interfaces = List.empty,
+          interfaces = List(
+            defName("defName3") -> interface
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.build(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+            defName("defName3") -> recordDef,
+          ),
+          templates = List(
+            defName("defName1") -> template
+          ),
+          interfaces = List(
+            defName("defName1") -> interface
+          ),
+          exceptions = List(
+            defName("defName2") -> exception
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.build(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+            defName("defName3") -> recordDef,
+          ),
+          templates = List(
+            defName("defName1") -> template
+          ),
+          interfaces = List(
+            defName("defName2") -> interface
+          ),
+          exceptions = List(
+            defName("defName2") -> exception
+          ),
           featureFlags = FeatureFlags.default,
         )
       )
