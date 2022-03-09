@@ -31,6 +31,9 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
+  *           performed by an [[com.daml.lf.engine.Engine]].
+  */
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
