@@ -57,7 +57,7 @@ Table of built-in primitive types
    * - ``Time``
      - models absolute time (UTC)
      - ``time (date 2007 Apr 5) 14 30 05``
-     - ``Time`` values have microsecond precision with allowed range from ``0001-01-01`` to ``9999-12-31`` and using a year-month-day format. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``).
+     - ``Time`` values have microsecond precision with allowed range from ``0001-01-01`` to ``9999-12-31`` (using a year-month-day format). To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``).
    * - ``RelTime``
      - models differences between time values
      - ``seconds 1``, ``seconds (-2)``
