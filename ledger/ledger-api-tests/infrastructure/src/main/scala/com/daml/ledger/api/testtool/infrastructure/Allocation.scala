@@ -51,9 +51,11 @@ object Allocation {
 
   /** Exposes information about configured participants and allocated parties to a test case.
     *
-    * In case of multiple participants, it should be assumed they could be distributed across JVMs and
-    * interactions between them should be synchronised with the help of
-    * `com.daml.ledger.api.testtool.infrastructure.Eventually` or `com.daml.ledger.api.testtool.infrastructure.Synchronize`
+    * When using multiple participants, keep in mind that they do not update their view of the ledger synchronously.
+    * E.g., after you create a contract through the command service of one participant,
+    * other participants might not know about the contract yet.
+    * Use `com.daml.ledger.api.testtool.infrastructure.Eventually` if you want to wait for a participant to catch up,
+    * or `com.daml.ledger.api.testtool.infrastructure.Synchronize` to add a synchronization point between participants.
     */
   final case class Participants private[infrastructure] (participants: Participant*)
 
