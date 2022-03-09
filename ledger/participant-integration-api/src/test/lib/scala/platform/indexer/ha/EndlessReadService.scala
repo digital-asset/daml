@@ -5,7 +5,7 @@ package com.daml.platform.indexer.ha
 
 import akka.NotUsed
 import akka.stream.KillSwitches
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
