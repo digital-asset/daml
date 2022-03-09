@@ -20,7 +20,7 @@ module DA.Time
   , convertMicrosecondsToRelTime
   ) where
 
-import DA.Time.Types
+import DA.Time.Types hiding (microseconds)
 import DA.Internal.Time
 
 -- | Pass simulated scenario time by argument
@@ -53,11 +53,11 @@ hours : Int -> RelTime
 hours x = minutes (60 * x)
 
 -- | A number of minutes in relative time.
-minutes : Int -> RelTime
+minutes: Int -> RelTime
 minutes x = seconds (60 * x)
 
 -- | A number of seconds in relative time.
-seconds : Int -> RelTime
+seconds: Int -> RelTime
 seconds x = convertMicrosecondsToRelTime (1000000 * x)
 
 -- | A number of milliseconds in relative time.
