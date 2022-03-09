@@ -29,6 +29,11 @@
 - ensure correct privacy for rollback subtree: [BlindingSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/BlindingSpec.scala#L201)
 
 ## Semantics:
+- /v1/query GET succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L153)
+- /v1/query POST succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L195)
+- /v1/query POST succeeds after reconnect to DB: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L260)
+- /v1/stream/query can reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L333)
+- Command submission succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L50)
 - Evaluation order of create with authorization failure: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L487)
 - Evaluation order of create with contract ID in contract key: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L510)
 - Evaluation order of create with contract key exceeding max nesting: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L560)
@@ -106,11 +111,13 @@
 - Evaluation order: Interface preconditions are evaluated in the order given by the implementation list.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L422)
 - Evaluation order: Template precondition before interface preconditions.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L406)
 - Exceptions, throw/catch.: [ExceptionTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/ExceptionTest.scala#L25)
+- command submission timeout is applied: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L99)
 - contract key behaviour (non-unique mode): [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L386)
 - contract key behaviour (unique mode): [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L392)
 - contract keys must have a non-empty set of maintainers: [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L221)
 - contract keys should be evaluated after ensure clause: [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L188)
 - contract keys should be evaluated only when executing create: [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L149)
+- fromStartupMode should not succeed for any input when the db connection is broken: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L421)
 
 ## Performance:
 - Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
