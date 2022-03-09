@@ -12,7 +12,7 @@ overwrite the one on Docker Hub should they differ.
 > This image is not supported for production use-cases. Please contact Digital
 > Asset to obtain supported production-ready artifacts.
 
-Digital Asset's [Daml Connect SDK](https://docs.daml.com/) in a can.
+Digital Asset's [Daml SDK](https://docs.daml.com/) in a can.
 
 ## Tags
 
@@ -48,7 +48,7 @@ repository key of
 
 > Note: This image is primarily intended for CI workflows, where the benefits
 > of caching Docker images can outweigh the awkwardness of the above command.
-> For local development, we strongly recommend installing the Daml Connect SDK on the
+> For local development, we strongly recommend installing the Daml SDK on the
 > host development machine instead, by running `curl https://get.daml.com |
 > bash`. For production use-cases, we strongly recommend using a supported
 > production binary, which can be obtained by contacting Digital Asset.
