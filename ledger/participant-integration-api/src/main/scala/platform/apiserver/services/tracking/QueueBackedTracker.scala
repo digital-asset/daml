@@ -57,19 +57,19 @@ private[services] final class QueueBackedTracker(
               s"Failed to enqueue: ${throwable.getClass.getSimpleName}: ${throwable.getMessage}",
               Some(throwable),
             )
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )
       case Success(QueueOfferResult.Dropped) =>
         toQueueSubmitFailure(
           LedgerApiErrors.ParticipantBackpressure
             .Rejection("The submission ingress buffer is full")
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )
       case Success(QueueOfferResult.QueueClosed) =>
         toQueueSubmitFailure(
           LedgerApiErrors.ServiceNotRunning
             .Reject("Command service queue")
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )
       case Failure(throwable) =>
         toQueueSubmitFailure(
@@ -78,7 +78,7 @@ private[services] final class QueueBackedTracker(
               s"Unexpected `BoundedSourceQueue.offer` exception: ${throwable.getClass.getSimpleName}: ${throwable.getMessage}",
               Some(throwable),
             )
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )
     }
   }
