@@ -16,7 +16,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.Conversions.{applicationId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.MeteringParameterStorageBackendTemplate.assertLedgerMeteringEnd
 import com.daml.platform.store.backend.common.MeteringStorageBackendTemplate._
 import com.daml.platform.store.backend.{MeteringStorageReadBackend, MeteringStorageWriteBackend}
@@ -70,15 +70,17 @@ private[backend] object MeteringStorageBackendTemplate {
 
   }
 
-  /** Oracle does not understand true/false so compare against number
-    * @return 0 if the option is unset and non-zero otherwise
+  /**  Evaluate to the passed condition if the option is non-empty or return true otherwise
     */
-  def isSet(o: Option[_]): Int = o.fold(0)(_ => 1)
+  def ifSet[A](o: Option[A], expr: A => CompositeSql): CompositeSql = {
+    o.fold(cSQL"1=1")(expr)
+  }
 
-  /** Oracle treats zero length strings as null and then does null comparison
-    * @return 0 if the offset is beforeBegin and non-zero otherwise
+  /**  Evaluate to the passed condition if the offset > `beforeBegin` or return true otherwise
     */
-  def hasBegun(o: Offset): Int = if (o == Offset.beforeBegin) 0 else 1
+  def ifBegun(offset: Offset, expr: Offset => CompositeSql): CompositeSql = {
+    if (offset == Offset.beforeBegin) cSQL"1=1" else expr(offset)
+  }
 
 }
 
@@ -119,6 +121,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 
   }
 
+  /** @param from - Include rows after this offset
+    * @param to - If specified include rows before this timestamp
+    * @param appId - If specified only return rows for this application
+    */
   private def transactionMetering(
       from: Offset,
       to: Option[Time.Timestamp],
@@ -130,9 +136,9 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
         application_id,
         sum(action_count)
       from transaction_metering
-      where (${hasBegun(from)} = 0 or ledger_offset > $from)
-      and   (${isSet(to)} = 0 or metering_timestamp < $to)
-      and   (${isSet(appId)} = 0 or application_id = $appId)
+      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
+      and   ${ifSet[Timestamp](to, t => cSQL"metering_timestamp < $t")}
+      and   ${ifSet[String](appId, a => cSQL"application_id = $a")}
       group by application_id
     """
       .asVectorOf(applicationCountParser)(connection)
@@ -140,6 +146,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 
   }
 
+  /** @param from - Include rows whose aggregation period starts on or after this date
+    * @param to - If specified include rows whose aggregation period ends on or before this date
+    * @param appId - If specified only return rows for this application
+    */
   private def participantMetering(
       from: Time.Timestamp,
       to: Option[Time.Timestamp],
@@ -152,8 +162,8 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
         sum(action_count)
       from participant_metering
       where from_timestamp >= $from
-      and   (${isSet(to)} = 0 or to_timestamp <= $to)
-      and   (${isSet(appId)} = 0 or application_id = $appId)
+      and ${ifSet[Timestamp](to, t => cSQL"to_timestamp <= $t")}
+      and ${ifSet[String](appId, a => cSQL"application_id = $a")}
       group by application_id
     """
       .asVectorOf(applicationCountParser)(connection)
@@ -182,7 +192,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
     SQL"""
       select max(ledger_offset)
       from transaction_metering
-      where (${hasBegun(from)} = 0 or ledger_offset > $from)
+      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and metering_timestamp < $to
     """
       .as(offset(1).?.single)(connection)
@@ -197,7 +207,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
         application_id,
         sum(action_count)
       from transaction_metering
-      where (${hasBegun(from)} = 0 or ledger_offset > $from)
+      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
       group by application_id
     """
@@ -213,7 +223,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
     discard(
       SQL"""
       delete from transaction_metering
-      where (${hasBegun(from)} = 0 or ledger_offset > $from)
+      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
     """
         .execute()(connection)
