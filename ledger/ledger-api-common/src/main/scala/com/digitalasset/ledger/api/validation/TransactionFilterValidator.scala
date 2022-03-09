@@ -7,7 +7,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InclusiveFilters
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.std.list._
@@ -16,7 +16,7 @@ import scalaz.syntax.traverse._
 object TransactionFilterValidator {
 
   import FieldValidations._
-  import ErrorFactories._
+  import ValidationErrors._
 
   def validate(
       txFilter: TransactionFilter

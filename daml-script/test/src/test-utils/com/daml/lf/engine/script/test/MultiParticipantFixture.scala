@@ -139,8 +139,8 @@ trait MultiParticipantFixture
           }
         }
       } yield (p1, p2),
-      acquisitionTimeout = 1.minute,
-      releaseTimeout = 1.minute,
+      acquisitionTimeout = 2.minute,
+      releaseTimeout = 2.minute,
     )
   }
 

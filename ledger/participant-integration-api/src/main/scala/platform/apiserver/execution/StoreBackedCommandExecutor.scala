@@ -4,9 +4,9 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.error.ErrorCause
-
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -49,10 +49,16 @@ private[apiserver] final class StoreBackedCommandExecutor(
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
     for {
-      submissionResult <- submitToEngine(commands, submissionSeed)
-      submission <- consume(commands.actAs, commands.readAs, submissionResult)
+      submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
+      submission <- consume(
+        commands.actAs,
+        commands.readAs,
+        submissionResult,
+        interpretationTimeNanos,
+      )
     } yield {
       submission
         .map { case (updateTx, meta) =>
@@ -108,13 +114,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
     )
   }
 
-  private def submitToEngine(commands: ApiCommands, submissionSeed: crypto.Hash)(implicit
+  private def submitToEngine(
+      commands: ApiCommands,
+      submissionSeed: crypto.Hash,
+      interpretationTimeNanos: AtomicLong,
+  )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
     Timed.trackedFuture(
       metrics.daml.execution.engineRunning,
-      Future {
+      Future(trackSyncExecution(interpretationTimeNanos) {
         // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
         // When looking up contracts during command interpretation, the engine should only see contracts
         // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
@@ -129,10 +139,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
           participant,
           submissionSeed,
         )
-      },
+      }),
     )
 
-  private def consume[A](actAs: Set[Ref.Party], readAs: Set[Ref.Party], result: Result[A])(implicit
+  private def consume[A](
+      actAs: Set[Ref.Party],
+      readAs: Set[Ref.Party],
+      result: Result[A],
+      interpretationTimeNanos: AtomicLong,
+  )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
@@ -161,7 +176,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(instance))
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(instance)),
+                )
               )
             }
 
@@ -176,7 +194,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId))
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
+                )
               )
             }
 
@@ -189,7 +210,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
             )
             .flatMap { maybePackage =>
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage))
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(maybePackage)),
+                )
               )
             }
       }
@@ -203,6 +227,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
         .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
       metrics.daml.execution.lookupContractKeyCountPerExecution
         .update(lookupContractKeyCount.get())
+      metrics.daml.execution.engine
+        .update(interpretationTimeNanos.get(), TimeUnit.NANOSECONDS)
     }
+  }
+
+  private def trackSyncExecution[T](atomicNano: AtomicLong)(computation: => T): T = {
+    val start = System.nanoTime()
+    val result = computation
+    atomicNano.addAndGet(System.nanoTime() - start)
+    result
   }
 }

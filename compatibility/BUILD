@@ -96,7 +96,7 @@ head = "0.0.0"
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
-    # Test that the DAML script runner can run DARs built with an older SDK
+    # Test that the Daml script runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
     if versions.is_at_least(sdk_version, platform_version)
@@ -118,7 +118,7 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
-    # Test that the DAML trigger runner can run DARs built with an older SDK
+    # Test that the Daml trigger runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
     if versions.is_at_least(first_post_7587_trigger_version, sdk_version) and

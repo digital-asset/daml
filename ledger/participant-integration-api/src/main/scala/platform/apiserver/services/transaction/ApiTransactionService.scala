@@ -24,6 +24,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
@@ -34,7 +35,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -65,8 +65,6 @@ private[apiserver] final class ApiTransactionService private (
     extends TransactionService {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  import ErrorFactories.invalidArgument
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])

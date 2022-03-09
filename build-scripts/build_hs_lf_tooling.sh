@@ -46,7 +46,7 @@ mkdir -p "$DIR/protobuf/com/daml"
 cp -RL "daml-lf/archive/src/main/protobuf/com/daml/daml_lf_dev" "$DIR/protobuf/com/daml/"
 # generate code from protobuf using the matching tool, as a configure script
 cat <<EOF >"$DIR/Setup.hs"
--- Copyright (c) 2021 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 The Daml Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- Parts of this code were adapted from

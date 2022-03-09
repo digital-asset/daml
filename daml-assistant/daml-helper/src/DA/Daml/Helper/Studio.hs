@@ -32,7 +32,7 @@ runDamlStudio replaceExt remainingArguments = do
             (exitCode, out, err) <- runVsCodeCommand ["--uninstall-extension", name]
             when (exitCode /= ExitSuccess) $ do
                 hPutStrLn stderr . unlines $
-                    [ "Failed to uninstall published version of DAML Studio."
+                    [ "Failed to uninstall published version of Daml Studio."
                     , "Messages from VS Code:"
                     , "--- stdout ---"
                     , out
@@ -57,8 +57,8 @@ runDamlStudio replaceExt remainingArguments = do
                 when (exitCode /= ExitSuccess) $ do
                     hPutStr stderr . unlines $
                         [ err
-                        , "Failed to install DAML Studio extension from marketplace."
-                        , "Installing bundled DAML Studio extension instead."
+                        , "Failed to install Daml Studio extension from marketplace."
+                        , "Installing bundled Daml Studio extension instead."
                         ]
                     installBundledExtension'
 
@@ -86,7 +86,7 @@ runDamlStudio replaceExt remainingArguments = do
     when (exitCode /= ExitSuccess) $ do
         hPutStrLn stderr . unlines $
             [ err
-            , "Failed to launch DAML studio. Make sure Visual Studio Code is installed."
+            , "Failed to launch Daml studio. Make sure Visual Studio Code is installed."
             , "See https://code.visualstudio.com/Download for installation instructions."
             ]
         exitWith exitCode
@@ -104,7 +104,7 @@ runVsCodeCommand :: [String] -> IO (ExitCode, String, String)
 runVsCodeCommand args = do
     originalEnv <- getEnvironment
     let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
-            -- ^ Strip DAML environment variables before calling VSCode, to
+            -- ^ Strip Daml environment variables before calling VSCode, to
             -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
         commandEnv = addVsCodeToPath strippedEnv
             -- ^ Ensure "code" is in PATH before running command.
@@ -176,7 +176,7 @@ installBundledExtension pathToVsix = do
     when (exitCode /= ExitSuccess) $ do
         hPutStr stderr . unlines $
            [ err
-           , "Failed to install DAML Studio extension from current SDK."
+           , "Failed to install Daml Studio extension from current SDK."
            , "Please open an issue on GitHub with the above message."
            , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
            ]

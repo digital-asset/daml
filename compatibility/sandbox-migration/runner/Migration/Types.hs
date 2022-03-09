@@ -50,7 +50,7 @@ getSdkVersion :: SdkVersion -> String
 getSdkVersion (SdkVersion ver) = SemVer.toString ver
 
 -- The datatypes are defined such that the autoderived Aeson instances
--- match the DAML-LF JSON encoding.
+-- match the Daml-LF JSON encoding.
 
 newtype ContractId = ContractId T.Text
   deriving newtype A.FromJSON

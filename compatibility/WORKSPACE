@@ -297,6 +297,7 @@ daml_sdk_head(
         daml_react_sha256 = version_sha256s.get(ver).get("daml_react"),
         daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),
         os_name = os_name,
+        sandbox_on_x_sha256 = version_sha256s.get(ver).get("sandbox_on_x"),
         sdk_sha256 = version_sha256s.get(ver),
         test_tool_sha256 = version_sha256s.get(ver).get("test_tool"),
         version = ver,

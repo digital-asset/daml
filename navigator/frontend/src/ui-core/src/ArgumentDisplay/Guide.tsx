@@ -27,7 +27,7 @@ const exampleArgument: DamlLfValue = DamlLfValueF.record(exampleRecordId, [
 ]);
 
 const description = `
-The ArgumentDisplay component displays a DAML-LF value.
+The ArgumentDisplay component displays a Daml-LF value.
 The argument is supplied by the client of the component.
 `;
 

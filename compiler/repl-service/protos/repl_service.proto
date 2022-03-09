@@ -10,16 +10,16 @@ option java_outer_classname = "ReplServiceProto";
 package replservice;
 
 service ReplService {
-  rpc LoadPackage (LoadPackageRequest) returns (LoadPackageResponse);
+  rpc LoadPackages (LoadPackagesRequest) returns (LoadPackagesResponse);
   rpc RunScript (RunScriptRequest) returns (RunScriptResponse);
   rpc ClearResults (ClearResultsRequest) returns (ClearResultsResponse);
 }
 
-message LoadPackageRequest {
-  bytes package = 1;
+message LoadPackagesRequest {
+  repeated bytes packages = 1;
 }
 
-message LoadPackageResponse {
+message LoadPackagesResponse {
 }
 
 message RunScriptRequest {

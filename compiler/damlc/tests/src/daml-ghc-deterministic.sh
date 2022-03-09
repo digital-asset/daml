@@ -47,7 +47,7 @@ cp -r $TESTS_DIR/* "$TMP_SRC2"
 (cd "$TMP_SRC1" && $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_1")
 (cd "$TMP_SRC2" && $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_2")
 
-# When invoked with a project root (as set by the DAML assistant)
+# When invoked with a project root (as set by the Daml assistant)
 # we should produce the same output regardless of the path with which we are invoked.
 (cd "/" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "$TMP_SRC1/Examples.daml" -o "$TMP_OUT/out_proj_1")
 (cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_proj_2")

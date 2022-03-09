@@ -8,6 +8,7 @@ import java.time.Duration
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.api.validation.ValidationErrors
 import io.grpc.StatusRuntimeException
 
 object DeduplicationPeriodValidator {
@@ -46,7 +47,7 @@ object DeduplicationPeriodValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Duration] = if (duration.isNegative)
     Left(
-      ErrorFactories
+      ValidationErrors
         .invalidField(
           fieldName,
           "Duration must be positive",

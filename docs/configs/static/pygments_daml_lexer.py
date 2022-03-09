@@ -5,7 +5,7 @@ from pygments.lexers.haskell import HaskellLexer
 from pygments.lexer import inherit
 from pygments.token import *
 
-class DAMLLexer(HaskellLexer):
+class DamlLexer(HaskellLexer):
 
     name = 'Daml'
     aliases = ['daml']

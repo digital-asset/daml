@@ -3,46 +3,12 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.platform.server.api.{ApiException => NoStackTraceApiException}
 import com.google.rpc.Status
 import io.grpc.protobuf.StatusProto
 import io.grpc.StatusRuntimeException
 
 object ErrorFactories {
-
-  /** @param fieldName A missing field's name.
-    * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
-    */
-  def missingField(fieldName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    LedgerApiErrors.RequestValidation.MissingField
-      .Reject(fieldName)
-      .asGrpcError
-
-  /** @param message A status' message.
-    * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
-    */
-  def invalidArgument(message: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    LedgerApiErrors.RequestValidation.InvalidArgument
-      .Reject(message)
-      .asGrpcError
-
-  /** @param fieldName An invalid field's name.
-    * @param message A status' message.
-    * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
-    */
-  def invalidField(
-      fieldName: String,
-      message: String,
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
-    LedgerApiErrors.RequestValidation.InvalidField
-      .Reject(s"Invalid field $fieldName: $message")
-      .asGrpcError
 
   /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
     * into exceptions with metadata in the trailers.

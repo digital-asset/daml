@@ -3,27 +3,28 @@
 
 package com.daml.platform.apiserver.services
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.testing.time_service._
+import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
-import com.daml.ledger.api.domain.optionalLedgerId
 
-import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiTimeService private (
@@ -44,7 +45,6 @@ private[apiserver] final class ApiTimeService private (
   private val dispatcher = SignalDispatcher[Instant]()
 
   import FieldValidations._
-  import ErrorFactories.invalidArgument
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"

@@ -66,7 +66,7 @@ lfVersionTestPairs =
 
 tests :: Tools -> TestTree
 tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
-    [ testCaseSteps ("Cross DAML-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -79,7 +79,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               -- This ensures that we have a reference to daml-stdlib and therefore daml-prim.
               , "x : [Text]"
               , "x = lines \"abc\\ndef\""
-              , "data X = X" -- This should generate a DAML-LF enum
+              , "data X = X" -- This should generate a Daml-LF enum
 
               , "template T"
               , "  with"
@@ -152,7 +152,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
-    [ testCaseSteps ("Cross DAML-LF version with stdlib orphan instances: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Cross Daml-LF version with stdlib orphan instances: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -205,7 +205,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
-    [ testCaseSteps ("Cross DAML-LF version with custom orphan instance: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Cross Daml-LF version with custom orphan instance: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
           let projc = tmpDir </> "projc"
@@ -367,7 +367,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
     , simpleImportTest "Tuples"
               [ "module Lib where"
               , "data X = X (Text, Int)"
-              -- ^ Check that tuples are mapped back to DAML tuples.
+              -- ^ Check that tuples are mapped back to Daml tuples.
               ]
               [ "module Main where"
               , "import Lib"
@@ -641,7 +641,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "--generated-src" ]
     | withArchiveChoice <- [False, True]
     ] <>
-    [ testCaseSteps ("Typeclasses and instances from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Typeclasses and instances from Daml-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 

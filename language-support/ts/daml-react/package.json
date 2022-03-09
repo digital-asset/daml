@@ -2,7 +2,7 @@
   "private": false,
   "name": "@daml/react",
   "version": "0.0.0-SDKVERSION",
-  "description": "React framework to interact with a DAML ledger",
+  "description": "React framework to interact with a Daml ledger",
   "homepage": "https://daml.com",
   "repository": {
     "type": "git",

@@ -60,10 +60,10 @@ template FlexiblePayout
   where
     signatory giver
 
-    controller giver can
-      FlexiblePayout_Call with receiver: Party; amount : Decimal
-        returning ContractId Payout
-        to create Payout with giver; receiver; amount
+    choice FlexiblePayout_Call : ContractId Payout
+      with receiver: Party; amount : Decimal
+      controller giver
+      do create Payout with giver; receiver; amount
 -}
 
 -- Better - TransferablePayout

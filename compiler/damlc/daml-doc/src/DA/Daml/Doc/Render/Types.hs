@@ -13,7 +13,7 @@ data RenderFormat = Rst | Markdown | Html
     deriving (Eq, Show, Read, Enum, Bounded)
 
 -- | Control whether to render docs as a single file, or as
--- an interlinked folder of many files, one per DAML module.
+-- an interlinked folder of many files, one per Daml module.
 data RenderMode
     = RenderToFile FilePath -- ^ render to single file
     | RenderToFolder FilePath -- ^ render to folder, one file per module

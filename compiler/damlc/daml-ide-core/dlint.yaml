@@ -302,7 +302,7 @@
     - warn: {lhs: bimap f1 g (first f2 x), rhs: bimap (f1 . f2) g x}
     - warn: {lhs: bimap f g1 (second g2 x), rhs: bimap f (g1 . g2) x}
     # We disable those rules since nobody should have to understand bifunctors
-    # to use DAML.
+    # to use Daml.
     # - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g}
     # - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f}
     # - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f}
@@ -659,7 +659,7 @@
     - hint: {lhs: "not (x && y)", rhs: "not x || not y", name: Apply De Morgan law}
 
 # --
-# DAML specific
+# Daml specific
 
 # Not popular or useful
 - ignore: {name: Use camelCase}
@@ -667,16 +667,16 @@
 # -Wunused-matches. Also, it's generally considered by Neil to be
 # dodgy.
 - ignore: {name: Reduce duplication}
-# Not relevant to DAML
+# Not relevant to Daml
 - ignore: {name: Use newtype instead of data}
 # Don't warn on redundant parens or $
 - ignore: {name: Redundant bracket}
 - ignore: {name: Redundant $}
-# Don't warn on redundant do (DAML choice syntax *mandates* 'do'!)
+# Don't warn on redundant do (Daml choice syntax *mandates* 'do'!)
 - ignore: {name: Redundant do}
 # ApplicativeDo syntax mandates 'pure's which seem redundant
 - ignore: {name: Redundant pure}
-# Not helpful for beginner DAML programmers
+# Not helpful for beginner Daml programmers
 - ignore: {name: Eta reduce}
 - ignore: {name: Avoid lambda}
 # Disabled to avoid introducing even more syntax.

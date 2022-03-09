@@ -37,7 +37,7 @@ steps:
       title="$2"
       git branch -D $branch || true
       git checkout -b $branch
-      git -c user.name="Azure Pipelines DAML Build" \
+      git -c user.name="Azure Pipelines Daml Build" \
           -c user.email="support@digitalasset.com" \
           commit \
           -m "$(printf "$title\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"

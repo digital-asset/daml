@@ -255,7 +255,7 @@ interface VariantTypeInputProps {
 
 /**
  * A string representation of an unset variant type.
- * This must not be a valid DAML variant name to avoid name clashes.
+ * This must not be a valid Daml variant name to avoid name clashes.
  */
 const variantTypeNone = "";
 

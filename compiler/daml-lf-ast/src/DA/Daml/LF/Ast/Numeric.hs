@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | DAML-LF Numeric literals, with scale attached.
+-- | Daml-LF Numeric literals, with scale attached.
 module DA.Daml.LF.Ast.Numeric
     ( Numeric (..)
     , NumericError (..)

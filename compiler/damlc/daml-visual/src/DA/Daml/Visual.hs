@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
--- | Main entry-point of the DAML compiler
+-- | Main entry-point of the Daml compiler
 module DA.Daml.Visual
   ( execVisual
   , tplNameUnqual
@@ -360,7 +360,7 @@ dotFileGen world = constructDotGraph $ graphFromWorld world
 webPageTemplate :: T.Text
 webPageTemplate =
     T.unlines [ "<html>"
-    , "<head><title>DAML Visualization</title><meta charset=\"utf-8\"></head>"
+    , "<head><title>Daml Visualization</title><meta charset=\"utf-8\"></head>"
     , "<body>"
     , "<div id='viz'></div>"
     , "<script>"

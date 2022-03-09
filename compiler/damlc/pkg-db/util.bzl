@@ -1,19 +1,19 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# A DAML package database contains a subdirectory for each DAML-LF
+# A Daml package database contains a subdirectory for each Daml-LF
 # version.  Each subdirectory contains a regular GHC package database
 # and the DALF files. Note
 # that the GHC package database also needs to be able to depend on the
-# DAML-LF version since we want to make things in DAML conditional on
+# Daml-LF version since we want to make things in Daml conditional on
 # the target version.
 
 # We have the following rules:
 #
 # daml-package:
 #   Inputs:
-#   - A DAML source directory
-#   - The root DAML file
+#   - A Daml source directory
+#   - The root Daml file
 #   - The target LF version
 #   - A package database in the format described above.
 #   Outputs:
@@ -45,7 +45,7 @@ depends: {depends}
 
 DamlPackage = provider(fields = ["daml_lf_version", "pkg_name", "pkg_name_version", "pkg_conf", "iface_dir", "dalf", "modules"])
 
-# Compile a DAML file and create the GHC package database
+# Compile a Daml file and create the GHC package database
 # for it.
 def _daml_package_rule_impl(ctx):
     name = ctx.attr.name

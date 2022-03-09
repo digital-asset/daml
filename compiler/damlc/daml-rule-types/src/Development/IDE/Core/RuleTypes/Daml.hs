@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | This module extends the general Haskell rule types in
--- `Development.IDE.Core.RuleTypes` with DAML specific rule types
+-- `Development.IDE.Core.RuleTypes` with Daml specific rule types
 -- such as those for producing Daml-LF.
 module Development.IDE.Core.RuleTypes.Daml(
     module Development.IDE.Core.RuleTypes,

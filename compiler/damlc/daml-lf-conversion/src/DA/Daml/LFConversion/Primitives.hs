@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
 
 
--- | The DAML-LF primitives, matched with their type, and using 'primitive' on the libraries side.
+-- | The Daml-LF primitives, matched with their type, and using 'primitive' on the libraries side.
 module DA.Daml.LFConversion.Primitives(convertPrim) where
 
 import           DA.Daml.LF.Ast
@@ -413,7 +413,7 @@ convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
--- | Some builtins are only supported in specific versions of DAML-LF.
+-- | Some builtins are only supported in specific versions of Daml-LF.
 whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
 whenRuntimeSupports version feature t e
     | version `supports` feature = e
@@ -423,4 +423,4 @@ runtimeUnsupported :: Feature -> Type -> Expr
 runtimeUnsupported (Feature name version _) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
-  (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))
+  (EBuiltin (BEText (name <> " only supported when compiling to Daml-LF " <> T.pack (renderVersion version) <> " or later")))

@@ -41,7 +41,7 @@ LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
 
 def daml_haskell_deps():
-    """Load all Haskell dependencies of the DAML repository."""
+    """Load all Haskell dependencies of the Daml repository."""
 
     #
     # Vendored Packages
@@ -68,7 +68,7 @@ haskell_cabal_library(
         urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
     )
 
-    # ghc-lib based ghcide - injected into `@stackage` and used for DAML IDE.
+    # ghc-lib based ghcide - injected into `@stackage` and used for Daml IDE.
     http_archive(
         name = "ghcide_ghc_lib",
         build_file_content = """
