@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test", "da_scala_benchmark_jmh")
+load("//bazel_tools:scala.bzl", "da_scala_benchmark_jmh", "da_scala_library", "da_scala_test")
 load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
@@ -13,7 +13,7 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/scala-utils",
-    ]
+    ],
 )
 
 da_scala_test(
