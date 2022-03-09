@@ -32,6 +32,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/safe-proto",
+        "//libs-scala/crypto",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

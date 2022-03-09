@@ -13,6 +13,7 @@ import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
@@ -71,9 +72,7 @@ object AbstractHttpServiceIntegrationTestFuns {
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
-    import java.security.MessageDigest
-
-    val md = MessageDigest.getInstance("SHA-256")
+    val md = MessageDigestPrototype.SHA_256.newDigest
     val is = source.runWith(StreamConverters.asInputStream())
     val dis = new DigestInputStream(is, md)
 

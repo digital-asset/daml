@@ -28,6 +28,7 @@ da_scala_library(
     deps = [
         "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
+        "//libs-scala/crypto",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",
