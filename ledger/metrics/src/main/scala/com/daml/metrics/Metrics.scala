@@ -4,14 +4,32 @@
 package com.daml.metrics
 
 import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
+import scala.jdk.CollectionConverters._
+
+final case class MetricContext(applicationId: String)
 
 final class Metrics(val registry: MetricRegistry) {
 
   private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
     registerGauge(name, gaugeSupplier, registry)
+
+  private def nameWithLabel(metricName: MetricName, context: MetricContext): MetricName =
+    metricName :+ context.applicationId
+
+  private def timer(name: MetricName)(implicit context: MetricContext): Timer = {
+    val fullName: MetricName = nameWithLabel(name, context)
+    registry
+      .getTimers()
+      .asScala
+      .get(fullName) match {
+      case Some(timer) =>
+        timer
+      case None =>
+        registry.timer(fullName)
+    }
+  }
 
   object test {
     private val Prefix: MetricName = MetricName("test")
@@ -25,7 +43,9 @@ final class Metrics(val registry: MetricRegistry) {
     object commands {
       private val Prefix: MetricName = daml.Prefix :+ "commands"
 
-      val validation: Timer = registry.timer(Prefix :+ "validation")
+//      val validation: Timer = registry.timer(Prefix :+ "validation")
+      def validation(implicit context: MetricContext): Timer = timer(Prefix :+ "validation")
+
       val submissions: Timer = registry.timer(Prefix :+ "submissions")
       val submissionsRunning: Meter = registry.meter(Prefix :+ "submissions_running")
 
