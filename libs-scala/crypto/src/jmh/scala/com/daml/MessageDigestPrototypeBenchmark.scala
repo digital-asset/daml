@@ -6,7 +6,6 @@ package com.daml.crypto
 import org.openjdk.jmh.annotations._
 
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import scala.util.Random
 
 @State(Scope.Benchmark)
