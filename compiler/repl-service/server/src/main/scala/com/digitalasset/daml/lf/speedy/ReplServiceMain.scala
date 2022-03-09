@@ -8,10 +8,11 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.assertRight
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.daml.lf.language.{Ast, LanguageVersion, PackageInterface, Util => AstUtil}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -220,18 +221,20 @@ class ReplService(
 
   import ReplService._
 
-  override def loadPackage(
-      req: LoadPackageRequest,
-      respObs: StreamObserver[LoadPackageResponse],
+  override def loadPackages(
+      req: LoadPackagesRequest,
+      respObs: StreamObserver[LoadPackagesResponse],
   ): Unit = {
-    val (pkgId, pkg) = archive.ArchiveDecoder.assertFromByteString(req.getPackage)
-    val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
+    val pkgMap =
+      req.getPackagesList.asScala.view.map(archive.ArchiveDecoder.assertFromByteString).toMap
+    val newSignatures = signatures ++ AstUtil.toSignatures(pkgMap)
     val newCompiledDefinitions = compiledDefinitions ++
-      new Compiler(new language.PackageInterface(newSignatures), compilerConfig)
-        .unsafeCompilePackage(pkgId, pkg)
+      assertRight(
+        Compiler.compilePackages(new PackageInterface(newSignatures), pkgMap, compilerConfig)
+      )
     signatures = newSignatures
     compiledDefinitions = newCompiledDefinitions
-    respObs.onNext(LoadPackageResponse.newBuilder.build)
+    respObs.onNext(LoadPackagesResponse.newBuilder.build)
     respObs.onCompleted()
   }
 
