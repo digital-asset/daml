@@ -13,6 +13,7 @@ import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.dbbackend.JdbcConfig
@@ -67,10 +68,9 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
-    import java.security.MessageDigest
     import javax.xml.bind.DatatypeConverter
 
-    val md = MessageDigest.getInstance("SHA-256")
+    val md = MessageDigestPrototype.SHA_256.newDigest
     val is = source.runWith(StreamConverters.asInputStream())
     val dis = new DigestInputStream(is, md)
 

@@ -316,6 +316,7 @@ alias(
             "//ledger/ledger-api-common",
             "//ledger/test-common:dar-files-default-lib",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/crypto",
             "//libs-scala/db-utils",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/ports",
