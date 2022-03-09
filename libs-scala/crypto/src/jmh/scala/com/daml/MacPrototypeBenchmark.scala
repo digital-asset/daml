@@ -5,11 +5,12 @@ package com.daml.crypto
 import org.openjdk.jmh.annotations._
 
 import java.nio.charset.StandardCharsets
+import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.util.Random
 
 @State(Scope.Benchmark)
-@Warmup(iterations = 3, time = 1)
+@Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 5)
 class MacPrototypeBenchmark {
 

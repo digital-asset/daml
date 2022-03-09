@@ -27,7 +27,7 @@ da_scala_test(
 
 da_scala_benchmark_jmh(
     name = "crypto-perf",
-    srcs = glob(["src/jmh/scala/**/MacPrototypeBenchmark.scala"]),
+    srcs = glob(["src/jmh/scala/**/*.scala"]),
     visibility = ["//visibility:public"],
     deps = [
         ":crypto",

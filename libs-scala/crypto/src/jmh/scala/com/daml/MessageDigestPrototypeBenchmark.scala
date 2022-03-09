@@ -6,10 +6,11 @@ package com.daml.crypto
 import org.openjdk.jmh.annotations._
 
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import scala.util.Random
 
 @State(Scope.Benchmark)
-@Warmup(iterations = 3, time = 1)
+@Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 5)
 class MessageDigestPrototypeBenchmark {
 
@@ -36,6 +37,12 @@ class MessageDigestPrototypeBenchmark {
   @Benchmark
   @Threads(16)
   def newDigest16(): Array[Byte] = {
+    MessageDigestPrototype.SHA_256.newDigest.digest(value.getBytes(charset))
+  }
+
+  @Benchmark
+  @Threads(32)
+  def newDigest32(): Array[Byte] = {
     MessageDigestPrototype.SHA_256.newDigest.digest(value.getBytes(charset))
   }
 }
