@@ -28,7 +28,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.kv.transactions.RawTransaction
-import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -277,12 +277,14 @@ object KeyValueConsumption {
       } else {
         None -> List.empty
       }
+    val completionInfo = if (txEntry.hasSubmitterInfo) {
+      Some(parseCompletionInfo(recordTime, txEntry.getSubmitterInfo, Some(TransactionNodeStatistics(transaction))))
+    } else {
+      None
+    }
 
     Update.TransactionAccepted(
-      optCompletionInfo =
-        if (txEntry.hasSubmitterInfo)
-          Some(parseCompletionInfo(recordTime, txEntry.getSubmitterInfo))
-        else None,
+      optCompletionInfo = completionInfo,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = Some(txEntry.getWorkflowId)

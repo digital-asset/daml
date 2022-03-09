@@ -222,6 +222,7 @@ object Conversions {
   def parseCompletionInfo(
       recordTime: Timestamp,
       subInfo: DamlSubmitterInfo,
+      transactionNodeStatistics: Option[TransactionNodeStatistics] = None,
   ): CompletionInfo = {
     val deduplicationPeriod = subInfo.getDeduplicationPeriodCase match {
       case DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
@@ -256,7 +257,7 @@ object Conversions {
         .map(
           Ref.SubmissionId.assertFromString
         ),
-      statistics = None, // TODO Ledger Metering
+      statistics = transactionNodeStatistics,
     )
   }
 
