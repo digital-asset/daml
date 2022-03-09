@@ -10,7 +10,6 @@ import com.daml.lf.archive.ArchivePayload
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
-import scalaz.syntax.std.option._
 import scalaz.std.map._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
@@ -126,44 +125,42 @@ object InterfaceReader {
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
   private[reader] def foldModule(module: Ast.Module): State = {
-    val (errors, elements) = (module.definitions: Iterable[(Ref.DottedName, Ast.Definition)])
+    if (module.name == Ref.ModuleName.assertFromString("InterfaceTestPackage"))
+      println(module)
+    val (derrors, dataTypes) = (module.definitions: Iterable[(Ref.DottedName, Ast.Definition)])
       .collect { case (name, Ast.DDataType(true, params, dataType)) =>
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: InterfaceReaderError \/ Either[
-          (QualifiedName, DefInterface.FWT),
-          (QualifiedName, iface.InterfaceType),
-        ] =
+        val result: InterfaceReaderError \/ Option[(QualifiedName, iface.InterfaceType)] =
           dataType match {
             case dfn: Ast.DataRecord =>
               val it = module.templates.get(name) match {
                 case Some(tmpl) => template(fullName, dfn, tmpl)
                 case None => record(fullName, tyVars, dfn)
               }
-              it.map(Right(_))
+              it map some
             case dfn: Ast.DataVariant =>
-              variant(fullName, tyVars, dfn).map(Right(_))
+              variant(fullName, tyVars, dfn) map some
             case dfn: Ast.DataEnum =>
-              enumeration(fullName, tyVars, dfn).map(Right(_))
+              enumeration(fullName, tyVars, dfn) map some
             case Ast.DataInterface =>
-              module.interfaces
-                .get(name)
-                .toRightDisjunction(
-                  InvalidDataTypeDefinition(
-                    s"missing interface definition: $fullName"
-                  ): InterfaceReaderError
-                )
-                .flatMap(astInterface(fullName, _))
-                .map(Left(_))
+              // ^ never actually used, as far as I can tell -SC
+              \/-(none)
           }
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
       }
       .partitionMap(identity)
-    val (astIfs, ddts) = elements partitionMap identity
+    val ddts = dataTypes.view.collect { case Some(x) => x }.toMap
+
+    val (ierrors, astIfs) = module.interfaces.partitionMap { case (name, interface) =>
+      val fullName = QualifiedName(module.name, name)
+      val result = astInterface(fullName, interface)
+      locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
+    }
 
     import scalaz.std.iterable._
-    State(typeDecls = ddts.toMap, astInterfaces = astIfs.toMap, errors = errors.suml)
+    State(typeDecls = ddts, astInterfaces = astIfs.toMap, errors = (derrors ++ ierrors).suml)
   }
 
   private[reader] def record[T >: iface.InterfaceType.Normal](
@@ -237,7 +234,7 @@ object InterfaceReader {
   private[this] def astInterface(
       name: QualifiedName,
       astIf: Ast.DefInterface,
-  ) = for {
+  ): InterfaceReaderError \/ (QualifiedName, DefInterface.FWT) = for {
     choices <- astIf.fixedChoices.traverse(visitChoice(name, _))
   } yield name -> iface.DefInterface(choices)
 
