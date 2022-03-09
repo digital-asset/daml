@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=44:1-44:8; Scenario execution failed on commit at RightOfUse:56:5:
+-- @ERROR range=44:1-44:8; Script execution failed on commit at RightOfUse:56:5:
 
 
 module RightOfUse where
