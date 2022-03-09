@@ -61,11 +61,11 @@ seconds : Int -> RelTime
 seconds x = convertMicrosecondsToRelTime (1000000 * x)
 
 -- | A number of milliseconds in relative time.
-milliseconds: Int -> RealTime
+milliseconds: Int -> RelTime
 milliseconds x = convertMicrosecondsToRelTime (1000 * x)
 
 -- | A number of microseconds in relative time.
-microseconds: Int -> RealTime
+microseconds: Int -> RelTime
 microseconds x = convertMicrosecondsToRelTime x
 
 -- | Convert RelTime to microseconds
