@@ -106,7 +106,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
 
-    /** Alias for `toNEF`. */
+    @deprecated("use toNEF instead", since = "2.0.1")
     def toF: NonEmptyF[F, A] = nfa.toNEF
 
     /** See [[NonEmptyF]] for further explanation. */

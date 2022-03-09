@@ -38,7 +38,7 @@ class JwtPartiesTest
 
     "allow any subset" in forAll { jp: JwtPayload =>
       val NonEmpty(half) = jp.parties take (1 max (jp.parties.size / 2))
-      ensureReadAsAllowedByJwt(Some(half.toF.toNel), jp) should ===(\/-(()))
+      ensureReadAsAllowedByJwt(Some(half.toNEF.toNel), jp) should ===(\/-(()))
     }
 
     "disallow any party not in jwt" in forAll { (p: domain.Party, jp: JwtPayload) =>
