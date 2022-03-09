@@ -32,6 +32,20 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
       val sw = NonEmpty.mk(imm.Set, Elephant, Rhino): NonEmpty[imm.Set[Animal]]
       (s: imm.Set[Animal with Ok]) should ===(sw: imm.Set[Animal])
     }
+
+    "impose enough expected type to cause implicit conversions of elements" in {
+      object Foo
+      object Bar
+      import language.implicitConversions
+      @annotation.nowarn("cat=unused&msg=foo")
+      implicit def foobar(foo: Foo.type): Bar.type = Bar
+      illTyped(
+        "NonEmpty(List, Foo, Foo): NonEmpty[List[Bar.type]]",
+        "No implicit view available from .*List.type => .*Factory\\[Foo.type,.*Iterable\\[Foo.type] with List\\[Bar.type]].",
+      )
+      val bars: NonEmpty[List[Bar.type]] = NonEmpty.mk(List, Foo, Foo)
+      (bars: List[Bar.type]).head should ===(Bar)
+    }
   }
 
   "unapply" should {

@@ -54,6 +54,18 @@ sealed abstract class NonEmptyColl {
     unsafeNarrow(bb.result())
   }
 
+  /** Like `apply`, but because `A` occurs directly in the result type, if the
+    * call to `mk` has an expected `A` type, `hd` and `tl` will have that
+    * expected type as well.  Particularly useful for `Set`s, as expected type
+    * can widen the element type of the produced set, and `_` as an argument,
+    * because the lambda argument type can be inferred from the expected result
+    * type.
+    *
+    * However, strictly speaking, it is less general than `apply`; for example,
+    * it doesn't work on `Map`s at all.  So it should only be used when you
+    * need its particular type inference behavior.  See `"mk" should` tests
+    * in `NonEmptySpec.scala` for examples where `mk` works but `apply` doesn't.
+    */
   final def mk[Fct, A, C[X] <: imm.Iterable[X]](into: Fct, hd: A, tl: A*)(implicit
       fct: Fct => Factory[A, C[A]]
   ): NonEmpty[C[A]] =
