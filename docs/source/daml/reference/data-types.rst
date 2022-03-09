@@ -53,15 +53,16 @@ Table of built-in primitive types
    * - ``Date``
      - models dates
      - ``date 2007 Apr 5``
-     - To create a value of type ``Date``, use the function ``date`` (to get this function, import ``DA.Date``).
+     - Permissible dates range from ``0001-01-01`` to ``9999-12-31`` (using a year-month-day format). To create a value of type ``Date``, use the function ``date`` (to get this function, import ``DA.Date``).
    * - ``Time``
      - models absolute time (UTC)
      - ``time (date 2007 Apr 5) 14 30 05``
-     - ``Time`` values have microsecond precision. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``).
+     - ``Time`` values have microsecond precision with allowed range from ``0001-01-01`` to ``9999-12-31`` and using a year-month-day format. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``).
    * - ``RelTime``
      - models differences between time values
      - ``seconds 1``, ``seconds (-2)``
-     - ``seconds 1`` and ``seconds (-2)`` represent the values for 1 and -2 seconds. There are no literals for ``RelTime``. Instead they are created using one of ``days``, ``hours``, ``minutes`` and ``seconds`` (to get these functions, import ``DA.Time``).
+     - ``RelTime`` values have microsecond precision with allowed range from `-9,223,372,036,854,775,809ms` to `9,223,372,036,854,775,807ms`
+       There are no literals for ``RelTime``. Instead they are created using one of ``days``, ``hours``, ``minutes``, ``seconds``, ``miliseconds`` and ``microseconds``  (to get these functions, import ``DA.Time``).
 
 Escaping characters
 ===================

@@ -13,6 +13,8 @@ module DA.Time
   , hours
   , minutes
   , seconds
+  , milliseconds,
+  , microseconds,
   , time
   , convertRelTimeToMicroseconds
   , convertMicrosecondsToRelTime
@@ -57,6 +59,14 @@ minutes x = seconds (60 * x)
 -- A number of seconds in relative time.
 seconds : Int -> RelTime
 seconds x = convertMicrosecondsToRelTime (1000000 * x)
+
+-- A number of milliseconds in relative time.
+milliseconds: Int -> RealTime
+milliseconds x = convertMicrosecondsToRelTime (1000 * x)
+
+-- A number of microseconds in relative time.
+microseconds: Int -> RealTime
+microseconds x = convertMicrosecondsToRelTime x
 
 -- | Convert RelTime to microseconds
 -- Use higher level functions instead of the internal microseconds
