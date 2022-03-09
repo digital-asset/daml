@@ -4,7 +4,7 @@
 package com.daml.crypto
 import org.openjdk.jmh.annotations._
 
-import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import javax.crypto.spec.SecretKeySpec
 import scala.util.Random
 
@@ -15,7 +15,7 @@ class MacPrototypeBenchmark {
 
   var key = ""
   var value = ""
-  val charset = Charset.forName("UTF-8")
+  val charset = StandardCharsets.UTF_8
 
   @Setup
   def setup(): Unit = {

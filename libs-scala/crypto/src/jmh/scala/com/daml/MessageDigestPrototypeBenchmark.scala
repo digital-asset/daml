@@ -5,7 +5,7 @@ package com.daml.crypto
 
 import org.openjdk.jmh.annotations._
 
-import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import scala.util.Random
 
 @State(Scope.Benchmark)
@@ -14,7 +14,7 @@ import scala.util.Random
 class MessageDigestPrototypeBenchmark {
 
   var value = ""
-  val charset = Charset.forName("UTF-8")
+  val charset = StandardCharsets.UTF_8
 
   @Setup
   def setup(): Unit = {

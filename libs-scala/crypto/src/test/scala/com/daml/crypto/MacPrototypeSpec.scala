@@ -6,7 +6,7 @@ package com.daml.crypto
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 import javax.crypto.spec.SecretKeySpec
 
@@ -28,12 +28,11 @@ class MacPrototypeSpec extends AnyFlatSpec with Matchers {
     val key = "Hello"
     val prototype = MacPrototype.HmacSHA_256
     val mac = prototype.newMac
-    val charset = Charset.forName("UTF-8")
-    mac.init(new SecretKeySpec(key.getBytes(charset), prototype.algorithm))
-    val sha = mac.doFinal("Hello World".getBytes(charset))
+    mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), prototype.algorithm))
+    val sha = mac.doFinal("Hello World".getBytes(StandardCharsets.UTF_8))
     new String(
       Base64.getEncoder.encode(sha),
-      charset,
+      StandardCharsets.UTF_8,
     ) shouldBe "Y0PTLXgtpY9zSmzT6w2U48JcDGx7G7pRyHTRCIE/Pm0="
   }
 }

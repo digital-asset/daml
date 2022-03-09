@@ -6,7 +6,7 @@ package com.daml.crypto
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 class MessageDigestPrototypeSpec extends AnyFlatSpec with Matchers {
@@ -25,11 +25,10 @@ class MessageDigestPrototypeSpec extends AnyFlatSpec with Matchers {
 
   it should "work for SHA-256" in {
     val digest = MessageDigestPrototype.SHA_256.newDigest
-    val charset = Charset.forName("UTF-8")
-    val sha = digest.digest("Hello World".getBytes(charset))
+    val sha = digest.digest("Hello World".getBytes(StandardCharsets.UTF_8))
     new String(
       Base64.getEncoder.encode(sha),
-      charset,
+      StandardCharsets.UTF_8,
     ) shouldBe "pZGm1Av0IEBKARczz7exkNYsZb8LzaMrV7J32a2fFG4="
   }
 }
