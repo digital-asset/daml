@@ -175,6 +175,7 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
 
 final case class DefTemplate[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
+    inheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
     key: Option[Ty],
 ) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)

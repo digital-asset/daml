@@ -205,10 +205,19 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       itp shouldBe itp
     }
 
+    import QualifiedName.{assertFromString => qn}
+
+    "include interface choices with template choices" in {
+      inside(itp.main.typeDecls.get(qn("InterfaceTestPackage:Foo"))) {
+        case Some(InterfaceType.Template(_, tpl)) =>
+          tpl.choices.keySet should ===(Set("Bar", "Useless"))
+      }
+    }
+
     "have an interface with a choice" in {
       itp.main.astInterfaces should ===(
         Map[QualifiedName, DefInterface.FWT](
-          QualifiedName.assertFromString("InterfaceTestPackage:TIf") ->
+          qn("InterfaceTestPackage:TIf") ->
             DefInterface(
               Map(Ref.ChoiceName.assertFromString("Useless") -> TemplateChoice(null, true, null))
             )

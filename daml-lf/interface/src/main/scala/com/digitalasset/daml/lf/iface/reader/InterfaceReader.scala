@@ -11,7 +11,6 @@ import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
-import scalaz.std.list._
 import scalaz.std.map._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
@@ -183,13 +182,11 @@ object InterfaceReader {
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-      choices <- dfn.choices.toList traverse { case (choiceName, choice) =>
-        visitChoice(name, choice) map (x => choiceName -> x)
-      }
+      choices <- dfn.choices traverse (visitChoice(name, _))
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
     } yield name -> (iface.InterfaceType.Template(
       Record(fields),
-      DefTemplate(choices.toMap, key),
+      DefTemplate(choices, dfn.inheritedChoices, key),
     ): T)
 
   private def visitChoice(
