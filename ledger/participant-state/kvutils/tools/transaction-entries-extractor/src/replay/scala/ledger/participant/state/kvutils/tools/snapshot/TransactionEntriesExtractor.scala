@@ -60,11 +60,10 @@ object TransactionEntriesExtractor extends App {
   private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-
   private[this] def decodeEnvelope(
-                                    participantId: Ref.ParticipantId,
-                                    envelope: Raw.Envelope,
-                                  ): LazyList[Snapshot.SubmissionEntry] =
+      participantId: Ref.ParticipantId,
+      envelope: Raw.Envelope,
+  ): LazyList[Snapshot.SubmissionEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
         decodeSubmission(participantId, submission)
