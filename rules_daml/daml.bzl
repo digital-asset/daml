@@ -383,13 +383,14 @@ EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
-$$DAMLC test --files {files}
+$$DAMLC test {damlc_opts} --files {files}
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
+            damlc_opts = " ".join(default_damlc_opts),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),

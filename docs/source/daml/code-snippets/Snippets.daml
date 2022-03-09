@@ -6,7 +6,6 @@ module Snippets where
 
 import Daml.Script
 import DA.Time
-import DA.Date
 
 -- The DoubleUp example.
 -- BEGIN_LET_EXPRESSION
