@@ -18,7 +18,28 @@ import java.nio.file.{Files, Path, Paths}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-object TransactionEntriesExtractor extends App {
+object SubmissionEntriesExtractor extends App {
+
+  private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
+    decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
+
+  private[this] def decodeEnvelope(
+      participantId: Ref.ParticipantId,
+      envelope: Raw.Envelope,
+  ): LazyList[Snapshot.SubmissionEntry] =
+    assertRight(Envelope.open(envelope)) match {
+      case Envelope.SubmissionMessage(submission) =>
+        decodeSubmission(participantId, submission)
+      case Envelope.SubmissionBatchMessage(batch) =>
+        batch.getSubmissionsList.asScala
+          .to(LazyList)
+          .map(_.getSubmission)
+          .flatMap(submissionEnvelope =>
+            decodeEnvelope(participantId, Raw.Envelope(submissionEnvelope))
+          )
+      case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
+        LazyList.empty
+    }
 
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
@@ -57,27 +78,6 @@ object TransactionEntriesExtractor extends App {
     }
   }
 
-  private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
-    decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
-
-  private[this] def decodeEnvelope(
-      participantId: Ref.ParticipantId,
-      envelope: Raw.Envelope,
-  ): LazyList[Snapshot.SubmissionEntry] =
-    assertRight(Envelope.open(envelope)) match {
-      case Envelope.SubmissionMessage(submission) =>
-        decodeSubmission(participantId, submission)
-      case Envelope.SubmissionBatchMessage(batch) =>
-        batch.getSubmissionsList.asScala
-          .to(LazyList)
-          .map(_.getSubmission)
-          .flatMap(submissionEnvelope =>
-            decodeEnvelope(participantId, Raw.Envelope(submissionEnvelope))
-          )
-      case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
-        LazyList.empty
-    }
-
   case class Config(
       input: Option[Path] = None,
       output: Option[Path] = None,
@@ -89,13 +89,14 @@ object TransactionEntriesExtractor extends App {
   val parser = {
     import builder._
     OParser.sequence(
-      programName("transaction-entries-extractor"),
+      programName("submission-entries-extractor"),
       head("extractor", "1.0"),
       arg[String]("input")
-        .action((x, c) => c.copy(input = Some(Paths.get(x)))),
-      opt[String]('o', "output")
+        .action((x, c) => c.copy(input = Some(Paths.get(x))))
+        .text("path of the ledger export"),
+      opt[String]('o', "output ")
         .action((x, c) => c.copy(output = Some(Paths.get(x))))
-        .text("set output"),
+        .text("path of the submssion entries file"),
     )
   }
 

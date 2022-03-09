@@ -171,9 +171,9 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "transaction-entries-extractor",
-    srcs = glob(["transaction-entries-extractor/src/**/*.scala"]),
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.snapshot.TransactionEntriesExtractor",
+    name = "submission-entries-extractor",
+    srcs = glob(["submission-entries-extractor/src/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.snapshot.SubmissionEntriesExtractor",
     scala_deps = ["@maven//:com_github_scopt_scopt"],
     deps = [
         "//daml-lf/data",
