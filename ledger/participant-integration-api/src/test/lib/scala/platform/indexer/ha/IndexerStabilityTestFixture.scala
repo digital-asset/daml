@@ -88,9 +88,7 @@ object IndexerStabilityTestFixture {
                     .forCloseable(() =>
                       withEnrichedLoggingContext("name" -> s"ReadService$i") {
                         readServiceLoggingContext =>
-                          EndlessReadService(updatesPerSecond, s"$i")(
-                            readServiceLoggingContext
-                          )
+                          EndlessReadService(updatesPerSecond, s"$i")(readServiceLoggingContext)
                       }
                     )
                     .acquire()

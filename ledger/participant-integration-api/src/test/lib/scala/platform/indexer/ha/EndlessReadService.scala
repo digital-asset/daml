@@ -61,58 +61,59 @@ case class EndlessReadService(
     */
   override def stateUpdates(
       beginAfter: Option[Offset]
-  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = synchronized {
-    logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
-    stateUpdatesCalls += 1
-    val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
-    Source
-      .fromIterator(() => Iterator.from(startIndex))
-      .map {
-        case i @ 1 =>
-          offset(i) -> Update.ConfigurationChanged(
-            recordTime(i),
-            submissionId(i),
-            participantId,
-            configuration,
-          )
-        case i @ 2 =>
-          offset(i) -> Update.PartyAddedToParticipant(
-            party,
-            "Operator",
-            participantId,
-            recordTime(i),
-            Some(submissionId(i)),
-          )
-        case i @ 3 =>
-          offset(i) -> Update.PublicPackageUpload(
-            List(archive),
-            Some("Package"),
-            recordTime(i),
-            Some(submissionId(i)),
-          )
-        case i if i % 2 == 0 =>
-          offset(i) -> Update.TransactionAccepted(
-            optCompletionInfo = Some(completionInfo(i)),
-            transactionMeta = transactionMeta(i),
-            transaction = createTransaction(i),
-            transactionId = transactionId(i),
-            recordTime = recordTime(i),
-            divulgedContracts = List.empty,
-            blindingInfo = None,
-          )
-        case i =>
-          offset(i) -> Update.TransactionAccepted(
-            optCompletionInfo = Some(completionInfo(i)),
-            transactionMeta = transactionMeta(i),
-            transaction = exerciseTransaction(i),
-            transactionId = transactionId(i),
-            recordTime = recordTime(i),
-            divulgedContracts = List.empty,
-            blindingInfo = None,
-          )
-      }
-      .via(killSwitch.flow)
-  }
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
+    synchronized {
+      logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
+      stateUpdatesCalls += 1
+      val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
+      Source
+        .fromIterator(() => Iterator.from(startIndex))
+        .map {
+          case i @ 1 =>
+            offset(i) -> Update.ConfigurationChanged(
+              recordTime(i),
+              submissionId(i),
+              participantId,
+              configuration,
+            )
+          case i @ 2 =>
+            offset(i) -> Update.PartyAddedToParticipant(
+              party,
+              "Operator",
+              participantId,
+              recordTime(i),
+              Some(submissionId(i)),
+            )
+          case i @ 3 =>
+            offset(i) -> Update.PublicPackageUpload(
+              List(archive),
+              Some("Package"),
+              recordTime(i),
+              Some(submissionId(i)),
+            )
+          case i if i % 2 == 0 =>
+            offset(i) -> Update.TransactionAccepted(
+              optCompletionInfo = Some(completionInfo(i)),
+              transactionMeta = transactionMeta(i),
+              transaction = createTransaction(i),
+              transactionId = transactionId(i),
+              recordTime = recordTime(i),
+              divulgedContracts = List.empty,
+              blindingInfo = None,
+            )
+          case i =>
+            offset(i) -> Update.TransactionAccepted(
+              optCompletionInfo = Some(completionInfo(i)),
+              transactionMeta = transactionMeta(i),
+              transaction = exerciseTransaction(i),
+              transactionId = transactionId(i),
+              recordTime = recordTime(i),
+              divulgedContracts = List.empty,
+              blindingInfo = None,
+            )
+        }
+        .via(killSwitch.flow)
+    }
 
   def abort(cause: Throwable): Unit = synchronized {
     logger.info(s"EndlessReadService.abort() called")
