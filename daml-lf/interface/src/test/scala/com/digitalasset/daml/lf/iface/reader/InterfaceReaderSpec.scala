@@ -224,13 +224,21 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "have an interface with a choice" in {
-      itp.main.astInterfaces should ===(
-        Map[QualifiedName, DefInterface.FWT](
-          TIf -> DefInterface(
-            Map(Ref.ChoiceName.assertFromString("Useless") -> TemplateChoice(null, true, null))
-          )
-        )
-      )
+      val Useless = Ref.ChoiceName.assertFromString("Useless")
+      val UselessTy = qn("InterfaceTestPackage:Useless")
+      itp.main.astInterfaces.keySet should ===(Set(TIf))
+      inside(itp.main.astInterfaces(TIf).choices get Useless) {
+        case Some(
+              TemplateChoice(
+                TypeCon(TypeConName(Ref.Identifier(_, UselessTy)), Seq()),
+                true,
+                TypePrim(
+                  PrimType.ContractId,
+                  Seq(TypeCon(TypeConName(Ref.Identifier(_, TIf)), Seq())),
+                ),
+              )
+            ) =>
+      }
     }
   }
 
