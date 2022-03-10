@@ -225,6 +225,8 @@
   type: jar-scala
 - target: //libs-scala/logging-entries:logging-entries
   type: jar-scala
+- target: //libs-scala/nonempty-cats:nonempty-cats
+  type: jar-scala
 - target: //libs-scala/ports:ports
   type: jar-scala
 - target: //libs-scala/resources:resources

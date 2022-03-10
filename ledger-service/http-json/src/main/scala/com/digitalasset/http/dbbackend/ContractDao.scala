@@ -184,7 +184,7 @@ object ContractDao {
     for {
       tpids <- {
         import Queries.CompatImplicits.monadFromCatsMonad
-        templateIds.toVector.toF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
+        templateIds.toVector.toNEF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
       }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, domain.TemplateId.RequiredPkg)]]
       surrogatesToDomains = tpids.toMap
       unsyncedRaw <- unsyncedOffsets(
