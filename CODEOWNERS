@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS   @gerolf-da @cocreature @stefanobaghino-da
-LATEST       @gerolf-da @bame-da @cocreature @ray-roestenburg-da @adriaanm-da
+CODEOWNERS   @gerolf-da @stefanobaghino-da
+LATEST       @gerolf-da @bame-da @ray-roestenburg-da @adriaanm-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -17,23 +17,20 @@ azure-cron.yml      @garyverhaegen-da
 /release.sh         @garyverhaegen-da
 
 # Blackduck
-NOTICES     @garyverhaegen-da @cocreature @dasormeter
+NOTICES     @garyverhaegen-da @dasormeter
 
 # Language
-/compiler/          @cocreature
-/libs-haskell/      @cocreature
-/daml-assistant/    @sofiafaro-da @cocreature
-/daml-script/       @cocreature
-/triggers/          @cocreature
-/ghc-lib/           @cocreature
-/compatibility/     @garyverhaegen-da @cocreature
+/daml-assistant/    @sofiafaro-da
+/daml-script/       @remyhaemmerle-da 
+/triggers/          @remyhaemmerle-da 
+/compatibility/     @garyverhaegen-da
 
 # Runtime
-/daml-lf/ @remyhaemmerle-da @cocreature
-/daml-lf/data-scalacheck/ @S11001001 @remyhaemmerle-da @cocreature
-/daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da @cocreature
-/daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da @cocreature
-/daml-lf/transaction-test-lib/ @S11001001 @remyhaemmerle-da @cocreature
+/daml-lf/ @remyhaemmerle-da
+/daml-lf/data-scalacheck/ @S11001001 @remyhaemmerle-da
+/daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da
+/daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
+/daml-lf/transaction-test-lib/ @S11001001 @remyhaemmerle-da
 
 # KV Participant
 /ledger/      @digital-asset/kv-participant
@@ -69,7 +66,7 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da @cocreature
+/language-support/hs/       @nickchapman-da
 /language-support/java/     @stefanobaghino-da @ray-roestenburg-da
 /language-support/scala/    @S11001001 @stefanobaghino-da @ray-roestenburg-da
 /language-support/ts/       @robin-da @garyverhaegen-da @stefanobaghino-da @ray-roestenburg-da
@@ -82,8 +79,8 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
-/docs/              @cocreature @stefanobaghino-da
-/libs-scala/        @stefanobaghino-da @SamirTalwar-DA
+/docs/              @stefanobaghino-da
+/libs-scala/        @stefanobaghino-da
 /libs-scala/contextualized-logging/    @S11001001
 /libs-scala/scala-utils/    @S11001001
 /libs-scala/scalatest-utils/    @S11001001
