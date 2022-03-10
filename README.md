@@ -1,4 +1,4 @@
-[![Daml logo](daml-logo.png)](https://www.daml.com)
+[![Daml logo](daml-logo.png)](https://www.digitalasset.com/developers)
 
 [![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the Daml repository!
 
-This repository hosts all code for the [Daml smart contract language and SDK](https://daml.com/), originally created by
+This repository hosts all code for the [Daml smart contract language and SDK](https://www.digitalasset.com/developers), originally created by
 [Digital Asset](https://www.digitalasset.com). Daml is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The SDK is a set of tools to help you develop applications based on Daml.
 
 ## Using Daml

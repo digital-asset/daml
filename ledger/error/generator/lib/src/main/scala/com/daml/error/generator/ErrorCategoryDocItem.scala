@@ -3,12 +3,12 @@
 
 package com.daml.error.generator
 
-case class ErrorCategoryAnnotations(
+case class ErrorCategoryDocItem(
     description: Option[String],
     resolution: Option[String],
     retryStrategy: Option[String],
 )
 
-object ErrorCategoryAnnotations {
-  def empty: ErrorCategoryAnnotations = ErrorCategoryAnnotations(None, None, None)
+object ErrorCategoryDocItem {
+  def empty: ErrorCategoryDocItem = ErrorCategoryDocItem(None, None, None)
 }

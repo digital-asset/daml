@@ -7,13 +7,14 @@ module DA.Ledger.Services.MeteringReportService (
     getMeteringReport, 
     MeteringReport(..),
     MeteringRequest(..),
+    MeteringRequestByDay(..),
     MeteredApplication(..),
     isoTimeToTimestamp,
+    timestampToIso8601,
     utcDayToTimestamp,
   ) where
 
-
-import Data.Aeson ( KeyValue((.=)), ToJSON(..), object)
+import Data.Aeson ( KeyValue((.=)), ToJSON(..), FromJSON(..), object, withObject, (.:), (.:?) )
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -29,11 +30,27 @@ import GHC.Word (Word32)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 
+data MeteringRequestByDay = MeteringRequestByDay {
+  from :: Day
+, to :: Maybe Day
+, application :: Maybe ApplicationId
+} deriving (Show, Eq)
+
+instance ToJSON MeteringRequestByDay where
+  toJSON (MeteringRequestByDay from to application) =
+    object (
+    [
+      "from" .= show from
+    ]
+    ++ maybeToList (fmap (("to" .=) . show) to)
+    ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
+    )
+
 data MeteringRequest = MeteringRequest {
-  from  :: Timestamp
+  from :: Timestamp
 , to :: Maybe Timestamp
 , application :: Maybe ApplicationId
-} deriving (Show)
+} deriving (Show, Eq)
 
 instance ToJSON MeteringRequest where
   toJSON (MeteringRequest from to application) =
@@ -45,10 +62,16 @@ instance ToJSON MeteringRequest where
     ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
     )
 
+instance FromJSON MeteringRequest where
+    parseJSON = withObject "MeteringRequest" $ \v -> MeteringRequest
+        <$> fmap isoTimeToTimestamp (v .: "from")
+        <*> fmap (\o -> fmap isoTimeToTimestamp o) (v .:? "to")
+        <*> v .:? "application"
+
 data MeteredApplication = MeteredApplication {
   application :: ApplicationId
 , events :: Int64
-} deriving (Show)
+} deriving (Show, Eq)
 
 instance ToJSON MeteredApplication where
   toJSON (MeteredApplication application events) =
@@ -57,12 +80,17 @@ instance ToJSON MeteredApplication where
     ,   "events" .= events
     ]
 
+instance FromJSON MeteredApplication where
+    parseJSON = withObject "MeteredApplication" $ \v -> MeteredApplication
+        <$> v .: "application"
+        <*> v .: "events"
+
 data MeteringReport = MeteringReport {
   participant :: ParticipantId
 , request  :: MeteringRequest
 , isFinal :: Bool
 , applications :: [MeteredApplication]
-} deriving (Show)
+} deriving (Show, Eq)
 
 instance ToJSON MeteringReport where
   toJSON (MeteringReport participant request isFinal applications) =
@@ -72,6 +100,13 @@ instance ToJSON MeteringReport where
     ,   "final" .= isFinal
     ,   "applications" .= applications
     ]
+
+instance FromJSON MeteringReport where
+    parseJSON = withObject "MeteringReport" $ \v -> MeteringReport
+        <$> v .: "participant"
+        <*> v .: "request"
+        <*> v .: "final"
+        <*> v .: "applications"
 
 timestampToSystemTime :: Timestamp -> System.SystemTime
 timestampToSystemTime ts = st

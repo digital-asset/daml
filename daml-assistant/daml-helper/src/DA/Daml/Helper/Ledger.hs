@@ -74,10 +74,10 @@ import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified SdkVersion
-import DA.Ledger.Types (Timestamp(..), ApplicationId(..))
+import DA.Ledger.Types (ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
-
+import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
 
 data LedgerApi
   = Grpc
@@ -639,18 +639,20 @@ sanitizeToken tok
 runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationId -> Bool -> IO ()
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     args <- getDefaultArgs flags
-    report <- meteringReport args (L.utcDayToTimestamp fromIso) (fmap L.utcDayToTimestamp toIso) application
+    report <- meteringReport args fromIso toIso application
     let encodeFn = if compactOutput then encode else encodePretty  
     let encoded = encodeFn report
     let bsc = BSL.toStrict encoded
     let output = BSC.unpack bsc
     putStrLn output
 
-meteringReport :: LedgerArgs -> Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> IO L.MeteringReport
+meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO L.MeteringReport
 meteringReport args from to application =
   case api args of
-    Grpc -> runWithLedgerArgs args $ do L.getMeteringReport from to application
-    HttpJson -> do
-      hPutStrLn stderr "Error: daml ledger metering can only be run via gRPC at the moment."
-      exitFailure
+    Grpc ->
+      runWithLedgerArgs args $
+        do L.getMeteringReport (L.utcDayToTimestamp from) (fmap L.utcDayToTimestamp to) application
+    HttpJson ->
+      httpJsonRequest args "POST" "/v1/metering-report" $
+        setRequestBodyJSON $ MeteringRequestByDay { from = from, to = to, application = application }
 

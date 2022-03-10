@@ -287,6 +287,7 @@ da_scala_test_suite(
         "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/crypto",
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",

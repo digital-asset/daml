@@ -45,11 +45,11 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
               signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
               observers Cons @Party [Mod:Person {person} this] (Nil @Party);
               agreement "Agreement";
-              choice Sleep (self) (u: Unit) : Unit, 
+              choice Sleep (self) (u: Unit) : Unit,
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Nil @Party
                 to upure @Unit ();
-              choice @nonConsuming Nap (self) (i : Int64): Int64, 
+              choice @nonConsuming Nap (self) (i : Int64): Int64,
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
@@ -120,8 +120,9 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              ubind y: a <- (Mod:aPureUpdate @a x) in upure @a y;
            val aCreate: Mod:Person -> Update (ContractId Mod:Person) = \(person: Mod:Person) ->
              create @Mod:Person person;
+           val identity: forall (a: *). a -> a = /\ (a: *). \(x: a) -> x;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
-             exercise @Mod:Person Sleep cId ();
+             exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
            val aFecthByKey: Party -> Update <contract: Mod:Person, contractId: ContractId Mod:Person> = \(party: Party) ->
              fetch_by_key @Mod:Person party;
            val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->
@@ -145,15 +146,15 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   throw @(Update Unit) @Mod:MyException (Mod:MyException {message = "oops"})
                 catch e -> Some @(Update Unit) (upure @Unit ())
             in upure @Unit ();
-                     
+
            val myAnyException: AnyException =
              to_any_exception @Mod:MyException (Mod:MyException {message = "oops"});
-           
+
            val maybeException: Option Mod:MyException =
              from_any_exception @Mod:MyException Mod:myAnyException;
-             
+
          }
-        
+
       """
 
       validate(pkgId, pkg)

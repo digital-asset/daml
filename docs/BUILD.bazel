@@ -7,6 +7,7 @@ load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 load("@scala_version//:index.bzl", "scala_major_version")
+load("//bazel_tools:scala.bzl", "da_scala_test")
 
 exports_files(
     [
@@ -779,3 +780,19 @@ genrule(
 exports_files([
     "source/daml-script/template-root/src/ScriptExample.daml",
 ])
+
+da_scala_test(
+    name = "generated-error-pages-are-up-to-date",
+    srcs = glob(["src/test/**/*.scala"]),
+    resources = glob(["resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    deps = [
+        "//ledger/error/generator:lib",
+        "@maven//:commons_io_commons_io",
+    ],
+) if not is_windows else None

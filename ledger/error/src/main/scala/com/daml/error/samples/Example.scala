@@ -3,11 +3,11 @@
 
 package com.daml.error.samples
 
+import com.daml.error.definitions.{DamlError}
+
 object DummmyServer {
 
   import com.daml.error.{
-    BaseError,
-    ContextualizedErrorLogger,
     DamlContextualizedErrorLogger,
     ErrorCategory,
     ErrorCategoryRetry,
@@ -24,12 +24,13 @@ object DummmyServer {
         ErrorClass.root()
       ) {
 
-    case class Error(message: String) extends BaseError.Impl(cause = message) {
-      override def loggingContext: ContextualizedErrorLogger = new DamlContextualizedErrorLogger(
-        ContextualizedLogger.get(getClass),
-        LoggingContext.newLoggingContext(identity),
-        Some("full-correlation-id-123456790"),
-      )
+    implicit val errorLogger: DamlContextualizedErrorLogger = new DamlContextualizedErrorLogger(
+      ContextualizedLogger.get(getClass),
+      LoggingContext.newLoggingContext(identity),
+      Some("full-correlation-id-123456790"),
+    )
+
+    case class Error(_message: String) extends DamlError(cause = _message) {
 
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.ContractId -> "someContractId"

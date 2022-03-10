@@ -3,18 +3,10 @@
 
 package com.daml.error.utils.testpackage
 
-import com.daml.error.{
-  BaseError,
-  DeprecatedDocs,
-  ErrorCategory,
-  ErrorClass,
-  ErrorCode,
-  Explanation,
-  Resolution,
-}
+import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode, Explanation, Resolution}
 import com.daml.logging.LoggingContext
 
-@DeprecatedDocs("deprecated.")
+@deprecated(since = "since now", message = "This is deprecated")
 @Resolution("Turn it off and on again.")
 @Explanation("Things happen.")
 case object DeprecatedError

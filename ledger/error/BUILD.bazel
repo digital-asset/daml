@@ -24,6 +24,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/ledger-grpc",
         "//ledger/participant-integration-api:participant-integration-api-proto_scala",
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",

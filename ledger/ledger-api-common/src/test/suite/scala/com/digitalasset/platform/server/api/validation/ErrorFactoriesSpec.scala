@@ -8,7 +8,7 @@ import java.time.Duration
 import java.util.regex.Pattern
 
 import ch.qos.logback.classic.Level
-import com.daml.error.definitions.{IndexErrors, LedgerApiErrors, LoggingTransactionErrorImpl}
+import com.daml.error.definitions.{DamlError, IndexErrors, LedgerApiErrors}
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
@@ -114,7 +114,7 @@ class ErrorFactoriesSpec
             .Generic("some message", Some(t))(
               contextualizedErrorLogger
             )
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )(
           code = Code.INTERNAL,
           message = expectedInternalErrorMessage,
@@ -133,7 +133,7 @@ class ErrorFactoriesSpec
         assertStatus(
           LedgerApiErrors.ParticipantBackpressure
             .Rejection("Some buffer is full")(contextualizedErrorLogger)
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )(
           code = Code.ABORTED,
           message = msg,
@@ -165,7 +165,7 @@ class ErrorFactoriesSpec
             .Reject("Some service")(
               contextualizedErrorLogger
             )
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )(
           code = Code.UNAVAILABLE,
           message = msg,
@@ -200,7 +200,7 @@ class ErrorFactoriesSpec
             )(
               contextualizedErrorLogger
             )
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )(
           code = Code.DEADLINE_EXCEEDED,
           message = msg,
@@ -226,7 +226,7 @@ class ErrorFactoriesSpec
               "Missing status in completion response.",
               throwableO = None,
             )
-            .asGrpcStatusFromContext
+            .asGrpcStatus
         )(
           code = Code.INTERNAL,
           message = expectedInternalErrorMessage,
@@ -746,7 +746,7 @@ class ErrorFactoriesSpec
     )
 
   private def assertError(
-      error: LoggingTransactionErrorImpl
+      error: DamlError
   )(
       code: Code,
       message: String,

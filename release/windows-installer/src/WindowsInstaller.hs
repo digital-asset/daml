@@ -17,7 +17,7 @@ main = do
 
 installer :: FilePath -> FilePath -> Action SectionId
 installer sdkDir logo = do
-    name "Daml Connect SDK"
+    name "Daml SDK"
     outFile "daml-sdk-installer.exe"
     installIcon (fromString logo)
     requestExecutionLevel User
@@ -32,7 +32,7 @@ installer sdkDir logo = do
         -- that nsis will cleanup automatically.
         unsafeInject "InitPluginsDir"
         iff_ (fileExists "$APPDATA/daml") $ do
-            answer <- messageBox [MB_YESNO] "Daml Connect SDK is already installed. Do you want to remove the installed SDKs before installing this one?"
+            answer <- messageBox [MB_YESNO] "Daml SDK is already installed. Do you want to remove the installed SDKs before installing this one?"
             iff (answer %== "YES")
                 (rmdir [Recursive] "$APPDATA/daml")
                 (abort "Existing installation detected.")

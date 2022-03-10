@@ -23,7 +23,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContextOf
 import com.google.protobuf
 import scalaz.std.scalaFuture._
-import scalaz.{-\/, \/, \/-}
+import scalaz.\/
 import spray.json.{JsValue, JsonFormat, RootJsonFormat, deserializationError, DefaultJsonProtocol}
 
 import java.time.{Instant, LocalDate, LocalTime, ZoneOffset}
@@ -168,10 +168,8 @@ private[http] object MeteringReportEndpoint {
       applications,
     )
 
-    report match {
-      case Right(report) => \/-(report)
-      case Left(message) => -\/(ServerError(message))
-    }
+    import scalaz.syntax.std.either._
+    report.disjunction.leftMap(ServerError.fromMsg)
   }
 
 }

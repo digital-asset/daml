@@ -277,7 +277,13 @@ newtype DaysSinceEpoch = DaysSinceEpoch { unDaysSinceEpoch :: Int}
 newtype TemplateId = TemplateId Identifier deriving (Eq,Ord,Show)
 
 newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,Ord,Show)
+instance A.FromJSON ApplicationId where
+  parseJSON v = ApplicationId <$> A.parseJSON v
+
 newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
+instance A.FromJSON ParticipantId where
+  parseJSON v = ParticipantId <$> A.parseJSON v
+
 newtype CommandId = CommandId { unCommandId :: Text } deriving (Eq,Ord,Show)
 newtype ConstructorId = ConstructorId { unConstructorId :: Text } deriving (Eq,Ord,Show)
 newtype ContractId = ContractId { unContractId :: Text } deriving (Eq,Ord,Show)
@@ -306,3 +312,6 @@ newtype IsoTime = IsoTime { unIsoTime :: Clock.UTCTime } deriving Show
 
 instance Read IsoTime where
   readsPrec _ = ReadP.readP_to_S $ fmap IsoTime $ ISO8601.formatReadP ISO8601.iso8601Format
+
+instance A.FromJSON IsoTime where
+  parseJSON v = IsoTime <$> A.parseJSON v
