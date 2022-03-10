@@ -302,6 +302,8 @@ object PackageService {
       )
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
+  // TODO (#12689) each interface must have been resolveChoices'd against the
+  // whole environment for all choices to be listed
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
@@ -309,7 +311,7 @@ object PackageService {
       interface: iface.Interface
   ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
     interface.typeDecls.flatMap {
-      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _))) =>
+      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
         val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
         getChoices(choices).map { case (choice, id) => ((templateId, choice), id) }
       case _ => Seq.empty
@@ -333,7 +335,7 @@ object PackageService {
       case (
             qn,
             iface.InterfaceType
-              .Template(_, iface.DefTemplate(_, Some(keyType))),
+              .Template(_, iface.DefTemplate(_, _, Some(keyType))),
           ) =>
         val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)
