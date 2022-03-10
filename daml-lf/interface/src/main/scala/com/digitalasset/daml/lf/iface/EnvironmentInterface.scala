@@ -16,7 +16,34 @@ final case class EnvironmentInterface(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, InterfaceType],
     astInterfaces: Map[Identifier, DefInterface.FWT],
-)
+) {
+
+  // TODO(SC #13154) should fail instead in case of unresolved inherited choices?
+  /** Replace all resolvable `inheritedChoices in `typeDecls` with concrete
+    * choices copied from `astInterfaces`.  Idempotent.
+    *
+    * This is not distributive because we delay resolution, because successful
+    * lookup can require the presence of another DAR.  In other words,
+    *
+    * {{{
+    *  l.resolveChoices |+| r.resolveChoices
+    *  // is possibly less well-resolved than
+    *  (l |+| r).resolveChoices
+    * }}}
+    *
+    * Therefore there is no reason to bother with `resolveChoices` until you've
+    * accumulated an `EnvironmentInterface` representing the whole environment.
+    */
+  def resolveChoices: EnvironmentInterface =
+    copy(typeDecls = typeDecls.transform { (_, it) =>
+      it match {
+        case itpl: InterfaceType.Template =>
+          val tpl2 = itpl.template resolveChoices astInterfaces
+          itpl.copy(template = tpl2)
+        case z: InterfaceType.Normal => z
+      }
+    })
+}
 
 object EnvironmentInterface {
   def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface = {
