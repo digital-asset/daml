@@ -21,7 +21,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Transaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
@@ -147,12 +147,10 @@ class ConflictCheckWithCommittedSpec
   }
 
   private class TestContext extends FixtureContext {
-    implicit val logger: ContextualizedLogger =
-      ContextualizedLogger.get(getClass)
     implicit val loggingContext: LoggingContext =
       LoggingContext.ForTesting
     implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+      DamlContextualizedErrorLogger.forTesting(getClass)
 
     val indexServiceMock: IndexService = mock[IndexService]
 

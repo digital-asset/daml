@@ -238,7 +238,7 @@ The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates
 
 .. code-block:: none
 
-    Scenario execution failed:
+    Script execution failed:
       Unhandled exception:  DA.Exception.GeneralError:GeneralError with
                               message = "stop"
 
@@ -264,7 +264,7 @@ in the contract, but not authorizing the create:
 
 .. code-block:: none
 
-    Scenario execution failed:
+    Script execution failed:
       #0: create of CreateAuthFailure:Example at unknown source
           failed due to a missing authorization from 'Bob'
 
@@ -299,7 +299,7 @@ choice 'Consume' of which he is not a controller
 
 .. code-block:: none
 
-    Scenario execution failed:
+    Script execution failed:
       #1: exercise of Consume in ExerciseAuthFailure:Example at unknown source
           failed due to a missing authorization from 'Alice'
 
@@ -343,7 +343,7 @@ to exercise the contract the following error would occur:
 
 .. code-block:: none
 
-    Scenario execution failed:
+    Script execution failed:
       Attempt to fetch or exercise a contract not visible to the reading parties.
       Contract:  #0:0 (NotVisibleFailure:Example)
       actAs: 'Bob'

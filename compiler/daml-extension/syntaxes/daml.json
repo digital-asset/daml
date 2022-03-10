@@ -1,7 +1,7 @@
 {
   "comment": "DA Modeling Language",
   "scopeName": "source.daml",
-  "name": "DAML",
+  "name": "Daml",
   "fileTypes": ["daml", "daml-core"],
   "patterns": [
     {

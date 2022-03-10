@@ -22,7 +22,7 @@ dade copyright-headers:     Update copyright headers on our source files.
 
 da-ghci:                    Run GHCi with import paths to our packages.
 da-watch-tests:             Watch source files for changes and run tests.
-da-test-daml-foundations:   Run the test suite for DAML Foundations
+da-test-daml-foundations:   Run the test suite for Daml Foundations
 
 EOF
 

@@ -56,9 +56,9 @@ data DocCtx = DocCtx
     , dc_ids :: MS.Map Fieldname Id
         -- ^ values defined in this module
     , dc_templates :: Set.Set Typename
-        -- ^ DAML templates defined in this module
+        -- ^ Daml templates defined in this module
     , dc_choices :: MS.Map Typename (Set.Set Typename)
-        -- ^ choices per DAML template defined in this module
+        -- ^ choices per Daml template defined in this module
     , dc_extractOptions :: ExtractOptions
         -- ^ command line options that affect the doc extractor
     , dc_exports :: ExportSet

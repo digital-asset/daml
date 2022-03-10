@@ -6,8 +6,11 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.language.PackageInterface
+
+import com.daml.lf.speedy.ClosureConversion.closureConvert
+import com.daml.lf.speedy.SExpr0._
+import com.daml.lf.speedy.Anf.flattenToAnf
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,7 +20,7 @@ import scala.annotation.tailrec
 
 class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
-  "compilation phase #1 (stack-safety)" - {
+  "compilation (stack-safety)" - {
 
     val phase1 = {
       def signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
@@ -30,94 +33,204 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       new PhaseOne(interface, config)
     }
 
-    // This is the code under test...
-    def transform(e: Expr): SExpr = {
-      phase1.translateFromLF(PhaseOne.Env.Empty, e)
+    // we test that increasing prefixes of the compilation pipeline are stack-safe
+
+    def transform1(e: Expr): Boolean = {
+      val _: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
+      true
+    }
+
+    def transform2(e: Expr): Boolean = {
+      val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
+      val _ = closureConvert(e0)
+      true
+    }
+
+    def transform3(e: Expr): Boolean = {
+      val e0: SExpr = phase1.translateFromLF(PhaseOne.Env.Empty, e)
+      val e1 = closureConvert(e0)
+      val _ = flattenToAnf(e1)
+      true
     }
 
     /* We test stack-safety by building deep expressions through each of the different
      * recursion points of an expression, using one of the builder functions above, and
-     * then ensuring we can 'transform' the expression using the phase1 compilation step.
+     * then ensuring we can 'transform' the expression by a prefix of the compilation.
      */
-    def runTest(depth: Int, cons: Expr => Expr) = {
+    def runTest(transform: Expr => Boolean)(depth: Int, cons: Expr => Expr): Boolean = {
       // Make an expression by iterating the 'cons' function, 'depth' times
       @tailrec def loop(x: Expr, n: Int): Expr = if (n == 0) x else loop(cons(x), n - 1)
       val source: Expr = loop(exp, depth)
-      val _: SExpr = transform(source)
-      true
+      transform(source)
+    }
+
+    val testCases = {
+      Table[String, Expr => Expr](
+        ("name", "recursion-point"),
+        ("tyApp", tyApp),
+        ("app1", app1),
+        ("app2", app2),
+        ("app1of3", app1of3),
+        ("app2of3", app2of3),
+        ("app3of3", app3of3),
+        ("esome", esome),
+        ("eabs", eabs),
+        ("etyabs", etyabs),
+        ("struct1", struct1),
+        ("struct2", struct2),
+        ("consH", consH),
+        ("consT", consT),
+        ("scenPure", scenPure),
+        ("scenBlock1", scenBlock1),
+        ("scenBlock2", scenBlock2),
+        ("scenCommit1", scenCommit1),
+        ("scenCommit2", scenCommit2),
+        ("scenMustFail1", scenMustFail1),
+        ("scenMustFail2", scenMustFail2),
+        ("scenPass", scenPass),
+        ("scenParty", scenParty),
+        ("scenEmbed", scenEmbed),
+        ("upure", upure),
+        ("ublock1", ublock1),
+        ("ublock2", ublock2),
+        ("ublock3", ublock3),
+        ("ucreate", ucreate),
+        ("ucreateI", ucreateI),
+        ("ufetch", ufetch),
+        ("ufetchI", ufetchI),
+        ("uexercise1", uexercise1),
+        ("uexercise2", uexercise2),
+        ("uexerciseI1", uexerciseI1),
+        ("uexerciseI2", uexerciseI2),
+        ("uexerciseI3", uexerciseI3),
+        ("uexerciseI4", uexerciseI4),
+        ("uexbykey1", uexbykey1),
+        ("uexbykey2", uexbykey2),
+        ("ufetchbykey", ufetchbykey),
+        ("ulookupbykey", ulookupbykey),
+        ("uembed", uembed),
+        ("utrycatch1", utrycatch1),
+        ("utrycatch2", utrycatch2),
+        ("structUpd1", structUpd1),
+        ("structUpd2", structUpd2),
+        ("recCon1", recCon1),
+        ("recCon2", recCon2),
+        ("caseScrut", caseScrut),
+        ("caseAlt1", caseAlt1),
+        ("caseAlt2", caseAlt2),
+        ("let1", let1),
+        ("let2", let2),
+        ("eabs_esome", eabs_esome),
+        ("etyabs_esome", etyabs_esome),
+        ("app1_esome", app1_esome),
+        ("app2_esome", app2_esome),
+        ("tyApp_esome", tyApp_esome),
+        ("let1_esome", let1_esome),
+        ("let2_esome", let2_esome),
+      )
     }
 
     {
       val depth = 10000 // 10k plenty to prove stack-safety (but we can do a million)
-      val testCases = {
-        Table[String, Expr => Expr](
-          ("name", "recursion-point"),
-          ("tyApp", tyApp),
-          ("app1", app1),
-          ("app2", app2),
-          ("app1of3", app1of3),
-          ("app2of3", app2of3),
-          ("app3of3", app3of3),
-          ("esome", esome),
-          ("eabs", eabs),
-          ("etyabs", etyabs),
-          ("struct1", struct1),
-          ("struct2", struct2),
-          ("consH", consH),
-          ("consT", consT),
-          ("scenPure", scenPure),
-          ("scenBlock1", scenBlock1),
-          ("scenBlock2", scenBlock2),
-          ("scenCommit1", scenCommit1),
-          ("scenCommit2", scenCommit2),
-          ("scenMustFail1", scenMustFail1),
-          ("scenMustFail2", scenMustFail2),
-          ("scenPass", scenPass),
-          ("scenParty", scenParty),
-          ("scenEmbed", scenEmbed),
-          ("upure", upure),
-          ("ublock1", ublock1),
-          ("ublock2", ublock2),
-          ("ublock3", ublock3),
-          ("ucreate", ucreate),
-          ("ucreateI", ucreateI),
-          ("ufetch", ufetch),
-          ("ufetchI", ufetchI),
-          ("uexercise1", uexercise1),
-          ("uexercise2", uexercise2),
-          ("uexerciseI1", uexerciseI1),
-          ("uexerciseI2", uexerciseI2),
-          ("uexerciseI3", uexerciseI3),
-          ("uexerciseI4", uexerciseI4),
-          ("uexbykey1", uexbykey1),
-          ("uexbykey2", uexbykey2),
-          ("ufetchbykey", ufetchbykey),
-          ("ulookupbykey", ulookupbykey),
-          ("uembed", uembed),
-          ("utrycatch1", utrycatch1),
-          ("utrycatch2", utrycatch2),
-          ("structUpd1", structUpd1),
-          ("structUpd2", structUpd2),
-          ("recCon1", recCon1),
-          ("recCon2", recCon2),
-          ("caseScrut", caseScrut),
-          ("caseAlt1", caseAlt1),
-          ("caseAlt2", caseAlt2),
-          ("let1", let1),
-          ("let2", let2),
-          ("eabs_esome", eabs_esome),
-          ("etyabs_esome", etyabs_esome),
-          ("app1_esome", app1_esome),
-          ("app2_esome", app2_esome),
-          ("tyApp_esome", tyApp_esome),
-          ("let1_esome", let1_esome),
-          ("let2_esome", let2_esome),
-        )
-      }
-      s"depth = $depth" - {
+      s"transform(phase1), depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
-            runTest(depth, recursionPoint)
+            runTest(transform1)(depth, recursionPoint)
+          }
+        }
+      }
+    }
+
+    {
+      // we reduce the depth when sequencing multiple compilation phases
+      // 2k is still plenty to check stack-safety
+      // But above this, some testcases start to become slower than 1second.
+      // And in particulat "let2' appears to quadratic behaviour
+      val depth = 2000
+      s"transform(phase1, closureConversion), depth = $depth" - {
+        forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
+          name in {
+            runTest(transform2)(depth, recursionPoint)
+          }
+        }
+      }
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/11561
+    // The compilation step which transforms expressions to ANF is not stack-safe in all cases
+    // It blows the stack in the examples commented out below.
+    val testCasesForANF = {
+      Table[String, Expr => Expr](
+        ("name", "recursion-point"),
+        ("tyApp", tyApp),
+        ("app1", app1),
+        ("app2", app2),
+        ("app1of3", app1of3),
+        ("app2of3", app2of3),
+        ("app3of3", app3of3),
+        ("esome", esome),
+        ("eabs", eabs),
+        ("etyabs", etyabs),
+        ("struct1", struct1),
+        ("struct2", struct2),
+        ("consH", consH),
+        ("consT", consT),
+        ("scenPure", scenPure),
+        ("scenBlock1", scenBlock1),
+        //("scenBlock2", scenBlock2),
+        ("scenCommit1", scenCommit1),
+        ("scenCommit2", scenCommit2),
+        ("scenMustFail1", scenMustFail1),
+        ("scenMustFail2", scenMustFail2),
+        // ("scenPass", scenPass),
+        // ("scenParty", scenParty),
+        // ("scenEmbed", scenEmbed),
+        ("upure", upure),
+        ("ublock1", ublock1),
+        // ("ublock2", ublock2),
+        // ("ublock3", ublock3),
+        ("ucreate", ucreate),
+        ("ucreateI", ucreateI),
+        ("ufetch", ufetch),
+        ("ufetchI", ufetchI),
+        //("uexercise1", uexercise1),
+        //("uexercise2", uexercise2),
+        //("uexerciseI1", uexerciseI1),
+        //("uexerciseI2", uexerciseI2),
+        //("uexerciseI3", uexerciseI3),
+        //("uexerciseI4", uexerciseI4),
+        //("uexbykey1", uexbykey1),
+        //("uexbykey2", uexbykey2),
+        ("ufetchbykey", ufetchbykey),
+        ("ulookupbykey", ulookupbykey),
+        //("uembed", uembed),
+        //("utrycatch1", utrycatch1),
+        //("utrycatch2", utrycatch2),
+        ("structUpd1", structUpd1),
+        ("structUpd2", structUpd2),
+        ("recCon1", recCon1),
+        ("recCon2", recCon2),
+        ("caseScrut", caseScrut),
+        //("caseAlt1", caseAlt1),
+        //("caseAlt2", caseAlt2),
+        ("let1", let1),
+        ("let2", let2), //slow (2.6s for 5k; 11s for 10k -- quadratic?)
+        //("eabs_esome", eabs_esome),
+        ("etyabs_esome", etyabs_esome),
+        ("app1_esome", app1_esome),
+        ("app2_esome", app2_esome),
+        ("tyApp_esome", tyApp_esome),
+        ("let1_esome", let1_esome),
+        ("let2_esome", let2_esome),
+      )
+    }
+
+    {
+      val depth = 2000
+      s"transform(phase1, closureConversion, flattenToAnf), depth = $depth" - {
+        forEvery(testCasesForANF) { (name: String, recursionPoint: Expr => Expr) =>
+          name in {
+            runTest(transform3)(depth, recursionPoint)
           }
         }
       }

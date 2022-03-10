@@ -30,3 +30,5 @@
 
 1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
+
+1. Go back to the general [release instructions](RELEASE.md).

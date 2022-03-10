@@ -3,26 +3,24 @@
 
 package com.daml.platform.indexer.ha
 
-import java.time.Instant
 import akka.NotUsed
-import akka.stream.{KillSwitches, SharedKillSwitch}
+import akka.stream.KillSwitches
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.lf.crypto
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, ReadService, TransactionMeta, Update}
+import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
-import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration._
+import java.time.Instant
 
 /** An infinite stream of state updates that fully conforms to the Daml ledger model.
   *
@@ -46,7 +44,7 @@ case class EndlessReadService(
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = synchronized {
     logger.info("EndlessReadService.ledgerInitialConditions() called")
-    initialConditionCalls.incrementAndGet()
+    initialConditionCalls += 1
     Source
       .single(LedgerInitialConditions(ledgerId, configuration, recordTime(0)))
       .via(killSwitch.flow)
@@ -66,11 +64,10 @@ case class EndlessReadService(
   )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     synchronized {
       logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
-      stateUpdatesCalls.incrementAndGet()
+      stateUpdatesCalls += 1
       val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
       Source
         .fromIterator(() => Iterator.from(startIndex))
-        .throttle(updatesPerSecond, 1.second)
         .map {
           case i @ 1 =>
             offset(i) -> Update.ConfigurationChanged(
@@ -127,8 +124,8 @@ case class EndlessReadService(
   def reset(): Unit = synchronized {
     assert(aborted)
     logger.info(s"EndlessReadService.reset() called")
-    stateUpdatesCalls.set(0)
-    initialConditionCalls.set(0)
+    stateUpdatesCalls = 0
+    initialConditionCalls = 0
     aborted = false
     killSwitch = KillSwitches.shared("EndlessReadService")
   }
@@ -138,10 +135,14 @@ case class EndlessReadService(
     killSwitch.shutdown()
   }
 
-  val stateUpdatesCalls: AtomicInteger = new AtomicInteger(0)
-  val initialConditionCalls: AtomicInteger = new AtomicInteger(0)
-  var aborted: Boolean = false
-  private var killSwitch: SharedKillSwitch = KillSwitches.shared("EndlessReadService")
+  def isRunning: Boolean = synchronized {
+    stateUpdatesCalls > 0 && !aborted
+  }
+
+  private var stateUpdatesCalls: Int = 0
+  private var initialConditionCalls: Int = 0
+  private var aborted: Boolean = false
+  private var killSwitch = KillSwitches.shared("EndlessReadService")
 }
 
 object EndlessReadService {
@@ -154,6 +155,7 @@ object EndlessReadService {
   val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
   val choiceName: Ref.Name = Ref.Name.assertFromString("SomeChoice")
+  val statistics: TransactionNodeStatistics = TransactionNodeStatistics.Empty
 
   private val archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -176,7 +178,7 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
-    statistics = None, // TODO Ledger Metering
+    statistics = Some(statistics),
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

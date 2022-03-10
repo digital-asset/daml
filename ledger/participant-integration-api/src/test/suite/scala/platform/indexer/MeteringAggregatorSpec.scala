@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.store.appendonlydao.SqlExecutor
+import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
@@ -53,7 +53,7 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
       val lastAggOffset: Offset = Offset.fromHexString(Ref.HexString.assertFromString("01"))
 
       val conn: Connection = mock[Connection]
-      val dispatcher: SqlExecutor = new SqlExecutor {
+      val dispatcher: DbDispatcher = new DbDispatcher {
         override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
             loggingContext: LoggingContext
         ): Future[T] = Future.successful {
@@ -80,8 +80,8 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
           case (None, None) => lastAggOffset
         }
 
-        when(meteringParameterStore.ledgerMeteringEnd(conn))
-          .thenReturn(Some(LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime))))
+        when(meteringParameterStore.assertLedgerMeteringEnd(conn))
+          .thenReturn(LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime)))
 
         when(meteringStore.transactionMeteringMaxOffset(lastAggOffset, toTS(nextAggEndTime))(conn))
           .thenReturn(transactionMetering.lastOption.map(_.ledgerOffset))
@@ -141,8 +141,8 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
 
     "not aggregate if there is not a full period" in new TestSetup {
       override val timeNow = lastAggEndTime.plusHours(1).plusMinutes(-5)
-      when(meteringParameterStore.ledgerMeteringEnd(conn))
-        .thenReturn(Some(LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime))))
+      when(meteringParameterStore.assertLedgerMeteringEnd(conn))
+        .thenReturn(LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime)))
       runUnderTest(Vector.empty)
       verifyNoMoreInteractions(meteringStore)
     }
@@ -203,7 +203,7 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
     "fail if an attempt is made to run un-initialized" in new TestSetup {
       // Note this only works as we do not use a real future for testing
       intercept[IllegalStateException] {
-        when(meteringParameterStore.ledgerMeteringEnd(conn))
+        when(meteringParameterStore.assertLedgerMeteringEnd(conn))
           .thenThrow(new IllegalStateException("Blah"))
         val underTest =
           new MeteringAggregator(
@@ -219,7 +219,6 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
     }
 
     "initialize the metering ledger end to the hour before the current hour" in new TestSetup {
-      when(meteringParameterStore.ledgerMeteringEnd(conn)).thenReturn(None)
       val underTest =
         new MeteringAggregator(
           meteringStore,

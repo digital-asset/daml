@@ -138,8 +138,8 @@ noPreprocessor _dflags x =
       , preprocSource = x
       }
 
--- With RebindableSyntax any missing DAML import results in pretty much nothing
--- working (literals, if-then-else) so we inject an implicit import DAML for
+-- With RebindableSyntax any missing Daml import results in pretty much nothing
+-- working (literals, if-then-else) so we inject an implicit import Daml for
 -- peoples convenience
 importDamlPreprocessor :: GHC.ParsedSource -> GHC.ParsedSource
 importDamlPreprocessor = fmap onModule
@@ -397,13 +397,13 @@ checkKinds (GHC.L _ m) = do
 
     symbolKindMsg :: String
     symbolKindMsg = unlines
-        [ "Reference to Symbol kind will not be preserved during DAML compilation."
+        [ "Reference to Symbol kind will not be preserved during Daml compilation."
         , "This will cause problems when importing this module via data-dependencies."
         ]
 
     ghcTypesSymbolMsg :: String
     ghcTypesSymbolMsg = unlines
-        [ "Reference to GHC.Types.Symbol will not be preserved during DAML compilation."
+        [ "Reference to GHC.Types.Symbol will not be preserved during Daml compilation."
         , "This will cause problems when importing this module via data-dependencies."
         ]
 

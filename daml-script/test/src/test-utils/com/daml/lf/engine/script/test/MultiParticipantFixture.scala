@@ -4,8 +4,8 @@
 package com.daml.lf.engine.script.test
 
 import java.net.InetAddress
-import java.nio.file.{Files, Path, Paths}
-import java.util.stream.Collectors
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -13,18 +13,11 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
 }
-import com.daml.ledger.on.memory.Owner
-import com.daml.ledger.runner.common.{
-  Config,
-  ParticipantConfig,
-  ParticipantIndexerConfig,
-  ParticipantRunMode,
-}
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.lf.data.Ref
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
-import com.daml.ports.Port
+import com.daml.ports.{LockedFreePort, Port}
+import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannelBuilder
 import org.scalatest.Suite
@@ -32,6 +25,7 @@ import org.scalatest.Suite
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
+import scala.sys.process.Process
 
 trait MultiParticipantFixture
     extends AbstractScriptTest
@@ -41,76 +35,112 @@ trait MultiParticipantFixture
   private def darFile = Paths.get(rlocation("daml-script/test/script-test.dar"))
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
-  private val participant1Portfile = tmpDir.resolve("participant1-portfile")
-  private val participant2Portfile = tmpDir.resolve("participant2-portfile")
+  private val cantonConfigPath = tmpDir.resolve("participant.config")
 
   override protected def afterAll(): Unit = {
-    Files.delete(participant1Portfile)
-    Files.delete(participant2Portfile)
+    Files.delete(cantonConfigPath)
     super.afterAll()
 
   }
 
-  private def readPortfile(f: Path): Port = {
-    Port(Integer.parseInt(Files.readAllLines(f).stream.collect(Collectors.joining("\n"))))
-  }
-
-  private val participantId1 = Ref.ParticipantId.assertFromString("participant1")
-  private val participant1 = ParticipantConfig(
-    mode = ParticipantRunMode.Combined,
-    participantId = participantId1,
-    shardName = None,
-    address = Some("localhost"),
-    port = Port.Dynamic,
-    portFile = Some(participant1Portfile),
-    serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId1),
-    indexerConfig = ParticipantIndexerConfig(
-      allowExistingSchema = false
-    ),
-  )
-  private val participantId2 = Ref.ParticipantId.assertFromString("participant2")
-  private val participant2 = ParticipantConfig(
-    mode = ParticipantRunMode.Combined,
-    participantId = participantId2,
-    shardName = None,
-    address = Some("localhost"),
-    port = Port.Dynamic,
-    portFile = Some(participant2Portfile),
-    serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId2),
-    indexerConfig = ParticipantIndexerConfig(
-      allowExistingSchema = false
-    ),
-  )
-  override protected lazy val suiteResource: OwnedResource[ResourceContext, (Port, Port)] = {
-    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (Port, Port)](
-      for {
-        _ <- Owner(
-          Config
-            .createDefault(())
-            .copy(
-              participants = Seq(participant1, participant2)
+  private def canton(): ResourceOwner[(Port, Port)] =
+    new ResourceOwner[(Port, Port)] {
+      override def acquire()(implicit context: ResourceContext): Resource[(Port, Port)] = {
+        def start(): Future[(Port, Port, Process)] = {
+          val p1LedgerApi = LockedFreePort.find()
+          val p2LedgerApi = LockedFreePort.find()
+          val p1AdminApi = LockedFreePort.find()
+          val p2AdminApi = LockedFreePort.find()
+          val domainPublicApi = LockedFreePort.find()
+          val domainAdminApi = LockedFreePort.find()
+          val cantonPath = rlocation(
+            "external/canton/lib/canton-community-1.0.0-SNAPSHOT.jar"
+          )
+          val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
+          val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
+          val cantonConfig = s"""
+          | canton {
+          |   domains {
+          |     local {
+          |       storage.type = memory
+          |       public-api.port = ${domainPublicApi.port}
+          |       admin-api.port = ${domainAdminApi.port}
+          |     }
+          |   }
+          |   participants {
+          |     p1 {
+          |       admin-api.port = ${p1AdminApi.port}
+          |       ledger-api.port = ${p1LedgerApi.port}
+          |       storage.type = memory
+          |     }
+          |     p2 {
+          |       admin-api.port = ${p2AdminApi.port}
+          |       ledger-api.port = ${p2LedgerApi.port}
+          |       storage.type = memory
+          |     }
+          |   }
+          | }
+          """.stripMargin
+          for {
+            _ <- Future(
+              Files.write(cantonConfigPath, cantonConfig.getBytes(StandardCharsets.UTF_8))
             )
-        )
-        participant1Port = readPortfile(participant1Portfile)
-        participant2Port = readPortfile(participant2Portfile)
-        _ <- ResourceOwner.forFuture { () =>
-          val builder = ManagedChannelBuilder
-            .forAddress(InetAddress.getLoopbackAddress.getHostName, participant1Port.value)
-          builder.usePlaintext()
-          ResourceOwner.forChannel(builder, shutdownTimeout = 1.second).use { channel =>
-            val packageManagement = PackageManagementServiceGrpc.stub(channel)
-            packageManagement.uploadDarFile(
-              UploadDarFileRequest.of(
-                darFile = ByteString.copyFrom(Files.readAllBytes(darFile)),
-                submissionId = s"${getClass.getSimpleName}-upload",
+            proc <- Future(
+              Process(
+                Seq(
+                  java,
+                  "-jar",
+                  cantonPath,
+                  "daemon",
+                  "--auto-connect-local",
+                  "-c",
+                  cantonConfigPath.toString,
+                )
+              ).run()
+            )
+            _ <- Future.traverse(
+              Seq(p1LedgerApi, p2LedgerApi, p1AdminApi, p2AdminApi, domainPublicApi, domainAdminApi)
+            )(p =>
+              RetryStrategy.constant(attempts = 120, waitTime = 1.seconds)((_, _) =>
+                Future(p.testAndUnlock(InetAddress.getLoopbackAddress))
               )
             )
+          } yield (p1LedgerApi.port, p2LedgerApi.port, proc)
+        }
+        def stop(r: (Port, Port, Process)): Future[Unit] = {
+          r._3.destroy()
+          r._3.exitValue()
+          Future.unit
+        }
+        Resource(start())(stop).map({ case (p1, p2, _) => (p1, p2) })
+      }
+    }
+
+  override protected lazy val suiteResource: OwnedResource[ResourceContext, (Port, Port)] = {
+    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
+    import ResourceContext.executionContext
+    new OwnedResource[ResourceContext, (Port, Port)](
+      for {
+        (p1, p2) <- canton()
+        _ <- ResourceOwner.forFuture { () =>
+          Future.traverse(Seq(p1, p2)) { port =>
+            val builder = ManagedChannelBuilder
+              .forAddress(InetAddress.getLoopbackAddress.getHostName, port.value)
+            builder.usePlaintext()
+            ResourceOwner.forChannel(builder, shutdownTimeout = 1.second).use { channel =>
+              val packageManagement = PackageManagementServiceGrpc.stub(channel)
+              packageManagement.uploadDarFile(
+                UploadDarFileRequest.of(
+                  darFile = ByteString.copyFrom(Files.readAllBytes(darFile)),
+                  submissionId = s"${getClass.getSimpleName}-upload",
+                )
+              )
+            }
           }
         }
-      } yield (participant1Port, participant2Port),
-      acquisitionTimeout = 1.minute,
-      releaseTimeout = 1.minute,
+      } yield (p1, p2),
+      acquisitionTimeout = 2.minute,
+      releaseTimeout = 2.minute,
     )
   }
 

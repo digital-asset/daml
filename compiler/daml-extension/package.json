@@ -1,7 +1,7 @@
 {
     "name": "daml",
-    "displayName": "DAML",
-    "description": "DAML editing and analysis tools",
+    "displayName": "Daml",
+    "description": "Daml editing and analysis tools",
     "version": "__VERSION__",
     "publisher": "DigitalAssetHoldingsLLC",
     "repository": "https://github.com/digital-asset/daml/tree/main/compiler/daml-extension",
@@ -26,7 +26,7 @@
                     ".daml"
                 ],
                 "aliases": [
-                    "DAML"
+                    "Daml"
                 ],
                 "configuration": "./daml12.configuration.json"
             },
@@ -36,7 +36,7 @@
                     ".daml-core"
                 ],
                 "aliases": [
-                    "DAML CORE"
+                    "Daml Core"
                 ],
                 "configuration": "./daml12.configuration.json"
             }
@@ -56,11 +56,11 @@
         "commands": [
             {
                 "command": "daml.showResource",
-                "title": "Open DAML virtual resource"
+                "title": "Open Daml virtual resource"
             },
             {
                 "command": "daml.openDamlDocs",
-                "title": "[DAML Documentation]"
+                "title": "[Daml Documentation]"
             },
             {
                 "command": "daml.visualize",
@@ -69,7 +69,7 @@
             },
             {
                 "command": "daml.resetTelemetryConsent",
-                "title": "Ask me about DAML telemetry again on startup"
+                "title": "Ask me about Daml telemetry again on startup"
             }
         ],
         "keybindings": [
@@ -81,12 +81,12 @@
         ],
         "configuration": {
             "type": "object",
-            "title": "DAML Studio configuration",
+            "title": "Daml Studio configuration",
             "properties": {
                 "daml.debug": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Enable debug logging in the DAML Language Server."
+                    "description": "Enable debug logging in the Daml Language Server."
                 },
                 "daml.experimental": {
                     "type": "boolean",
@@ -105,7 +105,7 @@
                         "From consent popup"
                     ],
                     "default": "From consent popup",
-                    "description": "Controls whether you send DAML usage data to Digital Asset"
+                    "description": "Controls whether you send Daml usage data to Digital Asset"
                 },
                 "daml.extraArguments": {
                     "type": "string",

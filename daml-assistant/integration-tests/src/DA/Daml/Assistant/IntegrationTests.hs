@@ -304,13 +304,13 @@ packagingTests tmpDir =
               callCommandSilentIn myTriggerDir "daml build -o mytrigger.dar"
               let dar = myTriggerDir </> "mytrigger.dar"
               assertFileExists dar
-        , testCase "Build DAML script example" $ do
+        , testCase "Build Daml script example" $ do
               let projDir = tmpDir </> "script-example"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
               callCommandSilentIn projDir "daml build"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar
-        , testCase "Build DAML script example with LF version 1.dev" $ do
+        , testCase "Build Daml script example with LF version 1.dev" $ do
               let projDir = tmpDir </> "script-example1"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
               callCommandSilentIn projDir "daml build --target 1.dev"
@@ -426,7 +426,7 @@ damlStartTests getDamlStart =
             queryResponse <- httpLbs queryRequest manager
             statusCode (responseStatus queryResponse) @?= 200
             preview (key "result" . _Array . to Vector.length) (responseBody queryResponse) @?= Just 2
-        subtest "DAML Script --input-file and --output-file" $ do
+        subtest "Daml Script --input-file and --output-file" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             let dar = projDir </> ".daml" </> "dist" </> "assistant-integration-tests-1.0.dar"
             writeFileUTF8 (projDir </> "input.json") "0"

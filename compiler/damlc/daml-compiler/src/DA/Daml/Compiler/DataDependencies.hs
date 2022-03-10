@@ -196,7 +196,7 @@ isDuplicate ty1 ty2 = LF.alphaType (getExpandedType ty1) (getExpandedType ty2)
 data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
     deriving (Eq, Ord)
 
--- | A module reference coming from DAML-LF.
+-- | A module reference coming from Daml-LF.
 data ModRef = ModRef
     { modRefModule :: LF.ModuleName
     , modRefOrigin :: ImportOrigin
@@ -707,7 +707,7 @@ generateSrcFromLf env = noLoc mod
         convConDetails hasExactlyOneConstructor = \case
             -- nullary variant constructor (see issue #7207)
             --
-            -- We translate a variant constructor `C ()` to `C` in DAML. But
+            -- We translate a variant constructor `C ()` to `C` in Daml. But
             -- if it's the only constructor, we leave it as `C ()` to distinguish
             -- it from an enum type.
             LF.TUnit | not hasExactlyOneConstructor ->
@@ -1425,7 +1425,7 @@ getSuperclassReferences body =
 isDFunName :: LF.ExprValName -> Bool
 isDFunName (LF.ExprValName t) = any (`T.isPrefixOf` t) ["$f", "$d"]
 
--- | Convert dictionary function signature into a DAML type.
+-- | Convert dictionary function signature into a Daml type.
 convDFunSig :: Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsType GhcPs)
 convDFunSig env reexported DFunSig{..} = do
     binders <- mapM (convTyVarBinder env) dfsBinders

@@ -4,8 +4,7 @@
 package com.daml.http
 
 import java.security.DigestInputStream
-import java.time.Instant
-import akka.actor.ActorSystem
+import java.time.{Instant, LocalDate}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Authorization
@@ -14,18 +13,22 @@ import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.endpoints.MeteringReportEndpoint.{
+  MeteringReport,
+  MeteringReportDateRequest,
+  MeteringReportRequest,
+}
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.{FutureUtil, SandboxTestLedger}
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
@@ -54,6 +57,7 @@ import scalaz.syntax.apply._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.ports.Port
 
 object AbstractHttpServiceIntegrationTestFuns {
@@ -66,10 +70,9 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
-    import java.security.MessageDigest
     import com.google.common.io.BaseEncoding
 
-    val md = MessageDigest.getInstance("SHA-256")
+    val md = MessageDigestPrototype.SHA_256.newDigest
     val is = source.runWith(StreamConverters.asInputStream())
     val dis = new DigestInputStream(is, md)
 
@@ -85,12 +88,13 @@ object AbstractHttpServiceIntegrationTestFuns {
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns
     extends StrictLogging
+    with HttpServiceUserFixture
     with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
   import AbstractHttpServiceIntegrationTestFuns._
-  import json.JsonProtocol._
   import HttpServiceTestFixture._
+  import json.JsonProtocol._
 
   def jdbcConfig: Option[JdbcConfig]
 
@@ -110,26 +114,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt]
 
-  protected val jwtAdminNoParty: Jwt
-
-  protected def headersWithAdminAuth: List[Authorization] = authorizationHeader(jwtAdminNoParty)
-
-  import com.typesafe.config.ConfigFactory
-  private val customConf = ConfigFactory.parseString("""
-    akka.http.server.request-timeout = 60s
-  """)
-
-  implicit val `AHS asys`: ActorSystem = ActorSystem(testId, ConfigFactory.load(customConf))
-  implicit val `AHS mat`: Materializer = Materializer(`AHS asys`)
-  implicit val `AHS aesf`: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool(testId)(`AHS asys`)
-  import shapeless.tag
-  import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
-  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
-
   override def packageFiles = List(dar1, dar2, userDar)
-
-  protected def getUniqueParty(name: String) = domain.Party(s"${name}_${uniqueId()}")
 
   protected def getUniquePartyAndAuthHeaders(uri: Uri)(
       name: String
@@ -207,13 +192,6 @@ trait AbstractHttpServiceIntegrationTestFuns
     usingLedger[A](testId, token = Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
-  def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt]
 
   protected def headersWithAuth(uri: Uri)(implicit
       ec: ExecutionContext
@@ -338,10 +316,13 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   import com.daml.lf.data.{Numeric => LfNumeric}
   import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-  import shapeless.HList, shapeless.record.{Record => ShRecord}
+  import shapeless.HList
+  import shapeless.record.{Record => ShRecord}
 
   private[this] object RecordFromFields extends shapeless.Poly1 {
-    import shapeless.Witness, shapeless.labelled.{FieldType => :->>:}
+    import shapeless.Witness
+    import shapeless.labelled.{FieldType => :->>:}
+
     implicit def elem[V, K <: Symbol](implicit
         fn: Witness.Aux[K]
     ): Case.Aux[K :->>: V, (String, V)] =
@@ -362,8 +343,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
 
   private[this] val (_, iouVA) = {
+    import com.daml.lf.data.Numeric.Scale
     import com.daml.lf.value.test.TypedValueGenerators.RNil
-    import shapeless.syntax.singleton._, com.daml.lf.data.Numeric.Scale
+    import shapeless.syntax.singleton._
     val iouT = Symbol("issuer") ->> VA.party ::
       Symbol("owner") ->> VA.party ::
       Symbol("currency") ->> VA.text ::
@@ -486,6 +468,12 @@ trait AbstractHttpServiceIntegrationTestFuns
       choice = lar.Choice("MPFetchOther"),
       meta = None,
     )
+  }
+
+  protected def result(jsObj: JsValue): JsValue = {
+    inside(jsObj) { case JsObject(fields) =>
+      inside(fields.get("result")) { case Some(value: JsValue) => value }
+    }
   }
 
   protected def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
@@ -769,40 +757,25 @@ trait AbstractHttpServiceIntegrationTestFuns
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AsyncFreeSpec
     with AbstractHttpServiceIntegrationTestFuns
+    with HttpServiceUserFixture.CustomToken
     with Matchers
     with Inside {
 
   import json.JsonProtocol._
 
-  def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt] =
-    Future.successful(
-      HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
-    )
-
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
     jwtForParties(uri)(List("Alice"), List(), testId)
-
-  protected lazy val jwtAdminNoParty: Jwt = {
-    val decodedJwt = DecodedJwt(
-      """{"alg": "HS256", "typ": "JWT"}""",
-      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
-    )
-    JwtSigner.HMAC256
-      .sign(decodedJwt, "secret")
-      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
-  }
 
   protected def headersWithPartyAuthLegacyFormat(
       actAs: List[String],
       readAs: List[String] = List(),
   ) =
-    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId, withoutNamespace = true)
+    HttpServiceTestFixture.headersWithPartyAuth(
+      actAs,
+      readAs,
+      Some(testId),
+      withoutNamespace = true,
+    )
 
   "get all parties using the legacy token format" in withHttpServiceAndClient {
     (uri, _, _, client, _) =>
@@ -832,6 +805,57 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
             }
         }: Future[Assertion]
   }
+
+  "create should fail with custom tokens that contain no ledger id" in withHttpService {
+    (uri, encoder, _, _) =>
+      val alice = getUniqueParty("Alice")
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+
+      val headers = HttpServiceTestFixture.authorizationHeader(
+        HttpServiceTestFixture.jwtForParties(List("Alice"), List("Bob"), None, false, false)
+      )
+
+      postJsonRequest(
+        uri.withPath(Uri.Path("/v1/create")),
+        input,
+        headers,
+      )
+        .flatMap { case (status, output) =>
+          status shouldBe StatusCodes.Unauthorized
+          assertStatus(output, StatusCodes.Unauthorized)
+          HttpServiceTestFixture.getChild(
+            output,
+            "errors",
+          ) shouldBe JsArray(JsString("ledgerId missing in access token"))
+
+        }: Future[Assertion]
+  }
+
+  "metering-report endpoint should return metering report" in withHttpServiceAndClient {
+    (uri, _, _, _, _) =>
+      {
+        val isoDate = "2022-02-03"
+        val request = MeteringReportDateRequest(
+          from = LocalDate.parse(isoDate),
+          to = None,
+          application = None,
+        )
+        val expected = MeteringReportRequest(
+          from = Timestamp.assertFromString(s"${isoDate}T00:00:00Z"),
+          to = None,
+          application = None,
+        )
+        postJsonRequestWithMinimumAuth(
+          uri.withPath(Uri.Path("/v1/metering-report")),
+          request.toJson,
+        ).map { case (status, value) =>
+          status shouldBe StatusCodes.OK
+          result(value).convertTo[MeteringReport].request shouldBe expected
+        }
+      }
+  }
+
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -842,8 +866,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import json.JsonProtocol._
   import HttpServiceTestFixture._
+  import json.JsonProtocol._
 
   override def useTls = UseTls.NoTls
 
@@ -2134,8 +2158,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "Should ignore conflicts on contract key hash constraint violation" in withHttpServiceAndClient {
     (uri, encoder, _, _, _) =>
-      import shapeless.record.{Record => ShRecord}
       import com.daml.ledger.api.refinements.{ApiTypes => lar}
+      import shapeless.record.{Record => ShRecord}
 
       val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
       val packageId: Ref.PackageId = MetadataReader
@@ -2158,6 +2182,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
         domain.CreateCommand(templateId, arg, None)
       }
+
       def userExerciseFollowCommand(
           contractId: lar.ContractId,
           toFollow: domain.Party,
@@ -2210,6 +2235,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             assertStatus(searchOutput, StatusCodes.OK)
           }
       }
+
       val commands = partyIds.map { p =>
         (p, userCreateCommand(p))
       }
@@ -2240,4 +2266,5 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         _ <- queryUsers(alice)
       } yield succeed
   }
+
 }

@@ -6,4 +6,6 @@
 
 1. Merge the PR and wait for the corresponding `main` build to finish.
 
+1. Go back to the general [release instructions](RELEASE.md).
+
 [DACH-NY/assembly]: https://github.com/DACH-NY/assembly

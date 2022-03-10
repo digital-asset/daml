@@ -74,7 +74,7 @@ test step modelDar = Test {..}
     testReceiver = Party "receiver"
 
 -- The datatypes are defined such that the autoderived Aeson instances
--- match the DAML-LF JSON encoding.
+-- match the Daml-LF JSON encoding.
 
 pattern CreatedAsset :: ContractId -> Asset -> Event
 pattern CreatedAsset cid asset <- Created cid (TemplateId "KeyTransfer" "Asset") (A.fromJSON -> A.Success asset)

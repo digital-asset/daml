@@ -7,11 +7,12 @@ import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
+import com.daml.platform.server.api.validation.DeduplicationPeriodValidator
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -57,10 +58,12 @@ class DeduplicationPeriodSupport(
                     s"Failed to convert deduplication offset $offset to duration: $reason"
                   )
                   Left(
-                    ErrorFactories.invalidDeduplicationPeriod(
-                      s"Cannot convert deduplication offset to duration because there is no completion at given offset $offset.",
-                      None,
-                    )
+                    LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+                      .Reject(
+                        s"Cannot convert deduplication offset to duration because there is no completion at given offset $offset.",
+                        None,
+                      )
+                      .asGrpcError
                   )
               },
               duration => {

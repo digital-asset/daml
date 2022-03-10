@@ -165,7 +165,7 @@ onExp (L o (SectionR _ mid@(isDot -> True) rhs))
         [] -> error "IMPOSSIBLE: getSelectors never returns an empty list"
         -- NOTE(MH): We don't want a lambda for a single projection since we
         -- don't need it when the record type is unknown. When the record type
-        -- is known, the conversion to DAML-LF needs to add the lambda anyway.
+        -- is known, the conversion to Daml-LF needs to add the lambda anyway.
         [sel] -> mkVar var_getField `mkAppType` sel
         _:_:_ -> mkLam var_record $ foldl' (\x sel -> mkVar var_getField `mkAppType` sel `mkApp` x) (mkVar var_record) sels
           where

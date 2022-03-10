@@ -10,11 +10,13 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue._
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 final class MultiParticipantIT
     extends AsyncWordSpec
+    with Inside
     with MultiParticipantFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
@@ -40,9 +42,13 @@ final class MultiParticipantIT
             dar = dar,
           )
         } yield {
-          vals should contain theSameElementsInOrderAs Seq("alice", "bob").map(p =>
-            SParty(Party.assertFromString(p))
-          )
+          vals should have size 2
+          inside(vals.get(0)) { case SParty(p) =>
+            p should startWith("alice::")
+          }
+          inside(vals.get(1)) { case SParty(p) =>
+            p should startWith("bob::")
+          }
         }
       }
     }
@@ -59,14 +65,14 @@ final class MultiParticipantIT
           assert(vals.size == 2)
           val first = SList(
             FrontStack(
+              tuple(SOptional(None), SBool(false)),
               tuple(SOptional(Some(SText("p1"))), SBool(true)),
-              tuple(SOptional(Some(SText("p2"))), SBool(false)),
             )
           )
           assert(vals.get(0) == first)
           val second = SList(
             FrontStack(
-              tuple(SOptional(Some(SText("p1"))), SBool(false)),
+              tuple(SOptional(None), SBool(false)),
               tuple(SOptional(Some(SText("p2"))), SBool(true)),
             )
           )

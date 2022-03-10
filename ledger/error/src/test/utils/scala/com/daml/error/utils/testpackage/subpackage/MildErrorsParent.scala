@@ -4,7 +4,6 @@
 package com.daml.error.utils.testpackage.subpackage
 
 import com.daml.error._
-import com.daml.logging.LoggingContext
 
 @Explanation("Mild error parent explanation")
 object MildErrorsParent extends ErrorGroup()(ErrorClass.root()) {
@@ -24,8 +23,7 @@ object MildErrorsParent extends ErrorGroup()(ErrorClass.root()) {
           someErrArg: String,
           override val context: Map[String, String],
           override val definiteAnswerO: Option[Boolean] = Some(true),
-      )(implicit val loggingContext: LoggingContext)
-          extends BaseError {
+      ) extends BaseError {
 
         override def code: ErrorCode = NotSoSeriousError.code
 

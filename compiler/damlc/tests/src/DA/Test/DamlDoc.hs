@@ -21,7 +21,7 @@ main = do
     Tasty.deterministicMain =<< allTests anchors
 
 allTests :: AnchorMap -> IO Tasty.TestTree
-allTests externalAnchors = Tasty.testGroup "All DAML GHC tests using Tasty" <$> sequence
+allTests externalAnchors = Tasty.testGroup "All Daml GHC tests using Tasty" <$> sequence
   [ Damldoc.mkTestTree externalAnchors
   , Render.mkTestTree externalAnchors
   ]

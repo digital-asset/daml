@@ -4,7 +4,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE PatternSynonyms #-}
 
--- | Representation of DAML-LF type-level naturals.
+-- | Representation of Daml-LF type-level naturals.
 module DA.Daml.LF.Ast.TypeLevelNat
     ( TypeLevelNat
     , TypeLevelNatError (..)

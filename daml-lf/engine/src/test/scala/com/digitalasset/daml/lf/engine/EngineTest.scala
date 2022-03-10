@@ -612,7 +612,7 @@ class EngineTest
     }
   }
 
-  "DAML exercise-by-key" should {
+  "Daml exercise-by-key" should {
     val seed = hash("exercise-by-key")
     val now = Time.Timestamp.now()
 
@@ -623,7 +623,7 @@ class EngineTest
         speedy.Command.CreateAndExercise(
           templateId = tmplId,
           createArgument =
-            SRecord(null, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
+            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
           choiceId = ChoiceName.assertFromString("Exercise"),
           choiceArgument = SUnit,
         )

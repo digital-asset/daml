@@ -10,7 +10,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.MeteringAggregator.{toOffsetDateTime, toTimestamp}
-import com.daml.platform.store.appendonlydao.SqlExecutor
+import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.{
   MeteringParameterStorageBackend,
@@ -40,14 +40,14 @@ object MeteringAggregator {
   ) {
 
     private[platform] def apply(
-        sqlExecutor: SqlExecutor
+        dbDispatcher: DbDispatcher
     )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] = {
       val aggregator = new MeteringAggregator(
         meteringStore,
         parameterStore,
         meteringParameterStore,
         metrics,
-        sqlExecutor,
+        dbDispatcher,
       )
       for {
         _ <- ResourceOwner.forFuture(() => aggregator.initialize())
@@ -84,7 +84,7 @@ class MeteringAggregator(
     parameterStore: ParameterStorageBackend,
     meteringParameterStore: MeteringParameterStorageBackend,
     metrics: Metrics,
-    sqlExecutor: SqlExecutor,
+    dbDispatcher: DbDispatcher,
     clock: () => Timestamp = () => Timestamp.now(),
 )(implicit loggingContext: LoggingContext) {
 
@@ -95,16 +95,16 @@ class MeteringAggregator(
   private[platform] def initialize(): Future[Unit] = {
     val initTimestamp = toOffsetDateTime(clock()).truncatedTo(ChronoUnit.HOURS).minusHours(1)
     val initLedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, toTimestamp(initTimestamp))
-    sqlExecutor.executeSql(metrics.daml.index.db.initializeMeteringAggregator) {
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeMeteringAggregator) {
       meteringParameterStore.initializeLedgerMeteringEnd(initLedgerMeteringEnd)
     }
   }
 
   private[platform] def run(): Future[Unit] = {
 
-    val future = sqlExecutor.executeSql(metrics.daml.index.db.meteringAggregator) { conn =>
+    val future = dbDispatcher.executeSql(metrics.daml.index.db.meteringAggregator) { conn =>
       val nowUtcTime = toOffsetDateTime(clock())
-      val lastLedgerMeteringEnd = getLedgerMeteringEnd(conn)
+      val lastLedgerMeteringEnd = meteringParameterStore.assertLedgerMeteringEnd(conn)
       val startUtcTime: OffsetDateTime = toOffsetDateTime(lastLedgerMeteringEnd.timestamp)
       val endUtcTime = startUtcTime.plusHours(1)
 
@@ -143,7 +143,7 @@ class MeteringAggregator(
     }
 
     future.onComplete({
-      case Success(None) => logger.info("No transaction metering aggregation required")
+      case Success(None) => logger.debug("No transaction metering aggregation required")
       case Success(Some(lme)) =>
         logger.info(s"Aggregating transaction metering completed up to $lme")
       case Failure(e) => logger.error("Failed to aggregate transaction metering", e)
@@ -168,11 +168,6 @@ class MeteringAggregator(
 
     thisLedgerMeteringEnd
   }
-
-  private def getLedgerMeteringEnd(conn: Connection): LedgerMeteringEnd =
-    meteringParameterStore.ledgerMeteringEnd(conn).getOrElse {
-      throw new IllegalStateException("Ledger metering is not initialized")
-    }
 
   private def populateParticipantMetering(
       conn: Connection,

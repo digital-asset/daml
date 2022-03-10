@@ -71,7 +71,7 @@ const MainScreen: React.FC<Props> = ({onLogout, getPublicParty}) => {
           <Menu.Item>
             <Image
               as='a'
-              href='https://www.daml.com/'
+              href='https://www.digitalasset.com/developers'
               target='_blank'
               src='/daml.svg'
               alt='Daml Logo'

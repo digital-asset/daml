@@ -16,8 +16,8 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
-
 import java.time.{Duration, Instant}
+
 import scala.concurrent.duration._
 
 @Explanation(
@@ -41,7 +41,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
 
     case class Reject(_message: String)(implicit errorLogger: ContextualizedErrorLogger)
-        extends LoggingTransactionErrorImpl(
+        extends DamlErrorWithDefiniteAnswer(
           cause = s"The request exercised an unsupported operation: ${_message}"
         )
   }
@@ -64,7 +64,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     override def logLevel: Level = Level.WARN
 
     case class Rejection(reason: String)(implicit errorLogger: ContextualizedErrorLogger)
-        extends LoggingTransactionErrorImpl(cause = s"The participant is overloaded: $reason")
+        extends DamlErrorWithDefiniteAnswer(cause = s"The participant is overloaded: $reason") {
+      override def context: Map[String, String] =
+        super.context ++ Map("reason" -> reason)
+    }
   }
 
   @Explanation(
@@ -80,7 +83,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
     case class Reject(_message: String, _definiteAnswer: Boolean)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = _message,
           definiteAnswer = _definiteAnswer,
         )
@@ -105,7 +108,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       case class Reject(_reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause =
               s"The participant failed to determine the max ledger time for this command: ${_reason}"
           )
@@ -138,7 +141,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             allowedLanguageVersions: VersionRange[language.LanguageVersion],
         )(implicit
             val loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = buildCause(packageId, languageVersion, allowedLanguageVersions)
             )
       }
@@ -154,7 +157,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
         case class Reject(validationErrorCause: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = validationErrorCause
             )
       }
@@ -175,7 +178,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             err: LfError.Preprocessing.Error
         )(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = err.message
             )
       }
@@ -195,7 +198,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
         case class Error(override val cause: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             )
       }
@@ -212,7 +215,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
         case class Error(override val cause: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             )
 
@@ -233,7 +236,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             _err: LfInterpretationError.ContractNotActive,
         )(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
           override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -262,7 +265,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
               _key: GlobalKey,
           )(implicit
               loggingContext: ContextualizedErrorLogger
-          ) extends LoggingTransactionErrorImpl(
+          ) extends DamlErrorWithDefiniteAnswer(
                 cause = cause
               ) {
             override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -284,7 +287,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
         case class Reject(override val cause: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             )
       }
@@ -302,12 +305,26 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
     case class Reject(_serviceName: String)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = s"${_serviceName} has been shut down."
         ) {
       override def context: Map[String, String] =
         super.context ++ Map("service_name" -> _serviceName)
     }
+  }
+
+  @Explanation("This rejection is given when the participant server is shutting down.")
+  @Resolution("Contact the participant operator.")
+  object ServerIsShuttingDown
+      extends ErrorCode(
+        id = "SERVER_IS_SHUTTING_DOWN",
+        ErrorCategory.TransientServerFailure,
+      ) {
+    case class Reject()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = "Server is shutting down"
+        )
   }
 
   @Explanation("Authentication and authorization errors.")
@@ -326,7 +343,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject()(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl("Stale stream authorization. Retry quickly.") {
+      ) extends DamlErrorWithDefiniteAnswer("Stale stream authorization. Retry quickly.") {
         override def retryable: Option[ErrorCategoryRetry] = Some(
           ErrorCategoryRetry(who = "application", duration = 0.seconds)
         )
@@ -347,13 +364,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class MissingJwtToken()(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = "The command is missing a (valid) JWT token"
           )
 
       case class UserBasedAuthenticationIsDisabled()(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = "User based authentication is disabled."
           )
     }
@@ -367,7 +384,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(message: String, throwable: Throwable)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = message,
             throwableO = Some(throwable),
           )
@@ -384,7 +401,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         extends ErrorCode(id = "PERMISSION_DENIED", ErrorCategory.InsufficientPermission) {
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause =
               s"The provided authorization token is not sufficient to authorize the intended command: $cause"
           )
@@ -407,7 +424,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
         case class Reject(_packageId: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = "Could not find package."
             ) {
 
@@ -421,7 +438,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             reference: Reference,
         )(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = LookupError.MissingPackage.pretty(packageId, reference)
             )
       }
@@ -440,7 +457,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
         case class Reject(_transactionId: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
+        ) extends DamlErrorWithDefiniteAnswer(cause = "Transaction not found, or not visible.") {
           override def resources: Seq[(ErrorResource, String)] = Seq(
             (ErrorResource.TransactionId, _transactionId)
           )
@@ -459,13 +476,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
         case class Reject()(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = "The ledger configuration could not be retrieved."
             )
 
         case class RejectWithMessage(_message: String)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(
+        ) extends DamlErrorWithDefiniteAnswer(
               cause = s"The ledger configuration could not be retrieved: ${_message}."
             )
       }
@@ -480,7 +497,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(override val cause: String, _earliestOffset: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = cause) {
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
 
         override def context: Map[String, String] =
           super.context + (EarliestOffsetMetadataKey -> _earliestOffset)
@@ -498,7 +515,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_offsetType: String, _requestedOffset: String, _ledgerEnd: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause =
               s"${_offsetType} offset (${_requestedOffset}) is after ledger end (${_ledgerEnd})"
           )
@@ -515,7 +532,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_message: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = _message)
+      ) extends DamlErrorWithDefiniteAnswer(cause = _message)
     }
 
     @Explanation(
@@ -528,10 +545,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "LEDGER_ID_MISMATCH",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject(override val cause: String)(implicit
+      case class Reject(_expectedLedgerId: String, _receivedLegerId: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = cause,
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause =
+              s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
             definiteAnswer = true,
           )
     }
@@ -544,7 +562,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         extends ErrorCode(id = "MISSING_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
       case class Reject(_missingField: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"The submitted command is missing a mandatory field: ${_missingField}"
           ) {
         override def context: Map[String, String] =
@@ -560,7 +578,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         extends ErrorCode(id = "INVALID_ARGUMENT", ErrorCategory.InvalidIndependentOfSystemState) {
       case class Reject(_reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"The submitted command has invalid arguments: ${_reason}"
           )
     }
@@ -571,10 +589,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidField
         extends ErrorCode(id = "INVALID_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
+      case class Reject(_fieldName: String, _message: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = s"The submitted command has a field with invalid value: ${_reason}"
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause =
+              s"The submitted command has a field with invalid value: Invalid field ${_fieldName}: ${_message}"
           )
     }
 
@@ -595,7 +614,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           _maxDeduplicationDuration: Option[Duration],
       )(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"The submitted command had an invalid deduplication period: ${_reason}"
           ) {
         override def context: Map[String, String] = {
@@ -618,8 +637,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           _offsetValue: String,
           _message: String,
       )(implicit
-          override val loggingContext: ContextualizedErrorLogger
-      ) extends BaseError.Impl(
+          val loggingContext: ContextualizedErrorLogger
+      ) extends DamlError(
             cause =
               s"Offset in ${_fieldName} not specified in hexadecimal: ${_offsetValue}: ${_message}"
           )
@@ -636,7 +655,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     case class UnexpectedOrUnknownException(t: Throwable)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = "Unexpected or unknown exception occurred.",
           throwableO = Some(t),
         )
@@ -646,13 +665,16 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         override val throwableO: Option[Throwable] = None,
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(cause = message)
+    ) extends DamlErrorWithDefiniteAnswer(cause = message) {
+      override def context: Map[String, String] =
+        super.context ++ Map("throwableO" -> throwableO.toString)
+    }
 
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = err.message
         )
 
@@ -660,7 +682,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         err: LfError.Package.Internal
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = err.message
         )
 
@@ -668,11 +690,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         err: LfError.Preprocessing.Internal
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(cause = err.message)
+    ) extends DamlErrorWithDefiniteAnswer(cause = err.message)
 
     case class Validation(reason: ReplayMismatch)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Observed un-expected replay mismatch: ${reason}"
         )
 
@@ -682,17 +704,17 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         detailMessage: Option[String],
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
+    ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}"
         )
 
     case class VersionService(message: String)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(cause = message)
+    ) extends DamlErrorWithDefiniteAnswer(cause = message)
 
     case class Buffer(message: String, override val throwableO: Option[Throwable])(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(cause = message, throwableO = throwableO)
+    ) extends DamlErrorWithDefiniteAnswer(cause = message, throwableO = throwableO)
   }
 
   @Explanation("Errors raised by Ledger API admin services.")
@@ -706,7 +728,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_message: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = _message
           )
     }
@@ -720,7 +742,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_message: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = _message
           )
     }
@@ -736,7 +758,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"${_operation} failed for unknown user \"${userId}\""
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -755,7 +777,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"${_operation} failed, as user \"${userId}\" already exists"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -779,7 +801,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"${_operation} failed, as user \"${userId}\" would have too many rights."
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -813,7 +835,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           _changeId: Option[ChangeId] = None,
       )(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = "A command with the given command id has already been successfully processed",
             definiteAnswer = _definiteAnswer,
           ) {
@@ -839,7 +861,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = cause)
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
     }
 
@@ -858,7 +880,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(
+          extends DamlErrorWithDefiniteAnswer(
             cause = s"Inconsistent: $details"
           )
 
@@ -878,7 +900,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       case class MultipleContractsNotFound(_notFoundContractIds: Set[String])(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = s"Unknown contracts: ${_notFoundContractIds.mkString("[", ", ", "]")}"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -891,7 +913,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           _cid: Value.ContractId,
       )(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -913,7 +935,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       case class Reject(reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = reason)
+      ) extends DamlErrorWithDefiniteAnswer(cause = reason)
 
     }
 
@@ -932,7 +954,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           _key: GlobalKey,
       )(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -944,7 +966,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = cause)
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
     }
 
@@ -964,12 +986,18 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ledger_time_lower_bound: Instant,
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause)
+          extends DamlErrorWithDefiniteAnswer(cause = cause) {
+        override def context: Map[String, String] = super.context ++ Map(
+          "ledger_time" -> ledger_time.toString,
+          "ledger_time_lower_bound" -> ledger_time_lower_bound.toString,
+          "ledger_time_upper_bound" -> ledger_time_upper_bound.toString,
+        )
+      }
 
       case class RejectSimple(
           override val cause: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause)
+          extends DamlErrorWithDefiniteAnswer(cause = cause)
 
     }
 
@@ -1009,7 +1037,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           submitter_party: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(
+          extends DamlErrorWithDefiniteAnswer(
             cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -1030,7 +1058,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(_parties: Set[String])(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = s"Parties not known on ledger: ${_parties
+      ) extends DamlErrorWithDefiniteAnswer(cause = s"Parties not known on ledger: ${_parties
             .mkString("[", ",", "]")}") {
         override def resources: Seq[(ErrorResource, String)] =
           _parties.map((ErrorResource.Party, _)).toSeq
@@ -1040,7 +1068,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class RejectDeprecated(
           description: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(
+          extends DamlErrorWithDefiniteAnswer(
             cause = s"Party not known on ledger: $description"
           )
     }
@@ -1056,7 +1084,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(
+          extends DamlErrorWithDefiniteAnswer(
             cause = s"Disputed: $details"
           )
     }
@@ -1072,7 +1100,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         extends ErrorCode(id = "OUT_OF_QUOTA", ErrorCategory.ContentionOnSharedResources) {
       case class Reject(reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = reason)
+      ) extends DamlErrorWithDefiniteAnswer(cause = reason)
     }
 
     @Explanation("A submitting party is not authorized to act through the participant.")
@@ -1087,12 +1115,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           submitter: String,
           participantId: String,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+          extends DamlErrorWithDefiniteAnswer(cause = s"Inconsistent: $details")
 
       case class Reject(
           details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+          extends DamlErrorWithDefiniteAnswer(cause = s"Inconsistent: $details")
     }
 
     @Explanation("Errors that arise from an internal system misbehavior.")
@@ -1110,7 +1138,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
         case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(cause = cause) {
+        ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
           override def resources: Seq[(ErrorResource, String)] =
             super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
         }
@@ -1128,7 +1156,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
         case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
             loggingContext: ContextualizedErrorLogger
-        ) extends LoggingTransactionErrorImpl(cause = cause) {
+        ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
           override def resources: Seq[(ErrorResource, String)] =
             super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
         }

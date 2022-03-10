@@ -14,12 +14,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiMeteringReportService._
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import io.grpc.ServerServiceDefinition
-
 import java.time.temporal.ChronoUnit
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
+
+import com.daml.ledger.api.validation.ValidationErrors
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -68,7 +69,7 @@ private[apiserver] final class ApiMeteringReportService(
       case Right(f) => f
       case Left(error) =>
         Future.failed(
-          ValidationLogger.logFailure(request, ErrorFactories.invalidArgument(error))
+          ValidationLogger.logFailure(request, ValidationErrors.invalidArgument(error))
         )
     }
   }
@@ -88,10 +89,10 @@ private[apiserver] object ApiMeteringReportService {
     val utcTs =
       OffsetDateTime.ofInstant(Instant.ofEpochSecond(ts.seconds, ts.nanos.toLong), ZoneOffset.UTC)
     for {
-      _ <-
-        if (utcTs.truncatedTo(ChronoUnit.HOURS) == utcTs) Right(())
+      ts <-
+        if (utcTs.truncatedTo(ChronoUnit.HOURS) == utcTs)
+          Timestamp.fromInstant(utcTs.toInstant)
         else Left(s"Timestamp must be rounded to the hour: $utcTs")
-      ts <- Timestamp.fromInstant(utcTs.toInstant)
     } yield ts
   }
 

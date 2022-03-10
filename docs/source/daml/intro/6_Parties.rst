@@ -82,7 +82,7 @@ The above solves issuance, but not transfers. You can solve transfers exactly th
 
 In addition to defining the signatories of a contract, ``signatory`` can also be used to extract the signatories from another contract. Instead of writing ``signatory (signatory iou)``, you could write ``signatory iou.issuer, iou.owner``.
 
-Note also how ``newOwner`` is given multiple choices using a single ``controller newOwner can`` block. The ``IouProposal`` had a single signatory so it could be cancelled easily by archiving it. Without a ``Cancel`` choice, the ``newOwner`` could abuse an open TransferProposal as an option. The triple ``Accept``, ``Reject``, ``Cancel`` is common to most proposal templates.
+The ``IouProposal`` had a single signatory so it could be cancelled easily by archiving it. Without a ``Cancel`` choice, the ``newOwner`` could abuse an open TransferProposal as an option. The triple ``Accept``, ``Reject``, ``Cancel`` is common to most proposal templates.
 
 To allow an ``iou.owner`` to create such a proposal, you need to give them the choice to propose a transfer on the ``Iou`` contract. The choice looks just like the above ``Transfer`` choice, except that a ``IouTransferProposal`` is created instead of an ``Iou``:
 
@@ -111,8 +111,6 @@ Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in
   :end-before: -- MUTUAL_TRANSFER_END
 
 Up to now, the controllers of choices were known from the current contract. Here, the ``newOwner`` variable is part of the choice arguments, not the ``Iou``.
-
-The above syntax is an alternative to ``controller c can``, which allows for this. Such choices live outside any ``controller c can`` block. They declared using the ``choice`` keyword, and have an extra clause ``controller c``, which takes the place of ``controller c can``, and has access to the choice arguments.
 
 This is also the first time we have shown a choice with more than one controller. If multiple controllers are specified, the authority of *all* the controllers is needed. Here, neither ``owner``, nor ``newOwner`` can execute a transfer unilaterally, hence the name ``Mutual_Transfer``.
 

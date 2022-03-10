@@ -9,9 +9,11 @@ module DA.Daml.LF.ReplClient
   , MaxInboundMessageSize(..)
   , ReplTimeMode(..)
   , Handle
+  , hTerminate
+  , hStdout
   , ReplResponseType(..)
   , withReplClient
-  , loadPackage
+  , loadPackages
   , runScript
   , clearResults
   , BackendError
@@ -20,7 +22,9 @@ module DA.Daml.LF.ReplClient
   , ScriptResult(..)
   ) where
 
-import Control.Concurrent
+import Control.Concurrent.Async
+import Control.Concurrent.Extra
+import Control.Exception
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import DA.PortFile
@@ -29,6 +33,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Functor
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), ClientSSLConfig(..), ClientSSLKeyCertPair(..), Host(..), Port(..), StatusCode(..))
@@ -62,8 +67,10 @@ data Options = Options
   }
 
 data Handle = Handle
-  { hClient :: Grpc.ReplService ClientRequest ClientResult
+  { hClient :: IO (Grpc.ReplService ClientRequest ClientResult)
   , hOptions :: Options
+  , hStdout :: Maybe IO.Handle
+  , hTerminate :: IO ()
   }
 data BackendError
   = BErrorClient ClientError
@@ -83,7 +90,7 @@ javaProc args =
       let javaExe = javaHome </> "bin" </> "java"
       in proc javaExe args
 
-withReplClient :: Options -> (Handle -> Maybe IO.Handle -> ProcessHandle -> IO a) -> IO a
+withReplClient :: Options -> (Handle -> IO a) -> IO a
 withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
     replServer <- javaProc $ concat
         [ [ "-jar", optServerJar
@@ -113,21 +120,31 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
         , concat [ ["--max-inbound-message-size", show (getMaxInboundMessageSize size)] | Just size <- [optMaxInboundMessageSize] ]
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
-      port <- readPortFile ph maxRetries portFile
-      let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
-      threadDelay 1000000
-      withGRPCClient grpcConfig $ \client -> do
-          replClient <- Grpc.replServiceClient client
-          f Handle
-              { hClient = replClient
-              , hOptions = opts
-              } stdout ph
+      clientBarrier <- newBarrier
+      -- Barrier for when we exit the scope of this `withCreateProcess`.
+      -- We need that to make the client process stay open until then.
+      exitBarrier <- newBarrier
+      let handle = Handle
+            { hClient = waitBarrier clientBarrier
+            , hStdout = stdout
+            , hTerminate = terminateProcess ph
+            , hOptions = opts
+            }
+          clientAct = do
+            port <- readPortFile ph maxRetries portFile
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
+            withGRPCClient grpcConfig $ \client -> do
+                replClient <- Grpc.replServiceClient client
+                signalBarrier clientBarrier replClient
+                waitBarrier exitBarrier
+      withAsync clientAct $ const $ f handle `finally` signalBarrier exitBarrier ()
 
-loadPackage :: Handle -> BS.ByteString -> IO (Either BackendError ())
-loadPackage Handle{..} package = do
+loadPackages :: Handle -> [BS.ByteString] -> IO (Either BackendError ())
+loadPackages Handle{..} packages = do
+    client <- hClient
     r <- performRequest
-        (Grpc.replServiceLoadPackage hClient)
-        (Grpc.LoadPackageRequest package)
+        (Grpc.replServiceLoadPackages client)
+        (Grpc.LoadPackagesRequest (V.fromList packages))
     pure (() <$ r)
 
 data ScriptResult
@@ -137,8 +154,9 @@ data ScriptResult
 
 runScript :: Handle -> LF.Version -> LF.Module -> ReplResponseType -> IO (Either BackendError ScriptResult)
 runScript Handle{..} version m rspType = do
+    client <- hClient
     r <- performRequest
-        (Grpc.replServiceRunScript hClient)
+        (Grpc.replServiceRunScript client)
         (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)) grpcRspType)
     pure $ fmap handleResult r
   where
@@ -156,7 +174,8 @@ runScript Handle{..} version m rspType = do
 
 clearResults :: Handle -> IO (Either BackendError ())
 clearResults Handle{..} = do
-    r <- performRequest (Grpc.replServiceClearResults hClient) Grpc.ClearResultsRequest
+    client <- hClient
+    r <- performRequest (Grpc.replServiceClearResults client) Grpc.ClearResultsRequest
     pure (() <$ r)
 
 performRequest
