@@ -116,6 +116,7 @@ da_scala_library(
         ":daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",

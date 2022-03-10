@@ -3,8 +3,7 @@
 
 package com.daml.lf.archive.testing
 
-import java.security.MessageDigest
-
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -37,7 +36,10 @@ object Encode {
 
     val payload = encodePayloadOfVersion(pkg, version).toByteString
     val hash = PackageId.assertFromString(
-      MessageDigest.getInstance("SHA-256").digest(payload.toByteArray).map("%02x" format _).mkString
+      MessageDigestPrototype.SHA_256.newDigest
+        .digest(payload.toByteArray)
+        .map("%02x" format _)
+        .mkString
     )
 
     PLF.Archive
