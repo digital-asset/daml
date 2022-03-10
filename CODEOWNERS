@@ -20,10 +20,13 @@ azure-cron.yml      @garyverhaegen-da
 NOTICES     @garyverhaegen-da @dasormeter
 
 # Language
-/daml-assistant/    @sofiafaro-da
-/daml-script/       @remyhaemmerle-da 
-/triggers/          @remyhaemmerle-da 
+/daml-assistant/    @sofiafaro-da @ray-roestenburg-da
+/daml-script/       @remyhaemmerle-da
+/triggers/          @remyhaemmerle-da
 /compatibility/     @garyverhaegen-da
+/compiler/          @sofiafaro-da
+/libs-haskell/      @sofiafaro-da
+/ghc-lib/           @sofiafaro-da
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
@@ -39,7 +42,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Ledger API Interfaces and Read/Write services are jointly owned between KV teams and @meiersi-da
 /ledger-api/grpc-definitions/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-configuration/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer 
+/ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state/src       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Needs cleanup due to mix of kvutils implementation and interfaces. Until then: shared ownership for KV teams
@@ -66,7 +69,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da
+/language-support/hs/       @nickchapman-da @sofiafaro-da
 /language-support/java/     @stefanobaghino-da @ray-roestenburg-da
 /language-support/scala/    @S11001001 @stefanobaghino-da @ray-roestenburg-da
 /language-support/ts/       @robin-da @garyverhaegen-da @stefanobaghino-da @ray-roestenburg-da
