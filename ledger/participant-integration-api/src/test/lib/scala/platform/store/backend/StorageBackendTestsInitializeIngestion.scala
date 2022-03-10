@@ -159,7 +159,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     contract91 shouldBe None
     filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
 
-    // Metering can report include partially ingested data in non-final reports
+    // Metering report can include partially ingested data in non-final reports
     metering1.applicationData should have size 3
     metering1.isFinal shouldBe false
 

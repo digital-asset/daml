@@ -3,10 +3,7 @@
 
 package com.daml.platform.store
 
-import java.math.BigInteger
-import java.nio.charset.Charset
-import java.security.MessageDigest
-
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.platform.store.FlywayMigrationsSpec._
 import org.apache.commons.io.IOUtils
 import org.flywaydb.core.Flyway
@@ -17,6 +14,8 @@ import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCac
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.math.BigInteger
+import java.nio.charset.Charset
 import scala.jdk.CollectionConverters._
 
 // SQL MIGRATION AND THEIR DIGEST FILES SHOULD BE CREATED ONLY ONCE AND NEVER CHANGED AGAIN,
@@ -44,7 +43,7 @@ class FlywayMigrationsSpec extends AnyWordSpec {
 
 object FlywayMigrationsSpec {
 
-  private val digester = MessageDigest.getInstance("SHA-256")
+  private val digester = MessageDigestPrototype.SHA_256.newDigest
 
   private def assertFlywayMigrationFileHashes(
       dbType: DbType,

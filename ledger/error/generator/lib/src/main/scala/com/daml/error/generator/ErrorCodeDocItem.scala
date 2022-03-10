@@ -3,7 +3,8 @@
 
 package com.daml.error.generator
 
-import com.daml.error.{DeprecatedDocs, ErrorClass, Explanation, Resolution}
+import com.daml.error.generator.ErrorCodeDocumentationGenerator.DeprecatedItem
+import com.daml.error.{ErrorClass, Explanation, Resolution}
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
@@ -16,13 +17,13 @@ import com.daml.error.{DeprecatedDocs, ErrorClass, Explanation, Resolution}
   * @param explanation The detailed error explanation.
   * @param resolution The suggested error resolution.
   */
-case class ErrorDocItem(
+case class ErrorCodeDocItem(
     className: String, // TODO error codes: Rename to `errorCodeName` or `errorCodeClassName` to prevent confusion
     category: String,
     hierarchicalGrouping: ErrorClass,
     conveyance: Option[String],
     code: String,
-    deprecation: Option[DeprecatedDocs],
+    deprecation: Option[DeprecatedItem],
     explanation: Option[Explanation],
     resolution: Option[Resolution],
 )

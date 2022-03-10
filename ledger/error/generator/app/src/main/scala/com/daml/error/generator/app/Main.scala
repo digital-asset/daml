@@ -4,17 +4,22 @@
 package com.daml.error.generator.app
 
 import com.daml.error.Grouping
-import com.daml.error.generator.{ErrorCodeDocumentationGenerator, ErrorDocItem, GroupDocItem}
+import com.daml.error.generator.{
+  ErrorCodeDocItem,
+  ErrorCodeDocumentationGenerator,
+  ErrorGroupDocItem,
+}
 import io.circe.Encoder
 import io.circe.syntax._
-
 import java.nio.file.{Files, Paths, StandardOpenOption}
+
+import com.daml.error.generator.ErrorCodeDocumentationGenerator.DeprecatedItem
 
 /** Outputs information about self-service error codes needed for generating documentation to a json file.
   */
 object Main {
 
-  case class Output(errorCodes: Seq[ErrorDocItem], groups: Seq[GroupDocItem])
+  case class Output(errorCodes: Seq[ErrorCodeDocItem], groups: Seq[ErrorGroupDocItem])
 
   implicit val groupingEncode: Encoder[Grouping] =
     Encoder.forProduct2(
@@ -27,7 +32,14 @@ object Main {
       )
     )
 
-  implicit val errorCodeEncode: Encoder[ErrorDocItem] =
+  implicit val deprecatedEncode: Encoder[DeprecatedItem] = {
+    Encoder.forProduct2(
+      "message",
+      "since",
+    )(i => (i.message, i.since))
+  }
+
+  implicit val errorCodeEncode: Encoder[ErrorCodeDocItem] =
     Encoder.forProduct8(
       "className",
       "category",
@@ -44,13 +56,13 @@ object Main {
         i.hierarchicalGrouping.groupings,
         i.conveyance,
         i.code,
-        i.deprecation.fold("")(_.deprecation),
+        i.deprecation,
         i.explanation.fold("")(_.explanation),
         i.resolution.fold("")(_.resolution),
       )
     )
 
-  implicit val groupEncode: Encoder[GroupDocItem] =
+  implicit val groupEncode: Encoder[ErrorGroupDocItem] =
     Encoder.forProduct2(
       "className",
       "explanation",
@@ -65,7 +77,8 @@ object Main {
     Encoder.forProduct2("errorCodes", "groups")(i => (i.errorCodes, i.groups))
 
   def main(args: Array[String]): Unit = {
-    val (errorCodes, groups) = new ErrorCodeDocumentationGenerator().getDocItems
+    val errorCodes = ErrorCodeDocumentationGenerator.getErrorCodeItems()
+    val groups = ErrorCodeDocumentationGenerator.getErrorGroupItems()
     val output = Output(errorCodes, groups)
     val outputText: String = output.asJson.spaces2
 

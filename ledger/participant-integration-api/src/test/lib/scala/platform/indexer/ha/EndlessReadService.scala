@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.v2.{CompletionInfo, ReadService, Transa
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -155,6 +155,7 @@ object EndlessReadService {
   val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
   val choiceName: Ref.Name = Ref.Name.assertFromString("SomeChoice")
+  val statistics: TransactionNodeStatistics = TransactionNodeStatistics.Empty
 
   private val archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -177,7 +178,7 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
-    statistics = None, // TODO Ledger Metering
+    statistics = Some(statistics),
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

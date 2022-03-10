@@ -51,7 +51,6 @@ package object nonempty {
     */
   type NonEmptyF[F[_], A] = NonEmpty.NonEmptyF[F, A]
 
-  // aliases for Samir
   val ±: : +-:.type = +-:
   val :∓ : :-+.type = :-+
 }

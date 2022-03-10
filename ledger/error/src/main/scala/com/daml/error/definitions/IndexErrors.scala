@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.ErrorCode.LoggingApiException
+import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
 
@@ -73,16 +73,15 @@ object IndexErrors extends IndexErrorGroup {
   )(implicit
       code: ErrorCode,
       loggingContext: ContextualizedErrorLogger,
-  ) extends LoggingTransactionErrorImpl(cause, throwableO) {
-    override def asGrpcErrorFromContext(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): IndexDbException = {
-      val err = super.asGrpcErrorFromContext(contextualizedErrorLogger)
+  ) extends DamlErrorWithDefiniteAnswer(cause, throwableO) {
+
+    override def asGrpcError: IndexDbException = {
+      val err = super.asGrpcError
       IndexDbException(err.getStatus, err.getTrailers)
     }
   }
 
   case class IndexDbException(status: io.grpc.Status, metadata: io.grpc.Metadata)
-      extends LoggingApiException(status, metadata)
+      extends LoggedApiException(status, metadata)
 
 }

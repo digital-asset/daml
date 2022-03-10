@@ -96,10 +96,10 @@ done
 
 if  [ "$GEN_ERROR_CODES" = "true" ]; then
     # Error codes and error categories
-    bazel build //docs:generate-docs-error-codes-inventory-into-rst-file
-    cp -L ../../bazel-bin/docs/error-codes-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst.inc
-    bazel build //docs:generate-docs-error-categories-inventory-into-rst-file
-    cp -L ../../bazel-bin/docs/error-categories-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-categories-inventory.rst.inc
+    ./gen-error-docs-src.sh
+    GEN_ERROR_PAGES_DIR=$(cd ..; pwd)/resources/generated-error-pages
+    cp -L $GEN_ERROR_PAGES_DIR/error-codes-inventory.rst.inc      $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst.inc
+    cp -L $GEN_ERROR_PAGES_DIR/error-categories-inventory.rst.inc $BUILD_DIR/source/app-dev/grpc/error-categories-inventory.rst.inc
 fi
 
 DATE=$(date +"%Y-%m-%d")
