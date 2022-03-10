@@ -325,6 +325,22 @@ REQUEST_TIME_OUT
 
 
 
+.. _error_code_SERVER_IS_SHUTTING_DOWN:
+
+SERVER_IS_SHUTTING_DOWN
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when the participant server is shutting down.
+
+    **Category**: TransientServerFailure
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message
+
+    **Resolution**: Contact the participant operator.
+
+
+
+
 .. _error_code_SERVICE_NOT_RUNNING:
 
 SERVICE_NOT_RUNNING
