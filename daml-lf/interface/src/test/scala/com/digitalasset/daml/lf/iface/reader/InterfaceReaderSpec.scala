@@ -19,6 +19,7 @@ import scalaz.\/-
 import scalaz.syntax.functor._
 
 import scala.language.implicitConversions
+import scala.{PartialFunction => PF_=>}
 
 class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
@@ -200,6 +201,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
         }
       }
     }
+    lazy val itpEI = EnvironmentInterface.fromReaderInterfaces(itp).resolveChoices
 
     "load without errors" in {
       itp shouldBe itp
@@ -208,6 +210,9 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     import QualifiedName.{assertFromString => qn}
     val Foo = qn("InterfaceTestPackage:Foo")
     val TIf = qn("InterfaceTestPackage:TIf")
+    val Useless = Ref.ChoiceName.assertFromString("Useless")
+    val UselessTy = qn("InterfaceTestPackage:Useless")
+    import itp.main.{packageId => itpPid}
 
     "exclude interface choices with template choices" in {
       inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
@@ -223,21 +228,29 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
+    val isTheUselessChoice: Option[TemplateChoice.FWT] PF_=> Unit = {
+      case Some(
+            TemplateChoice(
+              TypeCon(TypeConName(Ref.Identifier(_, UselessTy)), Seq()),
+              true,
+              TypePrim(
+                PrimType.ContractId,
+                Seq(TypeCon(TypeConName(Ref.Identifier(_, TIf)), Seq())),
+              ),
+            )
+          ) =>
+    }
+
     "have an interface with a choice" in {
-      val Useless = Ref.ChoiceName.assertFromString("Useless")
-      val UselessTy = qn("InterfaceTestPackage:Useless")
       itp.main.astInterfaces.keySet should ===(Set(TIf))
-      inside(itp.main.astInterfaces(TIf).choices get Useless) {
-        case Some(
-              TemplateChoice(
-                TypeCon(TypeConName(Ref.Identifier(_, UselessTy)), Seq()),
-                true,
-                TypePrim(
-                  PrimType.ContractId,
-                  Seq(TypeCon(TypeConName(Ref.Identifier(_, TIf)), Seq())),
-                ),
-              )
-            ) =>
+      inside(itp.main.astInterfaces(TIf).choices get Useless)(isTheUselessChoice)
+    }
+
+    "resolve inherited choices" in {
+      inside(itpEI.typeDecls.get(Ref.Identifier(itpPid, Foo))) {
+        case Some(InterfaceType.Template(_, tpl)) =>
+          tpl.inheritedChoices shouldBe empty
+          inside(tpl.choices get Useless)(isTheUselessChoice)
       }
     }
   }
