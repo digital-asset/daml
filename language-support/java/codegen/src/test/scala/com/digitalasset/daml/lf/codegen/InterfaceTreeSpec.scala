@@ -18,7 +18,10 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
 
   it should "traverse an empty tree" in {
     val interfaceTree =
-      InterfaceTree(Map.empty, Interface(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty))
+      InterfaceTree(
+        Map.empty,
+        Interface(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty),
+      )
     interfaceTree.bfs(0)((x, _) => x + 1) shouldEqual 0
   }
 
