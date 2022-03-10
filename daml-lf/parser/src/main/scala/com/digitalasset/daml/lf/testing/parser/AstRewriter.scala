@@ -266,7 +266,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
-          implements.transform((_, x) => apply(x)),
+          implements.map({ case (t, x) => (apply(t), apply(x)) }),
         )
     }
 
@@ -302,7 +302,7 @@ private[daml] class AstRewriter(
             inheritedChoices,
           ) =>
         TemplateImplements(
-          interface,
+          apply(interface),
           methods.transform((_, x) => apply(x)),
           inheritedChoices,
         )
