@@ -131,7 +131,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       -- We run the checks for duplicate unit ids before
       -- to avoid blowing up GHC when setting up the GHC session.
-      exposedModules <- getExposedModules opts projectRoot
+      -- exposedModules <- getExposedModules opts projectRoot
 
       Logger.logDebug loggerH "Building dependency package graph"
 
@@ -162,6 +162,8 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
               (>>= maybe (fail "Failed to generate package info") pure) $
                 withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
                   fst <$> useE GeneratePackageMap projectRoot
+
+            exposedModules <- getExposedModules opts projectRoot
 
             let unitIdStr = unitIdString $ unitId pkgNode
             let pkgIdStr = T.unpack $ LF.unPackageId pkgId
