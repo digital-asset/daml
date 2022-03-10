@@ -78,7 +78,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
     when needsReinitalization $ do
       Logger.logDebug loggerH "package db is not up2date, reinitializing"
       clearPackageDb
-      recachePkgDb dbPath
 
       -- since we haven't registered any dependencies yet, this only contains daml-prim and daml-stdlib
       PackageMap baseDependencies <-
