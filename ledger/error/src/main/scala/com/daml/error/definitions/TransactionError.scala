@@ -2,115 +2,55 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.definitions
-import com.daml.error.ErrorCode.{formatContextAsString, truncateResourceForTransport}
-import com.daml.error.{BaseError, ErrorCode, ContextualizedErrorLogger}
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
-  FinalReason,
-  RejectionReasonTemplate,
-}
-import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.{Status, StatusRuntimeException}
 
-trait TransactionError extends BaseError {
-  def createRejection(
-      correlationId: Option[String]
-  )(implicit loggingContext: ContextualizedErrorLogger): RejectionReasonTemplate = {
-    FinalReason(rpcStatus(correlationId))
+import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCode}
+import com.google.rpc.Status
+import io.grpc.StatusRuntimeException
+
+import scala.jdk.CollectionConverters._
+
+class DamlError(
+    override val cause: String,
+    override val throwableO: Option[Throwable] = None,
+)(implicit
+    override val code: ErrorCode,
+    loggingContext: ContextualizedErrorLogger,
+) extends BaseError {
+
+  // Automatically log the error on generation
+  loggingContext.logError(this, Map())
+
+  def asGrpcStatus: Status =
+    code.asGrpcStatus(this)(loggingContext)
+
+  def asGrpcError: StatusRuntimeException =
+    code.asGrpcError(this)(loggingContext)
+
+  def rpcStatus(
+  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.status.Status = {
+    val status0: com.google.rpc.Status = code.asGrpcStatus(this)
+    val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
+    val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
+    com.google.rpc.status.Status(
+      status0.getCode,
+      status0.getMessage,
+      detailsScalapb,
+    )
   }
 
-  // Determines the value of the `definite_answer` key in the error details
-  def definiteAnswer: Boolean = false
+}
+
+/** @param definiteAnswer Determines the value of the `definite_answer` key in the error details
+  */
+class DamlErrorWithDefiniteAnswer(
+    override val cause: String,
+    override val throwableO: Option[Throwable] = None,
+    val definiteAnswer: Boolean = false,
+)(implicit
+    override val code: ErrorCode,
+    loggingContext: ContextualizedErrorLogger,
+) extends DamlError(cause = cause, throwableO = throwableO) {
 
   final override def definiteAnswerO: Option[Boolean] = Some(definiteAnswer)
 
-  def rpcStatus(
-      correlationId: Option[String]
-  )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus =
-    _rpcStatus(None, correlationId)
-
-  // TODO error codes: this impl vs. GrpcStatus.toProto
-  def _rpcStatus(
-      overrideCode: Option[Status.Code],
-      correlationId: Option[String],
-  )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus = {
-
-    // yes, this is a horrible duplication of ErrorCode.asGrpcError. why? because
-    // scalapb does not really support grpc rich errors. there is literally no method
-    // that supports turning scala com.google.rpc.status.Status into java com.google.rpc.Status
-    // objects. however, the sync-api uses the scala variant whereas we have to return StatusRuntimeExceptions.
-    // therefore, we have to compose the status code a second time here ...
-    // the ideal fix would be to extend scalapb accordingly ...
-    val ErrorCode.StatusInfo(codeGrpc, messageWithoutContext, contextMap, _) =
-      code.getStatusInfo(this)
-
-    // TODO error codes: avoid appending the context to the description. right now, we need to do that as the ledger api server is throwing away any error details
-    val message =
-      if (code.category.securitySensitive) messageWithoutContext
-      else messageWithoutContext + "; " + formatContextAsString(contextMap)
-
-    val definiteAnswerKey =
-      "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
-
-    val metadata = if (code.category.securitySensitive) Map.empty[String, String] else contextMap
-    val errorInfo = com.google.rpc.error_details.ErrorInfo(
-      reason = code.id,
-      metadata = metadata.updated(definiteAnswerKey, definiteAnswer.toString),
-    )
-
-    val retryInfoO = retryable.map { ri =>
-      val dr = com.google.protobuf.duration.Duration(
-        java.time.Duration.ofMillis(ri.duration.toMillis)
-      )
-      com.google.protobuf.any.Any.pack(com.google.rpc.error_details.RetryInfo(Some(dr)))
-    }
-
-    val requestInfoO = correlationId.map { ci =>
-      com.google.protobuf.any.Any.pack(com.google.rpc.error_details.RequestInfo(requestId = ci))
-    }
-
-    val resourceInfos =
-      if (code.category.securitySensitive) Seq()
-      else
-        truncateResourceForTransport(resources).map { case (rs, item) =>
-          com.google.protobuf.any.Any
-            .pack(
-              com.google.rpc.error_details
-                .ResourceInfo(resourceType = rs.asString, resourceName = item)
-            )
-        }
-
-    val details = Seq[com.google.protobuf.any.Any](
-      com.google.protobuf.any.Any.pack(errorInfo)
-    ) ++ retryInfoO.toList ++ requestInfoO.toList ++ resourceInfos
-
-    com.google.rpc.status.Status(
-      overrideCode.getOrElse(codeGrpc).value(),
-      message,
-      details,
-    )
-  }
-}
-
-abstract class TransactionErrorImpl(
-    override val cause: String,
-    override val throwableO: Option[Throwable] = None,
-    override val definiteAnswer: Boolean = false,
-)(implicit override val code: ErrorCode)
-    extends TransactionError
-
-abstract class LoggingTransactionErrorImpl(
-    cause: String,
-    throwableO: Option[Throwable] = None,
-    definiteAnswer: Boolean = false,
-)(implicit
-    code: ErrorCode,
-    loggingContext: ContextualizedErrorLogger,
-) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
-
-  def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext
-
-  def log(): Unit = logWithContext()
-
-  // Automatically log the error on generation
-  log()
 }

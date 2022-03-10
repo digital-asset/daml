@@ -4,7 +4,7 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
-import com.daml.error.definitions.LoggingTransactionErrorImpl
+import com.daml.error.definitions.DamlError
 import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -73,9 +73,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
         contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
         errInfoBld.setReason(id)
 
-        // TODO error codes: Resolve dependency and use constant
-        //    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
-        val definiteAnswerKey = "definite_answer"
+        val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
         err.definiteAnswerO.foreach { definiteAnswer =>
           errInfoBld.putMetadata(definiteAnswerKey, definiteAnswer.toString)
         }
@@ -138,16 +136,12 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   ): StatusRuntimeException = {
     val status = asGrpcStatus(err)
     // Builder methods for metadata are not exposed, so going route via creating an exception
-    val ex = StatusProto.toStatusRuntimeException(status)
-    // Strip stack trace from exception
-    // TODO error codes: Define a generic mechanism (trait or method) to check if errors are logged on creation,
-    //                   instead of checking every implementation.
+    val e = StatusProto.toStatusRuntimeException(status)
+    // Stripping stacktrace
     err match {
-      case _: LoggingTransactionErrorImpl =>
-        new ErrorCode.LoggingApiException(ex.getStatus, ex.getTrailers)
-      case err: BaseError.Impl if err.logOnCreation =>
-        new ErrorCode.LoggingApiException(ex.getStatus, ex.getTrailers)
-      case _ => new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
+      case _: DamlError =>
+        new ErrorCode.LoggedApiException(e.getStatus, e.getTrailers)
+      case _ => new ErrorCode.ApiException(e.getStatus, e.getTrailers)
     }
   }
 
@@ -161,7 +155,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
 
-  def getStatusInfo(
+  private def getStatusInfo(
       err: BaseError
   )(implicit loggingContext: ContextualizedErrorLogger): ErrorCode.StatusInfo = {
     val correlationId = loggingContext.correlationId
@@ -229,7 +223,9 @@ object ErrorCode {
       extends StatusRuntimeException(status, metadata)
       with NoStackTrace
 
-  class LoggingApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
+  /** Exception that has already been logged.
+    */
+  class LoggedApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends ApiException(status, metadata)
 
   case class StatusInfo(
@@ -281,4 +277,3 @@ case class Explanation(explanation: String) extends StaticAnnotation
 case class Resolution(resolution: String) extends StaticAnnotation
 case class Description(description: String) extends StaticAnnotation
 case class RetryStrategy(retryStrategy: String) extends StaticAnnotation
-case class DeprecatedDocs(deprecation: String) extends StaticAnnotation

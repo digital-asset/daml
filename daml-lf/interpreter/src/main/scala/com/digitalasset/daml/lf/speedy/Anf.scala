@@ -42,16 +42,11 @@ private[lf] object Anf {
     */
   @throws[CompilationError]
   def flattenToAnf(exp: source.SExpr): target.SExpr = {
-    flattenToAnfInternal(exp).wrapped
+    flattenToAnfInternal(exp)
   }
 
-  /** `AExpr` tracks when an expression has been transformed. It is
-    * private to this file.
-    */
-  private final case class AExpr(wrapped: target.SExpr) extends Serializable
-
   @throws[CompilationError]
-  private def flattenToAnfInternal(exp: source.SExpr): AExpr = {
+  private def flattenToAnfInternal(exp: source.SExpr): target.SExpr = {
     val depth = DepthA(0)
     val env = initEnv
     flattenExp(depth, env, exp) { anf =>
@@ -125,12 +120,12 @@ private[lf] object Anf {
   /** Tx is the type for the stacked transformation functions managed by the ANF
     * transformation, mainly transformExp.
     *
-    * All of the transformation functions would, without CPS, return an AExpr,
+    * All of the transformation functions would, without CPS, return a target.SExpr,
     * so that is the input type of the continuation.
     *
     * Both type parameters are ultimately needed because SCaseAlt does not
-    * extend SExpr. If it did, T would always be SExpr and A would always be
-    * AExpr.
+    * extend source.SExpr. If it did, T would always be source.SExpr and A would always be
+    * target.SExpr.
     *
     * Note that Scala does not seem to be able to generate anonymous function of
     * a parameterized type, so we use nested `defs` instead.
@@ -139,7 +134,7 @@ private[lf] object Anf {
     * @tparam A The return type of the continuation (minus the Trampoline
     *           wrapping).
     */
-  private[this] type Tx[T, A] = (DepthA, T, K[AExpr, A]) => Trampoline[A]
+  private[this] type Tx[T, A] = (DepthA, T, K[target.SExpr, A]) => Trampoline[A]
 
   /** K Is the type for continuations.
     *
@@ -204,11 +199,11 @@ private[lf] object Anf {
   }
 
   private[this] def flattenExp[A](depth: DepthA, env: Env, exp: source.SExpr)(
-      k: K[AExpr, A]
+      k: K[target.SExpr, A]
   ): Trampoline[A] = {
     Bounce(() =>
       transformExp[A](depth, env, exp, k) { (_, sexpr, txK) =>
-        Bounce(() => txK(AExpr(sexpr)))
+        Bounce(() => txK(sexpr))
       }
     )
   }
@@ -218,7 +213,7 @@ private[lf] object Anf {
       env: Env,
       rhs: source.SExpr,
       body: source.SExpr,
-      k: K[AExpr, A],
+      k: K[target.SExpr, A],
       transform: Tx[target.SExpr, A],
   ): Trampoline[A] = {
     Bounce(() =>
@@ -231,7 +226,7 @@ private[lf] object Anf {
             env1,
             body,
             { body1 =>
-              Bounce(() => txK(AExpr(target.SELet1(rhs, body1.wrapped))))
+              Bounce(() => txK(target.SELet1(rhs, body1)))
             },
           )(transform)
         )
@@ -250,7 +245,7 @@ private[lf] object Anf {
         val n = patternNArgs(pat)
         val env1 = trackBindings(depth, env, n)
         flattenExp(depth.incr(n), env1, body0)(body => {
-          Land(target.SCaseAlt(pat, body.wrapped))
+          Land(target.SCaseAlt(pat, body))
         }).bounce
       })
     )
@@ -277,7 +272,12 @@ private[lf] object Anf {
     *  Note: this wrapping is the reason why we need a "second" CPS transform to
     *  achieve constant stack through trampoline.
     */
-  private[this] def transformExp[A](depth: DepthA, env: Env, exp: source.SExpr, k: K[AExpr, A])(
+  private[this] def transformExp[A](
+      depth: DepthA,
+      env: Env,
+      exp: source.SExpr,
+      k: K[target.SExpr, A],
+  )(
       transform: Tx[target.SExpr, A]
   ): Trampoline[A] =
     exp match {
@@ -304,7 +304,7 @@ private[lf] object Anf {
 
       case source.SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
-        val body = flattenToAnfInternal(body0).wrapped
+        val body = flattenToAnfInternal(body0)
         Bounce(() => transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k))
 
       case source.SECase(scrut, alts0) => {
@@ -346,19 +346,17 @@ private[lf] object Anf {
       case source.SETryCatch(body0, handler0) =>
         // we must not lift applications from either the body or the handler outside of
         // the try-catch block, so we flatten each separately:
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
+        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
         val handler: target.SExpr =
-          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0)(anf =>
-            Land(anf.wrapped)
-          ).bounce
+          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0)(anf => Land(anf)).bounce
         Bounce(() => transform(depth, target.SETryCatch(body, handler), k))
 
       case source.SEScopeExercise(body0) =>
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
+        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
         Bounce(() => transform(depth, target.SEScopeExercise(body), k))
 
       case source.SEPreventCatch(body0) =>
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
+        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
         Bounce(() => transform(depth, target.SEPreventCatch(body), k))
 
     }
@@ -367,7 +365,7 @@ private[lf] object Anf {
       depth: DepthA,
       env: Env,
       exps: List[source.SExpr],
-      k: K[AExpr, A],
+      k: K[target.SExpr, A],
   )(
       transform: Tx[List[AbsAtom], A]
   ): Trampoline[A] =
@@ -385,7 +383,12 @@ private[lf] object Anf {
         )
     }
 
-  private[this] def atomizeExp[A](depth: DepthA, env: Env, exp: source.SExpr, k: K[AExpr, A])(
+  private[this] def atomizeExp[A](
+      depth: DepthA,
+      env: Env,
+      exp: source.SExpr,
+      k: K[target.SExpr, A],
+  )(
       transform: Tx[AbsAtom, A]
   ): Trampoline[A] = {
     exp match {
@@ -399,7 +402,7 @@ private[lf] object Anf {
                 depth.incr(1),
                 atom,
                 { body =>
-                  Bounce(() => txK(AExpr(target.SELet1(anf, body.wrapped))))
+                  Bounce(() => txK(target.SELet1(anf, body)))
                 },
               )
             )
@@ -429,7 +432,7 @@ private[lf] object Anf {
       env: Env,
       func: source.SExpr,
       args: Array[source.SExpr],
-      k: K[AExpr, A],
+      k: K[target.SExpr, A],
   )(transform: Tx[target.SExpr, A]): Trampoline[A] = {
     Bounce(() =>
       atomizeExp(depth, env, func, k) { (depth, func, txK1) =>
@@ -453,7 +456,7 @@ private[lf] object Anf {
       env: Env,
       func: source.SExpr,
       args: Array[source.SExpr],
-      k: K[AExpr, A],
+      k: K[target.SExpr, A],
   )(transform: Tx[target.SExpr, A]): Trampoline[A] = {
 
     Bounce(() =>
@@ -483,7 +486,7 @@ private[lf] object Anf {
       exps match {
         case exp1 :: exps =>
           flattenExp(depth, env, exp1) { anf =>
-            loop(anf.wrapped :: acc, exps)
+            loop(anf :: acc, exps)
           }
         case Nil =>
           k(acc.reverse)

@@ -685,7 +685,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commandId,
       None,
       Some(submissionId),
-      None, // TODO Ledger Metering
+      Some(TransactionNodeStatistics(entry.transaction)),
     )
 
   protected final def store(

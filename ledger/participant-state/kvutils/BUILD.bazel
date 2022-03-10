@@ -58,7 +58,7 @@ da_scala_library(
         "//ledger/participant-state-index",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/grpc-utils",
+        "//libs-scala/crypto",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",

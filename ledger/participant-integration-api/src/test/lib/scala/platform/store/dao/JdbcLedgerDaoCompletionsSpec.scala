@@ -10,6 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import com.google.rpc.status.{Status => RpcStatus}
@@ -231,7 +232,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
-            statistics = None, // TODO Ledger Metering
+            statistics = Some(statistics),
           )
         ),
         recordTime = Timestamp.now(),
@@ -256,7 +257,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
-            statistics = None, // TODO Ledger Metering
+            statistics = Some(statistics),
           )
         ),
         recordTime = Timestamp.now(),
@@ -274,6 +275,7 @@ private[dao] object JdbcLedgerDaoCompletionsSpec {
   private val party2 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec2")
   private val party3 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec3")
   private val parties = Set(party1, party2, party3)
+  private val statistics = TransactionNodeStatistics.Empty
 
   private def offsetOf(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.value.absolute.get)

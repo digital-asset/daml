@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.errors
 
-import com.daml.error.definitions.LoggingTransactionErrorImpl
+import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
 import com.daml.error.{ContextualizedErrorLogger, ErrorCode}
-import com.daml.grpc.GrpcStatus
 import com.google.rpc.status.Status
 
 class KVLoggingTransactionErrorImpl(
@@ -15,8 +14,8 @@ class KVLoggingTransactionErrorImpl(
 )(implicit
     code: ErrorCode,
     loggingContext: ContextualizedErrorLogger,
-) extends LoggingTransactionErrorImpl(cause, throwable, definiteAnswer) {
+) extends DamlErrorWithDefiniteAnswer(cause, throwable, definiteAnswer) {
   override def context: Map[String, String] = Map.empty
 
-  final def asStatus: Status = GrpcStatus.toProto(asGrpcStatusFromContext)
+  final def asStatus: Status = rpcStatus()
 }

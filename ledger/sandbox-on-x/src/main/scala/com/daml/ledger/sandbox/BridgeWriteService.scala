@@ -205,7 +205,7 @@ object BridgeWriteService {
           SubmissionResult.SynchronousError(
             LedgerApiErrors.ParticipantBackpressure
               .Rejection("Sandbox-on-X ledger bridge submission buffer is full")
-              .rpcStatus(Some(submissionId))
+              .rpcStatus()
           )
         case QueueOfferResult.Failure(throwable) =>
           SubmissionResult.SynchronousError(
@@ -214,13 +214,13 @@ object BridgeWriteService {
                 message = s"Failed to enqueue submission in the Sandbox-on-X ledger bridge",
                 throwableO = Some(throwable),
               )
-              .rpcStatus(Some(submissionId))
+              .rpcStatus()
           )
         case QueueOfferResult.QueueClosed =>
           SubmissionResult.SynchronousError(
             LedgerApiErrors.ServiceNotRunning
               .Reject("Sandbox-on-X ledger bridge")
-              .rpcStatus(None)
+              .rpcStatus()
           )
       }
     )

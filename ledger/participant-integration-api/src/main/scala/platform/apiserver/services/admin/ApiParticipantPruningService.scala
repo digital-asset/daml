@@ -23,6 +23,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -110,7 +111,7 @@ final class ApiParticipantPruningService private (
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
       .asScala
       .flatMap {
-        case NotPruned(status) => Future.failed(status.asRuntimeException())
+        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
