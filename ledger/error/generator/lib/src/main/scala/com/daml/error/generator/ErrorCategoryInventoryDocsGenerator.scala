@@ -13,7 +13,7 @@ object ErrorCategoryInventoryDocsGenerator {
 
   private def collectErrorCodesAsReStructuredTextSubsections(): Seq[String] = {
     ErrorCategory.all.map { errorCategory: ErrorCategory =>
-      val annotations = ErrorCodeDocumentationGenerator.getErrorCategoryAnnotations(errorCategory)
+      val annotations = ErrorCodeDocumentationGenerator.getErrorCategoryItem(errorCategory)
 
       val categoryId: String = errorCategory.asInt.toString
       val grpcCode: String = errorCategory.grpcCode.fold("N/A")(_.toString)

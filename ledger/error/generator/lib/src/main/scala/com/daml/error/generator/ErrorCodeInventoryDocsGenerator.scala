@@ -11,23 +11,25 @@ import scala.collection.mutable.ArrayBuffer
 object ErrorCodeInventoryDocsGenerator {
 
   def genText(): String = {
-    val (errorDocItems, groupDocItems): (Seq[ErrorDocItem], Seq[GroupDocItem]) =
-      new ErrorCodeDocumentationGenerator().getDocItems
+    val errorDocItems = ErrorCodeDocumentationGenerator.getErrorCodeItems()
+    val groupDocItems = ErrorCodeDocumentationGenerator.getErrorGroupItems()
 
     val groupSegmentsToExplanationMap: Map[List[Grouping], Option[String]] =
-      groupDocItems.map { groupDocItem: GroupDocItem =>
+      groupDocItems.map { groupDocItem: ErrorGroupDocItem =>
         groupDocItem.errorClass.groupings -> groupDocItem.explanation.map(_.explanation)
       }.toMap
 
-    val errorCodes: Seq[ErrorCodeValue] = errorDocItems.map { (errorDocItem: ErrorDocItem) =>
+    val errorCodes: Seq[ErrorCodeValue] = errorDocItems.map { errorCodeDocItem: ErrorCodeDocItem =>
       ErrorCodeValue(
-        category = errorDocItem.category,
-        errorGroupPath = errorDocItem.hierarchicalGrouping,
-        conveyance = errorDocItem.conveyance.getOrElse("").replace('\n', ' '),
-        code = errorDocItem.code,
-        deprecationO = errorDocItem.deprecation.map(_.deprecation.replace('\n', ' ')),
-        explanation = errorDocItem.explanation.fold("")(_.explanation).replace('\n', ' '),
-        resolution = errorDocItem.resolution.fold("")(_.resolution).replace('\n', ' '),
+        category = errorCodeDocItem.category,
+        errorGroupPath = errorCodeDocItem.hierarchicalGrouping,
+        conveyance = newlineIntoSpace(errorCodeDocItem.conveyance.getOrElse("")),
+        code = errorCodeDocItem.code,
+        deprecationO = errorCodeDocItem.deprecation.map(v =>
+          newlineIntoSpace(v.message) + v.since.fold("")(s => s" Since: ${newlineIntoSpace(s)}")
+        ),
+        explanation = newlineIntoSpace(errorCodeDocItem.explanation.fold("")(_.explanation)),
+        resolution = newlineIntoSpace(errorCodeDocItem.resolution.fold("")(_.resolution)),
       )
     }
 
@@ -39,6 +41,11 @@ object ErrorCodeInventoryDocsGenerator {
     ErrorGroupTree
       .collectErrorCodesAsReStructuredTextSubsections(root)
       .mkString("\n\n")
+
+  }
+
+  private def newlineIntoSpace(s: String): String = {
+    s.replace('\n', ' ')
   }
 
 }
