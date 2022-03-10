@@ -1,13 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.engine.replay
+package com.daml.lf
+package testing.snapshot
+
+import com.daml.lf.data.Ref
+import org.openjdk.jmh.annotations._
 
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-
-import com.daml.lf.data._
-import org.openjdk.jmh.annotations._
 
 @State(Scope.Benchmark)
 class ReplayBenchmark {
@@ -28,7 +29,7 @@ class ReplayBenchmark {
   // path of the ledger export
   var ledgerFile: String = _
 
-  private var benchmark: BenchmarkState = _
+  private var benchmark: TransactionSnapshot = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(): Unit =
@@ -44,15 +45,15 @@ class ReplayBenchmark {
       ),
       Ref.Name.assertFromString(name),
     )
-    benchmark = Replay.loadBenchmark(
+    benchmark = TransactionSnapshot.loadBenchmark(
       Paths.get(ledgerFile),
       choice,
       exerciseIndex,
       None,
     )
     if (darFile.nonEmpty) {
-      val loadedPackages = Replay.loadDar(Paths.get(darFile))
-      benchmark = Replay.adapt(loadedPackages, benchmark)
+      val loadedPackages = TransactionSnapshot.loadDar(Paths.get(darFile))
+      benchmark = benchmark.adapt(loadedPackages)
     }
 
     assert(benchmark.validate().isRight)

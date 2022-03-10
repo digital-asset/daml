@@ -48,6 +48,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Needs cleanup due to mix of kvutils implementation and interfaces. Until then: shared ownership for KV teams
 /ledger/participant-state/          @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state-metrics/  @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/participant-state/kvutils/tools/submission-entries-extractor/   @remyhaemmerle-da
 
 # Owned by KV Participant with KV Committer added for notifications
 /ledger/ledger-api-common/          @digital-asset/kv-participant @digital-asset/kv-committer
