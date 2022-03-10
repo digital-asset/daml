@@ -531,9 +531,12 @@ class VirtualResourceManager {
       // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
       panel.webview.html = contents + "<!-- " + new Date() + " -->";
       const panelView = this._panelViews.get(uri);
+      const actualDefault = contents.includes('class="table"')
+        ? defaultView
+        : { ...defaultView, selected: "transaction" };
       panel.webview.postMessage({
         command: "set_view",
-        value: panelView || defaultView,
+        value: panelView || actualDefault,
       });
     }
   }
