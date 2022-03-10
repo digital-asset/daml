@@ -211,8 +211,8 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("recCon1", recCon1),
         ("recCon2", recCon2),
         ("caseScrut", caseScrut),
-        //("caseAlt1", caseAlt1),
-        //("caseAlt2", caseAlt2),
+        ("caseAlt1", caseAlt1),
+        ("caseAlt2", caseAlt2),
         ("let1", let1),
         ("let2", let2), //slow (2.6s for 5k; 11s for 10k -- quadratic?)
         //("eabs_esome", eabs_esome),

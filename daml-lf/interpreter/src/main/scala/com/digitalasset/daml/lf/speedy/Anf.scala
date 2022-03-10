@@ -22,9 +22,9 @@ package com.daml.lf.speedy
   *  expression forms: SEAppGeneral and SECase are removed, and replaced by the simpler
   *  SEAppAtomic and SECaseAtomic (plus SELet as required).
   *
-  *  This compilation phase transforms from SExpr0 to SExpr.
+  *  This compilation phase transforms from SExpr1 to SExpr.
   *    SExpr contains only the expression forms which execute on the speedy machine.
-  *    SExpr0 contains expression forms which exist during the speedy compilation pipeline.
+  *    SExpr1 contains expression forms which exist during the speedy compilation pipeline.
   *
   *  We use "source." and "t." for lightweight discrimination.
   */
@@ -234,21 +234,33 @@ private[lf] object Anf {
     )
   }
 
-  private[this] def flattenAlts[A](depth: DepthA, env: Env, alts: Array[source.SCaseAlt])(
-      k: K[Array[target.SCaseAlt], A]
+  private[this] def flattenAlts[A](depth: DepthA, env: Env, alts0: List[source.SCaseAlt])(
+      k: K[List[target.SCaseAlt], A]
   ): Trampoline[A] = {
-    // Note: this could be made properly CPS and thus constant stack through
-    // trampoline by implementing a CPS version of map. However, map on an
-    // array is implemented as a loop so this should be fine.
-    Bounce(() =>
-      k(alts.map { case source.SCaseAlt(pat, body0) =>
+    def loop(acc: List[target.SCaseAlt], alts: List[source.SCaseAlt]): Trampoline[A] = {
+      alts match {
+        case alt1 :: alts =>
+          flattenAlt(depth, env, alt1) { res1 =>
+            loop(res1 :: acc, alts)
+          }
+        case Nil =>
+          k(acc.reverse)
+      }
+    }
+    loop(Nil, alts0)
+  }
+
+  private[this] def flattenAlt[A](depth: DepthA, env: Env, alt: source.SCaseAlt)(
+      k: target.SCaseAlt => Trampoline[A]
+  ): Trampoline[A] = {
+    alt match {
+      case source.SCaseAlt(pat, body0) =>
         val n = patternNArgs(pat)
         val env1 = trackBindings(depth, env, n)
-        flattenExp(depth.incr(n), env1, body0)(body => {
-          Land(target.SCaseAlt(pat, body))
-        }).bounce
-      })
-    )
+        flattenExp(depth.incr(n), env1, body0) { body =>
+          k(target.SCaseAlt(pat, body))
+        }
+    }
   }
 
   private[this] def patternNArgs(pat: target.SCasePat): Int = pat match {
@@ -312,8 +324,8 @@ private[lf] object Anf {
           atomizeExp(depth, env, scrut, k) { (depth, scrut, txK) =>
             val scrut1 = makeRelativeA(depth)(scrut)
             Bounce(() =>
-              flattenAlts(depth, env, alts0.toArray) { alts =>
-                Bounce(() => transform(depth, target.SECaseAtomic(scrut1, alts), txK))
+              flattenAlts(depth, env, alts0) { alts =>
+                Bounce(() => transform(depth, target.SECaseAtomic(scrut1, alts.toArray), txK))
               }
             )
           }
