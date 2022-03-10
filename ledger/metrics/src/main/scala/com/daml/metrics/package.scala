@@ -21,6 +21,7 @@ package object metrics {
   def summary(name: String): client.Summary = client.Summary
     .build()
     .name(name)
+    .help(name)
     .quantile(0.5, 0.01)
     .quantile(0.75, 0.01)
     .quantile(0.95, 0.001)
