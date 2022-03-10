@@ -333,7 +333,13 @@ object RunnerSpec {
                 submissionId: Ref.SubmissionId,
                 pruneAllDivulgedContracts: Boolean,
             ): CompletionStage[PruningResult] = CompletableFuture.completedFuture(
-              PruningResult.NotPruned(Status.UNIMPLEMENTED.withDescription("prune"))
+              PruningResult.NotPruned(
+                com.google.rpc.Status
+                  .newBuilder()
+                  .setCode(Status.UNIMPLEMENTED.getCode.value())
+                  .setMessage("prune")
+                  .build()
+              )
             )
           }
         })
