@@ -42,13 +42,6 @@ object GrpcStatus {
     StatusProto(code, description, extractDetails(statusJavaProto))
   }
 
-  def toProto(statusJavaProto: StatusJavaProto): StatusProto =
-    StatusProto(
-      code = statusJavaProto.getCode,
-      message = statusJavaProto.getMessage,
-      details = extractDetails(statusJavaProto),
-    )
-
   def toJavaProto(status: StatusProto): StatusJavaProto = toJavaBuilder(status).build()
 
   def toJavaBuilder(status: StatusProto): StatusJavaProto.Builder =

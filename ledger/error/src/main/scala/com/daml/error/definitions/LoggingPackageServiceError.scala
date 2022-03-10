@@ -10,17 +10,6 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
 import com.daml.lf.{VersionRange, language, validation}
 
-trait PackageServiceError extends BaseError
-
-abstract class LoggingPackageServiceError(
-    override val cause: String,
-    override val throwableO: Option[Throwable] = None,
-)(implicit override val code: ErrorCode)
-    extends BaseError.Impl(cause, throwableO)
-    with PackageServiceError {
-  final override def logOnCreation: Boolean = true
-}
-
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."
 )
@@ -38,7 +27,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         ) {
       final case class Error(reason: String)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Dar file name is invalid"
           )
     }
@@ -49,7 +38,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         extends ErrorCode(id = "INVALID_DAR", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(entries: Seq[String], throwable: Throwable)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Dar file is corrupt",
             throwableO = Some(throwable),
           )
@@ -60,7 +49,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         extends ErrorCode(id = "INVALID_ZIP_ENTRY", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(name: String, entries: Seq[String])(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Dar zip file is corrupt"
           )
     }
@@ -76,7 +65,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         ) {
       final case class Error(entries: Seq[String])(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Unsupported legacy Dar zip file"
           )
     }
@@ -87,7 +76,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         extends ErrorCode(id = "ZIP_BOMB", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(msg: String)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Dar zip file seems to be a zip bomb."
           )
     }
@@ -100,7 +89,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         extends ErrorCode(id = "DAR_PARSE_ERROR", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(reason: String)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Failed to parse the dar file content."
           )
     }
@@ -116,22 +105,22 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
       ) {
     final case class Validation(nameOfFunc: String, msg: String, detailMsg: String = "")(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends LoggingPackageServiceError(
+    ) extends DamlError(
           cause = "Internal package validation error."
         )
     final case class Error(missing: Set[PackageId])(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends LoggingPackageServiceError(
+    ) extends DamlError(
           cause = "Failed to resolve package ids locally."
         )
     final case class Generic(reason: String)(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends LoggingPackageServiceError(
+    ) extends DamlError(
           cause = "Generic error (please check the reason string)."
         )
     final case class Unhandled(throwable: Throwable)(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends LoggingPackageServiceError(
+    ) extends DamlError(
           cause = "Failed with an unknown error cause",
           throwableO = Some(throwable),
         )
@@ -140,7 +129,9 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
   object Validation {
     def handleLfArchiveError(
         lfArchiveError: LfArchiveError
-    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): LoggingPackageServiceError =
+    )(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): DamlError =
       lfArchiveError match {
         case LfArchiveError.InvalidDar(entries, cause) =>
           PackageServiceError.Reading.InvalidDar
@@ -160,7 +151,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
 
     def handleLfEnginePackageError(err: Error.Package.Error)(implicit
         loggingContext: ContextualizedErrorLogger
-    ): LoggingPackageServiceError = err match {
+    ): DamlError = err match {
       case Error.Package.Internal(nameOfFunc, msg, _) =>
         PackageServiceError.InternalError.Validation(nameOfFunc, msg)
       case Error.Package.Validation(validationError) =>
@@ -187,7 +178,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         ) {
       final case class Error(validationError: validation.ValidationError)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause = "Package validation failed."
           )
     }
@@ -198,11 +189,12 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         allowedLanguageVersions: VersionRange[language.LanguageVersion],
     )(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends LoggingPackageServiceError(
+    ) extends DamlError(
           cause = LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions
             .buildCause(packageId, languageVersion, allowedLanguageVersions)
         )(
-          LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions
+          LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions,
+          loggingContext,
         ) // reuse error code of ledger api server
 
     @Explanation(
@@ -219,7 +211,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
           missingDependencies: Set[Ref.PackageId],
       )(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingPackageServiceError(
+      ) extends DamlError(
             cause =
               "The set of packages in the dar is not self-consistent and is missing dependencies"
           )

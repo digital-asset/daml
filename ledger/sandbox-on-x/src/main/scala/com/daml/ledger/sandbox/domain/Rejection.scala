@@ -15,8 +15,6 @@ import platform.store.appendonlydao.events.ContractId
 import com.google.rpc.status.Status
 import java.time.Duration
 
-import com.daml.grpc.GrpcStatus
-
 private[sandbox] sealed trait Rejection extends Product with Serializable {
   def toStatus: Status
   def completionInfo: CompletionInfo
@@ -36,11 +34,9 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-          .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", _key = key)
-          .asGrpcStatusFromContext
-      )
+      LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+        .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", _key = key)
+        .rpcStatus()
   }
 
   final case class InconsistentContractKey(
@@ -50,13 +46,11 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
-          .Reject(
-            s"Contract key lookup with different results: expected [$expectation], actual [$result]"
-          )
-          .asGrpcStatusFromContext
-      )
+      LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+        .Reject(
+          s"Contract key lookup with different results: expected [$expectation], actual [$result]"
+        )
+        .rpcStatus()
   }
 
   final case class LedgerBridgeInternalError(_err: Throwable, completionInfo: CompletionInfo)(
@@ -64,7 +58,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status = LedgerApiErrors.InternalError
       .UnexpectedOrUnknownException(_err)
-      .rpcStatus(completionInfo.submissionId)
+      .rpcStatus()
   }
 
   final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
@@ -72,7 +66,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status = LedgerApiErrors.UnsupportedOperation
       .Reject("command deduplication with periods specified using offsets")
-      .rpcStatus(completionInfo.submissionId)
+      .rpcStatus()
   }
 
   final case class TransactionInternallyInconsistentKey(
@@ -87,7 +81,7 @@ private[sandbox] object Rejection {
           "The transaction attempts to create two contracts with the same contract key",
           Some(key),
         )
-        .rpcStatus(None)
+        .rpcStatus()
   }
 
   final case class TransactionInternallyDuplicateKeys(
@@ -99,7 +93,7 @@ private[sandbox] object Rejection {
     override def toStatus: Status =
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
         .Reject("The transaction references a contract key inconsistently", Some(key))
-        .rpcStatus(None)
+        .rpcStatus()
   }
 
   final case class CausalMonotonicityViolation(
@@ -109,13 +103,11 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-          .RejectSimple(
-            s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
-          )
-          .asGrpcStatusFromContext
-      )
+      LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+        .RejectSimple(
+          s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
+        )
+        .rpcStatus()
   }
 
   final case class UnknownContracts(ids: Set[ContractId])(
@@ -125,11 +117,9 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status = {
       val missingContractIds = ids.map(_.coid)
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.ContractNotFound
-          .MultipleContractsNotFound(missingContractIds)
-          .asGrpcStatusFromContext
-      )
+      LedgerApiErrors.ConsistencyErrors.ContractNotFound
+        .MultipleContractsNotFound(missingContractIds)
+        .rpcStatus()
     }
   }
 
@@ -139,11 +129,9 @@ private[sandbox] object Rejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      GrpcStatus.toProto(
-        LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
-          .Reject(unallocatedParties)
-          .asGrpcStatusFromContext
-      )
+      LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+        .Reject(unallocatedParties)
+        .rpcStatus()
   }
 
   final case class DuplicateCommand(
@@ -155,7 +143,7 @@ private[sandbox] object Rejection {
     override def toStatus: Status =
       LedgerApiErrors.ConsistencyErrors.DuplicateCommand
         .Reject(_definiteAnswer = false, None, Some(changeId))
-        .rpcStatus(completionInfo.submissionId)
+        .rpcStatus()
   }
 
   final case class MaxDeduplicationDurationExceeded(
@@ -171,7 +159,7 @@ private[sandbox] object Rejection {
           s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
           Some(maxDeduplicationDuration),
         )
-        .rpcStatus(None)
+        .rpcStatus()
   }
 
   final case class NoLedgerConfiguration(
@@ -179,13 +167,12 @@ private[sandbox] object Rejection {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = GrpcStatus.toProto(
+    override def toStatus: Status =
       LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
         .RejectWithMessage(
           "Cannot validate ledger time"
         )
-        .asGrpcStatusFromContext
-    )
+        .rpcStatus()
   }
 
   final case class InvalidLedgerTime(
@@ -198,16 +185,14 @@ private[sandbox] object Rejection {
       val ledgerTime = outOfRange.ledgerTime.toInstant
       val ledgerTimeLowerBound = outOfRange.lowerBound.toInstant
       val ledgerTimeUpperBound = outOfRange.upperBound.toInstant
-      GrpcStatus.toProto(
-        LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-          .RejectEnriched(
-            s"Ledger time $ledgerTime outside of range [$ledgerTimeLowerBound, $ledgerTimeUpperBound]",
-            ledgerTime,
-            ledgerTimeLowerBound,
-            ledgerTimeUpperBound,
-          )
-          .asGrpcStatusFromContext
-      )
+      LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+        .RejectEnriched(
+          s"Ledger time $ledgerTime outside of range [$ledgerTimeLowerBound, $ledgerTimeUpperBound]",
+          ledgerTime,
+          ledgerTimeLowerBound,
+          ledgerTimeUpperBound,
+        )
+        .rpcStatus()
     }
   }
 }

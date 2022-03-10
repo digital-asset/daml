@@ -122,14 +122,14 @@ object CompletionResponse {
             "Timed out while awaiting for a completion corresponding to a command submission.",
             _definiteAnswer = false,
           )
-          .asGrpcStatusFromContext
+          .asGrpcStatus
       case CompletionResponse.NoStatusInResponse(_, _) =>
         LedgerApiErrors.InternalError
           .Generic(
             "Missing status in completion response.",
             throwableO = None,
           )
-          .asGrpcStatusFromContext
+          .asGrpcStatus
 
     }
 

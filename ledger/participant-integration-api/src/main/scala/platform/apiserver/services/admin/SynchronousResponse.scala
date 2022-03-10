@@ -78,7 +78,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
                       .Reject("Party submission")(
                         errorLogger
                       )
-                      .asGrpcStatusFromContext(errorLogger)
+                      .asGrpcStatus
                   )
                 )
             }

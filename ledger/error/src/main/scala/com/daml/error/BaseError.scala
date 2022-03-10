@@ -100,33 +100,4 @@ object BaseError {
     msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
   }
 
-  abstract class Impl(
-      override val cause: String,
-      override val throwableO: Option[Throwable] = None,
-  )(implicit override val code: ErrorCode)
-      extends BaseError {
-
-    /** The logging context obtained when we created the error, usually passed in as implicit */
-    def loggingContext: ContextualizedErrorLogger
-
-    /** Flag to control if an error should be logged at creation
-      *
-      * Generally, we do want to log upon creation, except in the case of "nested" or combined errors,
-      * where we just nest the error but don't want it to be logged twice.
-      */
-    def logOnCreation: Boolean = true
-
-    def log(): Unit = logWithContext()(loggingContext)
-
-    def asGrpcStatus: Status =
-      code.asGrpcStatus(this)(loggingContext)
-
-    def asGrpcError: StatusRuntimeException =
-      code.asGrpcError(this)(loggingContext)
-
-    // Automatically log the error on generation
-    if (logOnCreation) {
-      log()
-    }
-  }
 }

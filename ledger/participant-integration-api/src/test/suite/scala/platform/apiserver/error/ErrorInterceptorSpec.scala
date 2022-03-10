@@ -9,10 +9,10 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
+import com.daml.error.definitions.DamlError
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
-  BaseError,
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCategory,
@@ -259,8 +259,8 @@ object ErrorInterceptorSpec {
       )(ErrorClass.root()) {
 
     case class Error(_msg: String)(implicit
-        override val loggingContext: ContextualizedErrorLogger
-    ) extends BaseError.Impl(
+        val loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
           cause = s"Foo is missing: ${_msg}"
         )
 
