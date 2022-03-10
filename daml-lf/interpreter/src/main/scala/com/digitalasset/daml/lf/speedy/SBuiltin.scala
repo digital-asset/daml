@@ -1082,6 +1082,8 @@ private[lf] object SBuiltin {
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 machine.pushKont(KCacheContract(machine, coid))
                 machine.ctrl = SEApp(
+                  // The call to ToCachedContractDefRef(actualTmplId) will query package
+                  // of actualTmplId if not know.
                   SEVal(ToCachedContractDefRef(actualTmplId)),
                   Array(
                     SEImportValue(Ast.TTyCon(actualTmplId), arg),
