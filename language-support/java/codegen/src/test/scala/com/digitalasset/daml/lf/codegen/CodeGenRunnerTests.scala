@@ -83,6 +83,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
           ) -> dummyType
         )
         .toMap,
+      Map.empty,
     )
   }
 
