@@ -21,6 +21,8 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Language
 /daml-assistant/    @sofiafaro-da
+/daml-script/       @remyhaemmerle-da 
+/triggers/          @remyhaemmerle-da 
 /compatibility/     @garyverhaegen-da
 
 # Runtime
