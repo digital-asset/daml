@@ -303,7 +303,7 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   // TODO (#12689) each interface must have been resolveChoices'd against the
-  // whole environment for all choices to be listed
+  // whole environment (prior environment & whole diff) for all choices to be listed
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }
 

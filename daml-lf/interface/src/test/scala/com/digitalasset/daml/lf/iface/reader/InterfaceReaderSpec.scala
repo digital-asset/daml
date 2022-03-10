@@ -241,12 +241,18 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       itp.main.astInterfaces(TIf).choices get Useless should ===(Some(theUselessChoice))
     }
 
+    def foundUselessChoice(foo: Option[InterfaceType]) = inside(foo) {
+      case Some(InterfaceType.Template(_, tpl)) =>
+        tpl.inheritedChoices shouldBe empty
+        tpl.choices get Useless should ===(Some(theUselessChoice))
+    }
+
     "resolve inherited choices" in {
-      inside(itpEI.typeDecls.get(Ref.Identifier(itpPid, Foo))) {
-        case Some(InterfaceType.Template(_, tpl)) =>
-          tpl.inheritedChoices shouldBe empty
-          tpl.choices get Useless should ===(Some(theUselessChoice))
-      }
+      foundUselessChoice(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+    }
+
+    "resolve choices internally" in {
+      foundUselessChoice(itp.main.resolveChoices(PartialFunction.empty).typeDecls get Foo)
     }
   }
 

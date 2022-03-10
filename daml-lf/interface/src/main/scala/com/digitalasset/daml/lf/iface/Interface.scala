@@ -7,7 +7,7 @@ package iface
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion, QualifiedName}
+import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
@@ -62,6 +62,36 @@ final case class Interface(
 ) {
   def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
   def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = astInterfaces.asJava
+
+  /** Like [[EnvironmentInterface]]'s version, but permits incremental
+    * resolution of newly-loaded interfaces, such as json-api does.
+    *
+    * {{{
+    *  // suppose
+    *  i: Interface; ei: EnvironmentInterface
+    *  val eidelta = EnvironmentInterface.fromReaderInterfaces(i)
+    *  // such that
+    *  ei |+| eidelta
+    *  // contains the whole environment of i.  Then
+    *  ei |+| eidelta.resolveChoices(ei.astInterfaces)
+    *  === (ei |+| eidelta).resolveChoices
+    *  // but faster.
+    * }}}
+    */
+  def resolveChoices(findInterface: PartialFunction[Identifier, DefInterface.FWT]): Interface = {
+    val outside = findInterface.lift
+    def findIface(id: Identifier) =
+      if (id.packageId == packageId) astInterfaces get id.qualifiedName
+      else outside(id)
+    val tplFindIface = Function unlift findIface
+    copy(typeDecls = typeDecls transform { (_, ift) =>
+      ift match {
+        case ift: InterfaceType.Template =>
+          ift.copy(template = ift.template resolveChoices tplFindIface)
+        case n: InterfaceType.Normal => n
+      }
+    })
+  }
 }
 
 object Interface {
