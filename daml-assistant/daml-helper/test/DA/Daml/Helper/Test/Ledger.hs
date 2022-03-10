@@ -230,4 +230,35 @@ main = do
                   ExitSuccess @?
                   "fetch-dar did fail with big enough max-inbound-message-size flag"
           ]
+
+      , testGroup "metering-report"
+          [ testCase "succeeds against gRPC" $ do
+              sandboxPort <- getSandboxPort
+              callCommand $
+                unwords
+                  [ damlHelper
+                  , "ledger"
+                  , "metering-report"
+                  , "--host=localhost"
+                  , "--port"
+                  , show sandboxPort
+                  , "--from=2022-02-10"
+                  ]
+            , testCase "succeeds against HTTP JSON API" $ do
+              HttpJson {hjPort, hjTokenFile} <- getHttpJson
+              callCommand $
+                unwords
+                  [ damlHelper
+                  , "ledger"
+                  , "metering-report"
+                  , "--host=localhost"
+                  , "--json-api"
+                  , "--port"
+                  , show hjPort
+                  , "--access-token-file"
+                  , hjTokenFile
+                  , "--from=2022-02-10"
+                  ]
+          ]
+
       ]
