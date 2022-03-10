@@ -27,10 +27,10 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/ @S11001001 @remyhaemmerle-da
+/daml-lf/data-scalacheck/src/main/ @S11001001 
 /daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
-/daml-lf/transaction-test-lib/ @S11001001 @remyhaemmerle-da
+/daml-lf/transaction-test-lib/src/main/ @S11001001
 
 # KV Participant
 /ledger/      @digital-asset/kv-participant
@@ -72,15 +72,14 @@ NOTICES     @garyverhaegen-da @dasormeter
 /language-support/ts/       @robin-da @garyverhaegen-da @stefanobaghino-da @ray-roestenburg-da
 
 # Application Runtime
-/ledger-service/       @S11001001 @stefanobaghino-da @ray-roestenburg-da
+/ledger-service/       @stefanobaghino-da @ray-roestenburg-da
 /navigator/            @stefanobaghino-da @ray-roestenburg-da
 /runtime-components/   @stefanobaghino-da @ray-roestenburg-da
 /triggers/service/     @stefanobaghino-da @ray-roestenburg-da
-/navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
 /docs/              @stefanobaghino-da
 /libs-scala/        @stefanobaghino-da
-/libs-scala/contextualized-logging/    @S11001001
-/libs-scala/scala-utils/    @S11001001
-/libs-scala/scalatest-utils/    @S11001001
+/libs-scala/nonempty-cats/src/    @S11001001
+/libs-scala/scala-utils/src/    @S11001001
+/libs-scala/scalatest-utils/src/    @S11001001
