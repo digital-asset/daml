@@ -6,7 +6,7 @@ package nonempty
 
 import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
+import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
@@ -54,6 +54,23 @@ sealed abstract class NonEmptyColl {
     unsafeNarrow(bb.result())
   }
 
+  /** Like `apply`, but because `A` occurs directly in the result type, if the
+    * call to `mk` has an expected `A` type, `hd` and `tl` will have that
+    * expected type as well.  Particularly useful for `Set`s, as expected type
+    * can widen the element type of the produced set, and `_` as an argument,
+    * because the lambda argument type can be inferred from the expected result
+    * type.
+    *
+    * However, strictly speaking, it is less general than `apply`; for example,
+    * it doesn't work on `Map`s at all.  So it should only be used when you
+    * need its particular type inference behavior.  See `"mk" should` tests
+    * in `NonEmptySpec.scala` for examples where `mk` works but `apply` doesn't.
+    */
+  final def mk[Fct, A, C[X] <: imm.Iterable[X]](into: Fct, hd: A, tl: A*)(implicit
+      fct: Fct => Factory[A, C[A]]
+  ): NonEmpty[C[A]] =
+    apply(into, hd, tl: _*)
+
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
     * to `ne` if the pattern matches.
@@ -65,6 +82,9 @@ sealed abstract class NonEmptyColl {
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
   def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
+
+  /** Like `unapply`, but when you don't want pattern matching. */
+  final def from[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
 }
 
 /** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
@@ -85,7 +105,28 @@ object NonEmptyColl extends NonEmptyCollInstances {
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
-    def toF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
+
+    @deprecated("use toNEF instead", since = "2.0.1")
+    def toF: NonEmptyF[F, A] = nfa.toNEF
+
+    /** See [[NonEmptyF]] for further explanation. */
+    def toNEF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
+  }
+
+  implicit final class UnReshapeOps[F[_], A](private val nfa: NonEmptyF[F, A]) extends AnyVal {
+
+    /** `x.fromNEF` is `(x: NonEmpty[F[A]])` but possibly shorter.  If code
+      * compiles without the call to `fromNEF`, you don't need the call.
+      */
+    def fromNEF: NonEmpty[F[A]] = nfa
+  }
+
+  implicit final class UnwrapOps[A](private val self: NonEmpty[A]) extends AnyVal {
+
+    /** `x.forgetNE` is `(x: A)` but possibly shorter. If code compiles without
+      * the call to `forgetNE`, you don't need the call.
+      */
+    def forgetNE: A = self
   }
 
   /** Operations that can ''return'' new maps.  There is no reason to include any other
@@ -116,20 +157,28 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def ++(that: IterableOnce[A]): NonEmpty[C] = un((self: ESelf) ++ that)
   }
 
-  implicit final class NEPreservingOps[A, C](
-      private val self: NonEmpty[IterableOps[A, imm.Iterable, C with imm.Iterable[A]]]
+  implicit final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
+      private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
   ) extends AnyVal {
     import NonEmpty.{unsafeNarrow => un}
-    private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
+    private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
+    def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
+      NonEmpty.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
+    def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
     def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
     def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
     def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
-    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]) = un((self: ESelf) to factory)
+    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]): NonEmpty[C1] = un(
+      (self: ESelf) to factory
+    )
+    def zipWithIndex: NonEmpty[CC[(A, Int)]] = un((self: ESelf).zipWithIndex)
     // (not so valuable unless also using wartremover to disable partial Seq ops)
     @`inline` def head1: A = self.head
     @`inline` def tail1: C = self.tail
+    def reduceLeft[B >: A](op: (B, A) => B): B = (self: ESelf).reduceLeft(op)
+    @`inline` def last1: A = self.last
   }
 
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
@@ -145,6 +194,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     // do not compose
     @`inline` def +-:[B >: A](elem: B): NonEmpty[CC[B]] = elem +: self
     @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
+
+    def distinct: NonEmpty[C] = un((self: ESelf).distinct)
   }
 
   implicit final class `Seq Ops`[A, CC[_], C](
@@ -171,6 +222,11 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
+
+  // by requiring Monoid instead of Semigroup, we exclude intersection semigroups,
+  // which are not legitimate for lifting into NonEmpty
+  implicit def semigroup[A](implicit A: Monoid[A]): Semigroup[NonEmpty[A]] =
+    NonEmpty.subst[Lambda[k[_] => Semigroup[k[A]]]](A)
 }
 
 sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {

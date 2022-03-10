@@ -208,7 +208,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     import Queries.CompatImplicits.catsReducibleFromFoldable1
     val q = sql"""
       SELECT party, last_offset FROM $ledgerOffsetTableName WHERE tpid = $tpid AND
-    """ ++ Fragments.in(fr"party", parties.toF)
+    """ ++ Fragments.in(fr"party", parties.toNEF)
     q.query[(String, String)]
       .to[Vector]
       .map(_.toMap)
@@ -921,7 +921,7 @@ private final class OracleQueries(
                        signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
                      JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
-                WHERE (${Fragments.in(fr"cst.stakeholder", parties.toF)})
+                WHERE (${Fragments.in(fr"cst.stakeholder", parties.toNEF)})
                       AND ($queriesCondition)"""
         rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
       },
