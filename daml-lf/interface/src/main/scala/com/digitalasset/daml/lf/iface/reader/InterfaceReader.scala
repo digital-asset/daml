@@ -125,8 +125,6 @@ object InterfaceReader {
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
   private[reader] def foldModule(module: Ast.Module): State = {
-    if (module.name == Ref.ModuleName.assertFromString("InterfaceTestPackage"))
-      println(module)
     val (derrors, dataTypes) = (module.definitions: Iterable[(Ref.DottedName, Ast.Definition)])
       .collect { case (name, Ast.DDataType(true, params, dataType)) =>
         val fullName = QualifiedName(module.name, name)
