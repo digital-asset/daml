@@ -25,7 +25,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
 
     val expectedErrorDocItems = Seq(
       ErrorCodeDocItem(
-        className = SeriousError.getClass.getTypeName,
+        errorCodeClassName = SeriousError.getClass.getTypeName,
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
@@ -38,7 +38,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         resolution = Some(Resolution("Turn it off and on again.")),
       ),
       ErrorCodeDocItem(
-        className = DeprecatedError.getClass.getTypeName: @nowarn("cat=deprecation"),
+        errorCodeClassName = DeprecatedError.getClass.getTypeName: @nowarn("cat=deprecation"),
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
@@ -52,7 +52,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         resolution = Some(Resolution("Turn it off and on again.")),
       ),
       ErrorCodeDocItem(
-        className = NotSoSeriousError.getClass.getTypeName,
+        errorCodeClassName = NotSoSeriousError.getClass.getTypeName,
         category = "TransientServerFailure",
         hierarchicalGrouping = ErrorClass(
           List(

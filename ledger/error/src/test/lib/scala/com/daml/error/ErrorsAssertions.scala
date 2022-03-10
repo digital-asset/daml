@@ -110,6 +110,8 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
         ErrorDetails.from(actualDetails) should contain theSameElementsAs expectedDetails
       }
     }
+    cp { Statement.discard { actual.getStackTrace shouldBe Array.empty } }
+    cp { Statement.discard { actual.getCause shouldBe null } }
     cp.reportAll()
   }
 

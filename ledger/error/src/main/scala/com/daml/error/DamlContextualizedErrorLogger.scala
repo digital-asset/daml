@@ -3,7 +3,6 @@
 
 package com.daml.error
 
-import com.daml.error.ErrorCode.formatContextAsString
 import com.daml.logging.entries.{LoggingKey, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingValueStringSerializer}
 import org.slf4j.event.Level
@@ -74,7 +73,7 @@ class DamlContextualizedErrorLogger(
     val mergedContext = err.context ++ err.location.map(("location", _)).toList.toMap ++ extra
 
     LoggingContext.withEnrichedLoggingContext(
-      "err-context" -> ("{" + formatContextAsString(mergedContext) + "}")
+      "err-context" -> ("{" + ContextualizedErrorLogger.formatContextAsString(mergedContext) + "}")
     ) { implicit loggingContext =>
       val message = errorCode.toMsg(err.cause, correlationId)
       (logLevel, err.throwableO) match {

@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
@@ -72,14 +71,11 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
                   Some(submissionId),
                 )
                 Future.failed(
-                  // TODO error codes: simplify
-                  ErrorFactories.grpcError(
-                    LedgerApiErrors.ServiceNotRunning
-                      .Reject("Party submission")(
-                        errorLogger
-                      )
-                      .asGrpcStatus
-                  )
+                  LedgerApiErrors.ServiceNotRunning
+                    .Reject("Party submission")(
+                      errorLogger
+                    )
+                    .asGrpcError
                 )
             }
             .flatten

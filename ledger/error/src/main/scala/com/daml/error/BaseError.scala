@@ -30,12 +30,13 @@ trait BaseError extends LocationMixin {
     *     throwableO = Some(throwable)
     *   )
     * }
+    *
+    * NOTE: This throwable's details are not included the exception communicated to the gRPC clients
+    *       so if you want them communicated, you need to explicitly add them to the e.g. context map or cause string.
     */
   def throwableO: Option[Throwable] = None
 
   /** The context (declared fields) of this error
-    *
-    * At the moment, we'll figure them out using reflection.
     */
   def context: Map[String, String] = Map()
 

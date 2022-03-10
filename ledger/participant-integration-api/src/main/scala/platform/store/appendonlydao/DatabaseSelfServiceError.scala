@@ -20,9 +20,6 @@ import scala.annotation.tailrec
   *
   * * Problems that cannot be recovered from are non-transient. For example, an illegal argument exception inside a
   * database transaction or a unique constraint violation.
-  *
-  * TODO error codes: Move and handle the error specialization per storage backend
-  *                   in [[com.daml.platform.store.backend.StorageBackend]].
   */
 object DatabaseSelfServiceError {
   @tailrec

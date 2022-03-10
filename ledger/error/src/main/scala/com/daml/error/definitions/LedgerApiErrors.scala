@@ -347,7 +347,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer("Stale stream authorization. Retry quickly.") {
         override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry(who = "application", duration = 0.seconds)
+          ErrorCategoryRetry(duration = 0.seconds)
         )
       }
 
@@ -866,8 +866,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          // TODO error codes: Reconsider the transport format for the contract key.
-          //                   If the key is big, it can force chunking other resources.
           (ErrorResource.ContractKey, _key.toString())
         )
       }

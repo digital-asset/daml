@@ -7,6 +7,7 @@ import ch.qos.logback.classic.Level
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.logging.LoggingContext
+import com.daml.platform.testing.LogCollector.ThrowableEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.google.rpc.Status
 import io.grpc.Status.Code
@@ -114,7 +115,7 @@ class ErrorCodeSpec
         override val cause: String = "cause123"
 
         override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry(who = "unused", duration = 123.seconds + 456.milliseconds)
+          ErrorCategoryRetry(duration = 123.seconds + 456.milliseconds)
         )
 
         override def resources: Seq[(ErrorResource, String)] =
@@ -132,6 +133,9 @@ class ErrorCodeSpec
           )
 
         override def definiteAnswerO: Option[Boolean] = Some(false)
+
+        override def throwableO: Option[Throwable] =
+          Some(new RuntimeException("runtimeException123"))
       }
 
       val errorLoggerBig = DamlContextualizedErrorLogger.forClass(
@@ -175,15 +179,7 @@ class ErrorCodeSpec
           .addAllDetails(details.map(_.toRpcAny).asJava)
           .build()
         val testedError = TestedError()
-        testedError.logWithContext(Map.empty)(errorLoggerBig)
 
-        assertSingleLogEntry(
-          actual = LogCollector.readAsEntries[this.type, this.type],
-          expectedLogLevel = Level.INFO,
-          expectedMsg = "FOO_ERROR_CODE(8,123corre): cause123",
-          expectedMarkerAsString =
-            """{loggingEntryKey: "loggingEntryValue", err-context: "{contextKey1=contextValue1, kkk????=keyWithInvalidCharacters, location=ErrorCodeSpec.scala:<line-number>}"}""",
-        )
         assertStatus(
           actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
           expected = expectedStatus,
@@ -227,6 +223,12 @@ class ErrorCodeSpec
           expectedMsg = "FOO_ERROR_CODE_SECURITY_SENSITIVE(4,123corre): cause123",
           expectedMarkerAsString =
             """{loggingEntryKey: "loggingEntryValue", err-context: "{contextKey1=contextValue1, kkk????=keyWithInvalidCharacters, location=ErrorCodeSpec.scala:<line-number>}"}""",
+          expectedThrowableEntry = Some(
+            ThrowableEntry(
+              className = "java.lang.RuntimeException",
+              message = "runtimeException123",
+            )
+          ),
         )
         assertStatus(
           actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
@@ -258,8 +260,13 @@ class ErrorCodeSpec
       class FooErrorBig(override val code: ErrorCode) extends BaseError {
         override val cause: String = "cause123"
 
+        override def context: Map[String, String] =
+          super.context ++ Map(
+            ("y" * ErrorCode.MaxContentBytes) -> ("y" * ErrorCode.MaxContentBytes)
+          )
+
         override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry(who = "unused", duration = 123.seconds + 456.milliseconds)
+          ErrorCategoryRetry(duration = 123.seconds + 456.milliseconds)
         )
 
         override def resources: Seq[(ErrorResource, String)] =
@@ -297,8 +304,9 @@ class ErrorCodeSpec
               "category" -> testedErrorCode.category.asInt.toString,
               "definite_answer" -> "false",
               "loggingEntryKey" -> "'loggingEntryValue'",
-              "loggingEntryValueTooBig" -> ("'" + "x" * 1854 + "..."),
+              "loggingEntryValueTooBig" -> ("'" + "x" * 473 + "..."),
               ("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") -> "'loggingEntryKeyTooBig'",
+              ("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy") -> ("y" * 1317 + "..."),
             ),
           ),
         requestInfo,

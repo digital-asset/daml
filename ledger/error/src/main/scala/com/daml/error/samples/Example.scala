@@ -4,7 +4,7 @@
 package com.daml.error.samples
 import scala.concurrent.duration._
 
-import com.daml.error.definitions.{DamlError}
+import com.daml.error.definitions.DamlError
 
 object DummmyServer {
 
@@ -36,7 +36,7 @@ object DummmyServer {
       )
 
       override def retryable: Option[ErrorCategoryRetry] = Some(
-        ErrorCategoryRetry("me", 123.second + 456.milliseconds)
+        ErrorCategoryRetry(123.second + 456.milliseconds)
       )
 
       override def context: Map[String, String] = Map("foo" -> "bar")

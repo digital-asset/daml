@@ -16,6 +16,12 @@ object LoggingContext {
   def apply(entry: LoggingEntry, entries: LoggingEntry*): LoggingContext =
     new LoggingContext(LoggingEntries(entry +: entries: _*))
 
+  def enriched(entry: LoggingEntry, entries: LoggingEntry*)(implicit
+      loggingContext: LoggingContext
+  ): LoggingContext = {
+    loggingContext ++ LoggingEntries(entry +: entries: _*)
+  }
+
   private[logging] def newLoggingContext[A](entries: LoggingEntries)(f: LoggingContext => A): A =
     f(new LoggingContext(entries))
 

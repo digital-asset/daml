@@ -3,7 +3,7 @@
 
 package com.daml.error
 
-import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
+import com.daml.error.ErrorCode.MaxCauseLogLength
 import com.daml.error.definitions.DamlError
 import com.daml.error.utils.ErrorDetails
 import com.google.rpc.Status
@@ -60,8 +60,14 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   /** @return message including error category id, error code id, correlation id and cause
     */
-  def toMsg(cause: => String, correlationId: Option[String]): String =
-    s"${codeStr(correlationId)}: ${ErrorCode.truncateCause(cause)}"
+  def toMsg(cause: => String, correlationId: Option[String]): String = {
+    val truncatedCause =
+      if (cause.length > MaxCauseLogLength)
+        cause.take(MaxCauseLogLength) + "..."
+      else
+        cause
+    s"${codeStr(correlationId)}: $truncatedCause"
+  }
 
   def asGrpcStatus(err: BaseError)(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val statusInfo = getStatusInfo(err)(loggingContext)
@@ -95,7 +101,8 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val resourceInfos =
       if (code.category.securitySensitive) Seq()
       else
-        truncateResourceForTransport(err.resources)
+        ErrorCode
+          .truncateResourcesForTransport(err.resources)
           .map { case (resourceType, resourceValue) =>
             ErrorDetails.ResourceInfoDetail(
               typ = resourceType.asString,
@@ -138,7 +145,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
 
-  private def getStatusInfo(
+  private[error] def getStatusInfo(
       err: BaseError
   )(implicit loggingContext: ContextualizedErrorLogger): ErrorCode.StatusInfo = {
     val correlationId = loggingContext.correlationId
@@ -152,7 +159,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
         loggingContext.warn(s"Passing non-grpc error via grpc $id ")
         Code.INTERNAL
       }
-    val contextMap = getTruncatedContext(err) + ("category" -> category.asInt.toString)
+    val contextMap = ErrorCode.truncateContext(err) + ("category" -> category.asInt.toString)
 
     ErrorCode.StatusInfo(
       grpcStatusCode = grpcStatusCode,
@@ -160,31 +167,6 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       contextMap = contextMap,
       correlationId = correlationId,
     )
-  }
-
-  private def getTruncatedContext(
-      error: BaseError
-  )(implicit loggingContext: ContextualizedErrorLogger): Map[String, String] = {
-    val raw: Seq[(String, String)] =
-      (error.context ++ loggingContext.properties).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
-    val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
-    // truncate smart, starting with the smallest value strings such that likely only truncate the largest args
-    raw
-      .foldLeft((Map.empty[String, String], 0)) { case ((map, free), (k, v)) =>
-        val adjustedKey = ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
-        val maxSize = free + maxPerEntry - adjustedKey.length
-        val truncatedValue = if (maxSize >= v.length || v.isEmpty) v else v.take(maxSize) + "..."
-        // note that we silently discard empty context values and we automatically make the
-        // key "gRPC compliant"
-        if (v.isEmpty || adjustedKey.isEmpty) {
-          (map, free + maxPerEntry)
-        } else {
-          // keep track of "free space" such that we can keep larger values around
-          val newFree = free + maxPerEntry - adjustedKey.length - truncatedValue.length
-          (map + (adjustedKey -> truncatedValue), newFree)
-        }
-      }
-      ._1
   }
 
   /** The error conveyance doc string provides a statement about the form this error will be returned to the user */
@@ -223,41 +205,49 @@ object ErrorCode {
       correlationId: Option[String],
   )
 
+  private def truncateContext(
+      error: BaseError
+  )(implicit loggingContext: ContextualizedErrorLogger): Map[String, String] = {
+    val raw: Seq[(String, String)] =
+      (error.context ++ loggingContext.properties).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
+    val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
+    // truncate smart, starting with the smallest value strings such that likely only truncate the largest args
+    raw
+      .foldLeft((Map.empty[String, String], 0)) { case ((map, free), (k, v)) =>
+        val adjustedKey = ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
+        val maxSize = free + maxPerEntry - adjustedKey.length
+        val truncatedValue = if (maxSize >= v.length || v.isEmpty) v else v.take(maxSize) + "..."
+        // Note that we silently discard empty context values and we automatically make the
+        // key "gRPC compliant"
+        if (v.isEmpty || adjustedKey.isEmpty) {
+          (map, free + maxPerEntry)
+        } else {
+          // Keep track of "free space" such that we can keep larger values around
+          val newFree = free + maxPerEntry - adjustedKey.length - truncatedValue.length
+          (map + (adjustedKey -> truncatedValue), newFree)
+        }
+      }
+      ._1
+  }
+
   /** Truncate resource information such that we don't exceed a max error size */
-  def truncateResourceForTransport(
-      res: Seq[(ErrorResource, String)]
+  def truncateResourcesForTransport(
+      resources: Seq[(ErrorResource, String)]
   ): Seq[(ErrorResource, String)] = {
-    res
+    resources
       .foldLeft((Seq.empty[(ErrorResource, String)], 0)) { case ((acc, spent), elem) =>
         val tot = elem._1.asString.length + elem._2.length
         val newSpent = tot + spent
         if (newSpent < ErrorCode.MaxContentBytes) {
           (acc :+ elem, newSpent)
         } else {
-          // TODO error codes: Here we silently drop resource info.
-          //                   Signal that it was truncated by logs or truncate only expensive fields?
+          // Note we silently drop resource info.
           (acc, spent)
         }
       }
       ._1
   }
 
-  /** Formats the context as a string for e.g. transport or file logging */
-  def formatContextAsString(contextMap: Map[String, String]): String = {
-    contextMap
-      .filter(_._2.nonEmpty)
-      .toSeq
-      .sortBy(_._1)
-      .map { case (k, v) =>
-        s"$k=$v"
-      }
-      .mkString(", ")
-  }
-
-  private[error] def truncateCause(cause: String): String =
-    if (cause.length > MaxCauseLogLength) {
-      cause.take(MaxCauseLogLength) + "..."
-    } else cause
 }
 
 // Use these annotations to add more information to the documentation for an error on the website

@@ -119,18 +119,15 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionResponse] = {
-    // There is no problem in leaking the loggingContext in here, but the construction looks suspicious
-    // TODO error codes: Replace with non-closure-based enriched loggingContext builder here and in other constructions as well
-    implicit val errorLogger: ContextualizedErrorLogger = withEnrichedLoggingContext(
+    implicit val enrichedLoggingContext: LoggingContext = LoggingContext.enriched(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
-    ) { implicit loggingContext =>
-      logger.info("Received request for transaction by event ID.")
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    }
-    logger.trace(s"Transaction by event ID request: $request")
-
+    )(loggingContext)
+    logger.info("Received request for transaction by event ID.")(enrichedLoggingContext)
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, enrichedLoggingContext, None)
+    logger.trace(s"Transaction by event ID request: $request")(loggingContext)
     LfEventId
       .fromString(request.eventId.unwrap)
       .map { case LfEventId(transactionId, _) =>
@@ -141,7 +138,7 @@ private[apiserver] final class ApiTransactionService private (
           invalidArgument(s"invalid eventId: ${request.eventId}")
         }
       }
-      .andThen(logger.logErrorsOnCall[GetTransactionResponse])
+      .andThen(logger.logErrorsOnCall[GetTransactionResponse](loggingContext))
   }
 
   override def getTransactionById(
