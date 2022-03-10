@@ -19,7 +19,6 @@ import scalaz.\/-
 import scalaz.syntax.functor._
 
 import scala.language.implicitConversions
-import scala.{PartialFunction => PF_=>}
 
 class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
@@ -228,29 +227,25 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    val isTheUselessChoice: Option[TemplateChoice.FWT] PF_=> Unit = {
-      case Some(
-            TemplateChoice(
-              TypeCon(TypeConName(Ref.Identifier(_, UselessTy)), Seq()),
-              true,
-              TypePrim(
-                PrimType.ContractId,
-                Seq(TypeCon(TypeConName(Ref.Identifier(_, TIf)), Seq())),
-              ),
-            )
-          ) =>
-    }
+    lazy val theUselessChoice = TemplateChoice(
+      TypeCon(TypeConName(Ref.Identifier(itpPid, UselessTy)), ImmArraySeq.empty),
+      true,
+      TypePrim(
+        PrimType.ContractId,
+        ImmArraySeq(TypeCon(TypeConName(Ref.Identifier(itpPid, TIf)), ImmArraySeq.empty)),
+      ),
+    )
 
     "have an interface with a choice" in {
       itp.main.astInterfaces.keySet should ===(Set(TIf))
-      inside(itp.main.astInterfaces(TIf).choices get Useless)(isTheUselessChoice)
+      itp.main.astInterfaces(TIf).choices get Useless should ===(Some(theUselessChoice))
     }
 
     "resolve inherited choices" in {
       inside(itpEI.typeDecls.get(Ref.Identifier(itpPid, Foo))) {
         case Some(InterfaceType.Template(_, tpl)) =>
           tpl.inheritedChoices shouldBe empty
-          inside(tpl.choices get Useless)(isTheUselessChoice)
+          tpl.choices get Useless should ===(Some(theUselessChoice))
       }
     }
   }
