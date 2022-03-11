@@ -75,3 +75,23 @@ private[logging] object LoggingValueSerializer {
     }
   }
 }
+
+object LoggingValueStringSerializer {
+
+  def makeString(loggingValue: LoggingValue): String = loggingValue match {
+    case LoggingValue.Empty => ""
+    case LoggingValue.False => "false"
+    case LoggingValue.True => "true"
+    case LoggingValue.OfString(value) => s"'$value'"
+    case LoggingValue.OfInt(value) => value.toString
+    case LoggingValue.OfLong(value) => value.toString
+    case LoggingValue.OfIterable(sequence) =>
+      sequence.map(makeString).mkString("[", ", ", "]")
+    case LoggingValue.Nested(entries) =>
+      entries.contents.view
+        .map { case (key, value) => s"$key: ${makeString(value)}" }
+        .mkString("{", ", ", "}")
+    case LoggingValue.OfJson(json) => json.toString()
+  }
+
+}
