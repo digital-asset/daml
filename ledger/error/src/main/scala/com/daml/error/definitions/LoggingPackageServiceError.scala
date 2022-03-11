@@ -117,7 +117,11 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = "Generic error (please check the reason string)."
-        )
+        ) {
+      override def context: Map[String, String] = super.context ++ Map(
+        "reason" -> reason
+      )
+    }
     final case class Unhandled(throwable: Throwable)(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
