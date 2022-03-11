@@ -10,6 +10,7 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.{DatabaseMetrics, TimedNative}
 import com.daml.platform.configuration.ServerRole
+import com.zaxxer.hikari.metrics.prometheus.PrometheusMetricsTrackerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
 import javax.sql.DataSource
@@ -37,6 +38,7 @@ private[platform] object HikariDataSourceOwner {
       config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
       //TODO Prometheus metrics: find a replacement
 //      metrics.foreach(config.setMetricRegistry)
+      config.setMetricsTrackerFactory(new PrometheusMetricsTrackerFactory())
       new HikariDataSource(config)
     }
 }
