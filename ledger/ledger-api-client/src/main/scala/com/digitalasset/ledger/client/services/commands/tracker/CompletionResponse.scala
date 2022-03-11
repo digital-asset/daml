@@ -120,7 +120,7 @@ object CompletionResponse {
         LedgerApiErrors.RequestTimeOut
           .Reject(
             "Timed out while awaiting for a completion corresponding to a command submission.",
-            _definiteAnswer = false,
+            definiteAnswer = false,
           )
           .asGrpcStatus
       case CompletionResponse.NoStatusInResponse(_, _) =>

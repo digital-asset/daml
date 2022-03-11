@@ -150,9 +150,9 @@ final class ApiParticipantPruningService private (
       .map(t =>
         LedgerApiErrors.RequestValidation.NonHexOffset
           .Error(
-            _fieldName = "prune_up_to",
-            _offsetValue = pruneUpToString,
-            _message =
+            fieldName = "prune_up_to",
+            offsetValue = pruneUpToString,
+            message =
               s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
           )
           .asGrpcError

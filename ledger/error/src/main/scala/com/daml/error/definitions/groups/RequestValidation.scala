@@ -33,14 +33,14 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
           id = "PACKAGE_NOT_FOUND",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject(_packageId: String)(implicit
+      case class Reject(packageId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = "Could not find package."
           ) {
 
         override def resources: Seq[(ErrorResource, String)] = {
-          super.resources :+ ((ErrorResource.DalfPackage, _packageId))
+          super.resources :+ ((ErrorResource.DalfPackage, packageId))
         }
       }
 
@@ -66,11 +66,11 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
-      case class Reject(_transactionId: String)(implicit
+      case class Reject(transactionId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = "Transaction not found, or not visible.") {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.TransactionId, _transactionId)
+          (ErrorResource.TransactionId, transactionId)
         )
       }
     }
@@ -91,10 +91,10 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
             cause = "The ledger configuration could not be retrieved."
           )
 
-      case class RejectWithMessage(_message: String)(implicit
+      case class RejectWithMessage(message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"The ledger configuration could not be retrieved: ${_message}."
+            cause = s"The ledger configuration could not be retrieved: ${message}."
           )
     }
   }
@@ -106,13 +106,12 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    case class Reject(override val cause: String, _earliestOffset: String)(implicit
+    case class Reject(override val cause: String, earliestOffset: String)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
-
-      override def context: Map[String, String] =
-        super.context + (EarliestOffsetMetadataKey -> _earliestOffset)
-    }
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause,
+          extraContext = Map(EarliestOffsetMetadataKey -> earliestOffset),
+        )
   }
 
   @Explanation(
@@ -124,10 +123,10 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         id = "OFFSET_AFTER_LEDGER_END",
         ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
       ) {
-    case class Reject(_offsetType: String, _requestedOffset: String, _ledgerEnd: String)(implicit
+    case class Reject(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${_offsetType} offset (${_requestedOffset}) is after ledger end (${_ledgerEnd})"
+          cause = s"${offsetType} offset (${requestedOffset}) is after ledger end (${ledgerEnd})"
         )
   }
 
@@ -140,9 +139,9 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         id = "OFFSET_OUT_OF_RANGE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    case class Reject(_message: String)(implicit
+    case class Reject(message: String)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = _message)
+    ) extends DamlErrorWithDefiniteAnswer(cause = message)
   }
 
   @Explanation(
@@ -155,11 +154,11 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         id = "LEDGER_ID_MISMATCH",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-    case class Reject(_expectedLedgerId: String, _receivedLegerId: String)(implicit
+    case class Reject(expectedLedgerId: String, receivedLegerId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"Ledger ID '${_receivedLegerId}' not found. Actual Ledger ID is '${_expectedLedgerId}'.",
+            s"Ledger ID '${receivedLegerId}' not found. Actual Ledger ID is '${expectedLedgerId}'.",
           definiteAnswer = true,
         )
   }
@@ -170,14 +169,12 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   @Resolution("Inspect the reason given and correct your application.")
   object MissingField
       extends ErrorCode(id = "MISSING_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-    case class Reject(_missingField: String)(implicit
+    case class Reject(missingField: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"The submitted command is missing a mandatory field: ${_missingField}"
-        ) {
-      override def context: Map[String, String] =
-        super.context ++ Map("field_name" -> _missingField)
-    }
+          cause = s"The submitted command is missing a mandatory field: ${missingField}",
+          extraContext = Map("field_name" -> missingField),
+        )
   }
 
   @Explanation(
@@ -186,10 +183,10 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   @Resolution("Inspect the reason given and correct your application.")
   object InvalidArgument
       extends ErrorCode(id = "INVALID_ARGUMENT", ErrorCategory.InvalidIndependentOfSystemState) {
-    case class Reject(_reason: String)(implicit
+    case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"The submitted command has invalid arguments: ${_reason}"
+          cause = s"The submitted command has invalid arguments: ${reason}"
         )
   }
 
@@ -199,11 +196,11 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   @Resolution("Inspect the reason given and correct your application.")
   object InvalidField
       extends ErrorCode(id = "INVALID_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-    case class Reject(_fieldName: String, _message: String)(implicit
+    case class Reject(fieldName: String, message: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The submitted command has a field with invalid value: Invalid field ${_fieldName}: ${_message}"
+            s"The submitted command has a field with invalid value: Invalid field ${fieldName}: ${message}"
         )
   }
 
@@ -220,15 +217,15 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
       ) {
     val ValidMaxDeduplicationFieldKey = "longest_duration"
     case class Reject(
-        _reason: String,
-        _maxDeduplicationDuration: Option[Duration],
+        reason: String,
+        maxDeduplicationDuration: Option[Duration],
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"The submitted command had an invalid deduplication period: ${_reason}"
+          cause = s"The submitted command had an invalid deduplication period: ${reason}"
         ) {
       override def context: Map[String, String] = {
-        super.context ++ _maxDeduplicationDuration
+        super.context ++ maxDeduplicationDuration
           .map(ValidMaxDeduplicationFieldKey -> _.toString)
           .toList
       }
@@ -243,14 +240,13 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     case class Error(
-        _fieldName: String,
-        _offsetValue: String,
-        _message: String,
+        fieldName: String,
+        offsetValue: String,
+        message: String,
     )(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause =
-            s"Offset in ${_fieldName} not specified in hexadecimal: ${_offsetValue}: ${_message}"
+          cause = s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}"
         )
   }
 }

@@ -37,19 +37,19 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
       ) {
 
     case class Reject(
-        _definiteAnswer: Boolean = false,
-        _existingCommandSubmissionId: Option[String],
-        _changeId: Option[ChangeId] = None,
+        override val definiteAnswer: Boolean = false,
+        existingCommandSubmissionId: Option[String],
+        changeId: Option[ChangeId] = None,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "A command with the given command id has already been successfully processed",
-          definiteAnswer = _definiteAnswer,
+          definiteAnswer = definiteAnswer,
         ) {
       override def context: Map[String, String] =
-        super.context ++ _existingCommandSubmissionId
+        super.context ++ existingCommandSubmissionId
           .map("existing_submission_id" -> _)
-          .toList ++ _changeId
+          .toList ++ changeId
           .map(changeId => Seq("changeId" -> changeId.toString))
           .getOrElse(Seq.empty)
     }
@@ -105,26 +105,26 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
 
-    case class MultipleContractsNotFound(_notFoundContractIds: Set[String])(implicit
+    case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Unknown contracts: ${_notFoundContractIds.mkString("[", ", ", "]")}"
+          cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, _notFoundContractIds.mkString("[", ", ", "]"))
+        (ErrorResource.ContractId, notFoundContractIds.mkString("[", ", ", "]"))
       )
     }
 
     case class Reject(
         override val cause: String,
-        _cid: Value.ContractId,
+        cid: Value.ContractId,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, _cid.coid)
+        (ErrorResource.ContractId, cid.coid)
       )
     }
 
@@ -158,7 +158,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
 
     case class RejectWithContractKeyArg(
         override val cause: String,
-        _key: GlobalKey,
+        key: GlobalKey,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
@@ -167,7 +167,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         // TODO error codes: Reconsider the transport format for the contract key.
         //                   If the key is big, it can force chunking other resources.
-        (ErrorResource.ContractKey, _key.toString())
+        (ErrorResource.ContractKey, key.toString())
       )
     }
 
@@ -189,15 +189,15 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
 
     case class RejectEnriched(
         override val cause: String,
-        ledger_time: Instant,
-        ledger_time_lower_bound: Instant,
-        ledger_time_upper_bound: Instant,
+        ledgerTime: Instant,
+        ledgerTimeLowerBound: Instant,
+        ledgerTimeUpperBound: Instant,
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(cause = cause) {
       override def context: Map[String, String] = super.context ++ Map(
-        "ledger_time" -> ledger_time.toString,
-        "ledger_time_lower_bound" -> ledger_time_lower_bound.toString,
-        "ledger_time_upper_bound" -> ledger_time_upper_bound.toString,
+        "ledger_time" -> ledgerTime.toString,
+        "ledger_time_lower_bound" -> ledgerTimeLowerBound.toString,
+        "ledger_time_upper_bound" -> ledgerTimeUpperBound.toString,
       )
     }
 
