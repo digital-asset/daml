@@ -31,12 +31,17 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
+  *           performed by an [[com.daml.lf.engine.Engine]].
+  */
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
     metrics: Metrics,
+)(implicit
+    ec: ExecutionContext
 ) extends CommandExecutor {
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
@@ -46,8 +51,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       submissionSeed: crypto.Hash,
       ledgerConfiguration: Configuration,
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
@@ -119,8 +123,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       submissionSeed: crypto.Hash,
       interpretationTimeNanos: AtomicLong,
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
     Timed.trackedFuture(
       metrics.daml.execution.engineRunning,
@@ -148,8 +151,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       result: Result[A],
       interpretationTimeNanos: AtomicLong,
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
 

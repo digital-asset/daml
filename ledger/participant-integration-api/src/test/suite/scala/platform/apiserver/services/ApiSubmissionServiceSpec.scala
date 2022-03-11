@@ -291,7 +291,7 @@ class ApiSubmissionServiceSpec
             eqTo(submitRequest.commands),
             any[Hash],
             any[Configuration],
-          )(any[ExecutionContext], any[LoggingContext])
+          )(any[LoggingContext])
         ).thenReturn(Future.successful(Left(error)))
         service
           .submit(submitRequest)
