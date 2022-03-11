@@ -25,6 +25,8 @@ import scala.concurrent.duration._
 )
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
+  val Admin: groups.AdminServices.type = groups.AdminServices
+
   val EarliestOffsetMetadataKey = "earliest_offset"
 
   @Explanation(
@@ -715,100 +717,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class Buffer(message: String, override val throwableO: Option[Throwable])(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = message, throwableO = throwableO)
-  }
-
-  @Explanation("Errors raised by Ledger API admin services.")
-  object AdminServices {
-    @Explanation("This rejection is given when a new configuration is rejected.")
-    @Resolution("Fetch newest configuration and/or retry.")
-    object ConfigurationEntryRejected
-        extends ErrorCode(
-          id = "CONFIGURATION_ENTRY_REJECTED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      case class Reject(_message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = _message
-          )
-    }
-
-    @Explanation("This rejection is given when a package upload is rejected.")
-    @Resolution("Refer to the detailed message of the received error.")
-    object PackageUploadRejected
-        extends ErrorCode(
-          id = "PACKAGE_UPLOAD_REJECTED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      case class Reject(_message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = _message
-          )
-    }
-
-    @Explanation("The user referred to by the request was not found.")
-    @Resolution(
-      "Check that you are connecting to the right participant node and the user-id is spelled correctly, if yes, create the user."
-    )
-    object UserNotFound
-        extends ErrorCode(
-          id = "USER_NOT_FOUND",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-      case class Reject(_operation: String, userId: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"${_operation} failed for unknown user \"${userId}\""
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          ErrorResource.User -> userId
-        )
-      }
-    }
-    @Explanation("There already exists a user with the same user-id.")
-    @Resolution(
-      "Check that you are connecting to the right participant node and the user-id is spelled correctly, or use the user that already exists."
-    )
-    object UserAlreadyExists
-        extends ErrorCode(
-          id = "USER_ALREADY_EXISTS",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-        ) {
-      case class Reject(_operation: String, userId: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"${_operation} failed, as user \"${userId}\" already exists"
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          ErrorResource.User -> userId
-        )
-      }
-    }
-
-    @Explanation(
-      """|A user can have only a limited number of user rights.
-                    |There was an attempt to create a user with too many rights or grant too many rights to a user."""
-    )
-    @Resolution(
-      """|Retry with a smaller number of rights or delete some of the already existing rights of this user.
-                   |Contact the participant operator if the limit is too low."""
-    )
-    object TooManyUserRights
-        extends ErrorCode(
-          id = "TOO_MANY_USER_RIGHTS",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      case class Reject(_operation: String, userId: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"${_operation} failed, as user \"${userId}\" would have too many rights."
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          ErrorResource.User -> userId
-        )
-      }
-    }
   }
 
   @Explanation(

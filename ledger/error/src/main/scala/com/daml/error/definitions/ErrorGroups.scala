@@ -15,7 +15,9 @@ object ErrorGroups {
     abstract class LedgerApiErrorGroup extends ErrorGroup() {
       abstract class CommandExecutionErrorGroup extends ErrorGroup()
       abstract class PackageServiceErrorGroup extends ErrorGroup()
-      abstract class UserManagementServiceErrorGroup extends ErrorGroup()
+      abstract class AdminServicesErrorGroup extends ErrorGroup() {
+        abstract class UserManagementServiceErrorGroup extends ErrorGroup()
+      }
     }
   }
 }

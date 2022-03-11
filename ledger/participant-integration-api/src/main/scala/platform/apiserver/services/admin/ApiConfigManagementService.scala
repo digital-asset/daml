@@ -263,7 +263,7 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        LedgerApiErrors.AdminServices.ConfigurationEntryRejected
+        LedgerApiErrors.Admin.ConfigurationEntryRejected
           .Reject(reason)(
             new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
           )
