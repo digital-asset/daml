@@ -184,18 +184,8 @@ class ErrorCodeSpec
           actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
           expected = expectedStatus,
         )
-        assertStatus(
-          actual = testedError.asGrpcStatusFromContext(errorLoggerBig),
-          expected = expectedStatus,
-        )
         assertError(
           actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
-          expectedStatusCode = testedErrorCode.category.grpcCode.get,
-          expectedMessage = "FOO_ERROR_CODE(8,123corre): cause123",
-          expectedDetails = details,
-        )
-        assertError(
-          actual = testedError.asGrpcErrorFromContext(errorLoggerBig),
           expectedStatusCode = testedErrorCode.category.grpcCode.get,
           expectedMessage = "FOO_ERROR_CODE(8,123corre): cause123",
           expectedDetails = details,
@@ -234,19 +224,8 @@ class ErrorCodeSpec
           actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
           expected = expectedStatus,
         )
-        assertStatus(
-          actual = testedError.asGrpcStatusFromContext(errorLoggerBig),
-          expected = expectedStatus,
-        )
         assertError(
           actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
-          expectedStatusCode = testedErrorCode.category.grpcCode.get,
-          expectedMessage =
-            "An error occurred. Please contact the operator and inquire about the request 123correlationId",
-          expectedDetails = Seq(requestInfo, retryInfo),
-        )
-        assertError(
-          actual = testedError.asGrpcErrorFromContext(errorLoggerBig),
           expectedStatusCode = testedErrorCode.category.grpcCode.get,
           expectedMessage =
             "An error occurred. Please contact the operator and inquire about the request 123correlationId",
@@ -327,18 +306,8 @@ class ErrorCodeSpec
         actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerOversized),
         expected = expectedStatus,
       )
-      assertStatus(
-        actual = testedError.asGrpcStatusFromContext(errorLoggerOversized),
-        expected = expectedStatus,
-      )
       assertError(
         actual = testedErrorCode.asGrpcError(testedError)(errorLoggerOversized),
-        expectedStatusCode = testedErrorCode.category.grpcCode.get,
-        expectedMessage = expectedMessage,
-        expectedDetails = expectedDetails,
-      )
-      assertError(
-        actual = testedError.asGrpcErrorFromContext(errorLoggerOversized),
         expectedStatusCode = testedErrorCode.category.grpcCode.get,
         expectedMessage = expectedMessage,
         expectedDetails = expectedDetails,

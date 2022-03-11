@@ -52,16 +52,6 @@ trait BaseError extends LocationMixin {
   ): Unit =
     contextualizedErrorLogger.logError(this, extra)
 
-  def asGrpcStatusFromContext(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Status =
-    code.asGrpcStatus(this)
-
-  def asGrpcErrorFromContext(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    code.asGrpcError(this)
-
   /** Returns retryability information of this particular error
     *
     * In some cases, error instances would like to provide custom retry intervals.
@@ -74,6 +64,20 @@ trait BaseError extends LocationMixin {
 
   /** Controls whether a `definite_answer` error detail is added to the gRPC status code */
   def definiteAnswerO: Option[Boolean] = None
+}
+
+/** Base class for errors for which error context is known at creation.
+  */
+trait ContextualizedError extends BaseError {
+
+  protected def errorContext: ContextualizedErrorLogger
+
+  def asGrpcStatus: Status =
+    code.asGrpcStatus(this)(errorContext)
+
+  def asGrpcError: StatusRuntimeException =
+    code.asGrpcError(this)(errorContext)
+
 }
 
 trait LocationMixin {

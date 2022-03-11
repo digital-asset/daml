@@ -3,9 +3,7 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCode}
-import com.google.rpc.Status
-import io.grpc.StatusRuntimeException
+import com.daml.error.{ContextualizedError, ContextualizedErrorLogger, ErrorCode}
 
 import scala.jdk.CollectionConverters._
 
@@ -14,20 +12,13 @@ class DamlError(
     override val throwableO: Option[Throwable] = None,
 )(implicit
     override val code: ErrorCode,
-    loggingContext: ContextualizedErrorLogger,
-) extends BaseError {
+    override val errorContext: ContextualizedErrorLogger,
+) extends ContextualizedError {
 
   // Automatically log the error on generation
-  loggingContext.logError(this, Map())
+  errorContext.logError(this, Map())
 
-  def asGrpcStatus: Status =
-    code.asGrpcStatus(this)(loggingContext)
-
-  def asGrpcError: StatusRuntimeException =
-    code.asGrpcError(this)(loggingContext)
-
-  def rpcStatus(
-  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.status.Status = {
+  def rpcStatus(): com.google.rpc.status.Status = {
     val status0: com.google.rpc.Status = code.asGrpcStatus(this)
     val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
     val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
