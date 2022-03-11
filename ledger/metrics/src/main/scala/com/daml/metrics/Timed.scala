@@ -88,6 +88,13 @@ object Timed {
     result
   }
 
+  def future2[T](summary: Summary, future: => Future[T]): Future[T] = {
+    val timer = summary.labels("trololololo").startTimer()
+    val result = future
+    result.onComplete(_ => timer.observeDuration())(ExecutionContext.parasitic)
+    result
+  }
+
   def future[EC, T](
       histogram: Histogram,
       future: => concurrent.Future[EC, T],
@@ -99,6 +106,16 @@ object Timed {
   }
 
   def future[EC, T](
+      summary: Summary,
+      future: => concurrent.Future[EC, T],
+  ): concurrent.Future[EC, T] = {
+    val timer = summary.startTimer()
+    val result = future
+    result.onComplete(_ => timer.observeDuration())(concurrent.ExecutionContext.parasitic)
+    result
+  }
+
+  def future2[EC, T](
       summary: Summary,
       future: => concurrent.Future[EC, T],
   ): concurrent.Future[EC, T] = {

@@ -302,13 +302,14 @@ object SandboxOnXRunner {
   private def buildMetrics(implicit
       participantConfig: ParticipantConfig,
       config: Config[BridgeConfig],
+      actorSystem: ActorSystem,
   ): ResourceOwner[Metrics] =
     BridgeConfigProvider
       .createMetrics(participantConfig, config)
       .tap(_ => JvmMetrics.initialize())
       .pipe { metrics =>
         config.metricsReporter
-          .fold(ResourceOwner.unit)(reporter => MetricsReporter.owner(reporter))
+          .fold(ResourceOwner.unit)(reporter => MetricsReporter.owner(reporter, actorSystem))
           .map(_ => metrics)
       }
 

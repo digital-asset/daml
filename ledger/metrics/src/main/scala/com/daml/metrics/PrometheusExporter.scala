@@ -3,6 +3,7 @@
 
 package com.daml.metrics
 
+import akka.actor.ActorSystem
 import com.daml.ledger.resources.ResourceOwner
 import io.prometheus.client.exporter.HTTPServer
 import scopt.Read
@@ -10,16 +11,18 @@ import scopt.Read
 import java.net.{InetSocketAddress, URI}
 import scala.util.control.NonFatal
 
-sealed trait MetricsReporter
+trait MetricsReporter
 
 object MetricsReporter {
   implicit val metricsReporterRead: Read[MetricsReporter] =
     Read.reads(Cli.parseReporter)
 
-  def owner(reporter: MetricsReporter): ResourceOwner[Unit] = {
+  def owner(reporter: MetricsReporter, actorSystem: ActorSystem): ResourceOwner[Unit] = {
     reporter match {
       case PrometheusReporter(address) =>
         PrometheusServer.owner(address).map(_ => ())
+      case Console =>
+        ConsoleReporter.owner(actorSystem).map(_ => ())
     }
   }
 
@@ -34,6 +37,8 @@ object MetricsReporter {
           val uri = parseUri(value)
           val address = getAddress(uri, PrometheusServer.DefaultPort)
           PrometheusReporter(address)
+        case "console" =>
+          Console
         case _ =>
           throw invalidRead
       }
@@ -65,6 +70,7 @@ object MetricsReporter {
       new InetSocketAddress("localhost", PrometheusServer.DefaultPort)
     )
   }
+  final case object Console extends MetricsReporter
 }
 
 object PrometheusServer {

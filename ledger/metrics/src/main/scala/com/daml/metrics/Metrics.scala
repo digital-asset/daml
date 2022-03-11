@@ -368,10 +368,12 @@ final class Metrics() {
         summary(Prefix :+ "lookup_flat_transaction_by_id")
       val lookupTransactionTreeById: client.Summary =
         summary(Prefix :+ "lookup_transaction_tree_by_id")
-      val lookupLedgerConfiguration: client.Summary = summary(
+      val lookupLedgerConfiguration: client.Summary = summaryWithLabel(
         Prefix :+ "lookup_ledger_configuration"
       )
-      val lookupMaximumLedgerTime: client.Summary = summary(Prefix :+ "lookup_maximum_ledger_time")
+      val lookupMaximumLedgerTime: client.Summary = summaryWithLabel(
+        Prefix :+ "lookup_maximum_ledger_time"
+      )
       val getParties: client.Summary = summary(Prefix :+ "get_parties")
       val listKnownParties: client.Summary = summary(Prefix :+ "list_known_parties")
       val listLfPackages: client.Summary = summary(Prefix :+ "list_lf_packages")

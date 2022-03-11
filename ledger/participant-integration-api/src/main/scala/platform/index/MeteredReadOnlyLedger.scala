@@ -108,7 +108,7 @@ private[index] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metr
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
-    Timed.future(
+    Timed.future2(
       metrics.daml.index.lookupMaximumLedgerTime,
       ledger.lookupMaximumLedgerTime(contractIds),
     )
@@ -146,7 +146,7 @@ private[index] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metr
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
-    Timed.future(metrics.daml.index.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
+    Timed.future2(metrics.daml.index.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
       startExclusive: Offset

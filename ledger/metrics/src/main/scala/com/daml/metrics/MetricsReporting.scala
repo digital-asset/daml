@@ -3,6 +3,7 @@
 
 package com.daml.metrics
 
+import akka.actor.ActorSystem
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 
 // TODO Prometheus metrics: notes:
@@ -10,13 +11,14 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 // - reporting to the global registry as in best practices
 // - JMX reporter to implement
 final class MetricsReporting(
-    extraMetricsReporter: Option[MetricsReporter]
+    extraMetricsReporter: Option[MetricsReporter],
+    actorSystem: ActorSystem,
 ) extends ResourceOwner[Metrics] {
   def acquire()(implicit context: ResourceContext): Resource[Metrics] = {
     JvmMetrics.initialize()
     for {
       _ <- extraMetricsReporter.fold(Resource.unit) { reporter =>
-        MetricsReporter.owner(reporter).acquire()
+        MetricsReporter.owner(reporter, actorSystem).acquire()
       }
     } yield new Metrics() // TODO Prometheus metrics
   }
