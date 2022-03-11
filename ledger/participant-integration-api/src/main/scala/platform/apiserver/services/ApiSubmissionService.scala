@@ -8,8 +8,8 @@ import java.util.UUID
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggedApiException
-import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause}
+import com.daml.error.definitions.{ErrorCause, LedgerApiErrors, RejectionGenerators}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.SubmissionIdGenerator
@@ -268,7 +268,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
     Future.failed(
       RejectionGenerators
-        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))
+        .commandExecutorError(error)
     )
 
   override def close(): Unit = ()
