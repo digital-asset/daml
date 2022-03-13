@@ -185,8 +185,8 @@ final class BuffersUpdaterSpec
       BuffersUpdater
         .convertToContractStateEvents(
           TransactionLogUpdate.LedgerEndMarker(
-            eventOffset = Offset.fromByteArray(BigInt(1337L).toByteArray),
-            eventSequentialId = 9876L,
+            offset = Offset.fromByteArray(BigInt(1337L).toByteArray),
+            lastEventSeqId = 9876L,
           )
         )
         .toVector shouldBe Vector(

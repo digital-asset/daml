@@ -19,7 +19,7 @@ import scala.concurrent.duration._
   */
 private[index] class LedgerEndPoller(
     ledgerReadDao: LedgerReadDao,
-    consume: LedgerEnd => Future[Unit],
+    consume: LedgerEnd => Unit,
 )(implicit mat: Materializer, loggingContext: LoggingContext) {
 
   private val restartSettings =
@@ -34,7 +34,7 @@ private[index] class LedgerEndPoller(
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) = RestartSource
     .withBackoff(restartSettings)(poller)
     .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-    .toMat(Sink.foreachAsync(parallelism = 1)(consume))(Keep.both[UniqueKillSwitch, Future[Done]])
+    .toMat(Sink.foreach(consume))(Keep.both[UniqueKillSwitch, Future[Done]])
     .run()
 
   def release(): Future[Unit] = {

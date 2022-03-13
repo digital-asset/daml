@@ -352,6 +352,13 @@ final class Metrics(val registry: MetricRegistry) {
     object index {
       private val Prefix = daml.Prefix :+ "index"
 
+      object IndexBypassBuffer {
+        private val Prefix = index.Prefix :+ "bypass_buffer"
+        val capacity: Counter = registry.counter(Prefix :+ "capacity")
+        val length: Counter = registry.counter(Prefix :+ "length")
+        val delay: Timer = registry.timer(Prefix :+ "timer")
+      }
+
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
 
       val decodeTransactionLogUpdate: Timer =

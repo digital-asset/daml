@@ -95,8 +95,8 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
       assertExpectedEquality(actualTx5, t5, offset5, exercisedContractKey, eventSequentialIdGen)
       assertExpectedEquality(actualTx6, t6, offset6, exercisedContractKey, eventSequentialIdGen)
 
-      endMarker.eventOffset shouldBe to.lastOffset
-      endMarker.eventSequentialId shouldBe to.lastEventSeqId
+      endMarker.offset shouldBe to.lastOffset
+      endMarker.lastEventSeqId shouldBe to.lastEventSeqId
     }
   }
 

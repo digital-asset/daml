@@ -100,6 +100,7 @@ object IndexerStabilityTestFixture {
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+                    updatesQueue = null,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

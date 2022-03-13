@@ -3,9 +3,12 @@
 
 package com.daml.platform.apiserver
 
+import akka.NotUsed
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -15,6 +18,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.index.IndexServiceBuilder
 import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import java.io.File
@@ -29,6 +33,7 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -89,6 +94,7 @@ object StandaloneIndexService {
         maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
         maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+        updatesSource = updatesSource,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

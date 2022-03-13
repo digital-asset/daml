@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
+import akka.NotUsed
 import akka.stream._
+import akka.stream.scaladsl.Source
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
@@ -12,7 +14,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
@@ -30,12 +31,9 @@ import com.daml.platform.store.cache.{
   MutableLedgerEndCache,
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.{
-  StringInterning,
-  StringInterningView,
-  UpdatingStringInterningView,
-}
+import com.daml.platform.store.interning.{StringInterning, StringInterningView}
 import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
+import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -61,6 +59,7 @@ private[platform] case class IndexServiceBuilder(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
+    updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -96,12 +95,7 @@ private[platform] case class IndexServiceBuilder(
         prefetchingDispatcher,
         ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
         ledgerEndCache,
-      )
-      _ <- cachesUpdaterSubscription(
-        ledgerDao,
-        stringInterningView,
-        instrumentedSignalNewLedgerHead,
-        prefetchingDispatcher,
+        updatesSource,
       )
     } yield new IndexServiceImpl(
       ledgerId,
@@ -113,29 +107,6 @@ private[platform] case class IndexServiceBuilder(
       generalDispatcher,
     )
   }
-
-  private def cachesUpdaterSubscription(
-      ledgerDao: LedgerReadDao,
-      updatingStringInterningView: UpdatingStringInterningView,
-      instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
-      prefetchingDispatcher: Dispatcher[(Offset, Long)],
-  ): ResourceOwner[Unit] =
-    ResourceOwner
-      .forReleasable(() =>
-        new LedgerEndPoller(
-          ledgerDao,
-          newLedgerHead =>
-            for {
-              _ <- updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
-            } yield {
-              instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
-              prefetchingDispatcher.signalNewHead(
-                newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
-              )
-            },
-        )
-      )(_.release())
-      .map(_ => ())
 
   private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,
@@ -185,7 +156,9 @@ private[platform] case class IndexServiceBuilder(
       cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
       startExclusive: (Offset, Long),
       ledgerEndCache: LedgerEndCache,
-  ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] =
+      updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
+  ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] = {
+    val _ = startExclusive // TODO LLP
     if (enableInMemoryFanOutForLedgerApi) {
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
@@ -210,20 +183,7 @@ private[platform] case class IndexServiceBuilder(
       for {
         _ <- ResourceOwner.forCloseable(() =>
           BuffersUpdater(
-            subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
-              val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                maybeOffsetSeqId.getOrElse(startExclusive)
-              logger.info(
-                s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
-              )
-              cacheUpdatesDispatcher
-                .startingAt(
-                  subscriptionStartExclusive,
-                  RangeSource(
-                    ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
-                  ),
-                )
-            },
+            subscribeToTransactionLogUpdates = _ => updatesSource,
             updateTransactionsBuffer = transactionsBuffer.push,
             updateMutableCache = contractStore.push,
             executionContext = servicesExecutionContext,
@@ -246,6 +206,7 @@ private[platform] case class IndexServiceBuilder(
             .map(_._2)
         },
       ).map(_ => (ledgerReadDao.transactionsReader, PruneBuffersNoOp))
+  }
 
   private def dispatcherOffsetSeqIdOwner(
       ledgerEnd: LedgerEnd

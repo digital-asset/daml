@@ -3,12 +3,14 @@
 
 package com.daml.platform.indexer
 
-import akka.stream.Materializer
+import akka.stream.{BoundedSourceQueue, Materializer}
 import com.daml.ledger.api.health.{Healthy, ReportsHealth}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -18,6 +20,7 @@ final class StandaloneIndexerServer(
     config: IndexerConfig,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
+    updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
@@ -35,6 +38,7 @@ final class StandaloneIndexerServer(
       readService,
       metrics,
       lfValueTranslationCache,
+      updatesQueue = updatesQueue,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

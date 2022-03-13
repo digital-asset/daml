@@ -247,7 +247,8 @@ private[platform] class MutableCacheBackedContractStore(
     metrics.daml.execution.cache.indexSequentialId
       .updateValue(event.eventSequentialId)
     event match {
-      case LedgerEndMarker(eventOffset, eventSequentialId) =>
+      case lm @ LedgerEndMarker(eventOffset, eventSequentialId) =>
+        logger.info(s"Signalling new ledger head at $lm")
         signalNewLedgerHead(eventOffset, eventSequentialId)
       case _ => ()
     }

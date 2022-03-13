@@ -4,8 +4,8 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{ReadService, Update}
@@ -14,6 +14,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.UpdatingStringInterningView
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,6 +32,7 @@ private[platform] case class InitializeParallelIngestion(
       dbDispatcher: DbDispatcher,
       updatingStringInterningView: UpdatingStringInterningView,
       readService: ReadService,
+      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
       ec: ExecutionContext,
       mat: Materializer,
   )(implicit loggingContext: LoggingContext): Future[InitializeParallelIngestion.Initialized] = {
@@ -59,18 +61,28 @@ private[platform] case class InitializeParallelIngestion(
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.lastEventSeqId,
       initialStringInterningId = ledgerEnd.lastStringInterningId,
-      readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.lastOffsetOption),
+      readServiceSource = readService
+        .stateUpdates(beginAfter = ledgerEnd.lastOffsetOption)
+        .alsoTo(
+          com.daml.platform.index.Stream
+            .flow(ledgerEnd.lastEventSeqId)
+            .to(Sink.foreach[((Offset, Long), TransactionLogUpdate)] { o =>
+              updatesQueue.offer(o) match {
+                case QueueOfferResult.Enqueued =>
+                case r => throw new RuntimeException(s"Offset/update pair ($o) not enqueued: $r")
+              }
+            })
+        ),
     )
   }
-
 }
 
 object InitializeParallelIngestion {
+  type InitializeBuffersUpdateQueue = Long => BoundedSourceQueue[(Offset, Update)]
 
   case class Initialized(
       initialEventSeqId: Long,
       initialStringInterningId: Int,
       readServiceSource: Source[(Offset, Update), NotUsed],
   )
-
 }
