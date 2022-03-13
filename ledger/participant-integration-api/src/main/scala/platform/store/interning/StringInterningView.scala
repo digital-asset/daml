@@ -15,7 +15,7 @@ class DomainStringIterators(
 
 trait InternizingStringInterningView {
 
-  /** Internize strings of different domains. The new entries are returend as prefixed entries for persistent storage.
+  /** Internize strings of different domains. The new entries are returned as prefixed entries for persistent storage.
     *
     * @param domainStringIterators iterators of the new entires
     * @return If some of the entries were not part of the view: they will be added, and these will be returned as a interned-id and raw, prefixed string pairs.
@@ -89,6 +89,7 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
         rawStringInterning = raw,
       )
       updateView(newEntries)
+      println(s"Internizing entries: ${newEntries}")
       newEntries
     }
 

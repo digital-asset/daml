@@ -209,6 +209,7 @@ private[events] object TransactionLogUpdatesConversions {
           .traverse(filteredForVisibility)(
             toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
           )
+          .map(_.collect { case Some(e) => e })
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)
             val visibleSet = visible.toSet
@@ -244,7 +245,7 @@ private[events] object TransactionLogUpdatesConversions {
     )(event: TransactionLogUpdate.Event)(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[TreeEvent] =
+    ): Future[Option[TreeEvent]] =
       event match {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
           createdToTransactionTreeEvent(
@@ -252,14 +253,15 @@ private[events] object TransactionLogUpdatesConversions {
             verbose,
             lfValueTranslation,
             createdEvent,
-          )
+          ).map(Some(_))
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
           exercisedToTransactionTreeEvent(
             requestingParties,
             verbose,
             lfValueTranslation,
             exercisedEvent,
-          )
+          ).map(Some(_))
+        case _ => Future.successful(None)
       }
 
     private def exercisedToTransactionTreeEvent(
@@ -390,6 +392,7 @@ private[events] object TransactionLogUpdatesConversions {
       requestingParties => {
         case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
         case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
+        case _ => false
       }
   }
 

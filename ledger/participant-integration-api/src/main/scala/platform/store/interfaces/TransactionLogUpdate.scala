@@ -17,7 +17,9 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
   *
   * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
-sealed trait TransactionLogUpdate extends Product with Serializable
+sealed trait TransactionLogUpdate extends Product with Serializable {
+  def offset: Offset
+}
 
 object TransactionLogUpdate {
 
@@ -43,10 +45,10 @@ object TransactionLogUpdate {
   /** A special event which signifies that the ledger end has been reached in a stream.
     *
     * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
-    * @param eventOffset The ledger end offset.
-    * @param eventSequentialId The ledger end event sequential id.
+    * @param offset The ledger end offset.
+    * @param lastEventSeqId The ledger end event sequential id.
     */
-  final case class LedgerEndMarker(eventOffset: Offset, eventSequentialId: EventSequentialId)
+  final case class LedgerEndMarker(offset: Offset, lastEventSeqId: EventSequentialId)
       extends TransactionLogUpdate
 
   /* Models all but divulgence events */
@@ -65,6 +67,7 @@ object TransactionLogUpdate {
     def contractId: ContractId
   }
 
+  // TODO LLP: Use only internal domain types
   final case class CreatedEvent(
       eventOffset: Offset,
       transactionId: String,
@@ -84,6 +87,21 @@ object TransactionLogUpdate {
       createSignatories: Set[String],
       createObservers: Set[String],
       createAgreementText: Option[String],
+  ) extends Event
+
+  final case class DivulgenceEvent(
+      eventOffset: Offset,
+      eventSequentialId: EventSequentialId,
+      transactionId: String,
+      eventId: EventId,
+      commandId: String,
+      workflowId: String,
+      ledgerEffectiveTime: Timestamp,
+      treeEventWitnesses: Set[String],
+      flatEventWitnesses: Set[String],
+      submitters: Set[String],
+      templateId: Identifier,
+      contractId: ContractId,
   ) extends Event
 
   final case class ExercisedEvent(

@@ -4,6 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.stream._
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
@@ -22,6 +23,7 @@ import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValu
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -32,6 +34,7 @@ object JdbcIndexer {
       readService: state.ReadService,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -92,6 +95,7 @@ object JdbcIndexer {
           tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
+          updatesQueue = updatesQueue,
         ),
         stringInterningStorageBackend = stringInterningStorageBackend,
         meteringAggregator = new MeteringAggregator.Owner(
@@ -102,10 +106,9 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
+        updatesQueue = updatesQueue,
       )
-
       indexer
     }
-
   }
 }

@@ -5,8 +5,8 @@ package com.daml.ledger.sandbox
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
@@ -25,18 +25,19 @@ import com.daml.ledger.api.v1.experimental_features.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{InstrumentedSource, JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
@@ -157,10 +158,21 @@ object SandboxOnXRunner {
             stateUpdatesSource,
           )
 
+          (updatesQueue, updatesSource) =
+            InstrumentedSource
+              .queue[((Offset, Long), TransactionLogUpdate)](
+                128,
+                metrics.daml.index.IndexBypassBuffer.capacity,
+                metrics.daml.index.IndexBypassBuffer.length,
+                metrics.daml.index.IndexBypassBuffer.delay,
+              )
+              .preMaterialize()
+
           indexerHealthChecks <- buildIndexerServer(
             metrics,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
+            updatesQueue,
           )
 
           dbSupport <- DbSupport
@@ -180,6 +192,7 @@ object SandboxOnXRunner {
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
+            updatesSource = updatesSource,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -267,6 +280,7 @@ object SandboxOnXRunner {
       metrics: Metrics,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
+      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -279,6 +293,7 @@ object SandboxOnXRunner {
         config = BridgeConfigProvider.indexerConfig(participantConfig, config),
         metrics = metrics,
         lfValueTranslationCache = translationCache,
+        updatesQueue = updatesQueue,
       )
     } yield new HealthChecks(
       "read" -> readService,

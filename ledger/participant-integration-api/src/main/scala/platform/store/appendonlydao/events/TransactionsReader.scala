@@ -282,8 +282,8 @@ private[appendonlydao] final class TransactionsReader(
   ): Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
     val endMarker = Source.single(
       endInclusive -> TransactionLogUpdate.LedgerEndMarker(
-        eventOffset = endInclusive._1,
-        eventSequentialId = endInclusive._2,
+        offset = endInclusive._1,
+        lastEventSeqId = endInclusive._2,
       )
     )
 
