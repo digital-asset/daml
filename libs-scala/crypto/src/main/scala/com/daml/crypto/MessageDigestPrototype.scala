@@ -4,6 +4,7 @@
 package com.daml.crypto
 
 import com.daml.scalautil.Statement.discard
+import com.typesafe.scalalogging.StrictLogging
 
 import java.security.MessageDigest
 
@@ -12,7 +13,7 @@ import java.security.MessageDigest
  * https://bugs.openjdk.java.net/browse/JDK-7092821, similar to Guava's
  * workaround https://github.com/google/guava/issues/1197
  */
-final class MessageDigestPrototype(val algorithm: String) {
+final class MessageDigestPrototype(val algorithm: String) extends StrictLogging {
   private def createDigest: MessageDigest = MessageDigest.getInstance(algorithm)
 
   private val prototype = createDigest
@@ -23,6 +24,7 @@ final class MessageDigestPrototype(val algorithm: String) {
       true
     } catch {
       case _: CloneNotSupportedException =>
+        logger.warn(s"$algorithm.clone() is not supported. It might have implications on performance.")
         false
     }
 
@@ -35,5 +37,5 @@ final class MessageDigestPrototype(val algorithm: String) {
 }
 
 object MessageDigestPrototype {
-  final val SHA_256 = new MessageDigestPrototype("SHA-256")
+  final val Sha256 = new MessageDigestPrototype("SHA-256")
 }

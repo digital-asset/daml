@@ -38,7 +38,7 @@ object Encode {
 
     val payload = data.assertRight(SafeProto.toByteString(encodePayloadOfVersion(pkg, version)))
     val hash = PackageId.assertFromString(
-      MessageDigestPrototype.SHA_256.newDigest
+      MessageDigestPrototype.Sha256.newDigest
         .digest(payload.toByteArray)
         .map("%02x" format _)
         .mkString

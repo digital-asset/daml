@@ -239,7 +239,7 @@ object Hash {
       cid2Bytes: Value.ContractId => Bytes,
   ): Builder = new Builder(cid2Bytes) {
 
-    private val md = MessageDigestPrototype.SHA_256.newDigest
+    private val md = MessageDigestPrototype.Sha256.newDigest
 
     override protected def update(a: ByteBuffer): Unit =
       md.update(a)
@@ -257,7 +257,7 @@ object Hash {
 
   private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(noCid2String) {
 
-    private val macPrototype: MacPrototype = MacPrototype.HmacSHA_256
+    private val macPrototype: MacPrototype = MacPrototype.HmacSha256
     private val mac: Mac = macPrototype.newMac
 
     mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))

@@ -38,7 +38,7 @@ object Utf8 {
     Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
   def sha256(s: String): String = {
-    val digest = MessageDigestPrototype.SHA_256.newDigest
+    val digest = MessageDigestPrototype.Sha256.newDigest
     digest.update(getBytes(s).toByteBuffer)
     BaseEncoding.base16().lowerCase().encode(digest.digest())
   }

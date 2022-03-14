@@ -7,12 +7,16 @@ load("@scala_version//:index.bzl", "scala_major_version")
 da_scala_library(
     name = "crypto",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
     tags = ["maven_coordinates=com.daml:crypto:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//libs-scala/scala-utils",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -20,6 +24,9 @@ da_scala_test(
     name = "crypto-tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
     deps = [
         ":crypto",
     ],

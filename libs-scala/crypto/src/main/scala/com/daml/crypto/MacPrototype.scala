@@ -35,5 +35,5 @@ final class MacPrototype(val algorithm: String) {
 }
 
 object MacPrototype {
-  val HmacSHA_256 = new MacPrototype("HmacSHA256")
+  val HmacSha256 = new MacPrototype("HmacSHA256")
 }

@@ -26,7 +26,7 @@ object Reader {
             .fromString(lf.getHash)
             .left
             .map(err => Error.Parsing("Invalid hash: " + err))
-          ourHash = MessageDigestPrototype.SHA_256.newDigest
+          ourHash = MessageDigestPrototype.Sha256.newDigest
             .digest(lf.getPayload.toByteArray)
             .map("%02x" format _)
             .mkString
