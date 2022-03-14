@@ -66,7 +66,7 @@ You can also use the :doc:`HTTP JSON API Service </json-api/index>` to tap into 
 At its core, this service provides a simplified view of the active contract set and additional primitives to query it and
 exposing it using a well-defined JSON-based encoding over a conventional HTTP connection.
 
-A subset of the services mentioned above is also available as part of it.
+A subset of the services mentioned above is also available as part of the HTTP JSON API.
 
 .. _daml-lf-intro:
 
