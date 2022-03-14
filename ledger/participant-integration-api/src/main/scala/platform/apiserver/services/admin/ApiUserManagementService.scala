@@ -181,17 +181,23 @@ private[apiserver] final class ApiUserManagementService(
     result match {
       case Left(UserManagementStore.UserNotFound(id)) =>
         Future.failed(
-          LedgerApiErrors.AdminServices.UserNotFound.Reject(operation, id.toString).asGrpcError
+          LedgerApiErrors.Admin.UserManagement.UserNotFound
+            .Reject(operation, id.toString)
+            .asGrpcError
         )
 
       case Left(UserManagementStore.UserExists(id)) =>
         Future.failed(
-          LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id.toString).asGrpcError
+          LedgerApiErrors.Admin.UserManagement.UserAlreadyExists
+            .Reject(operation, id.toString)
+            .asGrpcError
         )
 
       case Left(UserManagementStore.TooManyUserRights(id)) =>
         Future.failed(
-          LedgerApiErrors.AdminServices.TooManyUserRights.Reject(operation, id: String).asGrpcError
+          LedgerApiErrors.Admin.UserManagement.TooManyUserRights
+            .Reject(operation, id: String)
+            .asGrpcError
         )
 
       case scala.util.Right(t) =>

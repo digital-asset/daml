@@ -202,7 +202,7 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        LedgerApiErrors.AdminServices.PackageUploadRejected
+        LedgerApiErrors.Admin.PackageUploadRejected
           .Reject(reason)(
             new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
           )

@@ -281,7 +281,7 @@ class ErrorFactoriesSpec
 
     "return the configurationEntryRejected" in {
       val msg = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123"
-      assertError(LedgerApiErrors.AdminServices.ConfigurationEntryRejected.Reject("message123"))(
+      assertError(LedgerApiErrors.Admin.ConfigurationEntryRejected.Reject("message123"))(
         code = Code.FAILED_PRECONDITION,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
