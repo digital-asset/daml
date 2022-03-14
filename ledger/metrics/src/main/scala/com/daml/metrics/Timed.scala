@@ -68,6 +68,16 @@ object Timed {
     result
   }
 
+  def future[T](timers: Seq[Timer], future: => Future[T]): Future[T] = {
+    val start = System.nanoTime()
+    val result = future
+    result.onComplete { _ =>
+      val duration = System.nanoTime() - start
+      timers.foreach(_.update(duration, TimeUnit.NANOSECONDS))
+    }(ExecutionContext.parasitic)
+    result
+  }
+
   def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
     val ctx = timer.time()
     val result = future

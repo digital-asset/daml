@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{MetricContext, Metrics, Timed}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
@@ -82,7 +82,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
     Timed.future(
-      metrics.daml.index.db.lookupLedgerConfiguration,
+      metrics.daml.index.db.lookupLedgerConfiguration(MetricContext("trolololololo")),
       ledgerDao.lookupLedgerConfiguration(),
     )
 

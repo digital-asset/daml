@@ -7,6 +7,7 @@ import java.time.Instant
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
+import java.util
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -18,21 +19,34 @@ final class Metrics(val registry: MetricRegistry) {
   private def nameWithLabel(metricName: MetricName, context: MetricContext): MetricName =
     metricName :+ context.applicationId
 
-  private def getOrRegisterTimer(timers: mutable.Map[String, Timer], name: MetricName): Timer =
-    timers.get(name) match {
-      case Some(timer) => timer
-      case None => registry.timer(name)
+  private def getOrRegisterSingle[T <: Metric](
+      registered: mutable.Map[String, T],
+      name: MetricName,
+      register: String => T,
+  ): T =
+    registered.get(name) match {
+      case Some(m) => m
+      case None => register(name)
     }
 
-  private def timer(name: MetricName)(implicit context: MetricContext): List[Timer] = {
-    val timers: mutable.Map[String, Timer] = registry
-      .getTimers()
-      .asScala
-    List(
-      getOrRegisterTimer(timers, name),
-      getOrRegisterTimer(timers, nameWithLabel(name, context)),
+  private def getOrRegister[T <: Metric](
+      name: MetricName,
+      getRegistered: MetricFilter => util.SortedMap[String, T],
+      register: String => T,
+  )(implicit context: MetricContext): List[T] = {
+    val registered: mutable.Map[String, T] = getRegistered(MetricFilter.startsWith(name)).asScala
+    List[T](
+      getOrRegisterSingle(registered, name, register),
+      getOrRegisterSingle(registered, nameWithLabel(name, context), register),
     )
   }
+
+  private def timer(name: MetricName)(implicit context: MetricContext): List[Timer] =
+    getOrRegister[Timer](
+      name = name,
+      getRegistered = registry.getTimers,
+      register = registry.timer,
+    )
 
   object test {
     private val Prefix: MetricName = MetricName("test")
@@ -416,8 +430,9 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupLedgerEndSequentialId: Timer =
           registry.timer(Prefix :+ "lookup_ledger_end_sequential_id")
         val lookupTransaction: Timer = registry.timer(Prefix :+ "lookup_transaction")
-        val lookupLedgerConfiguration: Timer =
-          registry.timer(Prefix :+ "lookup_ledger_configuration")
+        def lookupLedgerConfiguration(implicit mc: MetricContext): List[Timer] = timer(
+          Prefix :+ "lookup_ledger_configuration"
+        )
         val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
         val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
         val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
