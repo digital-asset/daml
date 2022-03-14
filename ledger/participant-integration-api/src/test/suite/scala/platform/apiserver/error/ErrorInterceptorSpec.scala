@@ -204,6 +204,7 @@ final class ErrorInterceptorSpec
       expectedMessage =
         "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
       expectedDetails = Seq(),
+      verifyEmptyStackTrace = false,
     )
     Assertions.succeed
   }
@@ -218,6 +219,7 @@ final class ErrorInterceptorSpec
       expectedMessage = s"FOO_MISSING_ERROR_CODE(11,0): Foo is missing: $expectedMsg",
       expectedDetails =
         Seq(ErrorDetails.ErrorInfoDetail("FOO_MISSING_ERROR_CODE", Map("category" -> "11"))),
+      verifyEmptyStackTrace = false,
     )
     Assertions.succeed
   }

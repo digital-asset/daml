@@ -15,6 +15,7 @@ import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorAssertionsWithLogCollectorAssertions,
+  ErrorCode,
 }
 import com.daml.lf.data.Ref
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
@@ -716,11 +717,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "should create an ApiException without the stack trace" in {
-      val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
-      val exception = ErrorFactories.grpcError(status)
-      exception.getStackTrace shouldBe Array.empty
-    }
   }
 
   private def expectedMarkerRegex(extraInner: String): Some[String] = {
@@ -737,13 +733,15 @@ class ErrorFactoriesSpec
       message: String,
       details: Seq[ErrorDetails.ErrorDetail],
       logEntry: ExpectedLogEntry,
-  ): Unit =
-    assertError(io.grpc.protobuf.StatusProto.toStatusRuntimeException(status))(
+  ): Unit = {
+    val e = io.grpc.protobuf.StatusProto.toStatusRuntimeException(status)
+    assertError(new ErrorCode.ApiException(e.getStatus, e.getTrailers))(
       code,
       message,
       details,
       logEntry,
     )
+  }
 
   private def assertError(
       error: DamlError

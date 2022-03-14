@@ -277,10 +277,6 @@ final class Authorizer(
     authenticatedClaimsFromContext()
       .fold(
         ex => {
-          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
-          logger.debug(
-            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
-          )
           observer.onError(ex)
         },
         claims =>

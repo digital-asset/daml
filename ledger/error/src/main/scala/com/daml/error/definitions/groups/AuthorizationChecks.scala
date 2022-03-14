@@ -33,7 +33,7 @@ object AuthorizationChecks extends LedgerApiErrors.AuthorizationChecks {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer("Stale stream authorization. Retry quickly.") {
       override def retryable: Option[ErrorCategoryRetry] = Some(
-        ErrorCategoryRetry(who = "application", duration = 0.seconds)
+        ErrorCategoryRetry(duration = 0.seconds)
       )
     }
 

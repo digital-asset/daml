@@ -16,6 +16,22 @@ trait ContextualizedErrorLogger {
   def error(message: String, throwable: Throwable): Unit
 }
 
+object ContextualizedErrorLogger {
+
+  /** Formats the context as a string for logging */
+  protected[error] def formatContextAsString(contextMap: Map[String, String]): String = {
+    contextMap
+      .filter(_._2.nonEmpty)
+      .toSeq
+      .sortBy(_._1)
+      .map { case (k, v) =>
+        s"$k=$v"
+      }
+      .mkString(", ")
+  }
+
+}
+
 object NoLogging extends ContextualizedErrorLogger {
   override def properties: Map[String, String] = Map.empty
   override def correlationId: Option[String] = None
