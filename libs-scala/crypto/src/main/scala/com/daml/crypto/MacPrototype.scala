@@ -4,6 +4,7 @@
 package com.daml.crypto
 
 import com.daml.scalautil.Statement.discard
+import com.typesafe.scalalogging.StrictLogging
 
 import javax.crypto.Mac
 
@@ -12,7 +13,7 @@ import javax.crypto.Mac
  * https://bugs.openjdk.java.net/browse/JDK-7092821, similar to Guava's
  * workaround https://github.com/google/guava/issues/1197
  */
-final class MacPrototype(val algorithm: String) {
+final class MacPrototype(val algorithm: String) extends StrictLogging {
   private val prototype = createMac
 
   private val supportsClone: Boolean =
@@ -21,6 +22,9 @@ final class MacPrototype(val algorithm: String) {
       true
     } catch {
       case _: CloneNotSupportedException =>
+        logger.warn(
+          s"$algorithm.clone() is not supported. It might have implications on performance."
+        )
         false
     }
 
