@@ -3,8 +3,7 @@
 
 package com.daml.metrics
 
-import java.util.concurrent.CompletionStage
-
+import java.util.concurrent.{CompletionStage, TimeUnit}
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.codahale.metrics.{Counter, Meter, Timer}
@@ -16,6 +15,16 @@ object Timed {
 
   def value[T](timer: Timer, value: => T): T =
     timer.time(() => value)
+
+  def value[T](timers: Seq[Timer], value: => T): T = {
+    val start = System.nanoTime()
+    try {
+      value
+    } finally {
+      val duration = System.nanoTime() - start
+      timers.foreach(_.update(duration, TimeUnit.NANOSECONDS))
+    }
+  }
 
   def trackedValue[T](meter: Meter, value: => T): T = {
     meter.mark(+1)

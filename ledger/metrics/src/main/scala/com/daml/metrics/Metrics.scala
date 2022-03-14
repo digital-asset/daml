@@ -6,6 +6,8 @@ package com.daml.metrics
 import java.time.Instant
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
+
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 final class Metrics(val registry: MetricRegistry) {
@@ -16,17 +18,20 @@ final class Metrics(val registry: MetricRegistry) {
   private def nameWithLabel(metricName: MetricName, context: MetricContext): MetricName =
     metricName :+ context.applicationId
 
-  private def timer(name: MetricName)(implicit context: MetricContext): Timer = {
-    val fullName: MetricName = nameWithLabel(name, context)
-    registry
+  private def getOrRegisterTimer(timers: mutable.Map[String, Timer], name: MetricName): Timer =
+    timers.get(name) match {
+      case Some(timer) => timer
+      case None => registry.timer(name)
+    }
+
+  private def timer(name: MetricName)(implicit context: MetricContext): List[Timer] = {
+    val timers: mutable.Map[String, Timer] = registry
       .getTimers()
       .asScala
-      .get(fullName) match {
-      case Some(timer) =>
-        timer
-      case None =>
-        registry.timer(fullName)
-    }
+    List(
+      getOrRegisterTimer(timers, name),
+      getOrRegisterTimer(timers, nameWithLabel(name, context)),
+    )
   }
 
   object test {
@@ -41,8 +46,7 @@ final class Metrics(val registry: MetricRegistry) {
     object commands {
       private val Prefix: MetricName = daml.Prefix :+ "commands"
 
-//      val validation: Timer = registry.timer(Prefix :+ "validation")
-      def validation(implicit context: MetricContext): Timer = timer(Prefix :+ "validation")
+      def validation(implicit context: MetricContext): List[Timer] = timer(Prefix :+ "validation")
 
       val submissions: Timer = registry.timer(Prefix :+ "submissions")
       val submissionsRunning: Meter = registry.meter(Prefix :+ "submissions_running")
