@@ -71,7 +71,7 @@ class HasFromInterface t i where
   -- the interface value `value` into the template type `MyTemplate`.
   fromInterface : i -> Optional t
 
--- | (1.dev only) Constarint that indicates that a template implements an interface.
+-- | (1.dev only) Constraint that indicates that a template implements an interface.
 type Implements t i =
   ( HasInterfaceTypeRep i
   , HasToInterface t i
