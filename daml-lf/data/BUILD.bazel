@@ -19,7 +19,6 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-data:__VERSION__"],

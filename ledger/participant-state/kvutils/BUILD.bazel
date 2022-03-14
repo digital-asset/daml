@@ -27,7 +27,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [

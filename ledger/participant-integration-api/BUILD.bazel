@@ -244,7 +244,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     deps = [
         ":participant-integration-api",

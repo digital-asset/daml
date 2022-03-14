@@ -4,7 +4,7 @@
 package com.daml.crypto
 
 import com.daml.scalautil.Statement.discard
-import com.typesafe.scalalogging.StrictLogging
+import org.slf4j.LoggerFactory
 
 import java.security.MessageDigest
 
@@ -13,7 +13,10 @@ import java.security.MessageDigest
  * https://bugs.openjdk.java.net/browse/JDK-7092821, similar to Guava's
  * workaround https://github.com/google/guava/issues/1197
  */
-final class MessageDigestPrototype(val algorithm: String) extends StrictLogging {
+final class MessageDigestPrototype(val algorithm: String) {
+
+  private[this] val logger = LoggerFactory.getLogger(getClass)
+
   private def createDigest: MessageDigest = MessageDigest.getInstance(algorithm)
 
   private val prototype = createDigest
