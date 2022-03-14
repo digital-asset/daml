@@ -111,10 +111,11 @@ class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
 
--- | Exposes `exerciseGuarded` function.
+-- | (1.dev only) Exposes `exerciseGuarded` function.
+-- Only available for interface choices.
 class HasExerciseGuarded t c r | t c -> r where
-  -- | Exercise a choice on the contract with the given contract ID,
-  -- only if the predicate returns `True`.
+  -- | (1.dev only) Exercise a choice on the contract with
+  -- the given contract ID, only if the predicate returns `True`.
   exerciseGuarded : (t -> Bool) -> ContractId t -> c -> Update r
 
 -- | Exposes `toAnyChoice` function for Daml-LF 1.7 or later.
