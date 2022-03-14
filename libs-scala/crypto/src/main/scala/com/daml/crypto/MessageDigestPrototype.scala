@@ -25,7 +25,7 @@ final class MessageDigestPrototype(val algorithm: String) extends StrictLogging 
     } catch {
       case _: CloneNotSupportedException =>
         logger.warn(
-          s"$algorithm.clone() is not supported. It might have implications on performance."
+          s"${prototype.getClass.getName}.clone() is not supported. It might have implications on performance."
         )
         false
     }
