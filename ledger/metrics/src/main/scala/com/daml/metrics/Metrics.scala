@@ -8,8 +8,6 @@ import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 import scala.jdk.CollectionConverters._
 
-final case class MetricContext(applicationId: String)
-
 final class Metrics(val registry: MetricRegistry) {
 
   private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
