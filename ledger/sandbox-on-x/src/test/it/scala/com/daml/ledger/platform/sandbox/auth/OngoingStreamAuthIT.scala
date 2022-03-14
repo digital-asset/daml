@@ -120,6 +120,7 @@ final class OngoingStreamAuthIT
               ),
               ErrorDetails.RetryInfoDetail(0.seconds),
             ),
+            verifyEmptyStackTrace = false,
           )
         case _ => fail("Unexpected error", t)
       }

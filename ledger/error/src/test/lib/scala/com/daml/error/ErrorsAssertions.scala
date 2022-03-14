@@ -94,11 +94,14 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
     )
   }
 
+  /** @param verifyEmptyStackTrace - should be enabled for the server-side testing and disabled for the client side testing
+    */
   def assertError(
       actual: StatusRuntimeException,
       expectedStatusCode: Code,
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
+      verifyEmptyStackTrace: Boolean = true,
   ): Unit = {
     val actualStatus = StatusProto.fromThrowable(actual)
     val actualDetails = actualStatus.getDetailsList.asScala.toSeq
@@ -110,7 +113,13 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
         ErrorDetails.from(actualDetails) should contain theSameElementsAs expectedDetails
       }
     }
-    cp { Statement.discard { actual.getStackTrace shouldBe Array.empty } }
+    if (verifyEmptyStackTrace) {
+      cp {
+        Statement.discard {
+          actual.getStackTrace.length shouldBe 0 withClue ("it should contain no stacktrace")
+        }
+      }
+    }
     cp { Statement.discard { actual.getCause shouldBe null } }
     cp.reportAll()
   }
