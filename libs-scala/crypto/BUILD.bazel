@@ -35,6 +35,9 @@ da_scala_test(
 da_scala_benchmark_jmh(
     name = "crypto-perf",
     srcs = glob(["src/jmh/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":crypto",
