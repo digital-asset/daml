@@ -1,7 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -22,13 +21,18 @@ import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
 
+-- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
+  -- | HIDE
   _interfaceTypeRep : i -> TypeRep
 
+-- | (1.dev only) Obtain the `TemplateTypeRep` for the template given in the interface value.
 interfaceTypeRep : HasInterfaceTypeRep i => i -> TemplateTypeRep
 interfaceTypeRep x = TemplateTypeRep (_interfaceTypeRep x)
 
+-- | (1.dev only) Exposes the `toInterface` and `toInterfaceContractId` functions.
 class HasToInterface t i where
+  -- | HIDE
   _toInterface : t -> i
 
 -- Note that this seems identical to the method '_toInterface'. The only difference
@@ -48,21 +52,48 @@ class HasToInterface t i where
 --   token = _toInterface @_ @Token asset
 -- @
 --
+
+-- | (1.dev only) Convert a template value into an interface value.
+-- For example `toInterface @MyInterface value` converts a template
+-- `value` into a `MyInterface` type.
 toInterface : forall i t. HasToInterface t i => t -> i
 toInterface = _toInterface
 
+-- | (1.dev only) Exposes `fromInterface` and `fromInterfaceContractId`
+-- functions.
 class HasFromInterface t i where
+  -- | (1.dev only) Attempt to convert an interface value back into a
+  -- template value. A `None` indicates that the expected template
+  -- type doesn't match the underyling template type for the
+  -- interface value.
+  --
+  -- For example, `fromInterface @MyTemplate value` will try to convert
+  -- the interface value `value` into the template type `MyTemplate`.
   fromInterface : i -> Optional t
 
+-- | (1.dev only) Constraint that indicates that a template implements an interface.
 type Implements t i =
   ( HasInterfaceTypeRep i
   , HasToInterface t i
   , HasFromInterface t i
   )
 
+-- | (1.dev only) Convert a template contract id into an interface
+-- contract id. For example, `toInterfaceContractId @MyInterface cid`.
 toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> ContractId i
 toInterfaceContractId = coerceContractId
 
+-- | (1.dev only) Convert an interface contract id into a template
+-- contract id. In order to verify that the underlying contract has
+-- the expected template type, this will perform a fetch. For example:
+--
+-- ```
+-- do
+--   templateCidOpt <- fromInterfaceContractId @MyTemplate ifaceCid
+--   case templateCidOpt of
+--     None -> abort "failed to convert contract id"
+--     Some templateCid -> ...
+-- ```
 fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
 fromInterfaceContractId cid = do
   iface <- fetch cid
