@@ -680,6 +680,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
+
+        case ECallInterface(ty, methodName, expr) =>
+          assertSince(LV.Features.interfaces, "Expr.CallInterface")
+          val b = PLF.Expr.CallInterface.newBuilder()
+          b.setInterfaceType(ty)
+          b.setInterfaceExpr(expr)
+          b.setMethodInternedName(stringsTable.insert(methodName))
+          builder.setCallInterface(b)
       }
       builder
     }
@@ -830,6 +838,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
       b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
+      b.accumulateLeft(implements.inheritedChoices)((i, v) =>
+        i addInheritedChoiceInternedNames (stringsTable.insert(v))
+      )
       b.build()
     }
 

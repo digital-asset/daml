@@ -40,6 +40,20 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
             record @serializable Person = { person: Party, name: Text } ;
 
+            interface (this: Human) = {
+              precondition False;
+              method asParty: Party;
+              method getName: Text;
+              choice HumanSleep (self) (u:Unit) : ContractId Mod:Human
+                , controllers Cons @Party [call_method @Mod:Human asParty this] (Nil @Party)
+                , observers Nil @Party
+                to upure @(ContractId Mod:Human) self;
+              choice @nonConsuming HumanNap (self) (i : Int64): Int64
+                , controllers Cons @Party [call_method @Mod:Human asParty this] (Nil @Party)
+                , observers Nil @Party
+                to upure @Int64 i;
+            } ;
+
             template (this : Person) =  {
               precondition True;
               signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
@@ -53,6 +67,12 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
+              implements Mod:Human {
+                method asParty = Mod:Person {person} this;
+                method getName = Mod:Person {name} this;
+                choice HumanNap;
+                choice HumanSleep;
+              };
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
             };
 
