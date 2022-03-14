@@ -17,7 +17,7 @@ The Ledger API
    bindings-x-lang/index
 
 
-To write an application around a Daml ledger, you'll need to interact with the **Ledger API**.
+To write an application around a Daml ledger, you will need to interact with the **Ledger API**.
 
 Every ledger that Daml can run on exposes this same API.
 
@@ -57,7 +57,7 @@ How to Access the Ledger API
 
 You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>`.
 
-If you don't use a language that targets the JVM you can use gRPC to generate the code to access the Ledger API in
+If you don't use a language that targets the JVM, you can use gRPC to generate the code to access the Ledger API in
 several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
 pointers on how you may want to approach this.
 
