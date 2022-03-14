@@ -12,17 +12,13 @@ import com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import io.circe.parser.decode
 import io.circe.syntax._
-import com.daml.ledger.security.test.SystematicTesting
-import com.daml.ledger.security.test.SystematicTesting.Reliability.{
-  ReliabilityTest,
-  ReliabilityTestSuite,
-}
-import com.daml.ledger.security.test.SystematicTesting.Security.{SecurityTest, SecurityTestSuite}
-import com.daml.ledger.security.test.SystematicTesting.TestTag
+import com.daml.security.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
+import com.daml.security.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
+import com.daml.security.evidence.tag.TestTag
 import io.circe.generic.auto._
 import org.scalatest.Suite
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
-
+import com.daml.ledger.security.test.SystematicTesting.JsonCodec._
 import scala.reflect.ClassTag
 
 /** A test entry in the output. */
@@ -66,7 +62,7 @@ object SystematicTestingGenerator {
     tags.fmap { tagNames =>
       tagNames.toList
         .filter(_.startsWith("{")) // Check if we have a JSON encoded tag
-        .traverse(decode[SystematicTesting.TestTag])
+        .traverse(decode[com.daml.security.evidence.tag.TestTag])
         .valueOr(err => sys.error(s"Failed to parse JSON tag: $err"))
     }.toList
 
@@ -102,7 +98,10 @@ object SystematicTestingGenerator {
       }
 
       val tags = suite.tests.map { test =>
-        test.name -> test.tags.map(_.name).toSet
+        test.name -> test.tags
+          .map(tag => new com.daml.ledger.security.test.SystematicTesting.TagContainer(tag))
+          .map(_.name)
+          .toSet
       }.toMap
 
       testNameWithTags(tags).mapFilter { case (testName, testTags) =>
@@ -142,30 +141,42 @@ object SystematicTestingGenerator {
     println()
 
     println("Writing security tests inventory..")
-    val securityTestsFilePath = File("security-tests.json").write(
-      scalaTestEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
-        testSuites,
-        SecurityTestEntry,
-      ).asJson.spaces2
-    ).path.toAbsolutePath.toString
+    val securityTestsFilePath = File("security-tests.json")
+      .write(
+        scalaTestEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
+          testSuites,
+          SecurityTestEntry,
+        ).asJson.spaces2
+      )
+      .path
+      .toAbsolutePath
+      .toString
     println(s"Wrote to $securityTestsFilePath")
 
     println("Writing reliability tests inventory..")
-    val reliabilityTestsFilePath = File("reliability-tests.json").write(
-      scalaTestEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
-        testSuites,
-        ReliabilityTestEntry,
-      ).asJson.spaces2
-    ).path.toAbsolutePath.toString
+    val reliabilityTestsFilePath = File("reliability-tests.json")
+      .write(
+        scalaTestEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
+          testSuites,
+          ReliabilityTestEntry,
+        ).asJson.spaces2
+      )
+      .path
+      .toAbsolutePath
+      .toString
     println(s"Wrote to $reliabilityTestsFilePath")
 
     println("Writing Ledger Api tests inventory..")
-    val ledgerApiTestsFilePath = File("ledger-api-tests.json").write(
-      testEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
-        ledgerApiTests,
-        SecurityTestEntry,
-      ).asJson.spaces2
-    ).path.toAbsolutePath.toString
+    val ledgerApiTestsFilePath = File("ledger-api-tests.json")
+      .write(
+        testEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
+          ledgerApiTests,
+          SecurityTestEntry,
+        ).asJson.spaces2
+      )
+      .path
+      .toAbsolutePath
+      .toString
     println(s"Wrote to $ledgerApiTestsFilePath")
 
     sys.exit()

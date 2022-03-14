@@ -6,9 +6,9 @@ package com.daml.platform.sandbox.auth
 import java.time.Duration
 import java.util.UUID
 import com.daml.ledger.api.auth.AuthServiceJWTPayload
-import com.daml.ledger.security.test.SystematicTesting.Security.{Attack, SecurityTest}
-import com.daml.ledger.security.test.SystematicTesting.Security.SecurityTest.Property.SecureConfiguration
-
+import com.daml.security.evidence.tag.Security.{Attack, SecurityTest}
+import com.daml.security.evidence.tag.Security.SecurityTest.Property.SecureConfiguration
+import com.daml.ledger.security.test.SystematicTesting._
 import scala.concurrent.Future
 
 trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {

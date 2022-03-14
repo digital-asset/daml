@@ -42,7 +42,6 @@ versions = {
         name = "suites-%s" % lf_version,
         srcs = config["entrypoints"] + config["srcs"],
         scala_deps = [
-            "@maven//:org_scalatest_scalatest_core",
             "@maven//:com_lihaoyi_sourcecode",
         ],
         tags = ["maven_coordinates=com.daml:ledger-api-tests-suites-%s:__VERSION__" % lf_version],
@@ -67,7 +66,7 @@ da_scala_test_suite(
         ":suites-1.dev",
         "//daml-lf/data",
         "//ledger/ledger-api-tests/infrastructure",
-        "//ledger/ledger-security-evidence/lib",
+        "//libs-scala/security-evidence/tag:security-evidence-tag",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

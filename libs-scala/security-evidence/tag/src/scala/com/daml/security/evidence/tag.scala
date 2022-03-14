@@ -38,7 +38,7 @@ object tag {
     trait SecurityTestSuite {
 
       /** The layer that the security test suite tests, such as on the network/API level or the ledger model. */
-      protected def securityTestLayer: SecurityTestLayer
+      def securityTestLayer: SecurityTestLayer
 
       // TODO(soren): Include security-relevant configuration that is tested from the environment
     }

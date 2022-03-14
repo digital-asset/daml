@@ -9,8 +9,8 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.security.test.SystematicTesting.Security.{Attack, SecurityTest}
-import com.daml.ledger.security.test.SystematicTesting.Security.SecurityTest.Property.Authorization
+import com.daml.security.evidence.tag.Security.{Attack, SecurityTest}
+import com.daml.security.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.ledger.test.model.Test.Agreement._
 import com.daml.ledger.test.model.Test.AgreementFactory._
 import com.daml.ledger.test.model.Test.TriProposal._

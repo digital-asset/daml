@@ -9,7 +9,7 @@ def deps(lf_version):
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
         "//ledger/ledger-resources",
-        "//ledger/ledger-security-evidence/lib:lib",
+        "//libs-scala/security-evidence/tag:security-evidence-tag",
         "//ledger/test-common:dar-files-%s-lib" % lf_version,
         "//ledger/test-common:model-tests-%s.scala" % lf_version,
         "//ledger/test-common:package_management-tests-%s.scala" % lf_version,

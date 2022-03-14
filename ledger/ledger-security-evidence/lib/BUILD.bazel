@@ -14,7 +14,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
-        "@maven//:com_github_pathikrit_better_files",
         "@maven//:com_chuusai_shapeless",
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_generic",
@@ -26,6 +25,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//libs-scala/security-evidence/tag:security-evidence-tag",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

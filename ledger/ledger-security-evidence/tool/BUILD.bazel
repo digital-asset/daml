@@ -16,7 +16,6 @@ da_scala_library(
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_generic",
         "@maven//:io_circe_circe_parser",
-        "@maven//:com_lihaoyi_sourcecode",
     ],
     tags = ["maven_coordinates=com.daml:ledger-security-evidence:__VERSION__"],
     visibility = [
@@ -25,6 +24,7 @@ da_scala_library(
     deps = [
         "//ledger/ledger-api-tests/infrastructure",
         "//ledger/ledger-api-tests/suites",
+        "//libs-scala/security-evidence/tag:security-evidence-tag",
         "//ledger/ledger-security-evidence/lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -40,6 +40,7 @@ da_scala_binary(
     ],
     deps = [
         ":tool",
+        "//libs-scala/security-evidence/tag:security-evidence-tag",
         "//ledger/ledger-security-evidence/lib",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-copy",
     ],
