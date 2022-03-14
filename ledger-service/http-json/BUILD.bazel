@@ -286,6 +286,7 @@ alias(
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
+            "@maven//:com_typesafe_scala_logging_scala_logging",
         ],
         visibility = ["//ledger-service:__subpackages__"],
         deps = [
@@ -325,7 +326,6 @@ alias(
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
             "@maven//:com_google_guava_guava",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],

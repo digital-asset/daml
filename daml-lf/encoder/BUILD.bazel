@@ -23,6 +23,7 @@ da_scala_library(
     ),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     scalacopts = lf_scalacopts,
     visibility = ["//visibility:public"],
@@ -34,7 +35,6 @@ da_scala_library(
         "//libs-scala/crypto",
         "//libs-scala/safe-proto",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
 )
 

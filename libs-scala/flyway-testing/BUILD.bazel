@@ -12,12 +12,12 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     tags = ["maven_coordinates=com.daml:flyway-testing:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//libs-scala/crypto",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
