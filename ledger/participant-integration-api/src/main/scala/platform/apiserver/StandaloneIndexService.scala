@@ -16,9 +16,14 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.index.IndexServiceBuilder
 import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.store.appendonlydao.LedgerReadDao
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import java.io.File
@@ -34,6 +39,11 @@ object StandaloneIndexService {
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
+      stringInterningView: StringInterningView,
+      ledgerEnd: LedgerEnd,
+      ledgerEndCache: MutableLedgerEndCache,
+      generalDispatcher: Dispatcher[Offset],
+      ledgerReadDao: LedgerReadDao,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -95,6 +105,11 @@ object StandaloneIndexService {
         maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
         updatesSource = updatesSource,
+        stringInterningView = stringInterningView,
+        ledgerEnd = ledgerEnd,
+        ledgerEndCache = ledgerEndCache,
+        generalDispatcher = generalDispatcher,
+        ledgerDao = ledgerReadDao,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

@@ -554,7 +554,7 @@ private class JdbcLedgerDao(
   }
 }
 
-private[platform] object JdbcLedgerDao {
+private[daml] object JdbcLedgerDao {
 
   object Logging {
     def submissionId(id: String): LoggingEntry =

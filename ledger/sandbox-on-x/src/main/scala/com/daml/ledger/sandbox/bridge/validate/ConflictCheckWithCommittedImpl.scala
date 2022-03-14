@@ -148,5 +148,4 @@ private[validate] class ConflictCheckWithCommittedImpl(
         }
     }
   }
-
 }

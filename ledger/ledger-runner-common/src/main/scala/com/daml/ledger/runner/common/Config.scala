@@ -85,7 +85,7 @@ object Config {
       acsIdQueueLimit = IndexConfiguration.DefaultAcsIdQueueLimit,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.default,
-      enableInMemoryFanOutForLedgerApi = false,
+      enableInMemoryFanOutForLedgerApi = true,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       extra = extra,

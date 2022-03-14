@@ -15,11 +15,7 @@ import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoor
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  StringInterningStorageBackend,
-}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -32,7 +28,6 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object ParallelIndexerFactory {
-
   def apply(
       jdbcUrl: String,
       inputMappingParallelism: Int,
@@ -45,7 +40,7 @@ object ParallelIndexerFactory {
       dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
-      stringInterningStorageBackend: StringInterningStorageBackend,
+      stringInterningView: StringInterningView,
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
@@ -120,16 +115,6 @@ object ParallelIndexerFactory {
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = new StringInterningView(
-            loadPrefixedEntries = (fromExclusive, toInclusive) =>
-              implicit loggingContext =>
-                dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-                  stringInterningStorageBackend.loadStringInterningEntries(
-                    fromExclusive,
-                    toInclusive,
-                  )
-                }
-          )
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
             updatingStringInterningView = stringInterningView,
