@@ -42,7 +42,10 @@ da_scala_test(
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = scalacopts,
     deps = [

@@ -3,13 +3,18 @@
 
 package com.daml.scalautil.nonempty
 
+import com.daml.scalatest.WordSpecCheckLaws
+
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 
+import scalaz.scalacheck.{ScalazProperties => SZP}
+import scalaz.Foldable
 import shapeless.test.illTyped
 
-class NonEmptySpec extends AnyWordSpec with Matchers {
+class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   import scala.{collection => col}, col.{mutable => mut}, col.{immutable => imm}
+  import NonEmptySpec._
 
   "apply" should {
     "lub arguments" in {
@@ -210,6 +215,18 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "Foldable" should {
+    "prefer the substed version over the derived one" in {
+      import scalaz.std.list._
+      Foldable[NonEmptyF[List, *]].getClass should be theSameInstanceAs Foldable[List].getClass
+    }
+  }
+
+  "Foldable1 from Foldable" should {
+    import scalaz.std.vector._, scalaz.std.anyVal._
+    checkLaws(SZP.foldable1.laws[NonEmptyF[Vector, *]])
+  }
+
   // why we don't allow `scala.collection` types
   "scala.collection.Seq" must {
     "accept that its non-emptiness is ephemeral" in {
@@ -220,4 +237,23 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
       (csIsNonEmpty, cs) should ===((true, col.Seq.empty))
     }
   }
+
+  // merely checking that too much evidence doesn't result in ambiguous
+  // lookup
+  object UnambiguousResolutionTests {
+    import scalaz.{Foldable, Traverse}
+    def foldableTraverse[F[_]: Traverse]: Foldable[F] = Foldable[F]
+    def foldableNot1[F[_]: Foldable]: Foldable[F] = Foldable[F]
+  }
+}
+
+object NonEmptySpec {
+  import org.scalacheck.Arbitrary, Arbitrary.arbitrary
+  import NonEmptyReturningOps._
+  import NonEmptyCollCompat.SeqOps
+
+  implicit def `ne seq arb`[A: Arbitrary, C[X] <: Seq[X] with SeqOps[X, C, C[X]]](implicit
+      C: Arbitrary[C[A]]
+  ): Arbitrary[NonEmptyF[C, A]] =
+    Arbitrary(arbitrary[(A, C[A])] map { case (hd, tl) => (hd +-: tl).toNEF })
 }
