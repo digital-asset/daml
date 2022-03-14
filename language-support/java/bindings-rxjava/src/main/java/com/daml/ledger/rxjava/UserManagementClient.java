@@ -14,9 +14,9 @@ public interface UserManagementClient {
 
   Single<CreateUserResponse> createUser(@NonNull CreateUserRequest request, String accessToken);
 
-  Single<User> getUser(@NonNull GetUserRequest request);
+  Single<GetUserResponse> getUser(@NonNull GetUserRequest request);
 
-  Single<User> getUser(@NonNull GetUserRequest request, String accessToken);
+  Single<GetUserResponse> getUser(@NonNull GetUserRequest request, String accessToken);
 
   Single<DeleteUserResponse> deleteUser(@NonNull DeleteUserRequest request);
 
