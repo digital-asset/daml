@@ -321,6 +321,7 @@ object domain {
         "ledgerId" -> OfString(maybeString.getOrElse("<empty-ledger-id>")),
         "workflowId" -> commands.workflowId,
         "applicationId" -> commands.applicationId,
+        "submissionId" -> commands.submissionId,
         "commandId" -> commands.commandId,
         "actAs" -> commands.actAs,
         "readAs" -> commands.readAs,
