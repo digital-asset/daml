@@ -1,6 +1,6 @@
 # Making a Release
 
-This document covers how to _test_ a release. Creating a release follows a
+This document covers how to _test_ a release. [Creating a release][creating] follows a
 slightly different process depending on whether the release is stable or not,
 and whether it's a legacy 1.x release or a 2.x release.
 
@@ -14,7 +14,7 @@ patches we backport to the 1.0 release branch).
 > **IMPORTANT**: If the release fails, please delete it from the [releases page]
 > and write how it failed on the PR.
 
-This testing procedure starts once the release is listed on the [releases page].
+This testing procedure starts once the [release][creating] is listed on the [releases page].
 
 1. On Windows, install the new SDK using the installer on
    https://github.com/digital-asset/daml/releases.
@@ -324,4 +324,5 @@ Thanks for making a release!
 
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
 [releases page]: https://github.com/digital-asset/daml/releases
+[creating]: https://github.com/DACH-NY/assembly/blob/main/README.md
 [release notes]: https://daml.com/release-notes/
