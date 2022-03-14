@@ -12,14 +12,14 @@ import com.daml.scalautil.Statement
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
-import org.scalatest.{Assertion, OptionValues}
+import org.scalatest.{AppendedClues, Assertion, OptionValues}
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 import org.scalatest.Checkpoints.Checkpoint
 
-trait ErrorsAssertions extends Matchers with OptionValues {
+trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
@@ -46,6 +46,28 @@ trait ErrorsAssertions extends Matchers with OptionValues {
     succeed
   }
 
+  def assertStatus(
+      actual: com.google.rpc.Status,
+      expected: com.google.rpc.Status,
+  ): Assertion = {
+    val actualDetails = ErrorDetails.from(actual)
+    val expectedDetails = ErrorDetails.from(expected)
+    val actualDescription = Option(actual.getMessage)
+    val expectedDescription = Option(expected.getMessage)
+    val actualStatusCode = actual.getCode
+    val expectedStatusCode = expected.getCode
+    val cp = new Checkpoint
+    cp { Statement.discard { actualDescription shouldBe expectedDescription } }
+    cp {
+      Statement.discard {
+        actualStatusCode shouldBe expectedStatusCode withClue (s", expecting status code: '${expectedStatusCode}''")
+      }
+    }
+    cp { Statement.discard { actualDetails should contain theSameElementsAs expectedDetails } }
+    cp.reportAll()
+    succeed
+  }
+
   def assertError(
       actual: StatusRuntimeException,
       expectedF: ContextualizedErrorLogger => StatusRuntimeException,
@@ -66,7 +88,7 @@ trait ErrorsAssertions extends Matchers with OptionValues {
     val expectedDetails = expectedStatus.getDetailsList.asScala.toSeq
     assertError(
       actual = actual,
-      expectedCode = expected.getStatus.getCode,
+      expectedStatusCode = expected.getStatus.getCode,
       expectedMessage = expectedStatus.getMessage,
       expectedDetails = ErrorDetails.from(expectedDetails),
     )
@@ -74,14 +96,14 @@ trait ErrorsAssertions extends Matchers with OptionValues {
 
   def assertError(
       actual: StatusRuntimeException,
-      expectedCode: Code,
+      expectedStatusCode: Code,
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
   ): Unit = {
     val actualStatus = StatusProto.fromThrowable(actual)
     val actualDetails = actualStatus.getDetailsList.asScala.toSeq
     val cp = new Checkpoint
-    cp { Statement.discard { actual.getStatus.getCode shouldBe expectedCode } }
+    cp { Statement.discard { actual.getStatus.getCode shouldBe expectedStatusCode } }
     cp { Statement.discard { actualStatus.getMessage shouldBe expectedMessage } }
     cp {
       Statement.discard {
@@ -110,7 +132,7 @@ trait ErrorAssertionsWithLogCollectorAssertions
   ): Unit = {
     assertError(
       actual = actual,
-      expectedCode = expectedCode,
+      expectedStatusCode = expectedCode,
       expectedMessage = expectedMessage,
       expectedDetails = expectedDetails,
     )

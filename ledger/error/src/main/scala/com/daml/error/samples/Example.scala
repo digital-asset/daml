@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.samples
+import scala.concurrent.duration._
 
 import com.daml.error.definitions.{DamlError}
 
@@ -16,8 +17,6 @@ object DummmyServer {
     ErrorResource,
   }
   import com.daml.logging.{ContextualizedLogger, LoggingContext}
-
-  import scala.concurrent.duration.Duration
 
   object ErrorCodeFoo
       extends ErrorCode(id = "MY_ERROR_CODE_ID", ErrorCategory.ContentionOnSharedResources)(
@@ -37,7 +36,7 @@ object DummmyServer {
       )
 
       override def retryable: Option[ErrorCategoryRetry] = Some(
-        ErrorCategoryRetry("me", Duration("123 s"))
+        ErrorCategoryRetry("me", 123.second + 456.milliseconds)
       )
 
       override def context: Map[String, String] = Map("foo" -> "bar")
@@ -71,7 +70,8 @@ object SampleClientSide {
         // Converting to a status object.
         val status = io.grpc.protobuf.StatusProto.fromThrowable(e)
 
-        // Extracting error code id.
+        // Extracting gRPC status code.
+        assert(status.getCode == io.grpc.Status.Code.ABORTED.value())
         assert(status.getCode == 10)
 
         // Extracting error message, both
@@ -106,7 +106,8 @@ object SampleClientSide {
           rawDetails.collectFirst {
             case any if any.is(classOf[RetryInfo]) =>
               val v = any.unpack(classOf[RetryInfo])
-              assert(v.getRetryDelay.getSeconds == 123)
+              assert(v.getRetryDelay.getSeconds == 123, v.getRetryDelay.getSeconds)
+              assert(v.getRetryDelay.getNanos == 456 * 1000 * 1000, v.getRetryDelay.getNanos)
           }.isDefined
         }
 

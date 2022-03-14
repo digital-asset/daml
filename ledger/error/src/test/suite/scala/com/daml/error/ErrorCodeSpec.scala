@@ -4,19 +4,21 @@
 package com.daml.error
 
 import ch.qos.logback.classic.Level
-import com.daml.error.ErrorCategory.TransientServerFailure
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
-import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors.NotSoSeriousError
-import com.daml.platform.testing.LogCollector.ExpectedLogEntry
+import com.daml.logging.LoggingContext
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
-import io.grpc.StatusRuntimeException
+import com.google.rpc.Status
+import io.grpc.Status.Code
 import org.scalatest.BeforeAndAfter
-import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
+
 class ErrorCodeSpec
-    extends AnyFlatSpec
+    extends AnyFreeSpec
     with Matchers
     with BeforeAndAfter
     with LogCollectorAssertions
@@ -26,116 +28,352 @@ class ErrorCodeSpec
     (correlationId: Option[String]) =>
       DamlContextualizedErrorLogger.forTesting(getClass, correlationId)
 
-  private val className = classOf[ErrorCode].getSimpleName
-
   before {
     LogCollector.clear[this.type]
   }
 
-  s"$className.logWithContext" should "log the error message with the correct markers" in {
-    val error = SeriousError.Error(
-      "the error argument",
-      context = Map("extra-context-key" -> "extra-context-value"),
-    )
+  object FooErrorCodeSecuritySensitive
+      extends ErrorCode(
+        "FOO_ERROR_CODE_SECURITY_SENSITIVE",
+        ErrorCategory.SystemInternalAssumptionViolated,
+      )(ErrorClass.root())
 
-    error.logWithContext()(contextualizedErrorLoggerF(Some("1234567890")))
+  object FooErrorCode
+      extends ErrorCode("FOO_ERROR_CODE", ErrorCategory.InvalidIndependentOfSystemState)(
+        ErrorClass.root()
+      )
 
-    val actualLogs = LogCollector
-      .readAsEntries[this.type, this.type]
-    actualLogs.size shouldBe 1
-    assertLogEntry(
-      actualLogs.head,
-      expectedLogLevel = Level.ERROR,
-      expectedMsg = "BLUE_SCREEN(4,12345678): the error argument",
-      expectedMarkerRegex = Some(
-        "\\{err-context: \"\\{extra-context-key=extra-context-value, location=ErrorCodeSpec.scala:\\d+\\}\"\\}"
-      ),
-    )
-  }
+  classOf[ErrorCode].getSimpleName - {
 
-  s"$className.logWithContext" should s"truncate the cause size if larger than ${ErrorCode.MaxCauseLogLength}" in {
-    val veryLongCause = "o" * (ErrorCode.MaxCauseLogLength * 2)
-    val error =
-      SeriousError.Error(veryLongCause, context = Map("extra-context-key" -> "extra-context-value"))
+    "meet test preconditions" in {
+      FooErrorCodeSecuritySensitive.category.securitySensitive shouldBe true
+      FooErrorCode.category.securitySensitive shouldBe false
+      FooErrorCodeSecuritySensitive.category.grpcCode shouldBe Some(Code.INTERNAL)
+      FooErrorCode.category.grpcCode shouldBe Some(Code.INVALID_ARGUMENT)
+    }
 
-    error.logWithContext()(contextualizedErrorLoggerF(None))
+    "create correct message" in {
+      FooErrorCode.toMsg(
+        cause = "cause123",
+        correlationId = Some("123correlationId"),
+      ) shouldBe "FOO_ERROR_CODE(8,123corre): cause123"
+      FooErrorCode.toMsg(
+        cause = "cause123",
+        correlationId = None,
+      ) shouldBe "FOO_ERROR_CODE(8,0): cause123"
+      FooErrorCode.toMsg(
+        cause = "x" * ErrorCode.MaxCauseLogLength * 2,
+        correlationId = Some("123correlationId"),
+      ) shouldBe s"FOO_ERROR_CODE(8,123corre): ${"x" * ErrorCode.MaxCauseLogLength}..."
+      FooErrorCodeSecuritySensitive.toMsg(
+        cause = "cause123",
+        correlationId = Some("123correlationId"),
+      ) shouldBe "FOO_ERROR_CODE_SECURITY_SENSITIVE(4,123corre): cause123"
+    }
 
-    val expectedErrorLog = "BLUE_SCREEN(4,0): " + ("o" * ErrorCode.MaxCauseLogLength + "...")
-    val actualLogs = LogCollector.read[this.type, this.type]
-    actualLogs shouldBe Seq(Level.ERROR -> expectedErrorLog)
-  }
+    "create a minimal grpc status and exception" in {
+      class FooErrorMinimal(override val code: ErrorCode) extends BaseError {
+        override val cause: String = "cause123"
+      }
+      val errorLoggerSmall = DamlContextualizedErrorLogger.forClass(
+        clazz = getClass,
+        correlationId = None,
+        loggingContext = LoggingContext.empty,
+      )
+      val testedErrorCode = FooErrorCode
+      case class TestedError() extends FooErrorMinimal(testedErrorCode)
+      val details = Seq(
+        ErrorDetails
+          .ErrorInfoDetail(
+            testedErrorCode.id,
+            Map("category" -> testedErrorCode.category.asInt.toString),
+          )
+      )
+      val expected = Status
+        .newBuilder()
+        .setMessage("FOO_ERROR_CODE(8,0): cause123")
+        .setCode(Code.INVALID_ARGUMENT.value())
+        .addAllDetails(details.map(_.toRpcAny).asJava)
+        .build()
+      val testedError = TestedError()
 
-  s"$className.asGrpcErrorFromContext" should "output a GRPC error with correct status, message and metadata" in {
-    val contextMetadata = Map("some key" -> "some value", "another key" -> "another value")
-    val error = NotSoSeriousError.Error("some error cause", contextMetadata)
-    val correlationId = "12345678"
+      assertStatus(
+        actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerSmall),
+        expected = expected,
+      )
+      assertError(
+        actual = testedErrorCode.asGrpcError(testedError)(errorLoggerSmall),
+        expectedStatusCode = testedErrorCode.category.grpcCode.get,
+        expectedMessage = "FOO_ERROR_CODE(8,0): cause123",
+        expectedDetails = details,
+      )
+    }
 
-    val actual: StatusRuntimeException =
-      error.asGrpcErrorFromContext(contextualizedErrorLoggerF(Some(correlationId)))
+    "create a big grpc status and exception" - {
+      class FooErrorBig(override val code: ErrorCode) extends BaseError {
+        override val cause: String = "cause123"
 
-    assertError(
-      actual,
-      expectedCode = NotSoSeriousError.category.grpcCode.get,
-      expectedMessage = "TEST_ROUTINE_FAILURE_PLEASE_IGNORE(1,12345678): Some obscure cause",
-      expectedDetails = Seq(
-        ErrorDetails.ErrorInfoDetail(
-          NotSoSeriousError.id,
-          Map("category" -> "1") ++ contextMetadata ++ Map("definite_answer" -> "true"),
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry(who = "unused", duration = 123.seconds + 456.milliseconds)
+        )
+
+        override def resources: Seq[(ErrorResource, String)] =
+          super.resources ++
+            Seq[(ErrorResource, String)](
+              ErrorResource.CommandId -> "commandId1",
+              ErrorResource.CommandId -> "commandId2",
+              ErrorResource.Party -> "party1",
+            )
+
+        override def context: Map[String, String] =
+          super.context ++ Map(
+            "contextKey1" -> "contextValue1",
+            "kkk????" -> "keyWithInvalidCharacters",
+          )
+
+        override def definiteAnswerO: Option[Boolean] = Some(false)
+      }
+
+      val errorLoggerBig = DamlContextualizedErrorLogger.forClass(
+        clazz = getClass,
+        correlationId = Some("123correlationId"),
+        loggingContext = LoggingContext(
+          "loggingEntryKey" -> "loggingEntryValue"
         ),
-        ErrorDetails.RetryInfoDetail(TransientServerFailure.retryable.get.duration),
-        ErrorDetails.RequestInfoDetail(correlationId),
-        ErrorDetails.ResourceInfoDetail(error.resources.head._1.asString, error.resources.head._2),
-      ),
-    )
-  }
+      )
+      val requestInfo = ErrorDetails.RequestInfoDetail("123correlationId")
+      val retryInfo = ErrorDetails.RetryInfoDetail(123.seconds + 456.milliseconds)
 
-  s"$className.asGrpcErrorFromContext" should "not propagate security sensitive information in gRPC statuses (with correlation id)" in {
-    val error =
-      SeriousError.Error("some cause", Map("some sensitive key" -> "some sensitive value"))
-    val correlationId = "12345678"
-    val contextualizedErrorLogger = contextualizedErrorLoggerF(Some(correlationId))
+      def getDetails(tested: ErrorCode) = Seq(
+        ErrorDetails
+          .ErrorInfoDetail(
+            tested.id,
+            Map(
+              "category" -> tested.category.asInt.toString,
+              "definite_answer" -> "false",
+              "loggingEntryKey" -> "'loggingEntryValue'",
+              "contextKey1" -> "contextValue1",
+              "kkk" -> "keyWithInvalidCharacters",
+            ),
+          ),
+        requestInfo,
+        retryInfo,
+        ErrorDetails.ResourceInfoDetail(name = "commandId1", typ = "COMMAND_ID"),
+        ErrorDetails.ResourceInfoDetail(name = "commandId2", typ = "COMMAND_ID"),
+        ErrorDetails.ResourceInfoDetail(name = "party1", typ = "PARTY"),
+      )
 
-    val actual: StatusRuntimeException = error.asGrpcErrorFromContext(contextualizedErrorLogger)
-    error.logWithContext(Map.empty)(contextualizedErrorLogger)
+      "not security sensitive" in {
+        val testedErrorCode = FooErrorCode
+        val details = getDetails(testedErrorCode)
+        case class TestedError() extends FooErrorBig(testedErrorCode)
 
-    assertError[this.type, this.type](
-      actual,
-      expectedCode = io.grpc.Status.Code.INTERNAL,
-      expectedMessage =
-        s"An error occurred. Please contact the operator and inquire about the request $correlationId",
-      expectedDetails = Seq(ErrorDetails.RequestInfoDetail(correlationId)),
-      expectedLogEntry = ExpectedLogEntry(
-        Level.ERROR,
-        s"BLUE_SCREEN(4,$correlationId): some cause",
-        Some(
-          "\\{err-context: \"\\{location=ErrorCodeSpec.scala:\\d+, some sensitive key=some sensitive value\\}\"\\}"
+        val expectedStatus = Status
+          .newBuilder()
+          .setMessage("FOO_ERROR_CODE(8,123corre): cause123")
+          .setCode(testedErrorCode.category.grpcCode.get.value())
+          .addAllDetails(details.map(_.toRpcAny).asJava)
+          .build()
+        val testedError = TestedError()
+        testedError.logWithContext(Map.empty)(errorLoggerBig)
+
+        assertSingleLogEntry(
+          actual = LogCollector.readAsEntries[this.type, this.type],
+          expectedLogLevel = Level.INFO,
+          expectedMsg = "FOO_ERROR_CODE(8,123corre): cause123",
+          expectedMarkerAsString =
+            """{loggingEntryKey: "loggingEntryValue", err-context: "{contextKey1=contextValue1, kkk????=keyWithInvalidCharacters, location=ErrorCodeSpec.scala:<line-number>}"}""",
+        )
+        assertStatus(
+          actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
+          expected = expectedStatus,
+        )
+        assertStatus(
+          actual = testedError.asGrpcStatusFromContext(errorLoggerBig),
+          expected = expectedStatus,
+        )
+        assertError(
+          actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
+          expectedStatusCode = testedErrorCode.category.grpcCode.get,
+          expectedMessage = "FOO_ERROR_CODE(8,123corre): cause123",
+          expectedDetails = details,
+        )
+        assertError(
+          actual = testedError.asGrpcErrorFromContext(errorLoggerBig),
+          expectedStatusCode = testedErrorCode.category.grpcCode.get,
+          expectedMessage = "FOO_ERROR_CODE(8,123corre): cause123",
+          expectedDetails = details,
+        )
+      }
+
+      "security sensitive" in {
+        val testedErrorCode = FooErrorCodeSecuritySensitive
+        case class FooError() extends FooErrorBig(testedErrorCode)
+        val expectedStatus = Status
+          .newBuilder()
+          .setMessage(
+            "An error occurred. Please contact the operator and inquire about the request 123correlationId"
+          )
+          .setCode(testedErrorCode.category.grpcCode.get.value())
+          .addDetails(requestInfo.toRpcAny)
+          .addDetails(retryInfo.toRpcAny)
+          .build()
+        val testedError = FooError()
+        testedError.logWithContext(Map.empty)(errorLoggerBig)
+
+        assertSingleLogEntry(
+          actual = LogCollector.readAsEntries[this.type, this.type],
+          expectedLogLevel = Level.ERROR,
+          expectedMsg = "FOO_ERROR_CODE_SECURITY_SENSITIVE(4,123corre): cause123",
+          expectedMarkerAsString =
+            """{loggingEntryKey: "loggingEntryValue", err-context: "{contextKey1=contextValue1, kkk????=keyWithInvalidCharacters, location=ErrorCodeSpec.scala:<line-number>}"}""",
+        )
+        assertStatus(
+          actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
+          expected = expectedStatus,
+        )
+        assertStatus(
+          actual = testedError.asGrpcStatusFromContext(errorLoggerBig),
+          expected = expectedStatus,
+        )
+        assertError(
+          actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
+          expectedStatusCode = testedErrorCode.category.grpcCode.get,
+          expectedMessage =
+            "An error occurred. Please contact the operator and inquire about the request 123correlationId",
+          expectedDetails = Seq(requestInfo, retryInfo),
+        )
+        assertError(
+          actual = testedError.asGrpcErrorFromContext(errorLoggerBig),
+          expectedStatusCode = testedErrorCode.category.grpcCode.get,
+          expectedMessage =
+            "An error occurred. Please contact the operator and inquire about the request 123correlationId",
+          expectedDetails = Seq(requestInfo, retryInfo),
+        )
+      }
+
+    }
+
+    "create a grpc status and exception for input exceeding details size limits" in {
+      class FooErrorBig(override val code: ErrorCode) extends BaseError {
+        override val cause: String = "cause123"
+
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry(who = "unused", duration = 123.seconds + 456.milliseconds)
+        )
+
+        override def resources: Seq[(ErrorResource, String)] =
+          super.resources ++
+            Seq[(ErrorResource, String)](
+              ErrorResource.CommandId -> "commandId1",
+              ErrorResource.CommandId -> "commandId2",
+              ErrorResource.Party -> "party1",
+              ErrorResource.Party -> ("x" * ErrorCode.MaxContentBytes),
+            )
+
+        override def definiteAnswerO: Option[Boolean] = Some(false)
+      }
+      val errorLoggerOversized = DamlContextualizedErrorLogger.forClass(
+        clazz = getClass,
+        correlationId = Some("123correlationId"),
+        loggingContext = LoggingContext(
+          "loggingEntryKey" -> "loggingEntryValue",
+          "loggingEntryValueTooBig" -> ("x" * ErrorCode.MaxContentBytes),
+          ("x" * ErrorCode.MaxContentBytes) -> "loggingEntryKeyTooBig",
         ),
-      ),
-    )
-  }
+      )
+      val requestInfo = ErrorDetails.RequestInfoDetail("123correlationId")
+      val retryInfo = ErrorDetails.RetryInfoDetail(123.seconds + 456.milliseconds)
 
-  s"$className.asGrpcErrorFromContext" should "not propagate security sensitive information in gRPC statuses (without correlation id)" in {
-    val error =
-      SeriousError.Error("some cause", Map("some sensitive key" -> "some sensitive value"))
-    val contextualizedErrorLogger = contextualizedErrorLoggerF(None)
+      val testedErrorCode = FooErrorCode
+      case class TestedError() extends FooErrorBig(FooErrorCode)
+      val testedError = TestedError()
 
-    val actual: StatusRuntimeException = error.asGrpcErrorFromContext(contextualizedErrorLogger)
-    error.logWithContext(Map.empty)(contextualizedErrorLogger)
+      val expectedDetails = Seq(
+        ErrorDetails
+          .ErrorInfoDetail(
+            testedErrorCode.id,
+            Map(
+              "category" -> testedErrorCode.category.asInt.toString,
+              "definite_answer" -> "false",
+              "loggingEntryKey" -> "'loggingEntryValue'",
+              "loggingEntryValueTooBig" -> ("'" + "x" * 1854 + "..."),
+              ("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") -> "'loggingEntryKeyTooBig'",
+            ),
+          ),
+        requestInfo,
+        retryInfo,
+        ErrorDetails.ResourceInfoDetail(name = "commandId1", typ = "COMMAND_ID"),
+        ErrorDetails.ResourceInfoDetail(name = "commandId2", typ = "COMMAND_ID"),
+        ErrorDetails.ResourceInfoDetail(name = "party1", typ = "PARTY"),
+      )
+      val expectedMessage = "FOO_ERROR_CODE(8,123corre): cause123"
+      val expectedStatus = Status
+        .newBuilder()
+        .setMessage(expectedMessage)
+        .setCode(testedErrorCode.category.grpcCode.get.value())
+        .addAllDetails(expectedDetails.map(_.toRpcAny).asJava)
+        .build()
 
-    assertError[this.type, this.type](
-      actual,
-      expectedCode = io.grpc.Status.Code.INTERNAL,
-      expectedMessage =
-        s"An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
-      expectedDetails = Seq(),
-      expectedLogEntry = ExpectedLogEntry(
-        Level.ERROR,
-        "BLUE_SCREEN(4,0): some cause",
-        Some(
-          "\\{err-context: \"\\{location=ErrorCodeSpec.scala:\\d+, some sensitive key=some sensitive value\\}\"\\}"
+      assertStatus(
+        actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerOversized),
+        expected = expectedStatus,
+      )
+      assertStatus(
+        actual = testedError.asGrpcStatusFromContext(errorLoggerOversized),
+        expected = expectedStatus,
+      )
+      assertError(
+        actual = testedErrorCode.asGrpcError(testedError)(errorLoggerOversized),
+        expectedStatusCode = testedErrorCode.category.grpcCode.get,
+        expectedMessage = expectedMessage,
+        expectedDetails = expectedDetails,
+      )
+      assertError(
+        actual = testedError.asGrpcErrorFromContext(errorLoggerOversized),
+        expectedStatusCode = testedErrorCode.category.grpcCode.get,
+        expectedMessage = expectedMessage,
+        expectedDetails = expectedDetails,
+      )
+    }
+
+    "log the error message with the correct markers" in {
+      val error = SeriousError.Error(
+        "the error argument",
+        context = Map("extra-context-key" -> "extra-context-value"),
+      )
+      val errorLogger = DamlContextualizedErrorLogger.forTesting(getClass, Some("1234567890"))
+
+      error.logWithContext()(errorLogger)
+
+      val actualLogs = LogCollector
+        .readAsEntries[this.type, this.type]
+      actualLogs.size shouldBe 1
+      assertLogEntry(
+        actualLogs.head,
+        expectedLogLevel = Level.ERROR,
+        expectedMsg = "BLUE_SCREEN(4,12345678): the error argument",
+        expectedMarkerRegex = Some(
+          "\\{err-context: \"\\{extra-context-key=extra-context-value, location=ErrorCodeSpec.scala:\\d+\\}\"\\}"
         ),
-      ),
-    )
+      )
+    }
+
+    s"truncate the cause size if larger than ${ErrorCode.MaxCauseLogLength}" in {
+      val veryLongCause = "o" * (ErrorCode.MaxCauseLogLength * 2)
+      val error =
+        SeriousError.Error(
+          veryLongCause,
+          context = Map("extra-context-key" -> "extra-context-value"),
+        )
+
+      error.logWithContext()(contextualizedErrorLoggerF(None))
+
+      val expectedErrorLog = "BLUE_SCREEN(4,0): " + ("o" * ErrorCode.MaxCauseLogLength + "...")
+      val actualLogs = LogCollector.read[this.type, this.type]
+      actualLogs shouldBe Seq(Level.ERROR -> expectedErrorLog)
+    }
+
   }
 
 }

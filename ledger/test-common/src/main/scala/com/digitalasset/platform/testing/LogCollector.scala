@@ -9,6 +9,7 @@ import ch.qos.logback.core.AppenderBase
 import com.daml.platform.testing.LogCollector.Entry
 import com.daml.scalautil.Statement
 import org.scalatest.Checkpoints.Checkpoint
+import org.scalatest.{AppendedClues, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.Marker
 
@@ -72,7 +73,26 @@ final class LogCollector extends AppenderBase[ILoggingEvent] {
   }
 }
 
-trait LogCollectorAssertions { self: Matchers =>
+trait LogCollectorAssertions extends OptionValues with AppendedClues { self: Matchers =>
+
+  /** @param expectedMarkerAsString use "<line-number>" where a line number would've been expected
+    */
+  def assertSingleLogEntry(
+      actual: Seq[LogCollector.Entry],
+      expectedLogLevel: Level,
+      expectedMsg: String,
+      expectedMarkerAsString: String,
+  ): Unit = {
+    actual should have size 1 withClue ("expected exactly one log entry")
+    val actualEntry = actual.head
+    val actualMarker =
+      actualEntry.marker.value.toString.replaceAll("\\.scala:\\d+", ".scala:<line-number>")
+    val cp = new Checkpoint
+    cp { Statement.discard { actualEntry.level shouldBe expectedLogLevel } }
+    cp { Statement.discard { actualEntry.msg shouldBe expectedMsg } }
+    cp { Statement.discard { actualMarker shouldBe expectedMarkerAsString } }
+    cp.reportAll()
+  }
 
   def assertLogEntry(
       actual: LogCollector.Entry,

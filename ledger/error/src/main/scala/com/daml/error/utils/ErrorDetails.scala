@@ -14,35 +14,83 @@ import scala.concurrent.duration._
 
 object ErrorDetails {
 
-  sealed trait ErrorDetail extends Product with Serializable
+  sealed trait ErrorDetail extends Product with Serializable {
+    type T <: com.google.protobuf.Message
+    def toRpc: T
+    def toRpcAny: com.google.protobuf.Any = com.google.protobuf.Any.pack(toRpc)
+  }
 
-  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
+  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail {
+    type T = ResourceInfo
+    def toRpc: ResourceInfo = {
+      ResourceInfo.newBuilder().setResourceType(typ).setResourceName(name).build()
+    }
+  }
   final case class ErrorInfoDetail(errorCodeId: String, metadata: Map[String, String])
-      extends ErrorDetail
-  final case class RetryInfoDetail(duration: Duration) extends ErrorDetail
-  final case class RequestInfoDetail(requestId: String) extends ErrorDetail
+      extends ErrorDetail {
+    type T = ErrorInfo
+    def toRpc: ErrorInfo = {
+      ErrorInfo
+        .newBuilder()
+        .setReason(errorCodeId)
+        .putAllMetadata(metadata.asJava)
+        .build()
+    }
+  }
+  final case class RetryInfoDetail(duration: Duration) extends ErrorDetail {
+    type T = RetryInfo
+    def toRpc: RetryInfo = {
+      val millis = duration.toMillis
+      val fullSeconds = millis / 1000
+      val remainderMillis = millis % 1000
+      // Ensuring that we do not exceed max allowed value of nanos as documented in [[com.google.protobuf.Duration.Builder.setNanos]]
+      val remainderNanos = Math.min(remainderMillis * 1000 * 1000, 999999999).toInt
+      val protoDuration = com.google.protobuf.Duration
+        .newBuilder()
+        .setNanos(remainderNanos)
+        .setSeconds(fullSeconds)
+        .build()
+      RetryInfo
+        .newBuilder()
+        .setRetryDelay(protoDuration)
+        .build()
+    }
+  }
+  final case class RequestInfoDetail(correlationId: String) extends ErrorDetail {
+    type T = RequestInfo
+    def toRpc: RequestInfo = {
+      RequestInfo
+        .newBuilder()
+        .setRequestId(correlationId)
+        .setServingData("")
+        .build()
+    }
+  }
 
+  def from(status: com.google.rpc.Status): Seq[ErrorDetail] = {
+    from(status.getDetailsList.asScala.toSeq)
+  }
   def from(e: StatusRuntimeException): Seq[ErrorDetail] =
-    from(StatusProto.fromThrowable(e).getDetailsList.asScala.toSeq)
+    from(StatusProto.fromThrowable(e))
 
   def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = anys.toList.map {
     case any if any.is(classOf[ResourceInfo]) =>
       val v = any.unpack(classOf[ResourceInfo])
-      ResourceInfoDetail(v.getResourceType, v.getResourceName)
+      ResourceInfoDetail(typ = v.getResourceType, name = v.getResourceName)
 
     case any if any.is(classOf[ErrorInfo]) =>
       val v = any.unpack(classOf[ErrorInfo])
-      ErrorInfoDetail(v.getReason, v.getMetadataMap.asScala.toMap)
+      ErrorInfoDetail(errorCodeId = v.getReason, metadata = v.getMetadataMap.asScala.toMap)
 
     case any if any.is(classOf[RetryInfo]) =>
       val v = any.unpack(classOf[RetryInfo])
       val delay = v.getRetryDelay
       val duration = (delay.getSeconds.seconds + delay.getNanos.nanos).toCoarsest
-      RetryInfoDetail(duration)
+      RetryInfoDetail(duration = duration)
 
     case any if any.is(classOf[RequestInfo]) =>
       val v = any.unpack(classOf[RequestInfo])
-      RequestInfoDetail(v.getRequestId)
+      RequestInfoDetail(correlationId = v.getRequestId)
 
     case any => throw new IllegalStateException(s"Could not unpack value of: |$any|")
   }
