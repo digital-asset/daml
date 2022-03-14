@@ -61,12 +61,12 @@ If you don't use a language that targets the JVM you can use gRPC to generate th
 several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
 pointers on how you may want to approach this.
 
-As an alternative way to tap into the Ledger API you can also use the :doc:`HTTP JSON API Service</json-api/index>`.
+You can also use the :doc:`HTTP JSON API Service </json-api/index>` to tap into the Ledger API.
 
 At its core, it provides a simplified view of the active contract set and additional primities to query it and
 exposing it using a well-defined JSON-based encoding over a conventional HTTP connection.
 
-On top of that, a subset of the services mentioned above is also available as part of it.
+A subset of the services mentioned above is also available as part of it.
 
 .. _daml-lf-intro:
 
