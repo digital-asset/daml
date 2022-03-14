@@ -202,19 +202,23 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+      rep(interfaceRequires <~ `;`) ~
       (Id("precondition") ~> expr <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
       rep(templateChoice <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
+            requires ~
             precond ~
             methods ~
             choices =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.empty, x, choices, methods, precond),
+            DefInterface.build(Set.from(requires), x, choices, methods, precond),
           )
       }
+  private val interfaceRequires: Parser[Ref.TypeConName] =
+    Id("requires") ~>! fullIdentifier
 
   private val interfaceMethod: Parser[InterfaceMethod] =
     Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
