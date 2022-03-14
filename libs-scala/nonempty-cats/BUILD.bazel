@@ -28,7 +28,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = scalacopts,
-    tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:nonempty-cats:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
