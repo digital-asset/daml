@@ -691,8 +691,6 @@ data Update
       -- ^ Contract id of the contract template instance to exercise choice on.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
-    , exeTypeRep    :: !Expr
-      -- ^ Optional TypeRep with the expected template ID.
     , exeGuard      :: !Expr
       -- ^ Exercise guard (Interface -> Bool) to abort the transaction eagerly
       -- if the payload does not satisfy the predicate.

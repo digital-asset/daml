@@ -913,13 +913,11 @@ private[validation] object Typing {
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
-        typeRep: Expr,
         guard: Expr,
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(interfaceId)))
       val choice = handleLookup(ctx, interface.lookupInterfaceChoice(interfaceId, chName))
       checkExpr(arg, choice.argBinder._2)
-      checkExpr(typeRep, TOptional(TTypeRep))
       checkExpr(guard, TFun(TTyCon(interfaceId), TBool))
       TUpdate(choice.returnType)
     }

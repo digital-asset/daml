@@ -707,7 +707,9 @@ private[lf] final class PhaseOne(
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
             compileExp(env, guard) { guard =>
-              Return(t.GuardedChoiceDefRef(ifaceId, chId)(cid, arg, trep, guard))
+              Return(t.GuardedChoiceDefRef(ifaceId, chId)(cid, arg,
+                SEValue(SOptional(None)), // TODO https://github.com/digital-asset/daml/issues/13277
+                guard))
             }
           }
         }
