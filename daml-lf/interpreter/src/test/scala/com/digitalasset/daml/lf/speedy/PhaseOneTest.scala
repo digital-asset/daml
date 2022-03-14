@@ -278,12 +278,9 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def ufetchI = (x: Expr) => EUpdate(UpdateFetchInterface(tcon, x))
   private def uexercise1 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, x, exp))
   private def uexercise2 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, exp, x))
-  private def uexerciseI1 = (x: Expr) =>
-    EUpdate(UpdateExerciseInterface(tcon, choice, x, exp, exp))
-  private def uexerciseI2 = (x: Expr) =>
-    EUpdate(UpdateExerciseInterface(tcon, choice, exp, x, exp))
-  private def uexerciseI3 = (x: Expr) =>
-    EUpdate(UpdateExerciseInterface(tcon, choice, exp, exp, x))
+  private def uexerciseI1 = (x: Expr) => EUpdate(UpdateExerciseInterface(tcon, choice, x, exp, exp))
+  private def uexerciseI2 = (x: Expr) => EUpdate(UpdateExerciseInterface(tcon, choice, exp, x, exp))
+  private def uexerciseI3 = (x: Expr) => EUpdate(UpdateExerciseInterface(tcon, choice, exp, exp, x))
   private def uexbykey1 = (x: Expr) => EUpdate(UpdateExerciseByKey(tcon, choice, x, exp))
   private def uexbykey2 = (x: Expr) => EUpdate(UpdateExerciseByKey(tcon, choice, exp, x))
   private def ufetchbykey = (x: Expr) => EUpdate(UpdateFetchByKey(RetrieveByKey(tcon, x)))
