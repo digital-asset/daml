@@ -5,6 +5,6 @@ package com.daml.scalautil.nonempty
 package catsinstances
 
 package object impl {
-  val ImplicitPreference: ImplicitPreferenceModule.Module.type = ImplicitPreferenceModule.Module
+  val ImplicitPreference: ImplicitPreferenceModule = ImplicitPreferenceModule.Module
   type ImplicitPreference[+A] = ImplicitPreference.T[A]
 }

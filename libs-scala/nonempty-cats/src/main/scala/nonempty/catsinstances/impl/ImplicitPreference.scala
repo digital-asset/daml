@@ -10,9 +10,8 @@ sealed abstract class ImplicitPreferenceModule {
 }
 
 object ImplicitPreferenceModule {
-  private[impl] val Module: ImplicitPreferenceModule = new ImplicitPreferenceModule {
+  private[impl] object Module extends ImplicitPreferenceModule {
     type T[+A] = Any
     override def apply[A, B](a: A) = a
-
   }
 }
