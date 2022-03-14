@@ -10,7 +10,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object BatchingParallelIngestionPipe {
-
   def apply[IN, IN_BATCH, DB_BATCH](
       submissionBatchSize: Long,
       batchWithinMillis: Long,
@@ -46,5 +45,4 @@ object BatchingParallelIngestionPipe {
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .map(_ => ())
-
 }

@@ -18,20 +18,11 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
-import com.daml.platform.store.appendonlydao.{
-  JdbcLedgerDao,
-  LedgerDaoTransactionsReader,
-  LedgerReadDao,
-}
+import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{
-  EventsBuffer,
-  LedgerEndCache,
-  MutableCacheBackedContractStore,
-  MutableLedgerEndCache,
-}
+import com.daml.platform.store.cache.{EventsBuffer, LedgerEndCache, MutableCacheBackedContractStore}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.{StringInterning, StringInterningView}
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.resources.ProgramResource.StartupException
@@ -60,6 +51,11 @@ private[platform] case class IndexServiceBuilder(
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
     updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
+    stringInterningView: StringInterningView,
+    ledgerEnd: LedgerEnd,
+    ledgerEndCache: LedgerEndCache,
+    generalDispatcher: Dispatcher[Offset],
+    ledgerDao: LedgerReadDao,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -68,27 +64,16 @@ private[platform] case class IndexServiceBuilder(
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(): ResourceOwner[IndexService] = {
-    val ledgerEndCache = MutableLedgerEndCache()
-    val stringInterningView = createStringInterningView()
-    val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
-      ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
-      _ = ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
-      _ <- ResourceOwner.forFuture(() =>
-        stringInterningView.update(ledgerEnd.lastStringInterningId)
-      )
       prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEnd)
-      generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset)
-      instrumentedSignalNewLedgerHead = buildInstrumentedSignalNewLedgerHead(
-        ledgerEndCache,
-        generalDispatcher,
-      )
-      contractStore = mutableCacheBackedContractStore(
-        ledgerDao,
-        ledgerEnd,
-        instrumentedSignalNewLedgerHead,
-      )
+      contractStore = MutableCacheBackedContractStore(
+        ledgerDao.contractsReader,
+        ledgerEnd.lastEventSeqId,
+        metrics,
+        maxContractStateCacheSize,
+        maxContractKeyStateCacheSize,
+      )(servicesExecutionContext, loggingContext)
       (transactionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
         contractStore,
         ledgerDao,
@@ -105,48 +90,6 @@ private[platform] case class IndexServiceBuilder(
       contractStore,
       pruneBuffers,
       generalDispatcher,
-    )
-  }
-
-  private def buildInstrumentedSignalNewLedgerHead(
-      ledgerEndCache: MutableLedgerEndCache,
-      generalDispatcher: Dispatcher[Offset],
-  ) =
-    new InstrumentedSignalNewLedgerHead((offset, eventSeqId) => {
-      ledgerEndCache.set((offset, eventSeqId))
-      // the order here is very important: first we need to make data available for point-wise lookups
-      // and SQL queries, and only then we can make it available on the streams.
-      // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-      generalDispatcher.signalNewHead(offset)
-    })(metrics.daml.execution.cache.dispatcherLag)
-
-  private def mutableCacheBackedContractStore(
-      ledgerDao: LedgerReadDao,
-      ledgerEnd: LedgerEnd,
-      dispatcherLagMeter: InstrumentedSignalNewLedgerHead,
-  ) =
-    MutableCacheBackedContractStore(
-      ledgerDao.contractsReader,
-      dispatcherLagMeter,
-      ledgerEnd.lastEventSeqId,
-      metrics,
-      maxContractStateCacheSize,
-      maxContractKeyStateCacheSize,
-    )(servicesExecutionContext, loggingContext)
-
-  private def createStringInterningView() = {
-    val stringInterningStorageBackend =
-      dbSupport.storageBackendFactory.createStringInterningStorageBackend
-
-    new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
-        implicit loggingContext =>
-          dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-            stringInterningStorageBackend.loadStringInterningEntries(
-              fromExclusive,
-              toInclusive,
-            )
-          }
     )
   }
 
@@ -217,13 +160,6 @@ private[platform] case class IndexServiceBuilder(
       headAtInitialization = (ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId),
     )
 
-  private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
-    Dispatcher.owner(
-      name = "sql-ledger",
-      zeroIndex = Offset.beforeBegin,
-      headAtInitialization = ledgerEnd,
-    )
-
   private def verifyLedgerId(
       ledgerDao: LedgerReadDao
   )(implicit
@@ -261,27 +197,4 @@ private[platform] case class IndexServiceBuilder(
           }
     }
   }
-
-  private def createLedgerReadDao(
-      ledgerEndCache: LedgerEndCache,
-      stringInterning: StringInterning,
-  ): LedgerReadDao =
-    JdbcLedgerDao.read(
-      dbSupport = dbSupport,
-      eventsPageSize = eventsPageSize,
-      eventsProcessingParallelism = eventsProcessingParallelism,
-      acsIdPageSize = acsIdPageSize,
-      acsIdFetchingParallelism = acsIdFetchingParallelism,
-      acsContractFetchingParallelism = acsContractFetchingParallelism,
-      acsGlobalParallelism = acsGlobalParallelism,
-      acsIdQueueLimit = acsIdQueueLimit,
-      servicesExecutionContext = servicesExecutionContext,
-      metrics = metrics,
-      lfValueTranslationCache = lfValueTranslationCache,
-      enricher = Some(enricher),
-      participantId = participantId,
-      ledgerEndCache = ledgerEndCache,
-      stringInterning = stringInterning,
-      materializer = mat,
-    )
 }

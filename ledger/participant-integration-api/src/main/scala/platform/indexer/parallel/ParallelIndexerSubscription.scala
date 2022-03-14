@@ -5,13 +5,7 @@ package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
-import akka.stream.{
-  BoundedSourceQueue,
-  KillSwitches,
-  Materializer,
-  QueueOfferResult,
-  UniqueKillSwitch,
-}
+import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -24,8 +18,6 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend._
-import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
 import java.sql.Connection
@@ -45,7 +37,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     tailingRateLimitPerSecond: Int,
     batchWithinMillis: Long,
     metrics: Metrics,
-    updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+    ledgerEndUpdater: LedgerEnd => Unit,
 ) {
   import ParallelIndexerSubscription._
 
@@ -89,15 +81,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ingestTail = ingestTail[DB_BATCH](
           le => { connection =>
             parameterStorageBackend.updateLedgerEnd(le)(connection)
-            updatesQueue.offer(
-              (le.lastOffset, le.lastEventSeqId) -> LedgerEndMarker(
-                le.lastOffset,
-                le.lastEventSeqId,
-              )
-            ) match {
-              case QueueOfferResult.Enqueued => ()
-              case r => throw new RuntimeException(s"Did not update: ${r}")
-            }
+            ledgerEndUpdater(le)
           },
           dbDispatcher,
           metrics,

@@ -30,14 +30,19 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.{Engine, EngineConfig, ValueEnricher}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, JvmMetricSet, Metrics}
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
@@ -168,13 +173,6 @@ object SandboxOnXRunner {
               )
               .preMaterialize()
 
-          indexerHealthChecks <- buildIndexerServer(
-            metrics,
-            new TimedReadService(readServiceWithSubscriber, metrics),
-            translationCache,
-            updatesQueue,
-          )
-
           dbSupport <- DbSupport
             .owner(
               jdbcUrl = apiServerConfig.jdbcUrl,
@@ -183,6 +181,56 @@ object SandboxOnXRunner {
               connectionTimeout = apiServerConfig.databaseConnectionTimeout,
               metrics = metrics,
             )
+
+          generalDispatcher <-
+            Dispatcher.owner[Offset](
+              name = "sql-ledger",
+              zeroIndex = Offset.beforeBegin,
+              headAtInitialization = Offset.beforeBegin,
+            )
+
+          stringInterningView = createStringInterningView(dbSupport, metrics)
+          ledgerEndCache = MutableLedgerEndCache()
+
+          ledgerEndUpdater = (ledgerEnd: LedgerEnd) => {
+            ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
+            // the order here is very important: first we need to make data available for point-wise lookups
+            // and SQL queries, and only then we can make it available on the streams.
+            // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+            generalDispatcher.signalNewHead(ledgerEnd.lastOffset)
+          }
+
+          indexerHealthChecks <- buildIndexerServer(
+            metrics,
+            new TimedReadService(readServiceWithSubscriber, metrics),
+            translationCache,
+            updatesQueue,
+            stringInterningView,
+            ledgerEndUpdater,
+          )
+
+          ledgerDao = JdbcLedgerDao.read(
+            dbSupport = dbSupport,
+            eventsPageSize = config.eventsPageSize,
+            eventsProcessingParallelism = config.eventsProcessingParallelism,
+            acsIdPageSize = config.acsIdPageSize,
+            acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+            acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+            acsGlobalParallelism = config.acsGlobalParallelism,
+            acsIdQueueLimit = config.acsIdQueueLimit,
+            servicesExecutionContext = servicesExecutionContext,
+            metrics = metrics,
+            lfValueTranslationCache = translationCache,
+            enricher = Some(new ValueEnricher(sharedEngine)),
+            participantId = participantConfig.participantId,
+            ledgerEndCache = ledgerEndCache,
+            stringInterning = stringInterningView,
+            materializer = materializer,
+          )
+
+          ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
+          // Update heads
+          _ = ledgerEndUpdater(ledgerEnd)
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
@@ -193,6 +241,11 @@ object SandboxOnXRunner {
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
             updatesSource = updatesSource,
+            stringInterningView = stringInterningView,
+            ledgerEnd = ledgerEnd,
+            ledgerEndCache = ledgerEndCache,
+            generalDispatcher = generalDispatcher,
+            ledgerReadDao = ledgerDao,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -218,6 +271,22 @@ object SandboxOnXRunner {
           )
         } yield (apiServer, writeService, indexService)
     }
+  }
+
+  private def createStringInterningView(dbSupport: DbSupport, metrics: Metrics) = {
+    val stringInterningStorageBackend =
+      dbSupport.storageBackendFactory.createStringInterningStorageBackend
+
+    new StringInterningView(
+      loadPrefixedEntries = (fromExclusive, toInclusive) =>
+        implicit loggingContext =>
+          dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+            stringInterningStorageBackend.loadStringInterningEntries(
+              fromExclusive,
+              toInclusive,
+            )
+          }
+    )
   }
 
   private def buildStandaloneApiServer(
@@ -281,6 +350,8 @@ object SandboxOnXRunner {
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
       updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+      stringInterningView: StringInterningView,
+      ledgerEndUpdater: LedgerEnd => Unit,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -294,6 +365,8 @@ object SandboxOnXRunner {
         metrics = metrics,
         lfValueTranslationCache = translationCache,
         updatesQueue = updatesQueue,
+        ledgerEndUpdater = ledgerEndUpdater,
+        stringInterningView = stringInterningView,
       )
     } yield new HealthChecks(
       "read" -> readService,

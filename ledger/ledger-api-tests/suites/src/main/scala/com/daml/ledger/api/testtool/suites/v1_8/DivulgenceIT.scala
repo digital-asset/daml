@@ -33,7 +33,7 @@ final class DivulgenceIT extends LedgerTestSuite {
 
       assert(
         bobTransactions.size == 1,
-        s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead",
+        s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead: ${bobTransactions}",
       )
 
       val events = bobTransactions.head.events

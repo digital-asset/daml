@@ -14,18 +14,14 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.logging.ContextualizedLogger
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 
 object Stream {
   private val logger = ContextualizedLogger.get(getClass)
   def flow(
       initSeqId: Long
-  ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] = {
+  ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] =
     Flow[(Offset, Update)]
-      .filter {
-        case (_, _: Update.TransactionAccepted) => true
-        case _ => false
-      }
-      .collectType[(Offset, Update.TransactionAccepted)]
       .map(TransactionUpdateToTransactionLogUpdate.apply)
       .scan(
         TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, initSeqId): TransactionLogUpdate
@@ -37,18 +33,21 @@ object Stream {
         }
         current match {
           case transaction: TransactionLogUpdate.Transaction =>
-            transaction.copy(events = transaction.events.map {
-              case divulgence: TransactionLogUpdate.DivulgenceEvent =>
+            transaction.copy(events = transaction.events.flatMap {
+              case _: TransactionLogUpdate.DivulgenceEvent =>
                 currSeqId += 1
-                divulgence.copy(eventSequentialId = currSeqId)
+                // don't forward divulgence events
+                Iterator.empty
               case create: TransactionLogUpdate.CreatedEvent =>
                 currSeqId += 1
-                create.copy(eventSequentialId = currSeqId)
+                Iterator(create.copy(eventSequentialId = currSeqId))
               case exercise: TransactionLogUpdate.ExercisedEvent =>
                 currSeqId += 1
-                exercise.copy(eventSequentialId = currSeqId)
-              case unchanged => unchanged
+                Iterator(exercise.copy(eventSequentialId = currSeqId))
+              case unchanged => Iterator(unchanged)
             })
+          case ledgerEndMarker: LedgerEndMarker =>
+            ledgerEndMarker.copy(lastEventSeqId = currSeqId)
         }
       })
       .drop(1)
@@ -57,11 +56,13 @@ object Stream {
           Source.fromIterator(() => {
             val eventSequentialId = transaction.events.last.eventSequentialId
             val offset = transaction.offset
-//            val ledgerEndMarker = TransactionLogUpdate.LedgerEndMarker(offset, eventSequentialId)
-            Iterator(
-              (offset -> eventSequentialId, transaction)
-//              (offset -> eventSequentialId, ledgerEndMarker),
-            )
+            val ledgerEndMarker = TransactionLogUpdate.LedgerEndMarker(offset, eventSequentialId)
+            if (transaction.events.nonEmpty) // Divulgence-only transactions should not be forwarded
+              Iterator(
+                (offset -> eventSequentialId, transaction),
+                (offset -> eventSequentialId, ledgerEndMarker),
+              )
+            else Iterator((offset -> eventSequentialId, ledgerEndMarker))
           })
         case ledgerEndMarker: TransactionLogUpdate.LedgerEndMarker =>
           Source.fromIterator(() =>
@@ -74,7 +75,6 @@ object Stream {
         )
         up
       }
-  }
 }
 
 object TransactionUpdateToTransactionLogUpdate {
@@ -145,7 +145,8 @@ object TransactionUpdateToTransactionLogUpdate {
             contractKey =
               exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
             treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-            flatEventWitnesses = exercise.stakeholders.map(_.toString),
+            flatEventWitnesses =
+              if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
             submitters = u.optCompletionInfo
               .map(_.actAs.iterator.map(_.toString).toSet)
               .getOrElse(Set.empty),
@@ -186,8 +187,10 @@ object TransactionUpdateToTransactionLogUpdate {
         offset = offset,
         events = events.toVector,
       )
+
+    case (offset, _) => LedgerEndMarker(offset, 0L)
   }
 
   type UpdateToTransactionLogUpdate =
-    ((Offset, Update.TransactionAccepted)) => TransactionLogUpdate.Transaction
+    ((Offset, Update)) => TransactionLogUpdate
 }

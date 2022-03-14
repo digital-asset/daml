@@ -21,9 +21,11 @@ import com.daml.platform.store.DbType.{
 }
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -32,9 +34,11 @@ object JdbcIndexer {
   private[daml] final class Factory(
       config: IndexerConfig,
       readService: state.ReadService,
+      stringInterningView: StringInterningView,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+      ledgerEndUpdater: LedgerEnd => Unit,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -45,7 +49,6 @@ object JdbcIndexer {
       val parameterStorageBackend = factory.createParameterStorageBackend
       val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
-      val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val indexer = ParallelIndexerFactory(
         jdbcUrl = config.jdbcUrl,
         inputMappingParallelism = config.inputMappingParallelism,
@@ -95,9 +98,9 @@ object JdbcIndexer {
           tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
-          updatesQueue = updatesQueue,
+          ledgerEndUpdater = ledgerEndUpdater,
         ),
-        stringInterningStorageBackend = stringInterningStorageBackend,
+        stringInterningView = stringInterningView,
         meteringAggregator = new MeteringAggregator.Owner(
           meteringStore = meteringStoreBackend,
           meteringParameterStore = meteringParameterStorageBackend,
