@@ -4,6 +4,7 @@
 package com.daml.scalautil.nonempty
 package catsinstances.impl
 
+import com.daml.scalautil.ImplicitPreference
 import cats.{Eval, Foldable, Reducible}
 
 abstract class CatsInstancesLow extends CatsInstancesLow1 {
