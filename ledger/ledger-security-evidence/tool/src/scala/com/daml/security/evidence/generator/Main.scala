@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package org.scalatest.daml
+package com.daml.security.evidence.generator
 
 import better.files.File
 import cats.syntax.either._
@@ -19,14 +19,13 @@ import com.daml.security.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 import com.daml.security.evidence.tag.EvidenceTag
 import io.circe.generic.auto._
 import org.scalatest.Suite
-import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
 import com.daml.security.evidence.scalatest.JsonCodec._
 import com.daml.security.evidence.scalatest.JsonCodec.SecurityJson._
 import com.daml.security.evidence.scalatest.JsonCodec.ReliabilityJson._
-
+import org.scalatest.daml.ScalaTestAdapter
 import scala.reflect.ClassTag
 
-object SystematicTestingGenerator {
+object Main {
 
   private def testNameWithTags(tags: Map[String, Set[String]]): List[(String, List[EvidenceTag])] =
     tags.fmap { tagNames =>
@@ -37,7 +36,7 @@ object SystematicTestingGenerator {
     }.toList
 
   private def isIgnored(suite: Suite, testName: String): Boolean =
-    suite.tags.getOrElse(testName, Set()).contains(Suite.IgnoreTagName)
+    suite.tags.getOrElse(testName, Set()).contains(ScalaTestAdapter.IgnoreTagName)
 
   private def scalaTestEntries[TT: ClassTag, TS: ClassTag, TE](
       suites: List[Suite],
@@ -96,16 +95,8 @@ object SystematicTestingGenerator {
       .toSeq
     println("cp: " + cp.mkString(","))
     val runpathList = cp.toList
-    val loader = Runner.getRunpathClassLoader(runpathList)
-    val testSuiteNames = SuiteDiscoveryHelper.discoverSuiteNames(runpathList, loader, None)
 
-    println(s"Found #${testSuiteNames.size} test suites, instantiating them:")
-
-    val testSuites = for {
-      testSuiteName <- testSuiteNames.toList
-      _ = print('.')
-      testSuite = DiscoverySuite.getSuiteInstance(testSuiteName, loader)
-    } yield testSuite
+    val testSuites: List[Suite] = ScalaTestAdapter.loadTestSuites(runpathList)
 
     println()
 
