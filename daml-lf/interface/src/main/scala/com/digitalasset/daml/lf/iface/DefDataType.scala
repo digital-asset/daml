@@ -173,11 +173,31 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
   def asDataType[RT, PVT]: DataType[RT, PVT] = this
 }
 
-final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]], key: Option[Ty]) {
+final case class DefTemplate[+Ty](
+    choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
+    unresolvedInheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
+    key: Option[Ty],
+) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
-  def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
-    choices.asJava
+  /** Remove choices from `unresolvedInheritedChoices` and add to `choices`
+    * given the `astInterfaces` from an [[EnvironmentInterface]].  If the result
+    * has any `unresolvedInheritedChoices` left, these choices were not found.
+    */
+  def resolveChoices[O >: Ty](
+      astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
+  ): DefTemplate[O] = {
+    val getAstInterface = astInterfaces.lift
+    val (missing, resolved) = unresolvedInheritedChoices.partitionMap {
+      case pair @ (choiceName, tcn) =>
+        val resolution = for {
+          astIf <- getAstInterface(tcn)
+          tchoice <- astIf.choices get choiceName
+        } yield (choiceName, tchoice)
+        resolution toRight pair
+    }
+    DefTemplate(choices ++ resolved, missing.toMap, key)
+  }
 
   def getKey: j.Optional[_ <: Ty] =
     key.fold(j.Optional.empty[Ty])(k => j.Optional.of(k))
@@ -199,6 +219,11 @@ object DefTemplate {
         }
     }
 
+  sealed trait GetChoices[+Ty] {
+    def choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
+    final def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
+      choices.asJava
+  }
 }
 
 final case class TemplateChoice[+Ty](param: Ty, consuming: Boolean, returnType: Ty) {
@@ -218,6 +243,11 @@ object TemplateChoice {
       }
   }
 }
+
+final case class DefInterface[+Ty](choices: Map[Ref.ChoiceName, TemplateChoice[Ty]])
+    extends DefTemplate.GetChoices[Ty]
+
+object DefInterface extends FWTLike[DefInterface]
 
 /** Add aliases to companions. */
 sealed abstract class FWTLike[F[+_]] {

@@ -290,6 +290,7 @@ case object DamlConstants {
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(simpleRecordTC, false, simpleUnitT),
       ),
+      Map.empty,
       None,
     ),
   )
@@ -302,6 +303,7 @@ case object DamlConstants {
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(complexRecordTC, false, simpleUnitT),
       ),
+      Map.empty,
       None,
     ),
   )
@@ -314,6 +316,7 @@ case object DamlConstants {
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(treeNodeTC, false, simpleUnitT),
       ),
+      Map.empty,
       None,
     ),
   )
@@ -342,6 +345,7 @@ case object DamlConstants {
       complexRecordId.qualifiedName -> complexRecordTemplate,
       treeNodeId.qualifiedName -> treeNodeTemplate,
     ),
+    Map.empty,
   )
 
   private[navigator] implicit def name(s: String): DamlLfRef.Name =

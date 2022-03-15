@@ -124,7 +124,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
 
-  val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls)
+  val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls, Map.empty)
 
   private val exVariances =
     Seq(

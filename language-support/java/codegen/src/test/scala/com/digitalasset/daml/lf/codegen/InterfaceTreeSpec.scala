@@ -18,7 +18,10 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
 
   it should "traverse an empty tree" in {
     val interfaceTree =
-      InterfaceTree(Map.empty, Interface(PackageId.assertFromString("packageid"), None, Map.empty))
+      InterfaceTree(
+        Map.empty,
+        Interface(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty),
+      )
     interfaceTree.bfs(0)((x, _) => x + 1) shouldEqual 0
   }
 
@@ -41,7 +44,7 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
     val record2 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
-    val interface = new Interface(PackageId.assertFromString("packageId2"), None, typeDecls)
+    val interface = Interface(PackageId.assertFromString("packageId2"), None, typeDecls, Map.empty)
     val tree = InterfaceTree.fromInterface(interface)
     val result = tree.bfs(ArrayBuffer.empty[InterfaceType])((ab, n) =>
       n match {
@@ -64,7 +67,7 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
     val record = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
 
     val typeDecls = Map(bazQuux -> record)
-    val interface = new Interface(PackageId.assertFromString("pkgid"), None, typeDecls)
+    val interface = Interface(PackageId.assertFromString("pkgid"), None, typeDecls, Map.empty)
     val tree = InterfaceTree.fromInterface(interface)
     val result = tree.bfs(ArrayBuffer.empty[InterfaceType])((types, n) =>
       n match {

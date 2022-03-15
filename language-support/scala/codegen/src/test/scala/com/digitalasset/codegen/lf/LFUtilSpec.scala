@@ -149,11 +149,13 @@ object LFUtilSpec {
         fooRec,
         DefTemplate(
           Map.empty,
+          Map.empty,
           Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
         ),
       ),
-      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, None)),
+      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, Map.empty, None)),
       "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
     ) mapKeys Ref.Identifier.assertFromString,
+    astInterfaces = Map.empty,
   )
 }

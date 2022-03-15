@@ -7,7 +7,6 @@ import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.{Numeric, Ref}
-import com.daml.lf.data.Ref.Identifier
 import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
@@ -125,7 +124,7 @@ sealed abstract class TypeConNameOrPrimType extends Product with Serializable {
   }
 }
 
-final case class TypeConName(identifier: Identifier) extends TypeConNameOrPrimType
+final case class TypeConName(identifier: Ref.TypeConName) extends TypeConNameOrPrimType
 sealed abstract class PrimType extends TypeConNameOrPrimType {
 
   /** Named pattern match for Java. */

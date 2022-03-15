@@ -5,6 +5,7 @@ package com.daml.lf
 package iface
 package reader
 
+import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
@@ -15,6 +16,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/-
+import scalaz.syntax.functor._
 
 import scala.language.implicitConversions
 
@@ -183,6 +185,75 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     InterfaceReader.readInterface(() => \/-((packageId, present)))._2.metadata shouldBe Some(
       PackageMetadata(name, version)
     )
+  }
+
+  "a real dar" should {
+    import archive.DarReader.readArchiveFromFile
+
+    lazy val itp = {
+      val file = requiredResource("daml-lf/interface/InterfaceTestPackage.dar")
+      inside(readArchiveFromFile(file)) { case Right(dar) =>
+        dar.map { payload =>
+          val (errors, ii) = iface.Interface.read(payload)
+          errors should ===(Errors.zeroErrors)
+          ii
+        }
+      }
+    }
+    lazy val itpEI = EnvironmentInterface.fromReaderInterfaces(itp).resolveChoices
+
+    "load without errors" in {
+      itp shouldBe itp
+    }
+
+    import QualifiedName.{assertFromString => qn}
+    val Foo = qn("InterfaceTestPackage:Foo")
+    val TIf = qn("InterfaceTestPackage:TIf")
+    val Useless = Ref.ChoiceName.assertFromString("Useless")
+    val UselessTy = qn("InterfaceTestPackage:Useless")
+    import itp.main.{packageId => itpPid}
+
+    "exclude interface choices with template choices" in {
+      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
+        tpl.choices.keySet should ===(Set("Bar", "Archive"))
+      }
+    }
+
+    "include interface choices in separate inheritedChoices" in {
+      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
+        tpl.unresolvedInheritedChoices.transform((_, tcn) => tcn.qualifiedName) should ===(
+          Map("Useless" -> TIf)
+        )
+      }
+    }
+
+    lazy val theUselessChoice = TemplateChoice(
+      TypeCon(TypeConName(Ref.Identifier(itpPid, UselessTy)), ImmArraySeq.empty),
+      true,
+      TypePrim(
+        PrimType.ContractId,
+        ImmArraySeq(TypeCon(TypeConName(Ref.Identifier(itpPid, TIf)), ImmArraySeq.empty)),
+      ),
+    )
+
+    "have an interface with a choice" in {
+      itp.main.astInterfaces.keySet should ===(Set(TIf))
+      itp.main.astInterfaces(TIf).choices get Useless should ===(Some(theUselessChoice))
+    }
+
+    def foundUselessChoice(foo: Option[InterfaceType]) = inside(foo) {
+      case Some(InterfaceType.Template(_, tpl)) =>
+        tpl.unresolvedInheritedChoices shouldBe empty
+        tpl.choices get Useless should ===(Some(theUselessChoice))
+    }
+
+    "resolve inherited choices" in {
+      foundUselessChoice(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+    }
+
+    "resolve choices internally" in {
+      foundUselessChoice(itp.main.resolveChoices(PartialFunction.empty).typeDecls get Foo)
+    }
   }
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
