@@ -106,30 +106,30 @@ binary_deps = [
     "@maven//:org_slf4j_slf4j_api",
 ]
 
-da_scala_binary(
-    name = "trigger-service-binary-ce",
-    srcs = [triggerMain],
-    main_class = "com.daml.lf.engine.trigger.ServiceMain",
-    scala_deps = scala_binary_deps,
-    visibility = ["//visibility:public"],
-    deps = binary_deps + [
-        "//runtime-components/jdbc-drivers:jdbc-drivers-ce",
-    ],
-)
+trigger_service_runtime_deps = {
+    "ce": [],
+    "ee": ["@maven//:com_oracle_database_jdbc_ojdbc8"],
+}
 
-da_scala_binary(
-    name = "trigger-service-binary-ee",
-    srcs = [triggerMain],
-    main_class = "com.daml.lf.engine.trigger.ServiceMain",
-    scala_deps = scala_binary_deps,
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:com_oracle_database_jdbc_ojdbc8",
-    ],
-    deps = binary_deps + [
-        "//runtime-components/jdbc-drivers:jdbc-drivers-ee",
-    ],
-)
+[
+    da_scala_binary(
+        name = "trigger-service-binary-{}".format(edition),
+        srcs = [triggerMain],
+        main_class = "com.daml.lf.engine.trigger.ServiceMain",
+        resource_strip_prefix = "triggers/service/release/trigger-service-",
+        resources = ["release/trigger-service-logback.xml"],
+        scala_deps = scala_binary_deps,
+        visibility = ["//visibility:public"],
+        runtime_deps = trigger_service_runtime_deps.get(edition),
+        deps = binary_deps + [
+            "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
 
 da_scala_library(
     name = "trigger-service-tests",
@@ -328,5 +328,3 @@ EOF
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
-
-exports_files(["release/trigger-service-logback.xml"])
