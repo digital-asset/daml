@@ -31,7 +31,7 @@ import spray.json._
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-sealed abstract class FailureTests
+abstract class FailureTests
     extends AsyncFreeSpec
     with HttpFailureTestFixture
     with HttpServiceUserFixture
