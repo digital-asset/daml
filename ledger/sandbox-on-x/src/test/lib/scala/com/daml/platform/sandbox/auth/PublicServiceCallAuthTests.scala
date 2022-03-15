@@ -8,7 +8,7 @@ import java.util.UUID
 import com.daml.ledger.api.auth.AuthServiceJWTPayload
 import com.daml.security.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.security.evidence.tag.Security.SecurityTest.Property.SecureConfiguration
-import com.daml.ledger.security.test.SystematicTesting._
+import com.daml.security.evidence.scalatest.ScalaTestSupport.Implicits._
 import scala.concurrent.Future
 
 trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {

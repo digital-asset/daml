@@ -18,7 +18,7 @@ import com.daml.security.evidence.tag.EvidenceTag
 import io.circe.generic.auto._
 import org.scalatest.Suite
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
-import com.daml.ledger.security.test.SystematicTesting.JsonCodec._
+import com.daml.security.evidence.scalatest.JsonCodec._
 import scala.reflect.ClassTag
 
 /** A test entry in the output. */
@@ -99,7 +99,7 @@ object SystematicTestingGenerator {
 
       val tags = suite.tests.map { test =>
         test.name -> test.tags
-          .map(tag => new com.daml.ledger.security.test.SystematicTesting.TagContainer(tag))
+          .map(tag => new com.daml.security.evidence.scalatest.ScalaTestSupport.TagContainer(tag))
           .map(_.name)
           .toSet
       }.toMap
