@@ -219,7 +219,7 @@ object DefTemplate {
         }
     }
 
-  trait GetChoices[+Ty] {
+  sealed trait GetChoices[+Ty] {
     def choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
     final def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
       choices.asJava
