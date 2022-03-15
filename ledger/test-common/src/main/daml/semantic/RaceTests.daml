@@ -3,6 +3,7 @@
 
 module RaceTests where
 
+import DA.Action (when)
 import DA.Optional (isSome)
 
 type RaceKey = Text
@@ -62,3 +63,63 @@ template CreateWrapper with
       do contract <- create ContractWithKey with owner
          _ <- exercise contract ContractWithKey_Archive
          return ()
+
+template Counter
+  with
+    issuer : Party
+    delegates : [Party]
+    counter : Int
+  where
+    signatory issuer
+    observer delegates
+    key issuer : Party
+    maintainer key
+
+    choice Counter_IncrementAndGet : ContractId Counter with
+        incrementer : Party
+      controller incrementer
+        do
+          assert (incrementer `elem` delegates)
+          create this with counter = counter + 1
+
+template VersionedContract
+  with
+    owner : Party
+    version : Int
+  where
+    signatory owner
+
+template CounterDelegation
+  with
+    counterOwner: Party
+    delegees : [Party]
+  where
+    signatory counterOwner
+    observer delegees
+
+    nonconsuming choice CounterDelegation_NewVersionedContract : () with
+        requester : Party
+      controller requester
+        do
+          assert (requester `elem` delegees)
+          visible <- visibleByKey @Counter counterOwner
+          when visible do
+            (cId, _counter) <- fetchByKey @Counter counterOwner
+            updatedCounterId <- exercise
+              cId Counter_IncrementAndGet with
+                incrementer = requester
+
+            updatedCounter <- fetch @Counter updatedCounterId
+            let version = updatedCounter.counter
+            create DummyWithKey with issuer=requester; counter=version
+            create VersionedContract with owner=requester; version=version
+            return ()
+
+template DummyWithKey
+  with
+    issuer : Party
+    counter : Int
+  where
+    signatory issuer
+    key (issuer, counter) : (Party, Int)
+    maintainer key._1

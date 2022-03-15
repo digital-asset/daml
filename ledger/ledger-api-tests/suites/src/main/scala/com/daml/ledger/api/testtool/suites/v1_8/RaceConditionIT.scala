@@ -10,12 +10,16 @@ import com.daml.ledger.api.testtool.infrastructure.RaceConditionTests._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value.RecordField
+import com.daml.ledger.client
+import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.RaceTests._
-import com.daml.timer.Delayed
+import com.daml.timer.{Delayed, RetryStrategy}
+import scalaz.syntax.tag._
 
+import java.util.concurrent.Executors
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.Success
 
 final class RaceConditionIT extends LedgerTestSuite {
@@ -232,6 +236,102 @@ final class RaceConditionIT extends LedgerTestSuite {
         .foreach(assertTransactionOrder(_, createNonTransientTransaction))
     }
   }
+
+  test(
+    "AtomicTX",
+    "Submissions can not act on previous partial transactions",
+    partyAllocation = allocate(Parties(3)),
+    repeated = DefaultRepetitionsNumber,
+    runConcurrently = false,
+    timeoutScale = 1000.0,
+  ) { implicit ec: ExecutionContext =>
+    val totalCounterUpdates = 10000
+    val perParty = 5000
+    val groupSize = 100
+
+    val massiveEc: ExecutionContextExecutorService =
+      ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+
+    { case Participants(Participant(ledger, counterOwner, alice, bob)) =>
+      for {
+        _ <- ledger.create(counterOwner, Counter(counterOwner, List(alice, bob), 0L))
+        counterDelegation <- ledger.create(
+          counterOwner,
+          CounterDelegation(counterOwner, List(alice, bob)),
+        )
+        _ <- Future.sequence(
+          Seq(
+            repeatedExercise(
+              count = perParty,
+              totalCount = totalCounterUpdates,
+              groupingSize = groupSize,
+              ledger = ledger,
+              party = alice,
+              counterDelegation = counterDelegation,
+            )(massiveEc),
+            repeatedExercise(
+              count = perParty,
+              totalCount = totalCounterUpdates,
+              groupingSize = groupSize,
+              ledger = ledger,
+              party = bob,
+              counterDelegation = counterDelegation,
+            )(massiveEc),
+          )
+        )
+        counter <- ledger.activeContractsByTemplateId(Seq(Counter.id.unwrap), counterOwner)
+      } yield {
+        counter match {
+          case Vector(counter) =>
+            val actualCounterValue = counter.getCreateArguments.fields.collectFirst {
+              case record if record.label == "counter" => record.value.get.getInt64
+            }.get
+            assert(
+              totalCounterUpdates == actualCounterValue,
+              s"actual counter value is $actualCounterValue vs expected $totalCounterUpdates",
+            )
+          case actualCounters =>
+            throw new RuntimeException(
+              s"Expected only one counter but got ${actualCounters.size}"
+            )
+        }
+      }
+    }
+  }
+
+  private def repeatedExercise(
+      count: Int,
+      totalCount: Int,
+      groupingSize: Int,
+      ledger: ParticipantTestContext,
+      party: binding.Primitive.Party,
+      counterDelegation: binding.Primitive.ContractId[CounterDelegation],
+  )(implicit executionContext: ExecutionContext) =
+    (1 to count)
+      .grouped(groupingSize)
+      .foldLeft(Future.successful(())) { case (f, group) =>
+        f.flatMap(_ => submitRequestsChunk(totalCount, party, group, ledger, counterDelegation))
+          .map(_ => ())
+      }
+
+  private def submitRequestsChunk(
+      totalCount: Int,
+      party: client.binding.Primitive.Party,
+      group: Range,
+      ledger: ParticipantTestContext,
+      counterDelegation: binding.Primitive.ContractId[CounterDelegation],
+  )(implicit ec: ExecutionContext) =
+    Future
+      .sequence(
+        group.map(_ =>
+          RetryStrategy.constant(totalCount, Duration.fromNanos(1000L)) { (_, _) =>
+            ledger.exercise(
+              party,
+              counterDelegation.exerciseCounterDelegation_NewVersionedContract(_, party),
+            )
+          }
+        )
+      )
 
   private def raceConditionTest(
       shortIdentifier: String,
