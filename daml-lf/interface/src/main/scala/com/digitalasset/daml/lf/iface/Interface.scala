@@ -104,4 +104,15 @@ object Interface {
   def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
+  /** An argument for `Interface#resolveChoices` given a package database,
+    * such as json-api's `LedgerReader.PackageStore`.
+    */
+  def findAstInterface(
+      findPackage: PartialFunction[PackageId, Interface]
+  ): PartialFunction[Identifier, DefInterface.FWT] = {
+    val pkg = findPackage.lift
+    def go(id: Identifier) = pkg(id.packageId).flatMap(_.astInterfaces get id.qualifiedName)
+    Function unlift go
+  }
+
 }
