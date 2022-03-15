@@ -19,6 +19,8 @@ import io.circe.generic.auto._
 import org.scalatest.Suite
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
 import com.daml.security.evidence.scalatest.JsonCodec._
+import com.daml.security.evidence.scalatest.JsonCodec.SecurityJson._
+import com.daml.security.evidence.scalatest.JsonCodec.ReliabilityJson._
 import scala.reflect.ClassTag
 
 /** A test entry in the output. */
