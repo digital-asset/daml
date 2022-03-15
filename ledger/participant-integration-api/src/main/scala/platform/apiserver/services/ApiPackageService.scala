@@ -5,20 +5,18 @@ package com.daml.platform.apiserver.services
 
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.{
-  ErrorFactories,
-  FieldValidations,
-  PackageServiceValidation,
-}
+import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,8 +28,6 @@ private[apiserver] final class ApiPackageService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  private val errorFactories = ErrorFactories()
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
@@ -55,9 +51,11 @@ private[apiserver] final class ApiPackageService private (
           .flatMap {
             case None =>
               Future.failed[GetPackageResponse](
-                errorFactories.packageNotFound(packageId = packageId)(
-                  createContextualizedErrorLogger
-                )
+                LedgerApiErrors.RequestValidation.NotFound.Package
+                  .Reject(_packageId = packageId)(
+                    createContextualizedErrorLogger
+                  )
+                  .asGrpcError
               )
             case Some(archive) => Future.successful(toGetPackageResponse(archive))
           }
@@ -95,7 +93,7 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailure(
               request,
-              errorFactories
+              ValidationErrors
                 .invalidArgument(s"Invalid package id: $errorMessage")(
                   createContextualizedErrorLogger
                 ),
@@ -133,11 +131,9 @@ private[platform] object ApiPackageService {
     val service = new ApiPackageService(
       backend = backend
     )
-    val fieldValidations = FieldValidations(ErrorFactories())
     new PackageServiceValidation(
       service = service,
       ledgerId = ledgerId,
-      fieldValidations = fieldValidations,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, executionContext)

@@ -530,10 +530,6 @@ object Ast {
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
-      typeRepE: Expr,
-      // `typeRepE` is an expression of type Optional TypeRep. If a typerep is given,
-      // the fetched contract's template id is compared against the typerep, and a
-      // WronglyTypedContract error is raised if they don't match.
       guardE: Expr,
       // `guardE` is an expression of type Interface -> Bool which is evaluated after
       // fetching the contract but before running the exercise body. If the guard returns
@@ -992,10 +988,14 @@ object Ast {
       interfaces: Map[DottedName, GenDefInterface[E]],
       featureFlags: FeatureFlags,
   ) {
-    templates.keysIterator.foreach(name =>
-      if (exceptions.keySet.contains(name))
-        throw PackageError(s"Collision between exception and template name ${name.toString}")
+    if (
+      !(templates.keySet.intersect(exceptions.keySet).isEmpty
+        && templates.keySet.intersect(interfaces.keySet).isEmpty
+        && exceptions.keySet.intersect(interfaces.keySet).isEmpty)
     )
+      throw PackageError(
+        s"Collision between exception and template/interface name ${name.toString}"
+      )
   }
 
   private[this] def toMapWithoutDuplicate[Key, Value](

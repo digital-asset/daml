@@ -26,9 +26,9 @@ template T1
   where
     signatory p1
     implements A where
-        let getOwner = p1
+      getOwner = p1
     implements B where
-        let getCoolness = 20
+      getCoolness = 20
 
 template T2
   with
@@ -36,7 +36,7 @@ template T2
   where
     signatory p2
     implements A where
-        let getOwner = p2
+      getOwner = p2
 
 main = scenario do
     p <- getParty "Alice"

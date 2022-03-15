@@ -50,6 +50,12 @@ object Allocation {
   final case class Parties(override val count: Int) extends PartyCount
 
   /** Exposes information about configured participants and allocated parties to a test case.
+    *
+    * When using multiple participants, keep in mind that they do not update their view of the ledger synchronously.
+    * E.g., after you create a contract through the command service of one participant,
+    * other participants might not know about the contract yet.
+    * Use `com.daml.ledger.api.testtool.infrastructure.Eventually` if you want to wait for a participant to catch up,
+    * or `com.daml.ledger.api.testtool.infrastructure.Synchronize` to add a synchronization point between participants.
     */
   final case class Participants private[infrastructure] (participants: Participant*)
 

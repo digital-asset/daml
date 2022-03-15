@@ -3,51 +3,22 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCause, ErrorCode}
+import com.daml.error.{BaseError, ContextualizedErrorLogger}
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
-import io.grpc.protobuf.StatusProto
 
-class RejectionGenerators(conformanceMode: Boolean) {
-  // TODO error codes: Remove conformance mode
-  private val adjustErrors = Map(
-    LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.ConsistencyErrors.ContractNotFound -> Code.ABORTED,
-    LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError -> Code.INVALID_ARGUMENT,
-  )
+sealed abstract class ErrorCause extends Product with Serializable
 
-  private def enforceConformance(ex: StatusRuntimeException): StatusRuntimeException =
-    if (!conformanceMode) ex
-    else {
-      adjustErrors
-        .find { case (k, _) =>
-          ex.getStatus.getDescription.startsWith(k.id + "(")
-        }
-        .fold(ex) { case (_, newGrpcCode) =>
-          val parsed = StatusProto.fromThrowable(ex)
-          // rewrite status to use "conformance" code
-          val bld = com.google.rpc.Status
-            .newBuilder()
-            .setCode(newGrpcCode.value())
-            .setMessage(parsed.getMessage)
-            .addAllDetails(parsed.getDetailsList)
-          val newEx = StatusProto.toStatusRuntimeException(bld.build())
-          // strip stack trace from exception
-          new ErrorCode.ApiException(newEx.getStatus, newEx.getTrailers)
-        }
-    }
+object ErrorCause {
+  final case class DamlLf(error: LfError) extends ErrorCause
+  final case class LedgerTime(retries: Int) extends ErrorCause
+}
 
-  def toGrpc(reject: BaseError)(implicit
-      errorLoggingContext: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    enforceConformance(reject.asGrpcErrorFromContext)
+object RejectionGenerators {
 
-  def commandExecutorError(cause: ErrorCauseExport)(implicit
+  def commandExecutorError(cause: ErrorCause)(implicit
       errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
 
@@ -187,30 +158,15 @@ class RejectionGenerators(conformanceMode: Boolean) {
             ) => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError.Reject(e.message)
       }
-      toGrpc(transformed)
+      transformed.asGrpcErrorFromContext
     }
 
     cause match {
-      case ErrorCauseExport.DamlLf(error) => processLfError(error)
-      case x: ErrorCauseExport.LedgerTime =>
-        toGrpc(
-          LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime
-            .Reject(x.explain)
-        )
+      case ErrorCause.DamlLf(error) => processLfError(error)
+      case x: ErrorCause.LedgerTime =>
+        LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime
+          .Reject(s"Could not find a suitable ledger time after ${x.retries} retries")
+          .asGrpcErrorFromContext
     }
-  }
-}
-
-// TODO error codes: Remove with the removal of the compatibility constraint from Canton
-object RejectionGenerators extends RejectionGenerators(conformanceMode = false)
-
-sealed trait ErrorCauseExport
-object ErrorCauseExport {
-  final case class DamlLf(error: LfError) extends ErrorCauseExport
-  final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
-
-  def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
-    case ErrorCause.DamlLf(error) => DamlLf(error)
-    case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
   }
 }

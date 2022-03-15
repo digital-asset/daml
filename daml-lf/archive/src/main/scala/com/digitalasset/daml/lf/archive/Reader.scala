@@ -3,11 +3,10 @@
 
 package com.daml.lf.archive
 
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-
-import java.security.MessageDigest
 
 case class ArchivePayload(
     pkgId: PackageId,
@@ -27,8 +26,7 @@ object Reader {
             .fromString(lf.getHash)
             .left
             .map(err => Error.Parsing("Invalid hash: " + err))
-          ourHash = MessageDigest
-            .getInstance("SHA-256")
+          ourHash = MessageDigestPrototype.Sha256.newDigest
             .digest(lf.getPayload.toByteArray)
             .map("%02x" format _)
             .mkString

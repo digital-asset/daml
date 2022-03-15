@@ -14,112 +14,133 @@ Trigger Service
 
 The :ref:`running-a-no-op-trigger` section shows a simple method using the ``daml trigger`` command to arrange for the execution of a single trigger. Using this method, a dedicated process is launched to host the trigger.
 
-Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process per trigger model becomes unwieldy. The Trigger Service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
+Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process-per-trigger model becomes unwieldy. The Trigger Service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
 
 The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP service. All requests and responses use JSON to encode data.
 
 Starting the Trigger Service
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+****************************
 
-In this example, it is assumed there is a sandbox ledger running on port 6865 on localhost.
+In this example, it is assumed there is a Ledger API server running on port 6865 on `localhost`.
 
 .. code-block:: bash
 
    daml trigger-service --config trigger-service.conf
 
-where the corresponding config would be
-
-The required config would look like
+The following snippet provides an example of what a possible `trigger-service.conf` configuration file could look like,
+alongside a few annotations with regards to the meaning of the configuration keys and possibly their default values.
 
 .. code-block:: none
 
     {
-      //dar file containing the trigger
+      // Mandatory. Paths to the DAR files containing the code executed by the trigger.
       dar-paths = [
         "./my-app.dar"
       ]
 
-      //IP address that Trigger service listens on. Defaults to 127.0.0.1.
+      // Mandatory. Host address that the Trigger Service listens on. Defaults to 127.0.0.1.
       address = "127.0.0.1"
-      //Trigger service port number. Defaults to 8088. A port number of 0 will let the system pick an ephemeral port. Consider specifying `port-file` with port number 0.
-      port = 8088
-      //port-file = "dummy-port-file"
 
+      // Mandatory. Trigger Service port number. Defaults to 8088.
+      // A port number of 0 will let the system pick an ephemeral port.
+      port = 8088
+      // Optional. If using 0 as the port number, consider specifying the path to a `port-file` where the chosen port will be saved in textual format.
+      //port-file = "/path/to/port-file"
+
+      // Mandatory. Ledger API server address and port.
       ledger-api {
         address = "localhost"
         port = 6865
       }
 
-      //Optional max inbound message size in bytes. Defaults to 4194304.
+      // Maximum inbound message size in bytes. Defaults to 4194304 (4 MB).
       max-inbound-message-size = 4194304
-      //Minimum time interval before restarting a failed trigger. Defaults to 5 seconds.
-      min-restart-interval = 5s
-      //Maximum time interval between restarting a failed trigger. Defaults to 60 seconds.
-      max-restart-interval = 60s
-      //Optional max HTTP entity upload size in bytes. Defaults to 4194304.
-      max-http-entity-upload-size = 4194304
-      //Optional HTTP entity upload timeout. Defaults to 60 seconds.
-      http-entity-upload-timeout = 60s
-      //Use static time or wall-clock, default is wall-clock time.
-      time-provider-type = "wall-clock"
-      //Compiler config type to use , default or dev mode
-      compiler-config = "default"
-      //TTL in seconds used for commands emitted by the trigger. Defaults to 30s.
-      ttl = 60s
 
-      //Initialize database and terminate.
+      // Minimum and maximum time interval before restarting a failed trigger. Defaults to 5 and 60 seconds respectively.
+      min-restart-interval = 5s
+      max-restart-interval = 60s
+
+      // Maximum HTTP entity upload size in bytes. Defaults to 4194304 (4 MB).
+      max-http-entity-upload-size = 4194304
+
+      // HTTP entity upload timeout. Defaults to 60 seconds.
+      http-entity-upload-timeout = 60s
+
+      // Use static or wall-clock time. Defaults to `wall-clock`.
+      time-provider-type = "wall-clock"
+
+      // Compiler configuration type to use between `default` or `dev`. Defaults to `default`.
+      compiler-config = "default"
+
+      // Time-to-live used for commands emitted by the trigger. Defaults to 30 seconds.
+      ttl = 30s
+
+      // If true, initialize the database and terminate immediately. Defaults to false.
       init-db = "false"
 
-      //Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false.
+      // Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false.
       allow-existing-schema = "false"
 
+      // Configuration for the persistent store that will be used to keep track of running triggers across restarts.
+      // Mandatory if `init-db` is true. Otherwise optional. If not provided, the trigger state will not be persisted
+      // and restored across restarts.
       trigger-store {
+
+        // Mandatory. Database coordinates.
         user = "postgres"
         password = "password"
         driver = "org.postgresql.Driver"
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
 
-        // prefix for table names to avoid collisions, empty by default
-        table-prefix = "foo"
+        // Prefix for table names to avoid collisions. EXPERT ONLY. By default, this is empty and not used.
+        //table-prefix = "foo"
 
-        // max pool size for the database connection pool
-        pool-size = 12
-        //specifies the min idle connections for database connection pool.
-        min-idle = 4
-        //specifies the idle timeout for the database connection pool.
-        idle-timeout = 12s
-        //specifies the connection timeout for database connection pool.
-        connection-timeout = 90s
+        // Maximum size for the database connection pool. Defaults to 8.
+        pool-size = 8
+
+        // Minimum idle connections for the database connection pool. Defaults to 8.
+        min-idle = 8
+
+        // Idle timeout for the database connection pool. Defaults to 10 seconds.
+        idle-timeout = 10s
+
+        // Timeout for database connection pool. Defaults to 5 seconds.
+        connection-timeout = 5s
       }
 
       authorization {
-        //Sets both the internal and external auth URIs.
+
+        // Auth client to redirect to login. Defaults to `no`.
+        auth-redirect = "no"
+
+        // The following options configure the auth URIs.
+        // Either just `auth-common-uri` or both `auth-internal-uri` and `auth-external-uri` must be specified.
+        // If all are specified, `auth-internal-uri` and `auth-external-uri` take precedence.
+
+        // Sets both the internal and external auth URIs.
         //auth-common-uri = "https://oauth2/common-uri"
 
-        // Auth Client to redirect to login , defaults to no
-        auth-redirect = "yes"
-
-        //Sets the internal auth URIs (used by the trigger service to connect directly to the middleware). Overrides value set by auth-common
+        // Internal auth URI used by the Trigger Service to connect directly to the Auth Middleware.
         auth-internal-uri = "https://oauth2/internal-uri"
-        //Sets the external auth URI (the one returned to the browser). overrides value set by auth-common.
-        auth-external-uri = "https://oauth2/external-uri"
-        //URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request.
-        auth-callback-uri =  "https://oauth2/callback-uri"
 
-        //Optional max number of pending authorization requests. Defaults to 250.
+        // External auth URI (the one returned to the browser).
+        // This value takes precedence over the one specified for `auth-common`.
+        auth-external-uri = "https://oauth2/external-uri"
+
+        // Optional. URI to the auth login flow callback endpoint `/cb`. By default it is constructed from the incoming login request.
+        // auth-callback-uri = "https://oauth2/callback-uri"
+
+        // Maximum number of pending authorization requests. Defaults to 250.
         max-pending-authorizations = 250
-        //Optional authorization timeout, defaults to 60 seconds
+
+        // Authorization timeout. Defaults to 60 seconds.
         authorization-timeout = 60s
       }
     }
 
-The above starts the Trigger Service using a number of default parameters. Most notably, the HTTP port the Trigger Service listens on which defaults to 8088.
-The above config file should list all available parameters, their defaults and descriptions.
+The Trigger Service can also be started using command line arguments as shown below. The command ``daml trigger-service --help`` lists all available parameters.
 
-The trigger-service can also be started using cli-args as shown below, one can execute the command ``daml trigger-service --help`` to find all available parameters.
-
-.. note:: Configuration file is the recommended way to run trigger-service, running via cli-args is now deprecated
-
+.. note:: Using the configuration format shown above is the recommended way to configure Trigger Service, running with command line arguments is now deprecated.
 
 .. code-block:: bash
 
@@ -127,7 +148,7 @@ The trigger-service can also be started using cli-args as shown below, one can e
                         --ledger-port 6865 \
                         --wall-clock-time
 
-Although as we'll see, the Trigger Service exposes an endpoint for end-users to upload DAR files to the service it is sometimes convenient to start the service pre-configured with a specific DAR. To do this, the ``--dar`` option is provided.
+Although, as we'll see, the Trigger Service exposes an endpoint for end-users to upload DAR files to the service it is sometimes convenient to start the service pre-configured with a specific DAR. To do this, the ``--dar`` option is provided.
 
 .. code-block:: bash
 
@@ -137,15 +158,16 @@ Although as we'll see, the Trigger Service exposes an endpoint for end-users to 
                         --dar .daml/dist/create-daml-app-0.1.0.dar
 
 Endpoints
-~~~~~~~~~
+*********
 
 Start a trigger
-***************
+===============
 
-Start a trigger. In this example, Alice starts the trigger called ``trigger`` in a module called ``TestTrigger`` of a package with ID ``312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14``. The response contains an identifier for the running trigger that Alice can use in subsequent commands involving the trigger.
+Start a trigger. In this example, ``alice`` starts the trigger called ``trigger`` in a module called ``TestTrigger`` of a package with ID ``312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14``.
+The response contains an identifier for the running trigger that ``alice`` can use in subsequent commands involving the trigger.
 
 HTTP Request
-============
+------------
 
 - URL: ``/v1/triggers``
 - Method: ``POST``
@@ -164,15 +186,15 @@ where
 
 - ``triggerName`` contains the identifier for the trigger in the form
   ``${packageId}:${moduleName}:${identifierName}``. You can find the
-  package id using ``daml damlc inspect path/to/trigger.dar | head -1``.
-- ``party`` is the party the trigger will be running as.
+  package ID using ``daml damlc inspect path/to/trigger.dar | head -1``.
+- ``party`` is the party on behalf of which the trigger is running.
 - ``applicationId`` is an optional field to specify the application ID
   the trigger will use for command submissions. If omitted, the
   trigger will default to using its random UUID identifier returned in
   the start request as the application ID.
 
 HTTP Response
-=============
+-------------
 
 .. code-block:: json
 
@@ -183,12 +205,12 @@ HTTP Response
 
 
 Stop a trigger
-**************
+==============
 
-Stop a running trigger. Alice stops her running trigger like so.
+Stop a running trigger. In this example, the request asks to stop the trigger started above.
 
 HTTP Request
-============
+------------
 
 - URL: ``/v1/triggers/:id``
 - Method: ``DELETE``
@@ -196,7 +218,7 @@ HTTP Request
 - Content:
 
 HTTP Response
-=============
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -211,18 +233,18 @@ HTTP Response
 .. _list-running-triggers:
 
 List running triggers
-*********************
+=====================
 
-List the Triggers running on behalf of a given party.
+List the triggers running on behalf of a given party.
 
 HTTP Request
-============
+------------
 
 - URL: ``/v1/triggers?party=:party``
 - Method: ``GET``
 
 HTTP Response
-=============
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -235,20 +257,19 @@ HTTP Response
     }
 
 Status of a trigger
-*******************
+===================
 
-The status endoint returns metadata about the trigger like the
-party it is running as and the trigger id as well as the state the
-trigger is in (querying the acs, running, stopped).
+This endpoint returns data about a trigger, including the party on behalf of which it is running, its identifier,
+and its current state (querying the active contract set, running, or stopped).
 
 HTTP Request
-============
+------------
 
 - URL: ``/v1/triggers/:id``
 - Method: ``GET``
 
 HTTP Response
-=============
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -266,12 +287,12 @@ HTTP Response
     }
 
 Upload a new DAR
-****************
+================
 
 Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect path/to/dar | head -1``).
 
 HTTP Request
-============
+------------
 
 - URL: ``/v1/packages``
 - Method: ``POST``
@@ -281,7 +302,7 @@ HTTP Request
   ``dar=$dar_content``
 
 HTTP Response
-=============
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -294,18 +315,18 @@ HTTP Response
     }
 
 Liveness check
-**************
+==============
 
 This can be used as a liveness probe, e.g., in Kubernetes.
 
 HTTP Request
-============
+------------
 
 - URL: ``/livez``
 - Method: ``GET``
 
 HTTP Response
-=============
+-------------
 
 - Content-Type: ``application/json``
 - Content:

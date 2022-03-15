@@ -41,6 +41,8 @@ To run a metering report ``daml ledger metering-report`` is used with the follow
 The from and to dates above should be formatted ``yyyy-mm-dd``.  The exact timestamp used for the report
 will be the start of the UTC day provided.
 
+Ledger metering is not affected by participant pruning.
+
 Other non-metering specific Daml assistant flags may also be used alongside those shown above.
 
 Example

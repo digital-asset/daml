@@ -9,23 +9,23 @@ import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors
 import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors.NotSoSeriousError
 import com.daml.error.utils.testpackage.{DeprecatedError, SeriousError}
 import com.daml.error._
+import com.daml.error.generator.ErrorCodeDocumentationGenerator.DeprecatedItem
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
+import scala.reflect.ClassTag
+
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
-  private val className = ErrorCodeDocumentationGenerator.getClass.getSimpleName
 
-  // Scan errors from the utils test package
-  private val generator = new ErrorCodeDocumentationGenerator(
-    Array("com.daml.error.utils.testpackage")
-  )
-
-  s"$className.getDocItems" should "return the correct doc items from the error classes" in {
-    val (actualErrorDocItems, actualGroupDocItems) = generator.getDocItems
+  it should "return the correct doc items from the error classes" in {
+    val searchPackages = Array("com.daml.error.utils.testpackage")
+    val actualGroupDocItems = ErrorCodeDocumentationGenerator.getErrorGroupItems(searchPackages)
+    val actualErrorDocItems = ErrorCodeDocumentationGenerator.getErrorCodeItems(searchPackages)
 
     val expectedErrorDocItems = Seq(
-      ErrorDocItem(
-        className = SeriousError.getClass.getTypeName,
+      ErrorCodeDocItem(
+        errorCodeClassName = SeriousError.getClass.getTypeName,
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
@@ -37,8 +37,8 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         explanation = Some(Explanation("Things happen.")),
         resolution = Some(Resolution("Turn it off and on again.")),
       ),
-      ErrorDocItem(
-        className = DeprecatedError.getClass.getTypeName,
+      ErrorCodeDocItem(
+        errorCodeClassName = DeprecatedError.getClass.getTypeName: @nowarn("cat=deprecation"),
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
@@ -46,12 +46,13 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
             "This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons"
         ),
         code = "DEPRECATED_ERROR",
-        deprecation = Some(DeprecatedDocs("deprecated.")),
+        deprecation =
+          Some(DeprecatedItem(since = Some("since now"), message = "This is deprecated")),
         explanation = Some(Explanation("Things happen.")),
         resolution = Some(Resolution("Turn it off and on again.")),
       ),
-      ErrorDocItem(
-        className = NotSoSeriousError.getClass.getTypeName,
+      ErrorCodeDocItem(
+        errorCodeClassName = NotSoSeriousError.getClass.getTypeName,
         category = "TransientServerFailure",
         hierarchicalGrouping = ErrorClass(
           List(
@@ -71,7 +72,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val expectedGroupDocItems = Seq(
-      GroupDocItem(
+      ErrorGroupDocItem(
         className = MildErrorsParent.getClass.getName,
         explanation = Some(Explanation("Mild error parent explanation")),
         errorClass = ErrorClass(
@@ -81,7 +82,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
           ) :: Nil
         ),
       ),
-      GroupDocItem(
+      ErrorGroupDocItem(
         className = MildErrorsParent.MildErrors.getClass.getName,
         explanation = Some(Explanation("Groups mild errors together")),
         errorClass = ErrorClass(
@@ -108,10 +109,48 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "parse annotations of an error category" in {
-    val actual = ErrorCodeDocumentationGenerator.getErrorCategoryAnnotations(TransientServerFailure)
+    val actual = ErrorCodeDocumentationGenerator.getErrorCategoryItem(TransientServerFailure)
 
     actual.resolution should not be (empty)
     actual.description should not be (empty)
     actual.retryStrategy should not be (empty)
+  }
+
+  @deprecated(since = "since 123", message = "message 123") object Foo1
+  @deprecated(message = "message 123") object Foo2
+  @deprecated(since = "since 123") object Foo3
+  @deprecated("message 123", "since 123") object Foo4
+
+  it should "parse annotations" in {
+    import scala.reflect.runtime.{universe => ru}
+
+    def getFirstAnnotation[T: ClassTag](obj: T): ru.Annotation = {
+      ru.runtimeMirror(getClass.getClassLoader).reflect(obj).symbol.annotations.head
+    }
+
+    ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
+      getFirstAnnotation(Foo1): @nowarn("cat=deprecation")
+    ) shouldBe DeprecatedItem(
+      since = Some("since 123"),
+      message = "message 123",
+    )
+    ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
+      getFirstAnnotation(Foo2): @nowarn("cat=deprecation")
+    ) shouldBe DeprecatedItem(
+      since = None,
+      message = "message 123",
+    )
+    ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
+      getFirstAnnotation(Foo3): @nowarn("cat=deprecation")
+    ) shouldBe DeprecatedItem(
+      since = Some("since 123"),
+      message = "",
+    )
+    ErrorCodeDocumentationGenerator.parseScalaDeprecatedAnnotation(
+      getFirstAnnotation(Foo4): @nowarn("cat=deprecation")
+    ) shouldBe DeprecatedItem(
+      since = Some("since 123"),
+      message = "message 123",
+    )
   }
 }

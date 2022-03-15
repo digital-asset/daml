@@ -141,13 +141,11 @@ class CommandService(
     EitherT {
       fa.transformWith {
         case Failure(e) =>
-          logger.error(s"$opName failure", e)
           Future.successful(-\/(e match {
             case Grpc.StatusEnvelope(status) => GrpcError(status)
-            case _ => InternalError(None, e.toString)
+            case _ => InternalError(Some(op), e)
           }))
         case Success(-\/(e)) =>
-          logger.error(s"$opName failure: ${e.e}: ${e.message}")
           import Grpc.Category._
           val tagged = e.e match {
             case PermissionDenied => -\/(PermissionDenied)
@@ -316,7 +314,13 @@ object CommandService {
       message: String,
   ) extends Error
   final case class GrpcError(status: io.grpc.Status) extends Error
-  final case class InternalError(id: Option[Symbol], message: String) extends Error
+  final case class InternalError(id: Option[Symbol], error: Throwable) extends Error
+  object InternalError {
+    def apply(id: Option[Symbol], message: String): InternalError =
+      InternalError(id, new Exception(message))
+    def apply(id: Option[Symbol], error: Throwable): InternalError =
+      InternalError(id, error)
+  }
 
   private type ET[A] = EitherT[Future, Error, A]
 

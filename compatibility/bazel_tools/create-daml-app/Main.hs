@@ -183,7 +183,7 @@ main = withTempDir $ \npmCache -> do
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
     withTools $ \getTools -> do
-    testGroup "Create DAML App tests"
+    testGroup "Create Daml App tests"
         [ test getTools
         ]
   where

@@ -339,6 +339,8 @@ object SExpr {
 
   /** The SEImportValue form is never constructed when compiling user LF.
     * It is only constructed at runtime by certain builtin-ops.
+    * Assumes the packages needed to import value of type `typ` is already
+    * loaded in `machine`.
     */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
     def execute(machine: Machine): Unit = {
@@ -361,6 +363,13 @@ object SExpr {
   final case class SEScopeExercise(body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KCloseExercise(machine))
+      machine.ctrl = body
+    }
+  }
+
+  final case class SEPreventCatch(body: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KPreventException(machine))
       machine.ctrl = body
     }
   }

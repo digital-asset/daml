@@ -6,8 +6,8 @@ package com.daml.platform.apiserver.execution
 import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCause
-import com.daml.error.ErrorCause.LedgerTime
+import com.daml.error.definitions.ErrorCause
+import com.daml.error.definitions.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
@@ -26,7 +26,7 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class LedgerTimeAwareCommandExecutorSpec
     extends AsyncWordSpec
@@ -86,8 +86,7 @@ class LedgerTimeAwareCommandExecutorSpec
     val mockExecutor = mock[CommandExecutor]
     when(
       mockExecutor.execute(any[Commands], any[Hash], any[Configuration])(
-        any[ExecutionContext],
-        any[LoggingContext],
+        any[LoggingContext]
       )
     )
       .thenAnswer((c: Commands) =>
@@ -153,7 +152,7 @@ class LedgerTimeAwareCommandExecutorSpec
           any[Commands],
           any[Hash],
           any[Configuration],
-        )(any[ExecutionContext], any[LoggingContext])
+        )(any[LoggingContext])
         verify(mockContractStore, times(contractStoreResults.size))
           .lookupMaximumLedgerTimeAfterInterpretation(Set(cid))
 

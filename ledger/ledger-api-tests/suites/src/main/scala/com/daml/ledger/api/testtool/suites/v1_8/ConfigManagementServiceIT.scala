@@ -176,7 +176,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
         assertGrpcError(
           failure,
-          LedgerApiErrors.AdminServices.ConfigurationEntryRejected,
+          LedgerApiErrors.Admin.ConfigurationEntryRejected,
           Some("Generation mismatch"),
         )
       } match {

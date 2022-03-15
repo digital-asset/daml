@@ -723,8 +723,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
             getContract = getWronglyTypedContract,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
           }
         }
 
@@ -822,8 +823,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Array(SParty(alice), SParty(alice)),
             Set(alice),
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
           }
         }
 
@@ -1399,8 +1401,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
             getContract = getWronglyTypedContract,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
           }
         }
 
@@ -1485,8 +1488,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Array(SParty(alice), SParty(alice)),
             Set(alice),
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            msgs shouldBe Seq("starts test")
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
           }
         }
 

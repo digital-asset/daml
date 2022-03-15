@@ -12,7 +12,7 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Text as T
 import qualified Text.Read as Read
 
--- | DAML-LF version of an archive payload.
+-- | Daml-LF version of an archive payload.
 data Version
   = V1{versionMinor :: MinorVersion}
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -20,39 +20,39 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | DAML-LF version 1.6
+-- | Daml-LF version 1.6
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
 
--- | DAML-LF version 1.7
+-- | Daml-LF version 1.7
 version1_7 :: Version
 version1_7 = V1 $ PointStable 7
 
--- | DAML-LF version 1.8
+-- | Daml-LF version 1.8
 version1_8 :: Version
 version1_8 = V1 $ PointStable 8
 
--- | DAML-LF version 1.11
+-- | Daml-LF version 1.11
 version1_11 :: Version
 version1_11 = V1 $ PointStable 11
 
--- | DAML-LF version 1.12
+-- | Daml-LF version 1.12
 version1_12 :: Version
 version1_12 = V1 $ PointStable 12
 
--- | DAML-LF version 1.13
+-- | Daml-LF version 1.13
 version1_13 :: Version
 version1_13 = V1 $ PointStable 13
 
--- | DAML-LF version 1.14
+-- | Daml-LF version 1.14
 version1_14 :: Version
 version1_14 = V1 $ PointStable 14
 
--- | The DAML-LF version used by default.
+-- | The Daml-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_14
 
--- | The DAML-LF development version.
+-- | The Daml-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
@@ -104,7 +104,7 @@ featureBigNumeric = Feature
 
 featureExceptions :: Feature
 featureExceptions = Feature
-    { featureName = "DAML Exceptions"
+    { featureName = "Daml Exceptions"
     , featureMinVersion = version1_14
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
@@ -125,7 +125,7 @@ featureInterfaces = Feature
 
 featureExperimental :: Feature
 featureExperimental = Feature
-    { featureName = "DAML Experimental"
+    { featureName = "Daml Experimental"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }

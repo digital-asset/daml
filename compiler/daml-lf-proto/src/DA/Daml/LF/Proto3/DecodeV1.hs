@@ -80,7 +80,7 @@ decodeMangledString t = (decoded, unmangledOrErr)
     where !decoded = decodeString t
           unmangledOrErr = unmangleIdentifier decoded
 
--- | Decode a string that will be interned in DAML-LF 1.7 and onwards.
+-- | Decode a string that will be interned in Daml-LF 1.7 and onwards.
 -- At the protobuf level, we represent internable non-empty lists of strings
 -- by a repeatable string and a number. If there's at least one string,
 -- then the number must not be set, i.e. zero. If there are no strings,
@@ -96,7 +96,7 @@ decodeInternableStrings strs id
 
 -- | Decode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
--- names will be interned in DAML-LF 1.7 and onwards.
+-- names will be interned in Daml-LF 1.7 and onwards.
 decodeName
     :: Util.EitherLike TL.Text Int32 e
     => (T.Text -> a) -> Maybe e -> Decode a
@@ -119,7 +119,7 @@ decodeNameString wrapName unmangledOrErr =
 
 -- | Decode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names will be interned
--- in DAML-LF 1.7 and onwards.
+-- in Daml-LF 1.7 and onwards.
 decodeDottedName :: Util.EitherLike LF1.DottedName Int32 e
                  => ([T.Text] -> a) -> Maybe e -> Decode a
 decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
@@ -138,7 +138,7 @@ decodeDottedNameId wrapDottedName dnId = do
     Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
 -- | Decode the name of a top-level value. The name is mangled and will be
--- interned in DAML-LF 1.7 and onwards.
+-- interned in Daml-LF 1.7 and onwards.
 decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
 decodeValueName ident mangledV dnId = do
     (mangled, unmangledOrErr) <- decodeInternableStrings mangledV dnId
@@ -150,7 +150,7 @@ decodeValueName ident mangledV dnId = do
           throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
--- interned in DAML-LF 1.7 and onwards.
+-- interned in Daml-LF 1.7 and onwards.
 decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
@@ -158,7 +158,7 @@ decodeValName LF1.ValName{..} = do
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
--- name are interned since DAML-LF 1.6.
+-- name are interned since Daml-LF 1.6.
 decodePackageRef :: LF1.PackageRef -> Decode PackageRef
 decodePackageRef (LF1.PackageRef pref) =
     mayDecode "packageRefSum" pref $ \case
@@ -175,7 +175,7 @@ decodeVersion mbPkgId minorText = do
   let unsupported :: Either Error a
       unsupported = throwError (UnsupportedMinorVersion minorText)
   -- we translate "no version" to minor version 0, since we introduced
-  -- minor versions once DAML-LF v1 was already out, and we want to be
+  -- minor versions once Daml-LF v1 was already out, and we want to be
   -- able to parse packages that were compiled before minor versions
   -- were a thing. DO NOT replicate this code bejond major version 1!
   minor <- if
@@ -717,7 +717,6 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
       <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
-      <*> mayDecode "update_ExerciseInterfaceTypeRep" update_ExerciseInterfaceTypeRep decodeExpr
       <*> mayDecode "update_ExerciseInterfaceGuard" update_ExerciseInterfaceGuard decodeExpr
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey

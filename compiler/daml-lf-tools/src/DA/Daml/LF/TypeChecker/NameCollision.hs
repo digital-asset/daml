@@ -245,7 +245,7 @@ checkModule m = do
 -- | Is one module an ascendant of another? For instance
 -- module "A" is an ascendant of module "A.B" and "A.B.C".
 --
--- Normally we wouldn't care about this in DAML, because
+-- Normally we wouldn't care about this in Daml, because
 -- the name of a module has no relation to its logical
 -- dependency structure. But since we're compiling to LF,
 -- module names (e.g. "A.B") may conflict with type names
@@ -253,9 +253,9 @@ checkModule m = do
 -- may arise.
 --
 -- The check here is case-insensitive because the name-collision
--- condition in DAML-LF is case-insensitiv (in order to make
+-- condition in Daml-LF is case-insensitiv (in order to make
 -- codegen easier for languages that control case differently
--- from DAML).
+-- from Daml).
 isAscendant :: ModuleName -> ModuleName -> Bool
 isAscendant (ModuleName xs) (ModuleName ys) =
     (length xs < length ys) && and (zipWith sameish xs ys)

@@ -134,7 +134,7 @@ object Config {
         opt[String]("sdk-version")
           .required()
           .action(actionExportScript((x, c) => c.copy(sdkVersion = x)))
-          .text("Specify this Daml Connect version in the generated project."),
+          .text("Specify this Daml version in the generated project."),
       )
     checkConfig(c =>
       c.exportType match {

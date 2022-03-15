@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
 
 
--- | The DAML-LF primitives, matched with their type, and using 'primitive' on the libraries side.
+-- | The Daml-LF primitives, matched with their type, and using 'primitive' on the libraries side.
 module DA.Daml.LFConversion.Primitives(convertPrim) where
 
 import           DA.Daml.LF.Ast
@@ -279,6 +279,8 @@ convertPrim _ "UExerciseInterface"
     | iface == iface2 =
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
+    -- TODO https://github.com/digital-asset/daml/issues/13275
+    --  Remove typeRep param.
     ETmLam (mkVar "typeRep", TOptional TTypeRep) $
     ETmLam (mkVar "pred", TCon iface :-> TBuiltin BTBool) $
     EUpdate $ UExerciseInterface
@@ -286,7 +288,6 @@ convertPrim _ "UExerciseInterface"
         , exeChoice     = choiceName
         , exeContractId = EVar (mkVar "this")
         , exeArg        = EVar (mkVar "arg")
-        , exeTypeRep    = EVar (mkVar "typeRep")
         , exeGuard      = EVar (mkVar "pred")
         }
   where
@@ -413,7 +414,7 @@ convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
--- | Some builtins are only supported in specific versions of DAML-LF.
+-- | Some builtins are only supported in specific versions of Daml-LF.
 whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
 whenRuntimeSupports version feature t e
     | version `supports` feature = e
@@ -423,4 +424,4 @@ runtimeUnsupported :: Feature -> Type -> Expr
 runtimeUnsupported (Feature name version _) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
-  (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))
+  (EBuiltin (BEText (name <> " only supported when compiling to Daml-LF " <> T.pack (renderVersion version) <> " or later")))

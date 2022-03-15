@@ -124,8 +124,8 @@ export interface State {
 }
 
 const description = `
-The ParameterForm component displays a form for inputting a DAML-LF value
-corresponding to a given DAML-LF type. The argument is supplied by the
+The ParameterForm component displays a form for inputting a Daml-LF value
+corresponding to a given Daml-LF type. The argument is supplied by the
 client of the component which provides and onChange callback to change
 it. To handle submission, the component provides an \`onSubmit\` callback.
 `;

@@ -7,7 +7,7 @@
 
 -- | Useful references:
 --
--- * DAML-LF AST: https://github.com/digital-asset/daml/blob/main/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
+-- * Daml-LF AST: https://github.com/digital-asset/daml/blob/main/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
 -- * GHC Syntax: https://hackage.haskell.org/package/ghc-8.4.1/docs/CoreSyn.html#t:Expr
 --
 -- The conversion works element by element, in a fairly direct way, apart from the exceptions
@@ -22,7 +22,7 @@
 -- DICTIONARY SANITIZATION
 --
 -- GHC's desugaring for default methods relies on the fact that Haskell is
--- lazy. In contrast, DAML-LF is strict. This mismatch causes a few problems.
+-- lazy. In contrast, Daml-LF is strict. This mismatch causes a few problems.
 -- For instance, GHC desugars:
 --
 -- > class Foo a where
@@ -50,7 +50,7 @@
 --
 -- To fix this problem, we make the fields of dictionary types (like @Foo@)
 -- lazy by introducing an artificial argument of type @Unit@ to them. In order
--- to do so, we do three transformations on the generated DAML-LF:
+-- to do so, we do three transformations on the generated Daml-LF:
 --
 -- (1) Translate dictionary type definitions with an extra @Unit@ argument
 --     for each field.
@@ -64,7 +64,7 @@
 --
 --
 -- GHC produces a @newtype@ rather than a @data@ type for dictionary types of
--- type classes with a single method and no super classes. Since DAML-LF does
+-- type classes with a single method and no super classes. Since Daml-LF does
 -- not support @newtype@, we could either treat them as some sort of type
 -- synonym or translate them to a record type with a single field. We have
 -- chosen to do the latter for the sake of uniformity among all dictionary
@@ -133,7 +133,7 @@ conversionError msg = do
   throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
-      , _source = Just "Core to DAML-LF"
+      , _source = Just "Core to Daml-LF"
       , _message = T.pack msg
       , _code = Nothing
       , _relatedInformation = Nothing
@@ -144,7 +144,7 @@ unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg
     where
          errMsg =
-             "Failure to process DAML program, this feature is not currently supported.\n" ++
+             "Failure to process Daml program, this feature is not currently supported.\n" ++
              typ ++ "\n" ++
              prettyPrint x
 
@@ -965,7 +965,7 @@ convertImplements env tpl = NM.fromList <$>
       pure (TemplateImplements con methods inheritedChoiceNames)
 
     convertMethods ms = fmap NM.fromList . sequence $
-      [ TemplateImplementsMethod (MethodName k) <$> convertExpr env v
+      [ TemplateImplementsMethod (MethodName k) . (`ETmApp` EVar this) <$> convertExpr env v
       | (k, v) <- ms
       ]
 
@@ -1060,7 +1060,7 @@ convertBind env (name, x)
     -- (This rewriting can be regarded as a very limited form of lambda
     -- lifting where the lifted version of `f` happens to be `name`.)
     -- This workaround should be removed once we either have a proper lambda
-    -- lifter or DAML-LF supports local recursion.
+    -- lifter or Daml-LF supports local recursion.
     --
     -- NOTE(SF): Due to issue #7953, this has been modified to allow for
     -- additional (nonrecursive) let bindings between the top-level
@@ -1132,10 +1132,10 @@ convertBind env (name, x)
     name' <- convValWithType env name
     pure [defValue name name' x']
 
--- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
--- DAML counterpart is not defined in 'GHC.Types'. They are all defined in
+-- NOTE(MH): These are the names of the builtin Daml-LF types whose Surface
+-- Daml counterpart is not defined in 'GHC.Types'. They are all defined in
 -- 'DA.Internal.LF' in terms of 'GHC.Types.Opaque'. We need to remove them
--- during conversion to DAML-LF together with their constructors since we
+-- during conversion to Daml-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet
@@ -1369,7 +1369,7 @@ convertExpr env0 e = do
              callstack' <- convertExpr env callstack
              pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
 
-    -- custom conversion because they correspond to builtins in DAML-LF, so can make the output more readable
+    -- custom conversion because they correspond to builtins in Daml-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
         -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
@@ -2006,7 +2006,7 @@ qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env primUnitId
   pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
--- | Types of a kind not supported in DAML-LF, e.g., the DataKinds stuff from GHC.Generics
+-- | Types of a kind not supported in Daml-LF, e.g., the DataKinds stuff from GHC.Generics
 -- are translated to a special uninhabited Erased type. This allows us to easily catch these
 -- cases in data-dependencies.
 erasedTy :: Env -> ConvertM LF.Type
@@ -2014,7 +2014,7 @@ erasedTy env = do
     pkgRef <- packageNameToPkgRef env primUnitId
     pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
 
--- | Type-level strings are represented in DAML-LF via the PromotedText type. This is
+-- | Type-level strings are represented in Daml-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
 -- @PromotedText {"_foo": Unit}@. This allows us to preserve all the information we need
 -- to reconstruct `HasField` instances in data-dependencies without resorting to
@@ -2193,7 +2193,7 @@ convertKind x = unhandled "Kind" x
 
 convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
 convNameLoc n = case nameSrcSpan (getName n) of
-  -- NOTE(MH): Locations are 1-based in GHC and 0-based in DAML-LF.
+  -- NOTE(MH): Locations are 1-based in GHC and 0-based in Daml-LF.
   -- Hence all the @- 1@s below.
   RealSrcSpan srcSpan -> Just (convRealSrcSpan srcSpan)
   UnhelpfulSpan{} -> Nothing

@@ -12,7 +12,7 @@ import { hardcodedStyle } from "../theme";
 import { NonExhaustiveMatch } from "../util";
 
 // What parameters will actually be allowed is not yet decided so the types here
-// are a bit messy and should be cleaned up when that has be clarified in DAML.
+// are a bit messy and should be cleaned up when that has be clarified in Daml.
 
 export interface Props {
   argument: DamlLfValue;

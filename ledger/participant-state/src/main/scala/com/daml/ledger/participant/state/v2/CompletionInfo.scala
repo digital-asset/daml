@@ -36,6 +36,8 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   *
   *                               Optional as entries created by the participant.state.v1 API do not have this filled.
   *                               Only set for participant.state.v2 created entries
+  *
+  * @param statistics             The statistics that will be used by participant metering.
   */
 case class CompletionInfo(
     actAs: List[Ref.Party],

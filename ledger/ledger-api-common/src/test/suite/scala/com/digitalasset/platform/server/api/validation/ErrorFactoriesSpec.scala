@@ -8,36 +8,29 @@ import java.time.Duration
 import java.util.regex.Pattern
 
 import ch.qos.logback.classic.Level
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{DamlError, IndexErrors, LedgerApiErrors}
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorAssertionsWithLogCollectorAssertions,
+  ErrorCode,
 }
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
-import io.grpc.protobuf.StatusProto
 import org.mockito.MockitoSugar
 import org.scalatest.BeforeAndAfter
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+
 import scala.concurrent.duration._
 
-import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
-
-@nowarn("msg=deprecated")
 class ErrorFactoriesSpec
     extends AnyWordSpec
     with Matchers
@@ -47,32 +40,26 @@ class ErrorFactoriesSpec
     with LogCollectorAssertions
     with ErrorAssertionsWithLogCollectorAssertions {
 
-  private val logger = ContextualizedLogger.get(getClass)
-  private val loggingContext = LoggingContext.ForTesting
-
   private val originalCorrelationId = "cor-id-12345679"
   private val truncatedCorrelationId = "cor-id-1"
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, Some(originalCorrelationId))
+    DamlContextualizedErrorLogger.forTesting(getClass, Some(originalCorrelationId))
 
   private val expectedCorrelationIdRequestInfo =
     ErrorDetails.RequestInfoDetail(originalCorrelationId)
   private val expectedLocationLogMarkerRegex =
-    "\\{err-context: \"\\{location=ErrorFactories.scala:\\d+\\}\"\\}"
+    "\\{err-context: \"\\{location=ErrorFactoriesSpec.scala:\\d+\\}\"\\}"
   private val expectedInternalErrorMessage =
     s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId"
   private val expectedInternalErrorDetails =
     Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo)
 
-  private val tested = ErrorFactories()
-
   before {
     LogCollector.clear[this.type]
   }
 
-  "ErrorFactories" should {
-    val errorFactories = ErrorFactories()
+  "Errors " should {
 
     "return sqlTransientException" in {
       val failureReason = "some db transient failure"
@@ -80,7 +67,7 @@ class ErrorFactoriesSpec
       val msg =
         s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$truncatedCorrelationId): Processing the request failed due to a transient database error: $failureReason"
       assertError(
-        errorFactories.sqlTransientException(someSqlTransientException)
+        IndexErrors.DatabaseErrors.SqlTransientError.Reject(someSqlTransientException)
       )(
         code = Code.UNAVAILABLE,
         message = msg,
@@ -105,8 +92,9 @@ class ErrorFactoriesSpec
       val msg =
         s"INDEX_DB_SQL_NON_TRANSIENT_ERROR(4,$truncatedCorrelationId): Processing the request failed due to a non-transient database error: $failureReason"
       assertError(
-        errorFactories
-          .sqlNonTransientException(new SQLNonTransientException(failureReason))
+        IndexErrors.DatabaseErrors.SqlNonTransientError.Reject(
+          new SQLNonTransientException(failureReason)
+        )
       )(
         code = Code.INTERNAL,
         message = expectedInternalErrorMessage,
@@ -123,16 +111,18 @@ class ErrorFactoriesSpec
       "return failedToEnqueueCommandSubmission" in {
         val t = new Exception("message123")
         assertStatus(
-          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission("some message")(t)(
-            contextualizedErrorLogger
-          )
+          LedgerApiErrors.InternalError
+            .Generic("some message", Some(t))(
+              contextualizedErrorLogger
+            )
+            .asGrpcStatus
         )(
           code = Code.INTERNAL,
           message = expectedInternalErrorMessage,
           details = expectedInternalErrorDetails,
           logEntry = ExpectedLogEntry(
             Level.ERROR,
-            s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message: Exception: message123",
+            s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message",
             expectedMarkerRegex("throwableO=Some(java.lang.Exception: message123)"),
           ),
         )
@@ -142,7 +132,9 @@ class ErrorFactoriesSpec
         val msg =
           s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Some buffer is full"
         assertStatus(
-          errorFactories.bufferFull("Some buffer is full")(contextualizedErrorLogger)
+          LedgerApiErrors.ParticipantBackpressure
+            .Rejection("Some buffer is full")(contextualizedErrorLogger)
+            .asGrpcStatus
         )(
           code = Code.ABORTED,
           message = msg,
@@ -170,9 +162,11 @@ class ErrorFactoriesSpec
         val msg =
           s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down."
         assertStatus(
-          errorFactories.SubmissionQueueErrors.queueClosed("Some service")(
-            contextualizedErrorLogger = contextualizedErrorLogger
-          )
+          LedgerApiErrors.ServiceNotRunning
+            .Reject("Some service")(
+              contextualizedErrorLogger
+            )
+            .asGrpcStatus
         )(
           code = Code.UNAVAILABLE,
           message = msg,
@@ -200,9 +194,14 @@ class ErrorFactoriesSpec
         val msg =
           s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): Timed out while awaiting for a completion corresponding to a command submission."
         assertStatus(
-          errorFactories.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()(
-            contextualizedErrorLogger = contextualizedErrorLogger
-          )
+          LedgerApiErrors.RequestTimeOut
+            .Reject(
+              "Timed out while awaiting for a completion corresponding to a command submission.",
+              _definiteAnswer = false,
+            )(
+              contextualizedErrorLogger
+            )
+            .asGrpcStatus
         )(
           code = Code.DEADLINE_EXCEEDED,
           message = msg,
@@ -223,9 +222,12 @@ class ErrorFactoriesSpec
       }
       "return noStatusInResponse" in {
         assertStatus(
-          errorFactories.SubmissionQueueErrors.noStatusInCompletionResponse()(
-            contextualizedErrorLogger = contextualizedErrorLogger
-          )
+          LedgerApiErrors.InternalError
+            .Generic(
+              "Missing status in completion response.",
+              throwableO = None,
+            )
+            .asGrpcStatus
         )(
           code = Code.INTERNAL,
           message = expectedInternalErrorMessage,
@@ -243,7 +245,10 @@ class ErrorFactoriesSpec
 
     "return packageNotFound" in {
       val msg = s"PACKAGE_NOT_FOUND(11,$truncatedCorrelationId): Could not find package."
-      assertError(errorFactories.packageNotFound("packageId123"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.NotFound.Package
+          .Reject("packageId123")
+      )(
         code = Code.NOT_FOUND,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -252,7 +257,7 @@ class ErrorFactoriesSpec
             Map("category" -> "11", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
+          ErrorDetails.ResourceInfoDetail(typ = "PACKAGE", name = "packageId123"),
         ),
         logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -263,7 +268,7 @@ class ErrorFactoriesSpec
     }
 
     "return the a versioned service internal error" in {
-      assertError(errorFactories.versionServiceInternalError("message123"))(
+      assertError(LedgerApiErrors.InternalError.VersionService("message123"))(
         code = Code.INTERNAL,
         message = expectedInternalErrorMessage,
         details = expectedInternalErrorDetails,
@@ -277,7 +282,7 @@ class ErrorFactoriesSpec
 
     "return the configurationEntryRejected" in {
       val msg = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123"
-      assertError(errorFactories.configurationEntryRejected("message123"))(
+      assertError(LedgerApiErrors.Admin.ConfigurationEntryRejected.Reject("message123"))(
         code = Code.FAILED_PRECONDITION,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -298,7 +303,10 @@ class ErrorFactoriesSpec
     "return a transactionNotFound error" in {
       val msg =
         s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible."
-      assertError(errorFactories.transactionNotFound(Ref.TransactionId.assertFromString("tId")))(
+      assertError(
+        LedgerApiErrors.RequestValidation.NotFound.Transaction
+          .Reject(Ref.TransactionId.assertFromString("tId"))
+      )(
         code = Code.NOT_FOUND,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -307,7 +315,7 @@ class ErrorFactoriesSpec
             Map("category" -> "11", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
+          ErrorDetails.ResourceInfoDetail(typ = "TRANSACTION_ID", name = "tId"),
         ),
         logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -320,7 +328,10 @@ class ErrorFactoriesSpec
     "return the DuplicateCommandException" in {
       val msg =
         s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed"
-      assertError(errorFactories.duplicateCommandException(None))(
+      assertError(
+        LedgerApiErrors.ConsistencyErrors.DuplicateCommand
+          .Reject(_existingCommandSubmissionId = None)
+      )(
         code = Code.ALREADY_EXISTS,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -339,7 +350,7 @@ class ErrorFactoriesSpec
     }
 
     "return a permissionDenied error" in {
-      assertError(errorFactories.permissionDenied("some cause"))(
+      assertError(LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject("some cause"))(
         code = Code.PERMISSION_DENIED,
         message = expectedInternalErrorMessage,
         details = expectedInternalErrorDetails,
@@ -354,7 +365,8 @@ class ErrorFactoriesSpec
     "return a isTimeoutUnknown_wasAborted error" in {
       val msg = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123"
       assertError(
-        errorFactories.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
+        LedgerApiErrors.RequestTimeOut
+          .Reject("message123", _definiteAnswer = false)
       )(
         code = Code.DEADLINE_EXCEEDED,
         message = msg,
@@ -378,11 +390,13 @@ class ErrorFactoriesSpec
       val msg =
         s"NON_HEXADECIMAL_OFFSET(8,$truncatedCorrelationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123"
       assertError(
-        errorFactories.nonHexOffset(
-          fieldName = "fieldName123",
-          offsetValue = "offsetValue123",
-          message = "message123",
-        )
+        LedgerApiErrors.RequestValidation.NonHexOffset
+          .Error(
+            _fieldName = "fieldName123",
+            _offsetValue = "offsetValue123",
+            _message = "message123",
+          )
+          .asGrpcError
       )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
@@ -401,7 +415,10 @@ class ErrorFactoriesSpec
     "return an offsetAfterLedgerEnd error" in {
       val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
       val msg = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage"
-      assertError(errorFactories.offsetAfterLedgerEnd("Absolute", "AABBCC", "E"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+          .Reject("Absolute", "AABBCC", "E")
+      )(
         code = Code.OUT_OF_RANGE,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -421,7 +438,10 @@ class ErrorFactoriesSpec
 
     "return a offsetOutOfRange error" in {
       val msg = s"OFFSET_OUT_OF_RANGE(9,$truncatedCorrelationId): message123"
-      assertError(errorFactories.offsetOutOfRange("message123"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.OffsetOutOfRange
+          .Reject("message123")
+      )(
         code = Code.FAILED_PRECONDITION,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -440,7 +460,10 @@ class ErrorFactoriesSpec
     }
 
     "return an unauthenticatedMissingJwtToken error" in {
-      assertError(errorFactories.unauthenticatedMissingJwtToken())(
+      assertError(
+        LedgerApiErrors.AuthorizationChecks.Unauthenticated
+          .MissingJwtToken()
+      )(
         code = Code.UNAUTHENTICATED,
         message = expectedInternalErrorMessage,
         details = expectedInternalErrorDetails,
@@ -456,7 +479,8 @@ class ErrorFactoriesSpec
       val someSecuritySafeMessage = "nothing security sensitive in here"
       val someThrowable = new RuntimeException("some internal authentication error")
       assertError(
-        errorFactories.internalAuthenticationError(someSecuritySafeMessage, someThrowable)
+        LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+          .Reject(someSecuritySafeMessage, someThrowable)
       )(
         code = Code.INTERNAL,
         message = expectedInternalErrorMessage,
@@ -472,7 +496,10 @@ class ErrorFactoriesSpec
     "return a missingLedgerConfig error" in {
       val msg =
         s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved."
-      assertError(errorFactories.missingLedgerConfig())(
+      assertError(
+        LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+          .Reject()
+      )(
         code = Code.NOT_FOUND,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -490,32 +517,18 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return an aborted error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
-      )
-
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val exception = tested.aborted("my message", definiteAnswer)
-        val status = StatusProto.fromThrowable(exception)
-        status.getCode shouldBe Code.ABORTED.value()
-        status.getMessage shouldBe "my message"
-        status.getDetailsList.asScala shouldBe expectedDetails
-      }
-    }
-
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val maxDeduplicationDuration = Duration.ofSeconds(5)
       val msg =
         s"INVALID_DEDUPLICATION_PERIOD(9,$truncatedCorrelationId): The submitted command had an invalid deduplication period: $errorDetailMessage"
       assertError(
-        errorFactories.invalidDeduplicationPeriod(
-          message = errorDetailMessage,
-          maxDeduplicationDuration = Some(maxDeduplicationDuration),
-        )
+        LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+          .Reject(
+            _reason = errorDetailMessage,
+            _maxDeduplicationDuration = Some(maxDeduplicationDuration),
+          )
+          .asGrpcError
       )(
         code = Code.FAILED_PRECONDITION,
         message = msg,
@@ -542,7 +555,10 @@ class ErrorFactoriesSpec
       val fieldName = "my field"
       val msg =
         s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field $fieldName: my message"
-      assertError(errorFactories.invalidField(fieldName, "my message"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.InvalidField
+          .Reject(fieldName, "my message")
+      )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -564,7 +580,8 @@ class ErrorFactoriesSpec
       val msg =
         s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
       assertError(
-        errorFactories.ledgerIdMismatch(LedgerId("expected"), LedgerId("received"))
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch
+          .Reject("expected", "received")
       )(
         code = Code.NOT_FOUND,
         message = msg,
@@ -586,10 +603,11 @@ class ErrorFactoriesSpec
     "return a participantPrunedDataAccessed error" in {
       val msg = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message"
       assertError(
-        errorFactories.participantPrunedDataAccessed(
-          "my message",
-          Offset.fromHexString(Ref.HexString.assertFromString("00")),
-        )
+        LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
+          .Reject(
+            "my message",
+            "00",
+          )
       )(
         code = Code.FAILED_PRECONDITION,
         message = msg,
@@ -613,7 +631,7 @@ class ErrorFactoriesSpec
     }
 
     "return a trackerFailure error" in {
-      assertError(errorFactories.trackerFailure("message123"))(
+      assertError(LedgerApiErrors.InternalError.Generic("message123"))(
         code = Code.INTERNAL,
         message = expectedInternalErrorMessage,
         details = expectedInternalErrorDetails,
@@ -630,7 +648,7 @@ class ErrorFactoriesSpec
 
       val msg =
         s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
-      assertError(errorFactories.serviceNotRunning(serviceName))(
+      assertError(LedgerApiErrors.ServiceNotRunning.Reject(serviceName))(
         code = Code.UNAVAILABLE,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -654,7 +672,10 @@ class ErrorFactoriesSpec
 
       val msg =
         s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: $fieldName"
-      assertError(errorFactories.missingField(fieldName))(
+      assertError(
+        LedgerApiErrors.RequestValidation.MissingField
+          .Reject(fieldName)
+      )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -675,7 +696,10 @@ class ErrorFactoriesSpec
     val msg =
       s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message"
     "return an invalidArgument error" in {
-      assertError(errorFactories.invalidArgument("my message"))(
+      assertError(
+        LedgerApiErrors.RequestValidation.InvalidArgument
+          .Reject("my message")
+      )(
         code = Code.INVALID_ARGUMENT,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -693,15 +717,10 @@ class ErrorFactoriesSpec
       )
     }
 
-    "should create an ApiException without the stack trace" in {
-      val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
-      val exception = tested.grpcError(status)
-      exception.getStackTrace shouldBe Array.empty
-    }
   }
 
   private def expectedMarkerRegex(extraInner: String): Some[String] = {
-    val locationRegex = "location=ErrorFactories.scala:\\d+"
+    val locationRegex = "location=ErrorFactoriesSpec.scala:\\d+"
     val inner = List(extraInner -> Pattern.quote(extraInner), locationRegex -> locationRegex)
       .sortBy(_._1)
       .map(_._2)
@@ -714,8 +733,26 @@ class ErrorFactoriesSpec
       message: String,
       details: Seq[ErrorDetails.ErrorDetail],
       logEntry: ExpectedLogEntry,
+  ): Unit = {
+    val e = io.grpc.protobuf.StatusProto.toStatusRuntimeException(status)
+    assertError(new ErrorCode.ApiException(e.getStatus, e.getTrailers))(
+      code,
+      message,
+      details,
+      logEntry,
+    )
+  }
+
+  private def assertError(
+      error: DamlError
+  )(
+      code: Code,
+      message: String,
+      details: Seq[ErrorDetails.ErrorDetail],
+      logEntry: ExpectedLogEntry,
   ): Unit =
-    assertError(io.grpc.protobuf.StatusProto.toStatusRuntimeException(status))(
+    assertError[this.type, this.type](
+      actual = error.asGrpcError,
       code,
       message,
       details,

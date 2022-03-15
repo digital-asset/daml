@@ -54,6 +54,23 @@ sealed abstract class NonEmptyColl {
     unsafeNarrow(bb.result())
   }
 
+  /** Like `apply`, but because `A` occurs directly in the result type, if the
+    * call to `mk` has an expected `A` type, `hd` and `tl` will have that
+    * expected type as well.  Particularly useful for `Set`s, as expected type
+    * can widen the element type of the produced set, and `_` as an argument,
+    * because the lambda argument type can be inferred from the expected result
+    * type.
+    *
+    * However, strictly speaking, it is less general than `apply`; for example,
+    * it doesn't work on `Map`s at all.  So it should only be used when you
+    * need its particular type inference behavior.  See `"mk" should` tests
+    * in `NonEmptySpec.scala` for examples where `mk` works but `apply` doesn't.
+    */
+  final def mk[Fct, A, C[X] <: imm.Iterable[X]](into: Fct, hd: A, tl: A*)(implicit
+      fct: Fct => Factory[A, C[A]]
+  ): NonEmpty[C[A]] =
+    apply(into, hd, tl: _*)
+
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
     * to `ne` if the pattern matches.
@@ -65,6 +82,9 @@ sealed abstract class NonEmptyColl {
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
   def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
+
+  /** Like `unapply`, but when you don't want pattern matching. */
+  final def from[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
 }
 
 /** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
@@ -86,8 +106,27 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
 
+    @deprecated("use toNEF instead", since = "2.0.1")
+    def toF: NonEmptyF[F, A] = nfa.toNEF
+
     /** See [[NonEmptyF]] for further explanation. */
-    def toF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
+    def toNEF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
+  }
+
+  implicit final class UnReshapeOps[F[_], A](private val nfa: NonEmptyF[F, A]) extends AnyVal {
+
+    /** `x.fromNEF` is `(x: NonEmpty[F[A]])` but possibly shorter.  If code
+      * compiles without the call to `fromNEF`, you don't need the call.
+      */
+    def fromNEF: NonEmpty[F[A]] = nfa
+  }
+
+  implicit final class UnwrapOps[A](private val self: NonEmpty[A]) extends AnyVal {
+
+    /** `x.forgetNE` is `(x: A)` but possibly shorter. If code compiles without
+      * the call to `forgetNE`, you don't need the call.
+      */
+    def forgetNE: A = self
   }
 
   implicit final class UnReshapeOps[F[_], A](private val nfa: NonEmptyF[F, A]) extends AnyVal {
@@ -147,11 +186,15 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
     def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
     def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
-    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]) = un((self: ESelf) to factory)
+    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]): NonEmpty[C1] = un(
+      (self: ESelf) to factory
+    )
     def zipWithIndex: NonEmpty[CC[(A, Int)]] = un((self: ESelf).zipWithIndex)
     // (not so valuable unless also using wartremover to disable partial Seq ops)
     @`inline` def head1: A = self.head
     @`inline` def tail1: C = self.tail
+    def reduceLeft[B >: A](op: (B, A) => B): B = (self: ESelf).reduceLeft(op)
+    @`inline` def last1: A = self.last
   }
 
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
@@ -167,6 +210,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     // do not compose
     @`inline` def +-:[B >: A](elem: B): NonEmpty[CC[B]] = elem +: self
     @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
+
+    def distinct: NonEmpty[C] = un((self: ESelf).distinct)
   }
 
   implicit final class `Seq Ops`[A, CC[_], C](

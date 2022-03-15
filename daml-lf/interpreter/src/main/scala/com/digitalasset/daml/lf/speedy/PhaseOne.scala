@@ -703,13 +703,20 @@ private[lf] final class PhaseOne(
             Return(t.ChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
-      case UpdateExerciseInterface(ifaceId, chId, cid, arg, trep, guard) =>
+      case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            compileExp(env, trep) { trep =>
-              compileExp(env, guard) { guard =>
-                Return(t.GuardedChoiceDefRef(ifaceId, chId)(cid, arg, trep, guard))
-              }
+            compileExp(env, guard) { guard =>
+              Return(
+                t.GuardedChoiceDefRef(ifaceId, chId)(
+                  cid,
+                  arg,
+                  SEValue(
+                    SOptional(None)
+                  ), // TODO https://github.com/digital-asset/daml/issues/13277
+                  guard,
+                )
+              )
             }
           }
         }

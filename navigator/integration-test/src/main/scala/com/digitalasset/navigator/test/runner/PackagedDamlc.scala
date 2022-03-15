@@ -36,7 +36,7 @@ object PackagedDamlc extends LazyLogging {
     // )
     // val exitCode = Runner.execute(command, Some(new LazyProcessLogger("[damlc] ")))
     // if (exitCode != 0) {
-    //   error(s"Error while running DAMLC for ${damlFile.toString}: exit code $exitCode")
+    //   error(s"Error while running damlc for ${damlFile.toString}: exit code $exitCode")
     // }
   }
 

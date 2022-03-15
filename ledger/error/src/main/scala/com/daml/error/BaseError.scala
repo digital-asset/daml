@@ -30,14 +30,15 @@ trait BaseError extends LocationMixin {
     *     throwableO = Some(throwable)
     *   )
     * }
+    *
+    * NOTE: This throwable's details are not included the exception communicated to the gRPC clients
+    *       so if you want them communicated, you need to explicitly add them to the e.g. context map or cause string.
     */
   def throwableO: Option[Throwable] = None
 
   /** The context (declared fields) of this error
-    *
-    * At the moment, we'll figure them out using reflection.
     */
-  def context: Map[String, String] = BaseError.extractContext(this)
+  def context: Map[String, String] = Map()
 
   /** The resources related to this error
     *
@@ -90,7 +91,6 @@ trait LocationMixin {
 }
 
 object BaseError {
-  private val ignoreFields = Set("cause", "throwable", "loggingContext")
   val SecuritySensitiveMessageOnApiPrefix =
     "An error occurred. Please contact the operator and inquire about the request"
 
@@ -101,42 +101,4 @@ object BaseError {
     msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
   }
 
-  def extractContext[D](obj: D): Map[String, String] =
-    obj.getClass.getDeclaredFields
-      .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
-      .map { field =>
-        field.setAccessible(true)
-        (field.getName, field.get(obj).toString)
-      }
-      .toMap
-
-  abstract class Impl(
-      override val cause: String,
-      override val throwableO: Option[Throwable] = None,
-  )(implicit override val code: ErrorCode)
-      extends BaseError {
-
-    /** The logging context obtained when we created the error, usually passed in as implicit */
-    def loggingContext: ContextualizedErrorLogger
-
-    /** Flag to control if an error should be logged at creation
-      *
-      * Generally, we do want to log upon creation, except in the case of "nested" or combined errors,
-      * where we just nest the error but don't want it to be logged twice.
-      */
-    def logOnCreation: Boolean = true
-
-    def log(): Unit = logWithContext()(loggingContext)
-
-    def asGrpcStatus: Status =
-      code.asGrpcStatus(this)(loggingContext)
-
-    def asGrpcError: StatusRuntimeException =
-      code.asGrpcError(this)(loggingContext)
-
-    // Automatically log the error on generation
-    if (logOnCreation) {
-      log()
-    }
-  }
 }

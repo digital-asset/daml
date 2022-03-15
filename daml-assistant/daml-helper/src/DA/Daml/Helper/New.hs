@@ -20,7 +20,7 @@ import System.Process (showCommandForUser)
 import DA.Daml.Project.Consts
 import DA.Daml.Helper.Util
 
--- | Create a DAML project in a new directory, based on a project template packaged
+-- | Create a Daml project in a new directory, based on a project template packaged
 -- with the SDK. Special care has been taken to avoid:
 --
 -- * Project name/template name confusion: i.e. when a user passes a
@@ -79,7 +79,7 @@ runNew targetFolder templateNameM = do
     damlRootM <- findDamlProjectRoot targetFolderAbs
     whenJust damlRootM $ \damlRoot -> do
         hPutStr stderr $ unlines
-            [ "Target directory is inside existing DAML project " <> show damlRoot
+            [ "Target directory is inside existing Daml project " <> show damlRoot
             , "Please specify a new directory outside an existing project."
             ]
         exitFailure
@@ -89,7 +89,7 @@ runNew targetFolder templateNameM = do
     files <- listFilesRecursive targetFolder
     mapM_ setWritable files
 
-    -- Substitute strings in template files (not a DAML template!)
+    -- Substitute strings in template files (not a Daml template!)
     -- e.g. the SDK version numbers in daml.yaml and package.json
     let templateFiles = filter (".template" `isExtensionOf`) files
     forM_ templateFiles $ \templateFile -> do

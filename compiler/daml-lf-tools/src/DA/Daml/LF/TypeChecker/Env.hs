@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | This module provides the data type for the environment of the DAML-LF type
+-- | This module provides the data type for the environment of the Daml-LF type
 -- checker and functions to manipulate it.
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
@@ -31,7 +31,7 @@ import           Data.HashMap.Strict (HashMap)
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.TypeChecker.Error
 
--- | The environment for the DAML-LF type checker.
+-- | The environment for the Daml-LF type checker.
 data Gamma = Gamma
   { _locCtx :: !Context
     -- ^ The current type checking context for error reporting.
@@ -42,7 +42,7 @@ data Gamma = Gamma
   , _world :: !World
     -- ^ The packages in scope.
   , _lfVersion :: Version
-    -- ^ The DAML-LF version of the package being type checked.
+    -- ^ The Daml-LF version of the package being type checked.
   }
 
 makeLenses ''Gamma

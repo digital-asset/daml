@@ -50,6 +50,7 @@ netty_version = "4.1.72.Final"
 grpc_version = "1.44.0"
 protobuf_version = "3.19.3"
 akka_version = "2.6.18"
+akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
 
@@ -83,9 +84,9 @@ def install_java_deps():
             "com.typesafe.akka:akka-actor_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-actor-testkit-typed_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-actor-typed_{}:{}".format(scala_major_version, akka_version),
-            "com.typesafe.akka:akka-http_{}:10.2.1".format(scala_major_version, akka_version),
-            "com.typesafe.akka:akka-http-spray-json_{}:10.2.1".format(scala_major_version),
-            "com.typesafe.akka:akka-http-testkit_{}:10.2.1".format(scala_major_version),
+            "com.typesafe.akka:akka-http_{}:{}".format(scala_major_version, akka_http_version),
+            "com.typesafe.akka:akka-http-spray-json_{}:{}".format(scala_major_version, akka_http_version),
+            "com.typesafe.akka:akka-http-testkit_{}:{}".format(scala_major_version, akka_http_version),
             "com.typesafe.akka:akka-slf4j_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-stream_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-stream-testkit_{}:{}".format(scala_major_version, akka_version),
@@ -189,6 +190,9 @@ def install_java_deps():
             "org.seleniumhq.selenium:selenium-java:3.12.0",
             "org.slf4j:slf4j-api:1.7.26",
             "org.slf4j:slf4j-simple:1.7.26",
+            "org.typelevel:cats-core_{}:2.6.1".format(scala_major_version),
+            "org.typelevel:cats-kernel_{}:2.6.1".format(scala_major_version),
+            "org.typelevel:cats-laws_{}:2.6.1".format(scala_major_version),
             "org.typelevel:kind-projector_{}:0.13.2".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),

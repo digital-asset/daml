@@ -5,12 +5,11 @@ package com.daml.lf
 package archive.testing
 
 import com.daml.SafeProto
-
-import java.security.MessageDigest
+import com.daml.crypto.MessageDigestPrototype
+import com.daml.daml_lf_dev.{DamlLf => PLF}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.daml_lf_dev.{DamlLf => PLF}
 
 // Important: do not use this in production code. It is designed for testing only.
 object Encode {
@@ -39,7 +38,10 @@ object Encode {
 
     val payload = data.assertRight(SafeProto.toByteString(encodePayloadOfVersion(pkg, version)))
     val hash = PackageId.assertFromString(
-      MessageDigest.getInstance("SHA-256").digest(payload.toByteArray).map("%02x" format _).mkString
+      MessageDigestPrototype.Sha256.newDigest
+        .digest(payload.toByteArray)
+        .map("%02x" format _)
+        .mkString
     )
 
     PLF.Archive

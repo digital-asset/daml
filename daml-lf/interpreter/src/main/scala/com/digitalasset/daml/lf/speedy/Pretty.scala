@@ -508,8 +508,7 @@ private[lf] object Pretty {
             case SBUCreate(Some(iface)) =>
               text("$createByInterface") + char(',') + text(iface.qualifiedName.toString) +
                 char(']')
-            case SBUFetch(ref) =>
-              text("$fetch") + char('[') + text(ref.qualifiedName.toString) + char(']')
+            case SBFetchAny => text("$fetchAny")
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
@@ -562,6 +561,9 @@ private[lf] object Pretty {
 
         case SEScopeExercise(body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
+
+        case SEPreventCatch(body) =>
+          text("prevent_catch") + char('(') + prettySExpr(index)(body) + text(")")
 
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)

@@ -5,15 +5,16 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
@@ -28,7 +29,6 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,
-    errorFactories: ErrorFactories,
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -58,23 +58,24 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .recoverWith {
               case _: TimeoutException =>
                 Future.failed(
-                  errorFactories
-                    .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
+                  LedgerApiErrors.RequestTimeOut
+                    .Reject("Request timed out", _definiteAnswer = false)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
                     )
+                    .asGrpcError
                 )
               case _: NoSuchElementException =>
+                val errorLogger = new DamlContextualizedErrorLogger(
+                  logger,
+                  loggingContext,
+                  Some(submissionId),
+                )
                 Future.failed(
-                  errorFactories.grpcError(
-                    errorFactories.SubmissionQueueErrors
-                      .queueClosed("Party submission")(
-                        new DamlContextualizedErrorLogger(
-                          logger,
-                          loggingContext,
-                          Some(submissionId),
-                        )
-                      )
-                  )
+                  LedgerApiErrors.ServiceNotRunning
+                    .Reject("Party submission")(
+                      errorLogger
+                    )
+                    .asGrpcError
                 )
             }
             .flatten

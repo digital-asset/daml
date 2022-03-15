@@ -87,7 +87,7 @@ object PartiesService {
       ps: domain.PartySet
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
     import scalaz.std.list._
-    val enel: InvalidUserInput \/ NonEmptyF[List, Ref.Party] = ps.toList.toF traverse toLedgerApi
+    val enel: InvalidUserInput \/ NonEmptyF[List, Ref.Party] = ps.toList.toNEF traverse toLedgerApi
     enel.map { case x +-: xs => OneAnd(x, xs.toSet) }
   }
 

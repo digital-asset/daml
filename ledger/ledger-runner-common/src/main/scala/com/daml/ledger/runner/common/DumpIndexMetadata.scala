@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.IndexMetadata
 
 import scala.concurrent.ExecutionContext
@@ -17,7 +16,6 @@ import scala.util.{Failure, Success}
 object DumpIndexMetadata {
   def apply(
       jdbcUrls: Seq[String],
-      errorFactories: ErrorFactories,
       runnerName: String,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
@@ -28,7 +26,7 @@ object DumpIndexMetadata {
     implicit val materializer: Materializer = Materializer(actorSystem)
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
       newLoggingContext { implicit loggingContext: LoggingContext =>
-        Resource.fromFuture(IndexMetadata.read(jdbcUrl, errorFactories).andThen {
+        Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
           case Failure(exception) =>
             logger.error("Error while retrieving the index metadata", exception)
           case Success(metadata) =>

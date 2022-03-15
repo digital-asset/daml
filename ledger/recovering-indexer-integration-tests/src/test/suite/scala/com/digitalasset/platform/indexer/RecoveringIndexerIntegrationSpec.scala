@@ -32,7 +32,6 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
@@ -235,7 +234,6 @@ class RecoveringIndexerIntegrationSpec
     val stringInterning = new StringInterningView((_, _) => _ => Future.successful(Nil)) // not used
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    val errorFactories: ErrorFactories = mock[ErrorFactories]
     val metrics = new Metrics(new MetricRegistry)
     DbSupport
       .owner(
@@ -261,7 +259,6 @@ class RecoveringIndexerIntegrationSpec
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
           ledgerEndCache = mutableLedgerEndCache,
-          errorFactories = errorFactories,
           stringInterning = stringInterning,
           materializer = materializer,
         ) -> mutableLedgerEndCache

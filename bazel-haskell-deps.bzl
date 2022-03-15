@@ -17,11 +17,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "00c5083b2ce26066cad19364d6d0c1fe"
-GHC_LIB_SHA256 = "6d6a92aa0de6287f33a2947951a3dd6b448d85f866afb7ae42602d8264f3791e"
+GHC_LIB_REV = "77b30a42047ed8fa9e2412a1099db6da"
+GHC_LIB_SHA256 = "a19af8a380a88d5f9f19755109cb5204d5c0d3a16017d00c5b484ad45d919651"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "00c5083b2ce26066cad19364d6d0c1fe"
-GHC_LIB_PARSER_SHA256 = "515cddda730b39aa98809874105a1de967c8dcf482495df7b43c153394cd275d"
+GHC_LIB_PARSER_REV = "77b30a42047ed8fa9e2412a1099db6da"
+GHC_LIB_PARSER_SHA256 = "2612310eec4590202169297880f0eb6e35ab532a5fb9f3828b70fa3282c44514"
 GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "0572146d4b792c6c67affe461e0bd07d49d9df72"
 GHCIDE_SHA256 = "7de56b15d08eab19d325a93c4f43d0ca3d634bb1a1fdc0d18fe4ab4a021cc697"
@@ -41,7 +41,7 @@ LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
 
 def daml_haskell_deps():
-    """Load all Haskell dependencies of the DAML repository."""
+    """Load all Haskell dependencies of the Daml repository."""
 
     #
     # Vendored Packages
@@ -68,7 +68,7 @@ haskell_cabal_library(
         urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
     )
 
-    # ghc-lib based ghcide - injected into `@stackage` and used for DAML IDE.
+    # ghc-lib based ghcide - injected into `@stackage` and used for Daml IDE.
     http_archive(
         name = "ghcide_ghc_lib",
         build_file_content = """

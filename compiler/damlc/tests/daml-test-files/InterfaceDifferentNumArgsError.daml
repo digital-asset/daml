@@ -1,0 +1,25 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ENABLE-SCENARIOS
+-- @ERROR range=23:7-25:24; Equations for method ‘m0’ in template ‘T’ implementation of interface ‘I’ have different numbers of arguments
+
+module InterfaceDifferentNumArgsError where
+
+interface I where
+  m0 : Bool -> Bool -> Party
+
+template T
+  with
+    p0 : Party
+    p1 : Party
+    p2 : Party
+    f : Int
+  where
+    signatory p0, p1
+
+    implements I where
+      m0 False = const p0
+      m0 True False = p1
+      m0 True True = p2

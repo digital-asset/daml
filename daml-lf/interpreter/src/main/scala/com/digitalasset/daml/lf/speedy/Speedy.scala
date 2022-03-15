@@ -107,7 +107,8 @@ private[lf] object Speedy {
       observers: Set[Party],
       key: Option[Node.KeyWithMaintainers],
   ) {
-    private[lf] val stakeholders: Set[Party] = signatories union observers;
+    private[lf] val stakeholders: Set[Party] = signatories union observers
+    private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
   }
 
   private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error) =
@@ -1348,9 +1349,9 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
-        machine.checkContractVisibility(onLedger, cid, cached);
+        machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
-        machine.returnValue = cached.value
+        machine.returnValue = cached.any
       }
     }
   }
@@ -1442,7 +1443,7 @@ private[lf] object Speedy {
               onLedger.ptx = onLedger.ptx.abortExercises
             }
             unwind()
-          case k: KCheckChoiceGuard => {
+          case k: KCheckChoiceGuard =>
             // We must abort, because the transaction has failed in a way that is
             // unrecoverable (it depends on the state of an input contract that
             // we may not have the authority to fetch).
@@ -1450,7 +1451,13 @@ private[lf] object Speedy {
             machine.env.clear()
             machine.envBase = 0
             k.abort()
-          }
+          case KPreventException(_) =>
+            throw SError.SErrorDamlException(
+              interpretation.Error.UnhandledException(
+                excep.ty,
+                excep.value.toUnnormalizedValue,
+              )
+            )
           case _ =>
             unwind()
         }
@@ -1504,6 +1511,11 @@ private[lf] object Speedy {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v
     }
+  }
+
+  private[speedy] final case class KPreventException(machine: Machine) extends Kont {
+    def execute(v: SValue) =
+      machine.returnValue = v
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.

@@ -22,7 +22,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 
 import scala.concurrent.ExecutionContext
 
@@ -75,15 +74,12 @@ class KeyValueDeduplicationSupportFactory(
 
   override def writeService(): WriteService = {
     val writeServiceDelegate = delegate.writeService()
-    val errorFactories = ErrorFactories()
     new WriteServiceWithDeduplicationSupport(
       writeServiceDelegate,
       new DeduplicationPeriodSupport(
         new CompletionBasedDeduplicationPeriodConverter(
           completionsService
-        ),
-        new DeduplicationPeriodValidator(errorFactories),
-        errorFactories,
+        )
       ),
     )
   }

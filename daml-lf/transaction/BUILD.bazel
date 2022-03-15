@@ -57,6 +57,7 @@ da_scala_library(
         ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/safe-proto",
         "//libs-scala/scala-utils",

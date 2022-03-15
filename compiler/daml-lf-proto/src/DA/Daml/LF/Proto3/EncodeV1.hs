@@ -109,11 +109,11 @@ allocDottedName ids = do
 encodeString :: T.Text -> TL.Text
 encodeString = TL.fromStrict
 
--- | Encode a string that will be interned in DAML-LF 1.7 and onwards.
+-- | Encode a string that will be interned in Daml-LF 1.7 and onwards.
 encodeInternableString :: T.Text -> Encode (Either TL.Text Int32)
 encodeInternableString = coerce (encodeInternableStrings @Identity)
 
--- | Encode a string that will be interned in DAML-LF 1.7 and onwards.
+-- | Encode a string that will be interned in Daml-LF 1.7 and onwards.
 encodeInternableStrings :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
 encodeInternableStrings strs = do
     EncodeEnv{..} <- get
@@ -123,7 +123,7 @@ encodeInternableStrings strs = do
 
 -- | Encode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
--- names will be interned in DAML-LF 1.7 and onwards.
+-- names will be interned in Daml-LF 1.7 and onwards.
 encodeName
     :: Util.EitherLike TL.Text Int32 e
     => (a -> T.Text) -> a -> Encode (Just e)
@@ -153,7 +153,7 @@ encodeNames = encodeInternableStrings . fmap mangleName
 
 -- | Encode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names will be interned
--- in DAML-LF 1.7 and onwards.
+-- in Daml-LF 1.7 and onwards.
 encodeDottedName :: Util.EitherLike P.DottedName Int32 e
                  => (a -> [T.Text]) -> a -> Encode (Just e)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
@@ -179,7 +179,7 @@ encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) = do
         Right id -> pure id
 
 -- | Encode the name of a top-level value. The name is mangled and will be
--- interned in DAML-LF 1.7 and onwards.
+-- interned in Daml-LF 1.7 and onwards.
 --
 -- For now, value names are always encoded using a single segment.
 -- This is to keep backwards compat with older .dalf files, but also
@@ -194,7 +194,7 @@ encodeValueName valName = do
         Right id -> pure (V.empty, id)
 
 -- | Encode a reference to a package. Package names are not mangled. Package
--- name are interned since DAML-LF 1.6.
+-- name are interned since Daml-LF 1.6.
 encodePackageRef :: PackageRef -> Encode (Just P.PackageRef)
 encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
     PRSelf -> pure $ P.PackageRefSumSelf P.Unit
@@ -761,13 +761,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseInterfaceCid <- encodeExpr exeContractId
         update_ExerciseInterfaceArg <- encodeExpr exeArg
-        update_ExerciseInterfaceTypeRep <- encodeExpr exeTypeRep
         update_ExerciseInterfaceGuard <- encodeExpr exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseByKeyChoiceInternedStr <-
-          fromRight (error "INTERNAL: exercise_by_key is only available in DAML-LF versions supporting string interning")
+          fromRight (error "INTERNAL: exercise_by_key is only available in Daml-LF versions supporting string interning")
            <$> encodeName' @(Either TL.Text Int32) unChoiceName exeChoice
         update_ExerciseByKeyKey <- encodeExpr exeKey
         update_ExerciseByKeyArg <- encodeExpr exeArg
@@ -1023,7 +1022,7 @@ encodePackageMetadata PackageMetadata{..} = do
     packageMetadataVersionInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
     pure P.PackageMetadata{..}
 
--- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
+-- | NOTE(MH): Assumes the Daml-LF version of the 'Package' is 'V1'.
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version (WithInterning True)
@@ -1039,8 +1038,8 @@ encodePackage (Package version mods metadata) =
     P.Package{..}
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
--- are done in the conversion to DAML-LF.
+-- are done in the conversion to Daml-LF.
 _checkFeature :: Feature -> Version -> a -> a
 _checkFeature feature version x
     | version `supports` feature = x
-    | otherwise = error $ "DAML-LF " ++ renderPretty version ++ " cannot encode feature: " ++ T.unpack (featureName feature)
+    | otherwise = error $ "Daml-LF " ++ renderPretty version ++ " cannot encode feature: " ++ T.unpack (featureName feature)

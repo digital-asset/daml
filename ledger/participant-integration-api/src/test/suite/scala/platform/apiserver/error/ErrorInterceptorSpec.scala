@@ -6,11 +6,13 @@ package com.daml.platform.apiserver.error
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit
 
+import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
+import com.daml.error.definitions.DamlError
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
-  BaseError,
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCategory,
@@ -19,18 +21,15 @@ import com.daml.error.{
   ErrorsAssertions,
 }
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
 import com.daml.platform.testing.{LogCollectorAssertions, StreamConsumer}
 import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
-import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition, _}
 import org.scalatest.{Assertion, Assertions, Checkpoints}
 import org.scalatest.concurrent.Eventually
@@ -56,19 +55,23 @@ final class ErrorInterceptorSpec
 
   classOf[ErrorInterceptor].getSimpleName - {
 
-    assume(FooMissingErrorCode.category.grpcCode.get != Status.Code.INTERNAL)
+    assert(FooMissingErrorCode.category.grpcCode.get != Status.Code.INTERNAL)
 
     "for a server unary future endpoint" - {
       "when signalling with a non-self-service error should SANITIZE the server response when arising " - {
         "inside a Future" in {
-          exerciseUnaryFutureEndpoint(useSelfService = false, insideFuture = true)
+          exerciseUnaryFutureEndpoint(
+            new HelloServiceFailing(useSelfService = false, errorInsideFutureOrStream = true)
+          )
             .map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
             }
         }
 
         s"outside a Future $bypassMsg" in {
-          exerciseUnaryFutureEndpoint(useSelfService = false, insideFuture = false)
+          exerciseUnaryFutureEndpoint(
+            new HelloServiceFailing(useSelfService = false, errorInsideFutureOrStream = false)
+          )
             .map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
             }
@@ -77,7 +80,9 @@ final class ErrorInterceptorSpec
 
       "when signalling with a self-service error should NOT SANITIZE the server response when arising" - {
         "inside a Future" in {
-          exerciseUnaryFutureEndpoint(useSelfService = true, insideFuture = true)
+          exerciseUnaryFutureEndpoint(
+            new HelloServiceFailing(useSelfService = true, errorInsideFutureOrStream = true)
+          )
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actual = t,
@@ -87,7 +92,9 @@ final class ErrorInterceptorSpec
         }
 
         s"outside a Future $bypassMsg" in {
-          exerciseUnaryFutureEndpoint(useSelfService = true, insideFuture = false)
+          exerciseUnaryFutureEndpoint(
+            new HelloServiceFailing(useSelfService = true, errorInsideFutureOrStream = false)
+          )
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actual = t,
@@ -100,16 +107,30 @@ final class ErrorInterceptorSpec
 
     "for an server streaming Akka endpoint" - {
 
+      "signal server shutting down" in {
+        val service =
+          new HelloServiceFailing(useSelfService = false, errorInsideFutureOrStream = true)
+        service.close()
+        exerciseStreamingAkkaEndpoint(service)
+          .map { t: StatusRuntimeException =>
+            assertMatchesErrorCode(t, LedgerApiErrors.ServerIsShuttingDown)
+          }
+      }
+
       "when signalling with a non-self-service error should SANITIZE the server response when arising" - {
         "inside a Stream" in {
-          exerciseStreamingAkkaEndpoint(useSelfService = false, insideStream = true)
+          exerciseStreamingAkkaEndpoint(
+            new HelloServiceFailing(useSelfService = false, errorInsideFutureOrStream = true)
+          )
             .map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
             }
         }
 
         s"outside a Stream $bypassMsg" in {
-          exerciseStreamingAkkaEndpoint(useSelfService = false, insideStream = false)
+          exerciseStreamingAkkaEndpoint(
+            new HelloServiceFailing(useSelfService = false, errorInsideFutureOrStream = false)
+          )
             .map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
             }
@@ -118,7 +139,9 @@ final class ErrorInterceptorSpec
 
       "when signalling with a self-service error should NOT SANITIZE the server response when arising" - {
         "inside a Stream" in {
-          exerciseStreamingAkkaEndpoint(useSelfService = true, insideStream = true)
+          exerciseStreamingAkkaEndpoint(
+            new HelloServiceFailing(useSelfService = true, errorInsideFutureOrStream = true)
+          )
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actual = t,
@@ -128,7 +151,9 @@ final class ErrorInterceptorSpec
         }
 
         s"outside a Stream $bypassMsg" in {
-          exerciseStreamingAkkaEndpoint(useSelfService = true, insideStream = false)
+          exerciseStreamingAkkaEndpoint(
+            new HelloServiceFailing(useSelfService = true, errorInsideFutureOrStream = false)
+          )
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actual = t,
@@ -142,15 +167,11 @@ final class ErrorInterceptorSpec
   }
 
   private def exerciseUnaryFutureEndpoint(
-      useSelfService: Boolean,
-      insideFuture: Boolean,
+      helloService: BindableService
   ): Future[StatusRuntimeException] = {
     val response: Future[HelloResponse] = server(
       tested = new ErrorInterceptor(),
-      service = new HelloServiceFailing(
-        useSelfService = useSelfService,
-        insideFutureOrStream = insideFuture,
-      ),
+      service = helloService,
     ).use { channel =>
       HelloServiceGrpc.stub(channel).single(HelloRequest(1))
     }
@@ -160,15 +181,11 @@ final class ErrorInterceptorSpec
   }
 
   private def exerciseStreamingAkkaEndpoint(
-      useSelfService: Boolean,
-      insideStream: Boolean,
+      helloService: BindableService
   ): Future[StatusRuntimeException] = {
     val response: Future[Vector[HelloResponse]] = server(
       tested = new ErrorInterceptor(),
-      service = new HelloServiceFailing(
-        useSelfService = useSelfService,
-        insideFutureOrStream = insideStream,
-      ),
+      service = helloService,
     ).use { channel =>
       val streamConsumer = new StreamConsumer[HelloResponse](observer =>
         HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(1), observer)
@@ -183,10 +200,11 @@ final class ErrorInterceptorSpec
   private def assertSecuritySanitizedError(actual: StatusRuntimeException): Assertion = {
     assertError(
       actual,
-      expectedCode = Status.Code.INTERNAL,
+      expectedStatusCode = Status.Code.INTERNAL,
       expectedMessage =
         "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
       expectedDetails = Seq(),
+      verifyEmptyStackTrace = false,
     )
     Assertions.succeed
   }
@@ -197,10 +215,11 @@ final class ErrorInterceptorSpec
   ): Assertion = {
     assertError(
       actual,
-      expectedCode = FooMissingErrorCode.category.grpcCode.get,
+      expectedStatusCode = FooMissingErrorCode.category.grpcCode.get,
       expectedMessage = s"FOO_MISSING_ERROR_CODE(11,0): Foo is missing: $expectedMsg",
       expectedDetails =
         Seq(ErrorDetails.ErrorInfoDetail("FOO_MISSING_ERROR_CODE", Map("category" -> "11"))),
+      verifyEmptyStackTrace = false,
     )
     Assertions.succeed
   }
@@ -242,21 +261,18 @@ object ErrorInterceptorSpec {
       )(ErrorClass.root()) {
 
     case class Error(_msg: String)(implicit
-        override val loggingContext: ContextualizedErrorLogger
-    ) extends BaseError.Impl(
+        val loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
           cause = s"Foo is missing: ${_msg}"
         )
 
   }
 
-  trait HelloService_Base extends BindableService {
+  trait HelloServiceBase extends BindableService {
     self: HelloService =>
 
-    private val logger = ContextualizedLogger.get(getClass)
-    private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
-
     implicit protected val damlLogger: DamlContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
+      DamlContextualizedErrorLogger.forTesting(getClass)
 
     override def bindService(): ServerServiceDefinition =
       HelloServiceGrpc.bindService(this, scala.concurrent.ExecutionContext.Implicits.global)
@@ -264,22 +280,20 @@ object ErrorInterceptorSpec {
     override def fails(request: HelloRequest): Future[HelloResponse] = ??? // not used in this test
   }
 
-  /** @param useSelfService      - whether to use self service error codes or a "rogue" exception
-    * @param insideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
+  /** @param useSelfService - whether to use self service error codes or "rogue" exceptions
+    * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
     */
-  // TODO error codes: Extend a HelloService generated by our Akka streaming scalapb plugin. (~HelloServiceAkkaGrpc)
-  class HelloServiceFailing(useSelfService: Boolean, insideFutureOrStream: Boolean)(implicit
-      executionSequencerFactory: ExecutionSequencerFactory,
-      materializer: Materializer,
-  ) extends HelloService
+  class HelloServiceFailing(useSelfService: Boolean, errorInsideFutureOrStream: Boolean)(implicit
+      protected val esf: ExecutionSequencerFactory,
+      protected val mat: Materializer,
+  ) extends HelloServiceAkkaGrpc
       with HelloServiceResponding
-      with HelloService_Base {
+      with HelloServiceBase {
 
-    override def serverStreaming(
-        request: HelloRequest,
-        responseObserver: StreamObserver[HelloResponse],
-    ): Unit = {
-      val where = if (insideFutureOrStream) "inside" else "outside"
+    override protected def serverStreamingSource(
+        request: HelloRequest
+    ): Source[HelloResponse, NotUsed] = {
+      val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
         FooMissingErrorCode
           .Error(s"Non-Status.INTERNAL self-service error $where a Stream")
@@ -287,18 +301,17 @@ object ErrorInterceptorSpec {
       } else {
         new IllegalArgumentException(s"Failure $where a Stream")
       }
-      if (insideFutureOrStream) {
-        val _ = Source
+      if (errorInsideFutureOrStream) {
+        Source
           .single(request)
           .via(Flow[HelloRequest].mapConcat(_ => throw t))
-          .runWith(ServerAdapter.toSink(responseObserver))
       } else {
         throw t
       }
     }
 
     override def single(request: HelloRequest): Future[HelloResponse] = {
-      val where = if (insideFutureOrStream) "inside" else "outside"
+      val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
         FooMissingErrorCode
           .Error(s"Non-Status.INTERNAL self-service error $where a Future")
@@ -306,7 +319,7 @@ object ErrorInterceptorSpec {
       } else {
         new IllegalArgumentException(s"Failure $where a Future")
       }
-      if (insideFutureOrStream) {
+      if (errorInsideFutureOrStream) {
         Future.failed(t)
       } else {
         throw t

@@ -3,14 +3,16 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-
 import java.util.UUID
+
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
 }
+import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.{v2 => state}
@@ -24,8 +26,8 @@ import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
 
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
@@ -35,9 +37,6 @@ final class ApiParticipantPruningService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
-
-  import errorFactories._
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
@@ -112,7 +111,7 @@ final class ApiParticipantPruningService private (
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
       .asScala
       .flatMap {
-        case NotPruned(status) => Future.failed(status.asRuntimeException())
+        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
@@ -149,12 +148,14 @@ final class ApiParticipantPruningService private (
       .toEither
       .left
       .map(t =>
-        nonHexOffset(
-          fieldName = "prune_up_to",
-          offsetValue = pruneUpToString,
-          message =
-            s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
-        )
+        LedgerApiErrors.RequestValidation.NonHexOffset
+          .Error(
+            _fieldName = "prune_up_to",
+            _offsetValue = pruneUpToString,
+            _message =
+              s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
+          )
+          .asGrpcError
       )
 
   private def checkOffsetIsBeforeLedgerEnd(
@@ -167,14 +168,15 @@ final class ApiParticipantPruningService private (
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
+        // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value)
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
-            //                   and use offsetAfterLedgerEnd
-            offsetOutOfRange(
-              s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
-            )
+            LedgerApiErrors.RequestValidation.OffsetOutOfRange
+              .Reject(
+                s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
+              )
+              .asGrpcError
           )
     } yield pruneUpToProto
 

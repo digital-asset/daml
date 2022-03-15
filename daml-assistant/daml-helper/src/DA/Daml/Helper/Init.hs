@@ -71,12 +71,12 @@ runInit targetFolderM = do
     damlProjectRootM <- findDamlProjectRoot targetFolderAbs
     whenJust damlProjectRootM $ \projectRoot -> do
         let projectRootRel = makeRelative currentDir projectRoot
-        hPutStrLn stderr $ "DAML project already initialized at " <> projectRootRel
+        hPutStrLn stderr $ "Daml project already initialized at " <> projectRootRel
         when (targetFolderAbs /= projectRoot) $ do
             hPutStr stderr $ unlines
-                [ "WARNING: daml init target is not the DAML project root."
+                [ "WARNING: daml init target is not the Daml project root."
                 , "    daml init target  = " <> targetFolder
-                , "    DAML project root = " <> projectRootRel
+                , "    Daml project root = " <> projectRootRel
                 ]
         exitSuccess
 

@@ -104,8 +104,8 @@ object WebSocketService {
     import JsonProtocol._
 
     def logHiddenErrors()(implicit lc: LoggingContextOf[InstanceUUID]): Unit =
-      errors foreach { case ServerError(message) =>
-        logger.error(s"while rendering contract: ${message: String}")
+      errors foreach { case ServerError(reason) =>
+        logger.error(s"while rendering contract", reason)
       }
 
     def render(implicit lfv: LfVT <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
@@ -966,12 +966,12 @@ class WebSocketService(
           ae =>
             domain.ArchivedContract
               .fromLedgerApi(ae)
-              .liftErr(ServerError),
+              .liftErr(ServerError.fromMsg),
           ce =>
             domain.ActiveContract
               .fromLedgerApi(ce)
-              .liftErr(ServerError)
-              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
+              .liftErr(ServerError.fromMsg)
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)
         StepAndErrors(
           errors ++ aerrors,

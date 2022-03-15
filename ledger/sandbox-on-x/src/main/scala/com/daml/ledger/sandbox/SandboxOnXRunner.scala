@@ -37,7 +37,6 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
@@ -63,15 +62,14 @@ object SandboxOnXRunner {
       .map(manipulateConfig)
       .flatMap(owner)
 
-  private def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
+  def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
         val config = BridgeConfigProvider.manipulateConfig(originalConfig)
-        val errorFactories = ErrorFactories()
 
         config.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
-            DumpIndexMetadata(jdbcUrls, errorFactories, RunnerName)
+            DumpIndexMetadata(jdbcUrls, RunnerName)
             sys.exit(0)
           case Mode.Run =>
             run(config)

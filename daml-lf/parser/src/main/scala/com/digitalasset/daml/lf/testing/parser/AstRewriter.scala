@@ -175,14 +175,13 @@ private[daml] class AstRewriter(
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
-        UpdateExercise(apply(templateId), choice, cid, apply(arg))
-      case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
+        UpdateExercise(apply(templateId), choice, apply(cid), apply(arg))
+      case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
         UpdateExerciseInterface(
           apply(interface),
           choice,
-          cid,
+          apply(cid),
           apply(arg),
-          apply(typeRep),
           apply(guard),
         )
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
@@ -266,7 +265,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
-          implements.transform((_, x) => apply(x)),
+          implements.map({ case (t, x) => (apply(t), apply(x)) }),
         )
     }
 
@@ -302,7 +301,7 @@ private[daml] class AstRewriter(
             inheritedChoices,
           ) =>
         TemplateImplements(
-          interface,
+          apply(interface),
           methods.transform((_, x) => apply(x)),
           inheritedChoices,
         )
@@ -340,7 +339,7 @@ private[daml] class AstRewriter(
     x match {
       case DefInterface(requires, param, fixedChoices, methods, precond) =>
         DefInterface(
-          requires,
+          requires.map(apply(_)),
           param,
           fixedChoices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),

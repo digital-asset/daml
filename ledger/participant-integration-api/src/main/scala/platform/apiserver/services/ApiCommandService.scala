@@ -10,6 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -44,7 +45,6 @@ import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
@@ -65,8 +65,6 @@ private[apiserver] final class ApiCommandService private[services] (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories()
-
   @volatile private var running = true
 
   override def close(): Unit = {
@@ -79,7 +77,7 @@ private[apiserver] final class ApiCommandService private[services] (
     withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
         case Left(failure) =>
-          throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
+          throw CompletionResponse.toException(failure)(errorLogger)
         case Right(_) => Empty.defaultInstance
       }
     }
@@ -90,7 +88,7 @@ private[apiserver] final class ApiCommandService private[services] (
     withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
         case Left(failure) =>
-          throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
+          throw CompletionResponse.toException(failure)(errorLogger)
         case Right(response) =>
           SubmitAndWaitForTransactionIdResponse.of(
             response.transactionId,
@@ -108,7 +106,7 @@ private[apiserver] final class ApiCommandService private[services] (
     withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).flatMap {
         case Left(failure) =>
-          Future.failed(CompletionResponse.toException(failure, errorFactories)(errorLogger))
+          Future.failed(CompletionResponse.toException(failure)(errorLogger))
         case Right(resp) =>
           val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
           val txRequest = GetTransactionByIdRequest(
@@ -134,7 +132,7 @@ private[apiserver] final class ApiCommandService private[services] (
     withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).flatMap {
         case Left(failure) =>
-          Future.failed(CompletionResponse.toException(failure, errorFactories)(errorLogger))
+          Future.failed(CompletionResponse.toException(failure)(errorLogger))
         case Right(resp) =>
           val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
           val txRequest = GetTransactionByIdRequest(
@@ -164,7 +162,7 @@ private[apiserver] final class ApiCommandService private[services] (
     } else {
       Future
         .failed(
-          errorFactories.serviceNotRunning("Command Service")
+          LedgerApiErrors.ServiceNotRunning.Reject("Command Service").asGrpcError
         )
     }
 
@@ -215,8 +213,6 @@ private[apiserver] object ApiCommandService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
-    val errorFactories = ErrorFactories()
-    val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
@@ -225,8 +221,6 @@ private[apiserver] object ApiCommandService {
         submissionFlow,
         completionServices,
         metrics,
-        errorFactories,
-        ledgerOffsetValidator,
       ),
       trackerCleanupInterval,
     )
@@ -272,8 +266,6 @@ private[apiserver] object ApiCommandService {
         submissionFlow: SubmissionFlow,
         completionServices: CommandCompletionService,
         metrics: Metrics,
-        errorFactories: ErrorFactories,
-        offsetValidator: LedgerOffsetValidator,
     )(
         key: Tracking.Key
     )(implicit
@@ -292,7 +284,7 @@ private[apiserver] object ApiCommandService {
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
             commandSubmissionFlow = submissionFlow,
             createCommandCompletionSource = offset =>
-              offsetValidator
+              LedgerOffsetValidator
                 .validate(offset, "command_tracker_offset")
                 .fold(
                   Source.failed,
@@ -329,7 +321,6 @@ private[apiserver] object ApiCommandService {
           capacityCounter = metrics.daml.commands.inputBufferCapacity,
           lengthCounter = metrics.daml.commands.inputBufferLength,
           delayTimer = metrics.daml.commands.inputBufferDelay,
-          errorFactories = errorFactories,
         )
       }
     }

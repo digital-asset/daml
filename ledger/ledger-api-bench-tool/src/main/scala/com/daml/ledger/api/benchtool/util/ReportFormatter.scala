@@ -59,6 +59,7 @@ object ReportFormatter {
     case _: DelayMetric.Value => "Mean delay [s]"
     case _: SizeMetric.Value => "Size rate [MB/s]"
     case _: TotalCountMetric.Value => "Total item count [item]"
+    case _: LatencyMetric.Value => "Average latency (millis)"
   }
 
   private def shortMetricReport(value: MetricValue): String =
@@ -70,6 +71,7 @@ object ReportFormatter {
     case _: DelayMetric.Value => "delay [s]"
     case _: SizeMetric.Value => "rate [MB/s]"
     case _: TotalCountMetric.Value => "count [item]"
+    case _: LatencyMetric.Value => "Average latency (millis)"
   }
 
   private def formattedValue(value: MetricValue): String = value match {
@@ -83,6 +85,8 @@ object ReportFormatter {
       s"${rounded(v.megabytesPerSecond)}"
     case v: TotalCountMetric.Value =>
       s"${v.totalCount}"
+    case v: LatencyMetric.Value =>
+      s"${v.latencyNanos / 1000000.0d}"
   }
 
   private def objectiveName(objective: ServiceLevelObjective[_]): String =
@@ -95,6 +99,8 @@ object ReportFormatter {
         s"Minimum item rate [item/s]"
       case _: CountRateMetric.RateObjective.MaxRate =>
         s"Maximum item rate [item/s]"
+      case _: LatencyMetric.MaxLatency =>
+        "Maximum latency (millis)"
     }
 
   private def formattedObjectiveValue(objective: ServiceLevelObjective[_]): String =
@@ -107,6 +113,8 @@ object ReportFormatter {
         obj.minAllowedRatePerSecond.toString
       case obj: CountRateMetric.RateObjective.MaxRate =>
         obj.minAllowedRatePerSecond.toString
+      case obj: LatencyMetric.MaxLatency =>
+        obj.millis.toString
     }
 
   private def rounded(value: Double): String = "%.2f".format(value)

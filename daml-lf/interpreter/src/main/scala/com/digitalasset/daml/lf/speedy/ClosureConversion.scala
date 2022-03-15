@@ -156,6 +156,8 @@ private[speedy] object ClosureConversion {
       final case object ScopeExercise extends Cont
 
       final case class LabelClosure(label: Profile.Label) extends Cont
+
+      final case object PreventCatch extends Cont
     }
 
     /* The entire traversal in performed by this single tail recursive 'loop' function.
@@ -211,6 +213,9 @@ private[speedy] object ClosureConversion {
 
             case source.SEScopeExercise(body) =>
               loop(Down(body, env), Cont.ScopeExercise :: conts)
+
+            case source.SEPreventCatch(body) =>
+              loop(Down(body, env), Cont.PreventCatch :: conts)
 
             case source.SELabelClosure(label, expr) =>
               loop(Down(expr, env), Cont.LabelClosure(label) :: conts)
@@ -306,6 +311,10 @@ private[speedy] object ClosureConversion {
                 case Cont.LabelClosure(label) =>
                   val expr = result
                   loop(Up(target.SELabelClosure(label, expr)), conts)
+
+                case Cont.PreventCatch =>
+                  val body = result
+                  loop(Up(target.SEPreventCatch(body)), conts)
               }
           }
       }
@@ -346,6 +355,7 @@ private[speedy] object ClosureConversion {
             case source.SELabelClosure(_, expr) => go(acc, expr :: work)
             case source.SETryCatch(body, handler) => go(acc, handler :: body :: work)
             case source.SEScopeExercise(body) => go(acc, body :: work)
+            case source.SEPreventCatch(body) => go(acc, body :: work)
           }
         }
       }

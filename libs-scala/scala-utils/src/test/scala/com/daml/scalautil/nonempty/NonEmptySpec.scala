@@ -3,13 +3,55 @@
 
 package com.daml.scalautil.nonempty
 
+import com.daml.scalatest.WordSpecCheckLaws
+
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 
+import scalaz.scalacheck.{ScalazProperties => SZP}
+import scalaz.Foldable
 import shapeless.test.illTyped
 
-class NonEmptySpec extends AnyWordSpec with Matchers {
+class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   import scala.{collection => col}, col.{mutable => mut}, col.{immutable => imm}
+  import NonEmptySpec._
+
+  "apply" should {
+    "lub arguments" in {
+      val s = NonEmpty(imm.Set, Left(1), Right("hi"))
+      (s: NonEmpty[imm.Set[Either[Int, String]]]) should ===(s)
+    }
+  }
+
+  "mk" should {
+    "infer A from expected type" in {
+      trait Animal
+      trait Ok
+      object Elephant extends Animal with Ok
+      object Rhino extends Animal with Ok
+      illTyped(
+        "NonEmpty(imm.Set, Elephant, Rhino): imm.Set[Animal]",
+        "(?s).*?cannot be instantiated to expected type.*",
+      )
+      val s = NonEmpty.mk(imm.Set, Elephant, Rhino)
+      val sw = NonEmpty.mk(imm.Set, Elephant, Rhino): NonEmpty[imm.Set[Animal]]
+      (s: imm.Set[Animal with Ok]) should ===(sw: imm.Set[Animal])
+    }
+
+    "impose enough expected type to cause implicit conversions of elements" in {
+      object Foo
+      object Bar
+      import language.implicitConversions
+      @annotation.nowarn("cat=unused&msg=foo")
+      implicit def foobar(foo: Foo.type): Bar.type = Bar
+      illTyped(
+        "NonEmpty(List, Foo, Foo): NonEmpty[List[Bar.type]]",
+        "No implicit view available from .*List.type => .*Factory\\[Foo.type,.*Iterable\\[Foo.type] with List\\[Bar.type]].",
+      )
+      val bars: NonEmpty[List[Bar.type]] = NonEmpty.mk(List, Foo, Foo)
+      (bars: List[Bar.type]).head should ===(Bar)
+    }
+  }
 
   "unapply" should {
     "compile on immutable maps" in {
@@ -72,28 +114,30 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
-  "toF" should {
+  "toNEF" should {
     "destructure the Set type" in {
       val NonEmpty(s) = imm.Set(1)
-      val g = Set(s.toF)
+      val g = Set(s.toNEF)
       g: Set[NonEmptyF[imm.Set, Int]]
     }
 
     "destructure the Map type" in {
       val NonEmpty(m) = Map(1 -> 2)
-      val g = Set(m.toF)
+      val g = Set(m.toNEF)
       g: Set[NonEmptyF[Map[Int, *], Int]]
     }
 
     "allow underlying NonEmpty operations" in {
       val NonEmpty(s) = imm.Set(1)
-      ((s.toF incl 2): NonEmpty[imm.Set[Int]]) should ===(imm.Set(1, 2))
+      ((s.toNEF incl 2): NonEmpty[imm.Set[Int]]) should ===(imm.Set(1, 2))
     }
 
     "allow access to Scalaz methods" in {
       import scalaz.syntax.functor._, scalaz.std.map._
       val NonEmpty(m) = imm.Map(1 -> 2)
-      (m.toF.map((3, _)): NonEmptyF[imm.Map[Int, *], (Int, Int)]) should ===(imm.Map(1 -> ((3, 2))))
+      (m.toNEF.map((3, _)): NonEmptyF[imm.Map[Int, *], (Int, Int)]) should ===(
+        imm.Map(1 -> ((3, 2)))
+      )
     }
   }
 
@@ -171,6 +215,18 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "Foldable" should {
+    "prefer the substed version over the derived one" in {
+      import scalaz.std.list._
+      Foldable[NonEmptyF[List, *]].getClass should be theSameInstanceAs Foldable[List].getClass
+    }
+  }
+
+  "Foldable1 from Foldable" should {
+    import scalaz.std.vector._, scalaz.std.anyVal._
+    checkLaws(SZP.foldable1.laws[NonEmptyF[Vector, *]])
+  }
+
   // why we don't allow `scala.collection` types
   "scala.collection.Seq" must {
     "accept that its non-emptiness is ephemeral" in {
@@ -181,4 +237,23 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
       (csIsNonEmpty, cs) should ===((true, col.Seq.empty))
     }
   }
+
+  // merely checking that too much evidence doesn't result in ambiguous
+  // lookup
+  object UnambiguousResolutionTests {
+    import scalaz.{Foldable, Traverse}
+    def foldableTraverse[F[_]: Traverse]: Foldable[F] = Foldable[F]
+    def foldableNot1[F[_]: Foldable]: Foldable[F] = Foldable[F]
+  }
+}
+
+object NonEmptySpec {
+  import org.scalacheck.Arbitrary, Arbitrary.arbitrary
+  import NonEmptyReturningOps._
+  import NonEmptyCollCompat.SeqOps
+
+  implicit def `ne seq arb`[A: Arbitrary, C[X] <: Seq[X] with SeqOps[X, C, C[X]]](implicit
+      C: Arbitrary[C[A]]
+  ): Arbitrary[NonEmptyF[C, A]] =
+    Arbitrary(arbitrary[(A, C[A])] map { case (hd, tl) => (hd +-: tl).toNEF })
 }

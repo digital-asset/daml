@@ -298,8 +298,8 @@ getPackageMetadata pkgName mbPkgVersion =
 
 -- | Given the name of a DALF and the decoded package return package metadata.
 --
--- For newer DAML-LF versions this is taken directly from the
--- package metadata in DAML-LF. For older versions, we instead infer
+-- For newer Daml-LF versions this is taken directly from the
+-- package metadata in Daml-LF. For older versions, we instead infer
 -- metadata from the filename.
 packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, Maybe PackageVersion)
 packageMetadataFromFile file pkg pkgId

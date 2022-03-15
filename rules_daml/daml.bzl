@@ -9,7 +9,7 @@ _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
     executable = True,
     cfg = "host",
-    doc = "The DAML compiler.",
+    doc = "The Daml compiler.",
 )
 
 _zipper = attr.label(
@@ -47,18 +47,18 @@ _daml_configure = rule(
     attrs = {
         "project_name": attr.string(
             mandatory = True,
-            doc = "Name of the DAML project.",
+            doc = "Name of the Daml project.",
         ),
         "project_version": attr.string(
             mandatory = True,
-            doc = "Version of the DAML project.",
+            doc = "Version of the Daml project.",
         ),
         "daml_yaml": attr.output(
             mandatory = True,
             doc = "The generated daml.yaml config file.",
         ),
         "target": attr.string(
-            doc = "DAML-LF version to output.",
+            doc = "Daml-LF version to output.",
         ),
     },
 )
@@ -87,7 +87,7 @@ def _daml_build_impl(ctx):
         tools = [damlc],
         inputs = [daml_yaml] + srcs + input_dars,
         outputs = [output_dar],
-        progress_message = "Building DAML project %s" % name,
+        progress_message = "Building Daml project %s" % name,
         command = """
             set -eou pipefail
             tmpdir=$(mktemp -d)
@@ -135,12 +135,12 @@ _daml_build = rule(
         "srcs": attr.label_list(
             allow_files = [".daml"],
             mandatory = True,
-            doc = "DAML files in this DAML project.",
+            doc = "Daml files in this Daml project.",
         ),
         "dar_dict": attr.label_keyed_string_dict(
             mandatory = True,
             allow_files = True,
-            doc = "Other DAML projects referenced by this DAML project.",
+            doc = "Other Daml projects referenced by this Daml project.",
         ),
         "dar": attr.output(
             mandatory = True,
@@ -193,11 +193,11 @@ _extract_main_dalf = rule(
     attrs = {
         "project_name": attr.string(
             mandatory = True,
-            doc = "Name of the DAML project.",
+            doc = "Name of the Daml project.",
         ),
         "project_version": attr.string(
             mandatory = True,
-            doc = "Version of the DAML project.",
+            doc = "Version of the Daml project.",
         ),
         "dar": attr.label(
             allow_single_file = [".dar"],
@@ -274,7 +274,7 @@ def daml_compile(
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
         **kwargs):
-    "Build a DAML project, with a generated daml.yaml."
+    "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
         fail("daml_compile: Expected `srcs' to be non-empty.")
     daml_yaml = name + ".yaml"
@@ -309,7 +309,7 @@ def daml_compile_with_dalf(
         name,
         version = _default_project_version,
         **kwargs):
-    "Build a DAML project, with a generated daml.yaml, and extract the main DALF."
+    "Build a Daml project, with a generated daml.yaml, and extract the main DALF."
     daml_compile(
         name = name,
         version = version,
@@ -332,7 +332,7 @@ def daml_build_test(
         dar_dict = {},
         ghc_options = default_damlc_opts,
         **kwargs):
-    "Build a DAML project and validate the resulting .dar file."
+    "Build a Daml project and validate the resulting .dar file."
     if not daml_yaml:
         daml_yaml = project_dir + "/" + daml_config_basename
     srcs = native.glob([project_dir + "/" + daml_subdir_basename + "/**/*.daml"])
@@ -383,13 +383,14 @@ EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
-$$DAMLC test --files {files}
+$$DAMLC test {damlc_opts} --files {files}
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
+            damlc_opts = " ".join(default_damlc_opts),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),

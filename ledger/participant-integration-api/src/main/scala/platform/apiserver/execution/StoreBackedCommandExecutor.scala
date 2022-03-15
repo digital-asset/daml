@@ -3,10 +3,10 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.ErrorCause
-
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+
+import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -23,7 +23,7 @@ import com.daml.lf.engine.{
   ResultNeedPackage,
   Error => DamlLfError,
 }
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.packages.DeduplicatingPackageLoader
@@ -31,12 +31,17 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
+  *           performed by an [[com.daml.lf.engine.Engine]].
+  */
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
     metrics: Metrics,
+)(implicit
+    ec: ExecutionContext
 ) extends CommandExecutor {
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
@@ -46,68 +51,107 @@ private[apiserver] final class StoreBackedCommandExecutor(
       submissionSeed: crypto.Hash,
       ledgerConfiguration: Configuration,
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
-    // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
-    // When looking up contracts during command interpretation, the engine should only see contracts
-    // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
-    // Daml ledger model.
-    // When checking Daml authorization rules, the engine verifies that the actAs parties are sufficient to
-    // authorize the resulting transaction.
-    val commitAuthorizers = commands.actAs
-    val submissionResult = Timed.trackedValue(
-      metrics.daml.execution.engineRunning,
-      engine.submit(
-        commitAuthorizers,
+    for {
+      submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
+      submission <- consume(
+        commands.actAs,
         commands.readAs,
-        commands.commands,
-        participant,
-        submissionSeed,
-      ),
-    )
-    consume(commands.actAs, commands.readAs, submissionResult)
-      .map { submission =>
-        (for {
-          result <- submission
-          (updateTx, meta) = result
-        } yield {
+        submissionResult,
+        interpretationTimeNanos,
+      )
+    } yield {
+      submission
+        .map { case (updateTx, meta) =>
           val interpretationTimeNanos = System.nanoTime() - start
-          CommandExecutionResult(
-            submitterInfo = state.SubmitterInfo(
-              commands.actAs.toList,
-              commands.readAs.toList,
-              commands.applicationId,
-              commands.commandId.unwrap,
-              commands.deduplicationPeriod,
-              commands.submissionId.map(_.unwrap),
-              ledgerConfiguration,
-            ),
-            transactionMeta = state.TransactionMeta(
-              commands.commands.ledgerEffectiveTime,
-              commands.workflowId.map(_.unwrap),
-              meta.submissionTime,
-              submissionSeed,
-              Some(meta.usedPackages),
-              Some(meta.nodeSeeds),
-              Some(
-                updateTx.nodes
-                  .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
-                  .to(ImmArray)
-              ),
-            ),
-            transaction = updateTx,
-            dependsOnLedgerTime = meta.dependsOnTime,
-            interpretationTimeNanos = interpretationTimeNanos,
+          commandExecutionResult(
+            commands,
+            submissionSeed,
+            ledgerConfiguration,
+            updateTx,
+            meta,
+            interpretationTimeNanos,
           )
-        }).left.map(ErrorCause.DamlLf)
-      }
+        }
+        .left
+        .map(ErrorCause.DamlLf)
+    }
   }
 
-  private def consume[A](actAs: Set[Ref.Party], readAs: Set[Ref.Party], result: Result[A])(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContext,
+  private def commandExecutionResult(
+      commands: ApiCommands,
+      submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
+      updateTx: SubmittedTransaction,
+      meta: Transaction.Metadata,
+      interpretationTimeNanos: Long,
+  ) = {
+    CommandExecutionResult(
+      submitterInfo = state.SubmitterInfo(
+        commands.actAs.toList,
+        commands.readAs.toList,
+        commands.applicationId,
+        commands.commandId.unwrap,
+        commands.deduplicationPeriod,
+        commands.submissionId.map(_.unwrap),
+        ledgerConfiguration,
+      ),
+      transactionMeta = state.TransactionMeta(
+        commands.commands.ledgerEffectiveTime,
+        commands.workflowId.map(_.unwrap),
+        meta.submissionTime,
+        submissionSeed,
+        Some(meta.usedPackages),
+        Some(meta.nodeSeeds),
+        Some(
+          updateTx.nodes
+            .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
+            .to(ImmArray)
+        ),
+      ),
+      transaction = updateTx,
+      dependsOnLedgerTime = meta.dependsOnTime,
+      interpretationTimeNanos = interpretationTimeNanos,
+    )
+  }
+
+  private def submitToEngine(
+      commands: ApiCommands,
+      submissionSeed: crypto.Hash,
+      interpretationTimeNanos: AtomicLong,
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
+    Timed.trackedFuture(
+      metrics.daml.execution.engineRunning,
+      Future(trackSyncExecution(interpretationTimeNanos) {
+        // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
+        // When looking up contracts during command interpretation, the engine should only see contracts
+        // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
+        // Daml ledger model.
+        // When checking Daml authorization rules, the engine verifies that the actAs parties are sufficient to
+        // authorize the resulting transaction.
+        val commitAuthorizers = commands.actAs
+        engine.submit(
+          commitAuthorizers,
+          commands.readAs,
+          commands.commands,
+          participant,
+          submissionSeed,
+        )
+      }),
+    )
+
+  private def consume[A](
+      actAs: Set[Ref.Party],
+      readAs: Set[Ref.Party],
+      result: Result[A],
+      interpretationTimeNanos: AtomicLong,
+  )(implicit
+      loggingContext: LoggingContext
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
 
@@ -134,7 +178,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(instance))
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(instance)),
+                )
               )
             }
 
@@ -149,7 +196,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId))
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
+                )
               )
             }
 
@@ -162,7 +212,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
             )
             .flatMap { maybePackage =>
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage))
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(maybePackage)),
+                )
               )
             }
       }
@@ -176,6 +229,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
         .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
       metrics.daml.execution.lookupContractKeyCountPerExecution
         .update(lookupContractKeyCount.get())
+      metrics.daml.execution.engine
+        .update(interpretationTimeNanos.get(), TimeUnit.NANOSECONDS)
     }
+  }
+
+  private def trackSyncExecution[T](atomicNano: AtomicLong)(computation: => T): T = {
+    val start = System.nanoTime()
+    val result = computation
+    atomicNano.addAndGet(System.nanoTime() - start)
+    result
   }
 }

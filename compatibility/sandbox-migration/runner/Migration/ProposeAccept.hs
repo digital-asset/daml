@@ -87,7 +87,7 @@ test step modelDar = Test {..}
     testAccepter = Party "accepter"
 
 -- The datatypes are defined such that the autoderived Aeson instances
--- match the DAML-LF JSON encoding.
+-- match the Daml-LF JSON encoding.
 
 data Deal = Deal
   { proposer :: Party

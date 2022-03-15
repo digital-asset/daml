@@ -136,6 +136,9 @@ trait MeteringParameterStorageBackend {
   /** The timestamp and offset for which billable metering is available */
   def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd]
 
+  /** The timestamp and offset for which final metering is available */
+  def assertLedgerMeteringEnd(connection: Connection): LedgerMeteringEnd
+
   /** Update the timestamp and offset for which billable metering is available */
   def updateLedgerMeteringEnd(ledgerMeteringEnd: LedgerMeteringEnd)(connection: Connection): Unit
 }
@@ -422,11 +425,9 @@ trait UserManagementStorageBackend {
       connection: Connection
   ): Vector[User]
 
-  /** @return true if the right didn't exist and we have just added it.
-    */
   def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
-  ): Boolean
+  ): Unit
 
   /** @return true if the right existed and we have just deleted it.
     */

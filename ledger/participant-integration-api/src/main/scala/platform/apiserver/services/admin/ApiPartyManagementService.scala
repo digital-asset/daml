@@ -5,12 +5,14 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.UUID
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
+import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
@@ -24,7 +26,6 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -48,16 +49,13 @@ private[apiserver] final class ApiPartyManagementService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories()
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionService,
       writeService,
       partyManagementService,
-      errorFactories,
     ),
     timeToLive = managementServiceTimeout,
-    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()
@@ -110,7 +108,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 error =>
                   Future.failed(
                     ValidationLogger
-                      .logFailure(request, errorFactories.invalidArgument(error))
+                      .logFailure(request, ValidationErrors.invalidArgument(error))
                   ),
                 party => Future.successful(Some(party)),
               )
@@ -185,7 +183,6 @@ private[apiserver] object ApiPartyManagementService {
       ledgerEndService: LedgerEndService,
       writeService: state.WritePartyService,
       partyManagementService: IndexPartyManagementService,
-      errorFactories: ErrorFactories,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Option[Ref.Party], Option[String]),
@@ -218,7 +215,7 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        errorFactories.invalidArgument(reason)(
+        ValidationErrors.invalidArgument(reason)(
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
         )
     }

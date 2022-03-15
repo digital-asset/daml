@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
@@ -41,12 +41,10 @@ private[apiserver] final class ApiUserManagementService(
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories()
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val fieldValidations = FieldValidations(errorFactories)
 
-  import fieldValidations._
+  import FieldValidations._
 
   override def close(): Unit = ()
 
@@ -151,7 +149,7 @@ private[apiserver] final class ApiUserManagementService(
   ): Future[proto.RevokeUserRightsResponse] = withSubmissionId { implicit loggingContext =>
     withValidation(
       for {
-        userId <- fieldValidations.requireUserId(request.userId, "user_id")
+        userId <- FieldValidations.requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
@@ -183,17 +181,23 @@ private[apiserver] final class ApiUserManagementService(
     result match {
       case Left(UserManagementStore.UserNotFound(id)) =>
         Future.failed(
-          LedgerApiErrors.AdminServices.UserNotFound.Reject(operation, id.toString).asGrpcError
+          LedgerApiErrors.Admin.UserManagement.UserNotFound
+            .Reject(operation, id.toString)
+            .asGrpcError
         )
 
       case Left(UserManagementStore.UserExists(id)) =>
         Future.failed(
-          LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id.toString).asGrpcError
+          LedgerApiErrors.Admin.UserManagement.UserAlreadyExists
+            .Reject(operation, id.toString)
+            .asGrpcError
         )
 
       case Left(UserManagementStore.TooManyUserRights(id)) =>
         Future.failed(
-          LedgerApiErrors.AdminServices.TooManyUserRights.Reject(operation, id: String).asGrpcError
+          LedgerApiErrors.Admin.UserManagement.TooManyUserRights
+            .Reject(operation, id: String)
+            .asGrpcError
         )
 
       case scala.util.Right(t) =>

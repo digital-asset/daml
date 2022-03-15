@@ -13,7 +13,6 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
@@ -54,7 +53,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
       acsIdQueueLimit: Int,
-      errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
@@ -94,7 +92,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = Some(new ValueEnricher(new Engine())),
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-          errorFactories = errorFactories,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
           materializer = materializer,
@@ -108,7 +105,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
-  private val errorFactories = ErrorFactories()
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -126,7 +122,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
           acsIdQueueLimit = 1000000,
-          errorFactories,
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())

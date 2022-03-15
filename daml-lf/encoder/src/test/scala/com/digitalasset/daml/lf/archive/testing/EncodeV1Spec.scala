@@ -40,19 +40,46 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
             record @serializable Person = { person: Party, name: Text } ;
 
+            interface (this: Planet) = {
+              precondition True;
+            };
+
+            interface (this: Human) = {
+              requires Mod:Planet;
+              precondition False;
+              method asParty: Party;
+              method getName: Text;
+              choice HumanSleep (self) (u:Unit) : ContractId Mod:Human
+                , controllers Cons @Party [call_method @Mod:Human asParty this] (Nil @Party)
+                , observers Nil @Party
+                to upure @(ContractId Mod:Human) self;
+              choice @nonConsuming HumanNap (self) (i : Int64): Int64
+                , controllers Cons @Party [call_method @Mod:Human asParty this] (Nil @Party)
+                , observers Nil @Party
+                to upure @Int64 i;
+            };
+
             template (this : Person) =  {
               precondition True;
               signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
               observers Cons @Party [Mod:Person {person} this] (Nil @Party);
               agreement "Agreement";
-              choice Sleep (self) (u: Unit) : Unit, 
+              choice Sleep (self) (u: Unit) : Unit,
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Nil @Party
                 to upure @Unit ();
-              choice @nonConsuming Nap (self) (i : Int64): Int64, 
+              choice @nonConsuming Nap (self) (i : Int64): Int64,
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
+              implements Mod:Planet {
+              };
+              implements Mod:Human {
+                method asParty = Mod:Person {person} this;
+                method getName = Mod:Person {name} this;
+                choice HumanNap;
+                choice HumanSleep;
+              };
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
             };
 
@@ -120,8 +147,9 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              ubind y: a <- (Mod:aPureUpdate @a x) in upure @a y;
            val aCreate: Mod:Person -> Update (ContractId Mod:Person) = \(person: Mod:Person) ->
              create @Mod:Person person;
+           val identity: forall (a: *). a -> a = /\ (a: *). \(x: a) -> x;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
-             exercise @Mod:Person Sleep cId ();
+             exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
            val aFecthByKey: Party -> Update <contract: Mod:Person, contractId: ContractId Mod:Person> = \(party: Party) ->
              fetch_by_key @Mod:Person party;
            val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->
@@ -145,15 +173,15 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   throw @(Update Unit) @Mod:MyException (Mod:MyException {message = "oops"})
                 catch e -> Some @(Update Unit) (upure @Unit ())
             in upure @Unit ();
-                     
+
            val myAnyException: AnyException =
              to_any_exception @Mod:MyException (Mod:MyException {message = "oops"});
-           
+
            val maybeException: Option Mod:MyException =
              from_any_exception @Mod:MyException Mod:myAnyException;
-             
+
          }
-        
+
       """
 
       validate(pkgId, pkg)

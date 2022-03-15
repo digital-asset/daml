@@ -11,10 +11,8 @@ import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
 import lf.data.Time.Timestamp
 import lf.transaction.GlobalKey
-import platform.server.api.validation.ErrorFactories
 import platform.store.appendonlydao.events.ContractId
 import com.google.rpc.status.Status
-
 import java.time.Duration
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {
@@ -31,26 +29,28 @@ private[sandbox] sealed trait Rejection extends Product with Serializable {
 private[sandbox] object Rejection {
 
   final case class DuplicateKey(key: GlobalKey)(
-      val completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      val completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.duplicateContractKey(
-        reason = "DuplicateKey: contract key is not unique",
-        key = key,
-      )
+      LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+        .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", _key = key)
+        .rpcStatus()
   }
 
   final case class InconsistentContractKey(
       expectation: Option[ContractId],
       result: Option[ContractId],
-  )(val completionInfo: CompletionInfo, errorFactories: ErrorFactories)(implicit
+  )(val completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.inconsistentContractKeys(expectation, result)
+      LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+        .Reject(
+          s"Contract key lookup with different results: expected [$expectation], actual [$result]"
+        )
+        .rpcStatus()
   }
 
   final case class LedgerBridgeInternalError(_err: Throwable, completionInfo: CompletionInfo)(
@@ -58,7 +58,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status = LedgerApiErrors.InternalError
       .UnexpectedOrUnknownException(_err)
-      .rpcStatus(completionInfo.submissionId)
+      .rpcStatus()
   }
 
   final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
@@ -66,7 +66,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status = LedgerApiErrors.UnsupportedOperation
       .Reject("command deduplication with periods specified using offsets")
-      .rpcStatus(completionInfo.submissionId)
+      .rpcStatus()
   }
 
   final case class TransactionInternallyInconsistentKey(
@@ -81,7 +81,7 @@ private[sandbox] object Rejection {
           "The transaction attempts to create two contracts with the same contract key",
           Some(key),
         )
-        .rpcStatus(None)
+        .rpcStatus()
   }
 
   final case class TransactionInternallyDuplicateKeys(
@@ -93,39 +93,45 @@ private[sandbox] object Rejection {
     override def toStatus: Status =
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
         .Reject("The transaction references a contract key inconsistently", Some(key))
-        .rpcStatus(None)
+        .rpcStatus()
   }
 
   final case class CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Timestamp,
       transactionLedgerEffectiveTime: Timestamp,
-  )(val completionInfo: CompletionInfo, errorFactories: ErrorFactories)(implicit
+  )(val completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.invalidLedgerTime(
-        s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
-      )
+      LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+        .RejectSimple(
+          s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
+        )
+        .rpcStatus()
   }
 
   final case class UnknownContracts(ids: Set[ContractId])(
-      val completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      val completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status =
-      errorFactories.CommandRejections.contractsNotFound(ids.map(_.coid))
+    override def toStatus: Status = {
+      val missingContractIds = ids.map(_.coid)
+      LedgerApiErrors.ConsistencyErrors.ContractNotFound
+        .MultipleContractsNotFound(missingContractIds)
+        .rpcStatus()
+    }
   }
 
   final case class UnallocatedParties(unallocatedParties: Set[String])(
-      val completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      val completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
-      errorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
+      LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+        .Reject(unallocatedParties)
+        .rpcStatus()
   }
 
   final case class DuplicateCommand(
@@ -137,7 +143,7 @@ private[sandbox] object Rejection {
     override def toStatus: Status =
       LedgerApiErrors.ConsistencyErrors.DuplicateCommand
         .Reject(_definiteAnswer = false, None, Some(changeId))
-        .rpcStatus(completionInfo.submissionId)
+        .rpcStatus()
   }
 
   final case class MaxDeduplicationDurationExceeded(
@@ -153,32 +159,40 @@ private[sandbox] object Rejection {
           s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
           Some(maxDeduplicationDuration),
         )
-        .rpcStatus(None)
+        .rpcStatus()
   }
 
   final case class NoLedgerConfiguration(
-      completionInfo: CompletionInfo,
-      errorFactories: ErrorFactories,
+      completionInfo: CompletionInfo
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = errorFactories.missingLedgerConfig(
-      "Cannot validate ledger time"
-    )
+    override def toStatus: Status =
+      LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+        .RejectWithMessage(
+          "Cannot validate ledger time"
+        )
+        .rpcStatus()
   }
 
   final case class InvalidLedgerTime(
       completionInfo: CompletionInfo,
       outOfRange: LedgerTimeModel.OutOfRange,
-  )(
-      errorFactories: ErrorFactories
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = errorFactories.CommandRejections.invalidLedgerTime(
-      outOfRange.ledgerTime.toInstant,
-      outOfRange.lowerBound.toInstant,
-      outOfRange.upperBound.toInstant,
-    )
+    override def toStatus: Status = {
+      val ledgerTime = outOfRange.ledgerTime.toInstant
+      val ledgerTimeLowerBound = outOfRange.lowerBound.toInstant
+      val ledgerTimeUpperBound = outOfRange.upperBound.toInstant
+      LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+        .RejectEnriched(
+          s"Ledger time $ledgerTime outside of range [$ledgerTimeLowerBound, $ledgerTimeUpperBound]",
+          ledgerTime,
+          ledgerTimeLowerBound,
+          ledgerTimeUpperBound,
+        )
+        .rpcStatus()
+    }
   }
 }

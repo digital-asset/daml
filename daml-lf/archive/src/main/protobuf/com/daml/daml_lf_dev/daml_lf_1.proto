@@ -1285,10 +1285,8 @@ message Update {
     Expr cid = 3;
     // argument
     Expr arg = 4;
-    // optional type rep for expected template id
-    Expr type_rep = 5;
     // exercise guard (Interface -> Bool)
-    Expr guard = 6;
+    Expr guard = 5;
   }
 
  // ExerciseByKey Update
@@ -1567,7 +1565,7 @@ message DefTemplate {
 
   Location location = 9;
 
-  // They key definition for the template, if present
+  // The key definition for the template, if present
   DefKey key = 10; // optional
 
   // Interfaces that this template implements.

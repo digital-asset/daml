@@ -31,6 +31,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
+import Data.Aeson(encode, decode)
 
 main :: IO ()
 main = do
@@ -39,6 +40,7 @@ main = do
     Tasty.defaultMain $ testGroup "Ledger bindings"
         [ sharedSandboxTests testDar
         , authenticatingSandboxTests testDar
+        , tMeteringReportJson
         ]
 
 type SandboxTest = WithSandbox -> TestTree
@@ -543,6 +545,29 @@ tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \
     [Transaction{events=[CreatedEvent{createArgs=Record{fields}}]}] <- return trList
     [RecordField{label="owner"},RecordField{label="bucket",fieldValue=bucketReturned}] <- return fields
     liftIO $ assertEqual "bucket" bucket (detag bucketReturned)
+
+tMeteringReportJson :: TestTree
+tMeteringReportJson = testCase "tMeteringReportJson" $ do
+    let meteringRequest = MeteringRequest {
+      from = Timestamp {seconds = 3600, nanos = 0}
+    , to = Just $ Timestamp {seconds = 7200, nanos = 0}
+    , application = Just $ ApplicationId { unApplicationId = "AppX" }
+    }
+    let meteredApplication = MeteredApplication {
+      application = ApplicationId { unApplicationId = "AppY" }
+    , events = 64
+    }
+    let report = MeteringReport {
+      participant = ParticipantId { unParticipantId = "PartA" }
+    , request = meteringRequest
+    , isFinal = True
+    , applications = [meteredApplication]
+    }
+    let expected = Just report
+    let json = encode report
+    let actual = decode json :: Maybe MeteringReport
+
+    assertEqual "MeteringReport Serialization" expected actual
 
 tMeteringReport :: SandboxTest
 tMeteringReport withSandbox = testCase "tMeteringReport" $ run withSandbox $ \_ _testId -> do

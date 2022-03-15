@@ -34,12 +34,12 @@ template Asset
     signatory issuer
     observer owner
     implements Token where
-      let getOwner = owner
-      let getIssuer = issuer
-      let getAmount = amount
-      let transferImpl = \newOwner -> do
-            cid <- create this with owner = newOwner
-            pure (toInterfaceContractId @Token cid)
+      getOwner = owner
+      getIssuer = issuer
+      getAmount = amount
+      transferImpl newOwner = do
+        cid <- create this with owner = newOwner
+        pure (toInterfaceContractId @Token cid)
 
 main = scenario do
   alice <- getParty "Alice"

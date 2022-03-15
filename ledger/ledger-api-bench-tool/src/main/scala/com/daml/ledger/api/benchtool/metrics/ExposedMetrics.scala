@@ -93,5 +93,4 @@ object ExposedMetrics {
       clock = clock,
     )
   }
-
 }

@@ -135,7 +135,7 @@ We use following error details:
  - A mandatory ``com.google.rpc.RequestInfo`` containing (not-truncated) correlation id
    (or ``0`` if correlation id is not available).
 
- - An optional ``com.google.rpc.RetryInfo`` containing retry interval in seconds.
+ - An optional ``com.google.rpc.RetryInfo`` containing retry interval with milliseconds resolution.
 
  - An optional ``com.google.rpc.ResourceInfo`` containing information about the resource the failure is based on.
    Any request that fails due to some well-defined resource issues (such as contract, contract-key, package, party, template, domain, etc..) will contain these.
@@ -165,11 +165,11 @@ This example shows how a user can extract the relevant error information.
           DummmyServer.serviceEndpointDummy()
         } catch {
           case e: StatusRuntimeException =>
-
             // Converting to a status object.
             val status = io.grpc.protobuf.StatusProto.fromThrowable(e)
 
-            // Extracting error code id.
+            // Extracting gRPC status code.
+            assert(status.getCode == io.grpc.Status.Code.ABORTED.value())
             assert(status.getCode == 10)
 
             // Extracting error message, both
@@ -204,7 +204,8 @@ This example shows how a user can extract the relevant error information.
               rawDetails.collectFirst {
                 case any if any.is(classOf[RetryInfo]) =>
                   val v = any.unpack(classOf[RetryInfo])
-                  assert(v.getRetryDelay.getSeconds == 123)
+                  assert(v.getRetryDelay.getSeconds == 123, v.getRetryDelay.getSeconds)
+                  assert(v.getRetryDelay.getNanos == 456 * 1000 * 1000, v.getRetryDelay.getNanos)
               }.isDefined
             }
 

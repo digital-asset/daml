@@ -66,11 +66,11 @@ main = do
         in
         withBinaryFile nullDevice WriteMode $ \devNull ->
         bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
-        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
+        ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
         withCurrentDirectory dir $ do
-        Just serviceOut <- pure mbServiceOut
+        Just serviceOut <- pure (ReplClient.hStdout replHandle)
         hSetBuffering serviceOut LineBuffering
         withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
             initPackageConfig scriptDar testDars
@@ -79,7 +79,7 @@ main = do
             withDamlIdeState options logger (replEventLogger replLogger) $ \ideState ->
                 (hspec $ functionalTests replHandle replLogger serviceLineChan options ideState) `finally`
                     -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
-                    terminateProcess processHandle
+                    ReplClient.hTerminate replHandle
 
 initPackageConfig :: FilePath -> [FilePath] -> IO ()
 initPackageConfig scriptDar dars = do

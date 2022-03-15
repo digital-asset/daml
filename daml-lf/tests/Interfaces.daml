@@ -21,7 +21,7 @@ template T1
   where
     signatory owner1
     implements I1 where
-      let getOwner1 = owner1
+      getOwner1 = owner1
     choice OwnChoice : ()
       controller owner1
       do pure ()
@@ -32,6 +32,6 @@ template T2
   where
     signatory owner2
     implements I1 where
-      let getOwner1 = owner2
+      getOwner1 = owner2
     implements I2 where
-      let getOwner2 = owner2
+      getOwner2 = owner2

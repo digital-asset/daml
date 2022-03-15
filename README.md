@@ -1,4 +1,4 @@
-[![Daml logo](daml-logo.png)](https://www.daml.com)
+[![Daml logo](daml-logo.png)](https://www.digitalasset.com/developers)
 
 [![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the Daml repository!
 
-This repository hosts all code for the [Daml smart contract language and SDK](https://daml.com/), originally created by
+This repository hosts all code for the [Daml smart contract language and SDK](https://www.digitalasset.com/developers), originally created by
 [Digital Asset](https://www.digitalasset.com). Daml is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The SDK is a set of tools to help you develop applications based on Daml.
 
 ## Using Daml
@@ -41,7 +41,7 @@ cd daml
 
 Our builds require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
 
-#### Linux and Mac
+#### Linux
 
 On Linux and Mac `dev-env` can be installed with:
 
@@ -51,6 +51,31 @@ On Linux and Mac `dev-env` can be installed with:
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
+
+#### Mac
+
+On Mac `dev-env` can be installed with:
+
+1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
+   This is a *multi-user installation* (there is no single-user installation option for macOS). Because of this, you need to configure `/etc/nix/nix.conf` to use Nix caches.
+   You can add the contents of `dev-env/etc/nix.conf` to `/etc/nix/nix.conf`, but keep `build-users-group = nixbld` instead of leaving this empty as is done in `dev-env/etc/nix.conf`. Make sure to restart the `nix-daemon` after you have made changes to `/etc/nix/nix.conf`, for instance by using `sudo launchctl stop org.nixos.nix-daemon`.
+
+2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
+
+If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
+you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
+file, with an option to add more in a `.envrc.private` file.
+
+Note that after a macOS update it can appear as if Nix is not installed. This is because macOS updates can modify shell config files in `/etc`, which the multi-user installation of Nix modifies as well. A workaround for this problem is to add the following to your shell config file in your `$HOME` directory:
+
+```
+# Nix
+if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi
+# End Nix
+```
+See https://github.com/NixOS/nix/issues/3616 for more information about this issue.
 
 #### Windows
 

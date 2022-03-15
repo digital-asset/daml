@@ -27,6 +27,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     )
 
   it should "delete overspill entries" in {
+    val signatory = Ref.Party.assertFromString("signatory")
+
     val dtos1: Vector[DbDto] = Vector(
       // 1: config change
       dtoConfiguration(offset(1), someConfiguration),
@@ -36,7 +38,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackage(offset(3)),
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
-      dtoCreate(offset(4), 1L, hashCid("#4")),
+      dtoCreate(offset(4), 1L, hashCid("#4"), signatory = signatory),
       DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
@@ -57,7 +59,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackage(offset(8)),
       dtoPackageEntry(offset(8)),
       // 9: transaction with create node
-      dtoCreate(offset(9), 4L, hashCid("#9")),
+      dtoCreate(offset(9), 4L, hashCid("#9"), signatory = signatory),
       DbDto.CreateFilter(4L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(9)),
       // 10: transaction with exercise node and retroactive divulgence
@@ -68,8 +70,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoMetering("AppC", offset(6)),
     )
 
-    // TODO: make sure it's obvious these are the stakeholders of dtoCreate() nodes created above
-    val readers = Set(Ref.Party.assertFromString("signatory"))
+    val readers = Set(signatory)
 
     // Initialize
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
@@ -158,7 +159,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     contract91 shouldBe None
     filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
 
-    // Metering can report include partially ingested data in non-final reports
+    // Metering report can include partially ingested data in non-final reports
     metering1.applicationData should have size 3
     metering1.isFinal shouldBe false
 

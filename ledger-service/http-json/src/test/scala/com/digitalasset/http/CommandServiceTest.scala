@@ -83,7 +83,7 @@ object CommandServiceTest {
   private lazy val multiPartyJwt = jwtForParties(
     actAs = domain.Party unsubst multiPartyJwp.submitter.toList,
     readAs = domain.Party unsubst multiPartyJwp.readAs,
-    ledgerId = multiPartyJwp.ledgerId.unwrap,
+    ledgerId = Some(multiPartyJwp.ledgerId.unwrap),
   )
   private val tplId = domain.TemplateId("Foo", "Bar", "Baz")
 

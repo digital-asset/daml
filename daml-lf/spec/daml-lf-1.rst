@@ -675,6 +675,14 @@ Then we can define our kinds, types, and expressions::
        | 'throw' @σ @τ e                            -- ExpThrow: throw exception [Daml-LF ≥ 1.14]
        | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException' [Daml-LF ≥ 1.14]
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [Daml-LF ≥ 1.14]
+       | 'to_interface' @τ₁ @τ₂ e                   -- ExpToInterface: Turn a template value into an interface value [Daml-LF ≥ 1.dev]
+       | 'from_interface' @τ₁ @τ₂ e                 -- ExpFromInterface: Turn an interface value back into a template value [Daml-LF ≥ 1.dev]
+       | 'call_interface' @τ f e                    -- ExpCallInterface: Call a method on an interface value [Daml-LF ≥ 1.dev]
+       | 'to_required_interface'  @τ₁ @τ₂ e         -- ExpToRequiredInterface: Upcast an interface value to an interface it requires [Daml-LF ≥ 1.dev]
+       | 'from_required_interface'  @τ₁ @τ₂ e       -- ExpFromRequiredInterface: Downcast an interface value to an interface that requires it [Daml-LF ≥ 1.dev]
+       | 'interface_typerep' @τ e                   -- ExpInterfaceTyperep: Get the typerep associated with the template inside the interface value [Daml-LF ≥ 1.dev]
+       | 'interface_signatory' @τ e                 -- ExpInterfaceSignatory: Get the signatories of the template inside the interface value [Daml-LF ≥ 1.dev]
+       | 'interface_observer' @τ e                  -- ExpInterfaceObserver: Get the observers of the template inside the interface value [Daml-LF ≥ 1.dev]
 
   Patterns
     p
@@ -693,9 +701,12 @@ Then we can define our kinds, types, and expressions::
     u ::= 'pure' @τ e                               -- UpdatePure
        |  'bind' x₁ : τ₁ ← e₁ 'in' e₂               -- UpdateBlock
        |  'create' @Mod:T e                         -- UpdateCreate
+       |  'create_interface' @Mod:I e               -- UpdateCreateInterface [Daml-LF ≥ 1.dev]
        |  'fetch' @Mod:T e                          -- UpdateFetch
+       |  'fetch_interface' @Mod:I e                -- UpdateFetchInterface [Daml-LF ≥ 1.dev]
        |  'exercise' @Mod:T Ch e₁ e₂                -- UpdateExercise
        |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey [Daml-LF ≥ 1.11]
+       |  'exercise_interface' @Mod:I Ch e₁ e₂ e₃   -- UpdateExerciseInterface [Daml-LF ≥ 1.dev]
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
@@ -1248,6 +1259,50 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.14]
       Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+      'tpl' (x : T) ↦ { …, 'implements' Mod:I { … }, … } ∈ 〚Ξ〛Mod'
+      Γ  ⊢  e  :  Mod':T
+    ———————————————————————————————————————————————————————————————— ExpToInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'to_interface' @Mod:I @Mod':T e  :  Mod:I
+
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+      'tpl' (x : T) ↦ { …, 'implements' Mod:I { … }, … } ∈ 〚Ξ〛Mod'
+      Γ  ⊢  e  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpFromInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢ 'from_interface' @Mod:I @Mod':T e  : 'Optional' Mod':T
+
+      'interface' (x : I) ↦ { …, 'methods' { …, f: τ, … }, … } ∈ 〚Ξ〛Mod
+      Γ  ⊢  e  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpCallInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢ 'call_interface' @Mod:I f e  : τ
+
+      'interface' (x : I₁) ↦ … ∈ 〚Ξ〛Mod₁
+      'interface' (x : I₂) ↦ { …, 'requires' { …, Mod₁:I₁, … }, … } ∈ 〚Ξ〛Mod₂
+      Γ  ⊢  e  :  Mod₂:I₂
+    ———————————————————————————————————————————————————————————————— ExpToRequiredInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'to_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  :  Mod₁:I₁
+
+      'interface' (x : I₁) ↦ … ∈ 〚Ξ〛Mod₁
+      'interface' (x : I₂) ↦ { …, 'requires' { …, Mod₁:I₁, … }, … } ∈ 〚Ξ〛Mod₂
+      Γ  ⊢  e  :  Mod₁:I₁
+    ———————————————————————————————————————————————————————————————— ExpFromRequiredInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  :  'Optional' Mod₂:I₂
+
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+      Γ  ⊢  e  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpInterfaceTypeRep [Daml-LF ≥ 1.dev]
+      Γ  ⊢ 'interface_typerep' @Mod:I e  :  'TypeRep'
+
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+      Γ  ⊢  e  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpInterfaceSignatory [Daml-LF ≥ 1.dev]
+      Γ  ⊢ 'interface_signatory' @Mod:I e  :  'List' 'Party'
+
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+      Γ  ⊢  e  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpInterfaceObserver [Daml-LF ≥ 1.dev]
+      Γ  ⊢ 'interface_observer' @Mod:I e  :  'List' 'Party'
+
       τ  ↠  τ'     Γ  ⊢  τ'  :  ⋆      Γ  ⊢  e  :  τ'
     ——————————————————————————————————————————————————————————————— UpdPure
       Γ  ⊢  'pure' @τ e  :  'Update' τ'
@@ -1260,6 +1315,11 @@ Then we define *well-formed expressions*. ::
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : Mod:T
     ——————————————————————————————————————————————————————————————— UpdCreate
       Γ  ⊢  'create' @Mod:T e  : 'Update' ('ContractId' Mod:T)
+
+      'interface' (x : I) ↦ …  ∈  〚Ξ〛Mod
+      Γ  ⊢  e  : Mod:I
+    ——————————————————————————————————————————————————————————————— UpdCreateInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'create_interface' @Mod:I e  : 'Update' ('ContractId' Mod:I)
 
       'tpl' (x : T)
           ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, … } }
@@ -1277,10 +1337,24 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdExerciseByKey
       Γ  ⊢  'exercise_by_key' @Mod:T Ch e₁ e₂  : 'Update' σ
 
+      'interface' (x : I)
+          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' … ↦ …, … } }
+        ∈ 〚Ξ〛Mod
+      Γ  ⊢  e₁  :  'ContractId' Mod:I
+      Γ  ⊢  e₂  :  τ
+      Γ  ⊢  e₃  :  'Optional' (Mod:I -> 'Bool')
+    ——————————————————————————————————————————————————————————————— UpdExerciseInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'exercise_interface' @Mod:I Ch e₁ e₂ e₃  : 'Update' σ
+
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
-      Γ  ⊢  e₁  :  'ContractId' Mod:T
+      Γ  ⊢  e  :  'ContractId' Mod:T
     ——————————————————————————————————————————————————————————————— UpdFetch
-      Γ  ⊢  'fetch' @Mod:T e₁ : 'Update' Mod:T
+      Γ  ⊢  'fetch' @Mod:T e : 'Update' Mod:T
+
+      'interface' (x : I) ↦ …  ∈  〚Ξ〛Mod
+      Γ  ⊢  e  :  'ContractId' Mod:I
+    ——————————————————————————————————————————————————————————————— UpdFetchInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'fetch_interface' @Mod:I e : 'Update' Mod:I
 
     ——————————————————————————————————————————————————————————————— UpdGetTime
       Γ  ⊢  'get_time'  : 'Update' 'Timestamp'
@@ -1512,6 +1586,10 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyCid
       ⊢ₛ  'ContractId' τ
 
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+    ———————————————————————————————————————————————————————————————— STyCidInterface
+      ⊢ₛ  'ContractId' Mod:I
+
       'record' T α₁ … αₙ ↦ { f₁: σ₁, …, fₘ: σₘ }  ∈  〚Ξ〛Mod
       ⊢ₛ  σ₁[α₁ ↦ τ₁, …, αₙ ↦ τₙ]
        ⋮
@@ -1544,6 +1622,8 @@ Note that
 4. For a data type to be serializable, *all* type
    parameters must be instantiated with serializable types, even
    phantom ones.
+5. Interface types are not serializable, but interface contract ids
+   are serializable.
 
 
 Well-formed-definitions
@@ -1647,9 +1727,9 @@ for the ``DefTemplate`` rule). ::
         }  ∈ 〚Ξ〛Mod'
     'tpl' (x : T) ↦ { …, 'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈ 〚Ξ〛Mod
     R  ⊆  { Mod₁:I₁, …, Modₖ:Iₖ }
-    τ₁  ↠  τ₁'     x : Mod:T  ⊢  e₁ : τ₁'
+    τ₁  ↠  τ₁'      x : Mod:T  ⊢  e₁  :  τ₁'
       ⋮
-    τₘ  ↠  τₘ'     x : Mod:T  ⊢  eₘ : τₘ'
+    τₘ  ↠  τₘ'      x : Mod:T  ⊢  eₘ  :  τₘ'
   ——————————————————————————————————————————————————————————————— ImplDef
     x : Mod:T  ⊢  'implements' Mod':I
                       { 'methods' { f₁ = e₁, …, fₙ = eₙ }
@@ -1978,6 +2058,12 @@ need to be evaluated further. ::
      ⊢ₑ  τ     ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValToAnyException
      ⊢ᵥ  'to_any_exception' @τ e
+
+     'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+     'tpl' (x : T) ↦ { …, 'implements' Mod:I { … }, … } ∈ 〚Ξ〛Mod'
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValToInterface
+     ⊢ᵥ 'to_interface' @Mod:I @Mod':T e
 
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValUpdate
@@ -2310,7 +2396,11 @@ closure of ``<ₜ``.
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
 
-Daml-LF evaluation is only defined on closed, well-typed expressions.
+Daml-LF evaluation is only defined on well-typed expressions that
+contain no free term-level variables, and any type-level variables
+must be of an erasable kind. For the sake of brevity, and the fact
+that erasable kinds cannot affect evaluation results, we do not
+include the variable context ``Γ`` in the rules below.
 
 Note that the evaluation of the body of a value definition is lazy. It
 happens only when needed. The evaluation semantics itself does not cache
@@ -2595,6 +2685,87 @@ exact output.
       'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok vₘ
 
       e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpToInterfaceErr [Daml-LF ≥ 1.dev]
+      'to_interface' @Mod:I @Mod':T e  ⇓  Err E
+
+      e  ⇓  Ok v
+    —————————————————————————————————————————————————————————————————————— EvExpToInterface [Daml-LF ≥ 1.dev]
+      'to_interface' @Mod:I @Mod':T e  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceErr [Daml-LF ≥ 1.dev]
+      'from_interface' @Mod:I @Mod':T e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod:I @Mod'':T' v)
+      Mod':T ≠ Mod'':T'
+    —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceNone [Daml-LF ≥ 1.dev]
+      'from_interface' @Mod:I @Mod':T e  ⇓  Ok ('None' @Mod':T)
+
+      e  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+    —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceSome [Daml-LF ≥ 1.dev]
+      'from_interface' @Mod:I @Mod':T e  ⇓  Ok ('Some' @Mod':T v)
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpCallInterfaceErr [Daml-LF ≥ 1.dev]
+      'call_interface' @Mod:I f e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+      'tpl' (x : T) ↦ { …, 'implements' Mod:I { 'methods' { …, f = eₘ, … }, … }, … }  ∈ 〚Ξ〛Mod'
+      eₘ v  ⇓  r
+    —————————————————————————————————————————————————————————————————————— EvExpCallInterface [Daml-LF ≥ 1.dev]
+      'call_interface' @Mod:I f e  ⇓  r
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpToRequiredInterfaceErr [Daml-LF ≥ 1.dev]
+      'to_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod₂:I₂ @Mod':T v)
+    —————————————————————————————————————————————————————————————————————— EvExpToRequiredInterface [Daml-LF ≥ 1.dev]
+      'to_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  ⇓  Ok ('to_interface' @Mod₁:I₁ @Mod':T v)
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpFromRequiredInterfaceErr [Daml-LF ≥ 1.dev]
+      'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod₁:I₁ @Mod':T v)
+      Mod':T  does not implement interface  Mod₂:I₂
+    —————————————————————————————————————————————————————————————————————— EvExpFromRequiredInterfaceNone [Daml-LF ≥ 1.dev]
+      'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  ⇓  Ok ('None' @Mod₂:I₂)
+
+      e  ⇓  Ok ('to_interface' @Mod₁:I₁ @Mod':T v)
+      'tpl' (x : T) ↦ { …, 'implements' Mod₂:I₂ { … }, … } ∈ 〚Ξ〛Mod'
+    —————————————————————————————————————————————————————————————————————— EvExpFromRequiredInterfaceSome [Daml-LF ≥ 1.dev]
+      'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  ⇓  Ok ('Some' @Mod₂:I₂ ('to_interface' @Mod₂:I₂ @Mod':T v))
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpInterfaceTypeRepErr [Daml-LF ≥ 1.dev]
+      'interface_typerep' @Mod:I e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+    —————————————————————————————————————————————————————————————————————— EvExpInterfaceTypeRep [Daml-LF ≥ 1.dev]
+      'interface_typerep' @Mod:I e  ⇓  Ok ('type_rep' @Mod':T)
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpInterfaceSignatoryErr [Daml-LF ≥ 1.dev]
+      'interface_signatory' @Mod:I e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+      'tpl' (x : T) ↦ { …, 'signatories' e', … }  ∈  〚Ξ〛Mod'
+      e' [x ↦ v]  ⇓  r
+    —————————————————————————————————————————————————————————————————————— EvExpInterfaceSignatory [Daml-LF ≥ 1.dev]
+      'interface_signatory' @Mod:I e  ⇓  r
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpInterfaceObserverErr [Daml-LF ≥ 1.dev]
+      'interface_observer' @Mod:I e  ⇓  Err E
+
+      e  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+      'tpl' (x : T) ↦ { …, 'observers' e', … }  ∈  〚Ξ〛Mod'
+      e' [x ↦ v]  ⇓  r
+    —————————————————————————————————————————————————————————————————————— EvExpInterfaceObserver [Daml-LF ≥ 1.dev]
+      'interface_observer' @Mod:I e  ⇓  r
+
+      e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpPureErr
       'pure' @τ e  ⇓  Err E
 
@@ -2621,12 +2792,28 @@ exact output.
       'create' @Mod:T e  ⇓  Ok ('create' @Mod:T v)
 
       e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUpCreateInterfaceErr [Daml-LF ≥ 1.dev]
+      'create_interface' @Mod:I e  ⇓  Err E
+
+      e  ⇓  Ok v
+    —————————————————————————————————————————————————————————————————————— EvExpUpCreateInterface [Daml-LF ≥ 1.dev]
+      'create_interface' @Mod:I e  ⇓  Ok ('create_interface' @Mod:I v)
+
+      e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpFetchErr
       'fetch' @Mod:T e  ⇓  Err E
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpUpFetch
       'fetch' @Mod:T e  ⇓  Ok ('fetch' @Mod:T v)
+
+      e  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUpFetchInterface [Daml-LF ≥ 1.dev]
+      'fetch_interface' @Mod:I e  ⇓  Err E
+
+      e  ⇓  Ok v
+    —————————————————————————————————————————————————————————————————————— EvExpUpFetchInterface [Daml-LF ≥ 1.dev]
+      'fetch_interface' @Mod:I e  ⇓  Ok ('fetch_interface' @Mod:I v)
 
       e₁  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpExerciseErr1
@@ -2644,7 +2831,6 @@ exact output.
         ⇓
       Ok ('exercise' @Mod:T Ch v₁ v₂)
 
-
       e₁  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpExerciseByKeyErr1
       'exercise_by_key' @Mod:T Ch e₁ e₂  ⇓  Err E
@@ -2660,6 +2846,27 @@ exact output.
       'exercise_by_key' @Mod:T Ch e₁ e₂
         ⇓
       Ok ('exercise_by_key' @Mod:T Ch v₁ v₂)
+
+      e₁  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseInterfaceErr1 [Daml-LF ≥ 1.dev]
+      'exercise_interface' @Mod:T Ch e₁ e₂ e₃  ⇓  Err E
+
+      e₁  ⇓  Ok v₁
+      e₂  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseInterfaceErr2 [Daml-LF ≥ 1.dev]
+      'exercise_interface' @Mod:T Ch e₁ e₂ e₃  ⇓  Err E
+
+      e₁  ⇓  Ok v₁
+      e₂  ⇓  Ok v₂
+      e₃  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseInterfaceErr3 [Daml-LF ≥ 1.dev]
+      'exercise_interface' @Mod:T Ch e₁ e₂ e₃  ⇓  Err E
+
+      e₁  ⇓  Ok v₁
+      e₂  ⇓  Ok v₂
+      e₃  ⇓  Ok v₃
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseInterface [Daml-LF ≥ 1.dev]
+      'exercise_interface' @Mod:T Ch e₁ e₂ e₃  ⇓  Ok ('exercise_interface' @Mod:T Ch v₁ v₂ v₃)
 
       e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpFetchByKeyErr
@@ -2887,32 +3094,78 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Err E
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1a
      'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'False'
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateFail1a
      'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
      (Err (Fatal "Precondition failed on {Mod:T}."), ε)
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modᵢ:Iᵢ { … }, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+     'interface' (x₂ : I₂) ↦ { …, 'precondition' e₂ₚ, … } ∈ 〚Ξ〛Mod₂
+     e₂ₚ[x₂ ↦ 'to_interface' @Mod₂:I₂ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xᵢ : Iᵢ) ↦ { …, 'precondition' eᵢₚ, … } ∈ 〚Ξ〛Modᵢ
+     eᵢₚ[x₂ ↦ 'to_interface' @Modᵢ:Iᵢ @Mod:T vₜ]  ⇓  Err E
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1b
+     'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err E, ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modᵢ:Iᵢ { … }, … }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+     'interface' (x₂ : I₂) ↦ { …, 'precondition' e₂ₚ, … } ∈ 〚Ξ〛Mod₂
+     e₂ₚ[x₂ ↦ 'to_interface' @Mod₂:I₂ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xᵢ : Iᵢ) ↦ { …, 'precondition' eᵢₚ, … } ∈ 〚Ξ〛Modᵢ
+     eᵢₚ[xᵢ ↦ 'to_interface' @Modᵢ:Iᵢ @Mod:T vₜ]  ⇓  Ok 'False'
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateFail1b
+     'create' @Mod:T vₜ ‖ S₀
+       ⇓ᵤ
+     (Err (Fatal "Precondition failed on {Mod:T}."), ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, …
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr2
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, 'signatories' eₛ, … }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, 'signatories' eₛ, …
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr3
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Err E
@@ -2920,8 +3173,14 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -2932,8 +3191,14 @@ as described by the ledger model::
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'no_key' }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'no_key',
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -2947,8 +3212,14 @@ as described by the ledger model::
      Ok (cid, tr) ‖ (st₁, keys₀)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -2957,8 +3228,14 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -2968,8 +3245,14 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -2982,8 +3265,14 @@ as described by the ledger model::
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -2997,8 +3286,14 @@ as described by the ledger model::
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3012,8 +3307,14 @@ as described by the ledger model::
      (Err (Fatal "Mod:T template key violation"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
-        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ,
+        'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     'interface' (x₁ : I₁) ↦ { …, 'precondition' e₁ₚ, … } ∈ 〚Ξ〛Mod₁
+     e₁ₚ[x₁ ↦ 'to_interface' @Mod₁:I₁ @Mod:T vₜ]  ⇓  Ok 'True'
+        …
+     'interface' (xₖ : Iₖ) ↦ { …, 'precondition' eₖₚ, … } ∈ 〚Ξ〛Modₖ
+     eₖₚ[xₖ ↦ 'to_interface' @Modₖ:Iₖ @Mod:T vₜ]  ⇓  Ok 'True'
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
@@ -3029,6 +3330,10 @@ as described by the ledger model::
      'create' @Mod:T vₜ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (cid, tr) ‖ (st₁, keys₁)
+
+     'create' @Mod':T v ‖ S   ⇓ᵤ  ur
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateInterface [Daml-LF ≥ 1.dev]
+     'create_interface' @Mod:I ('to_interface' @Mod:I @Mod':T v) ‖ S   ⇓ᵤ  ur
 
      cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
@@ -3061,7 +3366,9 @@ as described by the ledger model::
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Choice controller evaluation failed"), ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ …, … }, … }  ∈  〚Ξ〛Mod
@@ -3072,7 +3379,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err E, ε)
+     (Err (Fatal "Choice observer evaluation failed"), ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
@@ -3208,7 +3515,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
-     st(cid) = (Mod':T', vₜ, 'inactive')
+     st(cid) = (Mod':T', vₜ, 'active')
      Mod:T ≠ Mod':T'
    —————————————————————————————————————————————————————————————————————— EvUpdFetchWrongTemplate
      'fetch' @Mod:T cid ‖ (st; keys)
@@ -3222,6 +3529,35 @@ as described by the ledger model::
      'fetch' @Mod:T cid ‖ (st; keys)
        ⇓ᵤ
      (Ok vₜ, ε) ‖ (st; keys)
+
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInterfaceMissing [Daml-LF ≥ 1.dev]
+     'fetch_interface' @Mod:I cid ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Fetch on unknown contract"), ε)
+
+     cid ∈ dom(st)
+     st(cid) = (Mod:T, vₜ, 'inactive')
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInterfaceInactive [Daml-LF ≥ 1.dev]
+     'fetch_interface' @Mod:I cid ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Fetch on inactive contract"), ε)
+
+     cid ∈ dom(st)
+     st(cid) = (Mod':T, vₜ, 'active')
+     Mod':T  does not implement interface  Mod:I
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInterfaceDoesntImplement [Daml-LF ≥ 1.dev]
+     'fetch_interface' @Mod:I cid ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Fetched contract does not implement interface"), ε)
+
+     cid ∈ dom(st)
+     st(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x : T) ↦ { …, 'implements' Mod:I { … }, … } ∈ 〚Ξ〛Mod'
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInterface [Daml-LF ≥ 1.dev]
+     'fetch_interface' @Mod:I cid ‖ (st; keys)
+       ⇓ᵤ
+     (Ok ('to_interface @Mod:I @Mod':T vₜ), ε) ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Err E

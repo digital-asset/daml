@@ -16,7 +16,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +27,6 @@ import scala.util.{Failure, Success}
 private[validate] class ConflictCheckWithCommittedImpl(
     indexService: IndexService,
     bridgeMetrics: BridgeMetrics,
-    errorFactories: ErrorFactories,
 )(implicit executionContext: ExecutionContext)
     extends ConflictCheckWithCommitted {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
@@ -94,7 +92,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
         .lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(transaction.loggingContext)
         .transform {
           case Success(MaximumLedgerTime.Archived(missingContractIds)) =>
-            Success(Left(UnknownContracts(missingContractIds)(completionInfo, errorFactories)))
+            Success(Left(UnknownContracts(missingContractIds)(completionInfo)))
 
           case Failure(err) =>
             Success(Left(LedgerBridgeInternalError(err, completionInfo)))
@@ -106,7 +104,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
                 CausalMonotonicityViolation(
                   contractLedgerEffectiveTime = maximumLedgerEffectiveTime,
                   transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-                )(completionInfo, errorFactories)
+                )(completionInfo)
               )
             )
 
@@ -133,15 +131,14 @@ private[validate] class ConflictCheckWithCommittedImpl(
                 (inputState, lookupResult) match {
                   case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
                     Left(
-                      InconsistentContractKey(None, Some(actual))(completionInfo, errorFactories)
+                      InconsistentContractKey(None, Some(actual))(completionInfo)
                     )
                   case (LfTransaction.KeyCreate, Some(_)) =>
-                    Left(DuplicateKey(key)(completionInfo, errorFactories))
+                    Left(DuplicateKey(key)(completionInfo))
                   case (LfTransaction.KeyActive(expected), actual) if !actual.contains(expected) =>
                     Left(
                       InconsistentContractKey(Some(expected), actual)(
-                        completionInfo,
-                        errorFactories,
+                        completionInfo
                       )
                     )
                   case _ => Right(())

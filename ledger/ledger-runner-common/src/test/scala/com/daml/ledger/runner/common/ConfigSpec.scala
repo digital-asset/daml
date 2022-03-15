@@ -315,37 +315,37 @@ final class ConfigSpec
     ).value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 123
   }
 
-  it should "handle '--max-users-page-size' flag correctly" in {
+  it should "handle '--user-management-max-users-page-size' flag correctly" in {
     // missing value
     configParserSimple(
-      Seq("--max-users-page-size")
+      Seq("--user-management-max-users-page-size")
     ) shouldBe None
     // default
     configParserSimple().value.userManagementConfig.maxUsersPageSize shouldBe 1000
     // custom value
     configParserSimple(
       Seq(
-        "--max-users-page-size",
+        "--user-management-max-users-page-size",
         "123",
       )
     ).value.userManagementConfig.maxUsersPageSize shouldBe 123
     // values in range [1, 99] are disallowed
     checkOptionFail(
       Array(
-        "--max-users-page-size",
+        "--user-management-max-users-page-size",
         "1",
       )
     )
     checkOptionFail(
       Array(
-        "--max-users-page-size",
+        "--user-management-max-users-page-size",
         "99",
       )
     )
     // negative values are disallowed
     checkOptionFail(
       Array(
-        "--max-users-page-size",
+        "--user-management-max-users-page-size",
         "-1",
       )
     )

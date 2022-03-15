@@ -3,7 +3,7 @@
 
 package com.daml.platform.server.api
 
-import com.daml.error.ErrorCode.LoggingApiException
+import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 object ValidationLogger {
@@ -13,7 +13,7 @@ object ValidationLogger {
   ): Throwable = {
     logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
     t match {
-      case _: LoggingApiException => ()
+      case _: LoggedApiException => ()
       case _ => logger.info(t.getMessage)
     }
     t
