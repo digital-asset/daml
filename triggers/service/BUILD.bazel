@@ -328,3 +328,5 @@ EOF
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
+
+exports_files(["release/trigger-service-logback.xml"])
