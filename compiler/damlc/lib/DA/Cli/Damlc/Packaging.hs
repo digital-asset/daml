@@ -90,16 +90,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
             useNoFileE GenerateStablePackages
 
-      -- Register deps at the very beginning. This allows data-dependencies to
-      -- depend on dependencies which is necessary so that we can reconstruct typeclass
-      -- instances for a typeclass defined in a library.
-      -- It does mean that we can’t have a dependency from a dependency on a
-      -- data-dependency but that seems acceptable.
-      -- See https://github.com/digital-asset/daml/issues/4218 for more details.
-      -- TODO Enforce this with useful error messages
-      -- registerDepsInPkgDb depsDir dbPath
-
-
       let stablePkgIds :: Set LF.PackageId
           stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
       let baseDependenciesIds =
@@ -127,10 +117,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         dataDepPkgIds = Set.fromList $ fmap (LF.dalfPackageId . decodedDalfPkg) dalfsFromDataDependencies
 
         mainUnitIds = map decodedUnitId mainDalfs
-
-      -- We run the checks for duplicate unit ids before
-      -- to avoid blowing up GHC when setting up the GHC session.
-      -- exposedModules <- getExposedModules opts projectRoot
 
       Logger.logDebug loggerH "Building dependency package graph"
 
@@ -216,8 +202,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
               pkg = LF.extPackagePkg (LF.dalfPackagePkg (dalfPackage pkgNode))
 
+              -- Sources for the stub package containining data type definitions
+              -- Sources for the package containing instances for Template, Choice, …
               stubSources = generateSrcPkgFromLf config pkg
-
 
             generateAndInstallIfaceFiles
                 (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
@@ -397,20 +384,7 @@ settings =
   , ("Tables next to code", "YES")
   ]
 
--- Register a dar dependency in the package database
--- registerDepsInPkgDb :: FilePath -> FilePath -> IO ()
--- registerDepsInPkgDb depsPath dbPath = do
---     mains <- queryDalfs (Just [mainMarker, depMarker]) depsPath
---     let dirs = map takeDirectory mains
---     forM_ dirs $ \dir -> do
---       files <- listFilesRecursive dir
---       copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
---       copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
---     copyFiles depsPath mains dbPath
---     -- Note that we're not copying the `dalfs` directory, because we also only have interface files
---     -- for the mains.
---     recachePkgDb dbPath
-
+-- Register a single dar dependency in the package database
 registerDepInPkgDb :: FilePath -> FilePath -> FilePath -> IO ()
 registerDepInPkgDb dalfPath depsPath dbPath = do
   let dir = takeDirectory dalfPath
@@ -529,21 +503,6 @@ buildLfPackageGraph
        )
 buildLfPackageGraph pkgs = (depGraph, vertexToNode')
   where
-    -- mapping from package id's to unit id's. if the same package is imported with
-    -- different unit id's, we would loose a unit id here.
-    -- pkgMap =
-    --     MS.fromList [ (LF.dalfPackageId pkg, unitId)
-    --                 | (unitId, pkg) <-
-    --                       MS.toList dependencyPkgs <>
-    --                       map (\(_, DecodedDalf{..}) -> (decodedUnitId, decodedDalfPkg)) pkgs
-    --                 ]
-
-    -- packages =
-    --     MS.fromList
-    --         [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg)
-    --         | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs <> map (decodedDalfPkg . snd) pkgs
-    --         ]
-
     allPackageRefs :: LF.Package -> [LF.PackageRef]
     allPackageRefs pkg =
       toListOf packageRefs pkg
@@ -568,25 +527,8 @@ buildLfPackageGraph pkgs = (depGraph, vertexToNode')
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
 
-    -- dependencyInfo =
-    --     buildDependencyInfo
-    --        (map LF.dalfPackagePkg $ MS.elems dependencyPkgs)
-    --        (LF.initWorld (map (uncurry LF.ExternalPackage) (MS.toList packages)) targetLfVersion)
-
-    -- config pkgId unitId = DataDeps.Config
-    --     { configPackages = packages
-    --     , configGetUnitId = getUnitId unitId pkgMap
-    --     , configSelfPkgId = pkgId
-    --     , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
-    --     , configDependencyInfo = dependencyInfo
-    --     , configSdkPrefix = [T.pack currentSdkPrefix]
-    --     }
-
 data PackageNode = PackageNode
   { dalf :: FilePath
-  -- , stubSources :: [(NormalizedFilePath, String)]
-  -- -- ^ Sources for the stub package containining data type definitions
-  -- -- ^ Sources for the package containing instances for Template, Choice, …
   , unitId :: UnitId
   , dalfPackage :: LF.DalfPackage
   }
