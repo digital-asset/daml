@@ -45,12 +45,16 @@ private[platform] class MutableCacheBackedContractStore(
   private val logger = ContextualizedLogger.get(getClass)
 
   private[cache] val cacheIndex = MutableLedgerEndCache().tap(_.set(startIndexExclusive))
+  private var _resubscriptionIndex = cacheIndex()
 
   def push(event: ContractStateEvent): Unit = {
     debugEvents(event)
-    updateCaches(event)
     updateOffsets(event)
+    updateCaches(event)
+    _resubscriptionIndex = cacheIndex()
   }
+
+  def resubscriptionIndex: (Offset, EventSequentialId) = _resubscriptionIndex
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
@@ -376,7 +380,7 @@ private[platform] object MutableCacheBackedContractStore {
               randomFactor = 0.2,
             )
           )(() =>
-            subscribeToContractStateEvents(contractStore.cacheIndex())
+            subscribeToContractStateEvents(contractStore.resubscriptionIndex)
               .map(contractStore.push)
           )
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])

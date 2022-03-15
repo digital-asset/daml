@@ -71,7 +71,10 @@ class MutableCacheBackedContractStoreSpec
     "set the cache index to the initialization index" in {
       val cacheInitializationIndex = Offset.fromByteArray(1337.toByteArray) -> 1337L
       contractStore(cachesSize = 0L, startIndexExclusive = cacheInitializationIndex).asFuture
-        .map(_.cacheIndex() shouldBe cacheInitializationIndex)
+        .map { mutableContractStore =>
+          mutableContractStore.cacheIndex() shouldBe cacheInitializationIndex
+          mutableContractStore.resubscriptionIndex shouldBe cacheInitializationIndex
+        }
     }
   }
 
