@@ -111,6 +111,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       let
         dalfsFromDependencies = fmap snd dalfsFromDependenciesWithFps
         dalfsFromDataDependencies = fmap snd dalfsFromDataDependenciesWithFps
+        dalfsFromAllDependencies = dalfsFromDependencies <> dalfsFromDataDependencies
         mainDalfs = fmap snd mainDalfsWithFps
 
         depPkgIds = Set.fromList $ fmap (LF.dalfPackageId . decodedDalfPkg) dalfsFromDependencies
@@ -124,10 +125,10 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           (checkForInconsistentLfVersions (optDamlLfVersion opts) dalfsFromDependencies mainUnitIds)
           exitWithError
       whenLeft
-          (checkForIncompatibleLfVersions (optDamlLfVersion opts) (dalfsFromDependencies <> dalfsFromDataDependencies))
+          (checkForIncompatibleLfVersions (optDamlLfVersion opts) dalfsFromAllDependencies)
           exitWithError
       whenLeft
-          (checkForUnitIdConflicts (dalfsFromDependencies <> dalfsFromDataDependencies) builtinDependencies)
+          (checkForUnitIdConflicts dalfsFromAllDependencies builtinDependencies)
           exitWithError
 
       Logger.logDebug loggerH "Building dependency package graph"
@@ -137,7 +138,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         (depGraph, vertexToNode) = buildLfPackageGraph pkgs
 
 
-      validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
+      validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
 
       -- Iterate over the dependency graph in topological order.
       -- We do a topological sort on the transposed graph which ensures that
