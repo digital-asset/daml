@@ -7,7 +7,7 @@ package iface
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
+import com.daml.lf.data.Ref, Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
@@ -78,7 +78,9 @@ final case class Interface(
     *  // but faster.
     * }}}
     */
-  def resolveChoices(findInterface: PartialFunction[Identifier, DefInterface.FWT]): Interface = {
+  def resolveChoices(
+      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+  ): Interface = {
     val outside = findInterface.lift
     def findIface(id: Identifier) =
       if (id.packageId == packageId) astInterfaces get id.qualifiedName
@@ -109,7 +111,7 @@ object Interface {
     */
   def findAstInterface(
       findPackage: PartialFunction[PackageId, Interface]
-  ): PartialFunction[Identifier, DefInterface.FWT] = {
+  ): PartialFunction[Ref.TypeConName, DefInterface.FWT] = {
     val pkg = findPackage.lift
     def go(id: Identifier) = pkg(id.packageId).flatMap(_.astInterfaces get id.qualifiedName)
     Function unlift go

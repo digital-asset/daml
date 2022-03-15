@@ -5,7 +5,7 @@ package com.daml.lf
 package iface
 
 import com.daml.lf.archive.Dar
-import data.Ref.{Identifier, PackageId}
+import data.Ref, Ref.{Identifier, PackageId}
 
 import scala.collection.immutable.Map
 import scalaz.syntax.std.map._
@@ -15,7 +15,7 @@ import scalaz.Semigroup
 final case class EnvironmentInterface(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, InterfaceType],
-    astInterfaces: Map[Identifier, DefInterface.FWT],
+    astInterfaces: Map[Ref.TypeConName, DefInterface.FWT],
 ) {
 
   // TODO(SC #13154) should fail instead in case of unresolved inherited choices?
