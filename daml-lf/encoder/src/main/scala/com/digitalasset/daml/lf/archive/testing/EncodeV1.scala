@@ -380,13 +380,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
-        case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
+        case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
-          b.setTypeRep(typeRep)
           b.setGuard(guard)
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>

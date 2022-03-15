@@ -8,4 +8,3 @@ template T
     p : Party
   where
     signatory p
-

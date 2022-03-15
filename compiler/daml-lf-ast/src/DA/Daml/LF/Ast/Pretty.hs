@@ -404,10 +404,10 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
-    UExerciseInterface interface choice cid arg typeRep guard ->
+    UExerciseInterface interface choice cid arg guard ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise_interface"
-      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg, TmArg typeRep, TmArg guard]
+      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg, TmArg guard]
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]

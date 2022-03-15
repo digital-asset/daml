@@ -279,6 +279,8 @@ convertPrim _ "UExerciseInterface"
     | iface == iface2 =
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
+    -- TODO https://github.com/digital-asset/daml/issues/13275
+    --  Remove typeRep param.
     ETmLam (mkVar "typeRep", TOptional TTypeRep) $
     ETmLam (mkVar "pred", TCon iface :-> TBuiltin BTBool) $
     EUpdate $ UExerciseInterface
@@ -286,7 +288,6 @@ convertPrim _ "UExerciseInterface"
         , exeChoice     = choiceName
         , exeContractId = EVar (mkVar "this")
         , exeArg        = EVar (mkVar "arg")
-        , exeTypeRep    = EVar (mkVar "typeRep")
         , exeGuard      = EVar (mkVar "pred")
         }
   where
