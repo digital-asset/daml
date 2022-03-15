@@ -19,7 +19,7 @@ final case class EnvironmentInterface(
 ) {
 
   // TODO(SC #13154) should fail instead in case of unresolved inherited choices?
-  /** Replace all resolvable `inheritedChoices in `typeDecls` with concrete
+  /** Replace all resolvable `inheritedChoices` in `typeDecls` with concrete
     * choices copied from `astInterfaces`.  Idempotent.
     *
     * This is not distributive because we delay resolution, because successful
