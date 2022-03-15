@@ -158,80 +158,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           _ | pkgId `Set.member` depPkgIds -> do
             registerDepInPkgDb (dalf pkgNode) depsDir dbPath
           _ | pkgId `Set.member` dataDepPkgIds -> do
-            PackageMap dependenciesSoFar <-
-              (>>= maybe (fail "Failed to generate package info") pure) $
-                withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-                  fst <$> useE GeneratePackageMap projectRoot
-
-            exposedModules <- getExposedModules opts projectRoot
-
-            let unitIdStr = unitIdString $ unitId pkgNode
-            let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-            let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
-            let deps =
-                    [ (unitId depPkgNode, dalfPackage depPkgNode)
-                    | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
-                    , pkgId /= depPkgId
-                    , not (depPkgId `Set.member` stablePkgIds)
-                    ]
-            let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-            let dalfDir = dbPath </> pkgIdStr
-            createDirectoryIfMissing True workDir
-            createDirectoryIfMissing True dalfDir
-            BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
-
-            let
-
-              -- mapping from package id's to unit id's. if the same package is imported with
-              -- different unit id's, we would loose a unit id here.
-              pkgMap =
-                  MS.fromList [ (LF.dalfPackageId pkg, unitId)
-                              | (unitId, pkg) <-
-                                    MS.toList dependenciesSoFar <>
-                                    map (\(_, DecodedDalf{..}) -> (decodedUnitId, decodedDalfPkg)) pkgs
-                              ]
-
-              packages =
-                MS.fromList
-                  [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg)
-                  | dalfPkg <- MS.elems dependenciesSoFar <> MS.elems stablePkgs <> map (decodedDalfPkg . snd) pkgs
-                  ]
-
-              targetLfVersion = optDamlLfVersion opts
-
-              dependencyInfo =
-                buildDependencyInfo
-                  (map LF.dalfPackagePkg $ MS.elems dependenciesSoFar)
-                  (LF.initWorld (map (uncurry LF.ExternalPackage) (MS.toList packages)) targetLfVersion)
-
-              config = DataDeps.Config
-                  { configPackages = packages
-                  , configGetUnitId = getUnitId (unitId pkgNode) pkgMap
-                  , configSelfPkgId = pkgId
-                  , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
-                  , configDependencyInfo = dependencyInfo
-                  , configSdkPrefix = [T.pack currentSdkPrefix]
-                  }
-
-              pkg = LF.extPackagePkg (LF.dalfPackagePkg (dalfPackage pkgNode))
-
-              -- Sources for the stub package containining data type definitions
-              -- Sources for the package containing instances for Template, Choice, …
-              stubSources = generateSrcPkgFromLf config pkg
-
-            generateAndInstallIfaceFiles
-                (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
-                stubSources
-                opts
-                workDir
-                dbPath
-                projectPackageDatabase
-                pkgId
-                pkgName
-                mbPkgVersion
-                deps
-                dependenciesSoFar
-                exposedModules
+            installDataDep opts loggerH projectRoot dbPath pkgs stablePkgs stablePkgIds depGraph vertexToNode vertex pkgId pkgNode
           _ -> do
             putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
 
@@ -271,6 +198,96 @@ disableScenarioService opts = opts
 
 toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
 toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
+
+installDataDep ::
+     Options
+  -> Logger.Handle IO
+  -> NormalizedFilePath
+  -> FilePath
+  -> [(a, DecodedDalf)]
+  -> MS.Map (UnitId, b) LF.DalfPackage
+  -> Set LF.PackageId
+  -> Graph
+  -> (Vertex -> (PackageNode, LF.PackageId))
+  -> Vertex
+  -> LF.PackageId
+  -> PackageNode
+  -> IO ()
+installDataDep opts loggerH projectRoot dbPath pkgs stablePkgs stablePkgIds depGraph vertexToNode vertex pkgId pkgNode = do
+  PackageMap dependenciesSoFar <-
+    (>>= maybe (fail "Failed to generate package info") pure) $
+      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+        fst <$> useE GeneratePackageMap projectRoot
+
+  exposedModules <- getExposedModules opts projectRoot
+
+  let unitIdStr = unitIdString $ unitId pkgNode
+  let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+  let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
+  let deps =
+          [ (unitId depPkgNode, dalfPackage depPkgNode)
+          | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+          , pkgId /= depPkgId
+          , not (depPkgId `Set.member` stablePkgIds)
+          ]
+  let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+  let dalfDir = dbPath </> pkgIdStr
+  createDirectoryIfMissing True workDir
+  createDirectoryIfMissing True dalfDir
+  BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
+
+  let
+
+    -- mapping from package id's to unit id's. if the same package is imported with
+    -- different unit id's, we would loose a unit id here.
+    pkgMap =
+        MS.fromList [ (LF.dalfPackageId pkg, unitId)
+                    | (unitId, pkg) <-
+                          MS.toList dependenciesSoFar <>
+                          map (\(_, DecodedDalf{..}) -> (decodedUnitId, decodedDalfPkg)) pkgs
+                    ]
+
+    packages =
+      MS.fromList
+        [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg)
+        | dalfPkg <- MS.elems dependenciesSoFar <> MS.elems stablePkgs <> map (decodedDalfPkg . snd) pkgs
+        ]
+
+    targetLfVersion = optDamlLfVersion opts
+
+    dependencyInfo =
+      buildDependencyInfo
+        (map LF.dalfPackagePkg $ MS.elems dependenciesSoFar)
+        (LF.initWorld (map (uncurry LF.ExternalPackage) (MS.toList packages)) targetLfVersion)
+
+    config = DataDeps.Config
+        { configPackages = packages
+        , configGetUnitId = getUnitId (unitId pkgNode) pkgMap
+        , configSelfPkgId = pkgId
+        , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
+        , configDependencyInfo = dependencyInfo
+        , configSdkPrefix = [T.pack currentSdkPrefix]
+        }
+
+    pkg = LF.extPackagePkg (LF.dalfPackagePkg (dalfPackage pkgNode))
+
+    -- Sources for the stub package containining data type definitions
+    -- Sources for the package containing instances for Template, Choice, …
+    stubSources = generateSrcPkgFromLf config pkg
+
+  generateAndInstallIfaceFiles
+      (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
+      stubSources
+      opts
+      workDir
+      dbPath
+      projectPackageDatabase
+      pkgId
+      pkgName
+      mbPkgVersion
+      deps
+      dependenciesSoFar
+      exposedModules
 
 -- generate interface files and install them in the package database
 generateAndInstallIfaceFiles ::
