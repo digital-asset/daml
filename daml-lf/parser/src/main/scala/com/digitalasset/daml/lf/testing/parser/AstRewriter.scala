@@ -340,7 +340,7 @@ private[daml] class AstRewriter(
     x match {
       case DefInterface(requires, param, fixedChoices, methods, precond) =>
         DefInterface(
-          requires,
+          requires.map(apply(_)),
           param,
           fixedChoices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
