@@ -118,6 +118,18 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
         mainUnitIds = map decodedUnitId mainDalfs
 
+      -- We perform these check before checking for unit id collisions
+      -- since it provides a more useful error message.
+      whenLeft
+          (checkForInconsistentLfVersions (optDamlLfVersion opts) dalfsFromDependencies mainUnitIds)
+          exitWithError
+      whenLeft
+          (checkForIncompatibleLfVersions (optDamlLfVersion opts) (dalfsFromDependencies <> dalfsFromDataDependencies))
+          exitWithError
+      whenLeft
+          (checkForUnitIdConflicts (dalfsFromDependencies <> dalfsFromDataDependencies) baseDependencies)
+          exitWithError
+
       Logger.logDebug loggerH "Building dependency package graph"
 
       let
@@ -221,30 +233,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
                 exposedModules
           _ -> do
             putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
-
-      PackageMap dependenciesEnd <-
-        (>>= maybe (fail "Failed to generate package info") pure) $
-          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-            fst <$> useE GeneratePackageMap projectRoot
-
-      let dependencyInfo = DependencyInfo
-            { dependenciesInPkgDb = dependenciesEnd
-            , dalfsFromDependencies
-            , dalfsFromDataDependencies
-            , mainUnitIds
-            }
-
-      -- We perform these check before checking for unit id collisions
-      -- since it provides a more useful error message.
-      whenLeft
-          (checkForInconsistentLfVersions (optDamlLfVersion opts) dependencyInfo)
-          exitWithError
-      whenLeft
-          (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
-          exitWithError
-      whenLeft
-          (checkForUnitIdConflicts dependencyInfo)
-          exitWithError
 
       writeMetadata
           projectRoot
@@ -562,28 +550,6 @@ exitWithError msg = do
     hFlush stderr
     exitFailure
 
-data DependencyInfo = DependencyInfo
-  { dependenciesInPkgDb :: MS.Map UnitId LF.DalfPackage
-  -- ^ Dependencies picked up by the GeneratePackageMap rule.
-  -- The rule is run after installing DALFs from `dependencies` so
-  -- this includes dependencies in the builtin package db like daml-prim
-  -- as well as the main DALFs of DARs specified in `dependencies`.
-  , dalfsFromDependencies :: [DecodedDalf]
-  -- ^ All dalfs (not just main DALFs) in DARs listed in `dependencies`.
-  -- This does not include DALFs in the global package db like daml-prim.
-  -- Note that a DAR does not include interface files for dependencies
-  -- so to use a DAR as a `dependency` you also need to list the DARs of all
-  -- of its dependencies.
-  , dalfsFromDataDependencies :: [DecodedDalf]
-  -- ^ All dalfs (not just main DALFs) from DARs and DALFs listed in `data-dependencies`.
-  -- Note that for data-dependencies it is sufficient to list a DAR without
-  -- listing all of its dependencies.
-  , mainUnitIds :: [UnitId]
-  -- ^ Unit id of the main DALFs specified in dependencies and the main DALFs
-  -- of DARs specified in data-dependencies. This will be used to generate the
-  -- --package flags which define which packages are exposed by default.
-  }
-
 showDeps :: [((LF.PackageId, UnitId), LF.Version)] -> String
 showDeps deps =
     intercalate
@@ -593,8 +559,21 @@ showDeps deps =
         | ((pkgId, unitId), ver) <- deps
         ]
 
-checkForInconsistentLfVersions :: LF.Version -> DependencyInfo -> Either String ()
-checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, mainUnitIds}
+checkForInconsistentLfVersions ::
+     LF.Version
+  -- ^ Target LF version.
+  -> [DecodedDalf]
+  -- ^ All dalfs (not just main DALFs) in DARs listed in `dependencies`.
+  -- This does not include DALFs in the global package db like daml-prim.
+  -- Note that a DAR does not include interface files for dependencies
+  -- so to use a DAR as a `dependency` you also need to list the DARs of all
+  -- of its dependencies.
+  -> [UnitId]
+  -- ^ Unit id of the main DALFs specified in dependencies and the main DALFs
+  -- of DARs specified in data-dependencies. This will be used to generate the
+  -- --package flags which define which packages are exposed by default.
+  -> Either String ()
+checkForInconsistentLfVersions lfTarget dalfsFromDependencies mainUnitIds
   | null inconsistentLfDeps = Right ()
   | otherwise = Left $ concat
         [ "Targeted LF version "
@@ -612,8 +591,20 @@ checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, ma
         , ver /= lfTarget
         ]
 
-checkForIncompatibleLfVersions :: LF.Version -> DependencyInfo -> Either String ()
-checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, dalfsFromDataDependencies}
+checkForIncompatibleLfVersions ::
+     LF.Version
+  -- ^ Target LF version.
+  -> [DecodedDalf]
+  -- ^ All dalfs (not just main DALFs) in DARs listed in `dependencies` and
+  -- all dalfs (not just main DALFs) from DARs and DALFs listed in `data-dependencies`.
+  -- This does not include DALFs in the global package db like daml-prim.
+  -- Note that a DAR does not include interface files for dependencies
+  -- so to use a DAR as a `dependency` you also need to list the DARs of all
+  -- of its dependencies.
+  -- Note that for data-dependencies it is sufficient to list a DAR without
+  -- listing all of its dependencies.
+  -> Either String ()
+checkForIncompatibleLfVersions lfTarget dalfs
   | null incompatibleLfDeps = Right ()
   | otherwise = Left $ concat
         [ "Targeted LF version "
@@ -627,11 +618,26 @@ checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, da
             [ ( (LF.dalfPackageId decodedDalfPkg, decodedUnitId)
               , (LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg) decodedDalfPkg
               )
-            | DecodedDalf{..} <- dalfsFromDataDependencies <> dalfsFromDependencies
+            | DecodedDalf{..} <- dalfs
             ]
 
-checkForUnitIdConflicts :: DependencyInfo -> Either String ()
-checkForUnitIdConflicts DependencyInfo{..}
+checkForUnitIdConflicts ::
+     [DecodedDalf]
+  -- ^ All dalfs (not just main DALFs) in DARs listed in `dependencies` and
+  -- all dalfs (not just main DALFs) from DARs and DALFs listed in `data-dependencies`.
+  -- This does not include DALFs in the global package db like daml-prim.
+  -- Note that a DAR does not include interface files for dependencies
+  -- so to use a DAR as a `dependency` you also need to list the DARs of all
+  -- of its dependencies.
+  -- Note that for data-dependencies it is sufficient to list a DAR without
+  -- listing all of its dependencies.
+  -> MS.Map UnitId LF.DalfPackage
+  -- ^ Dependencies picked up by the GeneratePackageMap rule.
+  -- The rule is run before installing DALFs from `dependencies` so
+  -- this only includes dependencies in the builtin package db
+  -- like daml-prim and daml-stdlib
+  -> Either String ()
+checkForUnitIdConflicts dalfs baseDependencies
   | MS.null unitIdConflicts = Right ()
   | otherwise = Left $ concat
         [ "Transitive dependencies with same unit id but conflicting package ids: "
@@ -646,10 +652,10 @@ checkForUnitIdConflicts DependencyInfo{..}
   where
     unitIdConflicts = MS.filter ((>=2) . Set.size) .  MS.fromListWith Set.union $ concat
         [ [ (decodedUnitId, Set.singleton (LF.dalfPackageId decodedDalfPkg))
-          | DecodedDalf{..} <- dalfsFromDataDependencies <> dalfsFromDependencies
+          | DecodedDalf{..} <- dalfs
           ]
         , [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
-          | (unitId, dalfPkg) <- MS.toList dependenciesInPkgDb
+          | (unitId, dalfPkg) <- MS.toList baseDependencies
           ]
         ]
 
