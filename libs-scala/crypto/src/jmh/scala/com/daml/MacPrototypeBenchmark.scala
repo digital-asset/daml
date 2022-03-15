@@ -24,7 +24,7 @@ class MacPrototypeBenchmark {
   }
 
   private def encode(): Array[Byte] = {
-    val prototype = MacPrototype.HmacSHA_256
+    val prototype = MacPrototype.HmacSha256
     val mac = prototype.newMac
     mac.init(new SecretKeySpec(key.getBytes(charset), prototype.algorithm))
     mac.doFinal(value.getBytes(charset))

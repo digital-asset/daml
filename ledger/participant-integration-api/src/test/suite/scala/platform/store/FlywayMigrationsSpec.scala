@@ -43,7 +43,7 @@ class FlywayMigrationsSpec extends AnyWordSpec {
 
 object FlywayMigrationsSpec {
 
-  private val digester = MessageDigestPrototype.SHA_256.newDigest
+  private val digester = MessageDigestPrototype.Sha256.newDigest
 
   private def assertFlywayMigrationFileHashes(
       dbType: DbType,

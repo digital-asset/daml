@@ -49,7 +49,7 @@ abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
   }
 
   private def computeCurrentDigest(resource: LoadableResource, encoding: Charset): String = {
-    val sha256 = MessageDigestPrototype.SHA_256.newDigest
+    val sha256 = MessageDigestPrototype.Sha256.newDigest
     new BufferedReader(resource.read())
       .lines()
       .forEach(line => sha256.update((line + "\n").getBytes(encoding)))

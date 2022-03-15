@@ -30,7 +30,7 @@ object HashingLogEntryIdComputationStrategy extends LogEntryIdComputationStrateg
       .build
 
   private def hash(rawEnvelope: Raw.Envelope): ByteString = {
-    val messageDigest = MessageDigestPrototype.SHA_256.newDigest
+    val messageDigest = MessageDigestPrototype.Sha256.newDigest
     messageDigest.update(rawEnvelope.bytes.asReadOnlyByteBuffer())
     val hash = messageDigest
       .digest()

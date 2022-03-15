@@ -155,7 +155,7 @@ object KeyHasher extends KeyHasher {
   /** @deprecated in favor of [[GlobalKey.hash]]
     */
   override def hashKey(key: GlobalKey): Array[Byte] = {
-    val digest = MessageDigestPrototype.SHA_256.newDigest
+    val digest = MessageDigestPrototype.Sha256.newDigest
 
     // First, write the template ID
     putString(digest, key.templateId.packageId)

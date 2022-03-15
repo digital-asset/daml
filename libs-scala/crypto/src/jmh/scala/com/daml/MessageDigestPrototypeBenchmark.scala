@@ -24,24 +24,24 @@ class MessageDigestPrototypeBenchmark {
   @Benchmark
   @Threads(1)
   def newDigest(): Array[Byte] = {
-    MessageDigestPrototype.SHA_256.newDigest.digest(value.getBytes(charset))
+    MessageDigestPrototype.Sha256.newDigest.digest(value.getBytes(charset))
   }
 
   @Benchmark
   @Threads(4)
   def newDigest4(): Array[Byte] = {
-    MessageDigestPrototype.SHA_256.newDigest.digest(value.getBytes(charset))
+    MessageDigestPrototype.Sha256.newDigest.digest(value.getBytes(charset))
   }
 
   @Benchmark
   @Threads(16)
   def newDigest16(): Array[Byte] = {
-    MessageDigestPrototype.SHA_256.newDigest.digest(value.getBytes(charset))
+    MessageDigestPrototype.Sha256.newDigest.digest(value.getBytes(charset))
   }
 
   @Benchmark
   @Threads(32)
   def newDigest32(): Array[Byte] = {
-    MessageDigestPrototype.SHA_256.newDigest.digest(value.getBytes(charset))
+    MessageDigestPrototype.Sha256.newDigest.digest(value.getBytes(charset))
   }
 }

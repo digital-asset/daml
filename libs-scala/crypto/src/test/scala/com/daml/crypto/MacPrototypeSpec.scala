@@ -15,18 +15,18 @@ class MacPrototypeSpec extends AnyFlatSpec with Matchers {
   behavior of MacPrototype.getClass.getSimpleName
 
   it should "provide new instance of digest for HmacSHA256" in {
-    val mac = MacPrototype.HmacSHA_256.newMac
-    val mac2 = MacPrototype.HmacSHA_256.newMac
+    val mac = MacPrototype.HmacSha256.newMac
+    val mac2 = MacPrototype.HmacSha256.newMac
     mac should not be theSameInstanceAs(mac2)
   }
 
   it should "expose algorithm" in {
-    MacPrototype.HmacSHA_256.algorithm shouldBe "HmacSHA256"
+    MacPrototype.HmacSha256.algorithm shouldBe "HmacSHA256"
   }
 
   it should "perform encoding for the `HmacSHA256` algorithm" in {
     val key = "Hello"
-    val prototype = MacPrototype.HmacSHA_256
+    val prototype = MacPrototype.HmacSha256
     val mac = prototype.newMac
     mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), prototype.algorithm))
     val sha = mac.doFinal("Hello World".getBytes(StandardCharsets.UTF_8))
