@@ -42,7 +42,7 @@ private class PackageService(
   ) {
 
     def append(diff: PackageStore): State = {
-      val newPackageStore = this.packageStore ++ diff
+      val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
       State(
         newPackageStore.keySet,
         getTemplateIdMap(newPackageStore),
@@ -50,6 +50,13 @@ private class PackageService(
         getKeyTypeMap(newPackageStore),
         newPackageStore,
       )
+    }
+
+    // `diff` but with interface-inherited choices resolved
+    private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
+      def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
+      val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
+      diff.transform((_, iface) => iface resolveChoices findIface)
     }
   }
 
