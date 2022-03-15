@@ -3,15 +3,22 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCause}
+import com.daml.error.{BaseError, ContextualizedErrorLogger}
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import io.grpc.StatusRuntimeException
 
+sealed abstract class ErrorCause extends Product with Serializable
+
+object ErrorCause {
+  final case class DamlLf(error: LfError) extends ErrorCause
+  final case class LedgerTime(retries: Int) extends ErrorCause
+}
+
 object RejectionGenerators {
 
-  def commandExecutorError(cause: ErrorCauseExport)(implicit
+  def commandExecutorError(cause: ErrorCause)(implicit
       errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
 
@@ -155,22 +162,11 @@ object RejectionGenerators {
     }
 
     cause match {
-      case ErrorCauseExport.DamlLf(error) => processLfError(error)
-      case x: ErrorCauseExport.LedgerTime =>
+      case ErrorCause.DamlLf(error) => processLfError(error)
+      case x: ErrorCause.LedgerTime =>
         LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime
-          .Reject(x.explain)
+          .Reject(s"Could not find a suitable ledger time after ${x.retries} retries")
           .asGrpcErrorFromContext
     }
-  }
-}
-
-sealed trait ErrorCauseExport
-object ErrorCauseExport {
-  final case class DamlLf(error: LfError) extends ErrorCauseExport
-  final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
-
-  def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
-    case ErrorCause.DamlLf(error) => DamlLf(error)
-    case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
   }
 }

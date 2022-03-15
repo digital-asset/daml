@@ -6,8 +6,8 @@ package com.daml.platform.apiserver.execution
 import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCause
-import com.daml.error.ErrorCause.LedgerTime
+import com.daml.error.definitions.ErrorCause
+import com.daml.error.definitions.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
