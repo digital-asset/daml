@@ -24,7 +24,7 @@ type of release you're doing, please ask on `#team-daml`.
 
 1. Merge the PR and wait for the corresponding `main` build to finish.
 
-1. Go to the [Testing](testing) section of this file.
+1. Go to the [Testing](#testing) section of this file.
 
 ## Making a Stable Release (2.x)
 
@@ -55,12 +55,12 @@ type of release you're doing, please ask on `#team-daml`.
 
 1. Merge the PR and wait for the corresponding `main` build to finish.
 
-1. Go to the [Testing](testing) section of this file.
+1. Go to the [Testing](#testing) section of this file.
 
 ## Making a Snapshot Release (1.x)
 
 At this point, snapshot releases on 1.x should be rare, and only meant to be
-precursors to stable, patch releases. First, identify wich release branch
+precursors to stable, patch releases. First, identify which release branch
 you're patching, and what the next version number should be. In this example
 we'll assume you're patching the 1.18 branch to produce a snapshot (likely a
 release candidate) for 1.18.3.
@@ -83,7 +83,7 @@ release candidate) for 1.18.3.
 1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
 
-1. Go to the [Testing](testing) section of this file.
+1. Go to the [Testing](#testing) section of this file.
 
 ## Making a Stable Release (1.x)
 
@@ -111,7 +111,7 @@ coommit, with a different version number.
 1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
 
-1. Go to the [Testing](testing) section of this file.
+1. Go to the [Testing](#testing) section of this file.
 
 ## Testing
 
