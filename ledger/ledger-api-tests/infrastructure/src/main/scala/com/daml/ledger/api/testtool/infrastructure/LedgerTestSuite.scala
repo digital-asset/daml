@@ -24,7 +24,7 @@ abstract class LedgerTestSuite {
       repeated: Int = 1,
       enabled: Features => Boolean = _ => true,
       disabledReason: String = "No reason",
-      tags: List[com.daml.security.evidence.tag.TestTag] = List.empty,
+      tags: List[com.daml.security.evidence.tag.EvidenceTag] = List.empty,
   )(testCase: ExecutionContext => PartialFunction[Participants, Future[Unit]]): Unit = {
     testGivenAllParticipants(
       shortIdentifier,
@@ -48,7 +48,7 @@ abstract class LedgerTestSuite {
       repeated: Int = 1,
       enabled: Features => Boolean = _ => true,
       disabledReason: String = "No reason",
-      tags: List[com.daml.security.evidence.tag.TestTag] = List.empty,
+      tags: List[com.daml.security.evidence.tag.EvidenceTag] = List.empty,
   )(
       testCase: ExecutionContext => Seq[ParticipantTestContext] => PartialFunction[
         Participants,

@@ -14,7 +14,7 @@ import io.circe.parser.decode
 import io.circe.syntax._
 import com.daml.security.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
 import com.daml.security.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
-import com.daml.security.evidence.tag.TestTag
+import com.daml.security.evidence.tag.EvidenceTag
 import io.circe.generic.auto._
 import org.scalatest.Suite
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
@@ -58,11 +58,11 @@ case class ReliabilityTestEntry(
 
 object SystematicTestingGenerator {
 
-  private def testNameWithTags(tags: Map[String, Set[String]]): List[(String, List[TestTag])] =
+  private def testNameWithTags(tags: Map[String, Set[String]]): List[(String, List[EvidenceTag])] =
     tags.fmap { tagNames =>
       tagNames.toList
         .filter(_.startsWith("{")) // Check if we have a JSON encoded tag
-        .traverse(decode[com.daml.security.evidence.tag.TestTag])
+        .traverse(decode[com.daml.security.evidence.tag.EvidenceTag])
         .valueOr(err => sys.error(s"Failed to parse JSON tag: $err"))
     }.toList
 

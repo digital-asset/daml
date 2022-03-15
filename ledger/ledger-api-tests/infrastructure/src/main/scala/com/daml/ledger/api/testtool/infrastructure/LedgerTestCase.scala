@@ -25,7 +25,7 @@ sealed class LedgerTestCase(
     val timeoutScale: Double,
     val runConcurrently: Boolean,
     val repeated: Int = 1,
-    val tags: List[com.daml.security.evidence.tag.TestTag] = List.empty,
+    val tags: List[com.daml.security.evidence.tag.EvidenceTag] = List.empty,
     enabled: Features => Boolean,
     disabledReason: String,
     partyAllocation: PartyAllocation,

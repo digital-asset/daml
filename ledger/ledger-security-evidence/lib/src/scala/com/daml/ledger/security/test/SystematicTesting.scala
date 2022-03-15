@@ -4,27 +4,49 @@ package com.daml.ledger.security.test
 
 import com.daml.security.evidence.tag.Reliability.{AdverseScenario, Component, Remediation}
 import com.daml.security.evidence.tag.Security.{Attack, HappyCase}
+import com.daml.security.evidence.tag._
 import io.circe.generic.extras.semiauto.deriveEnumerationCodec
-import io.circe.generic.semiauto.{deriveCodec, deriveDecoder, deriveEncoder}
-import io.circe.{Codec, Decoder, Encoder, Json}
+import io.circe.generic.semiauto.deriveCodec
+import io.circe.{Codec, Json}
 import org.scalactic.source
 import org.scalatest.Tag
 import org.scalatest.wordspec.FixtureAnyWordSpec
+
 import scala.language.implicitConversions
 
 object SystematicTesting {
-  implicit def tagToContainer(tag: com.daml.security.evidence.tag.TestTag): Tag = new TagContainer(tag)
+  implicit def tagToContainer(tag: com.daml.security.evidence.tag.EvidenceTag): Tag =
+    new TagContainer(tag)
 
-  class TagContainer(testTag: com.daml.security.evidence.tag.TestTag)
+  class TagContainer(testTag: com.daml.security.evidence.tag.EvidenceTag)
       extends Tag("SystematicTesting") {
-    override val name: String = SystematicTesting.JsonCodec.encoder(testTag).noSpaces
+    override val name: String = SystematicTesting.JsonCodec.encodeEvidenceTag(testTag).noSpaces
   }
 
   object JsonCodec {
-    implicit val encoder: Encoder[com.daml.security.evidence.tag.TestTag] =
-      deriveEncoder[com.daml.security.evidence.tag.TestTag]
-    implicit val decoder: Decoder[com.daml.security.evidence.tag.TestTag] =
-      deriveDecoder[com.daml.security.evidence.tag.TestTag]
+    import cats.syntax.functor._
+    import io.circe.generic.auto._
+    import io.circe.syntax._
+    import io.circe.{Decoder, Encoder}
+
+    implicit val encodeEvidenceTag: Encoder[EvidenceTag] = Encoder.instance {
+      case e: Operability.OperabilityTest => e.asJson
+      case e: Reliability.ReliabilityTest => e.asJson
+      case e: Security.SecurityTest => e.asJson
+      case e: MissingTest => e.asJson
+      case e: FuncTest => e.asJson
+    }
+
+    implicit val decodeEvidenceTag: Decoder[EvidenceTag] =
+      List[Decoder[EvidenceTag]](
+        Decoder[Operability.OperabilityTest].widen,
+        Decoder[Reliability.ReliabilityTest].widen,
+        Decoder[Security.SecurityTest].widen,
+        Decoder[MissingTest].widen,
+        Decoder[FuncTest].widen,
+      ).reduceLeft(_ or _)
+
+
     implicit val attackcodec: Codec[Attack] = deriveCodec[Attack]
     implicit val happycasecodec: Codec[HappyCase] = deriveCodec[HappyCase]
     implicit val remediationcodec: Codec[Remediation] = deriveCodec[Remediation]
@@ -43,7 +65,9 @@ object SystematicTesting {
       deriveEnumerationCodec[com.daml.security.evidence.tag.Security.SecurityTestLayer]
     implicit val suiteEncoder: Encoder[com.daml.security.evidence.tag.Security.SecurityTestSuite] =
       Encoder.forProduct1("layer")(ts => ts.securityTestLayer)
-    implicit val encoderRe: Encoder[com.daml.security.evidence.tag.Reliability.ReliabilityTestSuite] = (_: com.daml.security.evidence.tag.Reliability.ReliabilityTestSuite) => Json.obj()
+    implicit val encoderRe
+        : Encoder[com.daml.security.evidence.tag.Reliability.ReliabilityTestSuite] =
+      (_: com.daml.security.evidence.tag.Reliability.ReliabilityTestSuite) => Json.obj()
   }
 
 }
