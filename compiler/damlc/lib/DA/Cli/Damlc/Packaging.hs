@@ -80,7 +80,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       clearPackageDb
 
       -- since we haven't registered any dependencies yet, this only contains daml-prim and daml-stdlib
-      PackageMap baseDependencies <-
+      PackageMap builtinDependencies <-
         (>>= maybe (fail "Failed to generate package info") pure) $
           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
             fst <$> useE GeneratePackageMap projectRoot
@@ -92,12 +92,12 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       let stablePkgIds :: Set LF.PackageId
           stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
-      let baseDependenciesIds =
-              Set.fromList $ map LF.dalfPackageId $ MS.elems baseDependencies
+      let builtinDependenciesIds =
+              Set.fromList $ map LF.dalfPackageId $ MS.elems builtinDependencies
 
       let decodeDalf_ dalf = do
             bs <- BS.readFile dalf
-            (dalf,) <$> either fail pure (decodeDalf baseDependenciesIds dalf bs)
+            (dalf,) <$> either fail pure (decodeDalf builtinDependenciesIds dalf bs)
 
       -- This is only used for unit-id collision checks and dependencies on newer LF versions.
       dalfsFromDependencyFps <- queryDalfs (Just [depMarker]) depsDir
@@ -127,7 +127,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           (checkForIncompatibleLfVersions (optDamlLfVersion opts) (dalfsFromDependencies <> dalfsFromDataDependencies))
           exitWithError
       whenLeft
-          (checkForUnitIdConflicts (dalfsFromDependencies <> dalfsFromDataDependencies) baseDependencies)
+          (checkForUnitIdConflicts (dalfsFromDependencies <> dalfsFromDataDependencies) builtinDependencies)
           exitWithError
 
       Logger.logDebug loggerH "Building dependency package graph"
@@ -153,7 +153,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         -- unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
         case () of
           _ | pkgId `Set.member` stablePkgIds -> pure ()
-          _ | pkgId `Set.member` baseDependenciesIds -> pure ()
+          _ | pkgId `Set.member` builtinDependenciesIds -> pure ()
           _ | pkgId `Set.member` depPkgIds -> do
             registerDepInPkgDb (dalf pkgNode) depsDir dbPath
           _ | pkgId `Set.member` dataDepPkgIds -> do
@@ -637,7 +637,7 @@ checkForUnitIdConflicts ::
   -- this only includes dependencies in the builtin package db
   -- like daml-prim and daml-stdlib
   -> Either String ()
-checkForUnitIdConflicts dalfs baseDependencies
+checkForUnitIdConflicts dalfs builtinDependencies
   | MS.null unitIdConflicts = Right ()
   | otherwise = Left $ concat
         [ "Transitive dependencies with same unit id but conflicting package ids: "
@@ -655,7 +655,7 @@ checkForUnitIdConflicts dalfs baseDependencies
           | DecodedDalf{..} <- dalfs
           ]
         , [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
-          | (unitId, dalfPkg) <- MS.toList baseDependencies
+          | (unitId, dalfPkg) <- MS.toList builtinDependencies
           ]
         ]
 
