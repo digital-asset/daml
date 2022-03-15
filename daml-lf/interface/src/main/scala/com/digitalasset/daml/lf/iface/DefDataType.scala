@@ -180,9 +180,9 @@ final case class DefTemplate[+Ty](
 ) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
-  /** Remove choices from `inheritedChoices` and add to `choices` given the
-    * `astInterfaces` from an [[EnvironmentInterface]].  If the result has any
-    * `inheritedChoices` left, these choices were not found.
+  /** Remove choices from `unresolvedInheritedChoices` and add to `choices`
+    * given the `astInterfaces` from an [[EnvironmentInterface]].  If the result
+    * has any `unresolvedInheritedChoices` left, these choices were not found.
     */
   def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
