@@ -245,22 +245,6 @@ Errors raised by or forwarded by the Ledger API.
 
 
 
-.. _error_code_CONFIGURATION_ENTRY_REJECTED:
-
-CONFIGURATION_ENTRY_REJECTED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This rejection is given when a new configuration is rejected.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
-
-    **Resolution**: Fetch newest configuration and/or retry.
-
-
-
-
 .. _error_code_LEDGER_API_INTERNAL_ERROR:
 
 LEDGER_API_INTERNAL_ERROR
@@ -273,22 +257,6 @@ LEDGER_API_INTERNAL_ERROR
     **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
 
     **Resolution**: Contact support.
-
-
-
-
-.. _error_code_PACKAGE_UPLOAD_REJECTED:
-
-PACKAGE_UPLOAD_REJECTED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This rejection is given when a package upload is rejected.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
-
-    **Resolution**: Refer to the detailed message of the received error.
 
 
 
@@ -357,22 +325,6 @@ SERVICE_NOT_RUNNING
 
 
 
-.. _error_code_TOO_MANY_USER_RIGHTS:
-
-TOO_MANY_USER_RIGHTS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A user can have only a limited number of user rights. There was an attempt to create a user with too many rights or grant too many rights to a user.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
-
-    **Resolution**: Retry with a smaller number of rights or delete some of the already existing rights of this user. Contact the participant operator if the limit is too low.
-
-
-
-
 .. _error_code_UNSUPPORTED_OPERATION:
 
 UNSUPPORTED_OPERATION
@@ -385,6 +337,66 @@ UNSUPPORTED_OPERATION
     **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status UNIMPLEMENTED without any details due to security reasons
 
     **Resolution**: This error is caused by a participant node misconfiguration or by an implementation bug. Resolution requires participant operator intervention.
+
+
+
+2.2.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices
+===================================================================================================================
+
+Errors raised by Ledger API admin services.
+
+
+
+.. _error_code_CONFIGURATION_ENTRY_REJECTED:
+
+CONFIGURATION_ENTRY_REJECTED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when a new configuration is rejected.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+
+    **Resolution**: Fetch newest configuration and/or retry.
+
+
+
+
+.. _error_code_PACKAGE_UPLOAD_REJECTED:
+
+PACKAGE_UPLOAD_REJECTED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when a package upload is rejected.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+
+    **Resolution**: Refer to the detailed message of the received error.
+
+
+
+2.2.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrors
+===================================================================================================================
+
+
+
+
+
+.. _error_code_TOO_MANY_USER_RIGHTS:
+
+TOO_MANY_USER_RIGHTS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A user can have only a limited number of user rights. There was an attempt to create a user with too many rights or grant too many rights to a user.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+
+    **Resolution**: Retry with a smaller number of rights or delete some of the already existing rights of this user. Contact the participant operator if the limit is too low.
 
 
 
@@ -420,7 +432,7 @@ USER_NOT_FOUND
 
 
 
-2.2.1. ParticipantErrorGroup / LedgerApiErrors / AuthorizationChecks
+2.2.2. ParticipantErrorGroup / LedgerApiErrors / AuthorizationChecks
 ===================================================================================================================
 
 Authentication and authorization errors.
@@ -490,7 +502,7 @@ UNAUTHENTICATED
 
 
 
-2.2.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution
+2.2.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution
 ===================================================================================================================
 
 Errors raised during the command execution phase of the command submission evaluation.
@@ -512,7 +524,7 @@ FAILED_TO_DETERMINE_LEDGER_TIME
 
 
 
-2.2.2.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
+2.2.3.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
 ===================================================================================================================
 
 Errors raised during the command interpretation phase of the command submission evaluation.
@@ -582,7 +594,7 @@ DAML_INTERPRETER_INVALID_ARGUMENT
 
 
 
-2.2.2.1.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter / LookupErrors
+2.2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter / LookupErrors
 ===================================================================================================================
 
 Errors raised in lookups during the command interpretation phase.
@@ -604,7 +616,7 @@ CONTRACT_KEY_NOT_FOUND
 
 
 
-2.2.2.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
+2.2.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
 ===================================================================================================================
 
 Command execution errors raised due to invalid packages.
@@ -642,7 +654,7 @@ PACKAGE_VALIDATION_FAILED
 
 
 
-2.2.2.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
+2.2.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
 ===================================================================================================================
 
 Errors raised during command conversion to the internal data representation.
@@ -664,7 +676,7 @@ COMMAND_PREPROCESSING_FAILED
 
 
 
-2.2.3. ParticipantErrorGroup / LedgerApiErrors / ConsistencyErrors
+2.2.4. ParticipantErrorGroup / LedgerApiErrors / ConsistencyErrors
 ===================================================================================================================
 
 Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger.
@@ -698,7 +710,7 @@ DUPLICATE_COMMAND
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message
 
-    **Resolution**: The correct resolution depends on the use case. If the error received pertains to a submission retried due to a timeout, do nothing, as the previous command has already been accepted. If the intent is to submit a new command, re-submit using a distinct command id.  
+    **Resolution**: The correct resolution depends on the use case. If the error received pertains to a submission retried due to a timeout, do nothing, as the previous command has already been accepted. If the intent is to submit a new command, re-submit using a distinct command id. 
 
 
 
@@ -794,11 +806,11 @@ SUBMISSION_ALREADY_IN_FLIGHT
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
-    **Resolution**: Listen to the command completion stream until a completion for the in-flight command submission is published. Alternatively, resubmit the command. If the in-flight submission has finished successfully by then,  this will return more detailed information about the earlier one. If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger. 
+    **Resolution**: Listen to the command completion stream until a completion for the in-flight command submission is published. Alternatively, resubmit the command. If the in-flight submission has finished successfully by then, this will return more detailed information about the earlier one. If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger. 
 
 
 
-2.2.4. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError
+2.2.5. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError
 ===================================================================================================================
 
 Errors raised by the Package Management Service on package uploads.
@@ -852,7 +864,7 @@ PACKAGE_SERVICE_INTERNAL_ERROR
 
 
 
-2.2.4.1. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError / Reading
+2.2.5.1. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError / Reading
 ===================================================================================================================
 
 Package parsing errors raised during package upload.
@@ -954,7 +966,7 @@ ZIP_BOMB
 
 
 
-2.2.5. ParticipantErrorGroup / LedgerApiErrors / RequestValidation
+2.2.6. ParticipantErrorGroup / LedgerApiErrors / RequestValidation
 ===================================================================================================================
 
 Validation errors raised when evaluating requests in the Ledger API.
@@ -1104,7 +1116,7 @@ PARTICIPANT_PRUNED_DATA_ACCESSED
 
 
 
-2.2.5.1. ParticipantErrorGroup / LedgerApiErrors / RequestValidation / NotFound
+2.2.6.1. ParticipantErrorGroup / LedgerApiErrors / RequestValidation / NotFound
 ===================================================================================================================
 
 
@@ -1158,7 +1170,7 @@ TRANSACTION_NOT_FOUND
 
 
 
-2.2.6. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections
+2.2.7. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections
 ===================================================================================================================
 
 Generic submission rejection errors returned by the backing ledger's write service.
@@ -1248,7 +1260,7 @@ SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
 
 
 
-2.2.6.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
+2.2.7.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
 ===================================================================================================================
 
 Errors that arise from an internal system misbehavior.

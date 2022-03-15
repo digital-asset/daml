@@ -106,7 +106,7 @@ final class OngoingStreamAuthIT
         case sre: StatusRuntimeException =>
           assertError(
             actual = sre,
-            expectedCode = Status.Code.ABORTED,
+            expectedStatusCode = Status.Code.ABORTED,
             expectedMessage =
               "STALE_STREAM_AUTHORIZATION(2,0): Stale stream authorization. Retry quickly.",
             expectedDetails = List(
@@ -120,6 +120,7 @@ final class OngoingStreamAuthIT
               ),
               ErrorDetails.RetryInfoDetail(0.seconds),
             ),
+            verifyEmptyStackTrace = false,
           )
         case _ => fail("Unexpected error", t)
       }

@@ -442,9 +442,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateExerciseInterface =
-    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ~ expr0 ^^ {
-      case iface ~ choice ~ cid ~ arg ~ typeRep ~ guard =>
-        UpdateExerciseInterface(iface, choice, cid, arg, typeRep, guard)
+    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
+      case iface ~ choice ~ cid ~ arg ~ guard =>
+        UpdateExerciseInterface(iface, choice, cid, arg, guard)
     }
 
   private lazy val updateExerciseByKey =

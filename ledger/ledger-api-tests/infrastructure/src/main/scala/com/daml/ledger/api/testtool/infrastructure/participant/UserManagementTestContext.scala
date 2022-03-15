@@ -70,7 +70,7 @@ trait UserManagementTestContext {
           )
           .map(_ => ())
           .recover {
-            case e if ErrorDetails.matches(e, LedgerApiErrors.AdminServices.UserNotFound) =>
+            case e if ErrorDetails.matches(e, LedgerApiErrors.Admin.UserManagement.UserNotFound) =>
               ()
           }
       )

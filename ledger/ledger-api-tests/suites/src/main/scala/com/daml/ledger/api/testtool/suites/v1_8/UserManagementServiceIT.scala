@@ -61,7 +61,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     def assertTooManyUserRightsError(t: Throwable): Unit = {
       assertGrpcError(
         t = t,
-        errorCode = LedgerApiErrors.AdminServices.TooManyUserRights,
+        errorCode = LedgerApiErrors.Admin.UserManagement.TooManyUserRights,
         exceptionMessageSubstring = None,
       )
     }
@@ -207,7 +207,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
                 if !ErrorDetails.matchesOneOf(
                   t,
                   IndexErrors.DatabaseErrors.SqlTransientError,
-                  LedgerApiErrors.AdminServices.UserAlreadyExists,
+                  LedgerApiErrors.Admin.UserManagement.UserAlreadyExists,
                 )
                   && !ErrorDetails.isInternalError(t) =>
               t
@@ -246,7 +246,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
                   if !ErrorDetails.matchesOneOf(
                     t,
                     IndexErrors.DatabaseErrors.SqlTransientError,
-                    LedgerApiErrors.AdminServices.UserNotFound,
+                    LedgerApiErrors.Admin.UserManagement.UserNotFound,
                   ) && !ErrorDetails.isInternalError(t) =>
                 t
             }
@@ -448,7 +448,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ = assertUserAbsentIn(
         newUser,
         pageAfterDelete,
-        "new user should be absent after it's delteion",
+        "new user should be absent after it's deletion",
       )
     } yield {
       ()
@@ -717,7 +717,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   private def assertUserNotFound(t: Throwable): Unit = {
     assertGrpcError(
       t = t,
-      errorCode = LedgerApiErrors.AdminServices.UserNotFound,
+      errorCode = LedgerApiErrors.Admin.UserManagement.UserNotFound,
       exceptionMessageSubstring = None,
     )
   }
@@ -727,7 +727,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   ): Unit = {
     assertGrpcError(
       t = t,
-      errorCode = LedgerApiErrors.AdminServices.UserAlreadyExists,
+      errorCode = LedgerApiErrors.Admin.UserManagement.UserAlreadyExists,
       exceptionMessageSubstring = None,
     )
   }

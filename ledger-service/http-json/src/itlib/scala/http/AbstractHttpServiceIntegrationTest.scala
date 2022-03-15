@@ -72,7 +72,7 @@ object AbstractHttpServiceIntegrationTestFuns {
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
-    val md = MessageDigestPrototype.SHA_256.newDigest
+    val md = MessageDigestPrototype.Sha256.newDigest
     val is = source.runWith(StreamConverters.asInputStream())
     val dis = new DigestInputStream(is, md)
 

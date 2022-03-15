@@ -14,17 +14,17 @@ class MessageDigestPrototypeSpec extends AnyFlatSpec with Matchers {
   behavior of MessageDigestPrototype.getClass.getSimpleName
 
   it should "provide new instance of digest for SHA-256" in {
-    val digest = MessageDigestPrototype.SHA_256.newDigest
-    val digest2 = MessageDigestPrototype.SHA_256.newDigest
+    val digest = MessageDigestPrototype.Sha256.newDigest
+    val digest2 = MessageDigestPrototype.Sha256.newDigest
     digest should not be theSameInstanceAs(digest2)
   }
 
   it should "expose algorithm" in {
-    MessageDigestPrototype.SHA_256.algorithm shouldBe "SHA-256"
+    MessageDigestPrototype.Sha256.algorithm shouldBe "SHA-256"
   }
 
   it should "perform a digest for the SHA-256 algorithm" in {
-    val digest = MessageDigestPrototype.SHA_256.newDigest
+    val digest = MessageDigestPrototype.Sha256.newDigest
     val sha = digest.digest("Hello World".getBytes(StandardCharsets.UTF_8))
     new String(
       Base64.getEncoder.encode(sha),

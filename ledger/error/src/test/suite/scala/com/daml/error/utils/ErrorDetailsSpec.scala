@@ -6,9 +6,12 @@ package com.daml.error.utils
 import com.daml.error.ErrorCategory.BackgroundProcessDegradationWarning
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorClass, ErrorCode}
+import com.google.protobuf
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.duration._
 
 class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
 
@@ -19,7 +22,7 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
   it should "correctly match exception to error codes " in {
     val securitySensitive =
       LedgerApiErrors.AuthorizationChecks.Unauthenticated.MissingJwtToken()(errorLogger).asGrpcError
-    val notSecuritySensitive = LedgerApiErrors.AdminServices.UserNotFound
+    val notSecuritySensitive = LedgerApiErrors.Admin.UserManagement.UserNotFound
       .Reject(_operation = "operation123", userId = "userId123")(errorLogger)
       .asGrpcError
 
@@ -29,13 +32,16 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
     ) shouldBe false
     ErrorDetails.matches(
       notSecuritySensitive,
-      LedgerApiErrors.AdminServices.UserNotFound,
+      LedgerApiErrors.Admin.UserManagement.UserNotFound,
     ) shouldBe true
     ErrorDetails.matches(
       new StatusRuntimeException(Status.ABORTED),
-      LedgerApiErrors.AdminServices.UserNotFound,
+      LedgerApiErrors.Admin.UserManagement.UserNotFound,
     ) shouldBe false
-    ErrorDetails.matches(new Exception, LedgerApiErrors.AdminServices.UserNotFound) shouldBe false
+    ErrorDetails.matches(
+      new Exception,
+      LedgerApiErrors.Admin.UserManagement.UserNotFound,
+    ) shouldBe false
 
     object NonGrpcErrorCode
         extends ErrorCode(
@@ -47,5 +53,17 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
       new StatusRuntimeException(Status.ABORTED),
       NonGrpcErrorCode,
     ) shouldBe false
+  }
+
+  it should "should preserve details when going through grpc Any" in {
+    val details = Seq(
+      ErrorDetails
+        .ErrorInfoDetail(errorCodeId = "errorCodeId1", metadata = Map("a" -> "b", "c" -> "d")),
+      ErrorDetails.ResourceInfoDetail(name = "name1", typ = "type1"),
+      ErrorDetails.RequestInfoDetail(correlationId = "correlationId1"),
+      ErrorDetails.RetryInfoDetail(1.seconds + 2.milliseconds),
+    )
+    val anys: Seq[protobuf.Any] = details.map(_.toRpcAny)
+    ErrorDetails.from(anys) shouldBe details
   }
 }

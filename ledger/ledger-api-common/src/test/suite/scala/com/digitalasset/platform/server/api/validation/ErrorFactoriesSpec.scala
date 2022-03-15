@@ -15,6 +15,7 @@ import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorAssertionsWithLogCollectorAssertions,
+  ErrorCode,
 }
 import com.daml.lf.data.Ref
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
@@ -256,7 +257,7 @@ class ErrorFactoriesSpec
             Map("category" -> "11", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
+          ErrorDetails.ResourceInfoDetail(typ = "PACKAGE", name = "packageId123"),
         ),
         logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -281,7 +282,7 @@ class ErrorFactoriesSpec
 
     "return the configurationEntryRejected" in {
       val msg = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123"
-      assertError(LedgerApiErrors.AdminServices.ConfigurationEntryRejected.Reject("message123"))(
+      assertError(LedgerApiErrors.Admin.ConfigurationEntryRejected.Reject("message123"))(
         code = Code.FAILED_PRECONDITION,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](
@@ -314,7 +315,7 @@ class ErrorFactoriesSpec
             Map("category" -> "11", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
+          ErrorDetails.ResourceInfoDetail(typ = "TRANSACTION_ID", name = "tId"),
         ),
         logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -716,11 +717,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "should create an ApiException without the stack trace" in {
-      val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
-      val exception = ErrorFactories.grpcError(status)
-      exception.getStackTrace shouldBe Array.empty
-    }
   }
 
   private def expectedMarkerRegex(extraInner: String): Some[String] = {
@@ -737,13 +733,15 @@ class ErrorFactoriesSpec
       message: String,
       details: Seq[ErrorDetails.ErrorDetail],
       logEntry: ExpectedLogEntry,
-  ): Unit =
-    assertError(io.grpc.protobuf.StatusProto.toStatusRuntimeException(status))(
+  ): Unit = {
+    val e = io.grpc.protobuf.StatusProto.toStatusRuntimeException(status)
+    assertError(new ErrorCode.ApiException(e.getStatus, e.getTrailers))(
       code,
       message,
       details,
       logEntry,
     )
+  }
 
   private def assertError(
       error: DamlError

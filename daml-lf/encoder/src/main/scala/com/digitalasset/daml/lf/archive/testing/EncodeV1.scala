@@ -380,13 +380,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
-        case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
+        case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
-          b.setTypeRep(typeRep)
           b.setGuard(guard)
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
@@ -680,6 +679,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
+
+        case ECallInterface(ty, methodName, expr) =>
+          assertSince(LV.Features.interfaces, "Expr.CallInterface")
+          val b = PLF.Expr.CallInterface.newBuilder()
+          b.setInterfaceType(ty)
+          b.setInterfaceExpr(expr)
+          b.setMethodInternedName(stringsTable.insert(methodName))
+          builder.setCallInterface(b)
       }
       builder
     }
@@ -731,6 +738,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.setParamInternedStr(stringsTable.insert(interface.param))
       builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
+      builder.accumulateLeft(interface.requires)(_ addRequires _)
       builder.setPrecond(interface.precond)
       builder.build()
     }
@@ -830,6 +838,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
       b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
+      b.accumulateLeft(implements.inheritedChoices)((i, v) =>
+        i addInheritedChoiceInternedNames (stringsTable.insert(v))
+      )
       b.build()
     }
 

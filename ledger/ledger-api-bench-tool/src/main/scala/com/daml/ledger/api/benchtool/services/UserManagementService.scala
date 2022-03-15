@@ -33,7 +33,7 @@ class UserManagementService(channel: Channel, authorizationToken: Option[String]
     val rights = userRights(observerPartyNames, signatoryPartyName)
     createUser(userId, rights).recoverWith {
       case e: StatusRuntimeException
-          if ErrorDetails.matches(e, LedgerApiErrors.AdminServices.UserAlreadyExists) =>
+          if ErrorDetails.matches(e, LedgerApiErrors.Admin.UserManagement.UserAlreadyExists) =>
         logger.info(
           s"Benchmark user already exists (received error: ${e.getStatus.getDescription}) so granting rights the existing user."
         )

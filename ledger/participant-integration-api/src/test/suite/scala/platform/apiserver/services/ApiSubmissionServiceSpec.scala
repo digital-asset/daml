@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCause
+import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
@@ -291,7 +291,7 @@ class ApiSubmissionServiceSpec
             eqTo(submitRequest.commands),
             any[Hash],
             any[Configuration],
-          )(any[ExecutionContext], any[LoggingContext])
+          )(any[LoggingContext])
         ).thenReturn(Future.successful(Left(error)))
         service
           .submit(submitRequest)

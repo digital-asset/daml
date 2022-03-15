@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.ErrorCause
+import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
@@ -21,6 +21,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
     contractStore: ContractStore,
     maxRetries: Int,
     metrics: Metrics,
+)(implicit
+    ec: ExecutionContext
 ) extends CommandExecutor {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -35,8 +37,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       submissionSeed: crypto.Hash,
       ledgerConfiguration: Configuration,
   )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, ledgerConfiguration, maxRetries)
 
@@ -46,8 +47,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       ledgerConfiguration: Configuration,
       retriesLeft: Int,
   )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     delegate
       .execute(commands, submissionSeed, ledgerConfiguration)

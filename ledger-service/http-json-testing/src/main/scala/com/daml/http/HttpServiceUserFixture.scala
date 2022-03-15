@@ -11,6 +11,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{Jwt, DecodedJwt}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
+import com.daml.scalautil.ImplicitPreference
 import org.scalatest.Suite
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -20,9 +21,9 @@ import scala.concurrent.{ExecutionContext, Future}
 trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
 
-  import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
-  // XXX(SC) see #3936 5b52999da2858
-  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](system.dispatcher)
+  // XXX(SC) see #3936 5b52999da2858 and #13113 4af98e1d27efdd
+  implicit val `AHS ec`: ExecutionContext with ImplicitPreference[this.type] =
+    ImplicitPreference[ExecutionContext, this.type](system.dispatcher)
 
   def jwtForParties(uri: Uri)(
       actAs: List[String],

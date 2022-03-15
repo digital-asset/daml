@@ -52,7 +52,7 @@ object ErrorCodeDocumentationGenerator {
       .map { errorCode =>
         val annotations = parseErrorCodeAnnotations(errorCode)
         ErrorCodeDocItem(
-          className = errorCode.getClass.getName,
+          errorCodeClassName = errorCode.getClass.getName,
           category = simpleClassName(errorCode.category),
           hierarchicalGrouping = errorCode.parent,
           conveyance = errorCode.errorConveyanceDocString,

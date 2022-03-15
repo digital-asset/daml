@@ -13,6 +13,7 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/scala-utils",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

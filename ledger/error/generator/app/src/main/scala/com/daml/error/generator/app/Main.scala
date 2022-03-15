@@ -51,7 +51,7 @@ object Main {
       "resolution",
     )(i =>
       (
-        i.className,
+        i.errorCodeClassName,
         i.category,
         i.hierarchicalGrouping.groupings,
         i.conveyance,

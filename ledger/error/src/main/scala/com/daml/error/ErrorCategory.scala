@@ -77,7 +77,7 @@ object ErrorCategory {
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.UNAVAILABLE),
         logLevel = Level.INFO,
-        retryable = Some(ErrorCategoryRetry("load balancer", 1.second)),
+        retryable = Some(ErrorCategoryRetry(1.second)),
         securitySensitive = false,
         asInt = 1,
         rank = 3,
@@ -99,7 +99,7 @@ object ErrorCategory {
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.ABORTED),
         logLevel = Level.INFO,
-        retryable = Some(ErrorCategoryRetry("application", 1.second)),
+        retryable = Some(ErrorCategoryRetry(1.second)),
         securitySensitive = false,
         asInt = 2,
         rank = 3,
@@ -125,7 +125,7 @@ object ErrorCategory {
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.DEADLINE_EXCEEDED),
         logLevel = Level.INFO,
-        retryable = Some(ErrorCategoryRetry("application", 1.second)),
+        retryable = Some(ErrorCategoryRetry(1.second)),
         securitySensitive = false,
         asInt = 3,
         rank = 3,
@@ -355,12 +355,9 @@ object ErrorCategory {
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 }
 
-// TODO error codes: `who` is not used?
 /** Default retryability information
   *
   * Every error category has a default retryability classification.
   * An error code may adjust the retry duration.
-  *
-  * The `who` string allows to suggest where the retry should be done ideally.
   */
-case class ErrorCategoryRetry(who: String, duration: Duration)
+case class ErrorCategoryRetry(duration: Duration)

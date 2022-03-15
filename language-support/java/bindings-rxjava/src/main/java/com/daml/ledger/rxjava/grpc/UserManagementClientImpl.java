@@ -50,22 +50,23 @@ public final class UserManagementClientImpl implements UserManagementClient {
     return createUser(request, Optional.of(accessToken));
   }
 
-  private Single<User> getUser(
+  private Single<GetUserResponse> getUser(
       @NonNull GetUserRequest request, @NonNull Optional<String> maybeToken) {
     return CreateSingle.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
                 .getUser(request.toProto()),
             sequencerFactory)
-        .map(res -> User.fromProto(res.getUser()));
+        .map(GetUserResponse::fromProto);
   }
 
   @Override
-  public Single<User> getUser(@NonNull GetUserRequest request) {
+  public Single<GetUserResponse> getUser(@NonNull GetUserRequest request) {
     return getUser(request, Optional.empty());
   }
 
   @Override
-  public Single<User> getUser(@NonNull GetUserRequest request, @NonNull String accessToken) {
+  public Single<GetUserResponse> getUser(
+      @NonNull GetUserRequest request, @NonNull String accessToken) {
     return getUser(request, Optional.of(accessToken));
   }
 
