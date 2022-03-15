@@ -43,7 +43,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eToTextTypeConName |
       eThrow |
       eCallInterface |
+      eToRequiredInterface |
       eToInterface |
+      eFromRequiredInterface |
       eFromInterface |
       eInterfaceTemplateTypeRep |
       eSignatoryInterface |
@@ -229,6 +231,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     `from_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
       case ifaceId ~ _ ~ tmplId ~ e =>
         EFromInterface(ifaceId, tmplId, e)
+    }
+
+  private lazy val eToRequiredInterface: Parser[Expr] =
+    `to_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId1 ~ _ ~ ifaceId2 ~ e =>
+        EToRequiredInterface(ifaceId1, ifaceId2, e)
+    }
+
+  private lazy val eFromRequiredInterface: Parser[Expr] =
+    `from_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId1 ~ _ ~ ifaceId2 ~ e =>
+        EFromRequiredInterface(ifaceId1, ifaceId2, e)
     }
 
   private lazy val eInterfaceTemplateTypeRep: Parser[Expr] =
