@@ -135,7 +135,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       let
         pkgs = dalfsFromDependenciesWithFps <> dalfsFromDataDependenciesWithFps
-        (depGraph, vertexToNode) = buildLfPackageGraph pkgs
+        (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
 
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
@@ -501,10 +501,11 @@ lfVersionString = DA.Pretty.renderPretty
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
     :: [(FilePath, DecodedDalf)]
+    -> [(FilePath, DecodedDalf)]
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph pkgs = (depGraph, vertexToNode')
+buildLfPackageGraph deps dataDeps = (depGraph, vertexToNode')
   where
     allPackageRefs :: LF.Package -> [LF.PackageRef]
     allPackageRefs pkg =
@@ -519,13 +520,30 @@ buildLfPackageGraph pkgs = (depGraph, vertexToNode')
 
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
-        graphFromEdges
+        graphFromEdges $
             [ (PackageNode dalfPath decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
-            | (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg}) <- pkgs
+            | (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg}) <- deps
             , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
             , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
-            -- , let src = generateSrcPkgFromLf (config (LF.dalfPackageId decodedDalfPkg) decodedUnitId) pkg
             ]
+            <>
+            [ (PackageNode dalfPath decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs <> ddRefs)
+            | (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg}) <- dataDeps
+            , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
+            , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
+            , let ddRefs =
+                    [ LF.dalfPackageId depPkg
+                    | Just ddName <- [dalfPackageName decodedDalfPkg]
+                    , (_, DecodedDalf{decodedDalfPkg=depPkg}) <- deps
+                    , Just depName <- [dalfPackageName depPkg]
+                    , ddName == depName
+                    ]
+            ]
+
+    dalfPackageName :: LF.DalfPackage -> Maybe LF.PackageName
+    dalfPackageName =
+      fmap LF.packageName . LF.packageMetadata . LF.extPackagePkg . LF.dalfPackagePkg
+
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
