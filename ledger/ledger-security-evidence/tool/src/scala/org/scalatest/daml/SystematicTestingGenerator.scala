@@ -10,6 +10,8 @@ import cats.syntax.traverse._
 import cats.syntax.functorFilter._
 import com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.security.evidence.generator.TestEntry.SecurityTestEntry
+import com.daml.security.evidence.generator.TestEntry.ReliabilityTestEntry
 import io.circe.parser.decode
 import io.circe.syntax._
 import com.daml.security.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
@@ -21,42 +23,8 @@ import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
 import com.daml.security.evidence.scalatest.JsonCodec._
 import com.daml.security.evidence.scalatest.JsonCodec.SecurityJson._
 import com.daml.security.evidence.scalatest.JsonCodec.ReliabilityJson._
+
 import scala.reflect.ClassTag
-
-/** A test entry in the output. */
-trait TestEntry[T, TS] {
-
-  /** suiteName The name of the test suite that this test belongs to. */
-  def suiteName: String
-
-  /** The description of the test. */
-  def description: String
-
-  /** The test tag to classify the test. */
-  def tag: T
-
-  /** Indicate if the test is currently ignored. */
-  def ignored: Boolean
-
-  /** Optional test suite data that applies to all tests in the test suite. */
-  def suite: Option[TS]
-}
-
-case class SecurityTestEntry(
-    suiteName: String,
-    description: String,
-    tag: SecurityTest,
-    ignored: Boolean,
-    suite: Option[SecurityTestSuite],
-) extends TestEntry[SecurityTest, SecurityTestSuite]
-
-case class ReliabilityTestEntry(
-    suiteName: String,
-    description: String,
-    tag: ReliabilityTest,
-    ignored: Boolean,
-    suite: Option[ReliabilityTestSuite],
-) extends TestEntry[ReliabilityTest, ReliabilityTestSuite]
 
 object SystematicTestingGenerator {
 
@@ -118,7 +86,6 @@ object SystematicTestingGenerator {
     Some(System.getProperty("java.class.path")).filter(!_.contains("sbt-launch.jar"))
 
   def main(args: Array[String]): Unit = {
-
     val ledgerApiTests = (suites.v1_8.default(0L) ++ suites.v1_8.optional()).toList
 
     val cp: Seq[String] = loadIntelliJClasspath()
