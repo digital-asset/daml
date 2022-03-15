@@ -47,14 +47,14 @@ final case class EnvironmentInterface(
 
 object EnvironmentInterface {
   def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface = {
-    val typeDecls = (i +: o).iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
+    val all = i +: o
+    val typeDecls = all.iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
-    val astInterfaces = (i +: o).iterator.flatMap {
-      case Interface(packageId, _, _, astInterfaces) =>
-        astInterfaces mapKeys (Identifier(packageId, _))
+    val astInterfaces = all.iterator.flatMap { case Interface(packageId, _, _, astInterfaces) =>
+      astInterfaces mapKeys (Identifier(packageId, _))
     }.toMap
-    val metadata = (i +: o).iterator.flatMap { case Interface(packageId, metadata, _, _) =>
+    val metadata = all.iterator.flatMap { case Interface(packageId, metadata, _, _) =>
       metadata.iterator.map(md => packageId -> md)
     }.toMap
     EnvironmentInterface(metadata, typeDecls, astInterfaces)
