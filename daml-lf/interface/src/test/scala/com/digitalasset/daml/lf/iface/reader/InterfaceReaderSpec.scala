@@ -221,7 +221,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     "include interface choices in separate inheritedChoices" in {
       inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
-        tpl.inheritedChoices.transform((_, tcn) => tcn.qualifiedName) should ===(
+        tpl.unresolvedInheritedChoices.transform((_, tcn) => tcn.qualifiedName) should ===(
           Map("Useless" -> TIf)
         )
       }
@@ -243,7 +243,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     def foundUselessChoice(foo: Option[InterfaceType]) = inside(foo) {
       case Some(InterfaceType.Template(_, tpl)) =>
-        tpl.inheritedChoices shouldBe empty
+        tpl.unresolvedInheritedChoices shouldBe empty
         tpl.choices get Useless should ===(Some(theUselessChoice))
     }
 

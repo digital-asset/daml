@@ -175,7 +175,7 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
 
 final case class DefTemplate[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-    inheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
+    unresolvedInheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
     key: Option[Ty],
 ) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
@@ -188,12 +188,13 @@ final case class DefTemplate[+Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
   ): DefTemplate[O] = {
     val getAstInterface = astInterfaces.lift
-    val (missing, resolved) = inheritedChoices.partitionMap { case pair @ (choiceName, tcn) =>
-      val resolution = for {
-        astIf <- getAstInterface(tcn)
-        tchoice <- astIf.choices get choiceName
-      } yield (choiceName, tchoice)
-      resolution toRight pair
+    val (missing, resolved) = unresolvedInheritedChoices.partitionMap {
+      case pair @ (choiceName, tcn) =>
+        val resolution = for {
+          astIf <- getAstInterface(tcn)
+          tchoice <- astIf.choices get choiceName
+        } yield (choiceName, tchoice)
+        resolution toRight pair
     }
     DefTemplate(choices ++ resolved, missing.toMap, key)
   }
