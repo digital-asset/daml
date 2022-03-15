@@ -4,6 +4,7 @@
 package com.daml.crypto
 
 import com.daml.scalautil.Statement.discard
+import org.slf4j.LoggerFactory
 
 import javax.crypto.Mac
 
@@ -13,6 +14,9 @@ import javax.crypto.Mac
  * workaround https://github.com/google/guava/issues/1197
  */
 final class MacPrototype(val algorithm: String) {
+
+  private[this] val logger = LoggerFactory.getLogger(getClass)
+
   private val prototype = createMac
 
   private val supportsClone: Boolean =
@@ -21,6 +25,9 @@ final class MacPrototype(val algorithm: String) {
       true
     } catch {
       case _: CloneNotSupportedException =>
+        logger.warn(
+          s"${prototype.getClass.getName}.clone() is not supported. It might have implications on performance."
+        )
         false
     }
 
@@ -35,5 +42,5 @@ final class MacPrototype(val algorithm: String) {
 }
 
 object MacPrototype {
-  val HmacSHA_256 = new MacPrototype("HmacSHA256")
+  val HmacSha256 = new MacPrototype("HmacSHA256")
 }
