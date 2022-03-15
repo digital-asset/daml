@@ -362,7 +362,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
           T"ContractId Mod:T → Int64 → (( Update Decimal ))",
         E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool) → (( exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ ))" ->
-          T"ContractId Mod:I → Int64 → Option TypeRep → (Mod:I → Bool) → (( Update Decimal ))",
+          T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update Decimal ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
           T"Party → Int64 → (( Update Decimal ))",
         E"λ (e: ContractId Mod:T) → (( fetch @Mod:T e ))" ->
