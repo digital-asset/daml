@@ -158,7 +158,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           _ | pkgId `Set.member` depPkgIds -> do
             registerDepInPkgDb (dalf pkgNode) depsDir dbPath
           _ | pkgId `Set.member` dataDepPkgIds -> do
-            installDataDep opts loggerH projectRoot dbPath pkgs stablePkgs stablePkgIds depGraph vertexToNode vertex pkgId pkgNode
+            PackageMap dependenciesSoFar <-
+              (>>= maybe (fail "Failed to generate package info") pure) $
+                withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+                  fst <$> useE GeneratePackageMap projectRoot
+            installDataDep opts projectRoot dbPath pkgs stablePkgs stablePkgIds dependenciesSoFar depGraph vertexToNode vertex pkgId pkgNode
           _ -> do
             putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
 
@@ -201,24 +205,19 @@ toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
 
 installDataDep ::
      Options
-  -> Logger.Handle IO
   -> NormalizedFilePath
   -> FilePath
   -> [(a, DecodedDalf)]
   -> MS.Map (UnitId, b) LF.DalfPackage
   -> Set LF.PackageId
+  -> MS.Map UnitId LF.DalfPackage
   -> Graph
   -> (Vertex -> (PackageNode, LF.PackageId))
   -> Vertex
   -> LF.PackageId
   -> PackageNode
   -> IO ()
-installDataDep opts loggerH projectRoot dbPath pkgs stablePkgs stablePkgIds depGraph vertexToNode vertex pkgId pkgNode = do
-  PackageMap dependenciesSoFar <-
-    (>>= maybe (fail "Failed to generate package info") pure) $
-      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-        fst <$> useE GeneratePackageMap projectRoot
-
+installDataDep opts projectRoot dbPath pkgs stablePkgs stablePkgIds dependenciesSoFar depGraph vertexToNode vertex pkgId pkgNode = do
   exposedModules <- getExposedModules opts projectRoot
 
   let unitIdStr = unitIdString $ unitId pkgNode
