@@ -162,7 +162,14 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
               (>>= maybe (fail "Failed to generate package info") pure) $
                 withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
                   fst <$> useE GeneratePackageMap projectRoot
-            installDataDep opts projectRoot dbPath pkgs stablePkgs stablePkgIds dependenciesSoFar depGraph vertexToNode vertex pkgId pkgNode
+            let
+              deps =
+                [ (unitId depPkgNode, dalfPackage depPkgNode)
+                | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                , pkgId /= depPkgId
+                , not (depPkgId `Set.member` stablePkgIds)
+                ]
+            installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId pkgNode
           _ -> do
             putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
 
@@ -209,26 +216,17 @@ installDataDep ::
   -> FilePath
   -> [(a, DecodedDalf)]
   -> MS.Map (UnitId, b) LF.DalfPackage
-  -> Set LF.PackageId
   -> MS.Map UnitId LF.DalfPackage
-  -> Graph
-  -> (Vertex -> (PackageNode, LF.PackageId))
-  -> Vertex
+  -> [(UnitId, LF.DalfPackage)]
   -> LF.PackageId
   -> PackageNode
   -> IO ()
-installDataDep opts projectRoot dbPath pkgs stablePkgs stablePkgIds dependenciesSoFar depGraph vertexToNode vertex pkgId pkgNode = do
+installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId pkgNode = do
   exposedModules <- getExposedModules opts projectRoot
 
   let unitIdStr = unitIdString $ unitId pkgNode
   let pkgIdStr = T.unpack $ LF.unPackageId pkgId
   let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
-  let deps =
-          [ (unitId depPkgNode, dalfPackage depPkgNode)
-          | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
-          , pkgId /= depPkgId
-          , not (depPkgId `Set.member` stablePkgIds)
-          ]
   let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
   let dalfDir = dbPath </> pkgIdStr
   createDirectoryIfMissing True workDir
