@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
@@ -14,12 +15,18 @@ module DA.Internal.Interface (
   toInterface,
   toInterfaceContractId,
   fromInterfaceContractId,
+  _exerciseDefault,
+  _exerciseInterfaceGuard
 ) where
 
 import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
+
+#ifdef DAML_EXPERIMENTAL
+import qualified GHC.Types
+#endif
 
 -- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
@@ -99,3 +106,34 @@ fromInterfaceContractId cid = do
   iface <- fetch cid
   pure $
     const (coerceContractId cid) <$> fromInterface @t iface
+
+-- | HIDE Gives a valid implementation of `HasExercise.exercise`
+-- for types that implement `HasExerciseGuarded`. This is used
+-- in interface desugaring.
+_exerciseDefault : HasExerciseGuarded t c r => ContractId t -> c -> Update r
+_exerciseDefault = exerciseGuarded (const True)
+
+-- | HIDE The guard used for UExerciseInterface, during interface
+-- desugaring. This funciton converts a guard on type t into a
+-- guard on the type i, raising a WronglyTypedContract error if
+-- there is a type mismatch. It has to work uniformly in these
+-- three cases:
+--
+--  1. when t is a template type and i is an interface it implements
+--  2. when t is an interface type and i is an interface it requires
+--  3. when t and i are the same interface type
+--
+-- It supports these three cases uniformly because `fromInterface`
+-- handles each of them separately.
+_exerciseInterfaceGuard : forall i t.
+  (HasFromInterface t i, HasInterfaceTypeRep i, HasTemplateTypeRep t) =>
+  ContractId t -> (t -> Bool) -> i -> Bool
+_exerciseInterfaceGuard cid tpred ivalue =
+  case fromInterface @t ivalue of
+    Some tvalue -> tpred tvalue
+  #ifdef DAML_EXPERIMENTAL
+    None -> GHC.Types.primitive @"$THROW_WRONGLY_TYPED_CONTRACT" cid
+      (_templateTypeRep cid) (_interfaceTypeRep ivalue)
+  #else
+    None -> False
+  #endif

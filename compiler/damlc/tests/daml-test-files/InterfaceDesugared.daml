@@ -98,8 +98,7 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -121,8 +120,7 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -144,8 +142,7 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -170,8 +167,7 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token pred)
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
