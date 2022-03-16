@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import scala.jdk.CollectionConverters._
-import com.codahale.metrics.{MetricRegistry, Snapshot, Timer}
+import com.codahale.metrics.{Counter, Gauge, Histogram, Meter, MetricRegistry, Snapshot, Timer}
 import io.prometheus.client.Collector
 import io.prometheus.client.Collector.MetricFamilySamples
 import io.prometheus.client.dropwizard.DropwizardExportsAccess
@@ -18,26 +18,51 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
 
   override def collect(): util.List[MetricFamilySamples] = {
     Try {
+      //TODO: remove mutability
       val mfSamplesMap = collection.mutable.Map.empty[String, MetricFamilySamples]
-      //TODO: implement other metric types the same way
-      val timers = metricRegistry.getTimers().asScala
-      timers.foreach { case (name, timer) =>
-        val newSamples: MetricFamilySamples = splitted(name) match {
-          case (baseName, Some(applicationId)) =>
-            fromTimer(
-              name = baseName,
-              timer = timer,
-              labels = Map("application_id" -> applicationId),
-            )
-          case (baseName, None) =>
-            fromTimer(
-              name = baseName,
-              timer = timer,
-              labels = Map.empty,
-            )
+
+      metricRegistry
+        .getTimers()
+        .asScala
+        .foreach { case (name, timer) =>
+          val (baseName, labels) = splitName(name)
+          addToMap(mfSamplesMap, fromTimer(timer, baseName, labels))
         }
-        addToMap(mfSamplesMap, newSamples)
-      }
+
+      metricRegistry
+        .getHistograms()
+        .asScala
+        .foreach { case (name, histogram) =>
+          val (baseName, labels) = splitName(name)
+          addToMap(mfSamplesMap, fromHistogram(histogram, baseName, labels))
+        }
+
+      metricRegistry
+        .getCounters()
+        .asScala
+        .foreach { case (name, counter) =>
+          val (baseName, labels) = splitName(name)
+          addToMap(mfSamplesMap, fromCounter(counter, baseName, labels))
+        }
+
+      metricRegistry
+        .getGauges()
+        .asScala
+        .flatMap { case (name, gauge) =>
+          val (baseName, labels) = splitName(name)
+          fromGauge(gauge, baseName, labels)
+        }
+        .foreach { newSamples: MetricFamilySamples =>
+          addToMap(mfSamplesMap, newSamples)
+        }
+
+      metricRegistry
+        .getMeters()
+        .asScala
+        .foreach { case (name, meter) =>
+          val (baseName, labels) = splitName(name)
+          addToMap(mfSamplesMap, fromMeter(meter, baseName, labels))
+        }
 
       mfSamplesMap.values.toList.asJava
     } match {
@@ -53,8 +78,13 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
   private def helpMessage(metricName: String) =
     s"Generated from Dropwizard metric import (metric=$metricName) "
 
-  private def splitted(name: String): (String, Option[String]) =
-    MetricName.split(name)
+  private def splitName(name: String): (String, Map[String, String]) =
+    MetricName.split(name) match {
+      case (baseName, Some(applicationId)) =>
+        baseName -> Map("application_id" -> applicationId)
+      case (baseName, None) =>
+        baseName -> Map.empty[String, String]
+    }
 
   private def mergeSamples(
       samplesA: MetricFamilySamples,
@@ -82,9 +112,23 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
     samplesMap += newSamples.name -> mergedSamples
   }
 
-  private def fromTimer(
+  private def fromHistogram(
+      histogram: Histogram,
       name: String,
+      labels: Map[String, String],
+  ): MetricFamilySamples =
+    fromSnapshotAndCountWithLabels(
+      dropwizardName = name,
+      snapshot = histogram.getSnapshot,
+      count = histogram.getCount,
+      factor = 1.0,
+      helpMessage = helpMessage(name),
+      labels = labels,
+    )
+
+  private def fromTimer(
       timer: Timer,
+      name: String,
       labels: Map[String, String],
   ): MetricFamilySamples =
     fromSnapshotAndCountWithLabels(
@@ -95,6 +139,80 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       helpMessage(name),
       labels,
     )
+
+  private def fromCounter(
+      counter: Counter,
+      name: String,
+      labels: Map[String, String],
+  ): MetricFamilySamples = {
+    val sample = sampleBuilder.createSample(
+      name,
+      "",
+      labels.keys.toList.asJava,
+      labels.values.toList.asJava,
+      counter.getCount.toDouble,
+    )
+    new MetricFamilySamples(
+      sample.name,
+      Collector.Type.GAUGE,
+      helpMessage(name),
+      List(sample).asJava,
+    )
+  }
+
+  private def fromGauge(
+      gauge: Gauge[_],
+      name: String,
+      labels: Map[String, String],
+  ): Option[MetricFamilySamples] = {
+    val value: Option[Double] = gauge.getValue match {
+      case x: Double =>
+        Some(x)
+      case x: Int =>
+        Some(x.toDouble)
+      case x: Long =>
+        Some(x.toDouble)
+      case x: Boolean =>
+        Some(if (x) 1.0 else 0.0)
+      case _ =>
+        None
+    }
+    value.map { v =>
+      val sample = sampleBuilder.createSample(
+        name,
+        "",
+        labels.keys.toList.asJava,
+        labels.values.toList.asJava,
+        v,
+      )
+      new MetricFamilySamples(
+        sample.name,
+        Collector.Type.GAUGE,
+        helpMessage(name),
+        List(sample).asJava,
+      )
+    }
+  }
+
+  private def fromMeter(
+      meter: Meter,
+      name: String,
+      labels: Map[String, String],
+  ) = {
+    val sample = sampleBuilder.createSample(
+      name,
+      "_total",
+      labels.keys.toList.asJava,
+      labels.values.toList.asJava,
+      meter.getCount.toDouble,
+    )
+    new MetricFamilySamples(
+      sample.name,
+      Collector.Type.COUNTER,
+      helpMessage(name),
+      List(sample).asJava,
+    )
+  }
 
   private def fromSnapshotAndCountWithLabels(
       dropwizardName: String,
