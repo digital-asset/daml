@@ -10,7 +10,9 @@ module DA.Cli.Damlc.Packaging
 import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe
+import qualified Control.Monad.Trans.State.Strict as State
 import qualified Data.ByteString as BS
 import Data.Either.Combinators
 import Data.Graph
@@ -147,31 +149,34 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Registering dependency graph"
 
-      forM_ (topSort $ transposeG depGraph) $ \vertex ->
-        let (pkgNode, pkgId) = vertexToNode vertex in
-        -- stable packages are mapped to the current version of daml-prim/daml-stdlib
-        -- so we don’t need to generate interface files for them.
-        -- unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
-        case () of
-          _ | pkgId `Set.member` stablePkgIds -> pure ()
-          _ | pkgId `Set.member` builtinDependenciesIds -> pure ()
-          _ | pkgId `Set.member` depPkgIds -> do
-            registerDepInPkgDb (dalf pkgNode) depsDir dbPath
-          _ | pkgId `Set.member` dataDepPkgIds -> do
-            PackageMap dependenciesSoFar <-
-              (>>= maybe (fail "Failed to generate package info") pure) $
-                withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-                  fst <$> useE GeneratePackageMap projectRoot
-            let
-              deps =
-                [ (unitId depPkgNode, dalfPackage depPkgNode)
-                | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
-                , pkgId /= depPkgId
-                , not (depPkgId `Set.member` stablePkgIds)
-                ]
-            installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId pkgNode
-          _ -> do
-            putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
+      flip State.evalStateT builtinDependencies $ do
+        let
+          insert pkgNode = State.modify $ MS.insert (unitId pkgNode) (dalfPackage pkgNode)
+
+        forM_ (topSort $ transposeG depGraph) $ \vertex -> do
+          let (pkgNode, pkgId) = vertexToNode vertex
+          -- stable packages are mapped to the current version of daml-prim/daml-stdlib
+          -- so we don’t need to generate interface files for them.
+          -- unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
+          case () of
+            _ | pkgId `Set.member` stablePkgIds -> pure ()
+            _ | pkgId `Set.member` builtinDependenciesIds -> pure ()
+            _ | pkgId `Set.member` depPkgIds -> do
+              liftIO $ registerDepInPkgDb (dalf pkgNode) depsDir dbPath
+              insert pkgNode
+            _ | pkgId `Set.member` dataDepPkgIds -> do
+              dependenciesSoFar <- State.get
+              let
+                deps =
+                  [ (unitId depPkgNode, dalfPackage depPkgNode)
+                  | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                  , pkgId /= depPkgId
+                  , not (depPkgId `Set.member` stablePkgIds)
+                  ]
+              liftIO $ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId pkgNode
+              insert pkgNode
+            _ -> do
+              liftIO $ putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
 
       writeMetadata
           projectRoot
