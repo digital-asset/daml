@@ -243,11 +243,11 @@ final class RaceConditionIT extends LedgerTestSuite {
     partyAllocation = allocate(Parties(3)),
     repeated = DefaultRepetitionsNumber,
     runConcurrently = false,
-    timeoutScale = 1000.0,
+    timeoutScale = 100.0,
   ) { implicit ec: ExecutionContext =>
-    val totalCounterUpdates = 10000
-    val perParty = 5000
-    val groupSize = 100
+    val totalCounterUpdates = 1000
+    val perParty = 500
+    val groupSize = 10
 
     val massiveEc: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())

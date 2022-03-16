@@ -145,6 +145,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ) = {
+    logger.debug(s"Read-through on miss for contractId $contractId")
     val currentCacheSequentialId = cacheIndex()._2
     val fetchStateRequest =
       contractsReader.lookupContractState(contractId, currentCacheSequentialId)
@@ -239,6 +240,8 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext) = {
+    logger.debug(s"Read-through on miss for contract key $key")
+
     val currentCacheSequentialId = cacheIndex()._2
     val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
     val eventualValue = eventualResult.map(toKeyCacheValue)

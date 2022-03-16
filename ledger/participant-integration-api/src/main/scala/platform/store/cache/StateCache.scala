@@ -60,10 +60,15 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
             }
             .getOrElse(Long.MinValue)
 
-        if (competingLatestForKey < validAt) cache.put(key, value) else ()
+        if (competingLatestForKey < validAt) put(key, value, validAt) else ()
       }
     },
   )
+
+  private def put(key: K, value: V, validAt: Long): Unit = {
+    logger.withoutContext.debug(s"Updated cache for $key at $validAt with $value")
+    cache.put(key, value)
+  }
 
   /** Update the cache asynchronously.
     *
@@ -94,7 +99,8 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
       key: K,
       eventualUpdate: Future[V],
       validAt: Long,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val _ = loggingContext
     eventualUpdate
       .map { (value: V) =>
         pendingUpdates.synchronized {
@@ -102,7 +108,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
             .get(key)
             .map { pendingForKey =>
               if (pendingForKey.latestValidAt == validAt)
-                cache.put(key, value)
+                put(key, value, validAt)
               else ()
               removeFromPending(key)
             }
@@ -115,6 +121,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
         }
         logger.warn(s"Failure in pending cache update for key $key", err)
       }
+  }
 
   private def removeFromPending(key: K)(implicit loggingContext: LoggingContext): Unit =
     discard(
