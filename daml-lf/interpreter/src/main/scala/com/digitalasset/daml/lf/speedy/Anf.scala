@@ -372,12 +372,18 @@ private[lf] object Anf {
         }
 
       case source.SEScopeExercise(body0) =>
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
-        Bounce(() => transform(depth, target.SEScopeExercise(body), k))
+        flattenExp(depth, env, body0) { body =>
+          Bounce { () =>
+            transform(depth, target.SEScopeExercise(body), k)
+          }
+        }
 
       case source.SEPreventCatch(body0) =>
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
-        Bounce(() => transform(depth, target.SEPreventCatch(body), k))
+        flattenExp(depth, env, body0) { body =>
+          Bounce { () =>
+            transform(depth, target.SEPreventCatch(body), k)
+          }
+        }
 
     }
 
