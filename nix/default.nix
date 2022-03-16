@@ -84,7 +84,7 @@ in rec {
     scalap   = scala;
     sbt      = pkgs.sbt;
 
-    coursier = pkgs.coursier;
+    cs = pkgs.coursier;
     # nixpkgs ships with an RC for scalafmt 2.0 that seems to be significantly slower
     # and changes a lot of formatting so for now we stick to 1.5.1.
     scalafmt = pkgs.callPackage ./overrides/scalafmt.nix { jre = jdk; };
