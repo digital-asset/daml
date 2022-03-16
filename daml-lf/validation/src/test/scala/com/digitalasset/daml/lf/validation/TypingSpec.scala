@@ -1506,6 +1506,36 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                                                    arg);
             } ;
           }
+
+          module PositiveTestCase_CircularInterfaceRequires {
+            interface (this : X) =  {
+              requires PositiveTestCase_CircularInterfaceRequires:Y;
+              requires PositiveTestCase_CircularInterfaceRequires:Z;
+              requires PositiveTestCase_CircularInterfaceRequires:X;
+              precondition True;
+            };
+            interface (this : Y) = {
+              precondition True;
+            };
+            interface (this : Z) = {
+              precondition True;
+            };
+          }
+
+          module PositiveTestCase_NotClosedInterfaceRequires {
+            interface (this : X) =  {
+              requires PositiveTestCase_NotClosedInterfaceRequires:Y;
+              precondition True;
+            };
+            interface (this : Y) = {
+              requires PositiveTestCase_NotClosedInterfaceRequires:Z;
+              precondition True;
+            };
+            interface (this : Z) = {
+              requires PositiveTestCase_NotClosedInterfaceRequires:X;
+              precondition True;
+            };
+          }
       """
 
       val typeMismatchCases = Table(
@@ -1551,6 +1581,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
       an[EWrongInterfaceRequirement] shouldBe thrownBy(
         checkModule(pkg, "PositiveTestCase_WrongInterfaceRequirement2")
+      )
+      an[ECircularInterfaceRequires] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_CircularInterfaceRequires")
+      )
+      an[ENotClosedInterfaceRequires] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
       )
     }
 
