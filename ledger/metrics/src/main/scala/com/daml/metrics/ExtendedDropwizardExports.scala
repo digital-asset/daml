@@ -86,7 +86,7 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       name: String,
       timer: Timer,
       labels: Map[String, String],
-  ): MetricFamilySamples = {
+  ): MetricFamilySamples =
     fromSnapshotAndCountWithLabels(
       name,
       timer.getSnapshot,
@@ -95,8 +95,6 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       helpMessage(name),
       labels,
     )
-
-  }
 
   private def fromSnapshotAndCountWithLabels(
       dropwizardName: String,
@@ -107,8 +105,9 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       labels: Map[String, String],
   ): MetricFamilySamples = {
     val labelNames = labels.keys.toList
+    val labelNamesJava = labelNames.asJava
     val labelValues = labels.values.toList
-    // TODO: fill quantiles
+    val labelValuesJava = labelValues.asJava
     val samples = List(
       sampleBuilder.createSample(
         dropwizardName,
@@ -119,10 +118,67 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       ),
       sampleBuilder.createSample(
         dropwizardName,
+        "",
+        (List("quantile") ++ labelNames).asJava,
+        (List("0.75") ++ labelValues).asJava,
+        snapshot.get75thPercentile(),
+      ),
+      sampleBuilder.createSample(
+        dropwizardName,
+        "",
+        (List("quantile") ++ labelNames).asJava,
+        (List("0.95") ++ labelValues).asJava,
+        snapshot.get95thPercentile(),
+      ),
+      sampleBuilder.createSample(
+        dropwizardName,
+        "",
+        (List("quantile") ++ labelNames).asJava,
+        (List("0.98") ++ labelValues).asJava,
+        snapshot.get98thPercentile(),
+      ),
+      sampleBuilder.createSample(
+        dropwizardName,
+        "",
+        (List("quantile") ++ labelNames).asJava,
+        (List("0.99") ++ labelValues).asJava,
+        snapshot.get99thPercentile(),
+      ),
+      sampleBuilder.createSample(
+        dropwizardName,
+        "",
+        (List("quantile") ++ labelNames).asJava,
+        (List("0.999") ++ labelValues).asJava,
+        snapshot.get999thPercentile(),
+      ),
+      sampleBuilder.createSample(
+        dropwizardName,
         "_count",
         labelNames.asJava,
         labelValues.asJava,
         count.toDouble,
+      ),
+      sampleBuilder
+        .createSample(
+          dropwizardName,
+          "_min",
+          labelNamesJava,
+          labelValuesJava,
+          snapshot.getMin * factor,
+        ),
+      sampleBuilder.createSample(
+        dropwizardName,
+        "_mean",
+        labelNamesJava,
+        labelValuesJava,
+        snapshot.getMean * factor,
+      ),
+      sampleBuilder.createSample(
+        dropwizardName,
+        "_max",
+        labelNamesJava,
+        labelValuesJava,
+        snapshot.getMax * factor,
       ),
     )
 
@@ -133,51 +189,4 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
       samples.asJava,
     )
   }
-
-  // this is not going to be called anymore
-//  override def fromSnapshotAndCount(
-//      dropwizardName: String,
-//      snapshot: Snapshot,
-//      count: Long,
-//      factor: Double,
-//      helpMessage: String,
-//  ): MetricFamilySamples = {
-//
-//    val basicMetricFamilySamples =
-//      super.fromSnapshotAndCount(dropwizardName, snapshot, count, factor, helpMessage)
-//
-//    val extendedMetrics = basicMetricFamilySamples.samples.asScala ++ List(
-//      sampleBuilder
-//        .createSample(
-//          dropwizardName,
-//          "_min",
-//          EmptyJavaList,
-//          EmptyJavaList,
-//          snapshot.getMin * factor,
-//        ),
-//      sampleBuilder.createSample(
-//        dropwizardName,
-//        "_mean",
-//        EmptyJavaList,
-//        EmptyJavaList,
-//        snapshot.getMean * factor,
-//      ),
-//      sampleBuilder.createSample(
-//        dropwizardName,
-//        "_max",
-//        EmptyJavaList,
-//        EmptyJavaList,
-//        snapshot.getMax * factor,
-//      ),
-//    )
-//
-//    new MetricFamilySamples(
-//      basicMetricFamilySamples.name,
-//      basicMetricFamilySamples.`type`,
-//      basicMetricFamilySamples.help,
-//      extendedMetrics.asJava,
-//    )
-//  }
-//
-//  private val EmptyJavaList = Collections.emptyList[String]()
 }
