@@ -363,10 +363,13 @@ private[lf] object Anf {
       case source.SETryCatch(body0, handler0) =>
         // we must not lift applications from either the body or the handler outside of
         // the try-catch block, so we flatten each separately:
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
-        val handler: target.SExpr =
-          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0)(anf => Land(anf)).bounce
-        Bounce(() => transform(depth, target.SETryCatch(body, handler), k))
+        flattenExp(depth, env, body0) { body =>
+          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0) { handler =>
+            Bounce { () =>
+              transform(depth, target.SETryCatch(body, handler), k)
+            }
+          }
+        }
 
       case source.SEScopeExercise(body0) =>
         val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
