@@ -192,13 +192,13 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("ucreateI", ucreateI),
         ("ufetch", ufetch),
         ("ufetchI", ufetchI),
-        //("uexercise1", uexercise1),
-        //("uexercise2", uexercise2),
-        //("uexerciseI1", uexerciseI1),
-        //("uexerciseI2", uexerciseI2),
-        //("uexerciseI3", uexerciseI3),
-        //("uexbykey1", uexbykey1),
-        //("uexbykey2", uexbykey2),
+        ("uexercise1", uexercise1),
+        ("uexercise2", uexercise2),
+        ("uexerciseI1", uexerciseI1),
+        ("uexerciseI2", uexerciseI2),
+        ("uexerciseI3", uexerciseI3),
+        ("uexbykey1", uexbykey1),
+        ("uexbykey2", uexbykey2),
         ("ufetchbykey", ufetchbykey),
         ("ulookupbykey", ulookupbykey),
         //("uembed", uembed),
@@ -224,7 +224,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
 
     {
-      val depth = 2000
+      val depth = 3000
       s"transform(phase1, closureConversion, flattenToAnf), depth = $depth" - {
         forEvery(testCasesForANF) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
