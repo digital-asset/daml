@@ -4,57 +4,23 @@
 package com.daml.security.evidence.generator
 
 import better.files.File
-import cats.syntax.either._
-import cats.syntax.functor._
-import cats.syntax.traverse._
 import cats.syntax.functorFilter._
 import com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.security.evidence.generator.TestEntry.SecurityTestEntry
 import com.daml.security.evidence.generator.TestEntry.ReliabilityTestEntry
-import io.circe.parser.decode
 import io.circe.syntax._
 import com.daml.security.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
 import com.daml.security.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 import com.daml.security.evidence.tag.EvidenceTag
 import io.circe.generic.auto._
 import org.scalatest.Suite
-import com.daml.security.evidence.scalatest.JsonCodec._
 import com.daml.security.evidence.scalatest.JsonCodec.SecurityJson._
 import com.daml.security.evidence.scalatest.JsonCodec.ReliabilityJson._
 import org.scalatest.daml.ScalaTestAdapter
 import scala.reflect.ClassTag
 
 object Main {
-
-  private def testNameWithTags(tags: Map[String, Set[String]]): List[(String, List[EvidenceTag])] =
-    tags.fmap { tagNames =>
-      tagNames.toList
-        .filter(_.startsWith("{")) // Check if we have a JSON encoded tag
-        .traverse(decode[com.daml.security.evidence.tag.EvidenceTag])
-        .valueOr(err => sys.error(s"Failed to parse JSON tag: $err"))
-    }.toList
-
-  private def isIgnored(suite: Suite, testName: String): Boolean =
-    suite.tags.getOrElse(testName, Set()).contains(ScalaTestAdapter.IgnoreTagName)
-
-  private def scalaTestEntries[TT: ClassTag, TS: ClassTag, TE](
-      suites: List[Suite],
-      testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
-  ): List[TE] = {
-    suites.flatMap { suite =>
-      val testSuite = suite match {
-        case testSuite: TS => Some(testSuite)
-        case _ => None
-      }
-
-      testNameWithTags(suite.tags).mapFilter { case (testName, testTags) =>
-        testTags.collectFirst { case testTag: TT =>
-          testEntry(suite.suiteName, testName, testTag, isIgnored(suite, testName), testSuite)
-        }
-      }
-    }
-  }
 
   private def testEntries[TT: ClassTag, TS: ClassTag, TE](
       suites: List[LedgerTestSuite],
@@ -66,14 +32,11 @@ object Main {
         case _ => None
       }
 
-      val tags = suite.tests.map { test =>
+      val tags: Seq[(String, List[EvidenceTag])] = suite.tests.map { test =>
         test.name -> test.tags
-          .map(tag => new com.daml.security.evidence.scalatest.ScalaTestSupport.TagContainer(tag))
-          .map(_.name)
-          .toSet
-      }.toMap
+      }
 
-      testNameWithTags(tags).mapFilter { case (testName, testTags) =>
+      tags.mapFilter { case (testName, testTags) =>
         testTags.collectFirst { case testTag: TT =>
           testEntry(suite.name, testName, testTag, false, testSuite)
         }
@@ -103,7 +66,7 @@ object Main {
     println("Writing security tests inventory..")
     val securityTestsFilePath = File("security-tests.json")
       .write(
-        scalaTestEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
+        ScalaTestGeneratorSupport.testEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
           testSuites,
           SecurityTestEntry,
         ).asJson.spaces2
@@ -116,7 +79,7 @@ object Main {
     println("Writing reliability tests inventory..")
     val reliabilityTestsFilePath = File("reliability-tests.json")
       .write(
-        scalaTestEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
+        ScalaTestGeneratorSupport.testEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
           testSuites,
           ReliabilityTestEntry,
         ).asJson.spaces2
