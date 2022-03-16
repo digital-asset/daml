@@ -850,6 +850,69 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  where (x, y) = bar"
             ]
           withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
+    , testCaseSteps "dependency with data-dependency 2" $ \step -> withTempDir $ \projDir -> do
+          -- This is identical to the test case above except for the fact that
+          -- 'data-dependency' is a _dependency_ (NOT a data-dependency) of 'main',
+          -- which should still work.
+          step "Building data-dependency"
+          createDirectoryIfMissing True (projDir </> "data-dependency")
+          writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: data-dependency"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "data-dependency" </> "A.daml") $ unlines
+            [ "module A where"
+            , "class C a where f : a"
+            ]
+          writeFileUTF8 (projDir </> "data-dependency" </> "B.daml") $ unlines
+            [ "module B where"
+            , "import A"
+            , "data Foo = Foo deriving (Eq)"
+            , "instance C Foo where f = Foo"
+            ]
+          withCurrentDirectory (projDir </> "data-dependency") $ callProcessSilent damlc ["build", "-o", "data-dependency.dar"]
+
+          step "Building dependency"
+          createDirectoryIfMissing True (projDir </> "dependency")
+          writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dependency"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show (projDir </> "data-dependency" </> "data-dependency.dar") <>  "]"
+            ]
+          writeFileUTF8 (projDir </> "dependency" </> "C.daml") $ unlines
+            [ "module C where"
+            , "import A"
+            , "import B"
+            , "bar : (Foo, Foo)"
+            , "bar = (Foo, f)"
+            ]
+          withCurrentDirectory (projDir </> "dependency") $ callProcessSilent damlc ["build", "-o", "dependency.dar"]
+
+          step "Building main"
+          createDirectoryIfMissing True (projDir </> "main")
+          writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "dependency" </> "dependency.dar") <> ","
+                <> show (projDir </> "data-dependency" </> "data-dependency.dar") <>  "]"
+            ]
+          writeFileUTF8 (projDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import B"
+            , "import C"
+            , "eq : Bool"
+            , "eq = x == y && x == Foo"
+            , "  where (x, y) = bar"
+            ]
+          withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
     , testCaseSteps "module-prefixes" $ \step -> withTempDir $ \dir -> do
           step "Create dep1"
           createDirectoryIfMissing True (dir </> "dep1")
