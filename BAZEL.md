@@ -375,7 +375,11 @@ If you get the error
 ```
 error: attribute 'dade-exec-nix-tool' in selection path 'tools.dade-exec-nix-tool' not found
 ```
-in the bazel console during project import, try starting IntelliJ from the root
+in the bazel console during project import, make sure that
+_Preferences_ → _Bazel Settings_ → _Bazel binary location_
+points to `./dev-env/bin/bazel`
+rather than to  `./dev-env/lib/dade-exec-nix-tool` (as Intellij might have expanded the former to the latter).  
+If that doesn't help try starting IntelliJ from the root
 of the `daml` repository by calling `idea .`.
 
 ## Bazel Command Reference
