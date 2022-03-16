@@ -16,7 +16,7 @@ object PruningResult {
 
   /** Pruning was not performed. Indicates to ledger api server not to proceed with pruning either.
     *
-    * @param grpcStatus grpcStatus created using error codes infrastructure ([[com.daml.error.ErrorCode]]).
+    * @param grpcStatus grpcStatus created using error codes API (see [[com.daml.error.ErrorCode]]).
     *                    Examples of gRPC status codes specific to pruning:
     *
     *                   OUT_OF_RANGE: If the specified offset cannot be pruned at, but will eventually be possible to
