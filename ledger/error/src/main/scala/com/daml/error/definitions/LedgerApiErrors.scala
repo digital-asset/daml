@@ -36,9 +36,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ErrorCategory.InternalUnsupportedOperation,
       ) {
 
-    case class Reject(_message: String)(implicit errorLogger: ContextualizedErrorLogger)
+    case class Reject(message: String)(implicit errorLogger: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(
-          cause = s"The request exercised an unsupported operation: ${_message}"
+          cause = s"The request exercised an unsupported operation: ${message}"
         )
   }
 
@@ -60,10 +60,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     override def logLevel: Level = Level.WARN
 
     case class Rejection(reason: String)(implicit errorLogger: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(cause = s"The participant is overloaded: $reason") {
-      override def context: Map[String, String] =
-        super.context ++ Map("reason" -> reason)
-    }
+        extends DamlErrorWithDefiniteAnswer(
+          cause = s"The participant is overloaded: $reason",
+          extraContext = Map("reason" -> reason),
+        )
   }
 
   @Explanation(
@@ -77,11 +77,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "REQUEST_TIME_OUT",
         ErrorCategory.DeadlineExceededRequestStateUnknown,
       ) {
-    case class Reject(_message: String, _definiteAnswer: Boolean)(implicit
+    case class Reject(message: String, override val definiteAnswer: Boolean)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = _message,
-          definiteAnswer = _definiteAnswer,
+          cause = message,
+          definiteAnswer = definiteAnswer,
         )
   }
 
@@ -94,14 +94,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "SERVICE_NOT_RUNNING",
         ErrorCategory.TransientServerFailure,
       ) {
-    case class Reject(_serviceName: String)(implicit
+    case class Reject(serviceName: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${_serviceName} has been shut down."
-        ) {
-      override def context: Map[String, String] =
-        super.context ++ Map("service_name" -> _serviceName)
-    }
+          cause = s"${serviceName} has been shut down.",
+          extraContext = Map("service_name" -> serviceName),
+        )
   }
 
   @Explanation("This rejection is given when the participant server is shutting down.")
@@ -138,10 +136,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         override val throwableO: Option[Throwable] = None,
     )(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = message) {
-      override def context: Map[String, String] =
-        super.context ++ Map("throwableO" -> throwableO.toString)
-    }
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = message,
+          extraContext = Map("throwableO" -> throwableO.toString),
+        )
 
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
@@ -178,7 +176,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}"
+          cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}",
+          extraContext = Map("detailMessage" -> detailMessage),
         )
 
     case class VersionService(message: String)(implicit

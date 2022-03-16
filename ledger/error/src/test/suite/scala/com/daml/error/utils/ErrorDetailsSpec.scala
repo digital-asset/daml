@@ -23,7 +23,7 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
     val securitySensitive =
       LedgerApiErrors.AuthorizationChecks.Unauthenticated.MissingJwtToken()(errorLogger).asGrpcError
     val notSecuritySensitive = LedgerApiErrors.Admin.UserManagement.UserNotFound
-      .Reject(_operation = "operation123", userId = "userId123")(errorLogger)
+      .Reject(operation = "operation123", userId = "userId123")(errorLogger)
       .asGrpcError
 
     ErrorDetails.matches(

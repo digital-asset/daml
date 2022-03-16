@@ -30,13 +30,13 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
       ) {
     case class Reject(
-        submitter_party: String
+        submitterParty: String
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(
-          cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
+          cause = s"Party not known on ledger: Submitting party '$submitterParty' not known"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        ErrorResource.Party -> submitter_party
+        ErrorResource.Party -> submitterParty
       )
     }
   }
@@ -51,12 +51,12 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
         id = "PARTY_NOT_KNOWN_ON_LEDGER",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-    case class Reject(_parties: Set[String])(implicit
+    case class Reject(parties: Set[String])(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = s"Parties not known on ledger: ${_parties
+    ) extends DamlErrorWithDefiniteAnswer(cause = s"Parties not known on ledger: ${parties
           .mkString("[", ",", "]")}") {
       override def resources: Seq[(ErrorResource, String)] =
-        _parties.map((ErrorResource.Party, _)).toSeq
+        parties.map((ErrorResource.Party, _)).toSeq
     }
 
     @deprecated
@@ -110,7 +110,13 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
         submitter: String,
         participantId: String,
     )(implicit loggingContext: ContextualizedErrorLogger)
-        extends DamlErrorWithDefiniteAnswer(cause = s"Inconsistent: $details")
+        extends DamlErrorWithDefiniteAnswer(
+          cause = s"Inconsistent: $details",
+          extraContext = Map(
+            "submitter" -> submitter,
+            "participantId" -> participantId,
+          ),
+        )
 
     case class Reject(
         details: String
@@ -131,11 +137,11 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
           id = "INTERNALLY_INCONSISTENT_KEYS",
           ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
         ) {
-      case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
+      case class Reject(override val cause: String, keyO: Option[GlobalKey] = None)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
         override def resources: Seq[(ErrorResource, String)] =
-          super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+          super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
       }
     }
 
@@ -149,11 +155,11 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
           id = "INTERNALLY_DUPLICATE_KEYS",
           ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
         ) {
-      case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
+      case class Reject(override val cause: String, keyO: Option[GlobalKey] = None)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
         override def resources: Seq[(ErrorResource, String)] =
-          super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+          super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
       }
     }
   }
