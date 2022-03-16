@@ -142,6 +142,7 @@ data StartOptions = StartOptions
     , sandboxOptions :: [String]
     , navigatorOptions :: [String]
     , jsonApiOptions :: [String]
+    , accessTokenFile :: Maybe FilePath
     , scriptOptions :: [String]
     , sandboxPortSpec :: !SandboxCantonPortSpec
     }
@@ -188,7 +189,7 @@ runStart startOptions@StartOptions{..} =
                       , "localhost"
                       , "--ledger-port"
                       , show (unSandboxPort sandboxPort)
-                      ] ++ scriptOpts
+                      ] ++ scriptOpts ++ [show accessTokenFile]
                   runProcess_ procScript
         doRunInitScript
         listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
