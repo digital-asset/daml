@@ -501,8 +501,9 @@ mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
 
-
--- | The graph will have an edge from package A to package B if A depends on B.
+-- | The graph will have an edge from package A to package B:
+--   - if A depends on B _OR_
+--   - if A is a data-dependency, B is a (regular) dependency, and A and B have the same name.
 buildLfPackageGraph
     :: [(FilePath, DecodedDalf)]
     -> [(FilePath, DecodedDalf)]
@@ -525,19 +526,15 @@ buildLfPackageGraph deps dataDeps = (depGraph, vertexToNode')
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
         graphFromEdges $
-            [ (PackageNode dalfPath decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
-            | (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg}) <- deps
-            , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
-            , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
-            ]
-            <>
             [ (PackageNode dalfPath decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs <> ddRefs)
-            | (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg}) <- dataDeps
+            | (isDataDep, (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg})) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
             , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
             , let ddRefs =
+                    -- This adds an edge from a data-dependency to each identically-named (regular) dependency
                     [ LF.dalfPackageId depPkg
-                    | Just ddName <- [dalfPackageName decodedDalfPkg]
+                    | isDataDep
+                    , Just ddName <- [dalfPackageName decodedDalfPkg]
                     , (_, DecodedDalf{decodedDalfPkg=depPkg}) <- deps
                     , Just depName <- [dalfPackageName depPkg]
                     , ddName == depName
