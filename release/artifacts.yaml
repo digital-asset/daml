@@ -119,8 +119,6 @@
   type: jar-deploy
 - target: //ledger/ledger-api-tests/tool:tool-1.dev
   type: jar-deploy
-- target: //ledger/ledger-security-evidence/lib:lib
-  type: jar-scala
 - target: //ledger/ledger-configuration:ledger-configuration
   type: jar-scala
 - target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_jar
@@ -242,6 +240,10 @@
 - target: //libs-scala/scala-utils:scala-utils
   type: jar-scala
 - target: //libs-scala/scalatest-utils:scalatest-utils
+  type: jar-scala
+- target: //libs-scala/security-evidence/scalatest:security-evidence-scalatest
+  type: jar-scala
+- target: //libs-scala/security-evidence/tag:security-evidence-tag
   type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
