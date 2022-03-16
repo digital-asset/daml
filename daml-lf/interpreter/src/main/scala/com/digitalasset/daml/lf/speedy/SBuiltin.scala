@@ -1104,12 +1104,16 @@ private[lf] object SBuiltin {
       val expectedTemplateId = getSTypeRep(args, 1) match {
         case Ast.TTyCon(templateId) => templateId
         case _ =>
-          throw SErrorDamlException(IE.UserError("unexpected typerep when throwing WronglyTypedContract error"))
+          throw SErrorDamlException(
+            IE.UserError("unexpected typerep when throwing WronglyTypedContract error")
+          )
       }
       val actualTemplateId = getSTypeRep(args, 2) match {
         case Ast.TTyCon(templateId) => templateId
         case _ =>
-          throw SErrorDamlException(IE.UserError("unexpected typerep when throwing WronglyTypedContract error"))
+          throw SErrorDamlException(
+            IE.UserError("unexpected typerep when throwing WronglyTypedContract error")
+          )
       }
       throw SErrorDamlException(
         IE.WronglyTypedContract(contractId, expectedTemplateId, actualTemplateId)
