@@ -23,4 +23,24 @@ object MetricName {
   implicit def metricNameToString(name: MetricName): String =
     name.toString
 
+  // TODO: these names cannot be used when giving a name to a Metric
+  private object LabelNames {
+    val ApplicationId: String = "applicationId"
+  }
+
+  def nameWithLabel(metricName: MetricName, context: MetricContext): MetricName =
+    metricName :+ LabelNames.ApplicationId :+ context.applicationId
+
+  def split(name: String): (String, Option[String]) = {
+    val splitted = name.split("\\.")
+    val labelMarkerIndex = splitted.lastIndexOf(LabelNames.ApplicationId)
+    if (labelMarkerIndex > -1) {
+      val base = splitted.take(labelMarkerIndex).mkString(".")
+      val applicationId = splitted(labelMarkerIndex + 1)
+      base -> Some(applicationId)
+    } else {
+      name -> None
+    }
+  }
+
 }

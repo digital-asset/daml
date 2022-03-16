@@ -16,9 +16,6 @@ final class Metrics(val registry: MetricRegistry) {
   private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
     registerGauge(name, gaugeSupplier, registry)
 
-  private def nameWithLabel(metricName: MetricName, context: MetricContext): MetricName =
-    metricName :+ context.applicationId
-
   private def getOrRegisterSingle[T <: Metric](
       registered: mutable.Map[String, T],
       name: MetricName,
@@ -37,7 +34,7 @@ final class Metrics(val registry: MetricRegistry) {
     val registered: mutable.Map[String, T] = getRegistered(MetricFilter.startsWith(name)).asScala
     List[T](
       getOrRegisterSingle(registered, name, register),
-      getOrRegisterSingle(registered, nameWithLabel(name, context), register),
+      getOrRegisterSingle(registered, MetricName.nameWithLabel(name, context), register),
     )
   }
 
