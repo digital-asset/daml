@@ -136,9 +136,8 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       Logger.logDebug loggerH "Building dependency package graph"
 
       let
-        pkgs = dalfsFromDependenciesWithFps <> dalfsFromDataDependenciesWithFps
         (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
-
+        pkgs = dalfsFromDependencies <> dalfsFromDataDependencies
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
 
@@ -219,7 +218,7 @@ installDataDep ::
      Options
   -> NormalizedFilePath
   -> FilePath
-  -> [(a, DecodedDalf)]
+  -> [DecodedDalf]
   -> MS.Map (UnitId, b) LF.DalfPackage
   -> MS.Map UnitId LF.DalfPackage
   -> [(UnitId, LF.DalfPackage)]
@@ -246,13 +245,13 @@ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pk
         MS.fromList [ (LF.dalfPackageId pkg, unitId)
                     | (unitId, pkg) <-
                           MS.toList dependenciesSoFar <>
-                          map (\(_, DecodedDalf{..}) -> (decodedUnitId, decodedDalfPkg)) pkgs
+                          map (\DecodedDalf{..} -> (decodedUnitId, decodedDalfPkg)) pkgs
                     ]
 
     packages =
       MS.fromList
         [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg)
-        | dalfPkg <- MS.elems dependenciesSoFar <> MS.elems stablePkgs <> map (decodedDalfPkg . snd) pkgs
+        | dalfPkg <- MS.elems dependenciesSoFar <> MS.elems stablePkgs <> map decodedDalfPkg pkgs
         ]
 
     targetLfVersion = optDamlLfVersion opts
