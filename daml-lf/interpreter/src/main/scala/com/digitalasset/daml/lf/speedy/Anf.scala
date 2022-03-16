@@ -316,8 +316,13 @@ private[lf] object Anf {
 
       case source.SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
-        val body = flattenToAnfInternal(body0)
-        Bounce(() => transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k))
+        Bounce { () =>
+          val depth0 = DepthA(0)
+          val env0 = initEnv
+          flattenExp(depth0, env0, body0) { body =>
+            transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k)
+          }
+        }
 
       case source.SECase(scrut, alts0) => {
         Bounce(() =>
