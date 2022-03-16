@@ -199,3 +199,9 @@ The ``public`` right is implicitly granted to any request bearing a non-expired 
    access tokens whose format is equal to the above except for the custom claims
    to be present at the same level as ``exp`` in the token above,
    instead of being nested below ``"https://daml.com/ledger-api"``.
+
+.. note:: If you are transitioning from custom Daml claim access tokens to user access
+   tokens, you can use the former on a ledger that support the latter. In that case,
+   the ``applicationId`` field is required and will be interpreted as the user ID. This
+   is supposed to be used only as part of a transition and you should strive to move
+   completely to using user access tokens as early as possible.
