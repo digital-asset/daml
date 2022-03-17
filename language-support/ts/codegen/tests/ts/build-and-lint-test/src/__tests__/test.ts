@@ -565,33 +565,36 @@ test("interfaces", async () => {
     assetPayload,
   );
   expect(ifaceContract.payload).toEqual(assetPayload);
-  try {
-    const [,] = await aliceLedger.exercise(
-      buildAndLint.Main.Asset.Transfer,
-      ifaceContract.contractId,
-      { newOwner: BOB_PARTY },
-    );
-  } catch (ex) {
-    expect([400]).toContain(ex.status);
-    // currently the JSON API can't handle interface contract IDs in the response and returns a
-    // 400 error.
-    expect(ex.errors).toBe([]);
-  }
-  // expect(events1).toMatchObject(
-  //   [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
-  //     {created: {templateId: buildAndLint.Main.Asset.templateId,
-  //      signatories: [ALICE_PARTY],
-  //      payload: {issuer: ALICE_PARTY, owner: BOB_PARTY}}}
-  //   ]
-  // )
-  // const [,events2] = await bobLedger.exercise(buildAndLint.Main.Token.Transfer, ifaceContract1, {newOwner: ALICE_PARTY});
-  // expect(events2).toMatchObject(
-  //   [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
-  //     {created: {templateId: buildAndLint.Main.Asset.templateId,
-  //      signatories: [ALICE_PARTY],
-  //      payload: {issuer: ALICE_PARTY, owner: ALICE_PARTY}}}
-  //   ]
-  // )
+  const [,] = await aliceLedger.exercise(
+    buildAndLint.Main.Asset.Transfer,
+    ifaceContract.contractId,
+    { newOwner: BOB_PARTY },
+  );
+  expect(events1).toMatchObject([
+    { archived: { templateId: buildAndLint.Main.Asset.templateId } },
+    {
+      created: {
+        templateId: buildAndLint.Main.Asset.templateId,
+        signatories: [ALICE_PARTY],
+        payload: { issuer: ALICE_PARTY, owner: BOB_PARTY },
+      },
+    },
+  ]);
+  const [, events2] = await bobLedger.exercise(
+    buildAndLint.Main.Token.Transfer,
+    ifaceContract1,
+    { newOwner: ALICE_PARTY },
+  );
+  expect(events2).toMatchObject([
+    { archived: { templateId: buildAndLint.Main.Asset.templateId } },
+    {
+      created: {
+        templateId: buildAndLint.Main.Asset.templateId,
+        signatories: [ALICE_PARTY],
+        payload: { issuer: ALICE_PARTY, owner: ALICE_PARTY },
+      },
+    },
+  ]);
 });
 
 test("createAndExercise", async () => {
