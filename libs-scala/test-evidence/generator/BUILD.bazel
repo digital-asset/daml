@@ -4,7 +4,7 @@
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 
 da_scala_library(
-    name = "tool",
+    name = "generator-lib",
     srcs = glob(["src/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
@@ -31,15 +31,15 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "systematic-testing-tool",
+    name = "generator",
     testonly = True,
-    main_class = "com.daml.security.evidence.generator.Main",
+    main_class = "com.daml.test.evidence.generator.Main",
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        ":tool",
+        ":generator-lib",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-copy",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",

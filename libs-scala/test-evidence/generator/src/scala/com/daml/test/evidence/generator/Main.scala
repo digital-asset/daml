@@ -1,12 +1,12 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.security.evidence.generator
+package com.daml.test.evidence.generator
 
 import better.files.File
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.suites
-import com.daml.security.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
+import com.daml.test.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
 import com.daml.test.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
 import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 import io.circe.Encoder

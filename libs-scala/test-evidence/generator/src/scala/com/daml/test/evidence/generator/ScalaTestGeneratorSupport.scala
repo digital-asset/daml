@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.security.evidence.generator
+package com.daml.test.evidence.generator
 
 import cats.syntax.either._
 import cats.syntax.functor._
