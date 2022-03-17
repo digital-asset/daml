@@ -72,36 +72,39 @@ let shared = rec {
 
   ghcPkgs = pkgs.haskell.packages.native-bignum.ghc902;
 
-  ghc = ghcPkgs.ghc;
+  ghc =
+    if system == "aarch64-darwin" then
+      pkgs.runCommand "ghc-aarch64-symlinks" { buildInputs = [ pkgs.makeWrapper ]; } ''
+        mkdir -p $out/bin
+        for tool in \
+          ghc-9.0.2 \
+          ghc-pkg \
+          ghc-pkg-9.0.2 \
+          ghci \
+          ghci-9.0.2 \
+          haddock \
+          hp2ps \
+          hpc \
+          runghc-9.0.2 \
+          runhaskell
+        do
+            ln -s ${ghcPkgs.ghc}/bin/$tool $out/bin/$tool
+        done;
+        mkdir -p $out/lib
+        ln -s ${ghcPkgs.ghc}/lib/ghc-9.0.2 $out/lib/ghc-9.0.2
+        makeWrapper ${ghcPkgs.ghc}/bin/ghc $out/bin/ghc \
+          --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
+          --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
+        makeWrapper ${ghcPkgs.ghc}/bin/runghc $out/bin/runghc \
+          --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
+          --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
+        makeWrapper ${ghcPkgs.ghc}/bin/hsc2hs $out/bin/hsc2hs \
+          --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
+          --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
+      ''
+    else
+      ghcPkgs.ghc;
 
-  ghcWithLLVM = pkgs.runCommand "ghc-aarch64-symlinks" { buildInputs = [ pkgs.makeWrapper ]; } ''
-      mkdir -p $out/bin
-      for tool in \
-        ghc-9.0.2 \
-        ghc-pkg \
-        ghc-pkg-9.0.2 \
-        ghci \
-        ghci-9.0.2 \
-        haddock \
-        hp2ps \
-        hpc \
-        runghc-9.0.2 \
-        runhaskell
-      do
-          ln -s ${ghc}/bin/$tool $out/bin/$tool
-      done;
-      mkdir -p $out/lib
-      ln -s ${ghc}/lib/ghc-9.0.2 $out/lib/ghc-9.0.2
-      makeWrapper ${ghc}/bin/ghc $out/bin/ghc \
-        --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
-        --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
-      makeWrapper ${ghc}/bin/runghc $out/bin/runghc \
-        --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
-        --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
-      makeWrapper ${ghc}/bin/hsc2hs $out/bin/hsc2hs \
-        --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
-        --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
-      '';
 
   # Deliberately not taken from ghcPkgs. This is a fully
   # static executable so it doesn’t pull in another GHC
