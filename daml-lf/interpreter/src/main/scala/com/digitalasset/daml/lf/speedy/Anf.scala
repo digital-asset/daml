@@ -198,22 +198,14 @@ private[lf] object Anf {
     case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
   }
 
-  def yesBounce[A](f: () => Trampoline[A]): Trampoline[A] = {
-    Bounce(f)
-  }
-
-  def noBounce[A](f: () => Trampoline[A]): Trampoline[A] = {
-    f()
-  }
-
   private[this] def flattenExp[A](depth: DepthA, env: Env, exp: source.SExpr)(
       k: K[target.SExpr, A]
   ): Trampoline[A] = {
-    noBounce(() =>
-      transformExp[A](depth, env, exp, k) { (_, sexpr, txK) =>
-        yesBounce(() => txK(sexpr))
+    transformExp[A](depth, env, exp, k) { (_, sexpr, txK) =>
+      Bounce { () =>
+        txK(sexpr)
       }
-    )
+    }
   }
 
   private[this] def transformLet1[A](
@@ -224,22 +216,20 @@ private[lf] object Anf {
       k: K[target.SExpr, A],
       transform: Tx[target.SExpr, A],
   ): Trampoline[A] = {
-    noBounce(() =>
-      transformExp(depth, env, rhs, k) { (depth, rhs, txK) =>
-        val depth1 = depth.incr(1)
-        val env1 = trackBindings(depth, env, 1)
-        noBounce(() =>
-          transformExp(
-            depth1,
-            env1,
-            body,
-            { body1 =>
-              yesBounce(() => txK(target.SELet1(rhs, body1)))
-            },
-          )(transform)
-        )
-      }
-    )
+    transformExp(depth, env, rhs, k) { (depth, rhs, txK) =>
+      val depth1 = depth.incr(1)
+      val env1 = trackBindings(depth, env, 1)
+      transformExp(
+        depth1,
+        env1,
+        body,
+        { body1 =>
+          Bounce { () =>
+            txK(target.SELet1(rhs, body1))
+          }
+        },
+      )(transform)
+    }
   }
 
   private[this] def flattenAlts[A](depth: DepthA, env: Env, alts0: List[source.SCaseAlt])(
@@ -299,13 +289,13 @@ private[lf] object Anf {
       k: K[target.SExpr, A],
   )(
       transform: Tx[target.SExpr, A]
-  ): Trampoline[A] = yesBounce { () => //NICK: new. todo-fix formatting
+  ): Trampoline[A] = Bounce { () =>
     exp match {
       case atom0: source.SExprAtomic =>
         val atom = makeRelativeA(depth)(makeAbsoluteA(env, atom0))
-        noBounce(() => transform(depth, atom, k))
+        transform(depth, atom, k)
 
-      case source.SEVal(x) => noBounce(() => transform(depth, target.SEVal(x), k))
+      case source.SEVal(x) => transform(depth, target.SEVal(x), k)
 
       case source.SEApp(func, args) =>
         // It's safe to perform ANF if the func-expression has no effects when evaluated.
@@ -324,73 +314,58 @@ private[lf] object Anf {
 
       case source.SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
-        noBounce { () =>
-          val depth0 = DepthA(0)
-          val env0 = initEnv
-          flattenExp(depth0, env0, body0) { body =>
-            transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k)
+        val depth0 = DepthA(0)
+        val env0 = initEnv
+        flattenExp(depth0, env0, body0) { body =>
+          transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k)
+        }
+
+      case source.SECase(scrut, alts0) =>
+        atomizeExp(depth, env, scrut, k) { (depth, scrut, txK) =>
+          val scrut1 = makeRelativeA(depth)(scrut)
+          flattenAlts(depth, env, alts0) { alts =>
+            transform(depth, target.SECaseAtomic(scrut1, alts.toArray), txK)
           }
         }
 
-      case source.SECase(scrut, alts0) => {
-        noBounce(() =>
-          atomizeExp(depth, env, scrut, k) { (depth, scrut, txK) =>
-            val scrut1 = makeRelativeA(depth)(scrut)
-            noBounce(() =>
-              flattenAlts(depth, env, alts0) { alts =>
-                noBounce(() => transform(depth, target.SECaseAtomic(scrut1, alts.toArray), txK))
-              }
-            )
-          }
-        )
-      }
-
       case source.SELet(rhss, body) =>
         val expanded = expandMultiLet(rhss, body)
-        noBounce(() => transformExp(depth, env, expanded, k)(transform))
+        transformExp(depth, env, expanded, k)(transform)
 
       case source.SELet1General(rhs, body) =>
-        noBounce(() => transformLet1(depth, env, rhs, body, k, transform))
+        transformLet1(depth, env, rhs, body, k, transform)
 
-      case source.SELocation(loc, body) => {
-        noBounce(() =>
-          transformExp(depth, env, body, k) { (depth, body, txK) =>
-            yesBounce(() => transform(depth, target.SELocation(loc, body), txK))
+      case source.SELocation(loc, body) =>
+        transformExp(depth, env, body, k) { (depth, body, txK) =>
+          Bounce { () =>
+            transform(depth, target.SELocation(loc, body), txK)
           }
-        )
-      }
+        }
 
-      case source.SELabelClosure(label, exp) => {
-        noBounce(() =>
-          transformExp(depth, env, exp, k) { (depth, exp, txK) =>
-            yesBounce(() => transform(depth, target.SELabelClosure(label, exp), txK))
+      case source.SELabelClosure(label, exp) =>
+        transformExp(depth, env, exp, k) { (depth, exp, txK) =>
+          Bounce { () =>
+            transform(depth, target.SELabelClosure(label, exp), txK)
           }
-        )
-      }
+        }
 
       case source.SETryCatch(body0, handler0) =>
         // we must not lift applications from either the body or the handler outside of
         // the try-catch block, so we flatten each separately:
         flattenExp(depth, env, body0) { body =>
           flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0) { handler =>
-            noBounce { () =>
-              transform(depth, target.SETryCatch(body, handler), k)
-            }
+            transform(depth, target.SETryCatch(body, handler), k)
           }
         }
 
       case source.SEScopeExercise(body0) =>
         flattenExp(depth, env, body0) { body =>
-          noBounce { () =>
-            transform(depth, target.SEScopeExercise(body), k)
-          }
+          transform(depth, target.SEScopeExercise(body), k)
         }
 
       case source.SEPreventCatch(body0) =>
         flattenExp(depth, env, body0) { body =>
-          noBounce { () =>
-            transform(depth, target.SEPreventCatch(body), k)
-          }
+          transform(depth, target.SEPreventCatch(body), k)
         }
 
     }
@@ -405,17 +380,13 @@ private[lf] object Anf {
       transform: Tx[List[AbsAtom], A]
   ): Trampoline[A] =
     exps match {
-      case Nil => noBounce(() => transform(depth, Nil, k))
+      case Nil => transform(depth, Nil, k)
       case exp :: exps =>
-        noBounce(() =>
-          atomizeExp(depth, env, exp, k) { (depth, atom, txK1) =>
-            noBounce(() =>
-              atomizeExps(depth, env, exps, txK1) { (depth, atoms, txK2) =>
-                noBounce(() => transform(depth, atom :: atoms, txK2))
-              }
-            )
+        atomizeExp(depth, env, exp, k) { (depth, atom, txK1) =>
+          atomizeExps(depth, env, exps, txK1) { (depth, atoms, txK2) =>
+            transform(depth, atom :: atoms, txK2)
           }
-        )
+        }
     }
 
   private[this] def atomizeExp[A](
@@ -427,22 +398,22 @@ private[lf] object Anf {
       transform: Tx[AbsAtom, A]
   ): Trampoline[A] = {
     exp match {
-      case ea: source.SExprAtomic => noBounce(() => transform(depth, makeAbsoluteA(env, ea), k))
+      case ea: source.SExprAtomic => transform(depth, makeAbsoluteA(env, ea), k)
       case _ => {
-        noBounce(() =>
-          transformExp(depth, env, exp, k) { (depth, anf, txK) =>
-            val atom = Right(AbsBinding(depth))
-            yesBounce(() =>
-              transform(
-                depth.incr(1),
-                atom,
-                { body =>
-                  yesBounce(() => txK(target.SELet1(anf, body)))
-                },
-              )
+        transformExp(depth, env, exp, k) { (depth, anf, txK) =>
+          val atom = Right(AbsBinding(depth))
+          Bounce { () =>
+            transform(
+              depth.incr(1),
+              atom,
+              { body =>
+                Bounce { () =>
+                  txK(target.SELet1(anf, body))
+                }
+              },
             )
           }
-        )
+        }
       }
     }
   }
@@ -469,17 +440,14 @@ private[lf] object Anf {
       args: Array[source.SExpr],
       k: K[target.SExpr, A],
   )(transform: Tx[target.SExpr, A]): Trampoline[A] = {
-    noBounce(() =>
-      atomizeExp(depth, env, func, k) { (depth, func, txK1) =>
-        noBounce(() =>
-          atomizeExps(depth, env, args.toList, txK1) { (depth, args, txK) =>
-            val func1 = makeRelativeA(depth)(func)
-            val args1 = args.map(makeRelativeA(depth))
-            noBounce(() => transform(depth, target.SEAppAtomic(func1, args1.toArray), txK))
-          }
-        )
+
+    atomizeExp(depth, env, func, k) { (depth, func, txK1) =>
+      atomizeExps(depth, env, args.toList, txK1) { (depth, args, txK) =>
+        val func1 = makeRelativeA(depth)(func)
+        val args1 = args.map(makeRelativeA(depth))
+        transform(depth, target.SEAppAtomic(func1, args1.toArray), txK)
       }
-    )
+    }
   }
 
   /* This function must be used when transforming an application of unknown function.  The
@@ -494,19 +462,14 @@ private[lf] object Anf {
       k: K[target.SExpr, A],
   )(transform: Tx[target.SExpr, A]): Trampoline[A] = {
 
-    noBounce(() =>
-      atomizeExp(depth, env, func, k) { (depth, func, txK) =>
-        val func1 = makeRelativeA(depth)(func)
-        // we dont atomize the args here
-        flattenExpList(depth, env, args.toList) { args1 =>
-          noBounce(() =>
-            // we build a non-atomic application here (only the function is atomic)
-            transform(depth, target.SEAppAtomicFun(func1, args1.toArray), txK)
-          )
-        }
+    atomizeExp(depth, env, func, k) { (depth, func, txK) =>
+      val func1 = makeRelativeA(depth)(func)
+      // we dont atomize the args here
+      flattenExpList(depth, env, args.toList) { args1 =>
+        // we build a non-atomic application here (only the function is atomic)
+        transform(depth, target.SEAppAtomicFun(func1, args1.toArray), txK)
       }
-    )
-
+    }
   }
 
   private[this] def flattenExpList[A](
