@@ -10,7 +10,7 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
-    nodejs = pkgs.nodejs-14_x;
+    nodejs = pkgs.nodejs-16_x;
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out
