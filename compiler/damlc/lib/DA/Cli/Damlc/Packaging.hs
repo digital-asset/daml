@@ -555,8 +555,8 @@ buildLfPackageGraph builtinDeps stablePkgs deps dataDeps = (depGraph, vertexToNo
             | (isDataDep, (dalf, DecodedDalf{decodedUnitId=unitId, decodedDalfPkg=dalfPackage})) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let
                 pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
-                pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
                 pid = LF.dalfPackageId dalfPackage
+                pkgRefs = nubOrd [ pid' | LF.PRImport pid' <- allPackageRefs pkg, pid' /= pid ]
                 node
                   | pid `elem` builtinDeps = MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {..}
                   | pid `elem` stablePkgs = MkStableDependencyPackageNode
