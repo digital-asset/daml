@@ -700,13 +700,13 @@ dev_env_tool(
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")
 
 node_repositories(
-    package_json = ["//:package.json"],
     # Using `dev_env_tool` introduces an additional layer of symlink
     # indirection. Bazel doesn't track dependencies through symbolic links.
     # Occasionally, this can cause build failures on CI if a build is not
     # invalidated despite a change of an original source. To avoid such issues
     # we use the `nixpkgs_package` directly.
     node_version = "16.13.0",
+    package_json = ["//:package.json"],
     vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
