@@ -77,7 +77,6 @@ class MutableCacheBackedContractStoreSpec
 
   "event stream consumption" should {
     "populate the caches from the contract state event stream" in {
-
       val lastLedgerHead =
         new AtomicReference[(Offset, Long)]((Offset.beforeBegin, EventSequentialId.beforeBegin))
       val capture_signalLedgerHead: SignalNewLedgerHead =

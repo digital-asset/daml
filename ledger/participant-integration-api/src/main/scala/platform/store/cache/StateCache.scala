@@ -30,7 +30,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
   def get(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
       case Some(value) =>
-        logger.debug(s"Cache hit for $key -> ${value.toString.take(100)}")
+        logger.debug(s"Cache hit for $key -> ${value.toString.take(1000)}")
         Some(value)
       case None =>
         logger.debug(s"Cache miss for $key ")
@@ -47,7 +47,9 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
     * @param validAt ordering discriminator for pending updates for the same key
     * @param value the value to insert
     */
-  def put(key: K, validAt: Long, value: V): Unit = Timed.value(
+  def put(key: K, validAt: Long, value: V)(implicit
+      loggingContext: LoggingContext
+  ): Unit = Timed.value(
     registerUpdateTimer, {
       pendingUpdates.synchronized {
         val competingLatestForKey =
@@ -60,7 +62,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
             }
             .getOrElse(Long.MinValue)
 
-        if (competingLatestForKey < validAt) cache.put(key, value) else ()
+        if (competingLatestForKey < validAt) putInternal(key, value, validAt) else ()
       }
     },
   )
@@ -90,6 +92,13 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
     },
   )
 
+  private def putInternal(key: K, value: V, validAt: Long)(implicit
+      loggingContext: LoggingContext
+  ): Unit = {
+    cache.put(key, value)
+    logger.debug(s"Updated cache for $key with $value at $validAt")
+  }
+
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
@@ -102,7 +111,7 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
             .get(key)
             .map { pendingForKey =>
               if (pendingForKey.latestValidAt == validAt)
-                cache.put(key, value)
+                putInternal(key, value, validAt)
               else ()
               removeFromPending(key)
             }
