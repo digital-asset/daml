@@ -45,6 +45,8 @@ rules_haskell_patches = [
     "@com_github_digital_asset_daml//bazel_tools:haskell-rts-docs.patch",
     # This should be upstreamed
     "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
+    # This should be upstreamed
+    "@com_github_digital_asset_daml//bazel_tools:haskell-arm-m1.patch",
 ]
 rules_nixpkgs_version = "b39b20edc4637032bc65f6a93af888463027767c"
 rules_nixpkgs_sha256 = "69bbc7aceaeab20693ae8bdc46b7d7a208ef3d3f1e5c295bef474d9b2e6aa39f"
