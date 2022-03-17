@@ -22,8 +22,10 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process
+import qualified Test.QuickCheck.Monadic as Q (monadicIO, run)
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck
 
 import SdkVersion
 
@@ -729,8 +731,13 @@ tests Tools{damlc} = testGroup "Packaging" $
           exitCode @?= ExitFailure 1
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
 
-    , testCaseSteps "data-dependencies + exposed-modules" $ \step -> withTempDir $ \projDir -> do
-          step "Building dependency"
+    , testProperty "data-dependencies + exposed-modules" $ \(n1 :: Int) (n2 :: Int) ->
+        -- Since the order in which dependencies are processed depends on their PackageIds,
+        -- which in turn depends on their contents, we check that 'data-dependency' is
+        -- processed _after_ 'dependency' regardless of their PackageIds by adding a varying
+        -- top-level binding to each.
+        Q.monadicIO $ Q.run $ withTempDir $ \projDir -> do
+          -- Building dependency
           createDirectoryIfMissing True (projDir </> "dependency")
           writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -746,9 +753,10 @@ tests Tools{damlc} = testGroup "Packaging" $
           writeFileUTF8 (projDir </> "dependency" </> "B.daml") $ unlines
             [ "module B where"
             , "class C a where f : a"
+            , "x = " <> show n1
             ]
           withCurrentDirectory (projDir </> "dependency") $ callProcessSilent damlc ["build", "-o", "dependency.dar"]
-          step "Building data-dependency"
+          -- Building data-dependency
           createDirectoryIfMissing True (projDir </> "data-dependency")
           writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -766,9 +774,10 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "import B"
             , "data Foo = Foo"
             , "instance C Foo where f = Foo"
+            , "y = " <> show n2
             ]
           withCurrentDirectory (projDir </> "data-dependency") $ callProcessSilent damlc ["build", "-o", "data-dependency.dar"]
-          step "Building main"
+          -- Building main
           createDirectoryIfMissing True (projDir </> "main")
           writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
