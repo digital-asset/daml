@@ -252,6 +252,7 @@ da_haskell_test(
         "@nodejs//:node_bin",
         "@nodejs//:npm_bin",
     ],
+    flaky = True,  # npm/jest/puppeteer can be flaky
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
     # Exclusive until we stop hardcoding port numbers in index.test.ts
