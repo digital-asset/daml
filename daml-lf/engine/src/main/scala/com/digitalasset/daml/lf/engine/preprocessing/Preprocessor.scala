@@ -169,7 +169,7 @@ private[engine] final class Preprocessor(
     }
 
   private[engine] def preprocessCommand(
-      cmd: command.Command
+      cmd: command.ApiCommand
   ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
       commandPreprocessor.unsafePreprocessCommand(cmd)
@@ -182,6 +182,13 @@ private[engine] final class Preprocessor(
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
       commandPreprocessor.unsafePreprocessCommands(cmds)
+    }
+
+  private[engine] def preprocessCommand(
+      cmd: command.ReplayCommand
+  ): Result[speedy.Command] =
+    safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
+      commandPreprocessor.unsafePreprocessCommand(cmd)
     }
 
   /** Translates a complete transaction. Assumes no contract ID suffixes are used */

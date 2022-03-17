@@ -95,7 +95,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   def submit(
       submitters: Set[Party],
       readAs: Set[Party],
-      cmds: Commands,
+      cmds: ApiCommands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
@@ -145,7 +145,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     */
   def reinterpret(
       submitters: Set[Party],
-      command: Command,
+      command: ReplayCommand,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,

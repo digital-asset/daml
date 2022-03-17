@@ -5,7 +5,7 @@ package com.daml.ledger.api
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
-import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.command.{ApiCommands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp

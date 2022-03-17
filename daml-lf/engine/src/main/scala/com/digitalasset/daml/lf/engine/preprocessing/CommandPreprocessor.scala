@@ -155,31 +155,19 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.LookupByKey(templateId, key)
   }
 
-  // returns the speedy translation of an LF command together with all the contract IDs contains inside.
+  // returns the speedy translation of an API command.
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafePreprocessCommand(
-      cmd: command.Command
-  ): speedy.Command = {
+      cmd: command.ApiCommand
+  ): speedy.Command =
     cmd match {
-      case command.CreateCommand(templateId, argument) =>
+      case command.ApiCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.CreateByInterfaceCommand(interfaceId, templateId, argument) =>
-        unsafePreprocessCreateByInterface(interfaceId, templateId, argument)
-      case command.ExerciseCommand(templateId, contractId, choiceId, argument) =>
+      case command.ApiCommand.Exercise(templateId, contractId, choiceId, argument) =>
         unsafePreprocessExercise(templateId, contractId, choiceId, argument)
-      case command.ExerciseTemplateCommand(templateId, contractId, choiceId, argument) =>
-        unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
-      case command.ExerciseByInterfaceCommand(
-            interfaceId,
-            templateId,
-            contractId,
-            choiceId,
-            argument,
-          ) =>
-        unsafePreprocessExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
-      case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
+      case command.ApiCommand.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
-      case command.CreateAndExerciseCommand(
+      case command.ApiCommand.CreateAndExercise(
             templateId,
             createArgument,
             choiceId,
@@ -191,26 +179,54 @@ private[lf] final class CommandPreprocessor(
           choiceId,
           choiceArgument,
         )
-      case command.FetchCommand(templateId, coid) => {
+    }
+
+  // returns the speedy translation of an Replay command.
+  @throws[Error.Preprocessing.Error]
+  private[preprocessing] def unsafePreprocessCommand(
+      cmd: command.ReplayCommand
+  ): speedy.Command =
+    cmd match {
+      case command.ReplayCommand.CreateByTemplate(templateId, argument) =>
+        unsafePreprocessCreate(templateId, argument)
+      case command.ReplayCommand.CreateByInterface(interfaceId, templateId, argument) =>
+        unsafePreprocessCreateByInterface(interfaceId, templateId, argument)
+      case command.ReplayCommand.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
+        unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
+      case command.ReplayCommand.ExerciseByInterface(
+            interfaceId,
+            templateId,
+            contractId,
+            choiceId,
+            argument,
+          ) =>
+        unsafePreprocessExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
+      case command.ReplayCommand.ExerciseTemplateByKey(
+            templateId,
+            contractKey,
+            choiceId,
+            argument,
+          ) =>
+        unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
+      case command.ReplayCommand.FetchTemplate(templateId, coid) => {
         discard(handleLookup(interface.lookupTemplate(templateId)))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.Fetch(templateId, cid)
       }
-      case command.FetchByInterfaceCommand(interfaceId, templateId, coid) => {
+      case command.ReplayCommand.FetchByInterface(interfaceId, templateId, coid) => {
         discard(handleLookup(interface.lookupTemplateImplements(templateId, interfaceId)))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.FetchByInterface(interfaceId, templateId, cid)
       }
-      case command.FetchByKeyCommand(templateId, key) =>
+      case command.ReplayCommand.FetchTemplateByKey(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
         speedy.Command.FetchByKey(templateId, sKey)
-      case command.LookupByKeyCommand(templateId, key) =>
+      case command.ReplayCommand.LookupTemplateByKey(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
         speedy.Command.LookupByKey(templateId, sKey)
     }
-  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] = {

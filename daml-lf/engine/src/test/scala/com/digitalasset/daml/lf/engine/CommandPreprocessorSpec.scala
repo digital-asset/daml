@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.command._
+import com.daml.lf.command.{ApiCommand, ReplayCommand}
 import com.daml.lf.data._
 import com.daml.lf.transaction.test.TransactionBuilder.newCid
 import com.daml.lf.value.Value._
@@ -75,61 +75,43 @@ class CommandPreprocessorSpec
     val defaultPreprocessor =
       new CommandPreprocessor(compiledPackage.interface, requireV1ContractIdSuffix = false)
 
-    "reject improperly typed commands" in {
+    "reject improperly typed ApiCommands" in {
 
       // TEST_EVIDENCE: Input Validation: well formed create command is accepted
-      val validCreate = CreateCommand(
+      val validCreate = ApiCommand.Create(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise command is accepted
-      val validExe = ExerciseCommand(
+      val validExe = ApiCommand.Exercise(
         "Mod:Record",
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise-by-key command is accepted
-      val validExeByKey = ExerciseByKeyCommand(
+      val validExeByKey = ApiCommand.ExerciseByKey(
         "Mod:Record",
         valueParties,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
       // TEST_EVIDENCE: Input Validation: well formed create-and-exercise command is accepted
-      val validCreateAndExe = CreateAndExerciseCommand(
+      val validCreateAndExe = ApiCommand.CreateAndExercise(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed fetch command is accepted
-      val validFetch = FetchCommand(
-        "Mod:Record",
-        newCid,
-      )
-      // TEST_EVIDENCE: Input Validation: well formed fetch-by-key command is accepted
-      val validFetchByKey = FetchByKeyCommand(
-        "Mod:Record",
-        valueParties,
-      )
-      // TEST_EVIDENCE: Input Validation: well formed lookup command is accepted
-      val validLookup = LookupByKeyCommand(
-        "Mod:Record",
-        valueParties,
-      )
-      val noErrorTestCases = Table[Command](
+      val noErrorTestCases = Table[ApiCommand](
         "command",
         validCreate,
         validExe,
         validExeByKey,
         validCreateAndExe,
-        validFetch,
-        validFetchByKey,
-        validLookup,
       )
 
-      val errorTestCases = Table[Command, ResultOfATypeInvocation[_]](
+      val errorTestCases = Table[ApiCommand, ResultOfATypeInvocation[_]](
         ("command", "error"),
         // TEST_EVIDENCE: Input Validation: ill-formed create command is rejected
         validCreate.copy(templateId = "Mod:Undefined") ->
@@ -165,6 +147,44 @@ class CommandPreprocessorSpec
           ValueRecord("", ImmArray("content" -> ValueInt64(42)))
         ) ->
           a[Error.Preprocessing.TypeMismatch],
+      )
+
+      forEvery(noErrorTestCases) { command =>
+        Try(defaultPreprocessor.unsafePreprocessCommand(command)) shouldBe a[Success[_]]
+      }
+
+      forEvery(errorTestCases) { (command, typ) =>
+        inside(Try(defaultPreprocessor.unsafePreprocessCommand(command))) {
+          case Failure(error: Error.Preprocessing.Error) =>
+            error shouldBe typ
+        }
+      }
+    }
+
+    "reject improperly typed ReplayCommands" in {
+      // TEST_EVIDENCE: Input Validation: well formed fetch command is accepted
+      val validFetch = ReplayCommand.FetchTemplate(
+        "Mod:Record",
+        newCid,
+      )
+      // TEST_EVIDENCE: Input Validation: well formed fetch-by-key command is accepted
+      val validFetchByKey = ReplayCommand.FetchTemplateByKey(
+        "Mod:Record",
+        valueParties,
+      )
+      // TEST_EVIDENCE: Input Validation: well formed lookup command is accepted
+      val validLookup = ReplayCommand.LookupTemplateByKey(
+        "Mod:Record",
+        valueParties,
+      )
+      val noErrorTestCases = Table[ReplayCommand](
+        "command",
+        validFetch,
+        validFetchByKey,
+        validLookup,
+      )
+      val errorTestCases = Table[ReplayCommand, ResultOfATypeInvocation[_]](
+        ("command", "error"),
         // TEST_EVIDENCE: Input Validation: ill-formed fetch command is rejected
         validFetch.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
@@ -194,35 +214,35 @@ class CommandPreprocessorSpec
 
     def contractIdTestCases(culpritCid: ContractId, innocentCid: ContractId) = Table[ApiCommand](
       "command",
-      CreateCommand(
+      ApiCommand.Create(
         "Mod:RecordRef",
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
-      ExerciseCommand(
+      ApiCommand.Exercise(
         "Mod:RecordRef",
         innocentCid,
         "Change",
         ValueContractId(culpritCid),
       ),
-      ExerciseCommand(
+      ApiCommand.Exercise(
         "Mod:RecordRef",
         culpritCid,
         "Change",
         ValueContractId(innocentCid),
       ),
-      CreateAndExerciseCommand(
+      ApiCommand.CreateAndExercise(
         "Mod:RecordRef",
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
         "Change",
         ValueContractId(innocentCid),
       ),
-      CreateAndExerciseCommand(
+      ApiCommand.CreateAndExercise(
         "Mod:RecordRef",
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(innocentCid))),
         "Change",
         ValueContractId(culpritCid),
       ),
-      ExerciseByKeyCommand(
+      ApiCommand.ExerciseByKey(
         "Mod:RecordRef",
         valueParties,
         "Change",

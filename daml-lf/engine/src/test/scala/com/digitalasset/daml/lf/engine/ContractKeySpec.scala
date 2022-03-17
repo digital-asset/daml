@@ -6,7 +6,7 @@ package engine
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.command.{CreateAndExerciseCommand, CreateCommand}
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref.{PackageId, Name, QualifiedName, Identifier, Party, TypeConName}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast.Package
@@ -166,7 +166,7 @@ class ContractKeySpec
       val Right(cmds) = preprocessor
         .preprocessCommands(
           ImmArray(
-            CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)
+            ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
           )
         )
         .consume(_ => None, lookupPackage, lookupKey)
@@ -198,7 +198,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
+        .preprocessCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
 
       val result = suffixLenientEngine
@@ -231,7 +231,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
+        .preprocessCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
@@ -303,7 +303,7 @@ class ContractKeySpec
             None
         }
       def run(engine: Engine, choice: String, argument: Value) = {
-        val cmd = CreateAndExerciseCommand(
+        val cmd = ApiCommand.CreateAndExercise(
           opsId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
           choice,
