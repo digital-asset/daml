@@ -3,10 +3,9 @@
 
 package com.daml.platform.store.cache
 
-import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
@@ -36,14 +35,14 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.annotation.tailrec
 import scala.collection.immutable.VectorMap
 import scala.collection.{Searching, immutable}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Random, Success}
+import scala.util.Random
 
 class MutableCacheBackedContractStoreRaceConditionsTest
     extends AsyncFlatSpec
@@ -58,8 +57,8 @@ class MutableCacheBackedContractStoreRaceConditionsTest
 
   it should "preserve causal monotonicity under contention" in {
     val keysCount = 10L
-    val contractsCount = 1000000L
-    val cacheSizeDivider = 2L
+    val contractsCount = 100000L
+    val cacheSizeDivider = 5L
 
     val keysAndContracts = generateWorkload(keysCount, contractsCount)
     val contractIdMapping = keysAndContracts.flatMap { _._2 }
@@ -72,6 +71,7 @@ class MutableCacheBackedContractStoreRaceConditionsTest
       contractsCount,
       cacheSizeDivider,
       indexViewContractsReader,
+      unboundedExecutionContext,
     )
 
     val monotonicityProbe = MonotonicityProbe(contractIdMapping, contractStore)
@@ -96,7 +96,7 @@ class MutableCacheBackedContractStoreRaceConditionsTest
 
 private object MutableCacheBackedContractStoreRaceConditionsTest {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val delayMaxMillis = 10L
+  private val delayMaxMillis = 1L
 
   private def generateWorkload(keysCount: Long, contractsCount: Long) = {
     val keys = (0L until keysCount).map { keyIdx =>
@@ -127,7 +127,7 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
     @volatile var failed = false
 
     /** Asserts that the mutable state cache contract store has evolved monotonically since the last sample for the same key.
-      * The monotonic evolution is only asserted on active contracts state (i.e. when the store is returning an key assigned to a contract id)
+      * The monotonic evolution is only asserted on active contracts state (i.e. when the store is returning a key assigned to a contract id)
       * based on the ordinal index that the contract has been created with.
       */
     def sample(key: Key): Future[Unit] = {
@@ -195,29 +195,29 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
       monotonicityProbe: MonotonicityProbe,
       keysAndContracts: Map[Key, VectorMap[ContractId, Contract]],
   )(unboundedExecutionContext: ExecutionContext)(implicit materializer: Materializer) = {
+    val _ = monotonicityProbe
     implicit val ec: ExecutionContext = unboundedExecutionContext
 
     val indexContractsUpdates =
       keysAndContracts.map { case (key, contractsForKey) =>
         key -> contractsForKey.flatMap { case (contractId, contractRef) =>
-          Vector(
-            (eventSeqId: EventSequentialId) =>
-              SimplifiedContractStateEvent(
-                eventSequentialId = eventSeqId,
-                contractId = contractId,
-                contract = contractRef,
-                created = true,
-                key = key,
-              ),
-            // Add some delay here
-            (eventSeqId: EventSequentialId) =>
-              SimplifiedContractStateEvent(
-                eventSequentialId = eventSeqId,
-                contractId = contractId,
-                contract = contractRef,
-                created = false,
-                key = key,
-              ),
+          Vector((eventSeqId: EventSequentialId) =>
+            SimplifiedContractStateEvent(
+              eventSequentialId = eventSeqId,
+              contractId = contractId,
+              contract = contractRef,
+              created = true,
+              key = key,
+            )
+          // Add some delay here
+//            (eventSeqId: EventSequentialId) =>
+//              SimplifiedContractStateEvent(
+//                eventSequentialId = eventSeqId,
+//                contractId = contractId,
+//                contract = contractRef,
+//                created = false,
+//                key = key,
+//              ),
           )
         }
       }
@@ -233,35 +233,48 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
           Vector(eventCtor(eventSequentialId))
         }
       })
-//      .throttle(1000, FiniteDuration(1L, TimeUnit.SECONDS))
       .map { event =>
         indexViewContractsReader.update(event)
         event
       }
-      .map { event =>
-        contractStore.push(toContractStoreEvent(event))
+      .mapAsync(1) { event =>
+        val csUpdate = toContractStoreEvent(event)
+        val firstHitF = Future.delegate(contractStore.lookupContractKey(stakeholders, event.key))
+        contractStore.push(csUpdate)
+
+        firstHitF
+          .flatMap(_ => contractStore.lookupContractKey(stakeholders, event.key))
+          .map {
+            case Some(contractId) =>
+              assert(
+                contractId == event.contractId && event.created,
+                s"Actual active contract id ($contractId) vs event ($event)",
+              )
+            case None => assert(!event.created, "State should be inactive")
+          }
       }
 
-    val (killSwitch, done) = keysAndContracts.keys.iterator
-      .map { key =>
-        Source
-          .repeat(())
-          .throttle(10000, FiniteDuration(1L, TimeUnit.SECONDS))
-          .mapAsync(1) { _ => monotonicityProbe.sample(key) }
-      }
-      .reduce(_ merge _)
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.ignore)(Keep.both)
-      .run()
+//    val (killSwitch, done) = keysAndContracts.keys.iterator
+//      .map { key =>
+//        Source
+//          .repeat(())
+//          .throttle(10000, FiniteDuration(1L, TimeUnit.SECONDS))
+//          .mapAsync(1) { _ => monotonicityProbe.sample(key) }
+//      }
+//      .reduce(_ merge _)
+//      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+//      .toMat(Sink.ignore)(Keep.both)
+//      .run()
 
-    updatesFlow.run().transformWith {
-      case f @ Failure(_) =>
-        killSwitch.shutdown()
-        Future.fromTry(f) flatMap (_ => done)
-      case Success(_) =>
-        killSwitch.shutdown()
-        done
-    }
+    updatesFlow.run()
+//      .transformWith {
+//      case f @ Failure(_) =>
+//        killSwitch.shutdown()
+//        Future.fromTry(f) flatMap (_ => done)
+//      case Success(_) =>
+//        killSwitch.shutdown()
+//        done
+//    }
   }
 
   private val stakeholders = Set(Ref.Party.assertFromString("some-stakeholder"))
@@ -299,6 +312,7 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
       contractsCount: Long,
       cacheSizeDivider: Long,
       indexViewContractsReader: IndexViewContractsReader,
+      ec: ExecutionContext,
   ) = MutableCacheBackedContractStore(
     contractsReader = indexViewContractsReader,
     signalNewLedgerHead = (_, _) => (),
@@ -306,7 +320,7 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
     metrics = new Metrics(new MetricRegistry),
     maxContractsCacheSize = contractsCount / cacheSizeDivider,
     maxKeyCacheSize = keysCount / cacheSizeDivider,
-  )(scala.concurrent.ExecutionContext.global, loggingContext)
+  )(ec, loggingContext)
 
   private val toContractStoreEvent: SimplifiedContractStateEvent => ContractStateEvent = {
     case SimplifiedContractStateEvent(eventSequentialId, contractId, contract, created, key) =>
@@ -337,7 +351,7 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
     var contractStateStore = Map.empty[ContractId, ContractLifecycle]
     var keyStateStore = Map.empty[Key, Vector[ContractLifecycle]]
 
-    private def delay(): Unit = Thread.sleep(Random.nextLong(delayMaxMillis))
+    def delay(): Unit = Thread.sleep(Random.nextLong(delayMaxMillis))
 
     def update(event: SimplifiedContractStateEvent): Unit = synchronized {
       if (event.created) {
@@ -418,7 +432,6 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
     ): Future[Option[ContractState]] =
       Future {
         val _ = loggingContext
-        delay()
         contractStateStore
           .get(contractId)
           .flatMap { case ContractLifecycle(_, contract, createdAt, maybeArchivedAt) =>
@@ -433,7 +446,6 @@ private object MutableCacheBackedContractStoreRaceConditionsTest {
         loggingContext: LoggingContext
     ): Future[KeyState] = Future {
       val _ = loggingContext
-      delay()
       keyStateStore
         .get(key)
         .map { stateTransitionsVector =>
