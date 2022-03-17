@@ -316,8 +316,13 @@ private[lf] object Anf {
 
       case source.SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
-        val body = flattenToAnfInternal(body0)
-        Bounce(() => transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k))
+        Bounce { () =>
+          val depth0 = DepthA(0)
+          val env0 = initEnv
+          flattenExp(depth0, env0, body0) { body =>
+            transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k)
+          }
+        }
 
       case source.SECase(scrut, alts0) => {
         Bounce(() =>
@@ -358,18 +363,27 @@ private[lf] object Anf {
       case source.SETryCatch(body0, handler0) =>
         // we must not lift applications from either the body or the handler outside of
         // the try-catch block, so we flatten each separately:
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
-        val handler: target.SExpr =
-          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0)(anf => Land(anf)).bounce
-        Bounce(() => transform(depth, target.SETryCatch(body, handler), k))
+        flattenExp(depth, env, body0) { body =>
+          flattenExp(depth.incr(1), trackBindings(depth, env, 1), handler0) { handler =>
+            Bounce { () =>
+              transform(depth, target.SETryCatch(body, handler), k)
+            }
+          }
+        }
 
       case source.SEScopeExercise(body0) =>
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
-        Bounce(() => transform(depth, target.SEScopeExercise(body), k))
+        flattenExp(depth, env, body0) { body =>
+          Bounce { () =>
+            transform(depth, target.SEScopeExercise(body), k)
+          }
+        }
 
       case source.SEPreventCatch(body0) =>
-        val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf)).bounce
-        Bounce(() => transform(depth, target.SEPreventCatch(body), k))
+        flattenExp(depth, env, body0) { body =>
+          Bounce { () =>
+            transform(depth, target.SEPreventCatch(body), k)
+          }
+        }
 
     }
 
