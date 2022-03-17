@@ -136,7 +136,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       Logger.logDebug loggerH "Building dependency package graph"
 
       let
-        (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
+        (depGraph, vertexToNode) = buildLfPackageGraph builtinDependenciesIds dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
         pkgs = dalfsFromDependencies <> dalfsFromDataDependencies
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
@@ -503,14 +503,15 @@ lfVersionString = DA.Pretty.renderPretty
 
 -- | The graph will have an edge from package A to package B:
 --   - if A depends on B _OR_
---   - if A is a data-dependency, B is a (regular) dependency, and A and B have the same name.
+--   - if A is a data-dependency, B is a (regular) dependency, and B doesn't depend on any data-dependencies.
 buildLfPackageGraph
-    :: [(FilePath, DecodedDalf)]
+    :: Set LF.PackageId
+    -> [(FilePath, DecodedDalf)]
     -> [(FilePath, DecodedDalf)]
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph deps dataDeps = (depGraph, vertexToNode')
+buildLfPackageGraph builtinDeps deps dataDeps = (depGraph, vertexToNode')
   where
     allPackageRefs :: LF.Package -> [LF.PackageRef]
     allPackageRefs pkg =
@@ -523,23 +524,35 @@ buildLfPackageGraph deps dataDeps = (depGraph, vertexToNode')
         , LF.Qualified { LF.qualPackage } <- Set.toList quals
         ]
 
-    -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
+        graphFromEdges
+          [ (node, key, deps <> etc)
+          | v <- vertices depGraph0
+          , let ((isDataDep, node), key, deps) = vertexToNode0 v
+          , let etc = if isDataDep then depsWithoutDataDeps else []
+          ]
+
+    depsWithoutDataDeps =
+      [ key
+      | v <- vertices depGraph0
+      , let ((isDataDep,_), key, _) = vertexToNode0 v
+      , not isDataDep
+      , all ((\((isDataDep, _), pid, _) -> not isDataDep || pid `elem` builtinDeps) . vertexToNode0) (reachable depGraph0 v)
+      ]
+
+    -- order the packages in topological order
+    (depGraph0, vertexToNode0, _keyToVertex0) =
         graphFromEdges $
-            [ (PackageNode dalfPath decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs <> ddRefs)
+            [ ((isDataDep', PackageNode dalfPath decodedUnitId decodedDalfPkg), LF.dalfPackageId decodedDalfPkg, pkgRefs)
             | (isDataDep, (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg})) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
             , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
-            , let ddRefs =
-                    -- This adds an edge from a data-dependency to each identically-named (regular) dependency
-                    [ LF.dalfPackageId depPkg
-                    | isDataDep
-                    , Just ddName <- [dalfPackageName decodedDalfPkg]
-                    , (_, DecodedDalf{decodedDalfPkg=depPkg}) <- deps
-                    , Just depName <- [dalfPackageName depPkg]
-                    , ddName == depName
-                    ]
+            , let isDataDep' = isDataDep && maybe False (not . isBuiltinDd) (dalfPackageName decodedDalfPkg)
             ]
+
+    isBuiltinDd (LF.PackageName n) =
+      "daml-stdlib-" `T.isPrefixOf` n
+      || "daml-prim-" `T.isPrefixOf` n
 
     dalfPackageName :: LF.DalfPackage -> Maybe LF.PackageName
     dalfPackageName =
