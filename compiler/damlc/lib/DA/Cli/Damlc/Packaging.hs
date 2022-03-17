@@ -1,6 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module DA.Cli.Damlc.Packaging
   ( createProjectPackageDb
   , mbErr
@@ -8,7 +10,7 @@ module DA.Cli.Damlc.Packaging
   ) where
 
 import Control.Exception.Safe (tryAny)
-import Control.Lens (toListOf)
+import Control.Lens (none, toListOf)
 import Control.Monad.Extra
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Maybe
@@ -23,6 +25,7 @@ import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
+import Data.Tuple.Extra (fst3)
 import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
@@ -116,9 +119,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         dalfsFromAllDependencies = dalfsFromDependencies <> dalfsFromDataDependencies
         mainDalfs = fmap snd mainDalfsWithFps
 
-        depPkgIds = Set.fromList $ fmap (LF.dalfPackageId . decodedDalfPkg) dalfsFromDependencies
-        dataDepPkgIds = Set.fromList $ fmap (LF.dalfPackageId . decodedDalfPkg) dalfsFromDataDependencies
-
         mainUnitIds = map decodedUnitId mainDalfs
 
       -- We perform these check before checking for unit id collisions
@@ -136,7 +136,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       Logger.logDebug loggerH "Building dependency package graph"
 
       let
-        (depGraph, vertexToNode) = buildLfPackageGraph builtinDependenciesIds dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
+        (depGraph, vertexToNode) = buildLfPackageGraph builtinDependenciesIds stablePkgIds dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
         pkgs = dalfsFromDependencies <> dalfsFromDataDependencies
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
@@ -150,32 +150,36 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       flip State.evalStateT builtinDependencies $ do
         let
-          insert pkgNode = State.modify $ MS.insert (unitId pkgNode) (dalfPackage pkgNode)
+          insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
 
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
           -- stable packages are mapped to the current version of daml-prim/daml-stdlib
           -- so we don’t need to generate interface files for them.
           -- unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
-          case () of
-            _ | pkgId `Set.member` stablePkgIds -> pure ()
-            _ | pkgId `Set.member` builtinDependenciesIds -> pure ()
-            _ | pkgId `Set.member` depPkgIds -> do
-              liftIO $ registerDepInPkgDb (dalf pkgNode) depsDir dbPath
-              insert pkgNode
-            _ | pkgId `Set.member` dataDepPkgIds -> do
+          case pkgNode of
+            MkStableDependencyPackageNode -> pure ()
+            MkBuiltinDependencyPackageNode {} -> pure ()
+            MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
+              liftIO $ registerDepInPkgDb dalf depsDir dbPath
+              insert unitId dalfPackage
+            MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
               dependenciesSoFar <- State.get
               let
+                deps :: [(UnitId, LF.DalfPackage)]
                 deps =
-                  [ (unitId depPkgNode, dalfPackage depPkgNode)
-                  | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                  [ unitAndDalf
+                  | (depPkgNode, depPkgId) <- vertexToNode <$> reachable depGraph vertex
                   , pkgId /= depPkgId
-                  , not (depPkgId `Set.member` stablePkgIds)
+                  , unitAndDalf <- case depPkgNode of
+                      MkStableDependencyPackageNode -> []
+                      MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
+                      MkDependencyPackageNode DependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
+                      MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
                   ]
-              liftIO $ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId pkgNode
-              insert pkgNode
-            _ -> do
-              liftIO $ putStrLn $ "default: " <> show (pkgId, unitId pkgNode)
+
+              liftIO $ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId unitId dalfPackage
+              insert unitId dalfPackage
 
       writeMetadata
           projectRoot
@@ -223,19 +227,20 @@ installDataDep ::
   -> MS.Map UnitId LF.DalfPackage
   -> [(UnitId, LF.DalfPackage)]
   -> LF.PackageId
-  -> PackageNode
+  -> UnitId
+  -> LF.DalfPackage
   -> IO ()
-installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId pkgNode = do
+installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId unitId dalfPackage = do
   exposedModules <- getExposedModules opts projectRoot
 
-  let unitIdStr = unitIdString $ unitId pkgNode
+  let unitIdStr = unitIdString unitId
   let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-  let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
+  let (pkgName, mbPkgVersion) = LF.splitUnitId unitId
   let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
   let dalfDir = dbPath </> pkgIdStr
   createDirectoryIfMissing True workDir
   createDirectoryIfMissing True dalfDir
-  BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
+  BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes dalfPackage
 
   let
 
@@ -263,21 +268,21 @@ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pk
 
     config = DataDeps.Config
         { configPackages = packages
-        , configGetUnitId = getUnitId (unitId pkgNode) pkgMap
+        , configGetUnitId = getUnitId unitId pkgMap
         , configSelfPkgId = pkgId
         , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
         , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
         }
 
-    pkg = LF.extPackagePkg (LF.dalfPackagePkg (dalfPackage pkgNode))
+    pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
 
     -- Sources for the stub package containining data type definitions
     -- Sources for the package containing instances for Template, Choice, …
     stubSources = generateSrcPkgFromLf config pkg
 
   generateAndInstallIfaceFiles
-      (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
+      pkg
       stubSources
       opts
       workDir
@@ -506,12 +511,13 @@ lfVersionString = DA.Pretty.renderPretty
 --   - if A is a data-dependency, B is a (regular) dependency, and B doesn't depend on any data-dependencies.
 buildLfPackageGraph
     :: Set LF.PackageId
+    -> Set LF.PackageId
     -> [(FilePath, DecodedDalf)]
     -> [(FilePath, DecodedDalf)]
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph builtinDeps deps dataDeps = (depGraph, vertexToNode')
+buildLfPackageGraph builtinDeps stablePkgs deps dataDeps = (depGraph, vertexToNode')
   where
     allPackageRefs :: LF.Package -> [LF.PackageRef]
     allPackageRefs pkg =
@@ -528,43 +534,69 @@ buildLfPackageGraph builtinDeps deps dataDeps = (depGraph, vertexToNode')
         graphFromEdges
           [ (node, key, deps <> etc)
           | v <- vertices depGraph0
-          , let ((isDataDep, node), key, deps) = vertexToNode0 v
-          , let etc = if isDataDep then depsWithoutDataDeps else []
+          , let (node, key, deps) = vertexToNode0 v
+          , let etc = case node of
+                  MkDataDependencyPackageNode {} -> depsWithoutDataDeps
+                  _ -> []
           ]
 
     depsWithoutDataDeps =
       [ key
       | v <- vertices depGraph0
-      , let ((isDataDep,_), key, _) = vertexToNode0 v
-      , not isDataDep
-      , all ((\((isDataDep, _), pid, _) -> not isDataDep || pid `elem` builtinDeps) . vertexToNode0) (reachable depGraph0 v)
+      , (node, key, _) <- [vertexToNode0 v]
+      , isDependencyPackageNode node
+      , none (isDataDependencyPackageNode  . fst3 . vertexToNode0) (reachable depGraph0 v)
       ]
 
     -- order the packages in topological order
     (depGraph0, vertexToNode0, _keyToVertex0) =
         graphFromEdges $
-            [ ((isDataDep', PackageNode dalfPath decodedUnitId decodedDalfPkg), LF.dalfPackageId decodedDalfPkg, pkgRefs)
-            | (isDataDep, (dalfPath, DecodedDalf{decodedUnitId, decodedDalfPkg})) <- fmap (False,) deps <> fmap (True,) dataDeps
-            , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
-            , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
-            , let isDataDep' = isDataDep && maybe False (not . isBuiltinDd) (dalfPackageName decodedDalfPkg)
+            [ (node, pid, pkgRefs)
+            | (isDataDep, (dalf, DecodedDalf{decodedUnitId=unitId, decodedDalfPkg=dalfPackage})) <- fmap (False,) deps <> fmap (True,) dataDeps
+            , let
+                pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
+                pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
+                pid = LF.dalfPackageId dalfPackage
+                node
+                  | pid `elem` builtinDeps = MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {..}
+                  | pid `elem` stablePkgs = MkStableDependencyPackageNode
+                  | isDataDep = MkDataDependencyPackageNode DataDependencyPackageNode {..}
+                  | otherwise = MkDependencyPackageNode DependencyPackageNode {..}
             ]
-
-    isBuiltinDd (LF.PackageName n) =
-      "daml-stdlib-" `T.isPrefixOf` n
-      || "daml-prim-" `T.isPrefixOf` n
-
-    dalfPackageName :: LF.DalfPackage -> Maybe LF.PackageName
-    dalfPackageName =
-      fmap LF.packageName . LF.packageMetadata . LF.extPackagePkg . LF.dalfPackagePkg
 
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
 
-data PackageNode = PackageNode
+data PackageNode
+  = MkDependencyPackageNode DependencyPackageNode
+  | MkDataDependencyPackageNode DataDependencyPackageNode
+  | MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode
+  | MkStableDependencyPackageNode
+
+isDependencyPackageNode :: PackageNode -> Bool
+isDependencyPackageNode = \case
+  MkDependencyPackageNode {} -> True
+  _ -> False
+
+isDataDependencyPackageNode :: PackageNode -> Bool
+isDataDependencyPackageNode = \case
+  MkDataDependencyPackageNode {} -> True
+  _ -> False
+
+data DependencyPackageNode = DependencyPackageNode
   { dalf :: FilePath
   , unitId :: UnitId
+  , dalfPackage :: LF.DalfPackage
+  }
+
+data DataDependencyPackageNode = DataDependencyPackageNode
+  { unitId :: UnitId
+  , dalfPackage :: LF.DalfPackage
+  }
+
+data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
+  { unitId :: UnitId
   , dalfPackage :: LF.DalfPackage
   }
 
