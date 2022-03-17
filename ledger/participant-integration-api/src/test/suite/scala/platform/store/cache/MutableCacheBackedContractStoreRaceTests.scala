@@ -147,7 +147,7 @@ private object MutableCacheBackedContractStoreRaceTests {
   )(event: SimplifiedContractStateEvent)(implicit ec: ExecutionContext): Future[Unit] = {
     val contractStateEvent = toContractStateEvent(event)
 
-    // Start async key lookup
+    // Start async contract lookup
     // Use Future.delegate here to ensure immediate control handover to the next statement
     val keyLookupF =
       Future.delegate(contractStore.lookupActiveContract(stakeholders, event.contractId))
@@ -361,8 +361,9 @@ private object MutableCacheBackedContractStoreRaceTests {
   // Simplified view of the index which models the evolution of the key and contracts state
   private case class IndexViewContractsReader()(implicit ec: ExecutionContext)
       extends LedgerDaoContractsReader {
+    private type CreatedAt = Long
     @volatile private[cache] var contractStateStore = Map.empty[ContractId, ContractLifecycle]
-    @volatile private[cache] var keyStateStore = Map.empty[Key, TreeMap[Long, ContractId]]
+    @volatile private[cache] var keyStateStore = Map.empty[Key, TreeMap[CreatedAt, ContractId]]
 
     // Evolves the index state
     // Non-thread safe

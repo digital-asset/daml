@@ -16,11 +16,16 @@ import scala.concurrent.{ExecutionContext, Future}
 /** This class is a wrapper around a Caffeine cache designed to handle
   * correct resolution of concurrent updates for the same key.
   */
-private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdateTimer: Timer)(
-    implicit ec: ExecutionContext
-) {
+private[platform] case class StateCache[K, V](
+    initialCacheIndex: Long,
+    cache: Cache[K, V],
+    registerUpdateTimer: Timer,
+)(implicit ec: ExecutionContext) {
+  @volatile private var _cacheIndex = initialCacheIndex
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
+
+  def cacheIndex: Long = _cacheIndex
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -43,29 +48,45 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
     * this method updates the cache only if the to-be-inserted tuple is the most recent
     * (i.e. it has `validAt` highest amongst the competing updates).
     *
+    * NOTE: Calls to `put` evolve the cache index. Callers should ensure strictly increasing validAt evolution.
+    *
     * @param key the key at which to update the cache
     * @param validAt ordering discriminator for pending updates for the same key
     * @param value the value to insert
     */
-  def put(key: K, validAt: Long, value: V)(implicit
-      loggingContext: LoggingContext
-  ): Unit = Timed.value(
-    registerUpdateTimer, {
-      pendingUpdates.synchronized {
-        val competingLatestForKey =
-          pendingUpdates
-            .get(key)
-            .map { pendingUpdate =>
-              val oldLatestValidAt = pendingUpdate.latestValidAt
-              pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
-              oldLatestValidAt
-            }
-            .getOrElse(Long.MinValue)
+  def put(key: K, validAt: Long, value: V)(implicit loggingContext: LoggingContext): Unit =
+    Timed.value(
+      registerUpdateTimer, {
+        pendingUpdates.synchronized {
+          // Synchronous updates should generally increase the _cacheIndex strictly monotonic.
+          // However, on transient DB errors, the restart of the update flow can lead to
+          // re-update at the current _cacheIndex.
+          if (validAt >= _cacheIndex) {
+            val competingLatestForKey =
+              pendingUpdates
+                .get(key)
+                .map { pendingUpdate =>
+                  val oldLatestValidAt = pendingUpdate.latestValidAt
+                  pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
+                  oldLatestValidAt
+                }
+                .getOrElse(Long.MinValue)
 
-        if (competingLatestForKey < validAt) putInternal(key, value, validAt) else ()
-      }
-    },
-  )
+            if (competingLatestForKey < validAt) putInternal(key, value, validAt) else ()
+
+            _cacheIndex = validAt
+          } else {
+            // Updating the cache synchronously before the _cacheIndex is an error scenario.
+            // Abort pending updates and invalidate the cache entry.
+            pendingUpdates -= key
+            cache.invalidate(key)
+            logger.error(
+              s"Unexpected incoming synchronous update at an index equal to or before the cache index. Invalidating the entry for key $key."
+            )
+          }
+        }
+      },
+    )
 
   /** Update the cache asynchronously.
     *
@@ -75,20 +96,22 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
     * (i.e. it has `validAt` highest amongst the competing updates).
     *
     * @param key the key at which to update the cache
-    * @param validAt ordering discriminator for pending updates for the same key
-    * @param eventualValue the eventual result signaling successful enqueuing of the cache async update
+    * @param fetchAsync fetches asynchronously the value for key `key` at the current cache index
     */
-  final def putAsync(key: K, validAt: Long, eventualValue: Future[V])(implicit
+  final def putAsync(key: K, fetchAsync: Long => Future[V])(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] = Timed.value(
+  ): Future[V] = Timed.value(
     registerUpdateTimer,
     pendingUpdates.synchronized {
+      val validAt = _cacheIndex
+      val eventualValue = Future.delegate(fetchAsync(validAt))
       val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
       if (pendingUpdatesForKey.latestValidAt < validAt) {
         pendingUpdatesForKey.latestValidAt = validAt
         pendingUpdatesForKey.pendingCount += 1
         registerEventualCacheUpdate(key, eventualValue, validAt)
-      } else Future.unit
+          .flatMap(_ => eventualValue)
+      } else eventualValue
     },
   )
 
