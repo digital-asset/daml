@@ -584,17 +584,17 @@ test("interfaces", async () => {
     },
   ]);
 
-  const assetPayload1 = {
+  const assetPayload2 = {
     issuer: BOB_PARTY,
     owner: BOB_PARTY,
   };
-  const ifaceContract1 = await bobLedger.create(
+  const ifaceContract2 = await bobLedger.create(
     buildAndLint.Main.Asset,
-    assetPayload1,
+    assetPayload2,
   );
   const [, events2] = await bobLedger.exercise(
     buildAndLint.Main.Token.Transfer,
-    ifaceContract1.contractId,
+    ifaceContract2.contractId,
     { newOwner: ALICE_PARTY },
   );
   expect(events2).toMatchObject([
