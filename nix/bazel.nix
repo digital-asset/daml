@@ -74,12 +74,6 @@ let shared = rec {
 
   ghc = ghcPkgs.ghc;
 
-  ghcLLVMWrapper = pkgs.writeScriptBin "ghc-llvm-wrapper" ''
-      #!${pkgs.stdenv.shell}
-      set -euo pipefail
-      PATH="${pkgs.llvm}/bin:''${PATH:-}" ${ghc}/bin/ghc "$@"
-      '';
-
   ghcWithLLVM = pkgs.runCommand "ghc-aarch64-symlinks" { buildInputs = [ pkgs.makeWrapper ]; } ''
       mkdir -p $out/bin
       for tool in \
