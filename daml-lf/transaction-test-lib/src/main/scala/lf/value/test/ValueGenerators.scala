@@ -28,6 +28,7 @@ import scalaz.scalacheck.ScalaCheckBinding._
 object ValueGenerators {
 
   import TransactionVersion.minExceptions
+  import TransactionVersion.minInterfaces
 
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
@@ -303,6 +304,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
+      byInterface <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
     } yield Node.Create(
       coid,
       templateId,
@@ -311,9 +313,7 @@ object ValueGenerators {
       signatories,
       stakeholders,
       key,
-      None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
+      byInterface,
       version,
     )
   }
@@ -333,6 +333,7 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
+      byInterface <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
     } yield Node.Fetch(
       coid,
       templateId,
@@ -341,9 +342,7 @@ object ValueGenerators {
       stakeholders,
       key,
       byKey,
-      None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
+      byInterface,
       version,
     )
   }
@@ -386,6 +385,7 @@ object ValueGenerators {
       exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
+      byInterface <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
     } yield Node.Exercise(
       targetCoid,
       templateId,
@@ -400,9 +400,7 @@ object ValueGenerators {
       exerciseResult,
       key,
       byKey,
-      None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface (but it requires an interface choice)
+      byInterface,
       version,
     )
   }
