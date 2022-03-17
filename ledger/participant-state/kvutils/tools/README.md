@@ -34,7 +34,7 @@ The following options are supported:
 
 # `submission-entries-extractor`
 
-This submission-entries-extractor tool extracts from ledger export a set of so-called 
+This submission-entries-extractor tool extracts from a ledger export a set of so-called 
 "submission entries" which are readable by LF. Do not delete/change without sync with 
 the language team.
 
