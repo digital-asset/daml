@@ -211,6 +211,14 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
         fi
       fi
     done
+
+    # Resign the binary on MacOS. Requires moving the file back and forth
+    # because the OS caches the signatore. Refer to the following note in
+    # nixpkgs for details:
+    # https://github.com/NixOS/nixpkgs/blob/5855ff74f511423e3e2646248598b3ffff229223/pkgs/os-specific/darwin/signing-utils/utils.sh#L1-L6
+    mv "$from_copied" "$from_copied.resign"
+    /usr/bin/codesign -f -s - "$from_copied.resign"
+    mv "$from_copied.resign" "$from_copied"
   }
   # Set the dynamic library load path to the relative lib/ directory.
   /usr/bin/install_name_tool -add_rpath "@loader_path/lib" $WORKDIR/$NAME/$NAME
