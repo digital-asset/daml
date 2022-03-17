@@ -407,6 +407,8 @@ registerDepInPkgDb dalfPath depsPath dbPath = do
   copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
   copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
   copyFiles depsPath [dalfPath] dbPath
+  -- TODO: is it possible to register a package individually instead of recaching the entire ghc-pkg db?
+  -- https://github.com/digital-asset/daml/issues/13320
   recachePkgDb dbPath
 
 copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
