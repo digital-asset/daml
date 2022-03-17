@@ -37,21 +37,10 @@ object Main {
       ledgerApiTests: List[LedgerTestSuite],
       scalaTestSuites: List[Suite],
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
-  ): List[TE] = {
-    val scalaTestEntries =
-      ScalaTestGeneratorSupport.testEntries[TT, TS, TE](
-        scalaTestSuites,
-        testEntry,
-      )
-
-    val ledgerApiTestEntries = LedgerApiTestGeneratorSupport
-      .testEntries[TT, TS, TE](
-        ledgerApiTests,
-        testEntry,
-      )
-
-    scalaTestEntries ++ ledgerApiTestEntries
-  }
+  ): List[TE] =
+    ScalaTestGeneratorSupport
+      .testEntries[TT, TS, TE](scalaTestSuites, testEntry)
+      .concat(LedgerApiTestGeneratorSupport.testEntries[TT, TS, TE](ledgerApiTests, testEntry))
 
   def main(args: Array[String]): Unit = {
     val ledgerApiTests: List[LedgerTestSuite] =
