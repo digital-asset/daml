@@ -129,6 +129,8 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       whenLeft
           (checkForIncompatibleLfVersions (optDamlLfVersion opts) dalfsFromAllDependencies)
           exitWithError
+      -- We run the check for duplicate unit ids here to avoid blowing up GHC when
+      -- setting up the GHC session needed for getExposedModules in installDataDep further down.
       whenLeft
           (checkForUnitIdConflicts dalfsFromAllDependencies builtinDependencies)
           exitWithError
