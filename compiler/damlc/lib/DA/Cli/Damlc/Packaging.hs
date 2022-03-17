@@ -156,12 +156,13 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
-          -- stable packages are mapped to the current version of daml-prim/daml-stdlib
-          -- so we don’t need to generate interface files for them.
-          -- unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
           case pkgNode of
-            MkStableDependencyPackageNode -> pure ()
-            MkBuiltinDependencyPackageNode {} -> pure ()
+            MkStableDependencyPackageNode ->
+              -- stable packages are mapped to the current version of daml-prim/daml-stdlib
+              -- so we don’t need to generate interface files for them.
+              pure ()
+            MkBuiltinDependencyPackageNode {} ->
+              pure ()
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
               liftIO $ registerDepInPkgDb dalf depsDir dbPath
               insert unitId dalfPackage
