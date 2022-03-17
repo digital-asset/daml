@@ -314,20 +314,26 @@ object PackageService {
 
   private def getChoices(
       interface: iface.Interface
-  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
-    interface.typeDecls.flatMap {
-      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
-        val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
-        getChoices(choices).map { case (choice, id) => ((templateId, choice), id) }
-      case _ => Seq.empty
-    }
+  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
+    val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
+      interface.typeDecls.iterator.collect {
+        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+          (qn, choices)
+      } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
+        (qn, defIf.choices)
+      }
+    allChoices.flatMap { case (qn, choices) =>
+      val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
+      getChoices(choices).view.map { case (choice, id) => ((templateId, choice), id) }
+    }.toMap
+  }
 
   private def getChoices(
       choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]
   ): Seq[(Choice, iface.Type)] = {
     import iface._
-    choices.toSeq.collect { case (name, TemplateChoice(choiceType, _, _)) =>
-      (Choice(name.toString), choiceType)
+    choices.toSeq.map { case (name, TemplateChoice(choiceType, _, _)) =>
+      (Choice(name: String), choiceType)
     }
   }
 
