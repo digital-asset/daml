@@ -46,8 +46,8 @@ rules_haskell_patches = [
     # This should be upstreamed
     "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
 ]
-rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
-rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
+rules_nixpkgs_version = "b39b20edc4637032bc65f6a93af888463027767c"
+rules_nixpkgs_sha256 = "69bbc7aceaeab20693ae8bdc46b7d7a208ef3d3f1e5c295bef474d9b2e6aa39f"
 rules_nixpkgs_patches = [
     # On CI and locally we observe occasional segmantation faults
     # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
@@ -88,6 +88,9 @@ daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82e
 platforms_version = "0.0.3"
 platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
 
+rules_sh_version = "47b4d823128f484ec1b06aa20349c4898216f486"
+rules_sh_sha256 = "107d4312073d80a9977d3ccff236060d3906bda939fa2fbda4d724268c5b5383"
+
 def daml_deps():
     if "platforms" not in native.existing_rules():
         http_archive(
@@ -95,6 +98,14 @@ def daml_deps():
             sha256 = platforms_sha256,
             strip_prefix = "platforms-{}".format(platforms_version),
             urls = ["https://github.com/bazelbuild/platforms/archive/{version}.tar.gz".format(version = platforms_version)],
+        )
+
+    if "rules_sh" not in native.existing_rules():
+        http_archive(
+            name = "rules_sh",
+            strip_prefix = "rules_sh-%s" % rules_sh_version,
+            urls = ["https://github.com/tweag/rules_sh/archive/%s.tar.gz" % rules_sh_version],
+            sha256 = rules_sh_sha256,
         )
 
     if "rules_haskell" not in native.existing_rules():
