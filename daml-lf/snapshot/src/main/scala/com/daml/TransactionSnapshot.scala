@@ -125,81 +125,92 @@ private[snapshot] object TransactionSnapshot {
     var archives = List.empty[ByteString]
     var result = Option.empty[TransactionSnapshot]
 
-    try {
+    def decodeTx(txEntry: Snapshot.TransactionEntry) = {
+      val protoTx = TxOuterClass.Transaction.parseFrom(txEntry.getRawTransaction)
+      TxCoder
+        .decodeTransaction(TxCoder.NidDecoder, ValueCoder.CidDecoder, protoTx)
+        .fold(
+          err => sys.error("Decoding Error: " + err.errorMessage),
+          SubmittedTx(_),
+        )
+    }
 
+    def matchingTx(tx: SubmittedTx) =
+      tx.roots.iterator.map(tx.nodes).exists {
+        case exe: Node.Exercise => (exe.templateId.qualifiedName, exe.choiceId) == choice
+        case _ => false
+      }
+
+    def updateWithTx(tx: SubmittedTx) =
+      tx.foreachInExecutionOrder(
+        exerciseBegin = { (_, exe) =>
+          if (exe.consuming) activeCreates = activeCreates - exe.targetCoid
+          ChildrenRecursion.DoRecurse
+        },
+        rollbackBegin = (_, _) => ChildrenRecursion.DoNotRecurse,
+        leaf = {
+          case (_, create: Node.Create) => activeCreates += (create.coid -> create)
+          case (_, _) =>
+        },
+        exerciseEnd = (_, _) => (),
+        rollbackEnd = (_, _) => (),
+      )
+
+    def updateWithArchive(archive: ByteString) =
+      archives = archive :: archives
+
+    def buildSnapshot(
+        txEntry: Snapshot.TransactionEntry,
+        tx: SubmittedTx,
+    ) = {
+      val relevantCreateNodes = activeCreates.view.filterKeys(tx.inputContracts).toList
+      val contracts = relevantCreateNodes.view.map { case (cid, create) =>
+        cid -> create.versionedCoinst
+      }.toMap
+      val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
+        create.key.map { case Node.KeyWithMaintainers(key, maintainers) =>
+          GlobalKeyWithMaintainers(
+            GlobalKey.assertBuild(create.templateId, key),
+            maintainers,
+          ) -> cid
+        }.toList
+      }.toMap
+      new TransactionSnapshot(
+        transaction = tx,
+        participantId = Ref.ParticipantId.assertFromString(txEntry.getParticipantId),
+        submitters = txEntry.getSubmittersList
+          .iterator()
+          .asScala
+          .map(Ref.Party.assertFromString)
+          .toSet,
+        ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime),
+        submissionTime = Time.Timestamp.assertFromLong(txEntry.getSubmissionTime),
+        submissionSeed = crypto.Hash.assertFromBytes(
+          Bytes.fromByteString(txEntry.getSubmissionSeed)
+        ),
+        contracts = contracts,
+        contractKeys = contractKeys,
+        pkgs = archives.view.map(ArchiveDecoder.assertFromByteString).toMap,
+        profileDir = profileDir,
+      )
+    }
+
+    try {
       while (result.isEmpty && entries.hasNext) {
         val entry = entries.next()
         entry.getEntryCase match {
           case EntryCase.TRANSACTION =>
-            val txEntry = entry.getTransaction
-            val protoTx = TxOuterClass.Transaction.parseFrom(txEntry.getRawTransaction)
-            val tx = TxCoder
-              .decodeTransaction(TxCoder.NidDecoder, ValueCoder.CidDecoder, protoTx)
-              .fold(
-                err => sys.error("Decoding Error: " + err.errorMessage),
-                SubmittedTx(_),
-              )
-            val root = tx.roots.iterator.toSet
-            tx.foreachInExecutionOrder(
-              { (nid, exe) =>
-                if (root(nid) && (exe.templateId.qualifiedName, exe.choiceId) == choice) {
-                  if (idx == 0) {
-                    val inputContract = tx.inputContracts
-                    val relevantCreateNodes = activeCreates.view.filterKeys(inputContract).toList
-                    val contracts = relevantCreateNodes.view.map { case (cid, create) =>
-                      cid -> create.versionedCoinst
-                    }.toMap
-                    val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
-                      create.key.map { case Node.KeyWithMaintainers(key, maintainers) =>
-                        GlobalKeyWithMaintainers(
-                          GlobalKey.assertBuild(create.templateId, key),
-                          maintainers,
-                        ) -> cid
-                      }.toList
-                    }.toMap
-                    val pkgs = archives.view.map(ArchiveDecoder.assertFromByteString).toMap
-                    result = Some(
-                      new TransactionSnapshot(
-                        transaction = tx,
-                        participantId =
-                          Ref.ParticipantId.assertFromString(txEntry.getParticipantId),
-                        submitters = txEntry.getSubmittersList
-                          .iterator()
-                          .asScala
-                          .map(Ref.Party.assertFromString)
-                          .toSet,
-                        ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime),
-                        submissionTime = Time.Timestamp.assertFromLong(txEntry.getSubmissionTime),
-                        submissionSeed = crypto.Hash.assertFromBytes(
-                          Bytes.fromByteString(txEntry.getSubmissionSeed)
-                        ),
-                        contracts = contracts,
-                        contractKeys = contractKeys,
-                        pkgs = pkgs,
-                        profileDir = profileDir,
-                      )
-                    )
-                  }
-                  idx -= 1
-                }
-                if (exe.consuming)
-                  activeCreates = activeCreates - exe.targetCoid
-                ChildrenRecursion.DoRecurse
-              },
-              (_, _) => ChildrenRecursion.DoNotRecurse,
-              {
-                case (_, create: Node.Create) =>
-                  activeCreates += (create.coid -> create)
-                case (_, _) =>
-              },
-              (_, _) => (),
-              (_, _) => (),
-            )
+            val tx = decodeTx(entry.getTransaction)
+            if (matchingTx(tx))
+              if (idx == 0) result = Some(buildSnapshot(entry.getTransaction, tx))
+              else idx -= 1
+            updateWithTx(tx)
 
           case EntryCase.ARCHIVES =>
-            archives = entry.getArchives :: archives
-          case EntryCase.ENTRY_NOT_SET =>
+            updateWithArchive(entry.getArchives)
 
+          case EntryCase.ENTRY_NOT_SET =>
+            sys.error("Decoding Error: Unexpected EntryCase.ENTRY_NOT_SET")
         }
       }
     } finally {
