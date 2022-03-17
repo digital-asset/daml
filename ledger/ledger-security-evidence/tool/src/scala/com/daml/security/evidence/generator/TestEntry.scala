@@ -3,8 +3,8 @@
 
 package com.daml.security.evidence.generator
 
-import com.daml.security.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
-import com.daml.security.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
+import com.daml.test.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
+import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 
 /** A test entry in the output. */
 sealed trait TestEntry[T, TS] {

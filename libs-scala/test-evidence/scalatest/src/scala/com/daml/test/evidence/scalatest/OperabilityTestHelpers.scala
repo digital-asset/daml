@@ -1,13 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.daml.security.evidence.scalatest
 
-import com.daml.security.evidence.tag.Operability.OperabilityTest
+package com.daml.test.evidence.scalatest
+
+import com.daml.test.evidence.tag.Operability.OperabilityTest
 
 trait OperabilityTestHelpers extends AccessTestScenario {
 
   def operabilityTest(component: String)(dependency: String)(setting: String)(
-    cause: String
+      cause: String
   )(remediation: String): ResultOfTaggedAsInvocationOnString = {
     import ScalaTestSupport.Implicits._
     new WordSpecStringWrapper(remediation)

@@ -7,14 +7,14 @@ import better.files.File
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.suites
 import com.daml.security.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
-import com.daml.security.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
-import com.daml.security.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
+import com.daml.test.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
+import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.scalatest.Suite
-import com.daml.security.evidence.scalatest.JsonCodec.SecurityJson._
-import com.daml.security.evidence.scalatest.JsonCodec.ReliabilityJson._
+import com.daml.test.evidence.scalatest.JsonCodec.SecurityJson._
+import com.daml.test.evidence.scalatest.JsonCodec.ReliabilityJson._
 import org.scalatest.daml.ScalaTestAdapter
 
 import scala.reflect.ClassTag

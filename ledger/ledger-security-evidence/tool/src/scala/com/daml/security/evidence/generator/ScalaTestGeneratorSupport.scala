@@ -8,10 +8,11 @@ import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.syntax.functorFilter._
 import io.circe.parser.decode
-import com.daml.security.evidence.tag.EvidenceTag
 import org.scalatest.Suite
-import com.daml.security.evidence.scalatest.JsonCodec._
+import com.daml.test.evidence.scalatest.JsonCodec._
+import com.daml.test.evidence.tag.EvidenceTag
 import org.scalatest.daml.ScalaTestAdapter
+
 import scala.reflect.ClassTag
 
 object ScalaTestGeneratorSupport {
@@ -20,7 +21,7 @@ object ScalaTestGeneratorSupport {
     tags.fmap { tagNames =>
       tagNames.toList
         .filter(_.startsWith("{")) // Check if we have a JSON encoded tag
-        .traverse(decode[com.daml.security.evidence.tag.EvidenceTag])
+        .traverse(decode[EvidenceTag])
         .valueOr(err => sys.error(s"Failed to parse JSON tag: $err"))
     }.toList
 

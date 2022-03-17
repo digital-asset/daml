@@ -1,8 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.daml.security.evidence.scalatest
 
-import com.daml.security.evidence.tag._
+package com.daml.test.evidence.scalatest
+
+import com.daml.test.evidence.tag._
 import io.circe.generic.extras.semiauto.deriveEnumerationCodec
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Json, Decoder, Encoder}
@@ -13,7 +14,7 @@ import io.circe.syntax._
 object JsonCodec {
 
   object ReliabilityJson {
-    import com.daml.security.evidence.tag.Reliability._
+    import com.daml.test.evidence.tag.Reliability._
     implicit val codecRemediation: Codec[Remediation] = deriveCodec[Remediation]
     implicit val codecComponent: Codec[Component] = deriveCodec[Component]
     implicit val codecAdverseScenario: Codec[AdverseScenario] = deriveCodec[AdverseScenario]
@@ -22,7 +23,7 @@ object JsonCodec {
   }
 
   object SecurityJson {
-    import com.daml.security.evidence.tag.Security._
+    import com.daml.test.evidence.tag.Security._
     implicit val codecAttack: Codec[Attack] = deriveCodec[Attack]
     implicit val codecHappyCase: Codec[HappyCase] = deriveCodec[HappyCase]
     implicit val propertyCodec: Codec[SecurityTest.Property] =
