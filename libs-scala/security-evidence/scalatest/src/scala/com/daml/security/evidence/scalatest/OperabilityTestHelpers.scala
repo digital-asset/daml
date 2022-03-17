@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.security.evidence.scalatest
 
+import com.daml.security.evidence.tag.Operability.OperabilityTest
 
 trait OperabilityTestHelpers extends AccessTestScenario {
 
@@ -11,7 +12,7 @@ trait OperabilityTestHelpers extends AccessTestScenario {
     import ScalaTestSupport.Implicits._
     new WordSpecStringWrapper(remediation)
       .taggedAs(
-        com.daml.security.evidence.tag.Operability.OperabilityTest(
+        OperabilityTest(
           component = component,
           dependency = dependency,
           setting = setting,
