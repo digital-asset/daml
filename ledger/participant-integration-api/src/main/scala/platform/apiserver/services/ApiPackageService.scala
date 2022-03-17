@@ -52,7 +52,7 @@ private[apiserver] final class ApiPackageService private (
             case None =>
               Future.failed[GetPackageResponse](
                 LedgerApiErrors.RequestValidation.NotFound.Package
-                  .Reject(_packageId = packageId)(
+                  .Reject(packageId = packageId)(
                     createContextualizedErrorLogger
                   )
                   .asGrpcError

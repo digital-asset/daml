@@ -28,7 +28,7 @@ object ValidationErrors {
       message: String,
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     LedgerApiErrors.RequestValidation.InvalidField
-      .Reject(_fieldName = fieldName, _message = message)
+      .Reject(fieldName = fieldName, message = message)
       .asGrpcError
 
 }

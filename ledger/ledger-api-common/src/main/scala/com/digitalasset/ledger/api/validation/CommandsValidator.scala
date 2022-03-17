@@ -254,9 +254,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
                 Left(
                   LedgerApiErrors.RequestValidation.NonHexOffset
                     .Error(
-                      _fieldName = "deduplication_period",
-                      _offsetValue = offset,
-                      _message =
+                      fieldName = "deduplication_period",
+                      offsetValue = offset,
+                      message =
                         s"the deduplication offset has to be a hexadecimal string and not $offset",
                     )
                     .asGrpcError

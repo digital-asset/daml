@@ -22,8 +22,8 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.{ApiException, ValidationLogger}
+import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -111,7 +111,8 @@ final class ApiParticipantPruningService private (
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
       .asScala
       .flatMap {
-        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case NotPruned(status) =>
+          Future.failed(new ApiException(StatusProto.toStatusRuntimeException(status)))
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
@@ -150,9 +151,9 @@ final class ApiParticipantPruningService private (
       .map(t =>
         LedgerApiErrors.RequestValidation.NonHexOffset
           .Error(
-            _fieldName = "prune_up_to",
-            _offsetValue = pruneUpToString,
-            _message =
+            fieldName = "prune_up_to",
+            offsetValue = pruneUpToString,
+            message =
               s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
           )
           .asGrpcError

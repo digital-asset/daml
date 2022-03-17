@@ -38,11 +38,11 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
         ErrorCategory.ContentionOnSharedResources,
       ) {
 
-    case class Reject(_reason: String)(implicit
+    case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The participant failed to determine the max ledger time for this command: ${_reason}"
+            s"The participant failed to determine the max ledger time for this command: ${reason}"
         )
   }
 
@@ -165,14 +165,14 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
 
       case class Reject(
           override val cause: String,
-          _err: LfInterpretationError.ContractNotActive,
+          err: LfInterpretationError.ContractNotActive,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.ContractId, _err.coid.coid)
+          (ErrorResource.ContractId, err.coid.coid)
         )
       }
 
@@ -194,14 +194,14 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
 
         case class Reject(
             override val cause: String,
-            _key: GlobalKey,
+            key: GlobalKey,
         )(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
           override def resources: Seq[(ErrorResource, String)] = Seq(
-            (ErrorResource.ContractKey, _key.toString())
+            (ErrorResource.ContractKey, key.toString())
           )
         }
       }

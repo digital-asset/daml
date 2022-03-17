@@ -59,7 +59,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
               case _: TimeoutException =>
                 Future.failed(
                   LedgerApiErrors.RequestTimeOut
-                    .Reject("Request timed out", _definiteAnswer = false)(
+                    .Reject("Request timed out", definiteAnswer = false)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
                     )
                     .asGrpcError

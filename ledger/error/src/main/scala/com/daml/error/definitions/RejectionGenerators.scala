@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
@@ -22,7 +22,7 @@ object RejectionGenerators {
       errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
 
-    def processPackageError(err: LfError.Package.Error): BaseError = err match {
+    def processPackageError(err: LfError.Package.Error): DamlError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
       case Package.Validation(validationError) =>
         LedgerApiErrors.CommandExecution.Package.PackageValidationFailed
@@ -40,12 +40,12 @@ object RejectionGenerators {
         LedgerApiErrors.InternalError.PackageSelfConsistency(e)
     }
 
-    def processPreprocessingError(err: LfError.Preprocessing.Error): BaseError = err match {
+    def processPreprocessingError(err: LfError.Preprocessing.Error): DamlError = err match {
       case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
       case e => LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed.Reject(e)
     }
 
-    def processValidationError(err: LfError.Validation.Error): BaseError = err match {
+    def processValidationError(err: LfError.Validation.Error): DamlError = err match {
       // we shouldn't see such errors during submission
       case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e)
     }
@@ -54,7 +54,7 @@ object RejectionGenerators {
         err: com.daml.lf.interpretation.Error,
         renderedMessage: String,
         detailMessage: Option[String],
-    ): BaseError = {
+    ): DamlError = {
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
       err match {
@@ -137,7 +137,7 @@ object RejectionGenerators {
     def processInterpretationError(
         err: LfError.Interpretation.Error,
         detailMessage: Option[String],
-    ): BaseError =
+    ): DamlError =
       err match {
         case Interpretation.Internal(location, message, _) =>
           LedgerApiErrors.InternalError.Interpretation(location, message, detailMessage)
@@ -158,7 +158,7 @@ object RejectionGenerators {
             ) => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError.Reject(e.message)
       }
-      transformed.asGrpcErrorFromContext
+      transformed.asGrpcError
     }
 
     cause match {
@@ -166,7 +166,7 @@ object RejectionGenerators {
       case x: ErrorCause.LedgerTime =>
         LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime
           .Reject(s"Could not find a suitable ledger time after ${x.retries} retries")
-          .asGrpcErrorFromContext
+          .asGrpcError
     }
   }
 }

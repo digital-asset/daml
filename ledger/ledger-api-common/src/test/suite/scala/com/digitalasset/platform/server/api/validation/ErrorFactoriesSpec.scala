@@ -197,7 +197,7 @@ class ErrorFactoriesSpec
           LedgerApiErrors.RequestTimeOut
             .Reject(
               "Timed out while awaiting for a completion corresponding to a command submission.",
-              _definiteAnswer = false,
+              definiteAnswer = false,
             )(
               contextualizedErrorLogger
             )
@@ -330,7 +330,7 @@ class ErrorFactoriesSpec
         s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed"
       assertError(
         LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-          .Reject(_existingCommandSubmissionId = None)
+          .Reject(existingCommandSubmissionId = None)
       )(
         code = Code.ALREADY_EXISTS,
         message = msg,
@@ -366,7 +366,7 @@ class ErrorFactoriesSpec
       val msg = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123"
       assertError(
         LedgerApiErrors.RequestTimeOut
-          .Reject("message123", _definiteAnswer = false)
+          .Reject("message123", definiteAnswer = false)
       )(
         code = Code.DEADLINE_EXCEEDED,
         message = msg,
@@ -392,9 +392,9 @@ class ErrorFactoriesSpec
       assertError(
         LedgerApiErrors.RequestValidation.NonHexOffset
           .Error(
-            _fieldName = "fieldName123",
-            _offsetValue = "offsetValue123",
-            _message = "message123",
+            fieldName = "fieldName123",
+            offsetValue = "offsetValue123",
+            message = "message123",
           )
           .asGrpcError
       )(
@@ -525,8 +525,8 @@ class ErrorFactoriesSpec
       assertError(
         LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
           .Reject(
-            _reason = errorDetailMessage,
-            _maxDeduplicationDuration = Some(maxDeduplicationDuration),
+            reason = errorDetailMessage,
+            maxDeduplicationDuration = Some(maxDeduplicationDuration),
           )
           .asGrpcError
       )(

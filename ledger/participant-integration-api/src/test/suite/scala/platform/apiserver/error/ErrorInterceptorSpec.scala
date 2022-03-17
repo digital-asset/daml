@@ -260,10 +260,10 @@ object ErrorInterceptorSpec {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       )(ErrorClass.root()) {
 
-    case class Error(_msg: String)(implicit
+    case class Error(msg: String)(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause = s"Foo is missing: ${_msg}"
+          cause = s"Foo is missing: ${msg}"
         )
 
   }
