@@ -640,7 +640,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``templateId`` -- contract template or interface identifier, same as in :ref:`create request <create-request>`,
 - ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
