@@ -56,6 +56,8 @@ rules_nixpkgs_patches = [
     # reportedly solves the issue. See
     # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
     "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
+    # This should be upstreamed
+    "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-arm.patch",
 ]
 
 buildifier_version = "4.0.0"

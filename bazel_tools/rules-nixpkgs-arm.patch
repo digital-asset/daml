@@ -1,0 +1,223 @@
+diff --git a/README.md b/README.md
+index e7d15ca..a1f7440 100644
+--- a/README.md
++++ b/README.md
+@@ -1332,7 +1332,7 @@ Constraints for the target platform.
+ ### nixpkgs_sh_posix_configure
+ 
+ <pre>
+-nixpkgs_sh_posix_configure(<a href="#nixpkgs_sh_posix_configure-name">name</a>, <a href="#nixpkgs_sh_posix_configure-packages">packages</a>, <a href="#nixpkgs_sh_posix_configure-kwargs">kwargs</a>)
++nixpkgs_sh_posix_configure(<a href="#nixpkgs_sh_posix_configure-name">name</a>, <a href="#nixpkgs_sh_posix_configure-packages">packages</a>, <a href="#nixpkgs_sh_posix_configure-exec_constraints">exec_constraints</a>, <a href="#nixpkgs_sh_posix_configure-kwargs">kwargs</a>)
+ </pre>
+ 
+ Create a POSIX toolchain from nixpkgs.
+@@ -1378,6 +1378,20 @@ default is <code>["stdenv.initialPath"]</code>
+ 
+ List of Nix attribute paths to draw Unix tools from.
+ 
++</p>
++</td>
++</tr>
++<tr id="nixpkgs_sh_posix_configure-exec_constraints">
++<td><code>exec_constraints</code></td>
++<td>
++
++optional.
++default is <code>None</code>
++
++<p>
++
++Constraints for the execution platform.
++
+ </p>
+ </td>
+ </tr>
+diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
+index d590d44..01b4ba0 100644
+--- a/nixpkgs/nixpkgs.bzl
++++ b/nixpkgs/nixpkgs.bzl
+@@ -11,7 +11,12 @@ load(
+ )
+ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+ load(":private/location_expansion.bzl", "expand_location")
+-load(":private/constraints.bzl", "ensure_constraints")
++load(
++    ":private/constraints.bzl",
++    "default_constraints",
++    "ensure_constraints",
++    "ensure_constraints_pure",
++)
+ 
+ def _nixpkgs_git_repository_impl(repository_ctx):
+     repository_ctx.file(
+@@ -443,7 +448,7 @@ def _parse_cc_toolchain_info(content, filename):
+ 
+ def _nixpkgs_cc_toolchain_config_impl(repository_ctx):
+     cpu_value = get_cpu_value(repository_ctx)
+-    darwin = cpu_value == "darwin"
++    darwin = cpu_value == "darwin" or cpu_value == "darwin_arm64"
+ 
+     cc_toolchain_info_file = repository_ctx.path(repository_ctx.attr.cc_toolchain_info)
+     if not cc_toolchain_info_file.exists and not repository_ctx.attr.fail_not_supported:
+@@ -1344,36 +1349,37 @@ create_posix_toolchain()
+ # should run.
+ 
+ def _nixpkgs_sh_posix_toolchain_impl(repository_ctx):
+-    cpu = get_cpu_value(repository_ctx)
++    exec_constraints, _ = ensure_constraints_pure(
++        default_constraints = default_constraints(repository_ctx),
++        exec_constraints = repository_ctx.attr.exec_constraints,
++    )
+     repository_ctx.file("BUILD", executable = False, content = """
+ toolchain(
+     name = "nixpkgs_sh_posix_toolchain",
+     toolchain = "@{workspace}//:nixpkgs_sh_posix",
+     toolchain_type = "@rules_sh//sh/posix:toolchain_type",
+-    exec_compatible_with = [
+-        "@platforms//cpu:x86_64",
+-        "@platforms//os:{os}",
+-        "@io_tweag_rules_nixpkgs//nixpkgs/constraints:support_nix",
+-    ],
++    exec_compatible_with = {exec_constraints},
+     # Leaving the target constraints empty matter for cross-compilation.
+     # See Note [Target constraints for POSIX tools]
+     target_compatible_with = [],
+ )
+     """.format(
+         workspace = repository_ctx.attr.workspace,
+-        os = {"darwin": "osx"}.get(cpu, "linux"),
++        exec_constraints = exec_constraints,
+     ))
+ 
+ _nixpkgs_sh_posix_toolchain = repository_rule(
+     _nixpkgs_sh_posix_toolchain_impl,
+     attrs = {
+         "workspace": attr.string(),
++        "exec_constraints": attr.string_list(),
+     },
+ )
+ 
+ def nixpkgs_sh_posix_configure(
+         name = "nixpkgs_sh_posix_config",
+         packages = ["stdenv.initialPath"],
++        exec_constraints = None,
+         **kwargs):
+     """Create a POSIX toolchain from nixpkgs.
+ 
+@@ -1387,6 +1393,7 @@ def nixpkgs_sh_posix_configure(
+     Args:
+       name: Name prefix for the generated repositories.
+       packages: List of Nix attribute paths to draw Unix tools from.
++      exec_constraints: Constraints for the execution platform.
+       nix_file_deps: See nixpkgs_package.
+       repositories: See nixpkgs_package.
+       repository: See nixpkgs_package.
+@@ -1396,6 +1403,7 @@ def nixpkgs_sh_posix_configure(
+     nixpkgs_sh_posix_config(
+         name = name,
+         packages = packages,
++        exec_constraints = exec_constraints,
+         **kwargs
+     )
+ 
+diff --git a/nixpkgs/private/constraints.bzl b/nixpkgs/private/constraints.bzl
+index b35ec0b..fe353b7 100644
+--- a/nixpkgs/private/constraints.bzl
++++ b/nixpkgs/private/constraints.bzl
+@@ -1,26 +1,66 @@
+ load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
+ 
+-def ensure_constraints(repository_ctx):
++def default_constraints(repository_ctx):
++    """Calculate the default CPU and OS constraints based on the host platform.
++
++    Args:
++      repository_ctx: The repository context of the current repository rule.
++
++    Returns:
++      A list containing the cpu and os constraints.
++    """
++    cpu_value = get_cpu_value(repository_ctx)
++    cpu = {
++        "darwin": "@platforms//cpu:x86_64",
++        "darwin_arm64": "@platforms//cpu:arm64",
++    }.get(cpu_value, "@platforms//cpu:x86_64")
++    os = {
++        "darwin": "@platforms//os:osx",
++        "darwin_arm64": "@platforms//os:osx",
++    }.get(cpu_value, "@platforms//os:linux")
++    return [cpu, os]
++
++def ensure_constraints_pure(default_constraints, target_constraints = [], exec_constraints = []):
+     """Build exec and target constraints for repository rules.
+ 
+-    If these are user-provided, then they are passed through. Otherwise we build for x86_64 on the current OS.
++    If these are user-provided, then they are passed through.
++    Otherwise, use the provided default constraints.
+     In either case, exec_constraints always contain the support_nix constraint, so the toolchain can be rejected on non-Nix environments.
+ 
+     Args:
+-      repository_ctx: The repository context of the current repository rule.
++      target_constraints: optional, User provided target_constraints.
++      exec_constraints: optional, User provided exec_constraints.
++      default_constraints: Fall-back constraints.
+ 
+     Returns:
+       exec_constraints, The generated list of exec constraints
+       target_constraints, The generated list of target constraints
+     """
+-    cpu = get_cpu_value(repository_ctx)
+-    os = {"darwin": "osx"}.get(cpu, "linux")
+-    if not repository_ctx.attr.target_constraints and not repository_ctx.attr.exec_constraints:
+-        target_constraints = ["@platforms//cpu:x86_64"]
+-        target_constraints.append("@platforms//os:{}".format(os))
++    if not target_constraints and not exec_constraints:
++        target_constraints = default_constraints
+         exec_constraints = target_constraints
+     else:
+-        target_constraints = list(repository_ctx.attr.target_constraints)
+-        exec_constraints = list(repository_ctx.attr.exec_constraints)
++        target_constraints = list(target_constraints)
++        exec_constraints = list(exec_constraints)
+     exec_constraints.append("@io_tweag_rules_nixpkgs//nixpkgs/constraints:support_nix")
+     return exec_constraints, target_constraints
++
++def ensure_constraints(repository_ctx):
++    """Build exec and target constraints for repository rules.
++
++    If these are user-provided, then they are passed through.
++    Otherwise we build for the current CPU on the current OS, one of darwin-x86_64, darwin-arm64, or the default linux-x86_64.
++    In either case, exec_constraints always contain the support_nix constraint, so the toolchain can be rejected on non-Nix environments.
++
++    Args:
++      repository_ctx: The repository context of the current repository rule.
++
++    Returns:
++      exec_constraints, The generated list of exec constraints
++      target_constraints, The generated list of target constraints
++    """
++    return ensure_constraints_pure(
++        default_constraints = default_constraints(repository_ctx),
++        target_constraints = repository_ctx.attr.target_constraints,
++        exec_constraints = repository_ctx.attr.exec_constraints,
++    )
+diff --git a/nixpkgs/toolchains/go.bzl b/nixpkgs/toolchains/go.bzl
+index 0384a64..5b9f168 100644
+--- a/nixpkgs/toolchains/go.bzl
++++ b/nixpkgs/toolchains/go.bzl
+@@ -8,7 +8,6 @@ dependencies on rules_go for those who don't need go toolchain.
+ """
+ 
+ load("//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
+ load("@io_bazel_rules_go//go/private:platforms.bzl", "PLATFORMS")
+ 
+ def _detect_host_platform(ctx):
+@@ -150,7 +149,6 @@ declare_toolchains("{goos}", "{goarch}")
+ """
+ 
+ def _nixpkgs_go_toolchain_impl(repository_ctx):
+-    cpu = get_cpu_value(repository_ctx)
+     goos, goarch = _detect_host_platform(repository_ctx)
+     content = go_toolchain_func.format(
+         sdk_repo = repository_ctx.attr.sdk_repo,
