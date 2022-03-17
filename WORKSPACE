@@ -68,7 +68,7 @@ load(
 
 dadew(name = "dadew")
 
-load("@os_info//:os_info.bzl", "is_darwin", "is_darwin_arm64", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
 load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
 
 ghc_dwarf(name = "ghc_dwarf")
@@ -383,7 +383,7 @@ filegroup(
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
-    attribute_path = "ghcWithLLVM" if is_darwin_arm64 else "ghc",
+    attribute_path = "ghc",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
@@ -403,7 +403,7 @@ common_ghc_flags = [
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcDwarf" if enable_ghc_dwarf else ("ghcWithLLVM" if is_darwin_arm64 else "ghc"),
+    attribute_path = "ghcDwarf" if enable_ghc_dwarf else "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
