@@ -105,7 +105,7 @@ sha_version() {
     echo "0.0.0-head.${date}.${nr}.${sha8}${dirty}"
 }
 if [ $SHA = 0 ]; then
-    export DAML_SDK_RELEASE_VERSION=0.0.1
+    export DAML_SDK_RELEASE_VERSION=0.0.0
 else
     export DAML_SDK_RELEASE_VERSION=$(sha_version)
 fi
