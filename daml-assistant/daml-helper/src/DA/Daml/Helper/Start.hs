@@ -22,6 +22,7 @@ import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Maybe
+import Data.List
 import DA.PortFile
 import qualified Data.Text as T
 import Network.Socket.Extended (getFreePort)
@@ -176,6 +177,7 @@ runStart startOptions@StartOptions{..} =
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
                   putStrLn "Running the initialization script."
+                  let scriptOptsWithoutToken = filter (\opt -> not ("--access-token-file" `isPrefixOf` opt)) scriptOpts
                   procScript <- toAssistantCommand $
                       [ "script"
                       , "--dar"
@@ -189,7 +191,7 @@ runStart startOptions@StartOptions{..} =
                       , "localhost"
                       , "--ledger-port"
                       , show (unSandboxPort sandboxPort)
-                      ] ++ scriptOpts ++ [show accessTokenFile]
+                      ] ++ maybe scriptOpts (\tokenFile -> scriptOptsWithoutToken ++ ["--access-token-file " ++ tokenFile]) accessTokenFile
                   runProcess_ procScript
         doRunInitScript
         listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
