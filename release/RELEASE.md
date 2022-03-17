@@ -370,8 +370,8 @@ This testing procedure starts once the release is listed on the [releases page].
     1. Click on `Script results` above `initialize` and wait for the script
        results to appear.
 
-    1. Add `+` at the end of line 14, after `"Alice")` and confirm you get an
-       error in line 15.
+    1. Add `+` at the end of line 14, after `(PartyIdHint "Alice")` and 
+       confirm you get an  error in line 15.
 
     1. Add `1` after the `+` and confirm you get a type error in line 14,
        which says that `Script Party` does not match `Int`.
