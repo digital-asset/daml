@@ -589,38 +589,17 @@ nixpkgs_java_configure(
 ) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@io_tweag_rules_nixpkgs//nixpkgs:toolchains/go.bzl", "nixpkgs_go_configure")
 
-nixpkgs_package(
-    name = "go_nix",
-    attribute_path = "go",
-    build_file_content = """
-    filegroup(
-        name = "sdk",
-        srcs = glob(["share/go/**"]),
-        visibility = ["//visibility:public"],
-    )
-    """,
-    nix_file = "//nix:bazel.nix",
+nixpkgs_go_configure(
+    nix_file = "//nix:bazel-go-toolchain.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
-
-# A repository that generates the Go SDK imports, see
-# ./bazel_tools/go_sdk/README.md
-local_repository(
-    name = "go_sdk_repo",
-    path = "bazel_tools/go_sdk",
-)
-
-load("@io_bazel_rules_go//go:deps.bzl", "go_wrap_sdk")
-
-# On Nix platforms we use the Nix provided Go SDK, on Windows we let Bazel pull
-# an upstream one.
-go_wrap_sdk(
-    name = "go_sdk",
-    root_file = "@go_nix//:share/go/ROOT",
 ) if not is_windows else None
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
+
+go_register_toolchains(version = "1.16.9") if is_windows else None
 
 # gazelle:repo bazel_gazelle
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
@@ -629,9 +608,9 @@ load("//:go_deps.bzl", "go_deps")
 # gazelle:repository_macro go_deps.bzl%go_deps
 go_deps()
 
-go_rules_dependencies()
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 
-go_register_toolchains() if not is_windows else go_register_toolchains(version = "1.16.9")
+go_rules_dependencies()
 
 gazelle_dependencies()
 

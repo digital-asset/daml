@@ -59,10 +59,16 @@ let shared = rec {
 
   # We need to have a file in GOPATH that we can use as
   # root_file in go_wrap_sdk.
-  go = pkgs.go.overrideAttrs (oldAttrs: {
-    doCheck = false;
-    postFixup = ''touch $out/share/go/ROOT'';
-  });
+  go = pkgs.buildEnv {
+    name = "bazel-go-toolchain";
+    paths = [
+      pkgs.go
+    ];
+    postBuild = ''
+      touch $out/ROOT
+      ln -s $out/share/go/{api,doc,lib,misc,pkg,src} $out/
+    '';
+  };
 
   ghcPkgs = pkgs.haskell.packages.native-bignum.ghc902;
 
