@@ -32,7 +32,7 @@ The following options are supported:
     --expected-updates-output   The output path for expected updates. Useful for debugging. It might be worth sorting the output files and using a diff tool.
     --actual-updates-output     Similarly, the output path for actual updates.
 
-# `benchmark-replay`
+# `submission-entries-extractor`
 
 This submission-entries-extractor tool extract from ledger export a set of so-called 
 "submission entries" which are readable by LF. Do not delete/change without sync with 
@@ -49,8 +49,8 @@ Build the tool with Bazel:
 Run the tool using Bazel and pass the benchmark parameters using `-p`
 jmh command line functionality:
 
-    bazel run //ledger/participant-state/kvutils/tools:benchmark-replay -- \
-      <ledger export file>                                                \
+    bazel run //ledger/participant-state/kvutils/tools:submission-entries-extractor -- \
+      <ledger export file>                                                             \
       -o <submission entries file>
 
 where:
