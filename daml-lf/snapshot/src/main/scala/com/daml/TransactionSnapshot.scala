@@ -110,7 +110,7 @@ private[snapshot] object TransactionSnapshot {
       index: Int,
       profileDir: Option[Path],
   ): TransactionSnapshot = {
-    println(s"%%% load ledger export file  $dumpFile...")
+    println(s"%%% loading submission entries from $dumpFile...")
     val inputStream = new BufferedInputStream(Files.newInputStream(dumpFile))
 
     val entries = new Iterator[Snapshot.SubmissionEntry] {

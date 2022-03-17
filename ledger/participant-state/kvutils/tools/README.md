@@ -34,7 +34,7 @@ The following options are supported:
 
 # `submission-entries-extractor`
 
-This submission-entries-extractor tool extract from ledger export a set of so-called 
+This submission-entries-extractor tool extracts from ledger export a set of so-called 
 "submission entries" which are readable by LF. Do not delete/change without sync with 
 the language team.
 
@@ -55,7 +55,7 @@ jmh command line functionality:
 
 where:
 
-* `<ledger export files>`: is the full path of the ledger export file
+* `<ledger export file>`: is the full path of the ledger export file
 
 * `<submission entries file>`: is the full path of the file in which the 
   resulting submission entries must be written.
