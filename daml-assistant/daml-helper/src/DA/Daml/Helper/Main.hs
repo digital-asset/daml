@@ -167,6 +167,7 @@ commandParser = subparser $ fold
         sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
         navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
         jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
+        accessTokenFile <- accessTokenFileFlag
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxPortSpec <- sandboxCantonPortSpecOpt
