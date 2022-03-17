@@ -57,6 +57,7 @@ haskell_cabal_library(
     version = packages["lsp-types"].version,
     srcs = glob(["**"]),
     deps = packages["lsp-types"].deps,
+    haddock = False,
     visibility = ["//visibility:public"],
 )""",
         patch_args = ["-p1"],
