@@ -1,8 +1,8 @@
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index 666948e..8d99441 100644
+index 16fe59c..d590d44 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
-@@ -116,7 +116,7 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -136,7 +136,7 @@ def _nixpkgs_package_impl(repository_ctx):
          "The NIX_PATH environment variable is not inherited."
      )
  
