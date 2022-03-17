@@ -166,19 +166,19 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
               dependenciesSoFar <- State.get
               let
-                deps :: [(UnitId, LF.DalfPackage)]
-                deps =
-                  [ unitAndDalf
+                depUnitIds :: [UnitId]
+                depUnitIds =
+                  [ unitId
                   | (depPkgNode, depPkgId) <- vertexToNode <$> reachable depGraph vertex
                   , pkgId /= depPkgId
-                  , unitAndDalf <- case depPkgNode of
+                  , unitId <- case depPkgNode of
                       MkStableDependencyPackageNode -> []
-                      MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
-                      MkDependencyPackageNode DependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
-                      MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
+                      MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId} -> [unitId]
+                      MkDependencyPackageNode DependencyPackageNode {unitId} -> [unitId]
+                      MkDataDependencyPackageNode DataDependencyPackageNode {unitId} -> [unitId]
                   ]
 
-              liftIO $ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId unitId dalfPackage
+              liftIO $ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar depUnitIds pkgId unitId dalfPackage
               insert unitId dalfPackage
 
       writeMetadata
@@ -225,12 +225,12 @@ installDataDep ::
   -> [DecodedDalf]
   -> MS.Map (UnitId, b) LF.DalfPackage
   -> MS.Map UnitId LF.DalfPackage
-  -> [(UnitId, LF.DalfPackage)]
+  -> [UnitId]
   -> LF.PackageId
   -> UnitId
   -> LF.DalfPackage
   -> IO ()
-installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pkgId unitId dalfPackage = do
+installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar depUnitIds pkgId unitId dalfPackage = do
   exposedModules <- getExposedModules opts projectRoot
 
   let unitIdStr = unitIdString unitId
@@ -291,7 +291,7 @@ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar deps pk
       pkgId
       pkgName
       mbPkgVersion
-      deps
+      depUnitIds
       dependenciesSoFar
       exposedModules
 
@@ -306,11 +306,11 @@ generateAndInstallIfaceFiles ::
     -> LF.PackageId
     -> LF.PackageName
     -> Maybe LF.PackageVersion
-    -> [(UnitId, LF.DalfPackage)] -- ^ List of packages referenced by this package.
+    -> [UnitId] -- ^ List of units referenced by this package.
     -> MS.Map UnitId LF.DalfPackage -- ^ Map of all packages in `dependencies`.
     -> MS.Map UnitId (UniqSet GHC.ModuleName)
     -> IO ()
-generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies exposedModules = do
+generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion depUnitIds dependencies exposedModules = do
     let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgIdStr <> ")"
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
     Logger.logDebug loggerH "Writing out dummy source files"
@@ -332,7 +332,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   -- can ever fail but for now, we keep exposing the module in that case.
                   , maybe True (toGhcModuleName modName `elementOfUniqSet`) mbExposed
                   ]
-            | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies <> deps
+            | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies
             , let mbExposed = MS.lookup unitId exposedModules
             ]
     opts <-
@@ -368,7 +368,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     let (cfPath, cfBs) = mkConfFile
             pkgName
             mbPkgVersion
-            (map fst deps)
+            depUnitIds
             Nothing
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgIdStr
@@ -597,7 +597,6 @@ data DataDependencyPackageNode = DataDependencyPackageNode
 
 data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
   { unitId :: UnitId
-  , dalfPackage :: LF.DalfPackage
   }
 
 currentSdkPrefix :: String
