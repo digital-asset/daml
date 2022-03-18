@@ -59,5 +59,15 @@ trait ConcurrentCacheCachingSpecBase
       cache.getOrAcquire(7, compute) should be("7")
       counter.get() should be(0)
     }
+
+    "invalidate the value on `invalidate`" in {
+      val cache = newCache()
+
+      cache.getOrAcquire(7, _.toString) should be("7")
+      cache.getIfPresent(7) should be(Some("7"))
+
+      cache.invalidate(7)
+      cache.getIfPresent(7) should be(None)
+    }
   }
 }

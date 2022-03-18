@@ -21,9 +21,9 @@ private[platform] case class StateCache[K, V](
     cache: Cache[K, V],
     registerUpdateTimer: Timer,
 )(implicit ec: ExecutionContext) {
-  @volatile private var _cacheIndex = initialCacheIndex
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
+  @volatile private[cache] var _cacheIndex = initialCacheIndex
 
   def cacheIndex: Long = _cacheIndex
 
