@@ -307,9 +307,7 @@ private[lf] object Anf {
 
       case source.SEMakeClo(fvs0, arity, body) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
-        val depth0 = DepthA(0)
-        val env0 = initEnv
-        flattenExp(depth0, env0, body) { body =>
+        flattenExp(DepthA(0), initEnv, body) { body =>
           transform(depth, target.SEMakeClo(fvs.toArray, arity, body))(k)
         }
 
