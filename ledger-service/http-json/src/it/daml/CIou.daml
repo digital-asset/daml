@@ -11,6 +11,8 @@ template CIou with
     amount : Text
   where
   signatory issuer
+  key issuer: Party
+  maintainer key
   implements IIou where
     getOwner = owner
     transferTo to = toInterfaceContractId <$> create this { owner = to }

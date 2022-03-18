@@ -99,11 +99,11 @@ abstract class HttpServiceIntegrationTest
         createTest._2.convertTo[domain.OkResponse[domain.ActiveContract[JsValue]]].result.contractId
       }
       bobH <- getUniquePartyAndAuthHeaders(uri)("Bob")
-      (bob, bobHeaders) = bobH
+      (bob, _) = bobH
       exerciseTest <- postJsonRequest(
         uri withPath Uri.Path("/v1/exercise"),
         encodeExercise(encoder)(
-          iouTransfer(testIIouID, bob, exerciseBy)
+          iouTransfer(domain.EnrichedContractId(Some(exerciseBy), testIIouID), bob)
         ),
         aliceHeaders,
       )
@@ -125,6 +125,44 @@ abstract class HttpServiceIntegrationTest
         exerciseBy = domain.TemplateId(None, "CIou", "CIou"),
       )
     } yield succeed
+  }
+
+  "fail to exercise by key with interface ID" in withHttpService { (uri, encoder, _, _) =>
+    import json.JsonProtocol._
+    for {
+      _ <- uploadPackage(uri)(ciouDar)
+      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      (alice, aliceHeaders) = aliceH
+      createTest <- postCreateCommand(
+        iouCommand(alice, domain.TemplateId(None, "CIou", "CIou")),
+        encoder,
+        uri,
+        aliceHeaders,
+      )
+      _ = createTest._1 should ===(StatusCodes.OK)
+      bobH <- getUniquePartyAndAuthHeaders(uri)("Bob")
+      (bob, _) = bobH
+      exerciseTest <- postJsonRequest(
+        uri withPath Uri.Path("/v1/exercise"),
+        encodeExercise(encoder)(
+          iouTransfer(
+            domain.EnrichedContractKey(
+              domain.TemplateId(None, "IIou", "IIou"),
+              v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
+            ),
+            bob,
+          )
+        ),
+        aliceHeaders,
+      )
+    } yield {
+      val Status = StatusCodes.BadRequest
+      discard { exerciseTest._1 should ===(Status) }
+      inside(exerciseTest._2.convertTo[domain.ErrorResponse]) {
+        case domain.ErrorResponse(Seq(lookup), None, Status) =>
+          lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
+      }
+    }
   }
 
   private[this] val (_, ciouVA) = {
@@ -149,13 +187,12 @@ abstract class HttpServiceIntegrationTest
   }
 
   private[this] def iouTransfer(
-      cid: domain.ContractId,
+      locator: domain.ContractLocator[v.Value],
       to: domain.Party,
-      templateId: domain.TemplateId.OptionalPkg,
   ) = {
     val payload = recordFromFields(ShRecord(to = v.Value.Sum.Party(domain.Party unwrap to)))
     domain.ExerciseCommand(
-      domain.EnrichedContractId(Some(templateId), cid),
+      locator,
       domain.Choice("Transfer"),
       v.Value(v.Value.Sum.Record(payload)),
       None,
