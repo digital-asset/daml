@@ -80,6 +80,7 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
+  private val iiouIfaceID: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "IIou", "IIou")
   "pick up new package's inherited interfaces" in withHttpService { (uri, encoder, _, _) =>
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
@@ -116,7 +117,7 @@ abstract class HttpServiceIntegrationTest
       _ <- createIouAndExerciseTransfer(
         initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
         // whether we can exercise by interface-ID
-        exerciseBy = domain.TemplateId(None, "IIou", "IIou"),
+        exerciseBy = iiouIfaceID,
       )
       // next, use CIou
       _ <- createIouAndExerciseTransfer(
@@ -147,7 +148,7 @@ abstract class HttpServiceIntegrationTest
         encodeExercise(encoder)(
           iouTransfer(
             domain.EnrichedContractKey(
-              domain.TemplateId(None, "IIou", "IIou"),
+              iiouIfaceID,
               v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
             ),
             bob,
@@ -162,6 +163,28 @@ abstract class HttpServiceIntegrationTest
         case domain.ErrorResponse(Seq(lookup), None, Status) =>
           lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
       }
+    }
+  }
+
+  // TODO(SC #13301) test against DB too
+  "fail to query by interface ID" in withHttpService { (uri, encoder, _, _) =>
+    import json.JsonProtocol._, spray.json.{enrichAny => `sj enrichAny`}
+    for {
+      _ <- uploadPackage(uri)(ciouDar)
+      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      (alice, aliceHeaders) = aliceH
+      searchResp <- search(
+        List.empty,
+        Map(
+          "templateIds" -> Seq(iiouIfaceID).toJson,
+          "query" -> spray.json.JsObject(),
+        ).toJson.asJsObject,
+        uri,
+        encoder,
+        aliceHeaders,
+      )
+    } yield inside(searchResp) {
+      case domain.ErrorResponse(Seq(_), None, StatusCodes.InternalServerError) => succeed
     }
   }
 
