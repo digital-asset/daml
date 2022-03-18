@@ -91,8 +91,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             (,) <$> useNoFileE GenerateStablePackages
                 <*> (fst <$> useE GeneratePackageMap projectRoot)
 
-      let stablePkgIds :: Set LF.PackageId
-          stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
       let builtinDependenciesIds =
               Set.fromList $ map LF.dalfPackageId $ MS.elems builtinDependencies
 
@@ -136,7 +134,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       let
         (depGraph, vertexToNode) = buildLfPackageGraph BuildLfPackageGraphArgs
           { builtinDeps = builtinDependenciesIds
-          , stablePkgs = stablePkgIds
+          , stablePkgs = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
           , deps = dalfsFromDependenciesWithFps
           , dataDeps = dalfsFromDataDependenciesWithFps
           }
