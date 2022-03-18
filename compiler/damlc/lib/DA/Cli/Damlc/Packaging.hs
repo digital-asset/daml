@@ -177,7 +177,19 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
                       MkDataDependencyPackageNode DataDependencyPackageNode {unitId} -> [unitId]
                   ]
 
-              liftIO $ installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar depUnitIds pkgId unitId dalfPackage
+              liftIO $ installDataDep InstallDataDepArgs
+                { opts
+                , projectRoot
+                , dbPath
+                , pkgs
+                , stablePkgs
+                , dependenciesSoFar
+                , depUnitIds
+                , pkgId
+                , unitId
+                , dalfPackage
+                }
+
               insert unitId dalfPackage
 
       writeMetadata
@@ -217,19 +229,26 @@ disableScenarioService opts = opts
 toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
 toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
 
-installDataDep ::
-     Options
-  -> NormalizedFilePath
-  -> FilePath
-  -> [DecodedDalf]
-  -> MS.Map (UnitId, b) LF.DalfPackage
-  -> MS.Map UnitId LF.DalfPackage
-  -> [UnitId]
-  -> LF.PackageId
-  -> UnitId
-  -> LF.DalfPackage
-  -> IO ()
-installDataDep opts projectRoot dbPath pkgs stablePkgs dependenciesSoFar depUnitIds pkgId unitId dalfPackage = do
+
+data InstallDataDepArgs = InstallDataDepArgs
+  { opts :: Options
+  , projectRoot :: NormalizedFilePath
+  , dbPath :: FilePath
+  , pkgs :: [DecodedDalf]
+    -- ^ All the packages in the dependency graph of the package being built.
+  , stablePkgs :: MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
+  , dependenciesSoFar :: MS.Map UnitId LF.DalfPackage
+    -- ^ The dependencies and data-dependencies processed before this data-dependency.
+  , depUnitIds :: [UnitId]
+    -- ^ The UnitIds of the dependencies and data-dependencies of this data-dependency.
+    -- The way we traverse the dependency graph ensures these have all been processed.
+  , pkgId :: LF.PackageId
+  , unitId :: UnitId
+  , dalfPackage :: LF.DalfPackage
+  }
+
+installDataDep :: InstallDataDepArgs -> IO ()
+installDataDep InstallDataDepArgs {..} = do
   exposedModules <- getExposedModules opts projectRoot
 
   let unitIdStr = unitIdString unitId
