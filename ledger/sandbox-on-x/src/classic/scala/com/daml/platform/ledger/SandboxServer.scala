@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.runner.common.Config
@@ -28,6 +29,7 @@ import com.daml.telemetry.NoOpTelemetryContext
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import java.io.File
 import java.nio.file.Files
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -99,6 +101,19 @@ final class SandboxServer(
     }
   }
 
+  private def upload(writeService: WriteService)(file: File)(implicit executionContext: ExecutionContext): Future[Unit] = {
+    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
+    for {
+      dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
+      _ <- writeService
+        .uploadPackages(submissionId, dar.all, None)(
+          LoggingContext.ForTesting,
+          NoOpTelemetryContext,
+        )
+        .asScala
+    } yield ()
+  }
+
   private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
@@ -106,22 +121,12 @@ final class SandboxServer(
 
   private def loadPackages(writeService: WriteService)(implicit
       executionContext: ExecutionContext
-  ): AbstractResourceOwner[ResourceContext, List[Unit]] =
+  ): AbstractResourceOwner[ResourceContext, Unit] =
     ResourceOwner.forFuture(() =>
-      Future.sequence(
-        config.damlPackages.map { file =>
-          val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
-          for {
-            dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
-            _ <- writeService
-              .uploadPackages(submissionId, dar.all, None)(
-                LoggingContext.ForTesting,
-                NoOpTelemetryContext,
-              )
-              .asScala
-          } yield ()
-        }
-      )
+      Source(config.damlPackages)
+        .mapAsync(parallelism = 1)(upload(writeService))
+        .run()
+        .map(_ => ())
     )
 }
 
