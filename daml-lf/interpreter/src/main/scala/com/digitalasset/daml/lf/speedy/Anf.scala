@@ -133,16 +133,12 @@ private[lf] object Anf {
     * a parameterized type, so we use nested `defs` instead.
     *
     * @tparam T The type of expression this will be applied to.
-    * @tparam A The return type of the continuation (minus the Trampoline
-    *           wrapping).
     */
   private[this] type Tx[T] = (DepthA, T) => K[target.SExpr] => Res
 
   /** K Is the type for continuations.
     *
     * @tparam T Type the function would have returned had it not been in CPS.
-    * @tparam A The return type of the continuation (minus the Trampoline
-    *           wrapping).
     */
   private[this] type K[T] = T => Res
 
