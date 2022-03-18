@@ -261,7 +261,7 @@ Access Tokens
 
 Each request to the HTTP JSON API Service *must* come with an access token, regardless of whether the underlying ledger
 requires it or not. This also includes development setups using an unsecured sandbox. The HTTP JSON API Service *does not*
-hold on to the access token, which will only used to fulfill the request it came along with. The same token will be used
+hold on to the access token, which will be only used to fulfill the request it came along with. The same token will be used
 to issue the request to the Ledger API.
 
 The HTTP JSON API Service does not validate the token but may need to decode it to extract information that can be used
