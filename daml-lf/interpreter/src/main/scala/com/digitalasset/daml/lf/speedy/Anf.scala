@@ -376,8 +376,12 @@ private[lf] object Anf {
       case Nil => transform(depth, Nil)(k)
       case exp :: exps =>
         atomizeExp(depth, env, exp, k) { (depth, atom) => k =>
-          atomizeExps(depth, env, exps, k) { (depth, atoms) => k =>
-            transform(depth, atom :: atoms)(k)
+          Bounce { () =>
+            atomizeExps(depth, env, exps, k) { (depth, atoms) => k =>
+              Bounce { () =>
+                transform(depth, atom :: atoms)(k)
+              }
+            }
           }
         }
     }
