@@ -579,6 +579,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "pretty-show",
             "process",
             "proto3-wire",
+            "QuickCheck",
             "random",
             "recursion-schemes",
             "regex-tdfa",
