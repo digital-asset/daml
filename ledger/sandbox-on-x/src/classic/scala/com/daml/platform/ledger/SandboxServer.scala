@@ -101,7 +101,9 @@ final class SandboxServer(
     }
   }
 
-  private def upload(writeService: WriteService)(file: File)(implicit executionContext: ExecutionContext): Future[Unit] = {
+  private def uploadPackages(
+      writeService: WriteService
+  )(file: File)(implicit executionContext: ExecutionContext): Future[Unit] = {
     val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
@@ -124,7 +126,7 @@ final class SandboxServer(
   ): AbstractResourceOwner[ResourceContext, Unit] =
     ResourceOwner.forFuture(() =>
       Source(config.damlPackages)
-        .mapAsync(parallelism = 1)(upload(writeService))
+        .mapAsync(parallelism = 1)(uploadPackages(writeService))
         .run()
         .map(_ => ())
     )
