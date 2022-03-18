@@ -134,7 +134,12 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       Logger.logDebug loggerH "Building dependency package graph"
 
       let
-        (depGraph, vertexToNode) = buildLfPackageGraph builtinDependenciesIds stablePkgIds dalfsFromDependenciesWithFps dalfsFromDataDependenciesWithFps
+        (depGraph, vertexToNode) = buildLfPackageGraph BuildLfPackageGraphArgs
+          { builtinDeps = builtinDependenciesIds
+          , stablePkgs = stablePkgIds
+          , deps = dalfsFromDependenciesWithFps
+          , dataDeps = dalfsFromDataDependenciesWithFps
+          }
         pkgs = dalfsFromDependencies <> dalfsFromDataDependencies
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
@@ -529,18 +534,18 @@ mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
 
+data BuildLfPackageGraphArgs = BuildLfPackageGraphArgs
+  { builtinDeps :: Set LF.PackageId
+  , stablePkgs :: Set LF.PackageId
+  , deps :: [(FilePath, DecodedDalf)]
+  , dataDeps :: [(FilePath, DecodedDalf)]
+  }
+
 -- | The graph will have an edge from package A to package B:
 --   - if A depends on B _OR_
 --   - if A is a data-dependency, B is a (regular) dependency, and B doesn't depend on any data-dependencies.
-buildLfPackageGraph
-    :: Set LF.PackageId
-    -> Set LF.PackageId
-    -> [(FilePath, DecodedDalf)]
-    -> [(FilePath, DecodedDalf)]
-    -> ( Graph
-       , Vertex -> (PackageNode, LF.PackageId)
-       )
-buildLfPackageGraph builtinDeps stablePkgs deps dataDeps = (depGraph, vertexToNode')
+buildLfPackageGraph :: BuildLfPackageGraphArgs -> (Graph, Vertex -> (PackageNode, LF.PackageId))
+buildLfPackageGraph BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode')
   where
     allPackageRefs :: LF.Package -> [LF.PackageRef]
     allPackageRefs pkg =
