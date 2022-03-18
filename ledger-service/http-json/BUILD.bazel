@@ -193,18 +193,12 @@ daml_compile(
 )
 
 daml_compile(
-    name = "IIou",
-    srcs = ["src/it/daml/IIou.daml"],
-    target = lf_version_configuration.get("dev"),  # TODO(SC) remove when interfaces in default
-)
-
-daml_compile(
     name = "CIou",
     srcs = [
         "src/it/daml/CIou.daml",
         "src/it/daml/IIou.daml",
     ],
-    target = lf_version_configuration.get("dev"),  # TODO(SC) remove when interfaces in default
+    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
 )
 
 [
@@ -424,7 +418,6 @@ alias(
         data = [
             ":Account.dar",
             ":CIou.dar",
-            ":IIou.dar",
             ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",

@@ -24,7 +24,6 @@ import scala.concurrent.Future
 
 object HttpServiceIntegrationTest {
 
-  // private val iiouDar = requiredResource("ledger-service/http-json/IIou.dar")
   private val ciouDar = requiredResource("ledger-service/http-json/CIou.dar")
 }
 
@@ -111,7 +110,6 @@ abstract class HttpServiceIntegrationTest
     } yield exerciseTest._1 should ===(StatusCodes.OK)
 
     for {
-      // _ <- uploadPackage(uri)(iiouDar)
       _ <- uploadPackage(uri)(ciouDar)
       // first, use IIou only
       _ <- createIouAndExerciseTransfer(
@@ -119,6 +117,8 @@ abstract class HttpServiceIntegrationTest
         // whether we can exercise by interface-ID
         exerciseBy = iiouIfaceID,
       )
+      // ideally we would upload IIou.daml only above, then upload ciou here;
+      // however tests currently don't play well with reload -SC
       // next, use CIou
       _ <- createIouAndExerciseTransfer(
         initialTplId = domain.TemplateId(None, "CIou", "CIou"),
