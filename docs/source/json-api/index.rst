@@ -259,12 +259,13 @@ you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an exa
 Access Tokens
 =============
 
-The JSON API essentially performs two separate tasks:
+Each request to the HTTP JSON API Service *must* come with an access token, regardless of whether the underlying ledger
+requires it or not. This also includes development setups using an unsecured sandbox. The HTTP JSON API Service *does not*
+hold on to the access token, which will be only used to fulfill the request it came along with. The same token will be used
+to issue the request to the Ledger API.
 
-1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
-2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
-
-.. note:: By default, the Daml Sandbox does not does not require access tokens. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+The HTTP JSON API Service does not validate the token but may need to decode it to extract information that can be used
+to fill in request fields for party-specific request. How this happens depends partially on the token format you are using.
 
 Party-specific Requests
 -----------------------
