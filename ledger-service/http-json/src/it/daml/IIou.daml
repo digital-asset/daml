@@ -1,0 +1,23 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module IIou where
+
+interface IIou where
+  getOwner : Party
+  transferTo : Party -> Update (ContractId IIou)
+  choice Transfer : ContractId IIou with
+      to : Party
+    controller getOwner this
+    do
+      transferTo this to
+
+template TestIIou with
+    issuer : Party
+    owner : Party
+    amount : Text
+  where
+  signatory issuer
+  implements IIou where
+    getOwner = owner
+    transferTo to = toInterfaceContractId <$> create this { owner = to }

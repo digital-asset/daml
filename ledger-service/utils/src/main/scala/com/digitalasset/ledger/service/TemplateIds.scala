@@ -3,7 +3,6 @@
 
 package com.daml.ledger.service
 
-import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.iface.Interface
 import com.daml.lf.iface.InterfaceType.Template
 import com.daml.ledger.api.v1.value.Identifier
@@ -13,7 +12,8 @@ object TemplateIds {
     interfaces.flatMap(getTemplateIds)
 
   private def getTemplateIds(interface: Interface): Set[Identifier] =
-    interface.typeDecls.iterator.collect { case (qn: QualifiedName, _: Template) =>
+    (interface.typeDecls.iterator.collect { case (qn, _: Template) => qn }
+      ++ interface.astInterfaces.keysIterator).map { qn =>
       Identifier(
         packageId = interface.packageId,
         moduleName = qn.module.dottedName,

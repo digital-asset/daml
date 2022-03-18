@@ -42,7 +42,7 @@ private class PackageService(
   ) {
 
     def append(diff: PackageStore): State = {
-      val newPackageStore = this.packageStore ++ diff
+      val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
       State(
         newPackageStore.keySet,
         getTemplateIdMap(newPackageStore),
@@ -50,6 +50,13 @@ private class PackageService(
         getKeyTypeMap(newPackageStore),
         newPackageStore,
       )
+    }
+
+    // `diff` but with interface-inherited choices resolved
+    private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
+      def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
+      val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
+      diff.transform((_, iface) => iface resolveChoices findIface)
     }
   }
 
@@ -302,27 +309,31 @@ object PackageService {
       )
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
-  // TODO (#12689) each interface must have been resolveChoices'd against the
-  // whole environment (prior environment & whole diff) for all choices to be listed
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
   private def getChoices(
       interface: iface.Interface
-  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
-    interface.typeDecls.flatMap {
-      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
-        val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
-        getChoices(choices).map { case (choice, id) => ((templateId, choice), id) }
-      case _ => Seq.empty
-    }
+  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
+    val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
+      interface.typeDecls.iterator.collect {
+        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+          (qn, choices)
+      } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
+        (qn, defIf.choices)
+      }
+    allChoices.flatMap { case (qn, choices) =>
+      val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
+      getChoices(choices).view.map { case (choice, id) => ((templateId, choice), id) }
+    }.toMap
+  }
 
   private def getChoices(
       choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]
   ): Seq[(Choice, iface.Type)] = {
     import iface._
-    choices.toSeq.collect { case (name, TemplateChoice(choiceType, _, _)) =>
-      (Choice(name.toString), choiceType)
+    choices.toSeq.map { case (name, TemplateChoice(choiceType, _, _)) =>
+      (Choice(name: String), choiceType)
     }
   }
 

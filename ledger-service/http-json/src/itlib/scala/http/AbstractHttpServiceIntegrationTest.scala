@@ -336,7 +336,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     v.RecordField(n, Some(v.Value(vs)))
   })
 
-  private[this] def argToApi(va: VA)(arg: va.Inj): v.Record =
+  protected[this] def argToApi(va: VA)(arg: va.Inj): v.Record =
     lfToApi(va.inj(arg)) match {
       case v.Value(v.Value.Sum.Record(r)) => removeRecordId(r)
       case _ => fail(s"${va.t} isn't a record type")
@@ -654,6 +654,21 @@ trait AbstractHttpServiceIntegrationTestFuns
           x
         }
     }
+
+  protected[this] def uploadPackage(uri: Uri)(newDar: java.io.File): Future[Unit] = for {
+    resp <- Http()
+      .singleRequest(
+        HttpRequest(
+          method = HttpMethods.POST,
+          uri = uri.withPath(Uri.Path("/v1/packages")),
+          headers = headersWithAdminAuth,
+          entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar),
+        )
+      )
+  } yield {
+    resp.status shouldBe StatusCodes.OK
+    ()
+  }
 
   protected def initialIouCreate(
       serviceUri: Uri,
@@ -2011,17 +2026,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
     getAllPackageIds(uri).flatMap { okResp =>
       val existingPackageIds: Set[String] = okResp.result.toSet
-      Http()
-        .singleRequest(
-          HttpRequest(
-            method = HttpMethods.POST,
-            uri = uri.withPath(Uri.Path("/v1/packages")),
-            headers = headersWithAdminAuth,
-            entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar),
-          )
-        )
-        .flatMap { resp =>
-          resp.status shouldBe StatusCodes.OK
+      uploadPackage(uri)(newDar)
+        .flatMap { _ =>
           getAllPackageIds(uri).map { okResp =>
             val newPackageIds: Set[String] = okResp.result.toSet -- existingPackageIds
             newPackageIds.size should be > 0
