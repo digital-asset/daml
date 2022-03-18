@@ -305,7 +305,6 @@ installDataDep InstallDataDepArgs {..} = do
       opts
       workDir
       dbPath
-      projectPackageDatabase
       pkgId
       pkgName
       mbPkgVersion
@@ -320,7 +319,6 @@ generateAndInstallIfaceFiles ::
     -> Options
     -> FilePath
     -> FilePath
-    -> FilePath
     -> LF.PackageId
     -> LF.PackageName
     -> Maybe LF.PackageVersion
@@ -328,7 +326,7 @@ generateAndInstallIfaceFiles ::
     -> MS.Map UnitId LF.DalfPackage -- ^ Map of all packages in `dependencies`.
     -> MS.Map UnitId (UniqSet GHC.ModuleName)
     -> IO ()
-generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion depUnitIds dependencies exposedModules = do
+generateAndInstallIfaceFiles dalf src opts workDir dbPath pkgIdStr pkgName mbPkgVersion depUnitIds dependencies exposedModules = do
     let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgIdStr <> ")"
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
     Logger.logDebug loggerH "Writing out dummy source files"
