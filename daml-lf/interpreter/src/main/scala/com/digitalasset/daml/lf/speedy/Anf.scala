@@ -36,6 +36,8 @@ import com.daml.lf.speedy.Compiler.CompilationError
 
 import scala.annotation.tailrec
 
+import scalaz.{@@, Tag}
+
 private[lf] object Anf {
 
   /** * Entry point for the ANF transformation phase
@@ -95,14 +97,23 @@ private[lf] object Anf {
     *    the main recursive loop), but those that do always take the continuation as
     *    their last argument.
     */
+
   /** `DepthE` tracks the stack-depth of the original expression being traversed */
-  private[this] final case class DepthE(n: Int) {
-    def incr(m: Int): DepthE = DepthE(n + m)
+  private[this] sealed trait DepthETag
+  private[this] type DepthE = Int @@ DepthETag
+  private[this] val DepthE = Tag.of[DepthETag]
+  private[this] implicit class OpsDepthE[T](val x: DepthE) extends AnyVal {
+    def n: Int = Tag.unwrap(x)
+    def incr(m: Int): DepthE = DepthE(m + n)
   }
 
   /** `DepthA` tracks the stack-depth of the ANF expression being constructed */
-  private[this] final case class DepthA(n: Int) {
-    def incr(m: Int): DepthA = DepthA(n + m)
+  private[this] sealed trait DepthATag
+  private[this] type DepthA = Int @@ DepthATag
+  private[this] val DepthA = Tag.of[DepthATag]
+  private[this] implicit class OpsDepthA[T](val x: DepthA) extends AnyVal {
+    def n: Int = Tag.unwrap(x)
+    def incr(m: Int): DepthA = DepthA(m + n)
   }
 
   /** `Env` contains the mapping from old to new depth, as well as the old-depth as these
