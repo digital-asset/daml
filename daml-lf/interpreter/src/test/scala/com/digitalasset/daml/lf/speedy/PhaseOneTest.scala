@@ -118,7 +118,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("caseAlt1", caseAlt1),
         ("caseAlt2", caseAlt2),
         ("let1", let1),
-        ("let2", let2),
+        ("let2", let2), //slow (2.6s for 5k; 11s for 10k -- quadratic?)
         ("eabs_esome", eabs_esome),
         ("etyabs_esome", etyabs_esome),
         ("app1_esome", app1_esome),
@@ -155,78 +155,10 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/11561
-    // The compilation step which transforms expressions to ANF is not stack-safe in all cases
-    // It blows the stack in the examples commented out below.
-    val testCasesForANF = {
-      Table[String, Expr => Expr](
-        ("name", "recursion-point"),
-        ("tyApp", tyApp),
-        ("app1", app1),
-        ("app2", app2),
-        ("app1of3", app1of3),
-        ("app2of3", app2of3),
-        ("app3of3", app3of3),
-        ("esome", esome),
-        ("eabs", eabs),
-        ("etyabs", etyabs),
-        ("struct1", struct1),
-        ("struct2", struct2),
-        ("consH", consH),
-        ("consT", consT),
-        ("scenPure", scenPure),
-        ("scenBlock1", scenBlock1),
-        ("scenBlock2", scenBlock2),
-        ("scenCommit1", scenCommit1),
-        ("scenCommit2", scenCommit2),
-        ("scenMustFail1", scenMustFail1),
-        ("scenMustFail2", scenMustFail2),
-        ("scenPass", scenPass),
-        ("scenParty", scenParty),
-        ("scenEmbed", scenEmbed),
-        ("upure", upure),
-        ("ublock1", ublock1),
-        ("ublock2", ublock2),
-        ("ublock3", ublock3),
-        ("ucreate", ucreate),
-        ("ucreateI", ucreateI),
-        ("ufetch", ufetch),
-        ("ufetchI", ufetchI),
-        ("uexercise1", uexercise1),
-        ("uexercise2", uexercise2),
-        ("uexerciseI1", uexerciseI1),
-        ("uexerciseI2", uexerciseI2),
-        ("uexerciseI3", uexerciseI3),
-        ("uexbykey1", uexbykey1),
-        ("uexbykey2", uexbykey2),
-        ("ufetchbykey", ufetchbykey),
-        ("ulookupbykey", ulookupbykey),
-        ("uembed", uembed),
-        ("utrycatch1", utrycatch1),
-        ("utrycatch2", utrycatch2),
-        ("structUpd1", structUpd1),
-        ("structUpd2", structUpd2),
-        ("recCon1", recCon1),
-        ("recCon2", recCon2),
-        ("caseScrut", caseScrut),
-        ("caseAlt1", caseAlt1),
-        ("caseAlt2", caseAlt2),
-        ("let1", let1),
-        ("let2", let2), //slow (2.6s for 5k; 11s for 10k -- quadratic?)
-        ("eabs_esome", eabs_esome),
-        ("etyabs_esome", etyabs_esome),
-        ("app1_esome", app1_esome),
-        ("app2_esome", app2_esome),
-        ("tyApp_esome", tyApp_esome),
-        ("let1_esome", let1_esome),
-        ("let2_esome", let2_esome),
-      )
-    }
-
     {
       val depth = 3000
       s"transform(phase1, closureConversion, flattenToAnf), depth = $depth" - {
-        forEvery(testCasesForANF) { (name: String, recursionPoint: Expr => Expr) =>
+        forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
             runTest(transform3)(depth, recursionPoint)
           }
