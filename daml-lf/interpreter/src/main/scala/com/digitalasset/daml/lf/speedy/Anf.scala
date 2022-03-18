@@ -102,7 +102,7 @@ private[lf] object Anf {
   private[this] sealed trait DepthETag
   private[this] type DepthE = Int @@ DepthETag
   private[this] val DepthE = Tag.of[DepthETag]
-  private[this] implicit class DepthE_Ops[T](val x: DepthE) extends AnyVal {
+  private[this] implicit class OpsDepthE[T](val x: DepthE) extends AnyVal {
     def n: Int = Tag.unwrap(x)
     def incr(m: Int): DepthE = DepthE(m + n)
   }
@@ -111,7 +111,7 @@ private[lf] object Anf {
   private[this] sealed trait DepthATag
   private[this] type DepthA = Int @@ DepthATag
   private[this] val DepthA = Tag.of[DepthATag]
-  private[this] implicit class DepthA_Ops[T](val x: DepthA) extends AnyVal {
+  private[this] implicit class OpsDepthA[T](val x: DepthA) extends AnyVal {
     def n: Int = Tag.unwrap(x)
     def incr(m: Int): DepthA = DepthA(m + n)
   }
