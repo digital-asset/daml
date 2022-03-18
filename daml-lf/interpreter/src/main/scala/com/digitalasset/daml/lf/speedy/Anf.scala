@@ -117,6 +117,8 @@ private[lf] object Anf {
     Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
   }
 
+  private[this] type Res = Trampoline[target.SExpr]
+
   /** Tx is the type for the stacked transformation functions managed by the ANF
     * transformation, mainly transformExp.
     *
@@ -134,9 +136,6 @@ private[lf] object Anf {
     * @tparam A The return type of the continuation (minus the Trampoline
     *           wrapping).
     */
-
-  private[this] type Res = Trampoline[target.SExpr]
-
   private[this] type Tx[T] = (DepthA, T) => K[target.SExpr] => Res
 
   /** K Is the type for continuations.
