@@ -305,9 +305,9 @@ private[lf] object Anf {
         // It's also safe to perform ANF for applications of a single argument.
         val singleArg = args.lengthCompare(1) == 0
         if (safeFunc || singleArg) {
-          transformMultiApp(depth, env, func, args.toArray, k)(transform)
+          transformMultiApp(depth, env, func, args, k)(transform)
         } else {
-          transformMultiAppSafely(depth, env, func, args.toArray, k)(transform)
+          transformMultiAppSafely(depth, env, func, args, k)(transform)
         }
 
       case source.SEMakeClo(fvs0, arity, body) =>
@@ -429,12 +429,12 @@ private[lf] object Anf {
       depth: DepthA,
       env: Env,
       func: source.SExpr,
-      args: Array[source.SExpr],
+      args: List[source.SExpr],
       k: K[target.SExpr],
   )(transform: Tx[target.SExpr]): Res = {
 
     atomizeExp(depth, env, func, k) { (depth, func) => k =>
-      atomizeExps(depth, env, args.toList, k) { (depth, args) => k =>
+      atomizeExps(depth, env, args, k) { (depth, args) => k =>
         val func1 = makeRelativeA(depth)(func)
         val args1 = args.map(makeRelativeA(depth))
         transform(depth, target.SEAppAtomic(func1, args1.toArray))(k)
@@ -450,14 +450,14 @@ private[lf] object Anf {
       depth: DepthA,
       env: Env,
       func: source.SExpr,
-      args: Array[source.SExpr],
+      args: List[source.SExpr],
       k: K[target.SExpr],
   )(transform: Tx[target.SExpr]): Res = {
 
     atomizeExp(depth, env, func, k) { (depth, func) => k =>
       val func1 = makeRelativeA(depth)(func)
       // we dont atomize the args here
-      flattenExpList(depth, env, args.toList) { args =>
+      flattenExpList(depth, env, args) { args =>
         // we build a non-atomic application here (only the function is atomic)
         transform(depth, target.SEAppAtomicFun(func1, args.toArray))(k)
       }
