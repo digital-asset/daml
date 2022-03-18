@@ -297,11 +297,14 @@ private[lf] object Anf {
         val safeFunc =
           func match {
             // we know that trivially in these two cases
-            case source.SEBuiltin(b) => (args.size <= b.arity)
+            case source.SEBuiltin(b) =>
+              val overApp = args.lengthCompare(b.arity) > 0
+              !overApp
             case _ => false
           }
         // It's also safe to perform ANF for applications of a single argument.
-        if (safeFunc || args.size == 1) {
+        val singleArg = args.lengthCompare(1) == 0
+        if (safeFunc || singleArg) {
           transformMultiApp(depth, env, func, args.toArray, k)(transform)
         } else {
           transformMultiAppSafely(depth, env, func, args.toArray, k)(transform)
