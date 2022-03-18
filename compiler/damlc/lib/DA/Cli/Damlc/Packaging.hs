@@ -299,35 +299,40 @@ installDataDep InstallDataDepArgs {..} = do
     -- Sources for the package containing instances for Template, Choice, …
     stubSources = generateSrcPkgFromLf config pkg
 
-  generateAndInstallIfaceFiles
-      pkg
-      stubSources
-      opts
-      workDir
-      dbPath
-      pkgId
-      pkgName
-      mbPkgVersion
-      depUnitIds
-      dependenciesSoFar
-      exposedModules
+  generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs
+    { dalf = pkg
+    , src = stubSources
+    , opts
+    , workDir
+    , dbPath
+    , pkgId
+    , pkgName
+    , mbPkgVersion
+    , depUnitIds
+    , dependenciesSoFar
+    , exposedModules
+    }
 
--- generate interface files and install them in the package database
-generateAndInstallIfaceFiles ::
-       LF.Package
-    -> [(NormalizedFilePath, String)]
-    -> Options
-    -> FilePath
-    -> FilePath
-    -> LF.PackageId
-    -> LF.PackageName
-    -> Maybe LF.PackageVersion
-    -> [UnitId] -- ^ List of units referenced by this package.
-    -> MS.Map UnitId LF.DalfPackage -- ^ Map of all packages in `dependencies`.
-    -> MS.Map UnitId (UniqSet GHC.ModuleName)
-    -> IO ()
-generateAndInstallIfaceFiles dalf src opts workDir dbPath pkgIdStr pkgName mbPkgVersion depUnitIds dependencies exposedModules = do
-    let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgIdStr <> ")"
+data GenerateAndInstallIfaceFilesArgs = GenerateAndInstallIfaceFilesArgs
+  { dalf :: LF.Package
+  , src :: [(NormalizedFilePath, String)]
+  , opts :: Options
+  , workDir :: FilePath
+  , dbPath :: FilePath
+  , pkgId :: LF.PackageId
+  , pkgName :: LF.PackageName
+  , mbPkgVersion :: Maybe LF.PackageVersion
+  , depUnitIds :: [UnitId]
+    -- ^ List of units referenced by this package.
+  , dependenciesSoFar :: MS.Map UnitId LF.DalfPackage
+    -- ^ The dependencies and data-dependencies processed before this data-dependency.
+  , exposedModules :: MS.Map UnitId (UniqSet GHC.ModuleName)
+  }
+
+-- | Generate interface files and install them in the package database
+generateAndInstallIfaceFiles :: GenerateAndInstallIfaceFilesArgs -> IO ()
+generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
+    let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgId <> ")"
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
     Logger.logDebug loggerH "Writing out dummy source files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
@@ -348,7 +353,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath pkgIdStr pkgName mbPkg
                   -- can ever fail but for now, we keep exposing the module in that case.
                   , maybe True (toGhcModuleName modName `elementOfUniqSet`) mbExposed
                   ]
-            | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies
+            | (unitId, LF.DalfPackage{..}) <- MS.toList dependenciesSoFar
             , let mbExposed = MS.lookup unitId exposedModules
             ]
     opts <-
@@ -387,7 +392,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath pkgIdStr pkgName mbPkg
             depUnitIds
             Nothing
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
-            pkgIdStr
+            pkgId
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
     Logger.logDebug loggerH $ "Recaching package db for " <> pkgContext
     recachePkgDb dbPath
