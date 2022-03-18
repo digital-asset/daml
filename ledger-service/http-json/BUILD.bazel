@@ -12,6 +12,7 @@ load(
     "lf_scalacopts",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
 
@@ -189,6 +190,18 @@ daml_compile(
     name = "User",
     srcs = ["src/it/daml/User.daml"],
     visibility = ["//ledger-service:__subpackages__"],
+)
+
+daml_compile(
+    name = "IIou",
+    srcs = ["src/it/daml/IIou.daml"],
+    target = lf_version_configuration.get("dev"),  # TODO(SC) remove when interfaces in default
+)
+
+daml_compile(
+    name = "CIou",
+    srcs = ["src/it/daml/IIou.daml", "src/it/daml/CIou.daml"],
+    target = lf_version_configuration.get("dev"),  # TODO(SC) remove when interfaces in default
 )
 
 [
@@ -408,6 +421,8 @@ alias(
         data = [
             ":Account.dar",
             ":User.dar",
+            ":IIou.dar",
+            ":CIou.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",
             "//ledger/test-common/test-certificates",
