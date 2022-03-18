@@ -84,16 +84,12 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       Logger.logDebug loggerH "package db is not up2date, reinitializing"
       clearPackageDb
 
-      -- since we haven't registered any dependencies yet, this only contains daml-prim and daml-stdlib
-      PackageMap builtinDependencies <-
-        (>>= maybe (fail "Failed to generate package info") pure) $
+      -- since we haven't registered any dependencies yet, builtinDependencies only contains daml-prim and daml-stdlib
+      (stablePkgs, PackageMap builtinDependencies) <-
+        fromMaybeM (fail "Failed to generate package info") $
           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-            fst <$> useE GeneratePackageMap projectRoot
-
-      stablePkgs <-
-        (>>= maybe (fail "Failed to generate stable packages") pure) $
-          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-            useNoFileE GenerateStablePackages
+            (,) <$> useNoFileE GenerateStablePackages
+                <*> (fst <$> useE GeneratePackageMap projectRoot)
 
       let stablePkgIds :: Set LF.PackageId
           stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
