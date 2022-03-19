@@ -4,12 +4,16 @@
 package com.daml.ledger.sandbox
 
 import akka.actor.ActorSystem
-import akka.stream.Materializer
+import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.runner.common.Config
+import com.daml.ledger.api.domain.PackageEntry
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -24,13 +28,15 @@ import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.ports.Port
 import com.daml.resources.AbstractResourceOwner
-import com.daml.telemetry.NoOpTelemetryContext
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import java.io.File
 import java.nio.file.Files
 import java.util.UUID
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
@@ -51,7 +57,7 @@ final class SandboxServer(
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      (apiServer, writeService) <-
+      (apiServer, writeService, indexService) <-
         SandboxOnXRunner
           .buildLedger(
             genericConfig,
@@ -62,7 +68,15 @@ final class SandboxServer(
           )
           .acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceContext.executionContext))
-      _ <- loadPackages(writeService)(resourceContext.executionContext).acquire()
+      _ <- newLoggingContextWith(logging.participantId(config.participantId)) {
+        implicit loggingContext =>
+          loadPackages(writeService, indexService)(
+            resourceContext.executionContext,
+            materializer.system,
+            loggingContext,
+          )
+            .acquire()
+      }
     } yield {
       initializationLoggingHeader(genericConfig, apiServer)
       apiServer.port
@@ -104,25 +118,94 @@ final class SandboxServer(
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
       .getOrElse(Future.unit)
 
-  private def loadPackages(writeService: WriteService)(implicit
-      executionContext: ExecutionContext
-  ): AbstractResourceOwner[ResourceContext, List[Unit]] =
-    ResourceOwner.forFuture(() =>
-      Future.sequence(
-        config.damlPackages.map { file =>
-          val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
-          for {
-            dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
-            _ <- writeService
-              .uploadPackages(submissionId, dar.all, None)(
-                LoggingContext.ForTesting,
-                NoOpTelemetryContext,
-              )
-              .asScala
-          } yield ()
+  private def loadPackages(writeService: WriteService, indexService: IndexService)(implicit
+      executionContext: ExecutionContext,
+      system: ActorSystem,
+      loggingContext: LoggingContext,
+  ): AbstractResourceOwner[ResourceContext, Unit] =
+    ResourceOwner.forFuture(() => {
+      val packageSubmissionsTrackerMap = config.damlPackages.map { file =>
+        val uploadCompletionPromise = Promise[Unit]()
+        UUID.randomUUID().toString -> (file, uploadCompletionPromise)
+      }.toMap
+
+      scheduleUploadTimeout(packageSubmissionsTrackerMap.iterator.map(_._2._2), 10.seconds)
+
+      uploadAndWaitPackages(indexService, writeService, packageSubmissionsTrackerMap)
+    })
+
+  private def scheduleUploadTimeout(
+      packageSubmissionsPromises: Iterator[Promise[Unit]],
+      packageUploadTimeout: FiniteDuration,
+  )(implicit
+      executionContext: ExecutionContext,
+      system: ActorSystem,
+  ): Unit =
+    packageSubmissionsPromises.foreach { uploadCompletionPromise =>
+      system.scheduler.scheduleOnce(packageUploadTimeout) {
+        // Package upload timeout, meant to allow fail-fast for testing
+        // TODO Remove once in-memory backend (e.g. H2) is deemed stable
+        uploadCompletionPromise.tryFailure(
+          new RuntimeException(s"Package upload timeout after $packageUploadTimeout")
+        )
+        ()
+      }
+    }
+
+  private def uploadAndWaitPackages(
+      indexService: IndexService,
+      writeService: WriteService,
+      packageSubmissionsTrackerMap: Map[String, (File, Promise[Unit])],
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ) = {
+    implicit val noOpTelemetryContext: TelemetryContext = NoOpTelemetryContext
+
+    val uploadCompletionSink = Sink.foreach[PackageEntry] {
+      case PackageEntry.PackageUploadAccepted(submissionId, _) =>
+        packageSubmissionsTrackerMap.get(submissionId) match {
+          case Some((_, uploadCompletionPromise)) =>
+            uploadCompletionPromise.complete(Success(()))
+          case None =>
+            throw new RuntimeException(s"Completion promise for $submissionId not found")
         }
-      )
-    )
+      case PackageEntry.PackageUploadRejected(submissionId, _, reason) =>
+        packageSubmissionsTrackerMap.get(submissionId) match {
+          case Some((_, uploadCompletionPromise)) =>
+            uploadCompletionPromise.complete(
+              Failure(new RuntimeException(s"Package upload at initialization failed: $reason"))
+            )
+          case None =>
+            throw new RuntimeException(s"Completion promise for $submissionId not found")
+        }
+    }
+
+    val (killSwitch, packageEntriesStreamDone) = indexService
+      .packageEntries(None)
+      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+      .toMat(uploadCompletionSink)(Keep.both[UniqueKillSwitch, Future[Done]])
+      .run()
+
+    val uploadAndWaitPackagesF = Future.traverse(packageSubmissionsTrackerMap.toVector) {
+      case (submissionId, (file, promise)) =>
+        for {
+          dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
+          refSubmissionId = Ref.SubmissionId.assertFromString(submissionId)
+          _ <- writeService
+            .uploadPackages(refSubmissionId, dar.all, None)
+            .asScala
+          uploadResult <- promise.future
+        } yield uploadResult
+    }
+
+    uploadAndWaitPackagesF
+      .map(_ => ())
+      .andThen { case _ =>
+        killSwitch.shutdown()
+        packageEntriesStreamDone
+      }
+  }
 }
 
 object SandboxServer {
