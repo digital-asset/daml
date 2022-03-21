@@ -240,12 +240,6 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[(StatusCode, JsValue)] =
     headersWithAuth(uri).flatMap(getRequest(uri, _))
 
-  protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
-    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
-    if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
-    fb
-  }
-
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
       encoder: DomainJsonEncoder,
