@@ -125,12 +125,17 @@ package object inner {
       case TypeCon(_, _) | TypeVar(_) =>
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
-
   def fullyQualifiedName(
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String],
+  ): String = fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId), packagePrefixes)
+
+  def fullyQualifiedName(
+      qualifiedName: QualifiedName,
+      packageIdOpt: Option[PackageId],
+      packagePrefixes: Map[PackageId, String],
   ): String = {
-    val Identifier(_, QualifiedName(module, name)) = identifier
+    val QualifiedName(module, name) = qualifiedName
 
     // consider all but the last name segment to be part of the java package name
     val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)
@@ -138,7 +143,7 @@ package object inner {
     val className = name.segments.toSeq.takeRight(1)
 
     val packageName = packageSegments.map(_.toLowerCase)
-    val packagePrefix = packagePrefixes.getOrElse(identifier.packageId, "")
+    val packagePrefix = packageIdOpt.flatMap(packagePrefixes.get).getOrElse("")
 
     (Vector(packagePrefix) ++ packageName ++ className)
       .filter(_.nonEmpty)

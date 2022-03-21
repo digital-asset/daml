@@ -315,7 +315,7 @@ daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
     enable_scenarios = True,
-    target = lf_version_configuration.get("default"),
+    target = lf_version_configuration.get("dev"),
 )
 
 dar_to_java(

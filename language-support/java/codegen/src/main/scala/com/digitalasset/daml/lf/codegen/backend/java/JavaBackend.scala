@@ -7,7 +7,7 @@ import com.daml.lf.codegen.backend.Backend
 import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
 import com.daml.lf.codegen.conf.Conf
 import com.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{PackageId}
 import com.daml.lf.iface.Interface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -25,10 +25,11 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     val tree = InterfaceTrees.fromInterfaces(interfaces)
     for ((decoderPkg, decoderClassName) <- conf.decoderPkgAndClass) {
       val templateNames = extractTemplateNames(tree, packagePrefixes)
+      val interfaceNames = extractInterfaceNames(tree, packagePrefixes)
       val decoderFile = JavaFile
         .builder(
           decoderPkg,
-          DecoderClass.generateCode(decoderClassName, templateNames),
+          DecoderClass.generateCode(decoderClassName, templateNames ++ interfaceNames),
         )
         .build()
       decoderFile.writeTo(conf.outputDirectory)
@@ -46,6 +47,21 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
           .collect {
             case t if t.`type`.typ.exists(_.getTemplate.isPresent) =>
               ClassName.bestGuess(inner.fullyQualifiedName(t.identifier, packagePrefixes))
+          }
+        res ++ templateNames
+      case (res, _) => res
+    })
+  }
+
+  private def extractInterfaceNames(
+      tree: InterfaceTrees,
+      packagePrefixes: Map[PackageId, String],
+  ) = {
+    tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
+      case (res, module: ModuleWithContext) =>
+        val templateNames = module.interface.astInterfaces.keys
+          .map { name =>
+            ClassName.bestGuess(inner.fullyQualifiedName(name, None, packagePrefixes))
           }
         res ++ templateNames
       case (res, _) => res
@@ -72,6 +88,11 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
 
           }
         }
+      case moduleWithContext: ModuleWithContext =>
+        moduleWithContext.interface.astInterfaces.foreach { it =>
+          throw new Exception(it.toString())
+        }
+        Future.unit
       case _ =>
         Future.unit
     }

@@ -6,18 +6,18 @@ package com.daml.lf.codegen
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
-
 import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.Backend
 import com.daml.lf.codegen.backend.java.JavaBackend
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.lf.iface.{Type => _, _}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.immutable.Map
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -54,14 +54,14 @@ object CodeGenRunner extends StrictLogging {
     )
     val ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
-    val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf)
-    generateCode(interfaces, conf, pkgPrefixes)(ec)
+    val (interfaces, astInterfaces, pkgPrefixes) = collectDamlLfInterfaces(conf)
+    generateCode(interfaces, astInterfaces, conf, pkgPrefixes)(ec)
     val _ = executor.shutdownNow()
   }
 
   private[codegen] def collectDamlLfInterfaces(
       conf: Conf
-  ): (Seq[Interface], Map[PackageId, String]) = {
+  ): (Seq[Interface], Map[Ref.TypeConName, DefInterface.FWT], Map[PackageId, String]) = {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
       val file = path.toFile
       // Explicitly calling `get` to bubble up any exception when reading the dar
@@ -79,10 +79,20 @@ object CodeGenRunner extends StrictLogging {
     }
 
     val interfaces = interfacesAndPrefixes.map(_._1)
+    val environmentInterface =
+      EnvironmentInterface.fromReaderInterfaces(interfaces.head, interfaces.tail: _*)
     val prefixes = interfacesAndPrefixes.collect { case (_, (key, Some(value))) =>
       (key, value)
     }.toMap
-    (interfaces, prefixes)
+    val fullyResolvedInterfaces =
+      interfaces.map(
+        _.resolveChoices(
+          Function unlift environmentInterface.astInterfaces.get,
+          failIfUnresolvedChoicesLeft = true,
+        )
+      )
+    environmentInterface.astInterfaces.foreach(it => new Exception(it.toString()))
+    (fullyResolvedInterfaces, environmentInterface.astInterfaces, prefixes)
   }
 
   private[CodeGenRunner] def generateFile(
@@ -176,6 +186,7 @@ object CodeGenRunner extends StrictLogging {
 
   private[CodeGenRunner] def generateCode(
       interfaces: Seq[Interface],
+      astInterfaces: Map[Ref.TypeConName, DefInterface.FWT],
       conf: Conf,
       pkgPrefixes: Map[PackageId, String],
   )(implicit ec: ExecutionContext): Unit = {
@@ -196,6 +207,12 @@ object CodeGenRunner extends StrictLogging {
         _ <- Future.traverse(preprocessedInterfaceTrees.interfaceTrees)(
           processInterfaceTree(_, conf, prefixes)
         )
+        _ <- Future.successful {
+          astInterfaces.foreach { case (name, choices) =>
+            TemplateClass2.generate
+          }
+        }
+
       } yield ()
     }
 
