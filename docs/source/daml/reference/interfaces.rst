@@ -161,3 +161,46 @@ Empty implements clause
 
 - If the interface being implemented has no methods, the ``where`` keyword
   can be dropped.
+
+Interface functions
+*******************
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - Type
+     - Instantiated type
+     - Notes
+   * - ``interfaceTypeRep``
+     - ``HasInterfaceTypeRep i => i -> TemplateTypeRep``
+     - ``MyInterface -> TemplateTypeRep``
+     - The value of the resulting ``TemplateTypeRep`` indicates what template
+       was used to construct the interface value.
+   * - ``toInterface``
+     - ``forall i t. HasToInterface t i => t -> i``
+     - ``MyTemplate -> MyInterface``
+     - Converts a template value into an interface value. Can also be used to
+       convert an interface value to one of its required interfaces.
+   * - ``fromInterface``
+     - ``HasFromInterface t i => i -> Optional t``
+     - ``MyInterface -> Optional MyTemplate``
+     - Attempts to convert an interface value back into a template value.
+       The result is ``None`` if the expected template type doesn't match the
+       underlying template type used to construct the contract. Can also be
+       used to convert a value of an interface type to one of its
+       requiring interfaces.
+   * - ``toInterfaceContractId``
+     - ``forall i t. HasToInterface t i => ContractId t -> ContractId i``
+     - ``ContractId MyTemplate -> ContractId MyInterface``
+     - Convert a template contract id into an interface contract id. Can also
+       be used to convert an interface contract id into a contract id of one of
+       its required interfaces.
+   * - ``fromInterfaceContractId``
+     - ``forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))``
+     - ``ContractId MyInterface -> Update (Optional (ContractId MyTemplate))``
+     - Attempts to convert an interface contract id into a template contract id.
+       In order to verify that the underlying contract has the expected template
+       type, this needs to perform a fetch. Can also be used to convert a
+       contract id of an interface type to a contract id of one of its
+       requiring interfaces.
