@@ -12,8 +12,8 @@ object Graph {
     * member of the cycle first.
     */
   def cyclicDependencies[K, A](
-      internalNodes: IterableOnce[(K, BaseNode[K, A])],
-      roots: Iterable[(K, BaseNode[K, A])],
+      internalNodes: IterableOnce[(K, Node[K, A])],
+      roots: Iterable[(K, Node[K, A])],
   ): OrderedDependencies[K, A] = {
     type NKA = Node[K, A]
     type Seen = Map[K, Boolean]
