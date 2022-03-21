@@ -80,7 +80,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       readAs = submitters.readAs,
       submittedAt = Time.Timestamp.assertFromInstant(currentUtcTime),
       deduplicationPeriod = deduplicationPeriod,
-      commands = Commands(
+      commands = ApiCommands(
         commands = validatedCommands.to(ImmArray),
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
@@ -137,7 +137,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
-        } yield CreateCommand(
+        } yield ApiCommand.Create(
           templateId = validatedTemplateId,
           argument = Lf.ValueRecord(recordId, validatedRecordField),
         )
@@ -150,7 +150,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
-        } yield ExerciseCommand(
+        } yield ApiCommand.Exercise(
           templateId = validatedTemplateId,
           contractId = contractId,
           choiceId = choice,
@@ -166,7 +166,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(ek.value.choice, "choice")
           value <- requirePresence(ek.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
-        } yield ExerciseByKeyCommand(
+        } yield ApiCommand.ExerciseByKey(
           templateId = validatedTemplateId,
           contractKey = validatedContractKey,
           choiceId = choice,
@@ -183,7 +183,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
-        } yield CreateAndExerciseCommand(
+        } yield ApiCommand.CreateAndExercise(
           templateId = validatedTemplateId,
           createArgument = Lf.ValueRecord(recordId, validatedRecordField),
           choiceId = choice,

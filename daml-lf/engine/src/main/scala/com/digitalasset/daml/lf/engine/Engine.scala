@@ -95,13 +95,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   def submit(
       submitters: Set[Party],
       readAs: Set[Party],
-      cmds: Commands,
+      cmds: ApiCommands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
-      .preprocessCommands(cmds.commands)
+      .preprocessApiCommands(cmds.commands)
       .flatMap { processedCmds =>
         interpretCommands(
           validating = false,
@@ -145,13 +145,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     */
   def reinterpret(
       submitters: Set[Party],
-      command: Command,
+      command: ReplayCommand,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      speedyCommand <- preprocessor.preprocessCommand(command)
+      speedyCommand <- preprocessor.preprocessReplayCommand(command)
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
         compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand),

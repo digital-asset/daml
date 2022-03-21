@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.test.SimplePackagePartyTestDar
-import com.daml.lf.command.{ApiCommand, Commands}
+import com.daml.lf.command.{ApiCommand, ApiCommands}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
@@ -196,7 +196,7 @@ object KVTest {
         .submit(
           submitters = Set(submitter),
           readAs = Set.empty,
-          cmds = Commands(
+          cmds = ApiCommands(
             commands = ImmArray(command),
             ledgerEffectiveTime = state.recordTime,
             commandsReference = "cmds-ref",
