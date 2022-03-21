@@ -5,7 +5,6 @@ package com.daml.codegen.lf
 
 import java.io.File
 
-import com.daml.codegen.Util
 import com.daml.lf.data.Ref._
 
 import scala.reflect.runtime.universe._
@@ -27,8 +26,8 @@ object PackageIDsGen {
 
     val packageIdsSrc: Tree =
       q"""
-        package ${Util.packageNameToRefTree(util.packageName)} {
-          private[${Util.packageNameTailToRefTree(util.packageName)}] object `Package IDs` {
+        package ${LFUtil.packageNameToRefTree(util.packageName)} {
+          private[${LFUtil.packageNameTailToRefTree(util.packageName)}] object `Package IDs` {
             ..$packageIdBindings
           }
         }

@@ -4,6 +4,7 @@
 package com.daml.codegen
 package lf
 
+import com.daml.codegen.dependencygraph.DependencyGraph
 import com.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -114,9 +115,7 @@ class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPr
   "orderedDependencies" should {
     "include contract keys" in {
       val ei = CodeGen.filterTemplatesBy(Seq("HasKey".r))(envInterfaceWithKey)
-      LFUtil("a", ei, new java.io.File("."))
-        .orderedDependencies(ei)
-        .deps map (_._1) should ===(
+      DependencyGraph.orderedDependencies(ei).deps map (_._1) should ===(
         Vector("a:b:It", "a:b:HasKey") map Ref.Identifier.assertFromString
       )
     }

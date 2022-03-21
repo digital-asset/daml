@@ -39,7 +39,7 @@ object CodeGen {
   val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
   import universe._
 
-  import Util.{FilePlan, WriteParams}
+  import LFUtil.{FilePlan, WriteParams}
 
   /*
    * Given a Daml package (in DAR or DALF format), a package name and an output
@@ -92,7 +92,7 @@ object CodeGen {
       packageName: String,
       iface: EnvironmentInterface,
       outputDir: File,
-  ): Util = mode match {
+  ): LFUtil = mode match {
     case Novel => LFUtil(packageName, iface, outputDir)
   }
 
@@ -162,12 +162,12 @@ object CodeGen {
     }
   }
 
-  private def packageInterfaceToScalaCode(util: Util): Unit = {
+  private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
     val interface = util.iface
 
     val orderedDependencies
         : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[util.TemplateInterface]] =
-      util.orderedDependencies(interface)
+      DependencyGraph.orderedDependencies(util.iface)
     val (templateIds, typeDeclsToGenerate): (
         Map[Identifier, util.TemplateInterface],
         List[ScopedDataType.FWT],
@@ -293,7 +293,7 @@ object CodeGen {
     val (deletedRecords, newVariants) =
       variants.toList.traverse {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
-          val typeVarDelegate = Util simplyDelegates vTypeVars
+          val typeVarDelegate = LFUtil simplyDelegates vTypeVars
           val (deleted, sdt) = fields.traverse { case (vn, vt) =>
             val syntheticRecord = Identifier(
               packageId,
@@ -316,7 +316,7 @@ object CodeGen {
   }
 
   private[this] def writeTemplatesAndTypes(
-      util: Util
+      util: LFUtil
   )(wp: WriteParams[util.TemplateInterface]): Unit = {
     util.templateAndTypeFiles(wp).iterator.foreach {
       case -\/(msg) => logger.debug(msg)
@@ -331,7 +331,7 @@ object CodeGen {
       filePath.getParentFile.mkdirs()
       val writer = new PrintWriter(filePath)
       try {
-        writer.println(Util.autoGenerationHeader)
+        writer.println(LFUtil.autoGenerationHeader)
         trees.foreach(tree => writer.println(showCode(tree)))
       } finally {
         writer.close()

@@ -46,7 +46,7 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
   }
 
   it should "mkDamlScalaName for a Template names foo.bar.Test" in {
-    val result = util.mkDamlScalaName(Util.Template, QualifiedName assertFromString "foo.bar:Test")
+    val result = util.mkDamlScalaName(QualifiedName assertFromString "foo.bar:Test")
     result shouldEqual damlScalaName(Array("foo", "bar"), "Test")
     result.packageName shouldEqual (scalaPackage + ".foo.bar")
     result.qualifiedName shouldEqual (scalaPackage + ".foo.bar.Test")
