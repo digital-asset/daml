@@ -3,7 +3,7 @@
 
 package com.daml.codegen.dependencygraph
 
-import com.daml.codegen.exception.UnsopportedTypeError
+import com.daml.codegen.exception.UnsupportedTypeError
 
 object Graph {
 
@@ -25,7 +25,7 @@ object Graph {
         stack: Set[K],
         id: K,
         node: NKA,
-    ): (Seen, Vector[(K, NKA)], Boolean, List[UnsopportedTypeError]) = {
+    ): (Seen, Vector[(K, NKA)], Boolean, List[UnsupportedTypeError]) = {
       if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen.getOrElse(id, false), List())
       else {
         val Node(_, deps, collectError @ _) = node
@@ -36,7 +36,7 @@ object Graph {
             newSeen,
             newEnts,
             true,
-            UnsopportedTypeError(
+            UnsupportedTypeError(
               s"Type $id is not supported as dependencies have unsupported type: '${missing
                 .mkString("', '")}'."
             ) :: utes,
@@ -50,8 +50,8 @@ object Graph {
         seen: Seen,
         stack: Set[K],
         deps: Iterable[K],
-    ): (Seen, Vector[(K, NKA)], List[K], List[UnsopportedTypeError]) =
-      deps.foldLeft((seen, Vector[(K, NKA)](), List[K](), List[UnsopportedTypeError]())) {
+    ): (Seen, Vector[(K, NKA)], List[K], List[UnsupportedTypeError]) =
+      deps.foldLeft((seen, Vector[(K, NKA)](), List[K](), List[UnsupportedTypeError]())) {
         case ((seen, ents, missing, utes), k) =>
           graph get k collect { case n: NKA =>
             val (newSeen, newEnts, nMissing, newUtes) = visit(seen, stack, k, n)
@@ -77,5 +77,5 @@ object Graph {
   */
 final case class OrderedDependencies[+K, +A](
     deps: Vector[(K, Node[K, A])],
-    errors: List[UnsopportedTypeError],
+    errors: List[UnsupportedTypeError],
 )
