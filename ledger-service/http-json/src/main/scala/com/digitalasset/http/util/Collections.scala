@@ -3,8 +3,8 @@
 
 package com.daml.http.util
 
-import com.daml.scalautil.nonempty.NonEmpty
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 import scalaz.NonEmptyList
 
 object Collections {

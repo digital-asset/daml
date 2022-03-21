@@ -4,7 +4,7 @@
 package com.daml.http.dbbackend
 
 import com.daml.lf.data.Ref
-import com.daml.scalautil.nonempty
+import com.daml.nonempty
 import nonempty.{NonEmpty, +-:}
 import nonempty.NonEmptyReturningOps._
 

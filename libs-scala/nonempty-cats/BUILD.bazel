@@ -33,6 +33,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
     ],
 )
@@ -55,6 +56,7 @@ da_scala_test(
     scalacopts = scalacopts,
     deps = [
         ":nonempty-cats",
+        "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
         "//libs-scala/scalatest-utils",
     ],

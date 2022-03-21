@@ -14,7 +14,7 @@ import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
-import com.daml.scalautil.nonempty.{+-:, NonEmpty, NonEmptyF}
+import com.daml.nonempty.{+-:, NonEmpty, NonEmptyF}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO

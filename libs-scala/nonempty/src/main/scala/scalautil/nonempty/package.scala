@@ -16,5 +16,5 @@ package object nonempty {
   type NonEmptyF[F[_], A] = dne.NonEmptyF[F, A]
 
   @deprecated("use com.daml.nonempty.NonEmptyReturningOps instead", since = "2.1.0")
-  val NonEmptyReturningOps: dna.NonEmptyReturningOps.type = dne.NonEmptyReturningOps
+  val NonEmptyReturningOps: dne.NonEmptyReturningOps.type = dne.NonEmptyReturningOps
 }

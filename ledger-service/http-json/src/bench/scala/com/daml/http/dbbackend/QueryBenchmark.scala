@@ -6,7 +6,7 @@ package com.daml.http.dbbackend
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, TemplateId}
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.nonempty.NonEmpty
 import doobie.implicits._
 import org.openjdk.jmh.annotations._
 
