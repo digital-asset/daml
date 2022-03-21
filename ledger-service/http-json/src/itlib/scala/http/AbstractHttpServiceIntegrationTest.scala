@@ -2021,6 +2021,21 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }: Future[Assertion]
   }
 
+  "packages/packageId should return NotFound if a non-existing package is requested" in withHttpServiceAndClient {
+    (uri, _, _, _, _) =>
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.GET,
+            uri = uri.withPath(Uri.Path(s"/v1/packages/12345678")),
+            headers = headersWithAdminAuth,
+          )
+        )
+        .map { resp =>
+          resp.status shouldBe StatusCodes.NotFound
+        }
+  }
+
   "packages upload endpoint" in withHttpServiceAndClient { (uri, _, _, _, _) =>
     val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
 
