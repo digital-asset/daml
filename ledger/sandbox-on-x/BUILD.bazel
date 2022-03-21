@@ -95,6 +95,7 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
         "//ledger/sandbox-common:sandbox-common-ce",
         "//ledger/sandbox-on-x",
         "//libs-scala/build-info",
