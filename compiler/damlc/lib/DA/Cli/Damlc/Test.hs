@@ -166,7 +166,9 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
               unlines $
               ["templates never created:"] <> map printFullTemplateName (S.toList missingTemplates) <>
               ["choices never executed:"] <>
-              [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
+              [ printFullTemplateName t <> ":" <> T.unpack c <> maybe "" printInheritedFrom mi
+              | (t, c, mi) <- missingChoices
+              ]
   where
     pkgMap =
         M.fromList
@@ -177,11 +179,12 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
     pkgIdToPkgName pId = maybe pId LF.unPackageName $ join $ M.lookup pId pkgMap
     templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
     choices =
-        [ (pidM, m, t, n)
+        [ (pidM, m, t, n, mi)
         | (pidM, m, t) <- templates
-        , n <- concat
-            [ NM.names (LF.tplChoices t)
-            , S.toList . LF.tpiInheritedChoiceNames =<< NM.toList (LF.tplImplements t)
+        , (n, mi) <- concat
+            [ (, Nothing) <$> NM.names (LF.tplChoices t)
+            , NM.toList (LF.tplImplements t) >>= \LF.TemplateImplements {..} ->
+                (, Just tpiInterface) <$> S.toList tpiInheritedChoiceNames
             ]
         ]
     percentage i j
@@ -205,29 +208,39 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
             ]
     coveredChoices =
         nubSort $
-        [ (templateId, node_ExerciseChoiceId)
+        [ (fullTemplateNameProto templateId, TL.toStrict node_ExerciseChoiceId)
         | n <- allScenarioNodes
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just templateId <- [node_ExerciseTemplateId]
         ]
-    missingChoices =
-        S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.difference`
-        S.fromList
-            [ (fullTemplateNameProto t, TL.toStrict c)
-            | (t, c) <- coveredChoices
-            ]
+    missingChoices = sort
+        [ (template, choice, mi)
+        | (pidM, m, t, n, mi) <- choices
+        , let template = fullTemplateName pidM m t
+              choice = LF.unChoiceName n
+        , (template, choice) `notElem` coveredChoices
+        ]
     nrOfTemplates = length templates
     nrOfChoices = length choices
     coveredNrOfChoices = length coveredChoices
     coveredNrOfTemplates = length coveredTemplates
     printFullTemplateName (pIdM, name) =
         T.unpack $ maybe name (\pId -> pkgIdToPkgName pId <> ":" <> name) pIdM
+    printInheritedFrom :: LF.Qualified LF.TypeConName -> String
+    printInheritedFrom i =
+        let pidM = case LF.qualPackage i of
+                LF.PRSelf -> Nothing
+                LF.PRImport pid -> Just pid
+            ifaceName = fullTypeConName pidM (LF.qualModule i) (LF.qualObject i)
+        in " (inherited from " <> printFullTemplateName ifaceName <> ")"
     fullTemplateName pidM m t =
-        ( fmap LF.unPackageId pidM
-        , (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-          (T.concat $ LF.unTypeConName $ LF.tplTypeCon t))
+        fullTypeConName pidM (LF.moduleName m) (LF.tplTypeCon t)
+    fullTypeConName pidM m c =
+        (fmap LF.unPackageId pidM
+        , LF.moduleNameString m <> ":" <> T.concat (LF.unTypeConName c)
+        )
     fullTemplateNameProto SS.Identifier {SS.identifierPackage, SS.identifierName} =
         ( do pIdSumM <- identifierPackage
              pIdSum <- SS.packageIdentifierSum pIdSumM
