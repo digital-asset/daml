@@ -1,17 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.engine.replay
+package com.daml.lf
+package testing.snapshot
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
+import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, VersionedTransaction}
 import com.daml.lf.value.Value
 
 import scala.collection.mutable
 
-private[replay] final class Adapter(
+final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package]
 ) {
 
@@ -65,6 +66,9 @@ private[replay] final class Adapter(
     coinst.map(unversioned =>
       unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
     )
+
+  def adapt(gkey: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
+    GlobalKeyWithMaintainers(adapt(gkey.globalKey), gkey.maintainers)
 
   def adapt(gkey: GlobalKey): GlobalKey =
     GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))

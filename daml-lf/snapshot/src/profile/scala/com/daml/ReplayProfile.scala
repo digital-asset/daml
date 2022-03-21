@@ -1,12 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.tools.engine.replay
+package com.daml.lf
+package testing.snapshot
 
 import com.daml.lf.data.Ref
+import scopt.{OptionParser, Read}
 
 import java.nio.file.{Path, Paths}
-import scopt.{OptionParser, Read}
 
 final case class Config(
     choiceName: String,
@@ -42,7 +43,7 @@ object Config {
       .text("Path to DAR")
       .optional()
     opt[Path]("export")
-      .text("Path to KVUtils ledger export")
+      .text("Path to submission entries file")
       .action((x, c) => c.copy(ledgerExport = x))
       .required()
     opt[Path]("profile-dir")
@@ -74,11 +75,11 @@ object ReplayProfile {
       Ref.Name.assertFromString(name),
     )
     val originalBenchmark =
-      Replay.loadBenchmark(config.ledgerExport, choice, 0, Some(config.profileDir))
+      TransactionSnapshot.loadBenchmark(config.ledgerExport, choice, 0, Some(config.profileDir))
     val benchmark = config.darFile match {
       case Some(path) =>
-        val loadedPackages = Replay.loadDar(path)
-        Replay.adapt(loadedPackages, originalBenchmark)
+        val loadedPackages = TransactionSnapshot.loadDar(path)
+        originalBenchmark.adapt(loadedPackages)
       case None =>
         originalBenchmark
     }
