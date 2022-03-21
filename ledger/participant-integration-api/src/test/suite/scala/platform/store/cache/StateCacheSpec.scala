@@ -3,12 +3,10 @@
 
 package com.daml.platform.store.cache
 
-import java.util.concurrent.TimeUnit
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -16,6 +14,7 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Success
@@ -122,30 +121,18 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     }
   }
 
-  it should "not update the cache, invalidate the key and abort pending updates if called with a decreasing `validAt`" in {
+  it should "not update the cache if called with a non-increasing `validAt`" in {
     val cache = mock[ConcurrentCache[String, String]]
     val stateCache = StateCache[String, String](0L, cache, cacheUpdateTimer)
 
-    val asyncUpdatePromise = Promise[String]()
     stateCache.put("key", 2L, "value")
-    val asyncPutResult = stateCache.putAsync("key", { _ => asyncUpdatePromise.future })
-    val pendingUpdatesKeyAfterAsyncPut = stateCache.pendingUpdates.get("key")
     // `Put` at a decreasing validAt
     stateCache.put("key", 1L, "earlier value")
-    val pendingUpdatesKeyEntryAfterFaultyPut = stateCache.pendingUpdates.get("key")
-    // Async update completes but should not make it in the cache
-    asyncUpdatePromise.completeWith(Future.successful("async put value"))
+    stateCache.put("key", 2L, "value at same validAt")
 
-    for {
-      _ <- asyncPutResult
-    } yield {
-      pendingUpdatesKeyAfterAsyncPut shouldBe Some(PendingUpdatesState(1L, 2L))
-      pendingUpdatesKeyEntryAfterFaultyPut shouldBe None
-      verify(cache).put("key", "value")
-      verify(cache).invalidate("key")
-      verifyNoMoreInteractions(cache)
-      succeed
-    }
+    verify(cache).put("key", "value")
+    verifyNoMoreInteractions(cache)
+    succeed
   }
 
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =
@@ -190,8 +177,8 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
   ): (Seq[Future[Unit]], FiniteDuration) =
     time {
       insertions.map { case (key, (promise, _)) =>
-        stateCache._cacheIndex += 1
-        val validAt = stateCache._cacheIndex
+        stateCache.cacheIndex += 1
+        val validAt = stateCache.cacheIndex
         stateCache
           .putAsync(key, { case `validAt` => promise.future })
           .map(_ => ())(scala.concurrent.ExecutionContext.global)

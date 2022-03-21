@@ -323,7 +323,7 @@ private object MutableCacheBackedContractStoreRaceTests {
   ) = MutableCacheBackedContractStore(
     contractsReader = indexViewContractsReader,
     signalNewLedgerHead = (_, _) => (),
-    startIndexExclusive = Offset.beforeBegin -> EventSequentialId.beforeBegin,
+    startIndexExclusive = EventSequentialId.beforeBegin,
     metrics = new Metrics(new MetricRegistry),
     maxContractsCacheSize = 1L,
     maxKeyCacheSize = 1L,

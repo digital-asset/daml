@@ -13,8 +13,14 @@ import com.daml.scalautil.Statement.discard
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/** This class is a wrapper around a Caffeine cache designed to handle
-  * correct resolution of concurrent updates for the same key.
+/** This class is a wrapper around a Caffeine cache designed to handle correct resolution of
+  * concurrent updates for the same key.
+  *
+  * The [[StateCache]] tracks its own notion of logical time with the `cacheIndex`
+  * which evolves monotonically based on the index DB's event sequential id (updated by [[put]]).
+  *
+  * The cache's logical time (i.e. the `cacheIndex`) is used for establishing precedence of cache updates
+  * stemming from read-throughs triggered from command interpretation on cache misses.
   */
 private[platform] case class StateCache[K, V](
     initialCacheIndex: Long,
@@ -23,9 +29,7 @@ private[platform] case class StateCache[K, V](
 )(implicit ec: ExecutionContext) {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
-  @volatile private[cache] var _cacheIndex = initialCacheIndex
-
-  def cacheIndex: Long = _cacheIndex
+  @volatile private[cache] var cacheIndex = initialCacheIndex
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -35,20 +39,15 @@ private[platform] case class StateCache[K, V](
   def get(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
       case Some(value) =>
-        logger.debug(s"Cache hit for $key -> ${value.toString.take(1000)}")
+        logger.debug(s"Cache hit for $key -> ${truncateValueForLogging(value)}")
         Some(value)
       case None =>
         logger.debug(s"Cache miss for $key ")
         None
     }
 
-  /** Update the cache synchronously.
-    *
-    * In face of multiple in-flight updates competing for the `key` (see [[putAsync()]]),
-    * this method updates the cache only if the to-be-inserted tuple is the most recent
-    * (i.e. it has `validAt` highest amongst the competing updates).
-    *
-    * NOTE: Calls to `put` evolve the cache index. Callers should ensure strictly increasing validAt evolution.
+  /** Synchronous cache updates evolve the cache ahead with the most recent Index DB entries.
+    * This method increases the `cacheIndex` monotonically.
     *
     * @param key the key at which to update the cache
     * @param validAt ordering discriminator for pending updates for the same key
@@ -58,32 +57,19 @@ private[platform] case class StateCache[K, V](
     Timed.value(
       registerUpdateTimer, {
         pendingUpdates.synchronized {
-          // Synchronous updates should generally increase the _cacheIndex strictly monotonic.
-          // However, on transient DB errors, the restart of the update flow can lead to
-          // re-update at the current _cacheIndex.
-          if (validAt >= _cacheIndex) {
-            val competingLatestForKey =
-              pendingUpdates
-                .get(key)
-                .map { pendingUpdate =>
-                  val oldLatestValidAt = pendingUpdate.latestValidAt
-                  pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
-                  oldLatestValidAt
-                }
-                .getOrElse(Long.MinValue)
-
-            if (competingLatestForKey < validAt) putInternal(key, value, validAt) else ()
-
-            _cacheIndex = validAt
-          } else {
-            // Updating the cache synchronously before the _cacheIndex is an error scenario.
-            // Abort pending updates and invalidate the cache entry.
-            pendingUpdates -= key
-            cache.invalidate(key)
-            logger.error(
-              s"Unexpected incoming synchronous update at an index equal to or before the cache index. Invalidating the entry for key $key."
+          // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
+          // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
+          // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
+          if (validAt > cacheIndex) {
+            pendingUpdates
+              .get(key)
+              .foreach(_.latestValidAt = validAt)
+            cacheIndex = validAt
+            putInternal(key, value, validAt)
+          } else
+            logger.warn(
+              s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
             )
-          }
         }
       },
     )
@@ -98,12 +84,12 @@ private[platform] case class StateCache[K, V](
     * @param key the key at which to update the cache
     * @param fetchAsync fetches asynchronously the value for key `key` at the current cache index
     */
-  final def putAsync(key: K, fetchAsync: Long => Future[V])(implicit
+  def putAsync(key: K, fetchAsync: Long => Future[V])(implicit
       loggingContext: LoggingContext
   ): Future[V] = Timed.value(
     registerUpdateTimer,
     pendingUpdates.synchronized {
-      val validAt = _cacheIndex
+      val validAt = cacheIndex
       val eventualValue = Future.delegate(fetchAsync(validAt))
       val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
       if (pendingUpdatesForKey.latestValidAt < validAt) {
@@ -119,7 +105,7 @@ private[platform] case class StateCache[K, V](
       loggingContext: LoggingContext
   ): Unit = {
     cache.put(key, value)
-    logger.debug(s"Updated cache for $key with $value at $validAt")
+    logger.debug(s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt")
   }
 
   private def registerEventualCacheUpdate(
@@ -133,9 +119,13 @@ private[platform] case class StateCache[K, V](
           pendingUpdates
             .get(key)
             .map { pendingForKey =>
-              if (pendingForKey.latestValidAt == validAt)
+              // Only update the cache if the current update is targeting the cacheIndex
+              // sampled when initially dispatched in `putAsync`.
+              // Otherwise we can assume that a more recent `putAsync` has an update in-flight
+              // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
+              if (pendingForKey.latestValidAt == validAt) {
                 putInternal(key, value, validAt)
-              else ()
+              }
               removeFromPending(key)
             }
             .getOrElse(logger.error(s"Pending updates tracker for $key not registered "))
@@ -162,6 +152,14 @@ private[platform] case class StateCache[K, V](
           logger.error(s"Expected pending updates tracker for key $key is missing")
         }
     )
+
+  private def truncateValueForLogging(value: V) = {
+    val stringValueRepr = value.toString
+    val maxValueLength = 250
+    if (stringValueRepr.length > maxValueLength)
+      stringValueRepr.take(maxValueLength) + "..."
+    else stringValueRepr
+  }
 }
 
 object StateCache {

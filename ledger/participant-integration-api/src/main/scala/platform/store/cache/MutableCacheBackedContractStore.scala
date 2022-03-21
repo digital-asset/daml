@@ -29,22 +29,18 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import scala.util.chaining._
 import scala.util.control.NoStackTrace
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     signalNewLedgerHead: SignalNewLedgerHead,
-    startIndexExclusive: (Offset, Long),
     private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ContractStore {
 
   private val logger = ContextualizedLogger.get(getClass)
-
-  private[cache] val resubscriptionOffset = MutableLedgerEndCache().tap(_.set(startIndexExclusive))
 
   def push(event: ContractStateEvent): Unit = {
     debugEvents(event)
@@ -248,7 +244,6 @@ private[platform] class MutableCacheBackedContractStore(
     one.intersect(other).nonEmpty
 
   private def updateOffsets(event: ContractStateEvent): Unit = {
-    resubscriptionOffset.set(event.eventOffset, event.eventSequentialId)
     metrics.daml.execution.cache.indexSequentialId
       .updateValue(event.eventSequentialId)
     event match {
@@ -331,12 +326,12 @@ private[platform] object MutableCacheBackedContractStore {
   type SignalNewLedgerHead = (Offset, Long) => Unit
   // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
   type SubscribeToContractStateEvents =
-    ((Offset, EventSequentialId)) => Source[ContractStateEvent, NotUsed]
+    () => Source[ContractStateEvent, NotUsed]
 
   def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
-      startIndexExclusive: (Offset, Long),
+      startIndexExclusive: Long,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
@@ -348,9 +343,8 @@ private[platform] object MutableCacheBackedContractStore {
       metrics,
       contractsReader,
       signalNewLedgerHead,
-      startIndexExclusive,
-      ContractKeyStateCache(startIndexExclusive._2, maxKeyCacheSize, metrics),
-      ContractsStateCache(startIndexExclusive._2, maxContractsCacheSize, metrics),
+      ContractKeyStateCache(startIndexExclusive, maxKeyCacheSize, metrics),
+      ContractsStateCache(startIndexExclusive, maxContractsCacheSize, metrics),
     )
 
   final class CacheUpdateSubscription(
@@ -370,10 +364,7 @@ private[platform] object MutableCacheBackedContractStore {
               maxBackoff = 10.seconds,
               randomFactor = 0.2,
             )
-          )(() =>
-            subscribeToContractStateEvents(contractStore.resubscriptionOffset())
-              .map(contractStore.push)
-          )
+          )(() => subscribeToContractStateEvents().map(contractStore.push))
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
           .run()
