@@ -41,6 +41,8 @@ import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
+import scala.util.chaining._
+
 final class SandboxServer(
     config: SandboxConfig,
     metrics: Metrics,
@@ -129,9 +131,10 @@ final class SandboxServer(
         UUID.randomUUID().toString -> (file, uploadCompletionPromise)
       }.toMap
 
-      scheduleUploadTimeout(packageSubmissionsTrackerMap.iterator.map(_._2._2), 10.seconds)
-
       uploadAndWaitPackages(indexService, writeService, packageSubmissionsTrackerMap)
+        .tap { _ =>
+          scheduleUploadTimeout(packageSubmissionsTrackerMap.iterator.map(_._2._2), 30.seconds)
+        }
     })
 
   private def scheduleUploadTimeout(
@@ -159,7 +162,7 @@ final class SandboxServer(
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ) = {
+  ): Future[Unit] = {
     implicit val noOpTelemetryContext: TelemetryContext = NoOpTelemetryContext
 
     val uploadCompletionSink = Sink.foreach[PackageEntry] {
