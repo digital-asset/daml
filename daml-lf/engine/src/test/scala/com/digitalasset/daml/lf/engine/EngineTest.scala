@@ -159,7 +159,7 @@ class EngineTest
     val submitters = Set(party)
     val readAs = (Set.empty: Set[Party])
     val res = preprocessor
-      .preprocessCommands(ImmArray(command))
+      .preprocessApiCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val interpretResult = suffixLenientEngine
@@ -252,7 +252,7 @@ class EngineTest
       val readAs = (Set.empty: Set[Party])
       val cmd = command(templateId, signatories)
       val res = preprocessor
-        .preprocessCommands(ImmArray(cmd))
+        .preprocessApiCommands(ImmArray(cmd))
         .consume(lookupContract, lookupPackage, lookupKey)
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
@@ -355,7 +355,7 @@ class EngineTest
     val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
-      .preprocessCommands(ImmArray(command))
+      .preprocessApiCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val interpretResult =
@@ -445,7 +445,7 @@ class EngineTest
     val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
-      .preprocessCommands(ImmArray(command))
+      .preprocessApiCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
 
@@ -493,7 +493,7 @@ class EngineTest
     val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
-      .preprocessCommands(ImmArray(command))
+      .preprocessApiCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val result =
@@ -807,7 +807,7 @@ class EngineTest
     val submitters = Set(party)
 
     val res = preprocessor
-      .preprocessCommands(ImmArray(command))
+      .preprocessApiCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
     val interpretResult =
@@ -1092,7 +1092,7 @@ class EngineTest
     val txSeed =
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
     val Right(cmds) = preprocessor
-      .preprocessCommands(ImmArray(command))
+      .preprocessApiCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     val Right((rtx, _)) = suffixLenientEngine
       .interpretCommands(
@@ -1259,7 +1259,7 @@ class EngineTest
       val submitters = Set(exerciseActor)
 
       val res = preprocessor
-        .preprocessCommands(ImmArray(command))
+        .preprocessApiCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res
@@ -1680,7 +1680,7 @@ class EngineTest
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(
+        .preprocessApiCommands(
           ImmArray(
             ApiCommand.Exercise(
               fetcherTemplateId,
@@ -1918,7 +1918,7 @@ class EngineTest
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(cmd))
+        .preprocessApiCommands(ImmArray(cmd))
         .consume(
           lookupContract,
           lookupPackage,
@@ -2028,7 +2028,7 @@ class EngineTest
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(cmd))
+        .preprocessApiCommands(ImmArray(cmd))
         .consume(
           lookupContract,
           lookupPackage,
@@ -2110,7 +2110,7 @@ class EngineTest
         lookupKey(key)
       }
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(cmd))
+        .preprocessApiCommands(ImmArray(cmd))
         .consume(
           lookupContract,
           lookupPackage,

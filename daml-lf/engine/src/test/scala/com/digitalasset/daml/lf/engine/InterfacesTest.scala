@@ -90,8 +90,8 @@ class InterfacesTest
         lookupKey,
       )
 
-    def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessCommand(cmd))
-    def preprocessReplay(cmd: ReplayCommand) = consume(preprocessor.preprocessCommand(cmd))
+    def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(cmd))
+    def preprocessReplay(cmd: ReplayCommand) = consume(preprocessor.preprocessReplayCommand(cmd))
     def run[Cmd](cmd: Cmd)(preprocess: Cmd => Result[speedy.Command]) =
       for {
         speedyCmd <- preprocess(cmd)
@@ -106,10 +106,8 @@ class InterfacesTest
             seeding = seeding,
           )
       } yield result
-    def runApi(cmd: ApiCommand) =
-      consume(run(cmd)(preprocessor.preprocessCommand))
-    def runReplay(cmd: ReplayCommand) =
-      consume(run(cmd)(preprocessor.preprocessCommand))
+    def runApi(cmd: ApiCommand) = consume(run(cmd)(preprocessor.preprocessApiCommand))
+    def runReplay(cmd: ReplayCommand) = consume(run(cmd)(preprocessor.preprocessReplayCommand))
 
     /* create by interface tests */
     "be able to create T1 by interface I1" in {

@@ -164,7 +164,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(
+        .preprocessApiCommands(
           ImmArray(
             ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
           )
@@ -198,7 +198,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
+        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
 
       val result = suffixLenientEngine
@@ -231,7 +231,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
+        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
@@ -310,7 +310,7 @@ class ContractKeySpec
           argument,
         )
         val Right(cmds) = preprocessor
-          .preprocessCommands(ImmArray(cmd))
+          .preprocessApiCommands(ImmArray(cmd))
           .consume(lookupContract, lookupPackage, lookupKey)
         engine
           .interpretCommands(

@@ -150,11 +150,11 @@ class CommandPreprocessorSpec
       )
 
       forEvery(noErrorTestCases) { command =>
-        Try(defaultPreprocessor.unsafePreprocessCommand(command)) shouldBe a[Success[_]]
+        Try(defaultPreprocessor.unsafePreprocessApiCommand(command)) shouldBe a[Success[_]]
       }
 
       forEvery(errorTestCases) { (command, typ) =>
-        inside(Try(defaultPreprocessor.unsafePreprocessCommand(command))) {
+        inside(Try(defaultPreprocessor.unsafePreprocessApiCommand(command))) {
           case Failure(error: Error.Preprocessing.Error) =>
             error shouldBe typ
         }
@@ -201,11 +201,11 @@ class CommandPreprocessorSpec
       )
 
       forEvery(noErrorTestCases) { command =>
-        Try(defaultPreprocessor.unsafePreprocessCommand(command)) shouldBe a[Success[_]]
+        Try(defaultPreprocessor.unsafePreprocessReplayCommand(command)) shouldBe a[Success[_]]
       }
 
       forEvery(errorTestCases) { (command, typ) =>
-        inside(Try(defaultPreprocessor.unsafePreprocessCommand(command))) {
+        inside(Try(defaultPreprocessor.unsafePreprocessReplayCommand(command))) {
           case Failure(error: Error.Preprocessing.Error) =>
             error shouldBe typ
         }
@@ -269,7 +269,7 @@ class CommandPreprocessorSpec
 
       cids.foreach(cid =>
         forEvery(contractIdTestCases(cids.head, cid))(cmd =>
-          Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
+          Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe a[Success[_]]
         )
       )
 
@@ -290,10 +290,10 @@ class CommandPreprocessorSpec
       val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(contractIdTestCases(aLegalCid, anotherLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe a[Success[_]]
       }
       forEvery(contractIdTestCases(illegalCid, aLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe failure
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe failure
       }
     }
 

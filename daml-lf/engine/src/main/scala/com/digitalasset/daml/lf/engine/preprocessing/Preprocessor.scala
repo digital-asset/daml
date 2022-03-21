@@ -168,27 +168,27 @@ private[engine] final class Preprocessor(
       commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
     }
 
-  private[engine] def preprocessCommand(
+  private[engine] def preprocessApiCommand(
       cmd: command.ApiCommand
   ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
-      commandPreprocessor.unsafePreprocessCommand(cmd)
+      commandPreprocessor.unsafePreprocessApiCommand(cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
     */
-  def preprocessCommands(
+  def preprocessApiCommands(
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
-      commandPreprocessor.unsafePreprocessCommands(cmds)
+      commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 
-  private[engine] def preprocessCommand(
+  private[engine] def preprocessReplayCommand(
       cmd: command.ReplayCommand
   ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
-      commandPreprocessor.unsafePreprocessCommand(cmd)
+      commandPreprocessor.unsafePreprocessReplayCommand(cmd)
     }
 
   /** Translates a complete transaction. Assumes no contract ID suffixes are used */

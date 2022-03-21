@@ -157,7 +157,7 @@ private[lf] final class CommandPreprocessor(
 
   // returns the speedy translation of an API command.
   @throws[Error.Preprocessing.Error]
-  private[preprocessing] def unsafePreprocessCommand(
+  private[preprocessing] def unsafePreprocessApiCommand(
       cmd: command.ApiCommand
   ): speedy.Command =
     cmd match {
@@ -183,7 +183,7 @@ private[lf] final class CommandPreprocessor(
 
   // returns the speedy translation of an Replay command.
   @throws[Error.Preprocessing.Error]
-  private[preprocessing] def unsafePreprocessCommand(
+  private[preprocessing] def unsafePreprocessReplayCommand(
       cmd: command.ReplayCommand
   ): speedy.Command =
     cmd match {
@@ -229,7 +229,7 @@ private[lf] final class CommandPreprocessor(
     }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] = {
+  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] = {
 
     @tailrec
     def go(
@@ -238,7 +238,7 @@ private[lf] final class CommandPreprocessor(
     ): ImmArray[speedy.Command] = {
       toProcess match {
         case FrontStackCons(cmd, rest) =>
-          val speedyCmd = unsafePreprocessCommand(cmd)
+          val speedyCmd = unsafePreprocessApiCommand(cmd)
           go(rest, processed :+ speedyCmd)
         case FrontStack() =>
           processed.toImmArray

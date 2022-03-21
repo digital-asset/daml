@@ -101,7 +101,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
-      .preprocessCommands(cmds.commands)
+      .preprocessApiCommands(cmds.commands)
       .flatMap { processedCmds =>
         interpretCommands(
           validating = false,
@@ -151,7 +151,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerEffectiveTime: Time.Timestamp,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      speedyCommand <- preprocessor.preprocessCommand(command)
+      speedyCommand <- preprocessor.preprocessReplayCommand(command)
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
         compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand),
