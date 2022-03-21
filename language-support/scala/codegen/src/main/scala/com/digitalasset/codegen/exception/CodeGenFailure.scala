@@ -12,6 +12,3 @@ final case class PackageInterfaceException(error: String) extends CodeGenExcepti
 /** An unsupported Daml type has been found in a template */
 final case class UnsupportedDamlTypeException(typeName: String)
     extends CodeGenException(s"Unsupported daml type '$typeName'")
-
-final case class EmptyTemplateException(typeName: String)
-    extends CodeGenException(s"template with no arguments found, skipping it $typeName")
