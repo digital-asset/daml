@@ -350,13 +350,30 @@ trait AbstractHttpServiceIntegrationTestFuns
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
+  protected[this] object TplID {
+    import domain.TemplateId.{OptionalPkg => Id}
+    object Iou {
+      val Iou: Id = domain.TemplateId(None, "Iou", "Iou")
+      val IouTransfer: Id = domain.TemplateId(None, "Iou", "IouTransfer")
+    }
+    object Test {
+      val MultiPartyContract: Id = domain.TemplateId(None, "Test", "MultiPartyContract")
+    }
+    object Account {
+      val Account: Id = domain.TemplateId(None, "Account", "Account")
+    }
+    object User {
+      val User: Id = domain.TemplateId(None, "User", "User")
+    }
+  }
+
   protected def iouCreateCommand(
       partyName: String,
       amount: String = "999.9900000000",
       currency: String = "USD",
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val templateId: OptionalPkg = TplID.Iou.Iou
     val party = Ref.Party assertFromString partyName
     val arg = argToApi(iouVA)(
       ShRecord(
@@ -374,7 +391,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def iouExerciseTransferCommand(
       contractId: lar.ContractId
   ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-    val templateId = domain.TemplateId(None, "Iou", "Iou")
+    val templateId = TplID.Iou.Iou
     val reference = domain.EnrichedContractId(Some(templateId), contractId)
     val arg =
       recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
@@ -388,7 +405,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       amount: String = "999.9900000000",
       currency: String = "USD",
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val templateId: OptionalPkg = TplID.Iou.Iou
     val party = Ref.Party assertFromString partyName
     val payload = argToApi(iouVA)(
       ShRecord(
@@ -414,7 +431,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def multiPartyCreateCommand(ps: List[String], value: String) = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
+    val templateId: OptionalPkg = TplID.Test.MultiPartyContract
     val psv = lfToApi(VA.list(VA.party).inj(ps.toVector map Ref.Party.assertFromString)).sum
     val payload = recordFromFields(
       ShRecord(
@@ -430,7 +447,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
+    val templateId: OptionalPkg = TplID.Test.MultiPartyContract
     val psv = lfToApi(VA.list(VA.party).inj(ps.toVector map Ref.Party.assertFromString)).sum
     val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
@@ -446,7 +463,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       fetchedCid: lar.ContractId,
       actors: List[String],
   ) = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
+    val templateId: OptionalPkg = TplID.Test.MultiPartyContract
     val argument = v.Value(
       v.Value.Sum.Record(
         recordFromFields(
@@ -1340,7 +1357,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 assertTemplateId(created0.templateId, cmd.templateId)
                 assertTemplateId(archived0.templateId, cmd.templateId)
                 archived0.contractId shouldBe created0.contractId
-                assertTemplateId(created1.templateId, domain.TemplateId(None, "Iou", "IouTransfer"))
+                assertTemplateId(created1.templateId, TplID.Iou.IouTransfer)
                 asContractId(response.result.exerciseResult) shouldBe created1.contractId
             }
           }
@@ -1372,7 +1389,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           {
             exerciseResult.length should be > (0)
             val newContractLocator = domain.EnrichedContractId(
-              Some(domain.TemplateId(None, "Iou", "IouTransfer")),
+              Some(TplID.Iou.IouTransfer),
               domain.ContractId(exerciseResult),
             )
             postContractsLookup(newContractLocator, uri, headers).flatMap { case (status, output) =>
@@ -1408,7 +1425,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           assertStatus(createOutput, StatusCodes.OK)
 
           val contractId = getContractId(getResult(createOutput))
-          val templateId = domain.TemplateId(None, "Iou", "Iou")
+          val templateId = TplID.Iou.Iou
           val reference = domain.EnrichedContractId(Some(templateId), contractId)
           val exercise = archiveCommand(reference)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
@@ -1777,7 +1794,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       getUniquePartyAndAuthHeaders(uri)("Alice").flatMap { case (alice, headers) =>
         val accountNumber = "abc123"
         val locator = domain.EnrichedContractKey(
-          domain.TemplateId(None, "Account", "Account"),
+          TplID.Account.Account,
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
         postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).flatMap {
@@ -1839,7 +1856,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
         val locator = domain.EnrichedContractKey(
-          domain.TemplateId(None, "Account", "Account"),
+          TplID.Account.Account,
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
         lookupContractAndAssert(locator, contractId, command, encoder, uri, headers)
@@ -1860,7 +1877,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         )
       )
       val locator = domain.EnrichedContractKey[v.Value](
-        domain.TemplateId(None, "Account", "Account"),
+        TplID.Account.Account,
         v.Value(v.Value.Sum.Record(keyRecord)),
       )
       val archive: domain.ExerciseCommand[v.Value, domain.EnrichedContractKey[v.Value]] =
@@ -2181,7 +2198,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           username: domain.Party,
           following: Seq[domain.Party] = Seq.empty,
       ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-        val templateId = domain.TemplateId(None, "User", "User")
+        val templateId = TplID.User.User
         val followingList = lfToApi(
           VA.list(VA.party)
             .inj(domain.Party unsubst following.toVector map Ref.Party.assertFromString)
@@ -2200,7 +2217,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           contractId: lar.ContractId,
           toFollow: domain.Party,
       ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-        val templateId = domain.TemplateId(None, "User", "User")
+        val templateId = TplID.User.User
         val reference = domain.EnrichedContractId(Some(templateId), contractId)
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
