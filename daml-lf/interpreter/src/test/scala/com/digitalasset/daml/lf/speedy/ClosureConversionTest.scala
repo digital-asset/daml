@@ -41,19 +41,19 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
   private val preventCatch = (x: SExpr) => SEPreventCatch(x)
   private val labelClosure = (x: SExpr) => SELabelClosure(label, x)
 
-  "closure conversion (stack-safety)" - {
+  // This is the code under test...
+  def transform1(e: SExpr): Boolean = {
+    val _: target.SExpr = closureConvert(e)
+    true
+  }
 
-    // This is the code under test...
-    def transform1(e: SExpr): Boolean = {
-      val _: target.SExpr = closureConvert(e)
-      true
-    }
+  def transform2(e: SExpr): Boolean = {
+    val e1: target.SExpr = closureConvert(e)
+    val _ = flattenToAnf(e1)
+    true
+  }
 
-    def transform2(e: SExpr): Boolean = {
-      val e1: target.SExpr = closureConvert(e)
-      val _ = flattenToAnf(e1)
-      true
-    }
+  "stack-safety; deep" - {
 
     /* We test stack-safety by building deep expressions through each of the different
      * recursion points of an expression, using one of the builder functions above, and
@@ -149,6 +149,70 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         }
       }
     }
+  }
+
+  "stack-safety; wide" - {
+
+    val width = 3000 // increase if fix quadratic behavior of let-expressions
+
+    val appGeneral = (xs: List[SExpr]) => {
+      SEApp(leaf, xs)
+    }
+    val appWideBuiltin = (xs: List[SExpr]) => {
+      SEApp(SEBuiltin(SBuiltin.SBConsMany(width)), xs)
+    }
+    val caseWide = (xs: List[SExpr]) => {
+      SECase(leaf, xs.map(x => SCaseAlt(pat, x)))
+    }
+    val letWide = (xs: List[SExpr]) => {
+      SELet(xs, leaf)
+    }
+
+    val testCases = {
+      Table[String, List[SExpr] => SExpr](
+        ("name", "recursion-point"),
+        ("appGeneral", appGeneral),
+        ("appWideBuiltin", appWideBuiltin),
+        ("caseWide", caseWide),
+        ("letWide", letWide), //quadratic behavior
+      )
+    }
+
+    def runTest(transform: SExpr => Boolean)(width: Int, cons: List[SExpr] => SExpr): Boolean = {
+
+      @tailrec def loop(x: SExpr, n: Int): SExpr = {
+        if (n == 0) x
+        else {
+          val half = List.fill(width / 2)(leaf)
+          val wide = half ++ List(x) ++ half
+          loop(cons(wide), n - 1)
+        }
+      }
+      val depth = 3
+      val source: SExpr = loop(leaf, depth)
+      transform(source)
+    }
+
+    {
+      s"transform(closureConversion), width = $width" - {
+        forEvery(testCases) { (name: String, recursionPoint: List[SExpr] => SExpr) =>
+          name in {
+            runTest(transform1)(width, recursionPoint)
+          }
+        }
+      }
+    }
+
+    {
+      s"transform(closureConversion,ANF), width = $width" - {
+        forEvery(testCases) { (name: String, recursionPoint: List[SExpr] => SExpr) =>
+          name in {
+            runTest(transform2)(width, recursionPoint)
+          }
+        }
+      }
+    }
+
   }
 
   private val leaf = SEValue(v.SText("leaf"))
