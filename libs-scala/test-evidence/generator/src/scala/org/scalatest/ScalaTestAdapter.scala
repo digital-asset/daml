@@ -6,6 +6,10 @@ package org.scalatest.daml
 import org.scalatest.Suite
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
 
+/*
+ * This adapter is required to expose internal package-protected Scala Test library
+ * methods to discover Suite instances and `IgnoreTagName`.
+ */
 object ScalaTestAdapter {
 
   val IgnoreTagName: String = Suite.IgnoreTagName
