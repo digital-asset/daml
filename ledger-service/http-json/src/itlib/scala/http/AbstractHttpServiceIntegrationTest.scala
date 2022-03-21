@@ -676,17 +676,17 @@ trait AbstractHttpServiceIntegrationTestFuns
       party: domain.Party,
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = {
-    val partyJson = party.unwrap
+    val partyJson = party.toJson.compactPrint
     val payload =
       s"""
          |{
          |  "templateId": "Iou:Iou",
          |  "payload": {
          |    "observers": [],
-         |    "issuer": "$partyJson",
+         |    "issuer": $partyJson,
          |    "amount": "999.99",
          |    "currency": "USD",
-         |    "owner": "$partyJson"
+         |    "owner": $partyJson
          |  }
          |}
          |""".stripMargin
