@@ -421,7 +421,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def multiPartyCreateCommand(ps: List[String], value: String) = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
-    val psv = v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p)))))
+    val psv = lfToApi(VA.list(VA.party).inj(ps.toVector map Ref.Party.assertFromString)).sum
     val payload = recordFromFields(
       ShRecord(
         parties = psv,
@@ -437,8 +437,8 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
-    val psv = v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p)))))
-    val argument = v.Value(v.Value.Sum.Record(recordFromFields(ShRecord(newParties = psv))))
+    val psv = lfToApi(VA.list(VA.party).inj(ps.toVector map Ref.Party.assertFromString)).sum
+    val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(templateId), cid),
       argument = argument,
@@ -458,7 +458,8 @@ trait AbstractHttpServiceIntegrationTestFuns
         recordFromFields(
           ShRecord(
             cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
-            actors = v.Value.Sum.List(v.List(actors.map(p => v.Value(v.Value.Sum.Party(p))))),
+            actors =
+              lfToApi(VA.list(VA.party).inj(actors.toVector map Ref.Party.assertFromString)).sum,
           )
         )
       )
@@ -2103,11 +2104,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           templateId = helperId,
           payload = payload,
           choice = lar.Choice("CreateN"),
-          argument = boxedRecord(
-            v.Record(fields =
-              List(v.RecordField("n", Some(v.Value(v.Value.Sum.Int64(numContracts)))))
-            )
-          ),
+          argument = boxedRecord(recordFromFields(ShRecord(n = v.Value.Sum.Int64(numContracts)))),
           meta = None,
         )
 
@@ -2191,11 +2188,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           following: Seq[domain.Party] = Seq.empty,
       ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
         val templateId = domain.TemplateId(None, "User", "User")
-        val followingList = following.map(party => v.Value(v.Value.Sum.Party(party.unwrap)))
+        val followingList = lfToApi(
+          VA.list(VA.party)
+            .inj(domain.Party unsubst following.toVector map Ref.Party.assertFromString)
+        ).sum
         val arg = recordFromFields(
           ShRecord(
             username = v.Value.Sum.Party(username.unwrap),
-            following = v.Value.Sum.List(v.List.of(followingList)),
+            following = followingList,
           )
         )
 
