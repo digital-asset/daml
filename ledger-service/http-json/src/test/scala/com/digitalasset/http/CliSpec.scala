@@ -270,6 +270,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       ) should ===(None)
     }
 
+    // TEST_EVIDENCE: Input Validation: TLS configuration is parsed correctly from the config file
     "should successfully load a complete config file" in {
       val baseConfig = DbUtilsJdbcConfig(
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true",

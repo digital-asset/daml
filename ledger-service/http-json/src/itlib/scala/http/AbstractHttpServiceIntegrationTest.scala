@@ -1231,6 +1231,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
+  // TEST_EVIDENCE: Authorization: reject requests with missing auth header
   "create IOU should fail if authorization header is missing" in withHttpService {
     (uri, encoder, _, _) =>
       val alice = getUniqueParty("Alice")
@@ -1737,6 +1738,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         }: Future[Assertion]
   }
 
+  // TEST_EVIDENCE: Authorization: badly-authorized create is rejected
   "parties/allocate should return BadRequest error if party ID hint is invalid PartyIdString" in withHttpServiceAndClient {
     (uri, _, _, _, _) =>
       val request = domain.AllocatePartyRequest(
@@ -1794,6 +1796,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }
   }
 
+  // TEST_EVIDENCE: Authorization: fetch fails when readAs not authed, even if prior fetch succeeded
   "fetch fails when readAs not authed, even if prior fetch succeeded" in withHttpService {
     (uri, encoder, _, _) =>
       for {
@@ -2021,6 +2024,21 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }: Future[Assertion]
   }
 
+  "packages/packageId should return NotFound if a non-existing package is requested" in withHttpServiceAndClient {
+    (uri, _, _, _, _) =>
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.GET,
+            uri = uri.withPath(Uri.Path(s"/v1/packages/12345678")),
+            headers = headersWithAdminAuth,
+          )
+        )
+        .map { resp =>
+          resp.status shouldBe StatusCodes.NotFound
+        }
+  }
+
   "packages upload endpoint" in withHttpServiceAndClient { (uri, _, _, _, _) =>
     val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
 
@@ -2070,6 +2088,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }
   }
 
+  // TEST_EVIDENCE: Performance: archiving a large number of contracts should succeed
   "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
