@@ -540,8 +540,23 @@ data BuildLfPackageGraphArgs = BuildLfPackageGraphArgs
   }
 
 -- | The graph will have an edge from package A to package B:
---   - if A depends on B _OR_
---   - if A is a data-dependency, B is a (regular) dependency, and B doesn't depend on any data-dependencies.
+--   1. if A depends on B _OR_
+--   2. if A is a data-dependency, B is a (regular) dependency, and B doesn't
+--      depend (directly or transitively) on any data-dependencies.
+--
+--   The reason we want the second kind of edge is to ensure that the uses of
+--   type classes (including definitions, instances, constraints and exports) in
+--   data-dependencies can be rewritten to refer to the classes from (regular)
+--   dependencies when they share the same module, name and structure (method
+--   names and types). This only works if the dependency defining the class is
+--   processed before the data-dependency that uses it, but since the
+--   data-dependency does not explicitly depend on the dependency, we add the
+--   second kind of edge to have this information in the dependency graph.
+--
+--   In particular, this means that instance rewriting is not guaranteed to
+--   work for classes defined in packages that directly or transitively depend
+--   on data-dependencies.
+--
 buildLfPackageGraph :: BuildLfPackageGraphArgs -> (Graph, Vertex -> (PackageNode, LF.PackageId))
 buildLfPackageGraph BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode')
   where
