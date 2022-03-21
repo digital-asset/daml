@@ -15,25 +15,20 @@ scalacopts = lf_scalacopts + [
 ]
 
 da_scala_library(
-    name = "nonempty-cats",
-    srcs = glob(["src/main/scala/**/*.scala"]) + glob([
-        "src/main/{}/**/*.scala".format(scala_major_version),
-    ]),
+    name = "nonempty",
+    srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = scalacopts,
-    tags = ["maven_coordinates=com.daml:nonempty-cats:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:nonempty:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
     ],
 )
@@ -45,19 +40,15 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
+        "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
-        "@maven//:org_typelevel_cats_laws",
-        "@maven//:org_typelevel_discipline_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = scalacopts,
     deps = [
-        ":nonempty-cats",
-        "//libs-scala/nonempty",
-        "//libs-scala/scala-utils",
+        ":nonempty",
         "//libs-scala/scalatest-utils",
     ],
 )

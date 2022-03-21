@@ -1,8 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil
-package nonempty
+package com.daml.nonempty
 
 import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
@@ -11,7 +10,8 @@ import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
 
-import Statement.discard
+import com.daml.scalautil.FoldableContravariant
+import com.daml.scalautil.Statement.discard
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
@@ -19,10 +19,10 @@ import NonEmptyCollCompat._
   */
 sealed abstract class NonEmptyColl {
 
-  /** Use its alias [[com.daml.scalautil.nonempty.NonEmpty]]. */
+  /** Use its alias [[com.daml.nonempty.NonEmpty]]. */
   type NonEmpty[+A]
 
-  /** Use its alias [[com.daml.scalautil.nonempty.NonEmptyF]]. */
+  /** Use its alias [[com.daml.nonempty.NonEmptyF]]. */
   type NonEmptyF[F[_], A] <: NonEmpty[F[A]]
 
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
