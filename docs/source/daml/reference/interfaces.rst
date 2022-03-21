@@ -6,6 +6,10 @@
 Reference: Interfaces
 #####################
 
+.. warning::
+  This feature is under active development and not officially supported in
+  production environments.
+
 In Daml, an interface defines an abstract type which specifies the behavior
 that a template must implement. This allows decoupling such behavior from its
 implementation, so other developers can write applications in terms of the
