@@ -45,19 +45,22 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
+import scalaz.syntax.apply._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, \/, \/-}
+import shapeless.record.{Record => ShRecord}
 import spray.json._
-import scalaz.syntax.apply._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.{value => lfv}
+import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.ports.Port
 
 object AbstractHttpServiceIntegrationTestFuns {
@@ -315,9 +318,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     tmplId.copy(packageId = None)
 
   import com.daml.lf.data.{Numeric => LfNumeric}
-  import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
   import shapeless.HList
-  import shapeless.record.{Record => ShRecord}
 
   private[this] object RecordFromFields extends shapeless.Poly1 {
     import shapeless.Witness
@@ -2096,9 +2097,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       //The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
       val helperId = domain.TemplateId(None, "Account", "Helper")
-      val payload = v.Record(
-        fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(alice.unwrap)))))
-      )
+      val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
       val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
         domain.CreateAndExerciseCommand(
           templateId = helperId,
@@ -2121,17 +2120,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           payload = payload,
           choice = lar.Choice("ArchiveAll"),
           argument = boxedRecord(
-            v.Record(fields =
-              List(
-                v.RecordField(
-                  "cids",
-                  Some(
-                    v.Value(
-                      v.Value.Sum
-                        .List(v.List(cids.map(cid => v.Value(v.Value.Sum.ContractId(cid)))))
-                    )
-                  ),
-                )
+            recordFromFields(
+              ShRecord(cids =
+                lfToApi(
+                  VA.list(VA.contractId)
+                    .inj(cids.toVector map lfv.Value.ContractId.assertFromString)
+                ).sum
               )
             )
           ),
