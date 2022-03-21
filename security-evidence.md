@@ -1,16 +1,28 @@
 # Security tests, by category
 
 ## Authorization:
+- Updating the package service fails with insufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L81)
+- Updating the package service succeeds with sufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L89)
 - badly-authorized create is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L61)
+- badly-authorized create is rejected: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1726)
 - badly-authorized exercise is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L159)
 - badly-authorized exercise/create (create is unauthorized) is rejected: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L274)
 - badly-authorized exercise/create (exercise is unauthorized) is rejected: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L242)
 - badly-authorized exercise/exercise (no implicit authority from outer exercise) is rejected: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L333)
 - badly-authorized fetch is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L96)
 - badly-authorized lookup is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L118)
+- create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L134)
+- create IOU should fail if user has no permission: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L108)
+- create IOU should work with correct user rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L81)
 - create with no signatories is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L51)
 - create with non-signatory maintainers is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L73)
 - exercise with no controllers is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L149)
+- fetch fails when readAs not authed, even if prior fetch succeeded: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1784)
+- multiple websocket requests over the same WebSocket connection are NOT allowed: [AbstractWebsocketServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractWebsocketServiceIntegrationTest.scala#L111)
+- reject requests with missing auth header: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1219)
+- websocket request with invalid protocol token should be denied: [AbstractWebsocketServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractWebsocketServiceIntegrationTest.scala#L91)
+- websocket request with valid protocol token should allow client subscribe to stream: [AbstractWebsocketServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractWebsocketServiceIntegrationTest.scala#L79)
+- websocket request without protocol token should be denied: [AbstractWebsocketServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractWebsocketServiceIntegrationTest.scala#L101)
 - well-authorized create is accepted: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L44)
 - well-authorized exercise is accepted: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L142)
 - well-authorized exercise/create is accepted: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L220)
@@ -114,6 +126,8 @@
 
 ## Performance:
 - Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
+- archiving a large number of contracts should succeed: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L2070)
+- creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L562)
 
 ## Input Validation:
 - TLS configuration is parsed correctly from the config file: [CliSpec.scala](ledger-service/http-json/src/test/scala/com/digitalasset/http/CliSpec.scala#L273)
@@ -143,5 +157,8 @@
 - well formed fetch command is accepted: [CommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/CommandPreprocessorSpec.scala#L165)
 - well formed fetch-by-key command is accepted: [CommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/CommandPreprocessorSpec.scala#L170)
 - well formed lookup command is accepted: [CommandPreprocessorSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/CommandPreprocessorSpec.scala#L175)
+
+## Authentication:
+- connect normally with tls on: [TlsTest.scala](ledger-service/http-json/src/it/scala/http/TlsTest.scala#L30)
 
 

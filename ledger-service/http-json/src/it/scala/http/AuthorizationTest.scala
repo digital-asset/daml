@@ -78,6 +78,7 @@ final class AuthorizationTest
 
   behavior of "PackageService against an authenticated sandbox"
 
+  // TEST_EVIDENCE: Authorization: Updating the package service fails with insufficient authorization
   it should "fail immediately if the authorization is insufficient" in withLedger {
     client => ledgerId =>
       instanceUUIDLogCtx(implicit lc =>
@@ -85,6 +86,7 @@ final class AuthorizationTest
       )
   }
 
+  // TEST_EVIDENCE: Authorization: Updating the package service succeeds with sufficient authorization
   it should "succeed if the authorization is sufficient" in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
       packageService(client).reload(Jwt(publicToken), ledgerId).map(_ => succeed)

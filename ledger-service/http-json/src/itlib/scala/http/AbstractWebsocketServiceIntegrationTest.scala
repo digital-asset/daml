@@ -76,6 +76,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
   ).foreach { scenario =>
+    // TEST_EVIDENCE: Authorization: websocket request with valid protocol token should allow client subscribe to stream
     s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
       (uri, _, _, _) =>
         jwt(uri).flatMap(jwt =>
@@ -87,6 +88,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )
     }
 
+    // TEST_EVIDENCE: Authorization: websocket request with invalid protocol token should be denied
     s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
@@ -96,6 +98,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
+    // TEST_EVIDENCE: Authorization: websocket request without protocol token should be denied
     s"${scenario.id} request without protocol token should be denied" in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
@@ -105,6 +108,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
+    // TEST_EVIDENCE: Authorization: multiple websocket requests over the same WebSocket connection are NOT allowed
     s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
       (uri, _, _, _) =>
         jwt(uri).flatMap { jwt =>
