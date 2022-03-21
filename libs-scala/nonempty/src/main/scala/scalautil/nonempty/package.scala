@@ -3,17 +3,18 @@
 
 package com.daml.scalautil
 
-import com.daml.{nonempty => ne}
+import com.daml.{nonempty => dne}
 
 package object nonempty {
-  /*
   @deprecated("use com.daml.nonempty.NonEmpty instead", since = "2.1.0")
-  val NonEmpty: ne.NonEmpty.type = ne.NonEmpty
+  val NonEmpty: dne.NonEmpty.type = dne.NonEmpty
 
   @deprecated("use com.daml.nonempty.NonEmpty instead", since = "2.1.0")
-  type NonEmpty[+A] = ne.NonEmpty[A]
+  type NonEmpty[+A] = dne.NonEmpty[A]
 
   @deprecated("use com.daml.nonempty.NonEmptyF instead", since = "2.1.0")
-  type NonEmptyF[F[_], A] = ne.NonEmptyF[F, A]
-   */
+  type NonEmptyF[F[_], A] = dne.NonEmptyF[F, A]
+
+  @deprecated("use com.daml.nonempty.NonEmptyReturningOps instead", since = "2.1.0")
+  val NonEmptyReturningOps: dna.NonEmptyReturningOps.type = dne.NonEmptyReturningOps
 }
