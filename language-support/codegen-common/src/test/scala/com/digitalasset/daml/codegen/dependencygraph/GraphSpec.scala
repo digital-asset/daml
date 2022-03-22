@@ -1,13 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.codegen
-
-import com.daml.codegen.dependencygraph._
+package com.daml.codegen.dependencygraph
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import dependencygraph.Graph._
 
 class GraphSpec extends AnyFlatSpec with Matchers {
 
@@ -15,12 +12,12 @@ class GraphSpec extends AnyFlatSpec with Matchers {
       contentAndId: Int,
       deps: List[Int] = List.empty[Int],
   ): (Int, Node[Int, Int]) =
-    contentAndId -> Node(contentAndId, deps, true)
+    contentAndId -> Node(contentAndId, deps, collectDepError = true)
 
   private[this] def orderedDependencies[K, A](
       nodes: Iterable[(K, Node[K, A])]
   ): OrderedDependencies[K, A] =
-    cyclicDependencies(Iterable.empty, nodes)
+    Graph.cyclicDependencies(Iterable.empty, nodes)
 
   behavior of "Graph.cyclicDependencies"
 

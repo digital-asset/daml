@@ -4,7 +4,6 @@
 package com.daml.codegen
 package lf
 
-import com.daml.codegen.dependencygraph.DependencyGraph
 import com.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -16,7 +15,6 @@ import scalaz._
 import scalaz.std.anyVal._
 import scalaz.syntax.foldable1._
 import scalaz.syntax.monad._
-import scalaz.syntax.std.map._
 
 class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPropertyChecks {
   import LFUtilSpec._
@@ -111,15 +109,6 @@ class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPr
       }
     }
   }
-
-  "orderedDependencies" should {
-    "include contract keys" in {
-      val ei = CodeGen.filterTemplatesBy(Seq("HasKey".r))(envInterfaceWithKey)
-      DependencyGraph.orderedDependencies(ei).deps map (_._1) should ===(
-        Vector("a:b:It", "a:b:HasKey") map Ref.Identifier.assertFromString
-      )
-    }
-  }
 }
 
 object LFUtilSpec {
@@ -136,25 +125,4 @@ object LFUtilSpec {
     Shrink { nela =>
       Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) => NonEmptyList(h, t: _*) }
     }
-
-  import com.daml.lf.iface._
-  import com.daml.lf.data.ImmArray.ImmArraySeq
-
-  private[this] val fooRec = Record(ImmArraySeq.empty)
-  val envInterfaceWithKey = EnvironmentInterface(
-    Map.empty,
-    Map(
-      "a:b:HasKey" -> InterfaceType.Template(
-        fooRec,
-        DefTemplate(
-          Map.empty,
-          Map.empty,
-          Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
-        ),
-      ),
-      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, Map.empty, None)),
-      "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
-    ) mapKeys Ref.Identifier.assertFromString,
-    astInterfaces = Map.empty,
-  )
 }

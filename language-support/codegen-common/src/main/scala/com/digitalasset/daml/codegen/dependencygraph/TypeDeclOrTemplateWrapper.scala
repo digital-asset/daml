@@ -4,7 +4,6 @@
 package com.daml.codegen.dependencygraph
 
 import com.daml.lf.iface.DefDataType
-
 import scalaz.{Applicative, Traverse}
 import scalaz.syntax.functor._
 
