@@ -11,9 +11,11 @@ object Security {
   trait SecurityTestSuite {
 
     /** The layer that the security test suite tests, such as on the network/API level or the ledger model. */
+    // TODO test evidencing: This field may need to be revised. Usually a suite mixes test cases from different layers.
+    //  So it gets hard to choose a single layer that describes all tests.
     def securityTestLayer: SecurityTestLayer
 
-    // TODO(soren): Include security-relevant configuration that is tested from the environment
+    // TODO test evidencing: Include security-relevant configuration that is tested from the environment
   }
 
   sealed trait SecurityTestLayer

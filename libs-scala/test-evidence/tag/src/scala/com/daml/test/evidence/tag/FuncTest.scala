@@ -8,7 +8,7 @@ package com.daml.test.evidence.tag
   * Captures a test for a functional requirement in addition to the non-functional requirements such as security or
   * reliability.
   *
-  * TODO(soren): Refine data captured in a functional test case tag.
+  * TODO test evidencing: Refine data captured in a functional test case tag.
   *
   * @param topics high-level topics such as key requirements (e.g. no double spends, party migration)
   *               This can be officially stated key requirements or other important topics.
