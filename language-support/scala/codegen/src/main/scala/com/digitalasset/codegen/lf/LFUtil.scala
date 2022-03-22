@@ -493,7 +493,7 @@ object LFUtil {
 
   def toIdent(s: String): Ident = Ident(TermName(s))
 
-  def toTypeDef(s: String): TypeDef = q"type ${TypeName(s.capitalize)}"
+  def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"
 
   def qualifiedNameToDirsAndName(qualifiedName: Ref.QualifiedName): (Array[String], String) = {
     val s = qualifiedName.module.segments.toSeq ++ qualifiedName.name.segments.toSeq
