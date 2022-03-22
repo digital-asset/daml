@@ -421,6 +421,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Semantics: restart trigger on initialization failure due to failed connection
   it should "restart trigger on initialization failure due to failed connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -440,6 +441,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Semantics: restart trigger on run-time failure due to dropped connection
   it should "restart trigger on run-time failure due to dropped connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -461,6 +463,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Semantics: restart triggers with initialization errors
   it should "restart triggers with initialization errors" in withTriggerService(List(dar)) {
     uri: Uri =>
       for {
@@ -476,6 +479,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
+  // TEST_EVIDENCE: Semantics: restart triggers with update errors
   it should "restart triggers with update errors" inClaims withTriggerService(List(dar)) {
     uri: Uri =>
       for {
@@ -494,6 +498,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
+  // TEST_EVIDENCE: Input Validation: give a 'not found' response for a stop request with an unparseable UUID in the trigger service
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
     Nil
   ) { uri: Uri =>
@@ -508,6 +513,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Input Validation: give a 'not found' response for a stop request on an unknown UUID in the trigger service
   it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
     Nil
   ) { uri: Uri =>
@@ -569,6 +575,7 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
     }
   } yield succeed)
 
+  // TEST_EVIDENCE: Semantics: restart triggers after shutdown
   it should "restart triggers after shutdown" inClaims (for {
     _ <- withTriggerService(List(dar)) { uri: Uri =>
       for {
@@ -612,6 +619,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   behavior of "authenticated service"
 
+  // TEST_EVIDENCE: Semantics: redirect to the configured callback URI after login
   it should "redirect to the configured callback URI after login" in withTriggerService(
     Nil,
     authCallback = Some("http://localhost/TRIGGER_CALLBACK"),
@@ -629,6 +637,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to start a trigger
   it should "forbid a non-authorized party to start a trigger" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -639,6 +648,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to list triggers
   it should "forbid a non-authorized party to list triggers" inClaims withTriggerService(Nil) {
     uri: Uri =>
       authServer.revokeParty(eve)
@@ -648,6 +658,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to check the status of a trigger
   it should "forbid a non-authorized party to check the status of a trigger" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -663,6 +674,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to stop a trigger
   it should "forbid a non-authorized party to stop a trigger" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -678,6 +690,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: forbid a non-authorized user to upload a DAR
   it should "forbid a non-authorized user to upload a DAR" inClaims withTriggerService(Nil) {
     uri: Uri =>
       authServer.revokeAdmin()
@@ -687,6 +700,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: request a fresh token after expiry on user request
   it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
     uri: Uri =>
       for {
@@ -701,6 +715,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
+  // TEST_EVIDENCE: Authorization: refresh a token after expiry on the server side
   it should "refresh a token after expiry on the server side" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
