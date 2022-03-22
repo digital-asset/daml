@@ -317,7 +317,7 @@ object PackageService {
   ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
     val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
       interface.typeDecls.iterator.collect {
-        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _, _))) =>
           (qn, choices)
       } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
         (qn, defIf.choices)
