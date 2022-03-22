@@ -36,32 +36,36 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
 
-  it should "allow calls with non-expired 'participant_admin' user token" taggedAs securityAsset.setHappyCase(
-    "Connect with non-expired `participant_admin` user token"
-  ) in {
+  it should "allow calls with non-expired 'participant_admin' user token" taggedAs securityAsset
+    .setHappyCase(
+      "Connect with non-expired `participant_admin` user token"
+    ) in {
     val payload = standardToken("participant_admin", Some(Duration.ofDays(1)))
     expectSuccess(serviceCallWithPayload(payload))
   }
 
-  it should "deny calls with expired 'participant_admin' user token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit an expired 'participant_admin' user token")
-  ) in {
+  it should "deny calls with expired 'participant_admin' user token" taggedAs securityAsset
+    .setAttack(
+      attack(threat = "Exploit an expired 'participant_admin' user token")
+    ) in {
     val payload =
       standardToken("participant_admin", Some(Duration.ofDays(-1)))
     expectUnauthenticated(serviceCallWithPayload(payload))
   }
 
-  it should "allow calls with 'participant_admin' user token for this participant node" taggedAs securityAsset.setHappyCase(
-    "Connect with 'participant_admin' user token for this participant node"
-  ) in {
+  it should "allow calls with 'participant_admin' user token for this participant node" taggedAs securityAsset
+    .setHappyCase(
+      "Connect with 'participant_admin' user token for this participant node"
+    ) in {
     val payload =
       standardToken(userId = "participant_admin", participantId = Some("sandbox-participant"))
     expectSuccess(serviceCallWithPayload(payload))
   }
 
-  it should "deny calls with 'participant_admin' user token for another participant node" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit 'participant_admin' user token for another participant node")
-  ) in {
+  it should "deny calls with 'participant_admin' user token for another participant node" taggedAs securityAsset
+    .setAttack(
+      attack(threat = "Exploit 'participant_admin' user token for another participant node")
+    ) in {
     val payload =
       standardToken(userId = "participant_admin", participantId = Some("other-participant-id"))
     expectPermissionDenied(serviceCallWithPayload(payload))
@@ -75,9 +79,10 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
         .flatMap { case (_, token) => serviceCallWithToken(token) }
     )
   }
-  it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit non-expired 'unknown_user' user token")
-  ) in {
+  it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset
+    .setAttack(
+      attack(threat = "Exploit non-expired 'unknown_user' user token")
+    ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
@@ -86,14 +91,16 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   ) in {
     expectUnauthenticated(serviceCallWithToken(canActAsRandomPartyExpired))
   }
-  it should "allow calls with explicitly non-expired read/write token" taggedAs securityAsset.setHappyCase(
-    "allow calls with explicitly non-expired read/write token"
-  ) in {
+  it should "allow calls with explicitly non-expired read/write token" taggedAs securityAsset
+    .setHappyCase(
+      "allow calls with explicitly non-expired read/write token"
+    ) in {
     expectSuccess(serviceCallWithToken(canActAsRandomPartyExpiresTomorrow))
   }
-  it should "allow calls with read/write token without expiration" taggedAs securityAsset.setHappyCase(
-    "allow calls with read/write token without expiration"
-  ) in {
+  it should "allow calls with read/write token without expiration" taggedAs securityAsset
+    .setHappyCase(
+      "allow calls with read/write token without expiration"
+    ) in {
     expectSuccess(serviceCallWithToken(canActAsRandomParty))
   }
 
@@ -102,9 +109,10 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   ) in {
     expectUnauthenticated(serviceCallWithToken(canReadAsAdminExpired))
   }
-  it should "allow calls with explicitly non-expired admin token" taggedAs securityAsset.setHappyCase(
-    "allow calls with explicitly non-expired admin token"
-  ) in {
+  it should "allow calls with explicitly non-expired admin token" taggedAs securityAsset
+    .setHappyCase(
+      "allow calls with explicitly non-expired admin token"
+    ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))
   }
 
