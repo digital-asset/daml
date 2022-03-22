@@ -5,7 +5,7 @@ package com.daml.test.evidence.tag
 
 object Reliability {
 
-  // TODO(soren): Capture test-suite level data for reliability tests
+  // TODO test evidencing: Capture test-suite level data for reliability tests
   trait ReliabilityTestSuite
 
   /** A reliability relevant test.

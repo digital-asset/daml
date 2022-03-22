@@ -54,7 +54,7 @@ object Security {
     * @param file The filename that contains the test
     * @param line The line number of the test
     *
-    * TODO(soren): Consider to refine the `asset` to capture also interface information for API-level security tests.
+    * TODO test evidencing: Consider to refine the `asset` to capture also interface information for API-level security tests.
     */
   final case class SecurityTest(
       property: SecurityTest.Property,
