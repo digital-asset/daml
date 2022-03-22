@@ -92,6 +92,7 @@ private[index] case class ReadOnlyLedgerBuilder(
         ledgerDao,
         prefetchingDispatcher,
         ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
+        ledgerEndCache,
       )
       _ <- ResourceOwner.forCloseable(() =>
         new LedgerEndCachesUpdater(
@@ -131,7 +132,7 @@ private[index] case class ReadOnlyLedgerBuilder(
     MutableCacheBackedContractStore(
       ledgerDao.contractsReader,
       dispatcherLagMeter,
-      ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
+      ledgerEnd.lastEventSeqId,
       metrics,
       maxContractStateCacheSize,
       maxContractKeyStateCacheSize,
@@ -158,6 +159,7 @@ private[index] case class ReadOnlyLedgerBuilder(
       ledgerReadDao: LedgerReadDao,
       cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
       startExclusive: (Offset, Long),
+      ledgerEndCache: LedgerEndCache,
   ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] =
     if (enableInMemoryFanOutForLedgerApi) {
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
@@ -206,15 +208,18 @@ private[index] case class ReadOnlyLedgerBuilder(
     } else
       new MutableCacheBackedContractStore.CacheUpdateSubscription(
         contractStore = contractStore,
-        subscribeToContractStateEvents = cacheIndex =>
+        subscribeToContractStateEvents = () => {
+          val subscriptionStartExclusive = ledgerEndCache()
+          logger.info(s"Subscribing to contract state events after $subscriptionStartExclusive")
           cacheUpdatesDispatcher
             .startingAt(
-              cacheIndex,
+              subscriptionStartExclusive,
               RangeSource(
                 ledgerReadDao.transactionsReader.getContractStateEvents(_, _)
               ),
             )
-            .map(_._2),
+            .map(_._2)
+        },
       ).map(_ => (ledgerReadDao.transactionsReader, PruneBuffersNoOp))
 
   private def dispatcherOffsetSeqIdOwner(
