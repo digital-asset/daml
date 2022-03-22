@@ -364,7 +364,8 @@ private[platform] object MutableCacheBackedContractStore {
               maxBackoff = 10.seconds,
               randomFactor = 0.2,
             )
-          )(() => subscribeToContractStateEvents().map(contractStore.push))
+          )(() => subscribeToContractStateEvents())
+          .map(contractStore.push)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
           .run()
