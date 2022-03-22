@@ -27,8 +27,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
-import scala.util.matching.Regex
-
 object CodeGen {
 
   private val logger: Logger = Logger(getClass)
@@ -83,7 +81,7 @@ object CodeGen {
   ): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
       val combinedIface: EnvironmentInterface =
-        combineEnvInterfaces(ifaces map filterTemplatesBy(roots map (_.r)))
+        combineEnvInterfaces(ifaces map Util.filterTemplatesBy(roots map (_.r)))
       packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
     }
 
@@ -141,26 +139,6 @@ object CodeGen {
 
   private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
     as.suml1
-
-  // Template names can be filtered by given regexes (default: use all templates)
-  // If a template does not match any regex, it becomes a "normal" datatype.
-  private[codegen] def filterTemplatesBy(
-      regexes: Seq[Regex]
-  )(ei: EnvironmentInterface): EnvironmentInterface = {
-
-    def matchesRoots(qualName: Ref.Identifier): Boolean =
-      regexes.exists(_.findFirstIn(qualName.qualifiedName.qualifiedName).isDefined)
-    // scala-2.13-M4: _.matches(qualName.qualifiedName.qualifiedName)
-
-    if (regexes.isEmpty) ei
-    else {
-      ei.copy(typeDecls = ei.typeDecls transform {
-        case (id, tpl @ InterfaceType.Template(_, _)) if !matchesRoots(id) =>
-          InterfaceType.Normal(tpl.`type`)
-        case (_, other) => other
-      })
-    }
-  }
 
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
     val interface = util.iface

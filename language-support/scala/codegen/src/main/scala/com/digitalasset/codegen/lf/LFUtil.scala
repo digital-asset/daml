@@ -12,18 +12,13 @@ import iface.{Type => IType, PrimType => PT, _}
 import com.daml.lf.iface.InterfaceType
 import java.io.File
 
+import com.daml.codegen.Util
 import com.daml.codegen.lf.UsedTypeParams.Variance
 import scalaz._
-import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.id._
 import scalaz.syntax.foldable._
 import scalaz.syntax.std.option._
-
-case class DefTemplateWithRecord[+Type](`type`: Record[Type], template: DefTemplate[Type])
-object DefTemplateWithRecord {
-  type FWT = DefTemplateWithRecord[IType]
-}
 
 /**  In order to avoid endlessly passing around "packageName" and "iface" to
   *  utility functions we initialise a class with these values and allow all the
@@ -315,7 +310,7 @@ final case class LFUtil(
   ): Z =
     interface.typeDecls.foldLeft(z) {
       case (z, (id, InterfaceType.Template(_, tpl))) =>
-        tpl.foldMap(typ => genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
+        tpl.foldMap(typ => Util.genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
       case (z, _) => z
     }
 
@@ -514,12 +509,6 @@ object LFUtil {
       }
     }
   }
-
-  private[codegen] def genTypeTopLevelDeclNames(genType: IType): List[Ref.Identifier] =
-    genType foldMapConsPrims {
-      case TypeConName(nm) => List(nm)
-      case _: com.daml.lf.iface.PrimType => Nil
-    }
 
   private[codegen] def packageNameTailToRefTree(packageName: String) =
     packageName

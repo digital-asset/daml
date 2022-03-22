@@ -13,9 +13,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class CodeGenSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
-  import CodeGen.filterTemplatesBy
-  import CodeGenSpec._
+class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+  import Util.filterTemplatesBy
+  import UtilSpec._
 
   "filterTemplatesBy" should {
     "be identity given empty regexes" in forAll(trivialEnvInterfaceGen) { ei =>
@@ -36,7 +36,7 @@ class CodeGenSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropert
   }
 }
 
-object CodeGenSpec {
+object UtilSpec {
   import org.scalacheck.{Arbitrary, Gen}
   import Arbitrary.arbitrary
 
