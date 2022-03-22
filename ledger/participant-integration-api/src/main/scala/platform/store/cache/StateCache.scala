@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
 import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard
 
@@ -131,11 +132,21 @@ private[platform] case class StateCache[K, V](
             .getOrElse(logger.error(s"Pending updates tracker for $key not registered "))
         }
       }
-      .recover { case err =>
-        pendingUpdates.synchronized {
-          removeFromPending(key)
-        }
-        logger.warn(s"Failure in pending cache update for key $key", err)
+      .recover {
+        // Negative contract lookups are forwarded to `putAsync` as failed futures as they should not be cached
+        // since they can still resolve on subsequent divulgence lookups (see [[MutableCacheBackedContractStore.readThroughContractsCache]]).
+        // Hence, this scenario is not considered an error condition and should not be logged as such.
+        // TODO Remove this type-check when properly caching divulgence lookups
+        case contractNotFound: ContractReadThroughNotFound =>
+          pendingUpdates.synchronized {
+            removeFromPending(key)
+          }
+          logger.debug(s"Not caching negative lookup for contract at key $key", contractNotFound)
+        case err =>
+          pendingUpdates.synchronized {
+            removeFromPending(key)
+          }
+          logger.warn(s"Failure in pending cache update for key $key", err)
       }
 
   private def removeFromPending(key: K)(implicit loggingContext: LoggingContext): Unit =
