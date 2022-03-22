@@ -3,12 +3,9 @@
 
 package com.daml.lf.codegen.lf
 
-import com.daml.lf.iface
+import com.daml.lf.iface.{DefTemplate, Record, Type}
 
-case class DefTemplateWithRecord[+Type](
-    `type`: iface.Record[Type],
-    template: iface.DefTemplate[Type],
+final case class DefTemplateWithRecord(
+    `type`: Record[Type],
+    template: DefTemplate[Type],
 )
-object DefTemplateWithRecord {
-  type FWT = DefTemplateWithRecord[iface.Type]
-}

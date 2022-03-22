@@ -34,7 +34,7 @@ private[codegen] object HierarchicalOutput {
   type ErrorsAndFiles[E, F] = (Vector[E], Vector[(F, Iterable[Tree])])
 
   type TemplateOrDatatype =
-    (Identifier, DefTemplateWithRecord.FWT \/ DamlDataTypeGen.DataType)
+    (Identifier, DefTemplateWithRecord \/ DamlDataTypeGen.DataType)
 
   /** Pull up each `Rec` into the companion implied, or not, by the keys. */
   private[this] def liftSubtrees[S, F](

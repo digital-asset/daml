@@ -27,7 +27,7 @@ object DamlContractTemplateGen {
   def generate(
       util: LFUtil,
       templateId: Identifier,
-      templateInterface: DefTemplateWithRecord.FWT,
+      templateInterface: DefTemplateWithRecord,
       companionMembers: Iterable[Tree],
   ): (File, Set[Tree], Iterable[Tree]) = {
 
