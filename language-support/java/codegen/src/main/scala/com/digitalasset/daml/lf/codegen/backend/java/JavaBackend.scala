@@ -53,21 +53,6 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     })
   }
 
-//  private def extractInterfaceNames(
-//      tree: InterfaceTrees,
-//      packagePrefixes: Map[PackageId, String],
-//  ) = {
-//    tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
-//      case (res, module: ModuleWithContext) =>
-//        val templateNames = module.interface.astInterfaces.keys
-//          .map { name =>
-//            ClassName.bestGuess(inner.fullyQualifiedName(name, None, packagePrefixes))
-//          }
-//        res ++ templateNames
-//      case (res, _) => res
-//    })
-//  }
-
   def process(
       nodeWithContext: NodeWithContext,
       conf: Conf,
@@ -99,8 +84,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     MDC.put("packageId", moduleWithContext.packageId)
     MDC.put("packageIdShort", moduleWithContext.packageId.take(7))
     MDC.put("moduleName", moduleWithContext.name)
-
-    val javaFiles = {
+    val typeSpecs = {
       moduleWithContext.typesLineages.flatMap { typeWithContext =>
         typeWithContext.interface.astInterfaces.map { case (interfaceName, interface) =>
           val className = InterfaceClass.classNameForInterface(interfaceName)
@@ -124,6 +108,6 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     MDC.remove("packageId")
     MDC.remove("packageIdShort")
     MDC.remove("moduleName")
-    javaFiles
+    typeSpecs
   }
 }

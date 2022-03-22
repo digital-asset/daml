@@ -66,7 +66,9 @@ private[inner] object TemplateClass extends StrictLogging {
             template.implementedInterfaces,
           )
         )
-        .addType(generateContractClass(className, template.key, packagePrefixes))
+        .addType(
+          generateContractClass(className, template.key, packagePrefixes, isForInterface = false)
+        )
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
         .build()
@@ -86,10 +88,11 @@ private[inner] object TemplateClass extends StrictLogging {
     ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), name)
   private def setOfStrings = ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
 
-  private def generateContractClass(
+  private[inner] def generateContractClass(
       templateClassName: ClassName,
       key: Option[Type],
       packagePrefixes: Map[PackageId, String],
+      isForInterface: Boolean,
   ): TypeSpec = {
 
     val contractIdClassName = ClassName.bestGuess("ContractId")
@@ -143,30 +146,33 @@ private[inner] object TemplateClass extends StrictLogging {
     val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName
       .map(_ => contractKeyFieldName)
       .toList ++ Vector(signatoriesFieldName, observersFieldName)
+    if (!isForInterface) {
+      classBuilder
+        .addMethod(
+          generateFromIdAndRecord(
+            contractClassName,
+            templateClassName,
+            contractIdClassName,
+            contractKeyClassName,
+          )
+        )
+        .addMethod(
+          generateFromIdAndRecordDeprecated(
+            contractClassName,
+            templateClassName,
+            contractIdClassName,
+            contractKeyClassName,
+          )
+        )
+        .addMethod(
+          generateFromCreatedEvent(
+            contractClassName,
+            key,
+            packagePrefixes,
+          )
+        )
+    }
     classBuilder
-      .addMethod(
-        generateFromIdAndRecord(
-          contractClassName,
-          templateClassName,
-          contractIdClassName,
-          contractKeyClassName,
-        )
-      )
-      .addMethod(
-        generateFromIdAndRecordDeprecated(
-          contractClassName,
-          templateClassName,
-          contractIdClassName,
-          contractKeyClassName,
-        )
-      )
-      .addMethod(
-        generateFromCreatedEvent(
-          contractClassName,
-          key,
-          packagePrefixes,
-        )
-      )
       .addMethods(
         ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava
       )
@@ -576,7 +582,7 @@ private[inner] object TemplateClass extends StrictLogging {
     createAndExerciseChoiceBuilder.build()
   }
 
-  private def generateExerciseMethod(
+  private[inner] def generateExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       templateClassName: ClassName,
