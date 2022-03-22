@@ -6,14 +6,15 @@ package com.daml.codegen.lf
 import com.daml.{codegen => parent}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
 import com.daml.lf.iface
-import iface.{PrimType => PT, Type => IType, _}
+import iface.{Type => IType, PrimType => PT, _}
 import com.daml.lf.iface.InterfaceType
 import java.io.File
 
+import com.daml.codegen.lf.UsedTypeParams.Variance
 import scalaz._
+import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.id._
 import scalaz.syntax.foldable._
@@ -29,36 +30,23 @@ object DefTemplateWithRecord {
   *  methods to have access to them.
   */
 final case class LFUtil(
-    override val packageName: String,
-    override val iface: EnvironmentInterface,
-    override val outputDir: File,
-) extends parent.Util(packageName, outputDir) {
+    packageName: String,
+    iface: EnvironmentInterface,
+    outputDir: File,
+) {
 
   import scala.reflect.runtime.universe._
-  import parent.Util._
   import LFUtil._
 
   type Interface = EnvironmentInterface
 
   type TemplateInterface = DefTemplateWithRecord.FWT
 
-  private[codegen] override def orderedDependencies(library: Interface) =
-    DependencyGraph(this).orderedDependencies(library)
-
-  override def templateAndTypeFiles(wp: WriteParams[TemplateInterface]) =
+  def templateAndTypeFiles(wp: WriteParams[TemplateInterface]) =
     parent.CodeGen.produceTemplateAndTypeFilesLF(wp, this)
 
-  // XXX DamlScalaName doesn't depend on packageId at the moment, but
-  // there are good reasons to make it do so
   def mkDamlScalaName(
-      codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: Ref.Identifier,
-  ): DamlScalaName =
-    mkDamlScalaName(codeGenDeclKind, metadataAlias.qualifiedName)
-
-  def mkDamlScalaName(
-      codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: Ref.QualifiedName,
+      metadataAlias: Ref.QualifiedName
   ): DamlScalaName = {
     val (damlNameSpace, name) = qualifiedNameToDirsAndName(metadataAlias)
     mkDamlScalaNameFromDirsAndName(damlNameSpace, name.capitalize)
@@ -66,6 +54,61 @@ final case class LFUtil(
 
   def mkDamlScalaNameFromDirsAndName(nameSpace: Array[String], name: String): DamlScalaName = {
     DamlScalaName(nameSpace, name)
+  }
+
+  private[this] val packageNameElems: Array[String] = packageName.split('.')
+
+  /** A Scala class/object package suffix and name.
+    *
+    * @param packageSuffixParts the package suffix of the class. This will be appended to
+    *                           the [[packageNameElems]] to create the package for this
+    *                           Scala class/object
+    * @param name the name of the class/object
+    */
+  case class DamlScalaName(packageSuffixParts: Array[String], name: String) {
+
+    /** Components of the package for this class/object */
+    def packageNameParts = packageNameElems ++ packageSuffixParts
+
+    /** The package for this class/object */
+    def packageName = packageNameParts.mkString(".")
+
+    /** Components of the fully qualified name for this class/object */
+    def qualifiedNameParts = packageNameParts :+ name
+
+    /** The fully qualified name of this class/object */
+    def qualifiedName = qualifiedNameParts.mkString(".")
+
+    private[this] def qualifierTree =
+      packageNameParts.foldLeft(q"_root_": Tree)((l, n) => q"$l.${TermName(n)}")
+
+    def qualifiedTypeName = tq"$qualifierTree.${TypeName(name)}"
+    def qualifiedTermName = q"$qualifierTree.${TermName(name)}"
+
+    /** The file name where this class/object must be stored */
+    def toFileName: File = {
+      val relPathParts = packageNameParts.map(_.toLowerCase) :+ s"${name}.scala"
+      val relPath = relPathParts.mkString(File.separator)
+      new File(outputDir, relPath)
+    }
+
+    def toRefTreeWithInnerTypes(innerTypes: Array[String]): RefTree = {
+      qualifiedNameToRefTree(qualifiedNameParts ++ innerTypes)
+    }
+
+    def toRefTree: RefTree = toRefTreeWithInnerTypes(Array())
+
+    override def toString: String =
+      "DamlScalaName(" + packageSuffixParts.mkString("[", ", ", "]") + ", " + name + ")"
+
+    override def equals(ojb: Any): Boolean = ojb match {
+      case that: DamlScalaName =>
+        that.packageSuffixParts.sameElements(this.packageSuffixParts) && that.name == this.name
+      case _ =>
+        false
+    }
+
+    override def hashCode(): Int = (this.packageSuffixParts.toIndexedSeq, this.name).hashCode()
   }
 
   /**  This method is responsible for generating Scala reflection API "tree"s.
@@ -89,7 +132,7 @@ final case class LFUtil(
             s"type $refType should not occur in a Data-kinded position; this is an invalid input LF"
           )
         case TypeConName(tyCon) =>
-          val damlScalaName = mkDamlScalaName(UserDefinedType, tyCon)
+          val damlScalaName = mkDamlScalaName(tyCon.qualifiedName)
           damlScalaName.toRefTree
       }
 
@@ -179,19 +222,19 @@ final case class LFUtil(
     """
   }
 
-  override def genArgumentValueToGenType(genType: IType): Tree = {
+  def genArgumentValueToGenType(genType: IType): Tree = {
     val typTree = genTypeToScalaType(genType)
     q"$domainApiAlias.Value.decode[$typTree]"
   }
 
-  override def paramRefAndGenTypeToArgumentValue(paramRef: Tree, genType: IType): Tree =
+  def paramRefAndGenTypeToArgumentValue(paramRef: Tree): Tree =
     q"$domainApiAlias.Value.encode($paramRef)"
 
   def toNamedArgumentsMap(params: List[FieldWithType], path: Option[Tree]): Tree = {
-    val ps = params.map { case (n, t) =>
+    val ps = params.map { case (n, _) =>
       val unqualified = TermName(n)
       val pr = path.cata(p => q"$p.$unqualified", q"$unqualified")
-      q"($n, ${paramRefAndGenTypeToArgumentValue(pr, t)})"
+      q"($n, ${paramRefAndGenTypeToArgumentValue(pr)})"
     }
     q"` arguments`(..$ps)"
   }
@@ -212,7 +255,7 @@ final case class LFUtil(
     ) =
       (
         Some(q"$choiceParamName: ${genTypeToScalaType(ty)}"),
-        q"_root_.scala.Some(${paramRefAndGenTypeToArgumentValue(choiceParamName, ty)})",
+        q"_root_.scala.Some(${paramRefAndGenTypeToArgumentValue(choiceParamName)})",
         apn,
         dn,
       )
@@ -242,7 +285,7 @@ final case class LFUtil(
     val denominalized = denominalized1.map { case (name, fields) =>
       (
         genArgsWithTypes(fields),
-        mkDamlScalaName(UserDefinedType, name).qualifiedTermName,
+        mkDamlScalaName(name).qualifiedTermName,
         fields.map { case (label, _) => toIdent(escapeIfReservedName(label)) },
       )
     }
@@ -260,7 +303,7 @@ final case class LFUtil(
       }.toList
   }
 
-  override def templateCount(interface: Interface): Int = {
+  def templateCount(interface: Interface): Int = {
     interface.typeDecls.count {
       case (_, InterfaceType.Template(_, _)) => true
       case _ => false
@@ -272,17 +315,24 @@ final case class LFUtil(
   ): Z =
     interface.typeDecls.foldLeft(z) {
       case (z, (id, InterfaceType.Template(_, tpl))) =>
-        tpl.foldMap(typ => parent.Util.genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
+        tpl.foldMap(typ => genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
       case (z, _) => z
     }
 
-  protected[this] override def precacheVariance(interface: Interface) = {
+  protected[this] def precacheVariance(
+      interface: Interface
+  ): ScopedDataType.Name => ImmArraySeq[Variance] = {
     import UsedTypeParams.ResolvedVariance
     val resolved = foldTemplateReferencedTypeDeclRoots(interface, ResolvedVariance.Empty) {
       (resolved, id) => resolved.allCovariantVars(id, interface)._1
     }
     id => resolved.allCovariantVars(id, interface)._2
   }
+
+  private[this] lazy val precachedVariance = precacheVariance(iface)
+
+  def variance(sdt: ScopedDataType[_]): Seq[Variance] =
+    precachedVariance(sdt.name)
 }
 
 object LFUtil {
@@ -324,7 +374,7 @@ object LFUtil {
     escapeReservedName(name).fold(identity, identity)
 
   private[lf] def generateIds(number: Int, prefix: String): List[Ident] =
-    List.fill(number)(prefix).zipWithIndex.map(t => parent.Util.toIdent(s"${t._1}${t._2}"))
+    List.fill(number)(prefix).zipWithIndex.map(t => toIdent(s"${t._1}${t._2}"))
 
   private[lf] def genConsumingChoicesMethod(templateInterface: DefTemplate[_]) = {
     val consumingChoicesIds = templateInterface.choices
@@ -408,10 +458,90 @@ object LFUtil {
   val stdSeqCompanion = q"_root_.scala.collection.immutable.Seq"
   val nothingType = q"_root_.scala.Nothing"
 
-  def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"
-
   def toCovariantTypeDef(s: String): TypeDef = {
     val TypeDef(Modifiers(flags, mname, mtrees), name, tparams, rhs) = toTypeDef(s)
     TypeDef(Modifiers(flags | Flag.COVARIANT, mname, mtrees), name, tparams, rhs)
+  }
+  // error message or optional message before writing, file target, and
+  // sequence of trees to write as Scala source code
+  type FilePlan = String \/ (Option[String], File, Iterable[Tree])
+
+  final case class WriteParams[+TmplI](
+      templateIds: Map[Ref.Identifier, TmplI],
+      definitions: List[ScopedDataType.FWT],
+  )
+
+  val reservedNames: Set[String] =
+    Set("id", "template", "namedArguments", "archive")
+
+  def toNotReservedName(name: String): String =
+    "userDefined" + name.capitalize
+
+  //----------------------------------------------
+
+  sealed trait CodeGenDeclKind
+  case object Template extends CodeGenDeclKind
+  case object Contract extends CodeGenDeclKind
+  case object UserDefinedType extends CodeGenDeclKind
+  case object EventDecoder extends CodeGenDeclKind
+
+  val autoGenerationHeader: String =
+    """|/*
+       | * THIS FILE WAS AUTOGENERATED BY THE DIGITAL ASSET Daml SCALA CODE GENERATOR
+       | * DO NOT EDIT BY HAND!
+       | */""".stripMargin
+
+  def toIdent(s: String): Ident = Ident(TermName(s))
+
+  def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"
+
+  def qualifiedNameToDirsAndName(qualifiedName: Ref.QualifiedName): (Array[String], String) = {
+    val s = qualifiedName.module.segments.toSeq ++ qualifiedName.name.segments.toSeq
+    (s.init.toArray, s.last)
+  }
+
+  def qualifiedNameToRefTree(ss: Array[String]): RefTree = {
+    ss match {
+      case Array() =>
+        throw new RuntimeException("""|packageNameToRefTree: This function should never be called
+                                      |with an empty list""".stripMargin)
+      case Array(name) => toIdent(name)
+      case Array(firstQual, rest @ _*) => {
+        val base: RefTree = toIdent(firstQual)
+        rest.foldLeft(base)((refTree: RefTree, nm: String) => {
+          RefTree(refTree, TermName(nm))
+        })
+      }
+    }
+  }
+
+  private[codegen] def genTypeTopLevelDeclNames(genType: IType): List[Ref.Identifier] =
+    genType foldMapConsPrims {
+      case TypeConName(nm) => List(nm)
+      case _: com.daml.lf.iface.PrimType => Nil
+    }
+
+  private[codegen] def packageNameTailToRefTree(packageName: String) =
+    packageName
+      .split('.')
+      .lastOption
+      .cata(TermName(_), sys error s"invalid package name $packageName")
+
+  def packageNameToRefTree(packageName: String): RefTree = {
+    val ss = packageName.split('.')
+    qualifiedNameToRefTree(ss)
+  }
+
+  /** Does the type "simply delegate" (i.e. just pass along `typeVars`
+    * verbatim) to another type constructor?  If so, yield that type
+    * constructor as a string.
+    */
+  def simplyDelegates(typeVars: ImmArraySeq[Ref.Name]): IType => Option[Ref.Identifier] = {
+    val ptv = typeVars.map(TypeVar(_): IType)
+
+    {
+      case TypeCon(tc, `ptv`) => Some(tc.identifier)
+      case _ => None
+    }
   }
 }

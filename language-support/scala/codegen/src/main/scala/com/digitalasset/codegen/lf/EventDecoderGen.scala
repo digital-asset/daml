@@ -5,7 +5,6 @@ package com.daml.codegen.lf
 
 import java.io.File
 
-import com.daml.codegen.Util
 import com.daml.lf.data.Ref._
 
 import scala.reflect.runtime.universe._
@@ -28,12 +27,12 @@ object EventDecoderGen {
       LFUtil.domainApiImport
     )
 
-    def contractDamlName(alias: QualifiedName) = util.mkDamlScalaName(Util.Contract, alias)
+    def contractDamlName(alias: QualifiedName) = util.mkDamlScalaName(alias)
     def contractName(alias: Identifier): RefTree = contractDamlName(alias.qualifiedName).toRefTree
 
     val decoder: Tree =
       q"""
-        package ${Util.packageNameToRefTree(util.packageName)} {
+        package ${LFUtil.packageNameToRefTree(util.packageName)} {
 
           object EventDecoder extends $domainApiAlias.EventDecoderApi(
             templateTypes = $stdSeqCompanion[$domainApiAlias.TemplateCompanion[_]](

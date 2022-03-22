@@ -5,7 +5,6 @@ package com.daml.codegen.lf
 
 import java.io.File
 
-import com.daml.codegen.Util
 import com.daml.codegen.lf.LFUtil.{TupleNesting, escapeIfReservedName}
 import UsedTypeParams.Variance.{Covariant, Invariant}
 import com.daml.lf.iface
@@ -61,7 +60,7 @@ object DamlDataTypeGen {
     logger.debug(s"generate typeDecl: $typeDecl")
 
     import typeDecl.name
-    val damlScalaName = util.mkDamlScalaName(Util.UserDefinedType, name)
+    val damlScalaName = util.mkDamlScalaName(name.qualifiedName)
 
     lazy val argumentValueProtocolDefName: TermName =
       TermName(s"${damlScalaName.name} Value")
@@ -109,9 +108,9 @@ object DamlDataTypeGen {
 
     def typeObjectMapForRecord(fields: Seq[FieldWithType], paramName: String): Tree = {
       val typeObjectContent =
-        fields.map { case (label, typ) =>
+        fields.map { case (label, _) =>
           val reference = q"${TermName(paramName)}.${TermName(escapeIfReservedName(label))}"
-          val value = util.paramRefAndGenTypeToArgumentValue(reference, typ)
+          val value = util.paramRefAndGenTypeToArgumentValue(reference)
           q"($label, $value)"
         }
       q"` record`(..$typeObjectContent)"
@@ -239,16 +238,16 @@ object DamlDataTypeGen {
       }
 
       def variantWriteCase(variant: (Ref.Name, VariantField)): CaseDef = variant match {
-        case (label, \/-(genTyp)) =>
-          cq"${TermName(label.capitalize)}(a) => ${typeObjectFromVariant(label, genTyp, Util.toIdent("a"))}"
+        case (label, \/-(_)) =>
+          cq"${TermName(label.capitalize)}(a) => ${typeObjectFromVariant(label, LFUtil.toIdent("a"))}"
         case (label, -\/(record)) =>
           val zs = generateIds(record.size, "z")
           val variantName = label.capitalize
           cq"${TermName(variantName)}(..$zs) => ${typeObjectFromRecordVariant(variantName, record, zs)}"
       }
 
-      def typeObjectFromVariant(label: String, genType: iface.Type, paramName: Ident): Tree = {
-        val value = util.paramRefAndGenTypeToArgumentValue(paramName, genType)
+      def typeObjectFromVariant(label: String, paramName: Ident): Tree = {
+        val value = util.paramRefAndGenTypeToArgumentValue(paramName)
         q"` variant`($label, $value)"
       }
 
@@ -257,8 +256,8 @@ object DamlDataTypeGen {
           record: List[FieldWithType],
           zs: List[Ident],
       ): Tree = {
-        val tuples: List[Tree] = record.zip(zs).map { case ((label, genType), z) =>
-          val value = util.paramRefAndGenTypeToArgumentValue(z, genType)
+        val tuples: List[Tree] = record.zip(zs).map { case ((label, _), z) =>
+          val value = util.paramRefAndGenTypeToArgumentValue(z)
           q"($label, $value)"
         }
         q"` createVariantOfSynthRecord`($variantName, ..$tuples)"
@@ -421,7 +420,7 @@ object DamlDataTypeGen {
       lazy val argTypes = fields map { case (_, typ) => util.genTypeToScalaType(typ) }
 
       lazy val argsWithTypes: Seq[Typed] = util.genArgsWithTypes(fields)
-      lazy val args: Seq[Ident] = fields.map({ case (label, _) => Util.toIdent(label) })
+      lazy val args: Seq[Ident] = fields.map({ case (label, _) => LFUtil.toIdent(label) })
 
       damlRecord
     }

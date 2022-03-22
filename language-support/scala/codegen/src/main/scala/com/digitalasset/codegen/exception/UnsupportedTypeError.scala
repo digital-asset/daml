@@ -5,4 +5,4 @@ package com.daml.codegen.exception
 
 /** The reason why a given type's code can't be generated
   */
-final case class UnsopportedTypeError(msg: String)
+final case class UnsupportedTypeError(msg: String)

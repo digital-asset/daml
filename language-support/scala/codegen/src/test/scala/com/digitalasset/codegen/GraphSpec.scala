@@ -14,11 +14,11 @@ class GraphSpec extends AnyFlatSpec with Matchers {
   private[this] def intNode(
       contentAndId: Int,
       deps: List[Int] = List.empty[Int],
-  ): (Int, BaseNode[Int, Int]) =
+  ): (Int, Node[Int, Int]) =
     contentAndId -> Node(contentAndId, deps, true)
 
   private[this] def orderedDependencies[K, A](
-      nodes: Iterable[(K, BaseNode[K, A])]
+      nodes: Iterable[(K, Node[K, A])]
   ): OrderedDependencies[K, A] =
     cyclicDependencies(Iterable.empty, nodes)
 

@@ -5,7 +5,7 @@ package com.daml.codegen.lf
 
 import java.io.File
 
-import com.daml.codegen.Util
+import com.daml.codegen.lf.LFUtil
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
@@ -31,8 +31,7 @@ object DamlContractTemplateGen {
       companionMembers: Iterable[Tree],
   ): (File, Set[Tree], Iterable[Tree]) = {
 
-    val templateName = util.mkDamlScalaName(Util.Template, templateId)
-    val contractName = util.mkDamlScalaName(Util.Contract, templateId)
+    val templateName = util.mkDamlScalaName(templateId.qualifiedName)
     val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
     val syntaxIdType = TypeName(" ExOn")
 
@@ -40,7 +39,7 @@ object DamlContractTemplateGen {
 
     val templateChoiceMethods = templateInterface.template.choices.flatMap { case (id, interface) =>
       util.genTemplateChoiceMethods(
-        templateType = tq"${TypeName(contractName.name)}",
+        templateType = tq"${TypeName(templateName.name)}",
         idType = syntaxIdType,
         id,
         interface,
@@ -49,7 +48,7 @@ object DamlContractTemplateGen {
 
     def toNamedArgumentsMethod =
       q"""
-        override def toNamedArguments(` self`: ${TypeName(contractName.name)}) =
+        override def toNamedArguments(` self`: ${TypeName(templateName.name)}) =
           ${util.toNamedArgumentsMap(templateInterface.`type`.fields.toList, Some(q"` self`"))}
       """
 
@@ -78,7 +77,7 @@ object DamlContractTemplateGen {
 
     def templateObjectMembers = Seq(
       q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",
-      q"""implicit final class ${TypeName(s"${contractName.name} syntax")}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
+      q"""implicit final class ${TypeName(s"${templateName.name} syntax")}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
             ..$templateChoiceMethods
           }""",
       q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",

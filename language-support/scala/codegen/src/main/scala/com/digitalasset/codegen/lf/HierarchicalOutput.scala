@@ -4,7 +4,6 @@
 package com.daml.codegen.lf
 
 import com.daml.{codegen => parent}
-import parent.Util
 import parent.types.Namespace
 import parent.exception.UnsupportedDamlTypeException
 
@@ -117,7 +116,7 @@ private[codegen] object HierarchicalOutput {
       util: LFUtil
   )(imports: Set[Tree], trees: Iterable[Tree]): Iterable[Tree] =
     imports.toSeq :+ q"""
-      package ${Util.packageNameToRefTree(util.packageName)} {
+      package ${LFUtil.packageNameToRefTree(util.packageName)} {
         ..$trees
       }"""
 
