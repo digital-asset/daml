@@ -4,17 +4,16 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import java.util.Optional
-
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.ObjectMethods
 import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
-
 import scala.jdk.CollectionConverters._
 
 private[inner] object TemplateClass extends StrictLogging {
@@ -64,6 +63,7 @@ private[inner] object TemplateClass extends StrictLogging {
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
             packagePrefixes,
+            template.implementedInterfaces,
           )
         )
         .addType(generateContractClass(className, template.key, packagePrefixes))
@@ -315,6 +315,7 @@ private[inner] object TemplateClass extends StrictLogging {
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String],
+      inheritedInterfaces: Seq[Ref.TypeConName],
   ): TypeSpec = {
 
     val idClassBuilder =
@@ -333,6 +334,18 @@ private[inner] object TemplateClass extends StrictLogging {
         .addStatement("super(contractId)")
         .build()
     idClassBuilder.addMethod(constructor)
+    inheritedInterfaces.foreach { interfaceName =>
+      val name = InterfaceClass.classNameForInterface(interfaceName.qualifiedName)
+      val simpleName = interfaceName.qualifiedName.name.segments.last
+      idClassBuilder.addMethod(
+        MethodSpec
+          .methodBuilder(s"to$simpleName")
+          .addModifiers(Modifier.PUBLIC)
+          .addStatement(s"return new $name.ContractId(this.contractId)")
+          .returns(ClassName.bestGuess(s"$name.ContractId"))
+          .build()
+      )
+    }
     for ((choiceName, choice) <- choices) {
       val exerciseChoiceMethod =
         generateExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)

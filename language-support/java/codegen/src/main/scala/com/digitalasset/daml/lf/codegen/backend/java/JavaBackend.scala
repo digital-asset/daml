@@ -4,10 +4,10 @@
 package com.daml.lf.codegen.backend.java
 
 import com.daml.lf.codegen.backend.Backend
-import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
+import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, InterfaceClass}
 import com.daml.lf.codegen.conf.Conf
 import com.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
-import com.daml.lf.data.Ref.{PackageId}
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Interface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -25,11 +25,11 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     val tree = InterfaceTrees.fromInterfaces(interfaces)
     for ((decoderPkg, decoderClassName) <- conf.decoderPkgAndClass) {
       val templateNames = extractTemplateNames(tree, packagePrefixes)
-      val interfaceNames = extractInterfaceNames(tree, packagePrefixes)
+      // val interfaceNames = extractInterfaceNames(tree, packagePrefixes)
       val decoderFile = JavaFile
         .builder(
           decoderPkg,
-          DecoderClass.generateCode(decoderClassName, templateNames ++ interfaceNames),
+          DecoderClass.generateCode(decoderClassName, templateNames),
         )
         .build()
       decoderFile.writeTo(conf.outputDirectory)
@@ -53,20 +53,20 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     })
   }
 
-  private def extractInterfaceNames(
-      tree: InterfaceTrees,
-      packagePrefixes: Map[PackageId, String],
-  ) = {
-    tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
-      case (res, module: ModuleWithContext) =>
-        val templateNames = module.interface.astInterfaces.keys
-          .map { name =>
-            ClassName.bestGuess(inner.fullyQualifiedName(name, None, packagePrefixes))
-          }
-        res ++ templateNames
-      case (res, _) => res
-    })
-  }
+//  private def extractInterfaceNames(
+//      tree: InterfaceTrees,
+//      packagePrefixes: Map[PackageId, String],
+//  ) = {
+//    tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
+//      case (res, module: ModuleWithContext) =>
+//        val templateNames = module.interface.astInterfaces.keys
+//          .map { name =>
+//            ClassName.bestGuess(inner.fullyQualifiedName(name, None, packagePrefixes))
+//          }
+//        res ++ templateNames
+//      case (res, _) => res
+//    })
+//  }
 
   def process(
       nodeWithContext: NodeWithContext,
@@ -74,7 +74,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
       packagePrefixes: Map[PackageId, String],
   )(implicit ec: ExecutionContext): Future[Unit] = {
     nodeWithContext match {
-      case moduleWithContext: ModuleWithContext if moduleWithContext.module.types.nonEmpty =>
+      case moduleWithContext: ModuleWithContext =>
         // this is a Daml module that contains type declarations => the codegen will create one file
         Future {
           logger.info(
@@ -85,14 +85,8 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
               s"Writing ${javaFile.packageName}.${javaFile.typeSpec.name} to directory ${conf.outputDirectory}"
             )
             javaFile.writeTo(conf.outputDirectory)
-
           }
         }
-      case moduleWithContext: ModuleWithContext =>
-        moduleWithContext.interface.astInterfaces.foreach { it =>
-          throw new Exception(it.toString())
-        }
-        Future.unit
       case _ =>
         Future.unit
     }
@@ -105,15 +99,31 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     MDC.put("packageId", moduleWithContext.packageId)
     MDC.put("packageIdShort", moduleWithContext.packageId.take(7))
     MDC.put("moduleName", moduleWithContext.name)
-    val typeSpecs = for {
-      typeWithContext <- moduleWithContext.typesLineages
-      javaFile <- ClassForType(typeWithContext, packagePrefixes)
-    } yield {
-      javaFile
+
+    val javaFiles = {
+      moduleWithContext.typesLineages.flatMap { typeWithContext =>
+        typeWithContext.interface.astInterfaces.map { case (interfaceName, interface) =>
+          val className = InterfaceClass.classNameForInterface(interfaceName)
+          val javaPackage = className.packageName()
+          JavaFile
+            .builder(
+              javaPackage,
+              InterfaceClass
+                .generate(
+                  className,
+                  interface,
+                  packagePrefixes,
+                  moduleWithContext.packageId,
+                  interfaceName,
+                ),
+            )
+            .build()
+        } ++ ClassForType(typeWithContext, packagePrefixes)
+      }
     }
     MDC.remove("packageId")
     MDC.remove("packageIdShort")
     MDC.remove("moduleName")
-    typeSpecs
+    javaFiles
   }
 }

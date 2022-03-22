@@ -69,30 +69,3 @@ primitiveTest =
                     timeOfBirth = time dob 04 05 06
                     parents = []
                     colors = [RGB 17 19 23]
-
-
-interface TIf where
-  getOwner: Party
-  dup: Update (ContractId TIf)
-  choice Ham: ContractId TIf with
-    controller getOwner this
-    do dup this
-  choice Useless: ContractId TIf with
-      interfacely: ContractId TIf
-    controller getOwner this
-    do
-      dup this
-
-template Child
-    with
-    party: Party
-  where
-    signatory party
-    choice Bar: () with
-      controller party
-      do
-        return ()
-
-    implements TIf where
-      getOwner = party
-      dup = toInterfaceContractId <$> create this
