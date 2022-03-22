@@ -14,7 +14,7 @@ trait SecuredServiceCallAuthTests extends ServiceCallAuthTests {
     SecurityTest(property = Authorization, asset = serviceCallName)
 
   def attack(threat: String): Attack = Attack(
-    actor = s"A user calling $serviceCallName",
+    actor = s"Ledger API client calling $serviceCallName",
     threat = threat,
     mitigation = s"Refuse to connect the user to $serviceCallName",
   )
