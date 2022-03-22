@@ -13,7 +13,7 @@ final case class Config(
     choiceName: String,
     choiceIndex: Option[Int],
     darFile: Option[Path],
-    ledgerExport: Path,
+    ledgerEntries: Path,
     profileDir: Path,
 )
 
@@ -24,7 +24,7 @@ object Config {
     choiceName = null,
     choiceIndex = None,
     darFile = None,
-    ledgerExport = null,
+    ledgerEntries = null,
     profileDir = null,
   )
 
@@ -42,9 +42,9 @@ object Config {
       .action((x, c) => c.copy(darFile = Some(x)))
       .text("Path to DAR")
       .optional()
-    opt[Path]("export")
+    opt[Path]("entries")
       .text("Path to submission entries file")
-      .action((x, c) => c.copy(ledgerExport = x))
+      .action((x, c) => c.copy(ledgerEntries = x))
       .required()
     opt[Path]("profile-dir")
       .text("Directory to write profiling results to")
@@ -75,7 +75,7 @@ object ReplayProfile {
       Ref.Name.assertFromString(name),
     )
     val originalBenchmark =
-      TransactionSnapshot.loadBenchmark(config.ledgerExport, choice, 0, Some(config.profileDir))
+      TransactionSnapshot.loadBenchmark(config.ledgerEntries, choice, 0, Some(config.profileDir))
     val benchmark = config.darFile match {
       case Some(path) =>
         val loadedPackages = TransactionSnapshot.loadDar(path)
