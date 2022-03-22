@@ -25,10 +25,13 @@ class Interfaces
         alice <- allocateParty
       } yield {
         sendCmd(client, alice, interfaces.Child.create(alice))
-        val childs = readActiveContracts(interfaces.Child.Contract.fromCreatedEvent)(client, alice)
-        childs.foreach { child =>
-          sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
-          sendCmd(client, alice, child.id.toTIf.exerciseHam(new interfaces.Ham()))
+        readActiveContracts(interfaces.Child.Contract.fromCreatedEvent)(client, alice).foreach {
+          child =>
+            sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
+        }
+        readActiveContracts(interfaces.Child.Contract.fromCreatedEvent)(client, alice).foreach {
+          child =>
+            sendCmd(client, alice, child.id.toTIf.exerciseHam(new interfaces.Ham()))
         }
         succeed
       }
