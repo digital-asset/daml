@@ -65,12 +65,14 @@ toPtx nodes = case runState (mapM go nodes) (0, []) of
                 , node_CreateSignatories = V.empty
                 , node_CreateStakeholders = V.empty
                 , node_CreateKeyWithMaintainers = Nothing
+                , node_CreateByInterface = Nothing
                 }
               Fetch -> pure $ S.NodeNodeFetch S.Node_Fetch
                 { node_FetchContractId = "#0"
                 , node_FetchTemplateId = Nothing
                 , node_FetchSignatories = V.empty
                 , node_FetchStakeholders = V.empty
+                , node_FetchByInterface = Nothing
                 }
               Lookup -> pure $ S.NodeNodeLookupByKey S.Node_LookupByKey
                 { node_LookupByKeyTemplateId = Nothing
@@ -94,6 +96,7 @@ toPtx nodes = case runState (mapM go nodes) (0, []) of
                     , node_ExerciseChildren = V.fromList children'
                     , node_ExerciseExerciseResult = if complete then Just (S.Value (Just (S.ValueSumUnit S.Empty))) else Nothing
                     , node_ExerciseConsuming = False
+                    , node_ExerciseByInterface = Nothing
                     }
           let node = S.Node
                 { nodeNodeId = Just nid

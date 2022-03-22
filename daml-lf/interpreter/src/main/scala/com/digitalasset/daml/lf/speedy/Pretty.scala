@@ -257,32 +257,36 @@ private[lf] object Pretty {
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
-        val d = ("create" &: prettyContractInst(create.coinst)) &
-          (create.byInterface match {
-            case None => text("")
-            case Some(ifaceId) => text("as interface") & prettyIdentifier(ifaceId)
-          })
+        val d =
+          create.byInterface match {
+            case None => "create" &: prettyContractInst(create.coinst)
+            case Some(ifaceId) =>
+              ("create" &: prettyContractInst(create.coinst)) & text(
+                "as interface"
+              ) & prettyIdentifier(ifaceId)
+          }
         create.versionedKey match {
           case None => d
           case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
-        ("ensure active" &: prettyContractId(ea.coid)) &
-          (ea.byInterface match {
-            case None => text("")
-            case Some(ifaceId) => text("as interface") & prettyIdentifier(ifaceId)
-          })
+        val d = "ensure active" &: prettyContractId(ea.coid)
+        (ea.byInterface match {
+          case None => d
+          case Some(ifaceId) => d & text("as interface") & prettyIdentifier(ifaceId)
+        })
       case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
           else
             text("")
+        val exercises =
+          text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId)
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           (ex.byInterface match {
-            case None => text("")
-            case Some(ifaceId) => text("as interface") & prettyIdentifier(ifaceId)
+            case None => exercises
+            case Some(ifaceId) => exercises & text("as interface") & prettyIdentifier(ifaceId)
           }) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
