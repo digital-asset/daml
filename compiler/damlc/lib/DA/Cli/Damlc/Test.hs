@@ -182,9 +182,15 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
         [ (pidM, m, t, n, mi)
         | (pidM, m, t) <- templates
         , (n, mi) <- concat
-            [ (, Nothing) <$> NM.names (LF.tplChoices t)
-            , NM.toList (LF.tplImplements t) >>= \LF.TemplateImplements {..} ->
-                (, Just tpiInterface) <$> S.toList tpiInheritedChoiceNames
+            [ [ (choice, Nothing)
+              | choice <- NM.names (LF.tplChoices t)
+              ]
+            , [ (inheritedChoice, Just interface)
+              | implements <- NM.toList (LF.tplImplements t)
+              , let interface = LF.tpiInterface implements
+                    inheritedChoices = S.toList (LF.tpiInheritedChoiceNames implements)
+              , inheritedChoice <- inheritedChoices
+              ]
             ]
         ]
     percentage i j
