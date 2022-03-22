@@ -523,14 +523,16 @@ final class Conversions(
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: Node.Fetch =>
-        builder.setFetch(
+        val fetchBuilder =
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build
+        fetch.byInterface.foreach(ifaceId =>
+          fetchBuilder.setByInterface(convertIdentifier(ifaceId))
         )
+        builder.setFetch(fetchBuilder.build)
       case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
@@ -549,6 +551,9 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
+        ex.byInterface.foreach(ifaceId =>
+          exerciseBuilder.setByInterface(convertIdentifier(ifaceId))
+        )
 
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
@@ -609,6 +614,9 @@ final class Conversions(
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
+        create.byInterface.foreach(ifaceId =>
+          createBuilder.setByInterface(convertIdentifier(ifaceId))
+        )
         create.versionedKey.foreach(key =>
           createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key))
         )
