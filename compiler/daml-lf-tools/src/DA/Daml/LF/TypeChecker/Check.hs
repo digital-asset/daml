@@ -748,6 +748,11 @@ typeOf' = \case
     checkImplements tpl iface
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
+  EUnsafeFromInterface iface tpl cid val -> do
+    checkImplements tpl iface
+    checkExpr cid (TContractId (TCon tpl))
+    checkExpr val (TCon iface)
+    pure (TCon tpl)
   ECallInterface iface method val -> do
     method <- inWorld (lookupInterfaceMethod (iface, method))
     checkExpr val (TCon iface)
@@ -764,6 +769,13 @@ typeOf' = \case
       throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
     checkExpr expr (TCon requiredIface)
     pure (TOptional (TCon requiringIface))
+  EUnsafeFromRequiredInterface requiredIface requiringIface cid expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr cid (TContractId (TCon requiringIface))
+    checkExpr expr (TCon requiredIface)
+    pure (TCon requiringIface)
   EInterfaceTemplateTypeRep iface expr -> do
     void $ inWorld (lookupInterface iface)
     checkExpr expr (TCon iface)

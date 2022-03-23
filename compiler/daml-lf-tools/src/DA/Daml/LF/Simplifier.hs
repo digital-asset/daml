@@ -208,9 +208,11 @@ safetyStep = \case
   EThrowF _ _ _ -> Unsafe
   EToInterfaceF _ _ s -> s <> Safe 0
   EFromInterfaceF _ _ s -> s <> Safe 0
+  EUnsafeFromInterfaceF _ _ _ _ -> Unsafe
   ECallInterfaceF _ _ _ -> Unsafe
   EToRequiredInterfaceF _ _ s -> s <> Safe 0
   EFromRequiredInterfaceF _ _ s -> s <> Safe 0
+  EUnsafeFromRequiredInterfaceF _ _ _ _ -> Unsafe
   EInterfaceTemplateTypeRepF _ s -> s <> Safe 0
   ESignatoryInterfaceF _ s -> s <> Safe 0
   EObserverInterfaceF _ s -> s <> Safe 0
