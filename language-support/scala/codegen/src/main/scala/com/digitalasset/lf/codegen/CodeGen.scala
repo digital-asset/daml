@@ -32,9 +32,6 @@ object CodeGen {
 
   private val logger: Logger = Logger(getClass)
 
-  sealed abstract class Mode extends Serializable with Product
-  case object Novel extends Mode
-
   val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
   import universe._
 
@@ -59,14 +56,13 @@ object CodeGen {
       files: List[File],
       packageName: String,
       outputDir: File,
-      mode: Mode,
       roots: Seq[String] = Seq(),
   ): Unit =
     files match {
       case Nil =>
         throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
       case f :: fs =>
-        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode, roots)
+        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, roots)
           .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
     }
 
@@ -77,23 +73,13 @@ object CodeGen {
       files: NonEmptyList[File],
       packageName: String,
       outputDir: File,
-      mode: Mode,
       roots: Seq[String],
   ): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
       val combinedIface: EnvironmentInterface =
         combineEnvInterfaces(ifaces map Util.filterTemplatesBy(roots map (_.r)))
-      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
+      packageInterfaceToScalaCode(LFUtil(packageName, combinedIface, outputDir))
     }
-
-  private def util(
-      mode: Mode,
-      packageName: String,
-      iface: EnvironmentInterface,
-      outputDir: File,
-  ): LFUtil = mode match {
-    case Novel => LFUtil(packageName, iface, outputDir)
-  }
 
   private def decodeInterfaces(
       files: NonEmptyList[File]
