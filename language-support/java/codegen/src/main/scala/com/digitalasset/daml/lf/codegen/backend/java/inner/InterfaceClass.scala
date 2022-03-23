@@ -5,8 +5,8 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.lf.iface.{DefInterface, TemplateChoice}
+import com.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.daml.lf.iface.{DefInterface}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -45,50 +45,23 @@ object InterfaceClass extends StrictLogging {
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addField(generateTemplateIdField(packageId, interfaceId))
         .addType(
-          generateIdClass(
-            interfaceName,
-            interface.choices,
-            packagePrefixes,
-          )
+          IdClass
+            .builder(
+              interfaceName,
+              interface.choices,
+              packagePrefixes,
+            )
+            .build()
         )
         .addType(
-          TemplateClass
-            .generateContractClass(interfaceName, None, packagePrefixes, isForInterface = true)
+          ContractIdClass
+            .builder(interfaceName, None, packagePrefixes)
+            .build()
         )
         .build()
       logger.debug("End")
       templateType
     }
-
-  private def generateIdClass(
-      templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
-      packagePrefixes: Map[PackageId, String],
-  ): TypeSpec = {
-
-    val idClassBuilder =
-      TypeSpec
-        .classBuilder("ContractId")
-        .superclass(
-          ParameterizedTypeName
-            .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName)
-        )
-        .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-    val constructor =
-      MethodSpec
-        .constructorBuilder()
-        .addModifiers(Modifier.PUBLIC)
-        .addParameter(ClassName.get(classOf[String]), "contractId")
-        .addStatement("super(contractId)")
-        .build()
-    idClassBuilder.addMethod(constructor)
-    for ((choiceName, choice) <- choices) {
-      val exerciseChoiceMethod =
-        TemplateClass.generateExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
-      idClassBuilder.addMethod(exerciseChoiceMethod)
-    }
-    idClassBuilder.build()
-  }
 
   private def generateTemplateIdField(
       packageId: PackageId,

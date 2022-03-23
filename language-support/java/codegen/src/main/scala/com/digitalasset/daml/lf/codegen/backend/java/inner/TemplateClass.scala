@@ -6,9 +6,7 @@ package com.daml.lf.codegen.backend.java.inner
 import java.util.Optional
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
-import com.daml.lf.codegen.backend.java.ObjectMethods
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
@@ -57,17 +55,24 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addMethod(staticCreateMethod)
         .addType(
-          generateIdClass(
-            className,
-            template.choices,
-            typeWithContext.interface.typeDecls,
-            typeWithContext.packageId,
-            packagePrefixes,
-            template.implementedInterfaces,
-          )
+          IdClass
+            .builder(
+              className,
+              template.choices,
+              packagePrefixes,
+            )
+            .addFlattenedExerciseMethods(
+              typeWithContext.interface.typeDecls,
+              typeWithContext.packageId,
+            )
+            .addConversionForImplementedInterfaces(template.implementedInterfaces)
+            .build()
         )
         .addType(
-          generateContractClass(className, template.key, packagePrefixes, isForInterface = false)
+          ContractIdClass
+            .builder(className, template.key, packagePrefixes)
+            .addGenerateFromMethods()
+            .build()
         )
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
@@ -87,97 +92,6 @@ private[inner] object TemplateClass extends StrictLogging {
   private def optional(name: TypeName) =
     ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), name)
   private def setOfStrings = ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
-
-  private[inner] def generateContractClass(
-      templateClassName: ClassName,
-      key: Option[Type],
-      packagePrefixes: Map[PackageId, String],
-      isForInterface: Boolean,
-  ): TypeSpec = {
-
-    val contractIdClassName = ClassName.bestGuess("ContractId")
-    val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
-
-    val classBuilder =
-      TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
-
-    classBuilder.addField(contractIdClassName, idFieldName, Modifier.PUBLIC, Modifier.FINAL)
-    classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
-    classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
-
-    contractKeyClassName.foreach { name =>
-      classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
-    }
-
-    classBuilder.addField(setOfStrings, signatoriesFieldName, Modifier.PUBLIC, Modifier.FINAL)
-    classBuilder.addField(setOfStrings, observersFieldName, Modifier.PUBLIC, Modifier.FINAL)
-
-    classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
-
-    val constructorBuilder = MethodSpec
-      .constructorBuilder()
-      .addModifiers(Modifier.PUBLIC)
-      .addParameter(contractIdClassName, idFieldName)
-      .addParameter(templateClassName, dataFieldName)
-      .addParameter(optionalString, agreementFieldName)
-
-    contractKeyClassName.foreach { name =>
-      constructorBuilder.addParameter(optional(name), contractKeyFieldName)
-    }
-
-    constructorBuilder
-      .addParameter(setOfStrings, signatoriesFieldName)
-      .addParameter(setOfStrings, observersFieldName)
-
-    constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
-    constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
-    constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
-    contractKeyClassName.foreach { _ =>
-      constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName)
-    }
-    constructorBuilder.addStatement("this.$L = $L", signatoriesFieldName, signatoriesFieldName)
-    constructorBuilder.addStatement("this.$L = $L", observersFieldName, observersFieldName)
-
-    val constructor = constructorBuilder.build()
-
-    classBuilder.addMethod(constructor)
-
-    val contractClassName = ClassName.bestGuess("Contract")
-    val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName
-      .map(_ => contractKeyFieldName)
-      .toList ++ Vector(signatoriesFieldName, observersFieldName)
-    if (!isForInterface) {
-      classBuilder
-        .addMethod(
-          generateFromIdAndRecord(
-            contractClassName,
-            templateClassName,
-            contractIdClassName,
-            contractKeyClassName,
-          )
-        )
-        .addMethod(
-          generateFromIdAndRecordDeprecated(
-            contractClassName,
-            templateClassName,
-            contractIdClassName,
-            contractKeyClassName,
-          )
-        )
-        .addMethod(
-          generateFromCreatedEvent(
-            contractClassName,
-            key,
-            packagePrefixes,
-          )
-        )
-    }
-    classBuilder
-      .addMethods(
-        ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava
-      )
-      .build()
-  }
 
   private[inner] def generateFromIdAndRecord(
       className: ClassName,
@@ -314,67 +228,6 @@ private[inner] object TemplateClass extends StrictLogging {
         generateArgumentList(fields.map(_.javaName)),
       )
       .build()
-
-  private def generateIdClass(
-      templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
-      typeDeclarations: Map[QualifiedName, InterfaceType],
-      packageId: PackageId,
-      packagePrefixes: Map[PackageId, String],
-      inheritedInterfaces: Seq[Ref.TypeConName],
-  ): TypeSpec = {
-
-    val idClassBuilder =
-      TypeSpec
-        .classBuilder("ContractId")
-        .superclass(
-          ParameterizedTypeName
-            .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName)
-        )
-        .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-    val constructor =
-      MethodSpec
-        .constructorBuilder()
-        .addModifiers(Modifier.PUBLIC)
-        .addParameter(ClassName.get(classOf[String]), "contractId")
-        .addStatement("super(contractId)")
-        .build()
-    idClassBuilder.addMethod(constructor)
-    inheritedInterfaces.foreach { interfaceName =>
-      val name = InterfaceClass.classNameForInterface(interfaceName.qualifiedName)
-      val simpleName = interfaceName.qualifiedName.name.segments.last
-      idClassBuilder.addMethod(
-        MethodSpec
-          .methodBuilder(s"to$simpleName")
-          .addModifiers(Modifier.PUBLIC)
-          .addStatement(s"return new $name.ContractId(this.contractId)")
-          .returns(ClassName.bestGuess(s"$name.ContractId"))
-          .build()
-      )
-    }
-    for ((choiceName, choice) <- choices) {
-      val exerciseChoiceMethod =
-        generateExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
-      idClassBuilder.addMethod(exerciseChoiceMethod)
-      for (
-        record <- choice.param.fold(
-          getRecord(_, typeDeclarations, packageId),
-          _ => None,
-          _ => None,
-          _ => None,
-        )
-      ) {
-        val splatted = generateFlattenedExerciseMethod(
-          choiceName,
-          choice,
-          getFieldsWithTypes(record.fields, packagePrefixes),
-          packagePrefixes,
-        )
-        idClassBuilder.addMethod(splatted)
-      }
-    }
-    idClassBuilder.build()
-  }
 
   private def getRecord(
       typeCon: TypeCon,
@@ -621,30 +474,6 @@ private[inner] object TemplateClass extends StrictLogging {
       classOf[javaapi.data.ExerciseCommand],
       templateClassName,
       choiceName,
-    )
-    exerciseChoiceBuilder.build()
-  }
-
-  private def generateFlattenedExerciseMethod(
-      choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
-      fields: Fields,
-      packagePrefixes: Map[PackageId, String],
-  ): MethodSpec = {
-    val methodName = s"exercise${choiceName.capitalize}"
-    val exerciseChoiceBuilder = MethodSpec
-      .methodBuilder(methodName)
-      .addModifiers(Modifier.PUBLIC)
-      .returns(classOf[javaapi.data.ExerciseCommand])
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
-    for (FieldInfo(_, _, javaName, javaType) <- fields) {
-      exerciseChoiceBuilder.addParameter(javaType, javaName)
-    }
-    exerciseChoiceBuilder.addStatement(
-      "return $L(new $T($L))",
-      methodName,
-      javaType,
-      generateArgumentList(fields.map(_.javaName)),
     )
     exerciseChoiceBuilder.build()
   }
