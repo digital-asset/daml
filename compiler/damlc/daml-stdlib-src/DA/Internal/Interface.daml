@@ -78,6 +78,11 @@ class HasFromInterface t i where
   -- the interface value `value` into the template type `MyTemplate`.
   fromInterface : i -> Optional t
 
+  -- | HIDE
+  -- Like 'fromInterface', but throws an error if the underlying template type
+  -- of the interface value doesn't match the type of the provided ContractId.
+  unsafeFromInterface : ContractId t -> i -> t
+
 -- | (1.dev only) Constraint that indicates that a template implements an interface.
 type Implements t i =
   ( HasInterfaceTypeRep i
