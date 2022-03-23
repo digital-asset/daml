@@ -22,7 +22,7 @@ object SpeedTestNfib extends App {
 
   println(s"Running...");
 
-  val n = 28L
+  val n = 29L
 
   while (true) {
     val start = System.currentTimeMillis()

@@ -1,0 +1,28 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+)
+
+da_scala_binary(
+    name = "xbc",
+    srcs = glob([
+        "src/**/*.scala",
+    ]),
+    main_class = "xbc.Speed",
+    deps = [
+        "@maven//:org_ow2_asm_asm",
+        "byhandjava",
+    ],
+)
+
+java_library(
+    name = "byhandjava",
+    srcs = glob([
+        "src/**/*.java",
+    ]),
+    deps = [
+    ],
+)

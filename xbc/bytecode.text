@@ -1,0 +1,199 @@
+Classfile /home/nic/daml/tmp/xbc/ByHandScala$.class
+  Last modified Jan 1, 2010; size 942 bytes
+  MD5 checksum 18778ac8ccc8ba32c12291cd2531f452
+  Compiled from "ByHandScala.scala"
+public final class xbc.ByHandScala$
+  minor version: 0
+  major version: 52
+  flags: (0x0031) ACC_PUBLIC, ACC_FINAL, ACC_SUPER
+  this_class: #2                          // xbc/ByHandScala$
+  super_class: #4                         // java/lang/Object
+  interfaces: 0, fields: 1, methods: 5, attributes: 3
+Constant pool:
+   #1 = Utf8               xbc/ByHandScala$
+   #2 = Class              #1             // xbc/ByHandScala$
+   #3 = Utf8               java/lang/Object
+   #4 = Class              #3             // java/lang/Object
+   #5 = Utf8               ByHandScala.scala
+   #6 = Utf8               MODULE$
+   #7 = Utf8               Lxbc/ByHandScala$;
+   #8 = Utf8               <clinit>
+   #9 = Utf8               ()V
+  #10 = Utf8               <init>
+  #11 = NameAndType        #10:#9         // "<init>":()V
+  #12 = Methodref          #2.#11         // xbc/ByHandScala$."<init>":()V
+  #13 = NameAndType        #6:#7          // MODULE$:Lxbc/ByHandScala$;
+  #14 = Fieldref           #2.#13         // xbc/ByHandScala$.MODULE$:Lxbc/ByHandScala$;
+  #15 = Utf8               nfib
+  #16 = Utf8               (J)J
+  #17 = Utf8               n
+  #18 = Long               2l
+  #20 = NameAndType        #15:#16        // nfib:(J)J
+  #21 = Methodref          #2.#20         // xbc/ByHandScala$.nfib:(J)J
+  #22 = Utf8               this
+  #23 = Utf8               J
+  #24 = Utf8               tripLoop
+  #25 = Utf8               (JJJ)J
+  #26 = Utf8               step
+  #27 = Utf8               acc
+  #28 = Utf8               i
+  #29 = Utf8               trip
+  #30 = Long               3l
+  #32 = NameAndType        #24:#25        // tripLoop:(JJJ)J
+  #33 = Methodref          #2.#32         // xbc/ByHandScala$.tripLoop:(JJJ)J
+  #34 = Methodref          #4.#11         // java/lang/Object."<init>":()V
+  #35 = Utf8               Code
+  #36 = Utf8               LineNumberTable
+  #37 = Utf8               StackMapTable
+  #38 = Utf8               LocalVariableTable
+  #39 = Utf8               MethodParameters
+  #40 = Utf8               SourceFile
+  #41 = Utf8               ScalaInlineInfo
+  #42 = Utf8               Scala
+{
+  public static final xbc.ByHandScala$ MODULE$;
+    descriptor: Lxbc/ByHandScala$;
+    flags: (0x0019) ACC_PUBLIC, ACC_STATIC, ACC_FINAL
+
+  public static {};
+    descriptor: ()V
+    flags: (0x0009) ACC_PUBLIC, ACC_STATIC
+    Code:
+      stack=2, locals=0, args_size=0
+         0: new           #2                  // class xbc/ByHandScala$
+         3: dup
+         4: invokespecial #12                 // Method "<init>":()V
+         7: putstatic     #14                 // Field MODULE$:Lxbc/ByHandScala$;
+        10: return
+      LineNumberTable:
+        line 9: 0
+
+  public long nfib(long);
+    descriptor: (J)J
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=7, locals=3, args_size=2
+         0: lload_1
+         1: ldc2_w        #18                 // long 2l
+         4: lcmp
+         5: ifge          12
+         8: lconst_1
+         9: goto          31
+        12: aload_0
+        13: lload_1
+        14: lconst_1
+        15: lsub
+        16: invokevirtual #21                 // Method nfib:(J)J
+        19: aload_0
+        20: lload_1
+        21: ldc2_w        #18                 // long 2l
+        24: lsub
+        25: invokevirtual #21                 // Method nfib:(J)J
+        28: ladd
+        29: lconst_1
+        30: ladd
+        31: lreturn
+      StackMapTable: number_of_entries = 2
+        frame_type = 12 /* same */
+        frame_type = 82 /* same_locals_1_stack_item */
+          stack = [ long ]
+      LineNumberTable:
+        line 14: 0
+        line 15: 8
+        line 17: 12
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      32     0  this   Lxbc/ByHandScala$;
+            0      32     1     n   J
+    MethodParameters:
+      Name                           Flags
+      n                              final
+
+  public long tripLoop(long, long, long);
+    descriptor: (JJJ)J
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=8, locals=7, args_size=4
+         0: lload         5
+         2: lconst_1
+         3: lcmp
+         4: ifge          11
+         7: lload_3
+         8: goto          26
+        11: lload_1
+        12: lload_3
+        13: lload_1
+        14: ladd
+        15: lload         5
+        17: lconst_1
+        18: lsub
+        19: lstore        5
+        21: lstore_3
+        22: lstore_1
+        23: goto          0
+        26: lreturn
+      StackMapTable: number_of_entries = 3
+        frame_type = 0 /* same */
+        frame_type = 10 /* same */
+        frame_type = 78 /* same_locals_1_stack_item */
+          stack = [ long ]
+      LineNumberTable:
+        line 23: 0
+        line 25: 11
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      27     0  this   Lxbc/ByHandScala$;
+            0      27     1  step   J
+            0      27     3   acc   J
+            0      27     5     i   J
+    MethodParameters:
+      Name                           Flags
+      step                           final
+      acc                            final
+      i                              final
+
+  public long trip(long);
+    descriptor: (J)J
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=7, locals=5, args_size=2
+         0: ldc2_w        #30                 // long 3l
+         3: lstore_3
+         4: aload_0
+         5: lload_3
+         6: lconst_0
+         7: lload_1
+         8: invokevirtual #33                 // Method tripLoop:(JJJ)J
+        11: lreturn
+      LineNumberTable:
+        line 31: 0
+        line 32: 4
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            4       7     3  step   J
+            0      12     0  this   Lxbc/ByHandScala$;
+            0      12     1     i   J
+    MethodParameters:
+      Name                           Flags
+      i                              final
+
+  private xbc.ByHandScala$();
+    descriptor: ()V
+    flags: (0x0002) ACC_PRIVATE
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #34                 // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 9: 0
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lxbc/ByHandScala$;
+}
+SourceFile: "ByHandScala.scala"
+  ScalaInlineInfo: length = 0x18 (unknown attribute)
+   01 01 00 04 00 0A 00 09 01 00 0F 00 10 01 00 1D
+   00 10 01 00 18 00 19 01
+  Scala: length = 0x0 (unknown attribute)
+
