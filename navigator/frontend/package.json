@@ -101,6 +101,7 @@
     "**/strip-ansi": "^6.0.0",
     "**/shelljs": "^0.8.5",
     "**/minimist": "^1.2.6",
+    "**/node-forge": "^1.3.0",
     "modernizr/**/markdown-it": "^12.3.2"
   }
 }
