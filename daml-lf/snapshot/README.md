@@ -52,7 +52,7 @@ where:
 
 # `replay-profile`
 
-This profile the replay of a transaction built from a ledger entries file.
+This profiles the replay of a transaction built from a ledger entries file.
 
      bazel run //daml-lf/snapshot:replay-profile --     \
       --entries <entries files>                         \
