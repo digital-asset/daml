@@ -70,12 +70,3 @@ object Graph {
     OrderedDependencies(deps, utes)
   }
 }
-
-/** Ordered dependencies where the dependant node always comes after the dependency.
-  * @param deps The ordered dependencies
-  * @param errors The errors that came up when producing the list
-  */
-final case class OrderedDependencies[+K, +A](
-    deps: Vector[(K, Node[K, A])],
-    errors: List[UnsupportedTypeError],
-)
