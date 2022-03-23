@@ -14,7 +14,7 @@ da_scala_library(
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_parser",
     ],
-    tags = ["maven_coordinates=com.daml:test-evidence-generator-lib:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:test-evidence-generator:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
