@@ -1132,6 +1132,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             value = decodeExpr(fromInterface.getInterfaceExpr, definition),
           )
 
+        case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.unsafe_from_interface")
+          val unsafeFromInterface = lfExpr.getUnsafeFromInterface
+          EUnsafeFromInterface(
+            interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType),
+            templateId = decodeTypeConName(unsafeFromInterface.getTemplateType),
+            contractIdExpr = decodeExpr(unsafeFromInterface.getContractIdExpr, definition),
+            ifaceExpr = decodeExpr(unsafeFromInterface.getInterfaceExpr, definition),
+          )
+
         case PLF.Expr.SumCase.CALL_INTERFACE =>
           assertSince(LV.Features.interfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
@@ -1158,6 +1168,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
             requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
             body = decodeExpr(fromRequiredInterface.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.UNSAFE_FROM_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.from_required_interface")
+          val unsafeFromRequiredInterface = lfExpr.getUnsafeFromRequiredInterface
+          EUnsafeFromRequiredInterface(
+            requiredIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiringInterface),
+            contractIdExpr = decodeExpr(unsafeFromRequiredInterface.getContractIdExpr, definition),
+            ifaceExpr = decodeExpr(unsafeFromRequiredInterface.getInterfaceExpr, definition),
           )
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>

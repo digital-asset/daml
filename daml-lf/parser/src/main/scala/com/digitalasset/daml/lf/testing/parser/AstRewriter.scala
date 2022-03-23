@@ -129,12 +129,16 @@ private[daml] class AstRewriter(
           EToInterface(apply(iface), apply(tpl), apply(value))
         case EFromInterface(iface, tpl, value) =>
           EFromInterface(apply(iface), apply(tpl), apply(value))
+        case EUnsafeFromInterface(iface, tpl, cid, value) =>
+          EUnsafeFromInterface(apply(iface), apply(tpl), apply(cid), apply(value))
         case ECallInterface(iface, method, value) =>
           ECallInterface(apply(iface), method, apply(value))
         case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EToRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
         case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
+        case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
+          EUnsafeFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(cid), apply(body))
         case EInterfaceTemplateTypeRep(ifaceId, body) =>
           EInterfaceTemplateTypeRep(apply(ifaceId), apply(body))
         case ESignatoryInterface(ifaceId, body) =>

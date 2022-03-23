@@ -333,6 +333,11 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBFromInterface(tpl)(exp))
         }
+      case EUnsafeFromInterface(iface @ _, tpl, cidExp, ifaceExp) =>
+        compileExp(env, cidExp) { cidExp =>
+          compileExp(env, ifaceExp) { ifaceExp =>
+            Return(SBUnsafeFromInterface(tpl)(cidExp, ifaceExp))
+        }}
       case ECallInterface(iface, methodName, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBCallInterface(iface, methodName)(exp))
@@ -343,6 +348,11 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBFromRequiredInterface(requiringIfaceId)(exp))
         }
+      case EUnsafeFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, cidExp, ifaceExp) =>
+        compileExp(env, cidExp) { cidExp =>
+          compileExp(env, ifaceExp) { ifaceExp =>
+            Return(SBUnsafeFromRequiredInterface(requiringIfaceId)(cidExp, ifaceExp))
+        }}
       case EInterfaceTemplateTypeRep(ifaceId, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBInterfaceTemplateTypeRep(ifaceId)(exp))

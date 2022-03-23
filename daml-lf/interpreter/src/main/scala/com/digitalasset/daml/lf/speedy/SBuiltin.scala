@@ -1194,6 +1194,23 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Convert an interface to a given template type if possible. Since interfaces are represented
+  // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
+  // matches the template type, and then return the SAny internal value.
+  final case class SBUnsafeFromInterface(
+      tplId: TypeConName
+  ) extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+      val coid = getSContractId(args,0)
+      val (tyCon, record) = getSAnyContract(args, 1)
+      if (tplId == tyCon) {
+        record
+      } else {
+        throw SErrorDamlException(IE.WronglyTypedContract(coid, tplId, tyCon))
+      }
+    }
+  }
+
   // Convert an interface `requiredIface` to another interface `requiringIface`, if
   // the `requiringIface` implements `requiredIface`.
   final case class SBFromRequiredInterface(
@@ -1213,6 +1230,30 @@ private[lf] object SBuiltin {
           SOptional(Some(SAnyContract(tyCon, record)))
         case _ =>
           SOptional(None)
+      }
+    }
+  }
+
+  // Convert an interface `requiredIface` to another interface `requiringIface`, if
+  // the `requiringIface` implements `requiredIface`.
+  final case class SBUnsafeFromRequiredInterface(
+      requiringIface: TypeConName
+  ) extends SBuiltin(2) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ) = {
+      val coid = getSContractId(args,0)
+      val (tyCon, record) = getSAnyContract(args, 1)
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      // TODO https://github.com/digital-asset/daml/issues/11345
+      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
+          SAnyContract(tyCon, record)
+        case _ =>
+          throw SErrorDamlException(IE.WronglyTypedContract(coid, requiringIface, tyCon))
       }
     }
   }
