@@ -211,15 +211,15 @@ provided by the *HTTP JSON API* server. This can also be tied into supporting ar
 autoscaling implementation to ensure minimum number of *HTTP JSON API* servers on
 failures.
 
-Setup the HTTP JSON API Service to work with Highly Available Participants
---------------------------------------------------------------------------
+Set up the HTTP JSON API Service to work with Highly Available Participants
+---------------------------------------------------------------------------
 
 In case the participant node itself is configured to be highly available, depending on the setup you might want
-to choose different strategies. In most setups, including those based on Canton, you'll likely have an active
-participant node whose role can be taken over by a passive node in case the currently active one drops. Just as
-for the *HTTP JSON API* itself, you can again use orchestration systems or load balancers to monitor the status
-of the participant nodes and have those point your (possibly highly available) *HTTP JSON API* nodes to the
-active participant node.
+to choose different approaches to connect to the participant nodes. In most setups, including those based on Canton,
+you'll likely have an active participant node whose role can be taken over by a passive node in case the currently
+active one drops. Just as for the *HTTP JSON API* itself, you can use orchestration systems or load balancers to
+monitor the status of the participant nodes and have those point your (possibly highly available) *HTTP JSON API*
+nodes to the active participant node.
 
 To learn how Canton can be run with high availability and how to monitor it refer to the :ref:`Canton documentation <high-availability>`.
 
