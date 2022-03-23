@@ -396,6 +396,12 @@ convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
     ETmLam (mkVar "i", TCon iface) $
         EFromInterface iface tpid (EVar $ mkVar "i")
 
+convertPrim _ "EUnsafeFromInterface" (TContractId (TCon tpid) :-> TCon iface :-> TCon tpid1)
+    | tpid == tpid1
+        = ETmLam (mkVar "cid", TContractId (TCon tpid))
+        $ ETmLam (mkVar "i", TCon iface)
+        $ EUnsafeFromInterface iface tpid (EVar $ mkVar "cid") (EVar $ mkVar "i")
+
 convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
     ETmLam (mkVar "i", TCon subIface) $
         EToRequiredInterface superIface subIface (EVar $ mkVar "i")
@@ -403,6 +409,12 @@ convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
 convertPrim _ "EFromRequiredInterface" (TCon superIface :-> TOptional (TCon subIface)) =
     ETmLam (mkVar "i", TCon superIface) $
         EFromRequiredInterface superIface subIface (EVar $ mkVar "i")
+
+convertPrim _ "EUnsafeFromRequiredInterface" (TContractId (TCon subIface) :-> TCon superIface :-> TCon subIface1)
+    | subIface == subIface1
+        = ETmLam (mkVar "cid", TContractId (TCon subIface))
+        $ ETmLam (mkVar "i", TCon superIface)
+        $ EUnsafeFromRequiredInterface superIface subIface (EVar $ mkVar "cid") (EVar $ mkVar "i")
 
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ
