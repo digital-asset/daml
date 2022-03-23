@@ -71,8 +71,8 @@ private[apiserver] final class ApiVersionService private (
   override def getLedgerApiVersion(
       request: GetLedgerApiVersionRequest
   ): Future[GetLedgerApiVersionResponse] = {
-    val rateLimited = true
-    if (!rateLimited) {
+    val manualRateLimited = false
+    if (!manualRateLimited) {
       Future
         .fromTry(apiVersion)
         .map(apiVersionResponse)
