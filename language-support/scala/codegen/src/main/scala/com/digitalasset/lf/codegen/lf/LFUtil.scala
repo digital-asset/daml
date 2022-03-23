@@ -33,11 +33,7 @@ final case class LFUtil(
   import scala.reflect.runtime.universe._
   import LFUtil._
 
-  type Interface = EnvironmentInterface
-
-  type TemplateInterface = DefTemplateWithRecord.FWT
-
-  def templateAndTypeFiles(wp: WriteParams[TemplateInterface]) =
+  def templateAndTypeFiles(wp: WriteParams[DefTemplateWithRecord]) =
     parent.CodeGen.produceTemplateAndTypeFilesLF(wp, this)
 
   def mkDamlScalaName(
@@ -298,14 +294,14 @@ final case class LFUtil(
       }.toList
   }
 
-  def templateCount(interface: Interface): Int = {
+  def templateCount(interface: EnvironmentInterface): Int = {
     interface.typeDecls.count {
       case (_, InterfaceType.Template(_, _)) => true
       case _ => false
     }
   }
 
-  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: Interface, z: Z)(
+  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: EnvironmentInterface, z: Z)(
       f: (Z, ScopedDataType.Name) => Z
   ): Z =
     interface.typeDecls.foldLeft(z) {
@@ -315,7 +311,7 @@ final case class LFUtil(
     }
 
   protected[this] def precacheVariance(
-      interface: Interface
+      interface: EnvironmentInterface
   ): ScopedDataType.Name => ImmArraySeq[Variance] = {
     import UsedTypeParams.ResolvedVariance
     val resolved = foldTemplateReferencedTypeDeclRoots(interface, ResolvedVariance.Empty) {

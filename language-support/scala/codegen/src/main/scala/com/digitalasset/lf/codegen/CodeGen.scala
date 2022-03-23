@@ -144,10 +144,10 @@ object CodeGen {
     val interface = util.iface
 
     val orderedDependencies
-        : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[util.TemplateInterface]] =
+        : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord]] =
       DependencyGraph.orderedDependencies(util.iface)
     val (templateIds, typeDeclsToGenerate): (
-        Map[Identifier, util.TemplateInterface],
+        Map[Identifier, DefTemplateWithRecord],
         List[ScopedDataType.FWT],
     ) = {
 
@@ -155,7 +155,7 @@ object CodeGen {
        * [[TypeDecl]]s without generating code for them.
        */
       val templateIdOrTypeDecls
-          : List[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
+          : List[(Identifier, DefTemplateWithRecord) Either ScopedDataType.FWT] =
         orderedDependencies.deps.toList.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
             Seq(Right(ScopedDataType.fromDefDataType(templateId, typeDecl)))
@@ -179,7 +179,7 @@ object CodeGen {
   }
 
   private[codegen] def produceTemplateAndTypeFilesLF(
-      wp: WriteParams[DefTemplateWithRecord.FWT],
+      wp: WriteParams[DefTemplateWithRecord],
       util: lf.LFUtil,
   ): IterableOnce[FilePlan] = {
     import wp._
@@ -193,7 +193,7 @@ object CodeGen {
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
         import lf.DamlDataTypeGen.DataType
-        type SrcV = DefTemplateWithRecord.FWT \/ DataType
+        type SrcV = DefTemplateWithRecord \/ DataType
         val ntdRights =
           (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
             .map(sdt => (sdt.name, \/-(sdt): SrcV))
@@ -295,7 +295,7 @@ object CodeGen {
 
   private[this] def writeTemplatesAndTypes(
       util: LFUtil
-  )(wp: WriteParams[util.TemplateInterface]): Unit = {
+  )(wp: WriteParams[DefTemplateWithRecord]): Unit = {
     util.templateAndTypeFiles(wp).iterator.foreach {
       case -\/(msg) => logger.debug(msg)
       case \/-((msg, filePath, trees)) =>
