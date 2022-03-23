@@ -135,6 +135,7 @@ private[speedy] object ClosureConversion {
 
       final case class Let1(
           boundsDone: List[target.SExpr],
+          boundsDoneLength: Int,
           env: Env,
           bounds: List[source.SExpr],
           body: source.SExpr,
@@ -205,7 +206,7 @@ private[speedy] object ClosureConversion {
                 case Nil =>
                   loop(Down(body, env), Cont.Let2(Nil) :: conts)
                 case bound :: bounds =>
-                  loop(Down(bound, env), Cont.Let1(Nil, env, bounds, body) :: conts)
+                  loop(Down(bound, env), Cont.Let1(Nil, 0, env, bounds, body) :: conts)
               }
 
             case source.SETryCatch(body, handler) =>
@@ -281,15 +282,17 @@ private[speedy] object ClosureConversion {
                       loop(Down(rhs, env1), Cont.Case2(scrut, altsDone, pat, env, alts) :: conts)
                   }
 
-                case Cont.Let1(boundsDone0, env, bounds, body) =>
+                case Cont.Let1(boundsDone0, n, env0, bounds, body) =>
                   val boundsDone = result :: boundsDone0
-                  val n = boundsDone.length
-                  val env1 = env.extend(n)
+                  val env = env0.extend(1)
                   bounds match {
                     case Nil =>
-                      loop(Down(body, env1), Cont.Let2(boundsDone) :: conts)
+                      loop(Down(body, env), Cont.Let2(boundsDone) :: conts)
                     case bound :: bounds =>
-                      loop(Down(bound, env1), Cont.Let1(boundsDone, env, bounds, body) :: conts)
+                      loop(
+                        Down(bound, env),
+                        Cont.Let1(boundsDone, n + 1, env, bounds, body) :: conts,
+                      )
                   }
 
                 case Cont.Let2(boundsDone) =>

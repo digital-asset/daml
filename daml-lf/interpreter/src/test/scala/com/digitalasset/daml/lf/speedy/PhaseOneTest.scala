@@ -118,7 +118,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("caseAlt1", caseAlt1),
         ("caseAlt2", caseAlt2),
         ("let1", let1),
-        ("let2", let2), //slow (2.6s for 5k; 11s for 10k -- quadratic?)
+        ("let2", let2),
         ("eabs_esome", eabs_esome),
         ("etyabs_esome", etyabs_esome),
         ("app1_esome", app1_esome),
@@ -142,10 +142,8 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     {
       // TODO https://github.com/digital-asset/daml/issues/13351
-      // we reduce the depth when sequencing multiple compilation phases
-      // 2k is still plenty to check stack-safety
-      // But above this, some testcases start to become slower than 1second.
-      // And in particulat "let2' appears to quadratic behaviour
+      // The following testcases still appear quadratic during closure-conversion:
+      //    scenBlock2, ublock2, ublock3
       val depth = 2000
       s"transform(phase1, closureConversion), depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
