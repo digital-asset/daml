@@ -155,6 +155,7 @@
     },
     "resolutions": {
         "**/markdown-it": "^12.3.2",
-        "**/simple-get": "^4.0.1"
+        "**/simple-get": "^4.0.1",
+        "**/minimist": "^1.2.6"
     }
 }
