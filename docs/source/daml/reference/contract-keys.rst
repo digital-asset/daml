@@ -3,8 +3,8 @@
 
 .. _contractkeys:
 
-Contract keys
-#############
+Reference: Contract keys
+########################
 
 Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contracts, using the parameters to the template - similar to a primary key for a database.
 
