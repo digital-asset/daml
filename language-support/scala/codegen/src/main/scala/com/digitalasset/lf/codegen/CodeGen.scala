@@ -157,7 +157,7 @@ object CodeGen {
   }
 
   private[codegen] def produceTemplateAndTypeFilesLF(
-      wp: WriteParams[DefTemplateWithRecord],
+      wp: WriteParams,
       util: lf.LFUtil,
   ): IterableOnce[FilePlan] = {
     import wp._
@@ -273,7 +273,7 @@ object CodeGen {
 
   private[this] def writeTemplatesAndTypes(
       util: LFUtil
-  )(wp: WriteParams[DefTemplateWithRecord]): Unit = {
+  )(wp: WriteParams): Unit = {
     util.templateAndTypeFiles(wp).iterator.foreach {
       case -\/(msg) => logger.debug(msg)
       case \/-((msg, filePath, trees)) =>

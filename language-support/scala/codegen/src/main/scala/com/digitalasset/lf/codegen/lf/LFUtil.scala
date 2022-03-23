@@ -33,7 +33,7 @@ final case class LFUtil(
   import scala.reflect.runtime.universe._
   import LFUtil._
 
-  def templateAndTypeFiles(wp: WriteParams[DefTemplateWithRecord]) =
+  def templateAndTypeFiles(wp: WriteParams) =
     parent.CodeGen.produceTemplateAndTypeFilesLF(wp, this)
 
   def mkDamlScalaName(
@@ -457,8 +457,8 @@ object LFUtil {
   // sequence of trees to write as Scala source code
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
-  final case class WriteParams[+TmplI](
-      templateIds: Map[Ref.Identifier, TmplI],
+  final case class WriteParams(
+      templateIds: Map[Ref.Identifier, DefTemplateWithRecord],
       definitions: Vector[ScopedDataType.FWT],
   )
 
