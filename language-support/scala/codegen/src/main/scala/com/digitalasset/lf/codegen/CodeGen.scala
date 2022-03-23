@@ -143,8 +143,7 @@ object CodeGen {
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
     val interface = util.iface
 
-    val orderedDependencies
-        : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord]] =
+    val orderedDependencies: OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper] =
       DependencyGraph.orderedDependencies(util.iface)
     val (templateIds, typeDeclsToGenerate): (
         Map[Identifier, DefTemplateWithRecord],

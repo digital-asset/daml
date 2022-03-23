@@ -3,12 +3,12 @@
 
 package com.daml.lf.codegen.dependencygraph
 
+import com.daml.lf.codegen.lf.DefTemplateWithRecord
 import com.daml.lf.iface.DefDataType
 
 // wraps type declarations and templates so that they can be used together
-sealed abstract class TypeDeclOrTemplateWrapper[+TmplI] extends Product with Serializable
+sealed abstract class TypeDeclOrTemplateWrapper extends Product with Serializable
 
-final case class TypeDeclWrapper(typeDecl: DefDataType.FWT)
-    extends TypeDeclOrTemplateWrapper[Nothing]
+final case class TypeDeclWrapper(typeDecl: DefDataType.FWT) extends TypeDeclOrTemplateWrapper
 
-final case class TemplateWrapper[+TmplI](template: TmplI) extends TypeDeclOrTemplateWrapper[TmplI]
+final case class TemplateWrapper(template: DefTemplateWithRecord) extends TypeDeclOrTemplateWrapper

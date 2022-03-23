@@ -15,7 +15,7 @@ import scalaz.syntax.foldable._
 private[codegen] object DependencyGraph {
   def orderedDependencies(
       library: EnvironmentInterface
-  ): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord]] = {
+  ): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper] = {
     val decls = library.typeDecls
     // invariant: no type decl name equals any template alias
     val typeDeclNodes =
