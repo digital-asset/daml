@@ -11,3 +11,5 @@ Dummy Canton Refs
 
 .. _canton-metrics:
 
+.. _high-availability:
+
