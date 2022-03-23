@@ -61,13 +61,14 @@ Interface precondition
    :start-after: -- INTERFACE_ENSURE_BEGIN
    :end-before: -- INTERFACE_ENSURE_END
 
-- Introduced with the keyword ``ensure``, must be a boolean expression.
+- A precondition is introduced with the keyword ``ensure`` and must be a
+  boolean expression.
 - It is possible to define interfaces without an ``ensure`` clause, but writing
   more than one is a compilation error.
 - ``this`` is in scope in the method with the type of the interface.
   ``self``, however, is not.
 - The interface methods can be used as part of the expression (e.g. ``method1``).
-- It is evaluated and checked together with the implementing template's
+- It is evaluated and checked right after the implementing template's
   precondition upon contract creation
 
 .. _interface-choices:
@@ -80,8 +81,8 @@ Interface choices
    :start-after: -- INTERFACE_CHOICE_BEGIN
    :end-before: -- INTERFACE_CHOICE_END
 
-- Works in a very similar way to template choices. Any contract of an
-  implementing interface will grant the choice to the controlling party.
+- Interface choices work in a very similar way to template choices. Any contract
+  of an implementing interface will grant the choice to the controlling party.
 - Interface methods can be used to define the controller of a choice
   (e.g. ``method1``) as well as the actions that run when the choice is
   *exercised* (e.g. ``method2`` and ``method3``).
