@@ -211,8 +211,8 @@ provided by the *HTTP JSON API* server. This can also be tied into supporting ar
 autoscaling implementation to ensure minimum number of *HTTP JSON API* servers on
 failures.
 
-Setup the HTTP JSON API Service to work with Highly Available Participants
---------------------------------------------------------------------------
+Set up the HTTP JSON API Service to work with Highly Available Participants
+---------------------------------------------------------------------------
 
 In case the participant node itself is configured to be highly available, depending on the setup you might want
 to choose different strategies. In most setups, including those based on Canton, you'll likely have an active
