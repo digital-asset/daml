@@ -128,8 +128,6 @@ object CodeGen {
     as.suml1
 
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
-    val interface = util.iface
-
     val orderedDependencies
         : OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] =
       DependencyGraph.orderedDependencies(util.iface)
@@ -151,7 +149,7 @@ object CodeGen {
       s"""Scala Codegen result:
           |Number of generated templates: ${templateIds.size}
           |Number of not generated templates: ${util
-        .templateCount(interface) - templateIds.size}
+        .templateCount(util.iface) - templateIds.size}
           |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
     )
   }
