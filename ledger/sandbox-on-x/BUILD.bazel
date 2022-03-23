@@ -123,6 +123,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -156,6 +157,8 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
@@ -200,9 +203,14 @@ da_scala_test_suite(
     # Sandbox-on-X has high end-to-end submission latency.
     # TODO Downsize to `small` once the latency is optimized
     size = "medium",
-    srcs = glob(
-        ["src/test/it/**/*.scala"],
-    ),
+    deps = [
+        ":sandbox-on-x-it-tests-lib",
+    ],
+)
+
+da_scala_library(
+    name = "sandbox-on-x-it-tests-lib",
+    srcs = glob(["src/test/it/scala/**/*.scala"]),
     data = [
         "//daml-lf/encoder:testing-dars",
         "//ledger/test-common:model-tests-default.dar",
@@ -215,8 +223,12 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":sandbox-classic-server",
         ":sandbox-on-x",
@@ -250,6 +262,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_grpc_grpc_services",

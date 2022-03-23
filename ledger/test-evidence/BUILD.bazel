@@ -20,6 +20,7 @@ da_scala_binary(
     ],
     visibility = ["//visibility:public"],
     runtime_deps = [
+        "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
