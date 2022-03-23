@@ -18,6 +18,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.iface.reader.Errors.ErrorLoc
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
+import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.std.set._
 import scalaz.std.string._
@@ -152,11 +153,8 @@ object CodeGen {
         Vector[ScopedDataType.FWT],
     ) =
       orderedDependencies.deps
-        .partitionMap {
-          case (templateId, Node(Right(typeDecl), _, _)) =>
-            Right(ScopedDataType.fromDefDataType(templateId, typeDecl))
-          case (templateId, Node(Left(templateInterface), _, _)) =>
-            Left((templateId, templateInterface))
+        .partitionMap { case (templateId, Node(content, _, _)) =>
+          content.bimap((templateId, _), ScopedDataType.fromDefDataType(templateId, _))
         }
         .leftMap(_.toMap)
 
