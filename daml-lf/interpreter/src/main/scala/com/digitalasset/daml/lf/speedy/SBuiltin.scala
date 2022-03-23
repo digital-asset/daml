@@ -1098,29 +1098,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBThrowWronglyTypedContract extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
-      val contractId = getSContractId(args, 0)
-      val expectedTemplateId = getSTypeRep(args, 1) match {
-        case Ast.TTyCon(templateId) => templateId
-        case _ =>
-          throw SErrorDamlException(
-            IE.UserError("unexpected typerep when throwing WronglyTypedContract error")
-          )
-      }
-      val actualTemplateId = getSTypeRep(args, 2) match {
-        case Ast.TTyCon(templateId) => templateId
-        case _ =>
-          throw SErrorDamlException(
-            IE.UserError("unexpected typerep when throwing WronglyTypedContract error")
-          )
-      }
-      throw SErrorDamlException(
-        IE.WronglyTypedContract(contractId, expectedTemplateId, actualTemplateId)
-      )
-    }
-  }
-
   final case class SBApplyChoiceGuard(
       choiceName: ChoiceName,
       byInterface: Option[TypeConName],
@@ -1851,7 +1828,6 @@ private[lf] object SBuiltin {
       List(
         "ANSWER" -> SBExperimentalAnswer,
         "TYPEREP_TYCON_NAME" -> SBExperimentalTypeRepTyConName,
-        "THROW_WRONGLY_TYPED_CONTRACT" -> SBThrowWronglyTypedContract,
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =
