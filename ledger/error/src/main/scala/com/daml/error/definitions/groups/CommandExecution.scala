@@ -114,6 +114,21 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
             cause = err.message
           )
     }
+
+    @Explanation("""This error occurs if the gRPC service is rate limited due to high load.""")
+    @Resolution("Please retry the command.")
+    object RateLimited
+      extends ErrorCode(
+        id = "ABORTED",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+      case class ServiceRateLimited(
+                         service: String
+                       )(implicit
+                         loggingContext: ContextualizedErrorLogger
+                       ) extends DamlErrorWithDefiniteAnswer(s"$service is rate limited")
+    }
+
   }
 
   @Explanation(

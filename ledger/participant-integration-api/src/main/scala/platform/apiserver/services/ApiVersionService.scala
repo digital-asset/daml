@@ -4,21 +4,11 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.groups.CommandExecution
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.v1.experimental_features.{
-  ExperimentalFeatures,
-  ExperimentalOptionalLedgerId,
-  ExperimentalSelfServiceErrorCodes,
-  ExperimentalStaticTime,
-}
+import com.daml.ledger.api.v1.experimental_features.{ExperimentalFeatures, ExperimentalOptionalLedgerId, ExperimentalSelfServiceErrorCodes, ExperimentalStaticTime}
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
-import com.daml.ledger.api.v1.version_service.{
-  FeaturesDescriptor,
-  GetLedgerApiVersionRequest,
-  GetLedgerApiVersionResponse,
-  UserManagementFeature,
-  VersionServiceGrpc,
-}
+import com.daml.ledger.api.v1.version_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
@@ -80,14 +70,23 @@ private[apiserver] final class ApiVersionService private (
 
   override def getLedgerApiVersion(
       request: GetLedgerApiVersionRequest
-  ): Future[GetLedgerApiVersionResponse] =
-    Future
-      .fromTry(apiVersion)
-      .map(apiVersionResponse)
-      .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
-      .recoverWith { case NonFatal(_) =>
-        internalError
-      }
+  ): Future[GetLedgerApiVersionResponse] = {
+    val rateLimited = true
+    if (!rateLimited) {
+      Future
+        .fromTry(apiVersion)
+        .map(apiVersionResponse)
+        .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
+        .recoverWith { case NonFatal(_) =>
+          internalError
+        }
+    } else {
+      Future.failed(
+        CommandExecution.Preprocessing.RateLimited.ServiceRateLimited("VersionService")
+          .asGrpcError
+      )
+    }
+  }
 
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
