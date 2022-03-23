@@ -7,7 +7,7 @@ import com.daml.lf.codegen.Util
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.codegen.lf.DefTemplateWithRecord
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
+import com.daml.lf.iface.{EnvironmentInterface, InterfaceType, DefDataType}
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
@@ -15,7 +15,7 @@ import scalaz.syntax.foldable._
 private[codegen] object DependencyGraph {
   def orderedDependencies(
       library: EnvironmentInterface
-  ): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper] = {
+  ): OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] = {
     val decls = library.typeDecls
     // invariant: no type decl name equals any template alias
     val typeDeclNodes =
@@ -23,7 +23,7 @@ private[codegen] object DependencyGraph {
         (
           qualName,
           Node(
-            TypeDeclWrapper(typeDecl),
+            Right(typeDecl),
             typeDecl.bifoldMap(Util.genTypeTopLevelDeclNames)(Util.genTypeTopLevelDeclNames),
             collectDepError = false,
           ),
@@ -36,7 +36,7 @@ private[codegen] object DependencyGraph {
         (
           qualName,
           Node(
-            TemplateWrapper(DefTemplateWithRecord(typ, tpl)),
+            Left(DefTemplateWithRecord(typ, tpl)),
             recDeps ++ choiceAndKeyDeps,
             collectDepError = true,
           ),

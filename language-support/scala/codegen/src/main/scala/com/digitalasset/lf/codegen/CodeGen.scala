@@ -143,28 +143,22 @@ object CodeGen {
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
     val interface = util.iface
 
-    val orderedDependencies: OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper] =
+    val orderedDependencies
+        : OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] =
       DependencyGraph.orderedDependencies(util.iface)
 
     val (templateIds, typeDeclsToGenerate): (
         Map[Identifier, DefTemplateWithRecord],
         Vector[ScopedDataType.FWT],
-    ) = {
-
-      /* Here we collect templates and the
-       * [[TypeDecl]]s without generating code for them.
-       */
-      val templateIdOrTypeDecls
-          : Vector[Either[(Identifier, DefTemplateWithRecord), ScopedDataType.FWT]] =
-        orderedDependencies.deps.flatMap {
-          case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
-            Vector(Right(ScopedDataType.fromDefDataType(templateId, typeDecl)))
-          case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
-            Vector(Left((templateId, templateInterface)))
+    ) =
+      orderedDependencies.deps
+        .partitionMap {
+          case (templateId, Node(Right(typeDecl), _, _)) =>
+            Right(ScopedDataType.fromDefDataType(templateId, typeDecl))
+          case (templateId, Node(Left(templateInterface), _, _)) =>
+            Left((templateId, templateInterface))
         }
-
-      templateIdOrTypeDecls.partitionMap(identity).leftMap(_.toMap)
-    }
+        .leftMap(_.toMap)
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(templateIds, typeDeclsToGenerate))
