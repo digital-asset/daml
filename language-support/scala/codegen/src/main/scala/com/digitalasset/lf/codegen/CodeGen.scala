@@ -19,9 +19,9 @@ import com.daml.lf.iface.reader.Errors.ErrorLoc
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
-import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.std.string._
+import scalaz.std.vector._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
@@ -145,21 +145,22 @@ object CodeGen {
 
     val orderedDependencies: OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper] =
       DependencyGraph.orderedDependencies(util.iface)
+
     val (templateIds, typeDeclsToGenerate): (
         Map[Identifier, DefTemplateWithRecord],
-        List[ScopedDataType.FWT],
+        Vector[ScopedDataType.FWT],
     ) = {
 
       /* Here we collect templates and the
        * [[TypeDecl]]s without generating code for them.
        */
       val templateIdOrTypeDecls
-          : List[(Identifier, DefTemplateWithRecord) Either ScopedDataType.FWT] =
-        orderedDependencies.deps.toList.flatMap {
+          : Vector[Either[(Identifier, DefTemplateWithRecord), ScopedDataType.FWT]] =
+        orderedDependencies.deps.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
-            Seq(Right(ScopedDataType.fromDefDataType(templateId, typeDecl)))
+            Vector(Right(ScopedDataType.fromDefDataType(templateId, typeDecl)))
           case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
-            Seq(Left((templateId, templateInterface)))
+            Vector(Left((templateId, templateInterface)))
         }
 
       templateIdOrTypeDecls.partitionMap(identity).leftMap(_.toMap)
@@ -219,10 +220,10 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  private[this] def splitNTDs[RT, VT](definitions: List[ScopedDataType.DT[RT, VT]]): (
-      List[ScopedDataType[Record[RT]]],
-      List[ScopedDataType[Variant[VT]]],
-      List[ScopedDataType[Enum]],
+  private[this] def splitNTDs[RT, VT](definitions: Vector[ScopedDataType.DT[RT, VT]]): (
+      Vector[ScopedDataType[Record[RT]]],
+      Vector[ScopedDataType[Variant[VT]]],
+      Vector[ScopedDataType[Enum]],
   ) = {
 
     val (recordAndVariants, enums) = definitions.partitionMap {
@@ -251,11 +252,11 @@ object CodeGen {
     * unchanged.
     */
   private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
-      definitions: List[ScopedDataType.DT[RT, VT]]
+      definitions: Vector[ScopedDataType.DT[RT, VT]]
   ): (
-      List[ScopedDataType[Record[RT]]],
-      List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
-      List[ScopedDataType[Enum]],
+      Vector[ScopedDataType[Record[RT]]],
+      Vector[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
+      Vector[ScopedDataType[Enum]],
   ) = {
     type VariantField = List[(Ref.Name, RT)] \/ VT
 
@@ -268,7 +269,7 @@ object CodeGen {
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
     val (deletedRecords, newVariants) =
-      variants.toList.traverse {
+      variants.traverse {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = LFUtil simplyDelegates vTypeVars
           val (deleted, sdt) = fields.traverse { case (vn, vt) =>
@@ -289,7 +290,7 @@ object CodeGen {
           (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))
       }
 
-    ((recordMap -- deletedRecords).values.toList, newVariants, enums.toList)
+    ((recordMap -- deletedRecords).valuesIterator.toVector, newVariants, enums)
   }
 
   private[this] def writeTemplatesAndTypes(

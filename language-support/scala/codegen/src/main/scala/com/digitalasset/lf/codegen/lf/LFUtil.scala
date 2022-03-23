@@ -459,7 +459,7 @@ object LFUtil {
 
   final case class WriteParams[+TmplI](
       templateIds: Map[Ref.Identifier, TmplI],
-      definitions: List[ScopedDataType.FWT],
+      definitions: Vector[ScopedDataType.FWT],
   )
 
   val reservedNames: Set[String] =
