@@ -23,7 +23,9 @@ jmh command line functionality:
 where:
 
 * `<entries files>`: is the full path of the ledger entries
-  files to be used separated by commas (`,`)
+  files to be used separated by commas (`,`). At the time of writting,
+  entries files can be created by the 
+  `//ledger/participant-state/kvutils/tools:submission-entries-extractor`
 
 * `<exercise choice names>`: is the full qualified choice name of the
   root exercise node to be benchmarked separated by commas (`,`). A full
@@ -50,7 +52,7 @@ where:
 
 # `replay-profile`
 
-This profile the replay od a transaction from a ledger entries stored in a file.
+This profile the replay of a transaction built from a ledger entries file.
 
      bazel run //daml-lf/snapshot:replay-profile --     \
       --entries <entries files>                         \
