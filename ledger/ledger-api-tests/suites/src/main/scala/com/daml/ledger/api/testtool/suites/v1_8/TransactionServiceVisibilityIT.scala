@@ -21,15 +21,26 @@ import com.daml.ledger.test.model.Iou.IouTransfer._
 import com.daml.ledger.test.model.IouTrade.IouTrade
 import com.daml.ledger.test.model.IouTrade.IouTrade._
 import com.daml.ledger.test.model.Test._
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable
 
 class TransactionServiceVisibilityIT extends LedgerTestSuite {
+
+  val securityAsset: String => SecurityTest = (asset: String) =>
+    SecurityTest(property = Privacy, asset = asset)
+
   test(
     "TXTreeBlinding",
     "Trees should be served according to the blinding/projection rules",
     allocate(TwoParties, SingleParty, SingleParty),
+    tags = List(
+      securityAsset("Transaction Tree").setHappyCase(
+        "Transaction trees are served according to the blinding/projection rules"
+      )
+    ),
   )(implicit ec => {
     case Participants(
           Participant(alpha, alice, gbp_bank),
@@ -130,6 +141,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDivulge",
     "Data should not be exposed to parties unrelated to a transaction",
     allocate(SingleParty, SingleParty),
+    tags = List(
+      securityAsset("Transactions").setHappyCase(
+        "Transactions are not exposed to parties unrelated to a transaction"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(_, bob)) =>
     for {
       _ <- alpha.create(alice, Dummy(alice))
@@ -146,6 +162,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreeHideCommandIdToNonSubmittingStakeholders",
     "A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
+    tags = List(
+      securityAsset("Transaction Tree").setHappyCase(
+        "Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
     for {
       (id, _) <- alpha.createAndGetTransactionId(
@@ -178,6 +199,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXHideCommandIdToNonSubmittingStakeholders",
     "A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
+    tags = List(
+      securityAsset("Flat Transaction").setHappyCase(
+        "A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty"
+      )
+    ),
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
@@ -212,6 +238,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDiscloseCreateToNonSignatory",
     "Not disclose create to non-chosen branching signatory",
     allocate(SingleParty, SingleParty),
+    tags = List(
+      securityAsset("Created Event transaction").setHappyCase(
+        "Created Event transaction is not disclosed to non-chosen branching signatory"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
     val create = beta.submitAndWaitRequest(bob, template.create.command)
@@ -237,6 +268,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToSignatory",
     "Disclose create to the chosen branching controller",
     allocate(SingleParty, TwoParties),
+    tags = List(
+      securityAsset("Created Event transaction").setHappyCase(
+        "Created Event transaction is disclosed to chosen branching controller"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
       BranchingControllers(giver = alice, whichCtrl = true, ctrlTrue = bob, ctrlFalse = eve)
@@ -274,6 +310,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDiscloseCreateToNonChosenBranchingController",
     "Not disclose create to non-chosen branching controller",
     allocate(SingleParty, TwoParties),
+    tags = List(
+      securityAsset("Created Event transaction").setHappyCase(
+        "Created Event transaction is not disclosed to non-chosen branching controller"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
       BranchingControllers(giver = alice, whichCtrl = false, ctrlTrue = bob, ctrlFalse = eve)
@@ -295,6 +336,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToObservers",
     "Disclose create to observers",
     allocate(SingleParty, TwoParties),
+    tags = List(
+      securityAsset("Created Event transaction").setHappyCase(
+        "Created Event transaction is disclosed to observers"
+      )
+    ),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
       val template = WithObservers(alice, Primitive.List(observers: _*))
@@ -318,6 +364,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
     allocate(Parties(3)),
     timeoutScale = 2.0,
+    tags = List(
+      securityAsset("Transaction").setHappyCase(
+        "Transactions in the flat transactions stream are disclosed only to the stakeholders"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
@@ -386,6 +437,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXRequestingPartiesWitnessVisibility",
     "Transactions in the flat transactions stream should not leak witnesses",
     allocate(Parties(3)),
+    tags = List(
+      securityAsset("Transaction").setHappyCase(
+        "Transactions in the flat transactions stream are not leaking witnesses"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
@@ -414,6 +470,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreesRequestingPartiesWitnessVisibility",
     "Transactions in the transaction trees stream should not leak witnesses",
     allocate(Parties(3)),
+    tags = List(
+      securityAsset("Transaction").setHappyCase(
+        "Transactions in the transaction trees stream are not leaking witnesses"
+      )
+    ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
