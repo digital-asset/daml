@@ -47,6 +47,12 @@ private[codegen] object DependencyGraph {
     Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)
   }
 
+  /** Computes the collection of templates in the `library` and
+    * all the type declarations for which code must be generated
+    * so that the output of the codegen compiles while only
+    * targeting template definitions that can be observed through
+    * the Ledger API.
+    */
   def transitiveClosure(library: EnvironmentInterface): TransitiveClosure = {
     val dependencies = orderedDependencies(library)
     val (templateIds, typeDeclarations) =
