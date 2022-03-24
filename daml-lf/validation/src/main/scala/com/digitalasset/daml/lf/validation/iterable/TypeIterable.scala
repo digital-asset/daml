@@ -91,7 +91,8 @@ private[validation] object TypeIterable {
       case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
         Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
       case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
-        Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(cid) ++ iterator(body)
+        Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++
+          iterator(cid) ++ iterator(body)
       case EInterfaceTemplateTypeRep(ifaceId @ _, body) =>
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
       case ESignatoryInterface(ifaceId, body) =>

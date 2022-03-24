@@ -138,7 +138,12 @@ private[daml] class AstRewriter(
         case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
         case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
-          EUnsafeFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(cid), apply(body))
+          EUnsafeFromRequiredInterface(
+            apply(requiredIfaceId),
+            apply(requiringIfaceId),
+            apply(cid),
+            apply(body),
+          )
         case EInterfaceTemplateTypeRep(ifaceId, body) =>
           EInterfaceTemplateTypeRep(apply(ifaceId), apply(body))
         case ESignatoryInterface(ifaceId, body) =>

@@ -1201,7 +1201,7 @@ private[lf] object SBuiltin {
       tplId: TypeConName
   ) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
-      val coid = getSContractId(args,0)
+      val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
       if (tplId == tyCon) {
         record
@@ -1244,7 +1244,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ) = {
-      val coid = getSContractId(args,0)
+      val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
       // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/11345

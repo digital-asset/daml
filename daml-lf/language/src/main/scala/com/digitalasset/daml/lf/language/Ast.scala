@@ -159,9 +159,14 @@ object Ast {
       extends Expr
 
   /** Convert interface back to template payload,
-      or raise a WronglyTypedContracg error if not possible */
-  final case class EUnsafeFromInterface(interfaceId: TypeConName, templateId: TypeConName, contractIdExpr: Expr, ifaceExpr: Expr)
-      extends Expr
+    * or raise a WronglyTypedContracg error if not possible
+    */
+  final case class EUnsafeFromInterface(
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      contractIdExpr: Expr,
+      ifaceExpr: Expr,
+  ) extends Expr
 
   /** Upcast from an interface payload to an interface it requires. */
   final case class EToRequiredInterface(
@@ -178,7 +183,8 @@ object Ast {
   ) extends Expr
 
   /** Downcast from an interface payload to an interface that requires it,
-      or raise a WronglyTypedContract error if not possible. */
+    * or raise a WronglyTypedContract error if not possible.
+    */
   final case class EUnsafeFromRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
