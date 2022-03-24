@@ -77,7 +77,7 @@ class HasFromInterface t i where
   -- | HIDE
   -- Like 'fromInterface', but throws an error if the underlying template type
   -- of the interface value doesn't match the type of the provided ContractId.
-  unsafeFromInterface : ContractId t -> i -> t
+  unsafeFromInterface : ContractId i -> i -> t
 
 -- | (1.dev only) Constraint that indicates that a template implements an interface.
 type Implements t i =
@@ -130,4 +130,4 @@ _exerciseInterfaceGuard : forall i t.
   (HasFromInterface t i, HasInterfaceTypeRep i, HasTemplateTypeRep t) =>
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
-  tpred (unsafeFromInterface cid ivalue)
+  tpred (unsafeFromInterface (coerceContractId cid) ivalue)

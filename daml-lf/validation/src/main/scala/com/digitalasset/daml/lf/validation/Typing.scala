@@ -1165,7 +1165,7 @@ private[validation] object Typing {
         TOptional(TTyCon(tpl))
       case EUnsafeFromInterface(iface, tpl, cid, value) =>
         checkImplements(tpl, iface)
-        checkExpr(cid, TContractId(TTyCon(tpl)))
+        checkExpr(cid, TContractId(TTyCon(iface)))
         checkExpr(value, TTyCon(iface))
         TTyCon(tpl)
       case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
@@ -1184,7 +1184,7 @@ private[validation] object Typing {
         val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
-        checkExpr(cid, TContractId(TTyCon(requiringIfaceId)))
+        checkExpr(cid, TContractId(TTyCon(requiredIfaceId)))
         checkExpr(body, TTyCon(requiredIfaceId))
         TTyCon(requiringIfaceId)
       case ECallInterface(iface, methodName, value) =>

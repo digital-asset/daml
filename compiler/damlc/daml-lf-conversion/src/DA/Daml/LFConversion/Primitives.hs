@@ -396,9 +396,9 @@ convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
     ETmLam (mkVar "i", TCon iface) $
         EFromInterface iface tpid (EVar $ mkVar "i")
 
-convertPrim _ "EUnsafeFromInterface" (TContractId (TCon tpid) :-> TCon iface :-> TCon tpid1)
-    | tpid == tpid1
-        = ETmLam (mkVar "cid", TContractId (TCon tpid))
+convertPrim _ "EUnsafeFromInterface" (TContractId (TCon iface) :-> TCon iface1 :-> TCon tpid)
+    | iface == iface1
+        = ETmLam (mkVar "cid", TContractId (TCon iface))
         $ ETmLam (mkVar "i", TCon iface)
         $ EUnsafeFromInterface iface tpid (EVar $ mkVar "cid") (EVar $ mkVar "i")
 
@@ -410,9 +410,9 @@ convertPrim _ "EFromRequiredInterface" (TCon superIface :-> TOptional (TCon subI
     ETmLam (mkVar "i", TCon superIface) $
         EFromRequiredInterface superIface subIface (EVar $ mkVar "i")
 
-convertPrim _ "EUnsafeFromRequiredInterface" (TContractId (TCon subIface) :-> TCon superIface :-> TCon subIface1)
-    | subIface == subIface1
-        = ETmLam (mkVar "cid", TContractId (TCon subIface))
+convertPrim _ "EUnsafeFromRequiredInterface" (TContractId (TCon superIface) :-> TCon superIface1 :-> TCon subIface)
+    | superIface == superIface1
+        = ETmLam (mkVar "cid", TContractId (TCon superIface))
         $ ETmLam (mkVar "i", TCon superIface)
         $ EUnsafeFromRequiredInterface superIface subIface (EVar $ mkVar "cid") (EVar $ mkVar "i")
 

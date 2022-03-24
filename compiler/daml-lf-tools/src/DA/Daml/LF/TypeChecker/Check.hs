@@ -750,7 +750,7 @@ typeOf' = \case
     pure (TOptional (TCon tpl))
   EUnsafeFromInterface iface tpl cid val -> do
     checkImplements tpl iface
-    checkExpr cid (TContractId (TCon tpl))
+    checkExpr cid (TContractId (TCon iface))
     checkExpr val (TCon iface)
     pure (TCon tpl)
   ECallInterface iface method val -> do
@@ -773,7 +773,7 @@ typeOf' = \case
     allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
     unless (S.member requiredIface allRequiredIfaces) $ do
       throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
-    checkExpr cid (TContractId (TCon requiringIface))
+    checkExpr cid (TContractId (TCon requiredIface))
     checkExpr expr (TCon requiredIface)
     pure (TCon requiringIface)
   EInterfaceTemplateTypeRep iface expr -> do
