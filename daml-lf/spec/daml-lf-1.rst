@@ -676,10 +676,12 @@ Then we can define our kinds, types, and expressions::
        | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException' [Daml-LF ≥ 1.14]
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [Daml-LF ≥ 1.14]
        | 'to_interface' @τ₁ @τ₂ e                   -- ExpToInterface: Turn a template value into an interface value [Daml-LF ≥ 1.dev]
-       | 'from_interface' @τ₁ @τ₂ e                 -- ExpFromInterface: Turn an interface value back into a template value [Daml-LF ≥ 1.dev]
+       | 'from_interface' @τ₁ @τ₂ e                 -- ExpFromInterface: Turn an interface value back into a template value (returns optional) [Daml-LF ≥ 1.dev]
+       | 'unsafe_from_interface'  @τ₁ @τ₂ e₁ e₂     -- ExpUnsafeFromInterface: Turn an interface value back into a template value (throws fatal error) [Daml-LF ≥ 1.dev]
        | 'call_interface' @τ f e                    -- ExpCallInterface: Call a method on an interface value [Daml-LF ≥ 1.dev]
        | 'to_required_interface'  @τ₁ @τ₂ e         -- ExpToRequiredInterface: Upcast an interface value to an interface it requires [Daml-LF ≥ 1.dev]
-       | 'from_required_interface'  @τ₁ @τ₂ e       -- ExpFromRequiredInterface: Downcast an interface value to an interface that requires it [Daml-LF ≥ 1.dev]
+       | 'from_required_interface'  @τ₁ @τ₂ e       -- ExpFromRequiredInterface: Downcast an interface value to an interface that requires it (returns optional) [Daml-LF ≥ 1.dev]
+       | 'unsafe_from_required_interface'  @τ₁ @τ₂ e₁ e₂   -- ExpUnsafeFromRequiredInterface: Downcast an interface value to an interface that requires it (throws fatal error) [Daml-LF ≥ 1.dev]
        | 'interface_typerep' @τ e                   -- ExpInterfaceTyperep: Get the typerep associated with the template inside the interface value [Daml-LF ≥ 1.dev]
        | 'interface_signatory' @τ e                 -- ExpInterfaceSignatory: Get the signatories of the template inside the interface value [Daml-LF ≥ 1.dev]
        | 'interface_observer' @τ e                  -- ExpInterfaceObserver: Get the observers of the template inside the interface value [Daml-LF ≥ 1.dev]
@@ -1271,6 +1273,13 @@ Then we define *well-formed expressions*. ::
     ———————————————————————————————————————————————————————————————— ExpFromInterface [Daml-LF ≥ 1.dev]
       Γ  ⊢ 'from_interface' @Mod:I @Mod':T e  : 'Optional' Mod':T
 
+      'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+      'tpl' (x : T) ↦ { …, 'implements' Mod:I { … }, … } ∈ 〚Ξ〛Mod'
+      Γ  ⊢  e₁  :  'ContractId' Mod:I
+      Γ  ⊢  e₂  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpUnsafeFromInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢ 'unsafe_from_interface' @Mod:I @Mod':T e₁ e₂  :  Mod':T
+
       'interface' (x : I) ↦ { …, 'methods' { …, f: τ, … }, … } ∈ 〚Ξ〛Mod
       Γ  ⊢  e  :  Mod:I
     ———————————————————————————————————————————————————————————————— ExpCallInterface [Daml-LF ≥ 1.dev]
@@ -1287,6 +1296,13 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  e  :  Mod₁:I₁
     ———————————————————————————————————————————————————————————————— ExpFromRequiredInterface [Daml-LF ≥ 1.dev]
       Γ  ⊢  'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  :  'Optional' Mod₂:I₂
+
+      'interface' (x : I₁) ↦ … ∈ 〚Ξ〛Mod₁
+      'interface' (x : I₂) ↦ { …, 'requires' { …, Mod₁:I₁, … }, … } ∈ 〚Ξ〛Mod₂
+      Γ  ⊢  e₁  :  'ContractId' Mod₁:I₁
+      Γ  ⊢  e₂  :  Mod₁:I₁
+    ———————————————————————————————————————————————————————————————— ExpUnsafeFromRequiredInterface [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'unsafe_from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e₁ e₂  :  Mod₂:I₂
 
       'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
       Γ  ⊢  e  :  Mod:I
@@ -2705,6 +2721,28 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceSome [Daml-LF ≥ 1.dev]
       'from_interface' @Mod:I @Mod':T e  ⇓  Ok ('Some' @Mod':T v)
 
+      e₁  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromInterfaceErr1 [Daml-LF ≥ 1.dev]
+      'unsafe_from_interface' @Mod:I @Mod':T e₁ e₂  ⇓  Err E
+
+      e₁  ⇓  Ok cid
+      e₂  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromInterfaceErr2 [Daml-LF ≥ 1.dev]
+      'unsafe_from_interface' @Mod:I @Mod':T e₁ e₂  ⇓  Err E
+
+      e₁  ⇓  Ok cid
+      e₂  ⇓  Ok ('to_interface' @Mod:I @Mod'':T' v)
+      Mod':T ≠ Mod'':T'
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromInterfaceErr3 [Daml-LF ≥ 1.dev]
+      'unsafe_from_interface' @Mod:I @Mod':T e₁ e₂
+          ⇓
+      Err (Fatal "wrongly typed contract {cid} expected {Mod':T} got {Mod'':T'}")
+
+      e₁  ⇓  Ok cid
+      e₂  ⇓  Ok ('to_interface' @Mod:I @Mod':T v)
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromInterface [Daml-LF ≥ 1.dev]
+      'unsafe_from_interface' @Mod:I @Mod':T e₁ e₂  ⇓  Ok v
+
       e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpCallInterfaceErr [Daml-LF ≥ 1.dev]
       'call_interface' @Mod:I f e  ⇓  Err E
@@ -2736,6 +2774,29 @@ exact output.
       'tpl' (x : T) ↦ { …, 'implements' Mod₂:I₂ { … }, … } ∈ 〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpFromRequiredInterfaceSome [Daml-LF ≥ 1.dev]
       'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e  ⇓  Ok ('Some' @Mod₂:I₂ ('to_interface' @Mod₂:I₂ @Mod':T v))
+
+      e₁  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromRequiredInterfaceErr1 [Daml-LF ≥ 1.dev]
+      'unsafe_from_required_interface' @Mod₁:I₁ @Mod₂:I₂ e₁ e₂  ⇓  Err E
+
+      e₁  ⇓  Ok cid
+      e₂  ⇓  Err E
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromRequiredInterfaceErr2 [Daml-LF ≥ 1.dev]
+      'unsafe_from_required_interface'  @Mod₁:I₁ @Mod₂:I₂ e₁ e₂  ⇓  Err E
+
+      e₁  ⇓  Ok cid
+      e₂  ⇓  Ok ('to_interface' @Mod₁:I₁ @Mod':T v)
+      Mod':T  does not implement interface  Mod₂:I₂
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromRequiredInterfaceErr3 [Daml-LF ≥ 1.dev]
+      'unsafe_from_required_interface'  @Mod₁:I₁ @Mod₂:I₂ e₁ e₂
+          ⇓
+      Err (Fatal "wrongly typed contract {cid} expected {Mod₂:I₂} got {Mod':T}")
+
+      e₁  ⇓  Ok cid
+      e₂  ⇓  Ok ('to_interface' @Mod₁:I₁ @Mod':T v)
+      'tpl' (x : T) ↦ { …, 'implements' Mod₂:I₂ { … }, … } ∈ 〚Ξ〛Mod'
+    —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromRequiredInterface [Daml-LF ≥ 1.dev]
+      'unsafe_from_required_interface'  @Mod₁:I₁ @Mod₂:I₂ e₁ e₂  ⇓  Ok ('to_interface' @Mod₂:I₂ @Mod':T v)
 
       e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpInterfaceTypeRepErr [Daml-LF ≥ 1.dev]
