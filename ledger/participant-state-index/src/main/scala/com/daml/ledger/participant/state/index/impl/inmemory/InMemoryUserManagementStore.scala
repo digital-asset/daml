@@ -13,7 +13,10 @@ import com.daml.logging.LoggingContext
 import scala.collection.mutable
 import scala.concurrent.Future
 
-class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
+class InMemoryUserManagementStore(
+    createAdmin: Boolean = true,
+    maxRightsPerUser: Int = Int.MaxValue,
+) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
   // Underlying mutable map to keep track of UserInfo state.
@@ -34,7 +37,11 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       loggingContext: LoggingContext
   ): Future[Result[Unit]] =
     withoutUser(user.id) {
-      state.update(user.id, UserInfo(user, rights))
+      if (rights.size > maxRightsPerUser) Left(TooManyUserRights(user.id))
+      else {
+        state.update(user.id, UserInfo(user, rights))
+        Right(())
+      }
     }
 
   override def deleteUser(
@@ -49,13 +56,16 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       id: Ref.UserId,
       granted: Set[UserRight],
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
-    withUser(id) { userInfo =>
+    withUserResult(id) { userInfo =>
       val newlyGranted = granted.diff(userInfo.rights) // faster than filter
-      // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
-      assert(
-        replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights ++ newlyGranted))
-      )
-      newlyGranted
+      if (userInfo.rights.size + newlyGranted.size > maxRightsPerUser) Left(TooManyUserRights(id))
+      else {
+        // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
+        assert(
+          replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights ++ newlyGranted))
+        )
+        Right(newlyGranted)
+      }
     }
 
   override def revokeRights(
@@ -103,11 +113,19 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       }
     )
 
-  private def withoutUser[T](id: Ref.UserId)(t: => T): Future[Result[T]] =
+  private def withUserResult[T](id: Ref.UserId)(f: UserInfo => Result[T]): Future[Result[T]] =
+    withState(
+      state.get(id) match {
+        case Some(user) => f(user)
+        case None => Left(UserNotFound(id))
+      }
+    )
+
+  private def withoutUser[T](id: Ref.UserId)(t: => Result[T]): Future[Result[T]] =
     withState(
       state.get(id) match {
         case Some(_) => Left(UserExists(id))
-        case None => Right(t)
+        case None => t
       }
     )
 

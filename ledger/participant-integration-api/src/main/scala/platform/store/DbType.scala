@@ -8,6 +8,7 @@ private[platform] sealed abstract class DbType(
     val driver: String,
     val supportsParallelWrites: Boolean,
     val supportsAsynchronousCommits: Boolean,
+    val supportsFlywayMigration: Boolean,
 ) {
   def maxSupportedWriteConnections(maxConnections: Int): Int =
     if (supportsParallelWrites) maxConnections else 1
@@ -20,6 +21,7 @@ object DbType {
         "org.postgresql.Driver",
         supportsParallelWrites = true,
         supportsAsynchronousCommits = true,
+        supportsFlywayMigration = true,
       )
 
   // H2 does not support concurrent, conditional updates to the ledger_end at read committed isolation
@@ -32,6 +34,7 @@ object DbType {
         "org.h2.Driver",
         supportsParallelWrites = false,
         supportsAsynchronousCommits = false,
+        supportsFlywayMigration = true,
       )
 
   object Oracle
@@ -41,12 +44,23 @@ object DbType {
         supportsParallelWrites = true,
         //TODO https://github.com/digital-asset/daml/issues/9493
         supportsAsynchronousCommits = false,
+        supportsFlywayMigration = true,
+      )
+
+  object M
+      extends DbType(
+        "M",
+        "N/A",
+        supportsParallelWrites = false,
+        supportsAsynchronousCommits = false,
+        supportsFlywayMigration = false,
       )
 
   def jdbcType(jdbcUrl: String): DbType = jdbcUrl match {
-    case h2 if h2.startsWith("jdbc:h2:") => H2Database
+    case h2 if h2.startsWith("jdbc:h2:") => M // hijack H2 for PoC
     case pg if pg.startsWith("jdbc:postgresql:") => Postgres
     case oracle if oracle.startsWith("jdbc:oracle:") => Oracle
+    case m if m.startsWith("jdbc:m:") => M
     case _ =>
       sys.error(s"JDBC URL doesn't match any supported databases (h2, pg, oracle)")
   }

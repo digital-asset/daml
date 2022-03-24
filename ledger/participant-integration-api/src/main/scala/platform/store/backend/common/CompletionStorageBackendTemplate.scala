@@ -127,7 +127,11 @@ class CompletionStorageBackendTemplate(
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
-            buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
+            CompletionStorageBackendTemplate.buildStatusProto(
+              rejectionStatusCode,
+              rejectionStatusMessage,
+              rejectionStatusDetails,
+            )
           CompletionFromTransaction.rejectedCompletion(
             recordTime = recordTime,
             offset = offset,
@@ -143,25 +147,6 @@ class CompletionStorageBackendTemplate(
 
   private val completionParser: RowParser[CompletionStreamResponse] =
     acceptedCommandParser | rejectedCommandParser
-
-  private def buildStatusProto(
-      rejectionStatusCode: Int,
-      rejectionStatusMessage: String,
-      rejectionStatusDetails: Option[Array[Byte]],
-  ): StatusProto =
-    StatusProto.of(
-      rejectionStatusCode,
-      rejectionStatusMessage,
-      parseRejectionStatusDetails(rejectionStatusDetails),
-    )
-
-  private def parseRejectionStatusDetails(
-      rejectionStatusDetails: Option[Array[Byte]]
-  ): Seq[any.Any] =
-    rejectionStatusDetails
-      .map(StatusDetails.parseFrom)
-      .map(_.details)
-      .getOrElse(Seq.empty)
 
   override def pruneCompletions(
       pruneUpToInclusive: Offset
@@ -179,4 +164,25 @@ class CompletionStorageBackendTemplate(
     val deletedRows = query.executeUpdate()(connection)
     logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(loggingContext)
   }
+}
+
+object CompletionStorageBackendTemplate {
+  def buildStatusProto(
+      rejectionStatusCode: Int,
+      rejectionStatusMessage: String,
+      rejectionStatusDetails: Option[Array[Byte]],
+  ): StatusProto =
+    StatusProto.of(
+      rejectionStatusCode,
+      rejectionStatusMessage,
+      parseRejectionStatusDetails(rejectionStatusDetails),
+    )
+
+  def parseRejectionStatusDetails(
+      rejectionStatusDetails: Option[Array[Byte]]
+  ): Seq[any.Any] =
+    rejectionStatusDetails
+      .map(StatusDetails.parseFrom)
+      .map(_.details)
+      .getOrElse(Seq.empty)
 }

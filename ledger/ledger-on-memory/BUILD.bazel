@@ -123,6 +123,7 @@ da_scala_library(
 da_scala_binary(
     name = "app",
     main_class = "com.daml.ledger.on.memory.Main",
+    max_heap_size = "2g",
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

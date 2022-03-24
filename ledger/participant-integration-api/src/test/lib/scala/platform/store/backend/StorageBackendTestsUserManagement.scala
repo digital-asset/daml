@@ -11,7 +11,7 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Inside, OptionValues}
+import org.scalatest.{Assertion, Inside, OptionValues}
 
 private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
@@ -30,7 +30,7 @@ private[backend] trait StorageBackendTestsUserManagement
 
   private def tested = backend.userManagement
 
-  it should "handle created_at and granted_at attributes correctly" in {
+  it should "handle created_at and granted_at attributes correctly" in userManagementTestCase {
     val user = newUniqueUser()
     val internalId = executeSql(tested.createUser(user, createdAt = 123))
     executeSql(tested.addUserRight(internalId, right1, grantedAt = 234))
@@ -38,7 +38,7 @@ private[backend] trait StorageBackendTestsUserManagement
     executeSql(tested.getUserRights(internalId)).headOption.map(_.grantedAt) shouldBe Some(234)
   }
 
-  it should "count number of user rights per user" in {
+  it should "count number of user rights per user" in userManagementTestCase {
     val userA = newUniqueUser()
     val userB = newUniqueUser()
     val idA: Int = executeSql(tested.createUser(userA, createdAt = zeroMicros))
@@ -111,13 +111,13 @@ private[backend] trait StorageBackendTestsUserManagement
     countB shouldBe 3
   }
 
-  it should "use invalid party string to mark absence of party" in {
+  it should "use invalid party string to mark absence of party" in userManagementTestCase {
     intercept[IllegalArgumentException](
       Ref.Party.assertFromString("!")
     ).getMessage shouldBe "non expected character 0x21 in Daml-LF Party \"!\""
   }
 
-  it should "create user (createUser)" in {
+  it should "create user (createUser)" in userManagementTestCase {
     val user1 = newUniqueUser()
     val user2 = newUniqueUser()
     val internalId1 = executeSql(tested.createUser(user1, createdAt = zeroMicros))
@@ -129,7 +129,7 @@ private[backend] trait StorageBackendTestsUserManagement
     internalId1 should not equal internalId2
   }
 
-  it should "handle user ops (getUser, deleteUser)" in {
+  it should "handle user ops (getUser, deleteUser)" in userManagementTestCase {
     val user1 = newUniqueUser()
     val user2 = newUniqueUser()
     val _ = executeSql(tested.createUser(user1, createdAt = zeroMicros))
@@ -145,7 +145,7 @@ private[backend] trait StorageBackendTestsUserManagement
     getNonexistent shouldBe None
   }
 
-  it should "get all users (getUsers) ordered by id" in {
+  it should "get all users (getUsers) ordered by id" in userManagementTestCase {
     val user1 = newUniqueUser(userId = "user_id_1")
     val user2 = newUniqueUser(userId = "user_id_2")
     val user3 = newUniqueUser(userId = "user_id_3")
@@ -164,7 +164,7 @@ private[backend] trait StorageBackendTestsUserManagement
     )
   }
 
-  it should "get all users (getUsers) ordered by id using binary collation" in {
+  it should "get all users (getUsers) ordered by id using binary collation" in userManagementTestCase {
     val user1 = newUniqueUser(userId = "a")
     val user2 = newUniqueUser(userId = "a!")
     val user3 = newUniqueUser(userId = "b")
@@ -177,7 +177,7 @@ private[backend] trait StorageBackendTestsUserManagement
       .map(_.id) shouldBe Seq("!a", "_a", "a", "a!", "a_", "b")
   }
 
-  it should "get a page of users (getUsers) ordered by id" in {
+  it should "get a page of users (getUsers) ordered by id" in userManagementTestCase {
     val user1 = newUniqueUser(userId = "user_id_1")
     val user2 = newUniqueUser(userId = "user_id_2")
     val user3 = newUniqueUser(userId = "user_id_3")
@@ -232,7 +232,7 @@ private[backend] trait StorageBackendTestsUserManagement
     ) shouldBe empty
   }
 
-  it should "handle adding rights to non-existent user" in {
+  it should "handle adding rights to non-existent user" in userManagementTestCase {
     val nonExistentUserInternalId = 123
     val allUsers = executeSql(tested.getUsersOrderedById(maxResults = 10, fromExcl = None))
     val rightExists = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
@@ -240,7 +240,7 @@ private[backend] trait StorageBackendTestsUserManagement
     rightExists shouldBe false
   }
 
-  it should "handle adding duplicate rights" in {
+  it should "handle adding duplicate rights" in userManagementTestCase {
     val user1 = newUniqueUser()
     val adminRight = ParticipantAdmin
     val readAsRight = CanReadAs(Ref.Party.assertFromString("party_read_as_1"))
@@ -263,7 +263,7 @@ private[backend] trait StorageBackendTestsUserManagement
     )
   }
 
-  it should "handle removing absent rights" in {
+  it should "handle removing absent rights" in userManagementTestCase {
     val user1 = newUniqueUser()
     val internalId = executeSql(tested.createUser(user1, createdAt = zeroMicros))
     val delete1 = executeSql(tested.deleteUserRight(internalId, right1))
@@ -274,7 +274,7 @@ private[backend] trait StorageBackendTestsUserManagement
     delete3 shouldBe false
   }
 
-  it should "handle multiple rights (getUserRights, addUserRight, deleteUserRight)" in {
+  it should "handle multiple rights (getUserRights, addUserRight, deleteUserRight)" in userManagementTestCase {
     val user1 = newUniqueUser()
     val internalId = executeSql(tested.createUser(user1, createdAt = zeroMicros))
     val rights1 = executeSql(tested.getUserRights(internalId))
@@ -294,7 +294,7 @@ private[backend] trait StorageBackendTestsUserManagement
     rights4.map(_.domainRight) should contain theSameElementsAs Seq(right1)
   }
 
-  it should "add and delete a single right (userRightExists, addUserRight, deleteUserRight, getUserRights)" in {
+  it should "add and delete a single right (userRightExists, addUserRight, deleteUserRight, getUserRights)" in userManagementTestCase {
     val user1 = newUniqueUser()
     val internalId = executeSql(tested.createUser(user1, createdAt = zeroMicros))
     // no rights
@@ -336,4 +336,13 @@ private[backend] trait StorageBackendTestsUserManagement
     )
   }
 
+  private def userManagementTestCase(testFun: => Assertion): Assertion = {
+    if (tested.userManagementStorageBackendSupported) testFun
+    else {
+      info(
+        s"This test makes sense only for StorageBackend which supports User Management. For ${tested.getClass.getName} StorageBackend this test is disabled."
+      )
+      succeed
+    }
+  }
 }
