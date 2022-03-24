@@ -79,7 +79,7 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  private val iiouIfaceID: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "IIou", "IIou")
+  private val IiouIfaceID: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "IIou", "IIou")
   "pick up new package's inherited interfaces" in withHttpService { (uri, encoder, _, _) =>
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
@@ -107,7 +107,9 @@ abstract class HttpServiceIntegrationTest
         ),
         aliceHeaders,
       )
-    } yield exerciseTest._1 should ===(StatusCodes.OK)
+    } yield inside((exerciseTest._1, exerciseTest._2.convertTo[domain.SyncResponse[JsValue]])) {
+      case (StatusCodes.OK, domain.OkResponse(_, None, StatusCodes.OK)) => succeed
+    }
 
     for {
       _ <- uploadPackage(uri)(ciouDar)
@@ -115,7 +117,7 @@ abstract class HttpServiceIntegrationTest
       _ <- createIouAndExerciseTransfer(
         initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
         // whether we can exercise by interface-ID
-        exerciseBy = iiouIfaceID,
+        exerciseBy = IiouIfaceID,
       )
       // ideally we would upload IIou.daml only above, then upload ciou here;
       // however tests currently don't play well with reload -SC
@@ -148,7 +150,7 @@ abstract class HttpServiceIntegrationTest
         encodeExercise(encoder)(
           iouTransfer(
             domain.EnrichedContractKey(
-              iiouIfaceID,
+              IiouIfaceID,
               v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
             ),
             bob,
@@ -176,7 +178,7 @@ abstract class HttpServiceIntegrationTest
       searchResp <- search(
         List.empty,
         Map(
-          "templateIds" -> Seq(iiouIfaceID).toJson,
+          "templateIds" -> Seq(IiouIfaceID).toJson,
           "query" -> spray.json.JsObject(),
         ).toJson.asJsObject,
         uri,
@@ -184,7 +186,12 @@ abstract class HttpServiceIntegrationTest
         aliceHeaders,
       )
     } yield inside(searchResp) {
-      case domain.ErrorResponse(Seq(_), None, StatusCodes.InternalServerError) => succeed
+      case domain.ErrorResponse(
+            Seq(_),
+            Some(domain.UnknownTemplateIds(Seq(IiouIfaceID))),
+            StatusCodes.BadRequest,
+          ) =>
+        succeed
     }
   }
 
