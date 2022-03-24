@@ -242,6 +242,7 @@ dev_env_tool(
 )
 
 node_repositories(
+    node_version = "16.13.0",
     vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
     yarn_version = "1.22.4",
 )
