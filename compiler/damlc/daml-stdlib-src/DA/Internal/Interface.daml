@@ -74,8 +74,8 @@ class HasFromInterface t i where
   fromInterface : i -> Optional t
 
   -- | HIDE
-  -- Like 'fromInterface', but throws an error if the underlying template type
-  -- of the interface value doesn't match the type of the provided ContractId.
+  -- Like 'fromInterface', but raises a fatal error (`WronglyTypedContract`) if the
+  -- underlying template type of the interface value doesn't match the desired type.
   unsafeFromInterface : ContractId i -> i -> t
 
 -- | (1.dev only) Constraint that indicates that a template implements an interface.
