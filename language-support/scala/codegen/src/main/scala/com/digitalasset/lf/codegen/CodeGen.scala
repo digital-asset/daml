@@ -125,13 +125,19 @@ object CodeGen {
   private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
     as.suml1
 
+  private def templateCount(interface: EnvironmentInterface): Int =
+    interface.typeDecls.count {
+      case (_, InterfaceType.Template(_, _)) => true
+      case _ => false
+    }
+
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
     val typeDeclarationsToGenerate = DependencyGraph.transitiveClosure(util.iface)
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(typeDeclarationsToGenerate))
 
-    val totalTemplates = util.templateCount(util.iface)
+    val totalTemplates = templateCount(util.iface)
     val generated = typeDeclarationsToGenerate.templateIds.size
     val notGenerated = totalTemplates - generated
 

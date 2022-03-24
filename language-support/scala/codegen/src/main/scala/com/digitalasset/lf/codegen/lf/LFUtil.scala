@@ -295,13 +295,6 @@ final case class LFUtil(
       }.toList
   }
 
-  def templateCount(interface: EnvironmentInterface): Int = {
-    interface.typeDecls.count {
-      case (_, InterfaceType.Template(_, _)) => true
-      case _ => false
-    }
-  }
-
   private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: EnvironmentInterface, z: Z)(
       f: (Z, ScopedDataType.Name) => Z
   ): Z =
