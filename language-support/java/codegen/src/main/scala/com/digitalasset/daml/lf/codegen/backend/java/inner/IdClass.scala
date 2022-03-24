@@ -92,10 +92,9 @@ object IdClass {
     ): Option[Record.FWT] = {
       // TODO: at the moment we don't support other packages Records because the codegen works on single packages
       if (typeCon.name.identifier.packageId == packageId) {
-        identifierToType.get(typeCon.name.identifier.qualifiedName) match {
-          case Some(InterfaceType.Normal(DefDataType(_, record: Record.FWT))) =>
-            Some(record)
-          case _ => None
+        identifierToType.get(typeCon.name.identifier.qualifiedName) collect {
+          case InterfaceType.Normal(DefDataType(_, record: Record.FWT)) =>
+            record
         }
       } else None
     }
