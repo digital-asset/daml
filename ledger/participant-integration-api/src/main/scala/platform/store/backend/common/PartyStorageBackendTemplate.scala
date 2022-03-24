@@ -18,8 +18,10 @@ import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpola
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.PartyLedgerEntry
 
-class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: LedgerEndCache)
-    extends PartyStorageBackend {
+class PartyStorageBackendTemplate(
+    queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
+) extends PartyStorageBackend {
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
@@ -75,9 +77,12 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select * from party_entries
-      where ($startExclusive is null or ledger_offset>$startExclusive) and ledger_offset<=$endInclusive
+      where ${queryStrategy.offsetIsBetween(
+      nonNullableColumn = "ledger_offset",
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+    )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

@@ -560,6 +560,7 @@ abstract class EventStorageBackendTemplate(
 
     if (pruneAllDivulgedContracts) {
       pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
+        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
         SQL"""
           -- Retroactive divulgence events
           delete from participant_events_divulgence delete_events
@@ -569,6 +570,7 @@ abstract class EventStorageBackendTemplate(
       }(connection, loggingContext)
     } else {
       pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
+        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
         SQL"""
           -- Retroactive divulgence events (only for contracts archived before the specified offset)
           delete from participant_events_divulgence delete_events

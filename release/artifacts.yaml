@@ -243,6 +243,12 @@
   type: jar-scala
 - target: //libs-scala/scalatest-utils:scalatest-utils
   type: jar-scala
+- target: //libs-scala/test-evidence/scalatest:test-evidence-scalatest
+  type: jar-scala
+- target: //libs-scala/test-evidence/tag:test-evidence-tag
+  type: jar-scala
+- target: //libs-scala/test-evidence/generator:generator
+  type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
 - target: //triggers/runner:trigger-runner-lib

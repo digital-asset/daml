@@ -14,7 +14,6 @@ import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.ValidateCompilation.validateCompilation
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
@@ -295,9 +294,9 @@ private[lf] final class Compiler(
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
 
-  // speedy compilation phases 2,3,4 (i.e post translate-from-LF)
+  // speedy compilation phases 2,3 (i.e post translate-from-LF)
   private[this] def pipeline(sexpr: s.SExpr): t.SExpr =
-    validateCompilation(flattenToAnf(closureConvert(sexpr)))
+    flattenToAnf(closureConvert(sexpr))
 
   private[this] def compileModule(
       pkgId: PackageId,

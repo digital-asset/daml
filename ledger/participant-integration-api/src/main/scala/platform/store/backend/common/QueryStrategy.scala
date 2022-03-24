@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.backend.common
 
+import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 
 object QueryStrategy {
@@ -59,11 +60,52 @@ trait QueryStrategy {
   /** Boolean predicate */
   def isTrue(booleanColumnName: String): String
 
+  /** Constant boolean to be used in a SELECT clause */
+  def constBoolean(value: Boolean): String
+
   /** ANY SQL clause generation for a number of Long values
     */
   def anyOf(longs: Iterable[Long]): CompositeSql = {
     val longArray: Array[java.lang.Long] =
       longs.view.map(Long.box).toArray
     cSQL"= ANY($longArray)"
+  }
+
+  /** Expression for `(offset <= endInclusive)`
+    *
+    *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
+    */
+  def offsetIsSmallerOrEqual(nonNullableColumn: String, endInclusive: Offset): CompositeSql = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    // Note: there are two reasons for special casing Offset.beforeBegin:
+    // 1. simpler query
+    // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
+    if (endInclusive == Offset.beforeBegin) {
+      cSQL"#${constBoolean(false)}"
+    } else {
+      cSQL"#$nonNullableColumn <= $endInclusive"
+    }
+  }
+
+  /** Expression for `(startExclusive < offset <= endExclusive)`
+    *
+    *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
+    */
+  def offsetIsBetween(
+      nonNullableColumn: String,
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): CompositeSql = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    // Note: there are two reasons for special casing Offset.beforeBegin:
+    // 1. simpler query
+    // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
+    if (endInclusive == Offset.beforeBegin) {
+      cSQL"#${constBoolean(false)}"
+    } else if (startExclusive == Offset.beforeBegin) {
+      cSQL"#$nonNullableColumn <= $endInclusive"
+    } else {
+      cSQL"(#$nonNullableColumn > $startExclusive and #$nonNullableColumn <= $endInclusive)"
+    }
   }
 }

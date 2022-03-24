@@ -195,7 +195,7 @@ final class LedgerTestCasesRunner(
   ): Future[Vector[LedgerTestSummary]] = {
     val testCaseRepetitions = testCases.flatMap(_.repetitions)
     val testCount = testCaseRepetitions.size
-    logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
+    logger.info(s"Running $testCount tests with concurrency of $concurrency.")
     Source(testCaseRepetitions.zipWithIndex)
       .mapAsyncUnordered(concurrency) { case (test, index) =>
         run(test, ledgerSession).map(summarize(test.suite, test.testCase, _) -> index)

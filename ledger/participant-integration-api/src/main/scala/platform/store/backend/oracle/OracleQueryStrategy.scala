@@ -26,6 +26,8 @@ object OracleQueryStrategy extends QueryStrategy {
 
   override def isTrue(booleanColumnName: String): String = s"$booleanColumnName = 1"
 
+  override def constBoolean(value: Boolean): String = if (value) "1=1" else "0=1"
+
   // WARNING! this construction will lead to "= ANY(?, ?, ?, ..... ?)" SQLs, for which oracle has an upper limit of 1000
   override def anyOf(longs: Iterable[Long]): CompositeSql = {
     val longArray: Vector[java.lang.Long] =

@@ -1,0 +1,76 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Interfaces where
+
+myGuard : Party -> Bool
+myGuard _ = True
+
+-- INTERFACE_NAME_BEGIN
+interface MyInterface where
+-- INTERFACE_NAME_END
+-- INTERFACE_METHODS_BEGIN
+  method1 : Party
+  method2 : Int
+  method3 : Bool -> Int -> Int -> Int
+-- INTERFACE_METHODS_END
+
+-- INTERFACE_ENSURE_BEGIN
+  ensure myGuard (method1 this)
+-- INTERFACE_ENSURE_END
+
+-- INTERFACE_CHOICE_BEGIN
+  choice MyChoice : (ContractId MyInterface, Int)
+    with
+      argument1 : Bool
+      argument2 : Int
+    controller method1 this
+    do
+      let n0 = method2 this
+      let n1 = method3 this argument1 argument2 n0
+      pure (self, n1)
+-- INTERFACE_CHOICE_END
+
+-- INTERFACE_METHODS_TOP_LEVEL_BEGIN
+func1 : Implements t MyInterface => t -> Party
+func1 = method1
+
+func2 : Implements t MyInterface => t -> Int
+func2 = method2
+
+func3 : Implements t MyInterface => t -> Bool -> Int -> Int -> Int
+func3 = method3
+-- INTERFACE_METHODS_TOP_LEVEL_END
+
+-- EMPTY_INTERFACE_BEGIN
+interface YourInterface
+-- EMPTY_INTERFACE_END
+
+-- INTERFACE_REQUIRES_BEGIN
+interface OurInterface requires MyInterface, YourInterface where
+-- INTERFACE_REQUIRES_END
+
+-- EMPTY_INTERFACE_REQUIRES_BEGIN
+interface TheirInterface requires MyInterface, YourInterface
+-- EMPTY_INTERFACE_REQUIRES_END
+
+-- TEMPLATE_HEADER_BEGIN
+template MyTemplate
+  with
+    field1 : Party
+    field2 : Int
+  where
+    signatory field1
+-- TEMPLATE_HEADER_END
+-- TEMPLATE_IMPLEMENTS_BEGIN
+    implements MyInterface where
+      method1 = field1
+      method2 = field2
+      method3 False _ _ = 0
+      method3 True x y
+        | x > 0 = x + y
+        | otherwise = y
+-- TEMPLATE_IMPLEMENTS_END
+-- TEMPLATE_EMPTY_IMPLEMENTS_BEGIN
+    implements YourInterface
+-- TEMPLATE_EMPTY_IMPLEMENTS_END

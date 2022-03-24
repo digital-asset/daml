@@ -63,6 +63,7 @@ da_scala_test_suite(
         ":suites-1.dev",
         "//daml-lf/data",
         "//ledger/ledger-api-tests/infrastructure",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

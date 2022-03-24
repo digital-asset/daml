@@ -19,15 +19,15 @@ class ReplayBenchmark {
   var choiceName: String = _
 
   @Param(Array("0"))
-  var exerciseIndex: Int = _
+  var choiceIndex: Int = _
 
   @Param(Array(""))
   // path of the darFile
   var darFile: String = _
 
   @Param(Array())
-  // path of the ledger export
-  var ledgerFile: String = _
+  // path of the ledger entries
+  var entriesFile: String = _
 
   private var benchmark: TransactionSnapshot = _
 
@@ -46,9 +46,9 @@ class ReplayBenchmark {
       Ref.Name.assertFromString(name),
     )
     benchmark = TransactionSnapshot.loadBenchmark(
-      Paths.get(ledgerFile),
+      Paths.get(entriesFile),
       choice,
-      exerciseIndex,
+      choiceIndex,
       None,
     )
     if (darFile.nonEmpty) {

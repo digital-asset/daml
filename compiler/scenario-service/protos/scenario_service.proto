@@ -551,6 +551,7 @@ message Node {
     repeated Party signatories = 2;
     repeated Party stakeholders = 3;
     KeyWithMaintainers key_with_maintainers = 4; // optional
+    Identifier byInterface = 5; //optional
   }
 
   message Fetch {
@@ -558,6 +559,7 @@ message Node {
     Identifier template_id = 2;
     repeated Party signatories = 3;
     repeated Party stakeholders = 4;
+    Identifier byInterface = 5; //optional
   }
 
   message Exercise {
@@ -572,6 +574,7 @@ message Node {
     repeated Party stakeholders = 9;
     repeated NodeId children = 11;
     Value exercise_result = 12; // None for incomplete/aborted exercise nodes.
+    Identifier byInterface = 13; // optional
   }
 
   message LookupByKey {
