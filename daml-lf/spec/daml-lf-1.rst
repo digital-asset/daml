@@ -3398,7 +3398,7 @@ as described by the ledger model::
 
      cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
-     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st; keys)
        ⇓ᵤ
      (Err (Fatal "Exercise on unknown contract"), ε)
 
@@ -3407,7 +3407,7 @@ as described by the ledger model::
      cid ∈ dom(st₀)
      st₀(cid) = (Mod':T', vₜ, 'inactive')
    —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀; keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise on inactive contract"), ε)
 
@@ -3417,7 +3417,7 @@ as described by the ledger model::
      st₀(cid) = (Mod':T', vₜ, 'active')
      Mod:T ≠ Mod':T'
    —————————————————————————————————————————————————————————————————————— EvUpdExercWrongTemplate
-     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise on contract of wrong template"), ε)
 
@@ -3427,7 +3427,7 @@ as described by the ledger model::
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Choice controller evaluation failed"), ε)
 
@@ -3438,7 +3438,7 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Choice observer evaluation failed"), ε)
 
@@ -3450,7 +3450,7 @@ as described by the ledger model::
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
      |v₁| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNestingArgErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3463,7 +3463,7 @@ as described by the ledger model::
      |v₁| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) ChKind ε)
 
@@ -3479,7 +3479,7 @@ as described by the ledger model::
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsumErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' tr)
 
@@ -3496,7 +3496,7 @@ as described by the ledger model::
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
      |vₐ| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsumNestingOutErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3513,7 +3513,7 @@ as described by the ledger model::
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsum
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
 
@@ -3527,7 +3527,7 @@ as described by the ledger model::
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' tr)
 
@@ -3542,7 +3542,7 @@ as described by the ledger model::
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
      |vₐ| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumNestingOutErr
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3557,20 +3557,20 @@ as described by the ledger model::
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
-     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+     'exercise' @Mod:T Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
      cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceMissing
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st; keys)
        ⇓ᵤ
      (Err (Fatal "Exercise on unknown contract"), ε)
 
      cid ∈ dom(st₀)
      st₀(cid) = (Mod':T', vₜ, 'inactive')
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceInactive
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise on inactive contract"), ε)
 
@@ -3578,7 +3578,7 @@ as described by the ledger model::
      st₀(cid) = (Mod':T', vₜ, 'active')
      Mod':T' does not implement interface  Mod:I
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceDoesntImplement
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise on contract that does not implement interface"), ε)
 
@@ -3588,7 +3588,7 @@ as described by the ledger model::
      vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
      v₂ vᵢ  ⇓  Err (Fatal t)
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceGuardFatal
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st; keys₀)
        ⇓ᵤ
      (Err (Fatal t), ε)
 
@@ -3598,7 +3598,7 @@ as described by the ledger model::
      vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
      v₂ vᵢ  ⇓  Err (Throw v)
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceGuardThrow
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise guard failed"), ε)
 
@@ -3608,7 +3608,7 @@ as described by the ledger model::
      vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
      v₂ vᵢ  ⇓  Ok 'False'
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceGuardFalse
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise guard failed"), ε)
 
@@ -3622,7 +3622,7 @@ as described by the ledger model::
         } } ∈ 〚Ξ〛Mod
      eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceActorEvalErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st; keys₀)
        ⇓ᵤ
      (Err (Fatal "Choice controller evaluation failed"), ε)
 
@@ -3637,7 +3637,7 @@ as described by the ledger model::
      eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceObserversErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Choice observer evaluation failed"), ε)
 
@@ -3653,7 +3653,7 @@ as described by the ledger model::
      eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
      |v₁| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNestingArgErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3670,7 +3670,7 @@ as described by the ledger model::
      |v₁| ≤ 100
      eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceBodyEvalErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) ChKind ε)
 
@@ -3690,7 +3690,7 @@ as described by the ledger model::
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceConsumErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' tr)
 
@@ -3711,7 +3711,7 @@ as described by the ledger model::
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
      |vₐ| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceConsumNestingOutErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3732,7 +3732,7 @@ as described by the ledger model::
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceConsum
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
 
@@ -3750,7 +3750,7 @@ as described by the ledger model::
      eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNonConsumErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' tr)
 
@@ -3769,7 +3769,7 @@ as described by the ledger model::
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
      |vₐ| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNonConsumNestingOutErr
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3788,7 +3788,7 @@ as described by the ledger model::
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNonConsum
-     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise_interface' @Mod:I Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
@@ -3931,13 +3931,13 @@ as described by the ledger model::
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyFetchErr
-     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  (Err E, tr)
+     'exercise_by_key' @Mod:T Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  (Err E, tr)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  (Ok ⟨'contractId': cid, 'contract': vₜ⟩, ε) ‖ (st'; keys')
-     'exercise' Mod:T.Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
+     'exercise' @Mod:T Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyExercise
-     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
+     'exercise_by_key' @Mod:T Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
 
      LitTimestamp is the current ledger time
    —————————————————————————————————————————————————————————————————————— EvUpdGetTime
