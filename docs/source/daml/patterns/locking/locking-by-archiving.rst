@@ -58,6 +58,7 @@ The steps below show how to use a consuming choice in the original contract to a
 
 
 .. figure:: ../images/lockingByArchiving1.png
+   :alt: Locking By Consuming Choice involves exercising a Lock choice to create a LockedCoin; the LockedCoin differs from the Coin in having an Unlock choice.
 
   Locking By Consuming Choice Diagram
 
@@ -90,6 +91,7 @@ In the event that changing the original contract is not desirable and assuming t
   :end-before: -- END_COIN_COMMITMENT_TEMPLATE_LOCK_COIN
 
 .. figure:: ../images/lockingByArchiving2.png
+:alt: Locking by Archiving Contract uses the CoinCommitment contract to archive Coin and create LockedCoin
 
   Locking By Archiving Contract Diagram
 

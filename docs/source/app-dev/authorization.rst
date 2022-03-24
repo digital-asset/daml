@@ -42,6 +42,7 @@ The Daml ledger verifies the signature of the token to make sure it has not been
 and then checks that the token has not yet expired and that the privileges described in the token authorize the given Ledger API request.
 
 .. image:: ./images/Authentication.svg
+   :alt: A flowchart illustrating the process of authentication described in the two paragraphs immediately above.
 
 As shown above, using access tokens requires your application to attach them to every request.
 How to do that depends on the tool or library you use to interact with the Ledger API.

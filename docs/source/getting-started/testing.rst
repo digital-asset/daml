@@ -125,6 +125,7 @@ When writing CSS selectors for your tests, you will likely need to check the str
 For example, the image below is from inspecting the username field using the developer tools in Google Chrome.
 
    .. figure:: images/inspect-element.png
+      :alt: The app login screen and the code that renders as that screen. In the code a line that reads "<div class = "field test select username field> == $0" is highlighted.
 
 There is a subtlety to explain here due to the `Semantic UI <https://semantic-ui.com/>`_ framework we use for our app.
 Semantic UI provides a convenient set of UI elements which get translated to HTML.

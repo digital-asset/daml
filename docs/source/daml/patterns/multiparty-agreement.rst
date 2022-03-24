@@ -71,5 +71,6 @@ Collecting the signatures in practice
 
 .. figure:: images/multiplepartyAgreement.png
   :figwidth: 80%
+  :alt: The Multipart Agreement pattern, in which the Pending contract recreates itself each time a party signs until all have signed and one exercizes the Finalize choice to create the Agreement contract. 
 
   Multiple Party Agreement Diagram

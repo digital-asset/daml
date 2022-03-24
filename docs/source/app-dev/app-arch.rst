@@ -9,9 +9,12 @@ Application architecture
 This section describes our recommended design of a full-stack Daml application.
 
 .. image:: ./recommended_architecture.svg
+   :alt: Diagram of the recommended application architecture, explained in depth immediately below.
 
-The above image shows the recommended architecture. Of course there are many ways that the architecture and technology 
-stack can be changed to fit your needs which we'll mention in the corresponding sections.
+The above image shows the recommended architecture. Here there are four types of building blocks that go into our application: user code, Daml components, generated code from Daml, and external components. In the recommended architecture the Daml model determines the DAR files that underpin both the front end and back end. The front end includes user code such as a React Web Fronted, Daml React libraries or other integration libraries, and generated code from the DAR files. The back end consists of Daml integration components (e.g. JSON API) and a participant node; the participant node communicates with an external token issuer. The Daml network, meanwhile, includes Daml drivers paired with external synchronization technologies.
+
+Of course there are many ways that the architecture and technology 
+stack can be changed to fit your needs, which we'll mention in the corresponding sections.
 
 To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
@@ -119,6 +122,7 @@ Together, these features can provide you with very tight feedback loops while de
   #. Make further changes either to your Daml and/or React code until you're happy with what you've developed
 
 .. image:: ./developer_workflow.svg
+   :alt: A simple developer workflow - iterate on the Daml model, iterate on the UI, repeat.
 
 See :doc:`Your First Feature </getting-started/first-feature>` for a more detailed walkthrough of these steps.
 

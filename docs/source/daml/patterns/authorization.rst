@@ -49,6 +49,7 @@ TransferProposal contract
         :end-before: -- END_ACCEPT_COIN_TRANSFER
 
 .. figure:: images/authorization.png
+   :alt: A diagram of the Authorization pattern, in which the CoinOwnerAuthorization contract ensures that owner is authorized to transfer the coin.
 
   Authorization Diagram
 

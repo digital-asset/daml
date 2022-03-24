@@ -54,6 +54,7 @@ Delegation Contract
 .. note:: The technique is likely to change in the future. Daml is actively researching future language features for contract disclosure.
 
 .. figure:: images/delegation.png
+   :alt: A diagram of the Delegation pattern, in which the CoinPoA contract allows a party who is not the coin's owner to exercise a choice on the TransferProposal contract.
 
   Delegation pattern diagram
 

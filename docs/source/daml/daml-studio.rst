@@ -24,6 +24,7 @@ Creating your first Daml file
    2. Click on the Daml Studio extension that should be listed on the pane.
 
    .. image:: daml-studio/images/daml_studio_extension_view.png
+   :alt: The Daml Studio extension page in Visual Studio Code, as shown when you click on Daml Studio in the extension.
 
 3. Open a new file (``⌘N``) and save it (``⌘S``) as ``Test.daml``.
 4. Copy the following code into your file:
@@ -34,11 +35,13 @@ Creating your first Daml file
 Your screen should now look like the image below.
 
    .. image:: daml-studio/images/daml_studio_extension_double_correct.png
+   :alt: Visual Studio Code displays Test.daml, with the code snippet you copied above.
 
 5. Introduce a parse error by deleting the ``=`` sign and then clicking the
    Ⓧ symbol on the lower-left corner. Your screen should now look like the image below.
 
    .. image:: daml-studio/images/daml_studio_extension_double_wrong.png
+   :alt: The line with the error is underlined with a wavy red line. A second pane below the original is open to the Problems tab, which describes the Parse error.
 
 6. Remove the parse error by restoring the ``=`` sign.
 
@@ -117,6 +120,7 @@ party can see the contract or a ``-`` if not.
 .. figure:: daml-studio/images/daml_studio_script_table.png
    :scale: 70%
    :align: center
+   :alt: The table as described above, with the associated script in the left panel.
 
 If you want more details, you can click on the *Show archived* checkbox, which extends
 the table to include archived contracts, and on the *Show detailed disclosure* checkbox,
@@ -139,6 +143,7 @@ created it.
 .. figure:: daml-studio/images/daml_studio_script_table_detailed.png
    :scale: 70%
    :align: center
+   :The table as described above, with the associated script in the left panel. "Show archived" and "Show detailed disclosure" are now selected.
 
 If you want to see the detailed transaction graph you can click on the
 ``Show transaction view`` button. The transaction graph
@@ -151,6 +156,7 @@ For example a script for the :download:`Iou<daml-studio/daml/Iou.daml>` module l
 .. figure:: daml-studio/images/daml_studio_script_transaction.png
    :scale: 70%
    :align: center
+   :alt: The graph transaction view as described above, with the associated script in the left panel.
 
    Script results
 
@@ -194,6 +200,7 @@ your user settings in Visual Studio Code to include the following options:
 With those changes in place, you can simply hit ``Tab`` after a keyword to insert the code pattern.
 
 .. image:: daml-studio/images/daml_studio_snippet_demo.gif
+   :alt: An animation showing the snippet autocomplete feature in use. After typing three letters, potential values for the rest of the snippet appear and can be selected by pressing the Tab key.
 
 You can develop your own snippets by following the instructions in
 `Creating your own Snippets`_ to create an appropriate ``daml.json``

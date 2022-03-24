@@ -78,6 +78,7 @@ A bank bill represents a contract between the owner of the bill and its issuer, 
 To do this, the note must have certain properties. In particular, the British pound note shown below illustrates the key elements that are needed to describe money in Daml:
 
 .. figure:: quickstart/images/poundNote.jpg
+   :alt: A British five pound note with sections labelled as described below.
    :align: center
 
 **1) The Legal Agreement**
@@ -163,6 +164,7 @@ Now everything is running, you can try out the quickstart application:
    This takes you to the contracts view:
 
    .. figure:: quickstart/images/contracts.png
+   :alt: The Contracts view in the application, showing one existing contract.
 
    This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, in our case with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
@@ -190,6 +192,7 @@ Now everything is running, you can try out the quickstart application:
 #. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
    .. figure:: quickstart/images/createIou.png
+   :alt: Fill out the form by entering Alice as the Issuer and as the Owner, AliceCoin as the Currency, and 1.0 as the Amount.
 
 #. On the left-hand side, click **Issued Ious** to go to that page. You can see the Iou you just issued yourself.
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
@@ -209,6 +212,7 @@ Now everything is running, you can try out the quickstart application:
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
+   :alt: Fill out the form by entering Alice as the buyer, Bob as the seller, #13:1 as the baseIouCid, EUR_Bank as the baseIssuer, EUR as the baseCurrency, 100.00 as the baseAmount, USD_Bank as the quote_Issuer, USD as the quoteCurrency, and 110.0 as the quoteAmount.
 
 #. Go to the **Trades** page. It shows the just-proposed trade.
 #. You are now going to switch user to Bob, so you can accept the trades you have just proposed. Start by clicking on the logout button next to the username, at the top of the screen. On the login page, select **Bob** from the dropdown.
@@ -379,6 +383,7 @@ Compare the script with the ``initialize`` script in ``daml/Main.daml``. You wil
 After a short time, the text *Script results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
 
 .. figure:: quickstart/images/ledger.png
+:alt: The Script Results view showing two subtransactions: one with Issuer USD_Bank and Owner Alice, the other with Issuer EUR_Bank and Owner Bob.
 
 Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 

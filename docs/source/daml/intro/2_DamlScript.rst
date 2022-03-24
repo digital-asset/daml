@@ -68,11 +68,12 @@ There are a few ways to run Daml Scripts:
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on it to display the outcome of the script.
 
 .. figure:: images/2_Scenario/scenario_results1.png
+   :alt: Script results indicating that a token has been created for Alice.
 
 This opens the script view in a separate column in VS Code. The default view is a tabular representation of the final state of the ledger:
 
 .. figure:: images/2_Scenario/tabular_view1.png
-
+:alt: The script view as a separate column, with a table that shows Alice's token. Full display explained immediately below.
 What this display means:
 
 - The big title reading ``Token_Test:Token`` is the identifier of the type of contract that's listed below. ``Token_Test`` is the module name, ``Token`` the template name.
@@ -102,6 +103,7 @@ In :doc:`1_Token` you learned that creating a ``Token`` requires the authority o
 However, if you open the script view for that script, you see the following message:
 
 .. figure:: images/2_Scenario/failure.png
+   :alt: Script failure message indicating that the script failed due to a missing authorization from Bob.
 
 The script failed, as expected, but scripts abort at the first failure. This means that it only tested that Alice can't create a token for Bob, and the second ``submit`` statement was never reached.
 
@@ -138,12 +140,14 @@ Exploring the ledger
 The resulting script view is empty, because there are no contracts left on the ledger. However, if you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
 .. figure:: images/2_Scenario/archived.png
+   :alt: The script view as a separate column, with the Show Archived checkbox selected.
 
 You can see that there was a ``Token`` contract, which is now archived, indicated both by the "archived" value in the ``status`` column as well as by a strikethrough.
 
 Click on the adjacent "Show transaction view" button to see the entire transaction graph:
 
 .. figure:: images/2_Scenario/tx_graph.png
+   :alt: The transaction view with the transaction's information from the point of its creation to exercise.
 
 In the Daml Studio script runner, committed transactions are numbered sequentially. The lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
 
