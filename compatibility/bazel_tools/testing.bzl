@@ -1235,7 +1235,8 @@ def sdk_platform_test(sdk_version, platform_version):
     # can control them individually.
 
     # We allocate parties via @daml/ledger which only supports this since SDK 1.8.0
-    if versions.is_at_least("1.8.0", sdk_version):
+    # Versions prior to 2.0.0 are incompatible with Node version 16.
+    if versions.is_at_least("2.0.0", sdk_version):
         create_daml_app_test(
             name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
             daml = daml_assistant,
