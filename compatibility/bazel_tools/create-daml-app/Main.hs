@@ -219,6 +219,9 @@ main = withTempDir $ \npmCache -> do
           step "Install Jest, Puppeteer and other dependencies"
           addTestDependencies "package.json" testDepsPath
           patchTsDependencies uiDir "package.json"
+          -- we need 'node' in the path for the following step
+          mbOldPath <- getEnv "PATH"
+          setEnv "PATH" (takeDirectory nodePath <> (searchPathSeparator : fromMaybe "" mbOldPath)) True
           -- use '--scripts-prepend-node-path' to make sure we are using the correct 'node' binary
           retry 3 (callProcessSilent npmPath ["install", "--scripts-prepend-node-path"])
           step "Run Puppeteer end-to-end tests"
