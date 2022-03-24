@@ -166,7 +166,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
     tags = privacyHappyCase(
       asset = "Transaction Tree",
-      happyCase = "Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty",
+      happyCase =
+        "Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty",
     ),
   )(implicit ec => { case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
     for {
@@ -202,7 +203,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
     tags = privacyHappyCase(
       asset = "Flat Transaction",
-      happyCase = "A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty",
+      happyCase =
+        "A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty",
     ),
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
@@ -362,7 +364,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     timeoutScale = 2.0,
     tags = privacyHappyCase(
       asset = "Transaction",
-      happyCase = "Transactions in the flat transactions stream are disclosed only to the stakeholders",
+      happyCase =
+        "Transactions in the flat transactions stream are disclosed only to the stakeholders",
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
