@@ -242,7 +242,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
     tags = privacyHappyCase(
       asset = "Flat Transaction",
-      happyCase = "Transaction with a create event is not disclosed to non-chosen branching signatory",
+      happyCase =
+        "Transaction with a create event is not disclosed to non-chosen branching signatory",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
@@ -312,7 +313,8 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     allocate(SingleParty, TwoParties),
     tags = privacyHappyCase(
       asset = "Flat Transaction",
-      happyCase = "Transaction with a create event is not disclosed to non-chosen branching controller",
+      happyCase =
+        "Transaction with a create event is not disclosed to non-chosen branching controller",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
