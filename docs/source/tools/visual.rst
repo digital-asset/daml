@@ -9,10 +9,12 @@ Visualizing Daml Contracts is currently an :doc:`Early Access Feature in Labs st
 You can generate visual graphs for the contracts in your Daml project. To do this:
 
 1. Install `Graphviz <http://www.graphviz.org/download/>`_.
-2. Generate a DAR from your project by running ``daml build``.
-3. Generate a `dot file <https://en.wikipedia.org/wiki/DOT_(graph_description_language)>`_ from that DAR by running ``daml damlc visual <path_to_project>/dist/<project_name.dar> --dot <project_name>.dot``
-4. Generate the visual graph with Graphviz by running ``dot -Tpng <project_name>.dot > <project_name>.png``
+2. Open a terminal and navigate to your project root directory.
+3. Generate a DAR from your project by running ``daml build -o dar-file-name.dar``.
+4. Generate a `dot file <https://en.wikipedia.org/wiki/DOT_(graph_description_language)>`_ from that DAR by running ``daml damlc visual dar-file-name.dar --dot dot-file-name.dot``
+5. Generate the visual graph with Graphviz by running ``dot -Tpng dot-file-name.dot > png-file-name.png``
 
+You can of course choose different names for the files, as long as you're consistent between file creation and point of use.
 
 Example: Visualizing the Quickstart project
 ===========================================
