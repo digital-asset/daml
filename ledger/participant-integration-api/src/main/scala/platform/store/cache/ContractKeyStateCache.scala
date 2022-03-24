@@ -10,10 +10,11 @@ import com.daml.metrics.Metrics
 import scala.concurrent.ExecutionContext
 
 object ContractKeyStateCache {
-  def apply(cacheSize: Long, metrics: Metrics)(implicit
+  def apply(initialCacheIndex: Long, cacheSize: Long, metrics: Metrics)(implicit
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
+      initialCacheIndex = initialCacheIndex,
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.daml.execution.cache.keyState,
