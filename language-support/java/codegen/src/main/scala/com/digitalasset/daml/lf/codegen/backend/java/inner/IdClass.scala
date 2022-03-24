@@ -8,10 +8,8 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface.{
-  DefDataType,
   InterfaceType,
   PrimType,
-  Record,
   TemplateChoice,
   Type,
   TypeCon,
@@ -65,7 +63,7 @@ object IdClass {
       for ((choiceName, choice) <- choices) {
         for (
           record <- choice.param.fold(
-            Builder.getRecord(_, typeDeclarations, packageId),
+            ClassGenUtils.getRecord(_, typeDeclarations, packageId),
             _ => None,
             _ => None,
             _ => None,
@@ -84,44 +82,21 @@ object IdClass {
     }
   }
 
-  private object Builder {
-    private def getRecord(
-        typeCon: TypeCon,
-        identifierToType: Map[QualifiedName, InterfaceType],
-        packageId: PackageId,
-    ): Option[Record.FWT] = {
-      // TODO: at the moment we don't support other packages Records because the codegen works on single packages
-      if (typeCon.name.identifier.packageId == packageId) {
-        identifierToType.get(typeCon.name.identifier.qualifiedName) collect {
-          case InterfaceType.Normal(DefDataType(_, record: Record.FWT)) =>
-            record
-        }
-      } else None
-    }
+  private[inner] object Builder {
 
     private def generateFlattenedExerciseMethod(
         choiceName: ChoiceName,
         choice: TemplateChoice[Type],
         fields: Fields,
         packagePrefixes: Map[PackageId, String],
-    ): MethodSpec = {
-      val methodName = s"exercise${choiceName.capitalize}"
-      val exerciseChoiceBuilder = MethodSpec
-        .methodBuilder(methodName)
-        .addModifiers(Modifier.PUBLIC)
-        .returns(classOf[javaapi.data.ExerciseCommand])
-      val javaType = toJavaTypeName(choice.param, packagePrefixes)
-      for (FieldInfo(_, _, javaName, javaType) <- fields) {
-        exerciseChoiceBuilder.addParameter(javaType, javaName)
-      }
-      exerciseChoiceBuilder.addStatement(
-        "return $L(new $T($L))",
-        methodName,
-        javaType,
-        generateArgumentList(fields.map(_.javaName)),
+    ): MethodSpec =
+      ClassGenUtils.generateFlattenedCreateOrExerciseMethod[javaapi.data.ExerciseCommand](
+        "exercise",
+        choiceName,
+        choice,
+        fields,
+        packagePrefixes,
       )
-      exerciseChoiceBuilder.build()
-    }
 
     private[inner] def generateExerciseMethod(
         choiceName: ChoiceName,

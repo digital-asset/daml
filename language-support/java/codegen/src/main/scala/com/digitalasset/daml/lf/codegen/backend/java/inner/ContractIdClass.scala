@@ -5,12 +5,24 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.ObjectMethods
+import com.daml.lf.codegen.backend.java.inner.ClassGenUtils.{
+  emptyOptional,
+  emptySet,
+  getAgreementText,
+  getArguments,
+  getContractId,
+  getContractKey,
+  getObservers,
+  getSignatories,
+  optional,
+  optionalString,
+  setOfStrings,
+}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Type
 import com.squareup.javapoet._
-import scala.jdk.CollectionConverters._
 
-import java.util.Optional
+import scala.jdk.CollectionConverters._
 import javax.lang.model.element.Modifier
 
 object ContractIdClass {
@@ -122,7 +134,7 @@ object ContractIdClass {
         .build()
     }
 
-    private def generateFromIdAndRecord(
+    private[inner] def generateFromIdAndRecord(
         className: ClassName,
         templateClassName: ClassName,
         idClassName: ClassName,
@@ -231,27 +243,5 @@ object ContractIdClass {
         packagePrefixes,
       )
     }
-
-    private val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
-
-    private def optional(name: TypeName) =
-      ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), name)
-
-    private def setOfStrings = ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
-
-    private val emptyOptional = CodeBlock.of("$T.empty()", classOf[Optional[_]])
-    private val emptySet = CodeBlock.of("$T.emptySet()", classOf[java.util.Collections])
-    private val getContractId = CodeBlock.of("event.getContractId()")
-    private val getArguments = CodeBlock.of("event.getArguments()")
-    private val getAgreementText = CodeBlock.of("event.getAgreementText()")
-
-    private def getContractKey(t: Type, packagePrefixes: Map[PackageId, String]) =
-      CodeBlock.of(
-        "event.getContractKey().map(e -> $L)",
-        FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes),
-      )
-
-    private val getSignatories = CodeBlock.of("event.getSignatories()")
-    private val getObservers = CodeBlock.of("event.getObservers()")
   }
 }

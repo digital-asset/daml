@@ -14,9 +14,13 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
-final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValues with TryValues {
+final class ContractIdClassBuilderSpec
+    extends AnyFlatSpec
+    with Matchers
+    with OptionValues
+    with TryValues {
 
-  behavior of "TemplateClass.generateFromIdAndRecord"
+  behavior of "ContractIdClass.Builder.generateFromIdAndRecord"
 
   it should "generate a public static method" in {
     fromIdAndRecord.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
@@ -55,14 +59,14 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValue
   private[this] val idClassName = ClassName.bestGuess("Id")
   private[this] val ckClassName = ClassName.bestGuess("Ck")
   private[this] val fromIdAndRecord =
-    TemplateClass.generateFromIdAndRecord(
+    ContractIdClass.Builder.generateFromIdAndRecord(
       className,
       templateClassName,
       idClassName,
       Some(ckClassName),
     )
   private[this] val fromIdAndRecordWithoutKey =
-    TemplateClass.generateFromIdAndRecord(className, templateClassName, idClassName, None)
+    ContractIdClass.Builder.generateFromIdAndRecord(className, templateClassName, idClassName, None)
   private[this] val string = TypeName.get(classOf[String])
   private[this] val record = TypeName.get(classOf[javaapi.data.DamlRecord])
   private[this] val optionalString =

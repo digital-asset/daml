@@ -3,10 +3,8 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import com.daml.ledger.javaapi
-import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.daml.lf.iface.{DefInterface}
+import com.daml.lf.iface.DefInterface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -50,25 +48,10 @@ object InterfaceClass extends StrictLogging {
       templateType
     }
 
-  private def generateTemplateIdField(
-      packageId: PackageId,
-      name: QualifiedName,
-  ): FieldSpec = {
-    FieldSpec
-      .builder(
-        ClassName.get(classOf[javaapi.data.Identifier]),
-        "TEMPLATE_ID",
-        Modifier.STATIC,
-        Modifier.FINAL,
-        Modifier.PUBLIC,
-      )
-      .initializer(
-        "new $T($S, $S, $S)",
-        classOf[javaapi.data.Identifier],
-        packageId,
-        name.module.toString,
-        name.name,
-      )
-      .build()
-  }
+  private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
+    ClassGenUtils.generateTemplateIdField(
+      packageId,
+      name.module.toString,
+      name.name.toString,
+    )
 }

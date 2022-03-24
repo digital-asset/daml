@@ -3,7 +3,6 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import java.util.Optional
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.ImmArray.ImmArraySeq
@@ -11,6 +10,7 @@ import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
@@ -81,125 +81,6 @@ private[inner] object TemplateClass extends StrictLogging {
       templateType
     }
 
-  private val idFieldName = "id"
-  private val dataFieldName = "data"
-  private val agreementFieldName = "agreementText"
-  private val contractKeyFieldName = "key"
-  private val signatoriesFieldName = "signatories"
-  private val observersFieldName = "observers"
-
-  private val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
-  private def optional(name: TypeName) =
-    ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), name)
-  private def setOfStrings = ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
-
-  private[inner] def generateFromIdAndRecord(
-      className: ClassName,
-      templateClassName: ClassName,
-      idClassName: ClassName,
-      maybeContractKeyClassName: Option[TypeName],
-  ): MethodSpec = {
-
-    val methodParameters = Iterable(
-      ParameterSpec.builder(classOf[String], "contractId").build(),
-      ParameterSpec.builder(classOf[javaapi.data.DamlRecord], "record$").build(),
-      ParameterSpec.builder(optionalString, agreementFieldName).build(),
-    ) ++ maybeContractKeyClassName
-      .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
-      .toList ++ Iterable(
-      ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(),
-      ParameterSpec.builder(setOfStrings, observersFieldName).build(),
-    )
-
-    val spec =
-      MethodSpec
-        .methodBuilder("fromIdAndRecord")
-        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-        .returns(className)
-        .addParameters(methodParameters.asJava)
-        .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-        .addStatement(
-          "$T $L = $T.fromValue(record$$)",
-          templateClassName,
-          dataFieldName,
-          templateClassName,
-        )
-
-    val callParameterNames =
-      Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
-        .map(_ => contractKeyFieldName)
-        .toList ++ Vector(signatoriesFieldName, observersFieldName).toList
-    val callParameters = CodeBlock.join(callParameterNames.map(CodeBlock.of(_)).asJava, ", ")
-    spec.addStatement("return new $T($L)", className, callParameters).build()
-  }
-
-  private val emptyOptional = CodeBlock.of("$T.empty()", classOf[Optional[_]])
-  private val emptySet = CodeBlock.of("$T.emptySet()", classOf[java.util.Collections])
-
-  private[inner] def generateFromIdAndRecordDeprecated(
-      className: ClassName,
-      templateClassName: ClassName,
-      idClassName: ClassName,
-      maybeContractKeyClassName: Option[TypeName],
-  ): MethodSpec = {
-    val spec =
-      MethodSpec
-        .methodBuilder("fromIdAndRecord")
-        .addAnnotation(classOf[Deprecated])
-        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-        .returns(className)
-        .addParameter(classOf[String], "contractId")
-        .addParameter(classOf[javaapi.data.DamlRecord], "record$")
-        .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-        .addStatement(
-          "$T $L = $T.fromValue(record$$)",
-          templateClassName,
-          dataFieldName,
-          templateClassName,
-        )
-
-    val callParameters = Vector(
-      CodeBlock.of(idFieldName),
-      CodeBlock.of(dataFieldName),
-      emptyOptional,
-    ) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(emptySet, emptySet)
-
-    spec
-      .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))
-      .build()
-  }
-
-  private val getContractId = CodeBlock.of("event.getContractId()")
-  private val getArguments = CodeBlock.of("event.getArguments()")
-  private val getAgreementText = CodeBlock.of("event.getAgreementText()")
-  private def getContractKey(t: Type, packagePrefixes: Map[PackageId, String]) =
-    CodeBlock.of(
-      "event.getContractKey().map(e -> $L)",
-      FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes),
-    )
-  private val getSignatories = CodeBlock.of("event.getSignatories()")
-  private val getObservers = CodeBlock.of("event.getObservers()")
-
-  private[inner] def generateFromCreatedEvent(
-      className: ClassName,
-      maybeContractKeyType: Option[Type],
-      packagePrefixes: Map[PackageId, String],
-  ) = {
-
-    val spec =
-      MethodSpec
-        .methodBuilder("fromCreatedEvent")
-        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-        .returns(className)
-        .addParameter(classOf[javaapi.data.CreatedEvent], "event")
-
-    val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
-      .map(getContractKey(_, packagePrefixes))
-      .toList ++ Vector(getSignatories, getObservers)
-
-    spec.addStatement("return fromIdAndRecord($L)", CodeBlock.join(params.asJava, ", ")).build()
-  }
-
   private def generateCreateMethod(name: ClassName): MethodSpec =
     MethodSpec
       .methodBuilder("create")
@@ -229,21 +110,6 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
-  private def getRecord(
-      typeCon: TypeCon,
-      identifierToType: Map[QualifiedName, InterfaceType],
-      packageId: PackageId,
-  ): Option[Record.FWT] = {
-    // TODO: at the moment we don't support other packages Records because the codegen works on single packages
-    if (typeCon.name.identifier.packageId == packageId) {
-      identifierToType.get(typeCon.name.identifier.qualifiedName) match {
-        case Some(InterfaceType.Normal(DefDataType(_, record: Record.FWT))) =>
-          Some(record)
-        case _ => None
-      }
-    } else None
-  }
-
   private def generateStaticExerciseByKeyMethods(
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[Type]],
@@ -264,7 +130,12 @@ private[inner] object TemplateClass extends StrictLogging {
         val flattened =
           for (
             record <- choice.param
-              .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)
+              .fold(
+                ClassGenUtils.getRecord(_, typeDeclarations, packageId),
+                _ => None,
+                _ => None,
+                _ => None,
+              )
           )
             yield {
               generateFlattenedStaticExerciseByKeyMethod(
@@ -354,7 +225,12 @@ private[inner] object TemplateClass extends StrictLogging {
       val splatted =
         for (
           record <- choice.param
-            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)
+            .fold(
+              ClassGenUtils.getRecord(_, typeDeclarations, packageId),
+              _ => None,
+              _ => None,
+              _ => None,
+            )
         ) yield {
           generateFlattenedCreateAndExerciseMethod(
             choiceName,
@@ -416,84 +292,20 @@ private[inner] object TemplateClass extends StrictLogging {
       choice: TemplateChoice[Type],
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
-  ): MethodSpec = {
-    val methodName = s"createAndExercise${choiceName.capitalize}"
-    val createAndExerciseChoiceBuilder = MethodSpec
-      .methodBuilder(methodName)
-      .addModifiers(Modifier.PUBLIC)
-      .returns(classOf[javaapi.data.CreateAndExerciseCommand])
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
-    for (FieldInfo(_, _, javaName, javaType) <- fields) {
-      createAndExerciseChoiceBuilder.addParameter(javaType, javaName)
-    }
-    createAndExerciseChoiceBuilder.addStatement(
-      "return $L(new $T($L))",
-      methodName,
-      javaType,
-      generateArgumentList(fields.map(_.javaName)),
-    )
-    createAndExerciseChoiceBuilder.build()
-  }
-
-  private[inner] def generateExerciseMethod(
-      choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
-      templateClassName: ClassName,
-      packagePrefixes: Map[PackageId, String],
-  ): MethodSpec = {
-    val methodName = s"exercise${choiceName.capitalize}"
-    val exerciseChoiceBuilder = MethodSpec
-      .methodBuilder(methodName)
-      .addModifiers(Modifier.PUBLIC)
-      .returns(classOf[javaapi.data.ExerciseCommand])
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
-    exerciseChoiceBuilder.addParameter(javaType, "arg")
-    choice.param match {
-      case TypeCon(_, _) =>
-        exerciseChoiceBuilder.addStatement(
-          "$T argValue = arg.toValue()",
-          classOf[javaapi.data.Value],
-        )
-      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
-        exerciseChoiceBuilder
-          .addStatement(
-            "$T argValue = $T.getInstance()",
-            classOf[javaapi.data.Value],
-            classOf[javaapi.data.Unit],
-          )
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
-        exerciseChoiceBuilder
-          .addStatement(
-            "$T argValue = new $T(arg)",
-            classOf[javaapi.data.Value],
-            toAPITypeName(choice.param),
-          )
-    }
-    exerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.contractId, $S, argValue)",
-      classOf[javaapi.data.ExerciseCommand],
-      templateClassName,
+  ): MethodSpec =
+    ClassGenUtils.generateFlattenedCreateOrExerciseMethod[javaapi.data.CreateAndExerciseCommand](
+      "createAndExercise",
       choiceName,
+      choice,
+      fields,
+      packagePrefixes,
     )
-    exerciseChoiceBuilder.build()
-  }
 
   private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =
-    FieldSpec
-      .builder(
-        ClassName.get(classOf[javaapi.data.Identifier]),
-        "TEMPLATE_ID",
-        Modifier.STATIC,
-        Modifier.FINAL,
-        Modifier.PUBLIC,
-      )
-      .initializer(
-        "new $T($S, $S, $S)",
-        classOf[javaapi.data.Identifier],
-        typeWithContext.packageId,
-        typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
-        typeWithContext.name,
-      )
-      .build()
+    ClassGenUtils.generateTemplateIdField(
+      typeWithContext.packageId,
+      typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
+      typeWithContext.name,
+    )
 
 }
