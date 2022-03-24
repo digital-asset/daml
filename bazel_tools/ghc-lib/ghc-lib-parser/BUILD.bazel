@@ -5,22 +5,21 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 load("//bazel_tools/ghc-lib:version.bzl", "GHC_LIB_VERSION")
+load("//bazel_tools:pkg.bzl", "unpack_tar")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
-# TODO[AH] Avoid warning "dependency checking of directories is unsound"
-genrule(
+unpack_tar(
     name = "unpack",
-    srcs = [
-        "@da-ghc//:ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION),
-    ],
+    src = "@da-ghc//:ghc-lib-{}.tar.gz".format(GHC_LIB_VERSION),
     outs = [
-        "srcs/compiler",
-        "srcs/ghc-lib",
-        "srcs/includes",
-        "srcs/libraries",
         "srcs/LICENSE",
+        "srcs/compiler/",
+        "srcs/ghc-lib/",
+        "srcs/includes/",
+        "srcs/libraries/",
     ],
-    cmd = "tar xf $(SRCS) --strip 1 -C $(RULEDIR)/srcs",
+    prefix = "srcs",
+    strip = 1,
 )
 
 copy_file(
