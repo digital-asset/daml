@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
