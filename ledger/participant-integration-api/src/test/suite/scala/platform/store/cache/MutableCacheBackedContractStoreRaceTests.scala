@@ -57,7 +57,7 @@ class MutableCacheBackedContractStoreRaceTests
   private val actorSystem = ActorSystem()
   private implicit val materializer: Materializer = Materializer(actorSystem)
 
-  it should "preserve causal monotonicity under contention for key state" in {
+  it should "preserve causal monotonicity under contention for key state cache" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
     val contractStore = buildContractStore(indexViewContractsReader, unboundedExecutionContext)
@@ -69,7 +69,7 @@ class MutableCacheBackedContractStoreRaceTests
     } yield succeed
   }
 
-  it should "preserve causal monotonicity under contention for contract state" in {
+  it should "preserve causal monotonicity under contention for contract state cache" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
     val contractStore = buildContractStore(indexViewContractsReader, unboundedExecutionContext)
