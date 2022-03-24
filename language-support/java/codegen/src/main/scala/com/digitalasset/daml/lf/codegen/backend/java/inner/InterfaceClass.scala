@@ -15,20 +15,7 @@ import javax.lang.model.element.Modifier
 object InterfaceClass extends StrictLogging {
 
   def classNameForInterface(qualifiedName: QualifiedName) =
-    ClassName.bestGuess {
-      val QualifiedName(module, name) = qualifiedName
-      // consider all but the last name segment to be part of the java package name
-      val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)
-      // consider the last name segment to be the java class name
-      val className = name.segments.toSeq.takeRight(1)
-
-      val packageName = packageSegments.map(_.toLowerCase)
-
-      (packageName ++ className)
-        .filter(_.nonEmpty)
-        .map(JavaEscaper.escapeString)
-        .mkString(".")
-    }
+    ClassName.bestGuess { fullyQualifiedName(qualifiedName, None) }
 
   def generate(
       interfaceName: ClassName,

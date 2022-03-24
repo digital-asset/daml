@@ -129,12 +129,11 @@ package object inner {
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String],
   ): String =
-    fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId), packagePrefixes)
+    fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId, packagePrefixes))
 
   def fullyQualifiedName(
       qualifiedName: QualifiedName,
-      packageIdOpt: Option[PackageId],
-      packagePrefixes: Map[PackageId, String],
+      packageIdAndPackagePrefixesOpt: Option[(PackageId, Map[PackageId, String])],
   ): String = {
     val QualifiedName(module, name) = qualifiedName
 
@@ -144,7 +143,11 @@ package object inner {
     val className = name.segments.toSeq.takeRight(1)
 
     val packageName = packageSegments.map(_.toLowerCase)
-    val packagePrefix = packageIdOpt.flatMap(packagePrefixes.get).getOrElse("")
+    val packagePrefix = packageIdAndPackagePrefixesOpt
+      .flatMap { case (packageId, packagePrefixes) =>
+        packagePrefixes.get(packageId)
+      }
+      .getOrElse("")
 
     (Vector(packagePrefix) ++ packageName ++ className)
       .filter(_.nonEmpty)
