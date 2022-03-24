@@ -130,6 +130,7 @@ object HttpService {
       )
 
       contractsService = new ContractsService(
+        packageService.resolveContractTypeId,
         packageService.resolveTemplateId,
         packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),

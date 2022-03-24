@@ -121,6 +121,9 @@ private class PackageService(
 
   def packageStore: PackageStore = state.packageStore
 
+  def resolveContractTypeId(implicit ec: ExecutionContext): ResolveContractTypeId =
+    resolveTemplateId
+
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
   def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId = {
@@ -224,6 +227,9 @@ object PackageService {
     ] => (Jwt, LedgerApiDomain.LedgerId) => TemplateId.OptionalPkg => Future[
       PackageService.Error \/ Option[TemplateId.RequiredPkg]
     ]
+
+  // Like ResolveTemplateId but includes interfaces
+  type ResolveContractTypeId = ResolveTemplateId
 
   type ResolveTemplateRecordType =
     TemplateId.RequiredPkg => Error \/ iface.Type
