@@ -13,6 +13,7 @@ import com.daml.lf.iface.InterfaceType
 import java.io.File
 
 import com.daml.lf.codegen.Util
+import com.daml.lf.codegen.dependencygraph.TransitiveClosure
 import com.daml.lf.codegen.lf.UsedTypeParams.Variance
 import scalaz._
 import scalaz.std.set._
@@ -461,6 +462,14 @@ object LFUtil {
       templateIds: Map[Ref.Identifier, DefTemplateWithRecord],
       definitions: Vector[ScopedDataType.FWT],
   )
+
+  object WriteParams {
+    def apply(tc: TransitiveClosure): WriteParams =
+      WriteParams(
+        templateIds = tc.templateIds.toMap,
+        definitions = tc.typeDeclarations.map(ScopedDataType.fromDefDataType),
+      )
+  }
 
   val reservedNames: Set[String] =
     Set("id", "template", "namedArguments", "archive")

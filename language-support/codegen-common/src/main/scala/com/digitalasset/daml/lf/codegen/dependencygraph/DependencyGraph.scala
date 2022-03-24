@@ -8,8 +8,10 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.codegen.lf.DefTemplateWithRecord
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType, DefDataType}
+import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
@@ -43,6 +45,20 @@ private[codegen] object DependencyGraph {
         )
       }
     Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)
+  }
+
+  def transitiveClosure(library: EnvironmentInterface): TransitiveClosure = {
+    val dependencies = orderedDependencies(library)
+    val (templateIds, typeDeclarations) =
+      dependencies.deps
+        .partitionMap { case (templateId, Node(content, _, _)) =>
+          content.bimap((templateId, _), (templateId, _))
+        }
+    TransitiveClosure(
+      templateIds = templateIds,
+      typeDeclarations = typeDeclarations,
+      errors = dependencies.errors,
+    )
   }
 
 }

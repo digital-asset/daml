@@ -18,12 +18,10 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.iface.reader.Errors.ErrorLoc
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
-import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.std.set._
 import scalaz.std.string._
 import scalaz.std.vector._
-import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
@@ -128,29 +126,22 @@ object CodeGen {
     as.suml1
 
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
-    val orderedDependencies
-        : OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] =
-      DependencyGraph.orderedDependencies(util.iface)
-
-    val (templateIds, typeDeclsToGenerate): (
-        Map[Identifier, DefTemplateWithRecord],
-        Vector[ScopedDataType.FWT],
-    ) =
-      orderedDependencies.deps
-        .partitionMap { case (templateId, Node(content, _, _)) =>
-          content.bimap((templateId, _), ScopedDataType.fromDefDataType(templateId, _))
-        }
-        .leftMap(_.toMap)
+    val typeDeclarationsToGenerate = DependencyGraph.transitiveClosure(util.iface)
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
-    writeTemplatesAndTypes(util)(WriteParams(templateIds, typeDeclsToGenerate))
+    writeTemplatesAndTypes(util)(WriteParams(typeDeclarationsToGenerate))
+
+    val totalTemplates = util.templateCount(util.iface)
+    val generated = typeDeclarationsToGenerate.templateIds.size
+    val notGenerated = totalTemplates - generated
+
+    val errorMessages = typeDeclarationsToGenerate.errors.map(_.msg).mkString("\n")
 
     logger.info(
       s"""Scala Codegen result:
-          |Number of generated templates: ${templateIds.size}
-          |Number of not generated templates: ${util
-        .templateCount(util.iface) - templateIds.size}
-          |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
+          |Number of generated templates: $generated
+          |Number of not generated templates: $notGenerated
+          |Details: $errorMessages""".stripMargin
     )
   }
 
