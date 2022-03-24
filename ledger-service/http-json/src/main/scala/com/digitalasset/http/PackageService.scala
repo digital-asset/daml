@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.ledger.api.v1.value.{Identifier => Lav1Identifier}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
@@ -35,6 +36,7 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
+      contractTypeIdMap: ContractTypeIdMap,
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
@@ -43,9 +45,11 @@ private class PackageService(
 
     def append(diff: PackageStore): State = {
       val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
+      val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         newPackageStore.keySet,
-        getTemplateIdMap(newPackageStore),
+        tpIdMap ++ ifaceIdMap,
+        tpIdMap,
         getChoiceTypeMap(newPackageStore),
         getKeyTypeMap(newPackageStore),
         newPackageStore,
@@ -63,7 +67,7 @@ private class PackageService(
   private class StateCache private () {
     // volatile, reading threads don't need synchronization
     @volatile private var _state: State =
-      State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
+      State(Set.empty, TemplateIdMap.Empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
     private def updateState(diff: PackageStore): Unit = synchronized {
       this._state = this._state.append(diff)
@@ -122,15 +126,20 @@ private class PackageService(
   def packageStore: PackageStore = state.packageStore
 
   def resolveContractTypeId(implicit ec: ExecutionContext): ResolveContractTypeId =
-    resolveTemplateId
+    resolveContractTypeIdFromState(() => state.contractTypeIdMap)
 
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
-  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId = {
+  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId =
+    resolveContractTypeIdFromState(() => state.templateIdMap)
+
+  private[this] def resolveContractTypeIdFromState(
+      latestMap: () => TemplateIdMap
+  )(implicit ec: ExecutionContext): ResolveContractTypeId = {
     implicit lc: LoggingContextOf[InstanceUUID] => (jwt, ledgerId) => (x: TemplateId.OptionalPkg) =>
       {
         type ResultType = Option[TemplateId.RequiredPkg]
-        def doSearch() = PackageService.resolveTemplateId(state.templateIdMap)(x)
+        def doSearch() = PackageService.resolveTemplateId(latestMap())(x)
         def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
         def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
         for {
@@ -245,10 +254,16 @@ object PackageService {
   type ResolveKeyType =
     TemplateId.RequiredPkg => Error \/ iface.Type
 
+  type ContractTypeIdMap = TemplateIdMap
+
   case class TemplateIdMap(
       all: Set[TemplateId.RequiredPkg],
       unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg],
-  )
+  ) {
+    // forms a monoid with Empty
+    def ++(o: TemplateIdMap): TemplateIdMap =
+      TemplateIdMap(all ++ o.all, (unique -- o.unique.keySet) ++ (o.unique -- unique.keySet))
+  }
 
   object TemplateIdMap {
     val Empty: TemplateIdMap = TemplateIdMap(Set.empty, Map.empty)
@@ -258,13 +273,16 @@ object PackageService {
 
   type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
 
-  def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
-    buildTemplateIdMap(collectTemplateIds(packageStore))
-
-  private def collectTemplateIds(packageStore: PackageStore): Set[TemplateId.RequiredPkg] =
-    TemplateIds
-      .getTemplateIds(packageStore.values.toSet)
-      .map(x => TemplateId(x.packageId, x.moduleName, x.entityName))
+  def getTemplateIdInterfaceMaps(packageStore: PackageStore): (TemplateIdMap, ContractTypeIdMap) = {
+    import TemplateIds.{getTemplateIds, getInterfaceIds}
+    def tpId(x: Lav1Identifier): TemplateId.RequiredPkg =
+      TemplateId(x.packageId, x.moduleName, x.entityName)
+    val interfaces = packageStore.values.toSet
+    (
+      buildTemplateIdMap(getTemplateIds(interfaces) map tpId),
+      buildTemplateIdMap(getInterfaceIds(interfaces) map tpId),
+    )
+  }
 
   def buildTemplateIdMap(ids: Set[TemplateId.RequiredPkg]): TemplateIdMap = {
     val all: Set[TemplateId.RequiredPkg] = ids

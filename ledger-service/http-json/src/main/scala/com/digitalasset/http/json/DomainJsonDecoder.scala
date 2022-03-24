@@ -25,7 +25,7 @@ import scalaz.std.scalaFuture._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class DomainJsonDecoder(
-    resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
@@ -194,7 +194,7 @@ class DomainJsonDecoder(
       lc: LoggingContextOf[InstanceUUID],
   ): ET[domain.TemplateId.RequiredPkg] =
     eitherT(
-      resolveTemplateId(lc)(jwt, ledgerId)(id)
+      resolveContractTypeId(lc)(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
 

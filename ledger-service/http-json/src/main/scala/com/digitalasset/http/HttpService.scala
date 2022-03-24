@@ -280,7 +280,7 @@ object HttpService {
     )
 
     val decoder = new DomainJsonDecoder(
-      packageService.resolveTemplateId,
+      packageService.resolveContractTypeId,
       packageService.resolveTemplateRecordType,
       packageService.resolveChoiceArgType,
       packageService.resolveKeyType,
