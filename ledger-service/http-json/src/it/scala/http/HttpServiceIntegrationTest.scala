@@ -8,7 +8,6 @@ import java.nio.file.Files
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
-import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
@@ -22,15 +21,10 @@ import spray.json.JsValue
 
 import scala.concurrent.Future
 
-object HttpServiceIntegrationTest {
-
-  private val ciouDar = requiredResource("ledger-service/http-json/CIou.dar")
-}
-
 abstract class HttpServiceIntegrationTest
     extends AbstractHttpServiceIntegrationTestTokenIndependent
     with BeforeAndAfterAll {
-  import HttpServiceIntegrationTest._
+  import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   private val staticContent: String = "static"
 
@@ -79,7 +73,6 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  private val IiouIfaceID: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "IIou", "IIou")
   "pick up new package's inherited interfaces" in withHttpService { (uri, encoder, _, _) =>
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
@@ -117,7 +110,7 @@ abstract class HttpServiceIntegrationTest
       _ <- createIouAndExerciseTransfer(
         initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
         // whether we can exercise by interface-ID
-        exerciseBy = IiouIfaceID,
+        exerciseBy = TpId.IIou.IIou,
       )
       // ideally we would upload IIou.daml only above, then upload ciou here;
       // however tests currently don't play well with reload -SC
@@ -150,7 +143,7 @@ abstract class HttpServiceIntegrationTest
         encodeExercise(encoder)(
           iouTransfer(
             domain.EnrichedContractKey(
-              IiouIfaceID,
+              TpId.IIou.IIou,
               v.Value(v.Value.Sum.Party(domain.Party unwrap alice)),
             ),
             bob,
@@ -165,33 +158,6 @@ abstract class HttpServiceIntegrationTest
         case domain.ErrorResponse(Seq(lookup), None, Status) =>
           lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
       }
-    }
-  }
-
-  // TODO(SC #13301) test against DB too
-  "fail to query by interface ID" in withHttpService { (uri, encoder, _, _) =>
-    import json.JsonProtocol._, spray.json.{enrichAny => `sj enrichAny`}
-    for {
-      _ <- uploadPackage(uri)(ciouDar)
-      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
-      (alice, aliceHeaders) = aliceH
-      searchResp <- search(
-        List.empty,
-        Map(
-          "templateIds" -> Seq(IiouIfaceID).toJson,
-          "query" -> spray.json.JsObject(),
-        ).toJson.asJsObject,
-        uri,
-        encoder,
-        aliceHeaders,
-      )
-    } yield inside(searchResp) {
-      case domain.ErrorResponse(
-            Seq(_),
-            Some(domain.UnknownTemplateIds(Seq(IiouIfaceID))),
-            StatusCodes.BadRequest,
-          ) =>
-        succeed
     }
   }
 
