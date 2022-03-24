@@ -4,11 +4,11 @@
 package com.daml.platform.apiserver.configuration
 
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.{Cancellable, Scheduler}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
@@ -87,7 +87,9 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
             override def run(): Unit = {
               if (readyPromise.trySuccess(())) {
                 logger.warn(
-                  s"No ledger configuration found after $configurationLoadTimeout. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+                  s"No ledger configuration found after $configurationLoadTimeout. The ledger API server will now start " +
+                    s"but all services that depend on the ledger configuration will return " +
+                    s"${LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration.id} until at least one ledger configuration is found."
                 )
               }
               ()
