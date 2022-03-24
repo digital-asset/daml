@@ -26,23 +26,15 @@ object Graph {
         id: K,
         node: NKA,
     ): (Seen, Vector[(K, NKA)], Boolean, List[UnsupportedTypeError]) = {
-      if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen.getOrElse(id, false), List())
-      else {
-        val Node(_, deps, collectError @ _) = node
-        val (newSeen, newEnts, missing, utes) = visitN(seen, stack + id, deps)
-
-        if (missing.nonEmpty)
-          (
-            newSeen,
-            newEnts,
-            true,
-            UnsupportedTypeError(
-              s"Type $id is not supported as dependencies have unsupported type: '${missing
-                .mkString("', '")}'."
-            ) :: utes,
-          )
-        else
-          (newSeen, newEnts :+ ((id, node)), false, utes)
+      if (seen.isDefinedAt(id) || stack(id)) {
+        (seen, Vector(), seen.getOrElse(id, false), List())
+      } else {
+        visitN(seen, stack + id, node.dependencies) match {
+          case (newSeen, newEnts, Nil, utes) =>
+            (newSeen, newEnts :+ ((id, node)), false, utes)
+          case (newSeen, newEnts, missing, utes) =>
+            (newSeen, newEnts, true, UnsupportedTypeError(id, missing) :: utes)
+        }
       }
     }
 
