@@ -72,7 +72,7 @@ abstract class HttpServiceIntegrationTest
         )
         .flatMap { resp =>
           discard { resp.status shouldBe StatusCodes.OK }
-          val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
+          val bodyF: Future[String] = util.TestUtil.getResponseDataBytes(resp, debug = false)
           bodyF.flatMap { body =>
             body shouldBe expectedDummyContent
           }
