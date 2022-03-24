@@ -21,6 +21,7 @@ import com.daml.ledger.test.model.Iou.IouTransfer._
 import com.daml.ledger.test.model.IouTrade.IouTrade
 import com.daml.ledger.test.model.IouTrade.IouTrade._
 import com.daml.ledger.test.model.Test._
+import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
@@ -29,17 +30,19 @@ import scala.collection.mutable
 
 class TransactionServiceVisibilityIT extends LedgerTestSuite {
 
-  val securityAsset: String => SecurityTest = (asset: String) =>
-    SecurityTest(property = Privacy, asset = asset)
+  def privacyHappyCase(asset: String, happyCase: String)(implicit
+      lineNo: sourcecode.Line,
+      fileName: sourcecode.File,
+  ): List[EvidenceTag] =
+    List(SecurityTest(property = Privacy, asset = asset, happyCase))
 
   test(
     "TXTreeBlinding",
     "Trees should be served according to the blinding/projection rules",
     allocate(TwoParties, SingleParty, SingleParty),
-    tags = List(
-      securityAsset("Transaction Tree").setHappyCase(
-        "Transaction trees are served according to the blinding/projection rules"
-      )
+    tags = privacyHappyCase(
+      asset = "Transaction Tree",
+      happyCase = "Transaction trees are served according to the blinding/projection rules",
     ),
   )(implicit ec => {
     case Participants(
@@ -141,10 +144,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDivulge",
     "Data should not be exposed to parties unrelated to a transaction",
     allocate(SingleParty, SingleParty),
-    tags = List(
-      securityAsset("Transactions").setHappyCase(
-        "Transactions are not exposed to parties unrelated to a transaction"
-      )
+    tags = privacyHappyCase(
+      asset = "Transactions",
+      happyCase = "Transactions are not exposed to parties unrelated to a transaction",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(_, bob)) =>
     for {
@@ -162,10 +164,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreeHideCommandIdToNonSubmittingStakeholders",
     "A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
-    tags = List(
-      securityAsset("Transaction Tree").setHappyCase(
-        "Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty"
-      )
+    tags = privacyHappyCase(
+      asset = "Transaction Tree",
+      happyCase = "Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty",
     ),
   )(implicit ec => { case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
     for {
@@ -199,10 +200,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXHideCommandIdToNonSubmittingStakeholders",
     "A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
-    tags = List(
-      securityAsset("Flat Transaction").setHappyCase(
-        "A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty"
-      )
+    tags = privacyHappyCase(
+      asset = "Flat Transaction",
+      happyCase = "A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty",
     ),
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
@@ -238,10 +238,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDiscloseCreateToNonSignatory",
     "Not disclose create to non-chosen branching signatory",
     allocate(SingleParty, SingleParty),
-    tags = List(
-      securityAsset("Created Event transaction").setHappyCase(
-        "Created Event transaction is not disclosed to non-chosen branching signatory"
-      )
+    tags = privacyHappyCase(
+      asset = "Created Event transaction",
+      happyCase = "Created Event transaction is not disclosed to non-chosen branching signatory",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
@@ -268,10 +267,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToSignatory",
     "Disclose create to the chosen branching controller",
     allocate(SingleParty, TwoParties),
-    tags = List(
-      securityAsset("Created Event transaction").setHappyCase(
-        "Created Event transaction is disclosed to chosen branching controller"
-      )
+    tags = privacyHappyCase(
+      asset = "Created Event transaction",
+      happyCase = "Created Event transaction is disclosed to chosen branching controller",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
@@ -310,10 +308,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDiscloseCreateToNonChosenBranchingController",
     "Not disclose create to non-chosen branching controller",
     allocate(SingleParty, TwoParties),
-    tags = List(
-      securityAsset("Created Event transaction").setHappyCase(
-        "Created Event transaction is not disclosed to non-chosen branching controller"
-      )
+    tags = privacyHappyCase(
+      asset = "Created Event transaction",
+      happyCase = "Created Event transaction is not disclosed to non-chosen branching controller",
     ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
@@ -336,10 +333,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToObservers",
     "Disclose create to observers",
     allocate(SingleParty, TwoParties),
-    tags = List(
-      securityAsset("Created Event transaction").setHappyCase(
-        "Created Event transaction is disclosed to observers"
-      )
+    tags = privacyHappyCase(
+      asset = "Created Event transaction",
+      happyCase = "Created Event transaction is disclosed to observers",
     ),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
@@ -364,10 +360,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
     allocate(Parties(3)),
     timeoutScale = 2.0,
-    tags = List(
-      securityAsset("Transaction").setHappyCase(
-        "Transactions in the flat transactions stream are disclosed only to the stakeholders"
-      )
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase = "Transactions in the flat transactions stream are disclosed only to the stakeholders",
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
@@ -437,10 +432,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXRequestingPartiesWitnessVisibility",
     "Transactions in the flat transactions stream should not leak witnesses",
     allocate(Parties(3)),
-    tags = List(
-      securityAsset("Transaction").setHappyCase(
-        "Transactions in the flat transactions stream are not leaking witnesses"
-      )
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase = "Transactions in the flat transactions stream are not leaking witnesses",
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
@@ -470,10 +464,9 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreesRequestingPartiesWitnessVisibility",
     "Transactions in the transaction trees stream should not leak witnesses",
     allocate(Parties(3)),
-    tags = List(
-      securityAsset("Transaction").setHappyCase(
-        "Transactions in the transaction trees stream are not leaking witnesses"
-      )
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase = "Transactions in the transaction trees stream are not leaking witnesses",
     ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
