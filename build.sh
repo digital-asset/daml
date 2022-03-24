@@ -69,6 +69,7 @@ start_postgresql
 
 # Run the tests.
 bazel test //... \
+  --cache_test_results=no \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
