@@ -75,6 +75,19 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         precondition TRACE @Bool "precondition3" False;
       };
 
+      interface (this: Person) = {
+        precondition True;
+        method asParty: Party;
+        method getName: Text;
+        choice Sleep (self) (u:Unit) : ContractId M:Person
+          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person asParty this] (Nil @Party))
+          to upure @(ContractId M:Person) self;
+        choice @nonConsuming Nap (self) (i : Int64): Int64
+          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person asParty this] (Nil @Party))
+          , observers TRACE @(List Party) "choice observers" (Nil @Party)
+          to upure @Int64 (TRACE @Int64 "choice body" i);
+      } ;
+
       record @serializable T = { signatory : Party, observer : Party, precondition : Bool, key: M:TKey, nested: M:Nested };
       template (this : T) = {
         precondition TRACE @Bool "precondition" (M:T {precondition} this);
@@ -108,6 +121,20 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         };
         implements M:I3 {
         };
+      };
+
+      record @serializable Human = { person: Party };
+      template (this : Human) = {
+        precondition True;
+        signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
+        observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {person} this] (Nil @Party));
+        agreement TRACE @Text "agreement" "";
+        implements M:Person {
+          method asParty = M:Human {person} this;
+          method getName = "foobar";
+          choice Sleep;
+          choice Nap;
+          };
       };
 
       record @serializable Dummy = { signatory : Party };
@@ -150,6 +177,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             bridgeId: ContractId Test:Bridge <- Test:createBridge exercisingParty;
             x: M:Nested <-exercise @Test:Bridge Exe bridgeId arg
           in upure @Unit ();
+
+      val exercise_interface: Party -> ContractId M:Person -> Update Unit =
+        \(exercisingParty: Party) (cId: ContractId M:Person) ->
+          Test:run @Int64 (exercise_by_interface @M:Person Nap cId 42 (\(x: M:Person) -> TRACE @Bool "interface guard" True));
 
       val exercise_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> M:Either Int64 Int64 -> Update Unit =
         \(exercisingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) (argParams: M:Either Int64 Int64) ->
@@ -257,6 +288,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     case _ => sys.error("unexpect error")
   }
 
+  private[this] val Human = t"M:Human" match {
+    case TTyCon(tycon) => tycon
+    case _ => sys.error("unexpect error")
+  }
+
   private[this] val Dummy = t"M:Dummy" match {
     case TTyCon(tycon) => tycon
     case _ => sys.error("unexpect error")
@@ -298,7 +334,22 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     ),
   )
 
+  private[this] val iface_contract = Versioned(
+    TransactionVersion.StableVersions.max,
+    Value.ContractInstance(
+      Human,
+      Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice)
+        ),
+      ),
+      "agreement",
+    ),
+  )
+
   private[this] val getContract = Map(cId -> contract)
+  private[this] val getIfaceContract = Map(cId -> iface_contract)
 
   private[this] val getKey = Map(
     GlobalKeyWithMaintainers(GlobalKey.assertBuild(T, keyValue), Set(alice)) -> cId
@@ -1272,6 +1323,36 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
+    }
+
+    "exercise by interface" - {
+
+      "a non-cached global contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise by interface of a non-cached global contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty: Party) (cId: ContractId M:Human) -> Test:exercise_interface exercisingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getIfaceContract,
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "interface guard",
+              "choice controllers",
+              "choice observers",
+              "choice body",
+              "ends test",
+            )
+          }
+        }
+      }
     }
 
     "fetch" - {
