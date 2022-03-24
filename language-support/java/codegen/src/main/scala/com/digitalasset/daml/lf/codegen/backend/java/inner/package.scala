@@ -128,7 +128,8 @@ package object inner {
   def fullyQualifiedName(
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String],
-  ): String = fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId), packagePrefixes)
+  ): String =
+    fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId), packagePrefixes)
 
   def fullyQualifiedName(
       qualifiedName: QualifiedName,
