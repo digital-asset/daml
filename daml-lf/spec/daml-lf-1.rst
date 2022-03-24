@@ -3473,6 +3473,7 @@ as described by the ledger model::
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
@@ -3557,6 +3558,237 @@ as described by the ledger model::
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
+
+     cid ∉ dom(st)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceMissing
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Exercise on unknown contract"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T', vₜ, 'inactive')
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceInactive
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise on inactive contract"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T', vₜ, 'active')
+     Mod':T' does not implement interface  Mod:I
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceDoesntImplement
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise on contract that does not implement interface"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Err (Fatal t)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceGuardFatal
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal t), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Err (Throw v)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceGuardThrow
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise guard failed"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'False'
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceGuardFalse
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise guard failed"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' ChKind Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Err E
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceActorEvalErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Choice controller evaluation failed"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' ChKind Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Err E
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceObserversErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Choice observer evaluation failed"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' ChKind Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNestingArgErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' ChKind Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Err E
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceBodyEvalErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) ChKind ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' 'consuming' Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
+     keys₁ = keys₀ - keys₀⁻¹(cid)
+     st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  (Err E, tr)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceConsumErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' tr)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' 'consuming' Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
+     keys₁ = keys₀ - keys₀⁻¹(cid)
+     st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
+     |vₐ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceConsumNestingOutErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' 'consuming' Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
+     keys₁ = keys₀ - keys₀⁻¹(cid)
+     st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
+     |vₐ| ≤ 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceConsum
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' 'non-consuming' Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err E, tr)
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNonConsumErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' tr)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' 'non-consuming' Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
+     |vₐ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNonConsumNestingOutErr
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T, vₜ, 'active')
+     'tpl' (x' : T) ↦ { …,'implements' Mod:I {…}, …, }  ∈ 〚Ξ〛Mod'
+     vᵢ = 'to_interface' @Mod:I @Mod':T vₜ
+     v₂ vᵢ  ⇓  Ok 'True'
+     'interface' (x : I) ↦ { …, 'choices' { …,
+        'choice' 'non-consuming' Ch (y : 'ContractId' Mod:I) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, …
+        } } ∈ 〚Ξ〛Mod
+     eₚ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vᵢ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vᵢ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
+     |vₐ| ≤ 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercIfaceNonConsum
+     'exercise_interface' Mod:I.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
