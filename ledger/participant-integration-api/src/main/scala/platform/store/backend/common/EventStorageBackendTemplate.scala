@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import anorm.SqlParser.{array, bool, byteArray, get, int, long, str}
+import anorm.SqlParser.{array, byteArray, get, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -67,11 +67,6 @@ abstract class EventStorageBackendTemplate(
       "event_id",
       "contract_id",
       "template_id",
-      "NULL as create_argument",
-      "NULL as create_argument_compression",
-      "NULL as create_signatories",
-      "NULL as create_observers",
-      "NULL as create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
       "submitters",
@@ -85,6 +80,48 @@ abstract class EventStorageBackendTemplate(
 
   private val selectColumnsForACSEvents =
     baseColumnsForFlatTransactionsCreate.map(c => s"create_evs.$c").mkString(", ")
+
+  private val selectColumnsForTransactionTreeCreate = Seq(
+    "event_offset",
+    "transaction_id",
+    "node_index",
+    "event_sequential_id",
+    "event_id",
+    "contract_id",
+    "ledger_effective_time",
+    "template_id",
+    "workflow_id",
+    "create_argument",
+    "create_argument_compression",
+    "create_signatories",
+    "create_observers",
+    "create_agreement_text",
+    "create_key_value",
+    "create_key_value_compression",
+    "submitters",
+  ).mkString(", ")
+
+  private val selectColumnsForTransactionTreeExercise = Seq(
+    "event_offset",
+    "transaction_id",
+    "node_index",
+    "event_sequential_id",
+    "event_id",
+    "contract_id",
+    "ledger_effective_time",
+    "template_id",
+    "workflow_id",
+    "create_key_value",
+    "create_key_value_compression",
+    "exercise_choice",
+    "exercise_argument",
+    "exercise_argument_compression",
+    "exercise_result",
+    "exercise_result_compression",
+    "exercise_actors",
+    "exercise_child_event_ids",
+    "submitters",
+  ).mkString(", ")
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
@@ -119,13 +156,11 @@ abstract class EventStorageBackendTemplate(
       int("create_key_value_compression").?
 
   private type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
+    SharedRow ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
       Array[Int] ~ Array[String]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     sharedRow ~
-      bool("exercise_consuming") ~
       str("exercise_choice") ~
       byteArray("exercise_argument") ~
       int("exercise_argument_compression").? ~
@@ -218,11 +253,6 @@ abstract class EventStorageBackendTemplate(
         )
     }
 
-  private def rawFlatEventParser(
-      allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.FlatEvent]] =
-    createdFlatEventParser(allQueryingParties) | archivedFlatEventParser(allQueryingParties)
-
   private def createdTreeEventParser(
       allQueryingParties: Set[Int]
   ): RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
@@ -267,11 +297,11 @@ abstract class EventStorageBackendTemplate(
         )
     }
 
-  private def exercisedTreeEventParser(
+  private def exercisedTreeEventParser(exerciseConsuming: Boolean)(
       allQueryingParties: Set[Int]
   ): RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
@@ -310,64 +340,42 @@ abstract class EventStorageBackendTemplate(
         )
     }
 
-  private def rawTreeEventParser(
-      allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.TreeEvent]] =
-    createdTreeEventParser(allQueryingParties) | exercisedTreeEventParser(allQueryingParties)
+  private case class EventPartition[T](
+      tableName: String,
+      selectColumns: String,
+      parser: Set[Int] => RowParser[T],
+  );
 
-  private val selectColumnsForTransactionTreeCreate = Seq(
-    "event_offset",
-    "transaction_id",
-    "node_index",
-    "event_sequential_id",
-    "event_id",
-    "contract_id",
-    "ledger_effective_time",
-    "template_id",
-    "workflow_id",
-    "create_argument",
-    "create_argument_compression",
-    "create_signatories",
-    "create_observers",
-    "create_agreement_text",
-    "create_key_value",
-    "create_key_value_compression",
-    "NULL as exercise_choice",
-    "NULL as exercise_argument",
-    "NULL as exercise_argument_compression",
-    "NULL as exercise_result",
-    "NULL as exercise_result_compression",
-    "NULL as exercise_actors",
-    "NULL as exercise_child_event_ids",
-    "submitters",
-  ).mkString(", ")
-
-  private val selectColumnsForTransactionTreeExercise = Seq(
-    "event_offset",
-    "transaction_id",
-    "node_index",
-    "event_sequential_id",
-    "event_id",
-    "contract_id",
-    "ledger_effective_time",
-    "template_id",
-    "workflow_id",
-    "NULL as create_argument",
-    "NULL as create_argument_compression",
-    "NULL as create_signatories",
-    "NULL as create_observers",
-    "NULL as create_agreement_text",
-    "create_key_value",
-    "create_key_value_compression",
-    "exercise_choice",
-    "exercise_argument",
-    "exercise_argument_compression",
-    "exercise_result",
-    "exercise_result_compression",
-    "exercise_actors",
-    "exercise_child_event_ids",
-    "submitters",
-  ).mkString(", ")
+  private val partitionFlatCreate = EventPartition[EventsTable.Entry[Raw.FlatEvent]](
+    tableName = "participant_events_create",
+    selectColumns = selectColumnsForFlatTransactionsCreate,
+    parser = createdFlatEventParser _,
+  )
+  private val partitionFlatConsumingExercise = EventPartition[EventsTable.Entry[Raw.FlatEvent]](
+    tableName = "participant_events_consuming_exercise",
+    selectColumns = selectColumnsForFlatTransactionsExercise,
+    parser = archivedFlatEventParser _,
+  )
+  private val partitionFlatNonConsumingExercise = EventPartition[EventsTable.Entry[Raw.FlatEvent]](
+    tableName = "participant_events_non_consuming_exercise",
+    selectColumns = selectColumnsForFlatTransactionsExercise,
+    parser = archivedFlatEventParser _,
+  )
+  private val partitionTreeCreate = EventPartition[EventsTable.Entry[Raw.TreeEvent]](
+    tableName = "participant_events_create",
+    selectColumns = selectColumnsForTransactionTreeCreate,
+    parser = createdTreeEventParser _,
+  )
+  private val partitionTreeConsumingExercise = EventPartition[EventsTable.Entry[Raw.TreeEvent]](
+    tableName = "participant_events_consuming_exercise",
+    selectColumns = selectColumnsForTransactionTreeExercise,
+    parser = exercisedTreeEventParser(exerciseConsuming = true) _,
+  )
+  private val partitionTreeNonConsumingExercise = EventPartition[EventsTable.Entry[Raw.TreeEvent]](
+    tableName = "participant_events_non_consuming_exercise",
+    selectColumns = selectColumnsForTransactionTreeExercise,
+    parser = exercisedTreeEventParser(exerciseConsuming = false) _,
+  )
 
   private class OrderEntryByEventSequentialId[T] extends Ordering[EventsTable.Entry[T]] {
     override def compare(x: EventsTable.Entry[T], y: EventsTable.Entry[T]): Int = {
@@ -381,7 +389,7 @@ abstract class EventStorageBackendTemplate(
       joinClause: CompositeSql,
       additionalAndClause: CompositeSql,
       witnessesColumn: String,
-      partitions: Vector[(String, String, Set[Int] => RowParser[T])],
+      partitions: Vector[EventPartition[T]],
       ordering: Ordering[T],
   )(
       limit: Option[Int],
@@ -428,11 +436,11 @@ abstract class EventStorageBackendTemplate(
       val witnessesWhereClause =
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
-      def selectFrom(table: String, selectColumns: String, rowParser: RowParser[T]) = SQL"""
+      def selectFrom(partition: EventPartition[T]) = SQL"""
         SELECT
-          #$selectColumns, #$witnessesColumn as event_witnesses, command_id
+          #${partition.selectColumns}, #$witnessesColumn as event_witnesses, command_id
         FROM
-          #$table $joinClause
+          #${partition.tableName} $joinClause
         WHERE
           $additionalAndClause
           $witnessesWhereClause
@@ -440,11 +448,11 @@ abstract class EventStorageBackendTemplate(
         ${QueryStrategy.limitClause(limit)}
       """
         .withFetchSize(fetchSizeHint)
-        .asVectorOf(rowParser)(connection)
+        .asVectorOf(partition.parser(internedAllParties))(connection)
 
       // TODO: we are merging multiple sorted Vectors and then only taking a few elements, this could be done more efficiently.
       partitions
-        .flatMap(p => selectFrom(p._1, p._2, p._3(internedAllParties)))
+        .flatMap(selectFrom)
         .sorted(ordering)
         .take(limit.getOrElse(Int.MaxValue))
     }
@@ -461,17 +469,9 @@ abstract class EventStorageBackendTemplate(
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
       witnessesColumn = "flat_event_witnesses",
       partitions = Vector(
-        ("participant_events_create", selectColumnsForFlatTransactionsCreate, rawFlatEventParser _),
-        (
-          "participant_events_consuming_exercise",
-          selectColumnsForFlatTransactionsExercise,
-          rawFlatEventParser _,
-        ),
-        (
-          "participant_events_non_consuming_exercise",
-          selectColumnsForFlatTransactionsExercise,
-          rawFlatEventParser _,
-        ),
+        partitionFlatCreate,
+        partitionFlatConsumingExercise,
+        partitionFlatNonConsumingExercise,
       ),
       ordering = OrderFlatEventByEventSequentialId,
     )(
@@ -552,7 +552,7 @@ abstract class EventStorageBackendTemplate(
       ORDER BY
         create_evs.event_sequential_id -- deliver in index order
       """
-      .asVectorOf(rawFlatEventParser(allInternedFilterParties))(connection)
+      .asVectorOf(createdFlatEventParser(allInternedFilterParties))(connection)
   }
 
   override def flatTransaction(
@@ -571,17 +571,9 @@ abstract class EventStorageBackendTemplate(
       witnessesColumn = "flat_event_witnesses",
       partitions = Vector(
         // we do not want to fetch divulgence events
-        ("participant_events_create", selectColumnsForFlatTransactionsCreate, rawFlatEventParser _),
-        (
-          "participant_events_consuming_exercise",
-          selectColumnsForFlatTransactionsExercise,
-          rawFlatEventParser _,
-        ),
-        (
-          "participant_events_non_consuming_exercise",
-          selectColumnsForFlatTransactionsExercise,
-          rawFlatEventParser _,
-        ),
+        partitionFlatCreate,
+        partitionFlatConsumingExercise,
+        partitionFlatNonConsumingExercise,
       ),
       ordering = OrderFlatEventByEventSequentialId,
     )(
@@ -603,24 +595,9 @@ abstract class EventStorageBackendTemplate(
       witnessesColumn = "tree_event_witnesses",
       partitions = Vector(
         // we do not want to fetch divulgence events
-        (
-          "participant_events_create",
-          s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-            .constBoolean(false)} as exercise_consuming",
-          rawTreeEventParser _,
-        ),
-        (
-          "participant_events_consuming_exercise",
-          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBoolean(true)} as exercise_consuming",
-          rawTreeEventParser _,
-        ),
-        (
-          "participant_events_non_consuming_exercise",
-          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBoolean(false)} as exercise_consuming",
-          rawTreeEventParser _,
-        ),
+        partitionTreeCreate,
+        partitionTreeConsumingExercise,
+        partitionTreeNonConsumingExercise,
       ),
       ordering = OrderTreeEventByEventSequentialId,
     )(
@@ -646,24 +623,9 @@ abstract class EventStorageBackendTemplate(
       witnessesColumn = "tree_event_witnesses",
       partitions = Vector(
         // we do not want to fetch divulgence events
-        (
-          "participant_events_create",
-          s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-            .constBoolean(false)} as exercise_consuming",
-          rawTreeEventParser _,
-        ),
-        (
-          "participant_events_consuming_exercise",
-          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBoolean(true)} as exercise_consuming",
-          rawTreeEventParser _,
-        ),
-        (
-          "participant_events_non_consuming_exercise",
-          s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBoolean(false)} as exercise_consuming",
-          rawTreeEventParser _,
-        ),
+        partitionTreeCreate,
+        partitionTreeConsumingExercise,
+        partitionTreeNonConsumingExercise,
       ),
       ordering = OrderTreeEventByEventSequentialId,
     )(
