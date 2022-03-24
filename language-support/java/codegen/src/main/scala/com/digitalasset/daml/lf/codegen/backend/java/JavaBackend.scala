@@ -25,7 +25,6 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     val tree = InterfaceTrees.fromInterfaces(interfaces)
     for ((decoderPkg, decoderClassName) <- conf.decoderPkgAndClass) {
       val templateNames = extractTemplateNames(tree, packagePrefixes)
-      // val interfaceNames = extractInterfaceNames(tree, packagePrefixes)
       val decoderFile = JavaFile
         .builder(
           decoderPkg,
