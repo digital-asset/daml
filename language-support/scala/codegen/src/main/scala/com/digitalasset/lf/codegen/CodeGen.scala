@@ -73,10 +73,12 @@ object CodeGen {
       outputDir: File,
       roots: Seq[String],
   ): ValidationNel[String, Unit] =
-    decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
-      val combinedIface: EnvironmentInterface =
-        combineEnvInterfaces(ifaces map Util.filterTemplatesBy(roots map (_.r)))
-      packageInterfaceToScalaCode(LFUtil(packageName, combinedIface, outputDir))
+    decodeInterfaces(files).map { interfaces: NonEmptyList[EnvironmentInterface] =>
+      val combined = interfaces.suml1
+      val interface = combined.copy(
+        typeDecls = Util.filterTemplatesBy(roots.map(_.r))(combined.typeDecls)
+      )
+      packageInterfaceToScalaCode(LFUtil(packageName, interface, outputDir))
     }
 
   private def decodeInterfaces(
@@ -122,9 +124,6 @@ object CodeGen {
   private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     EnvironmentInterface.fromReaderInterfaces(dar)
 
-  private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
-    as.suml1
-
   private def templateCount(interface: EnvironmentInterface): Int =
     interface.typeDecls.count {
       case (_, InterfaceType.Template(_, _)) => true
@@ -132,7 +131,7 @@ object CodeGen {
     }
 
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
-    val typeDeclarationsToGenerate = DependencyGraph.transitiveClosure(util.iface)
+    val typeDeclarationsToGenerate = DependencyGraph.transitiveClosure(util.iface.typeDecls)
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(typeDeclarationsToGenerate))

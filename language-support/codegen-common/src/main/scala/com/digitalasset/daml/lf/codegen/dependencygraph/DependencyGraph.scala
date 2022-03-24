@@ -7,7 +7,7 @@ import com.daml.lf.codegen.Util
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.codegen.lf.DefTemplateWithRecord
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType, DefDataType}
+import com.daml.lf.iface.{InterfaceType, DefDataType}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
@@ -16,9 +16,8 @@ import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
   def orderedDependencies(
-      library: EnvironmentInterface
+      decls: Map[Identifier, InterfaceType]
   ): OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] = {
-    val decls = library.typeDecls
     // invariant: no type decl name equals any template alias
     val typeDeclNodes =
       decls.to(ImmArraySeq).collect { case (qualName, InterfaceType.Normal(typeDecl)) =>
@@ -53,8 +52,8 @@ private[codegen] object DependencyGraph {
     * targeting template definitions that can be observed through
     * the Ledger API.
     */
-  def transitiveClosure(library: EnvironmentInterface): TransitiveClosure = {
-    val dependencies = orderedDependencies(library)
+  def transitiveClosure(decls: Map[Identifier, InterfaceType]): TransitiveClosure = {
+    val dependencies = orderedDependencies(decls)
     val (templateIds, typeDeclarations) =
       dependencies.deps
         .partitionMap { case (templateId, Node(content, _, _)) =>

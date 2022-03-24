@@ -4,7 +4,7 @@
 package com.daml.lf.codegen
 
 import com.daml.lf.iface
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType, TypeConName}
+import com.daml.lf.iface.{InterfaceType, TypeConName}
 import com.daml.lf.data.Ref
 import scalaz.std.list._
 
@@ -22,19 +22,18 @@ object Util {
   // If a template does not match any regex, it becomes a "normal" datatype.
   private[codegen] def filterTemplatesBy(
       regexes: Seq[Regex]
-  )(ei: EnvironmentInterface): EnvironmentInterface = {
+  )(decls: Map[Ref.Identifier, InterfaceType]): Map[Ref.Identifier, InterfaceType] = {
 
     def matchesRoots(qualName: Ref.Identifier): Boolean =
       regexes.exists(_.findFirstIn(qualName.qualifiedName.qualifiedName).isDefined)
-    // scala-2.13-M4: _.matches(qualName.qualifiedName.qualifiedName)
 
-    if (regexes.isEmpty) ei
+    if (regexes.isEmpty) decls
     else {
-      ei.copy(typeDecls = ei.typeDecls transform {
+      decls transform {
         case (id, tpl @ InterfaceType.Template(_, _)) if !matchesRoots(id) =>
           InterfaceType.Normal(tpl.`type`)
         case (_, other) => other
-      })
+      }
     }
   }
 

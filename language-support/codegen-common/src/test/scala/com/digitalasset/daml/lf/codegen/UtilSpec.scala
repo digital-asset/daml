@@ -18,20 +18,20 @@ class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
   import UtilSpec._
 
   "filterTemplatesBy" should {
-    "be identity given empty regexes" in forAll(trivialEnvInterfaceGen) { ei =>
-      filterTemplatesBy(Seq.empty)(ei) should ===(ei)
+    "be identity given empty regexes" in forAll(trivialDeclarations) { declarations =>
+      filterTemplatesBy(Seq.empty)(declarations) should ===(declarations)
     }
 
-    "delete all templates given impossible regex" in forAll(trivialEnvInterfaceGen) { ei =>
-      val noTemplates = ei copy (typeDecls = ei.typeDecls transform {
+    "delete all templates given impossible regex" in forAll(trivialDeclarations) { declarations =>
+      val noTemplates = declarations transform {
         case (_, tmpl @ InterfaceType.Template(_, _)) => InterfaceType.Normal(tmpl.`type`)
         case (_, v) => v
-      })
-      filterTemplatesBy(Seq("(?!a)a".r))(ei) should ===(noTemplates)
+      }
+      filterTemplatesBy(Seq("(?!a)a".r))(declarations) should ===(noTemplates)
     }
 
-    "match the union of regexes, not intersection" in forAll(trivialEnvInterfaceGen) { ei =>
-      filterTemplatesBy(Seq("(?s).*".r, "(?!a)a".r))(ei) should ===(ei)
+    "match the union of regexes, not intersection" in forAll(trivialDeclarations) { declarations =>
+      filterTemplatesBy(Seq("(?s).*".r, "(?!a)a".r))(declarations) should ===(declarations)
     }
   }
 }
@@ -40,19 +40,15 @@ object UtilSpec {
   import org.scalacheck.{Arbitrary, Gen}
   import Arbitrary.arbitrary
 
-  val trivialEnvInterfaceGen: Gen[EnvironmentInterface] = {
+  val trivialDeclarations: Gen[Map[Identifier, InterfaceType]] = {
     val fooRec = Record(ImmArraySeq.empty)
     val fooTmpl = InterfaceType.Template(fooRec, DefTemplate(Map.empty, Map.empty, None))
     val fooNorm = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec))
     implicit val idArb: Arbitrary[Identifier] = Arbitrary(idGen)
-    arbitrary[Map[Identifier, Boolean]] map { ids =>
-      EnvironmentInterface(
-        Map.empty,
-        ids transform { (_, isTemplate) =>
-          if (isTemplate) fooTmpl else fooNorm
-        },
-        Map.empty,
-      )
+    arbitrary[Map[Identifier, Boolean]] map {
+      _ transform { (_, isTemplate) =>
+        if (isTemplate) fooTmpl else fooNorm
+      }
     }
   }
 }
