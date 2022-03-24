@@ -38,8 +38,8 @@ object Main {
       ledgerApiSuites: List[LedgerTestSuite],
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
   ): List[TE] =
-    ScalaTestGeneratorSupport
-      .testEntries[TT, TS, TE](scalaTestSuites, testEntry)
+    List.empty
+      .concat(ScalaTestGeneratorSupport.testEntries(scalaTestSuites, testEntry))
       .concat(LedgerApiTestGeneratorSupport.testEntries(ledgerApiSuites, testEntry))
 
   def main(args: Array[String]): Unit = {
@@ -48,8 +48,6 @@ object Main {
       .getOrElse(List.empty)
 
     val ledgerApiTests = List()
-      .concat(suites.v1_8.default(timeoutScaleFactor = 0L))
-      .concat(suites.v1_8.optional())
       .concat(suites.v1_14.default(timeoutScaleFactor = 0L))
       .concat(suites.v1_14.optional())
 
