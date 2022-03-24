@@ -12,9 +12,7 @@ import iface.{Type => IType, PrimType => PT, _}
 import com.daml.lf.iface.InterfaceType
 import java.io.File
 
-import com.daml.lf.codegen.Util
 import com.daml.lf.codegen.dependencygraph.TransitiveClosure
-import com.daml.lf.codegen.lf.UsedTypeParams.Variance
 import scalaz._
 import scalaz.std.set._
 import scalaz.syntax.id._
@@ -294,30 +292,6 @@ final case class LFUtil(
                 $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
       }.toList
   }
-
-  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: EnvironmentInterface, z: Z)(
-      f: (Z, ScopedDataType.Name) => Z
-  ): Z =
-    interface.typeDecls.foldLeft(z) {
-      case (z, (id, InterfaceType.Template(_, tpl))) =>
-        tpl.foldMap(typ => Util.genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
-      case (z, _) => z
-    }
-
-  protected[this] def precacheVariance(
-      interface: EnvironmentInterface
-  ): ScopedDataType.Name => ImmArraySeq[Variance] = {
-    import UsedTypeParams.ResolvedVariance
-    val resolved = foldTemplateReferencedTypeDeclRoots(interface, ResolvedVariance.Empty) {
-      (resolved, id) => resolved.allCovariantVars(id, interface)._1
-    }
-    id => resolved.allCovariantVars(id, interface)._2
-  }
-
-  private[this] lazy val precachedVariance = precacheVariance(iface)
-
-  def variance(sdt: ScopedDataType[_]): Seq[Variance] =
-    precachedVariance(sdt.name)
 }
 
 object LFUtil {
