@@ -153,8 +153,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
   "stack-safety; wide" - {
 
-    // TODO https://github.com/digital-asset/daml/issues/13351
-    val width = 3000 // increase if fix quadratic behavior of let-expressions
+    val width = 10000
 
     val appGeneral = (xs: List[SExpr]) => {
       SEApp(leaf, xs)
@@ -175,7 +174,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         ("appGeneral", appGeneral),
         ("appWideBuiltin", appWideBuiltin),
         ("caseWide", caseWide),
-        ("letWide", letWide), //quadratic behavior
+        ("letWide", letWide),
       )
     }
 
