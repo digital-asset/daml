@@ -197,6 +197,15 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
            val concrete_unsafe_from_required_interface: ContractId Mod:Planet -> Mod:Planet -> Mod:Human  =
              \ (cid: ContractId Mod:Planet) (p: Mod:Planet) -> unsafe_from_required_interface @Mod:Planet @Mod:Human cid p;
+
+           val concrete_interface_template_type_rep: Mod:Planet -> TypeRep =
+             \ (p: Mod:Planet) -> interface_template_type_rep @Mod:Planet p;
+
+           val concrete_signatory_interface: Mod:Planet -> List Party =
+             \ (p: Mod:Planet) -> signatory_interface @Mod:Planet p;
+
+           val concrete_observer_interface: Mod:Planet -> List Party =
+             \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
          }
 
       """
