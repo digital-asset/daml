@@ -316,9 +316,9 @@ For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
 
-The value for ``actAs`` is specified as a list and you provide it with the party that you want to use.
-Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
-For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
+The value for ``actAs`` is specified as a list and you provide it with the party that you want to use,
+such as in the example above which uses ``Alice`` for a party. ``actAs`` may include more than just one party
+as the JSON API supports `multi-party submissions <https://blog.digitalasset.com/developers/roles-in-daml-introducing-multi-party-submissions>`_.
 
 The party should reference an already allocated party.
 
