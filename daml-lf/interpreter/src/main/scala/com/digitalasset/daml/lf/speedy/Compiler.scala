@@ -16,7 +16,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}
-import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
+import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 
 import org.slf4j.LoggerFactory
@@ -381,13 +381,7 @@ private[lf] final class Compiler(
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(interface, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LookupError.MissingPackage(pkgId_, context)) =>
-            logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-            throw PackageNotFound(pkgId_, context)
-          case e =>
-            throw e
-        }
+        Validation.checkPackage(interface, pkgId, pkg).left.foreach(throw _)
     }
 
     val t1 = Time.Timestamp.now()
