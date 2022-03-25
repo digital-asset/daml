@@ -180,6 +180,23 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val maybeException: Option Mod:MyException =
              from_any_exception @Mod:MyException Mod:myAnyException;
 
+           val concrete_to_interface: Mod:Person -> Mod:Human =
+             \ (p: Mod:Person) -> to_interface @Mod:Human @Mod:Person p;
+
+           val concrete_from_interface: Mod:Human -> Option Mod:Person  =
+             \ (h: Mod:Human) -> from_interface @Mod:Human @Mod:Person h;
+
+           val concrete_unsafe_from_interface: ContractId Mod:Human -> Mod:Human -> Mod:Person  =
+             \ (cid: ContractId Mod:Human) (h: Mod:Human) -> unsafe_from_interface @Mod:Human @Mod:Person cid h;
+
+           val concrete_to_required_interface: Mod:Human -> Mod:Planet =
+             \ (h: Mod:Human) -> to_required_interface @Mod:Planet @Mod:Human h;
+
+           val concrete_from_required_interface: Mod:Planet -> Option Mod:Human  =
+             \ (p: Mod:Planet) -> from_required_interface @Mod:Planet @Mod:Human p;
+
+           val concrete_unsafe_from_required_interface: ContractId Mod:Planet -> Mod:Planet -> Mod:Human  =
+             \ (cid: ContractId Mod:Planet) (p: Mod:Planet) -> unsafe_from_required_interface @Mod:Planet @Mod:Human cid p;
          }
 
       """
