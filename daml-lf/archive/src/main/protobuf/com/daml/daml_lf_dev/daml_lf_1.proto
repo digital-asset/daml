@@ -927,6 +927,15 @@ message Expr {
     Expr interface_expr = 3;
   }
 
+  // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
+  // *Available in versions >= 1.dev*
+  message UnsafeFromInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr contract_id_expr = 3;
+    Expr interface_expr = 4;
+  }
+
   // Upcast from an interface payload to an interface it requires.
   // *Available in versions >= 1.dev*
   message ToRequiredInterface {
@@ -941,6 +950,15 @@ message Expr {
     TypeConName required_interface = 1;
     TypeConName requiring_interface = 2;
     Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, or raises WronglyTypedContract if not possible.
+  // *Available in versions >= 1.dev*
+  message UnsafeFromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr contract_id_expr = 3;
+    Expr interface_expr = 4;
   }
 
   // Invoke an interface method.
@@ -1111,6 +1129,11 @@ message Expr {
     // *Available in versions >= 1.dev*
     SignatoryInterface signatory_interface = 42;
     ObserverInterface observer_interface = 43;
+
+    // Unsafe conversion to/from interface payloads.
+    UnsafeFromInterface unsafe_from_interface = 44;
+    // Unsafe downcast interface payloads.
+    UnsafeFromRequiredInterface unsafe_from_required_interface = 45;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }

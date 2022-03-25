@@ -106,9 +106,11 @@ freeVarsStep = \case
     EThrowF t1 t2 e -> freeVarsInType t1 <> freeVarsInType t2 <> e
     EToInterfaceF _ _ e -> e
     EFromInterfaceF _ _ e -> e
+    EUnsafeFromInterfaceF _ _ e1 e2 -> e1 <> e2
     ECallInterfaceF _ _ e -> e
     EToRequiredInterfaceF _ _ e -> e
     EFromRequiredInterfaceF _ _ e -> e
+    EUnsafeFromRequiredInterfaceF _ _ e1 e2 -> e1 <> e2
     EInterfaceTemplateTypeRepF _ e -> e
     ESignatoryInterfaceF _ e -> e
     EObserverInterfaceF _ e -> e

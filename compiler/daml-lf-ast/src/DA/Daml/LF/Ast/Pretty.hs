@@ -536,12 +536,16 @@ instance Pretty Expr where
         [interfaceArg ty1, tplArg ty2, TmArg expr]
     EFromInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_interface"
         [interfaceArg ty1, tplArg ty2, TmArg expr]
+    EUnsafeFromInterface ty1 ty2 expr1 expr2 -> pPrintAppKeyword lvl prec "unsafe_from_interface"
+        [interfaceArg ty1, tplArg ty2, TmArg expr1, TmArg expr2]
     ECallInterface ty mth expr -> pPrintAppKeyword lvl prec "call_interface"
         [interfaceArg ty, methodArg mth, TmArg expr]
     EToRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "to_required_interface"
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
     EFromRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_required_interface"
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
+    EUnsafeFromRequiredInterface ty1 ty2 expr1 expr2 -> pPrintAppKeyword lvl prec "unsafe_from_required_interface"
+        [interfaceArg ty1, interfaceArg ty2, TmArg expr1, TmArg expr2]
     EInterfaceTemplateTypeRep ty expr -> pPrintAppKeyword lvl prec "interface_template_type_rep"
         [interfaceArg ty, TmArg expr]
     ESignatoryInterface ty expr -> pPrintAppKeyword lvl prec "signatory_interface"

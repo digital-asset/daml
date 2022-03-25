@@ -695,6 +695,12 @@ encodeExpr' = \case
         expr_FromInterfaceTemplateType <- encodeQualTypeConName ty2
         expr_FromInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromInterface P.Expr_FromInterface{..}
+    EUnsafeFromInterface ty1 ty2 cid val -> do
+        expr_UnsafeFromInterfaceInterfaceType <- encodeQualTypeConName ty1
+        expr_UnsafeFromInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_UnsafeFromInterfaceContractIdExpr <- encodeExpr cid
+        expr_UnsafeFromInterfaceInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumUnsafeFromInterface P.Expr_UnsafeFromInterface{..}
     ECallInterface ty mth val -> do
         expr_CallInterfaceInterfaceType <- encodeQualTypeConName ty
         expr_CallInterfaceMethodInternedName <- encodeMethodName mth
@@ -710,6 +716,12 @@ encodeExpr' = \case
         expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
         expr_FromRequiredInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromRequiredInterface P.Expr_FromRequiredInterface{..}
+    EUnsafeFromRequiredInterface ty1 ty2 cid val -> do
+        expr_UnsafeFromRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
+        expr_UnsafeFromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_UnsafeFromRequiredInterfaceContractIdExpr <- encodeExpr cid
+        expr_UnsafeFromRequiredInterfaceInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumUnsafeFromRequiredInterface P.Expr_UnsafeFromRequiredInterface{..}
     EInterfaceTemplateTypeRep ty val -> do
         expr_InterfaceTemplateTypeRepInterface <- encodeQualTypeConName ty
         expr_InterfaceTemplateTypeRepExpr <- encodeExpr val

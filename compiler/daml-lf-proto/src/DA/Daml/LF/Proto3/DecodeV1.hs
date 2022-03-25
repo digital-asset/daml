@@ -663,6 +663,11 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_FromInterfaceInterfaceType" expr_FromInterfaceInterfaceType decodeTypeConName
     <*> mayDecode "expr_FromInterfaceTemplateType" expr_FromInterfaceTemplateType decodeTypeConName
     <*> mayDecode "expr_FromInterfaceInterfaceExpr" expr_FromInterfaceInterfaceExpr decodeExpr
+  LF1.ExprSumUnsafeFromInterface LF1.Expr_UnsafeFromInterface {..} -> EUnsafeFromInterface
+    <$> mayDecode "expr_UnsafeFromInterfaceInterfaceType" expr_UnsafeFromInterfaceInterfaceType decodeTypeConName
+    <*> mayDecode "expr_UnsafeFromInterfaceTemplateType" expr_UnsafeFromInterfaceTemplateType decodeTypeConName
+    <*> mayDecode "expr_UnsafeFromInterfaceContractIdExpr" expr_UnsafeFromInterfaceContractIdExpr decodeExpr
+    <*> mayDecode "expr_UnsafeFromInterfaceInterfaceExpr" expr_UnsafeFromInterfaceInterfaceExpr decodeExpr
   LF1.ExprSumCallInterface LF1.Expr_CallInterface {..} -> ECallInterface
     <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
     <*> decodeMethodName expr_CallInterfaceMethodInternedName
@@ -675,6 +680,11 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_FromRequiredInterfaceRequiredInterface" expr_FromRequiredInterfaceRequiredInterface decodeTypeConName
     <*> mayDecode "expr_FromRequiredInterfaceRequiringInterface" expr_FromRequiredInterfaceRequiringInterface decodeTypeConName
     <*> mayDecode "expr_FromRequiredInterfaceExpr" expr_FromRequiredInterfaceExpr decodeExpr
+  LF1.ExprSumUnsafeFromRequiredInterface LF1.Expr_UnsafeFromRequiredInterface {..} -> EUnsafeFromRequiredInterface
+    <$> mayDecode "expr_UnsafeFromRequiredInterfaceRequiredInterface" expr_UnsafeFromRequiredInterfaceRequiredInterface decodeTypeConName
+    <*> mayDecode "expr_UnsafeFromRequiredInterfaceRequiringInterface" expr_UnsafeFromRequiredInterfaceRequiringInterface decodeTypeConName
+    <*> mayDecode "expr_UnsafeFromRequiredInterfaceContractIdExpr" expr_UnsafeFromRequiredInterfaceContractIdExpr decodeExpr
+    <*> mayDecode "expr_UnsafeFromRequiredInterfaceInterfaceExpr" expr_UnsafeFromRequiredInterfaceInterfaceExpr decodeExpr
   LF1.ExprSumInterfaceTemplateTypeRep LF1.Expr_InterfaceTemplateTypeRep {..} -> EInterfaceTemplateTypeRep
     <$> mayDecode "expr_InterfaceTemplateTypeRepInterface" expr_InterfaceTemplateTypeRepInterface decodeTypeConName
     <*> mayDecode "expr_InterfaceTemplateTypeRepExpr" expr_InterfaceTemplateTypeRepExpr decodeExpr

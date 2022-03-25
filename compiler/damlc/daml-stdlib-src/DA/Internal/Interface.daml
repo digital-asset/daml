@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude interface functionality
 module DA.Internal.Interface (
@@ -23,10 +22,6 @@ import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
-
-#ifdef DAML_EXPERIMENTAL
-import qualified GHC.Types
-#endif
 
 -- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
@@ -78,6 +73,11 @@ class HasFromInterface t i where
   -- the interface value `value` into the template type `MyTemplate`.
   fromInterface : i -> Optional t
 
+  -- | HIDE
+  -- Like 'fromInterface', but raises a fatal error (`WronglyTypedContract`) if the
+  -- underlying template type of the interface value doesn't match the desired type.
+  unsafeFromInterface : ContractId i -> i -> t
+
 -- | (1.dev only) Constraint that indicates that a template implements an interface.
 type Implements t i =
   ( HasInterfaceTypeRep i
@@ -114,7 +114,7 @@ _exerciseDefault : HasExerciseGuarded t c r => ContractId t -> c -> Update r
 _exerciseDefault = exerciseGuarded (const True)
 
 -- | HIDE The guard used for UExerciseInterface, during interface
--- desugaring. This funciton converts a guard on type t into a
+-- desugaring. This function converts a guard on type t into a
 -- guard on the type i, raising a WronglyTypedContract error if
 -- there is a type mismatch. It has to work uniformly in these
 -- three cases:
@@ -123,17 +123,10 @@ _exerciseDefault = exerciseGuarded (const True)
 --  2. when t is an interface type and i is an interface it requires
 --  3. when t and i are the same interface type
 --
--- It supports these three cases uniformly because `fromInterface`
+-- It supports these three cases uniformly because `unsafeFromInterface`
 -- handles each of them separately.
 _exerciseInterfaceGuard : forall i t.
   (HasFromInterface t i, HasInterfaceTypeRep i, HasTemplateTypeRep t) =>
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
-  case fromInterface @t ivalue of
-    Some tvalue -> tpred tvalue
-  #ifdef DAML_EXPERIMENTAL
-    None -> GHC.Types.primitive @"$THROW_WRONGLY_TYPED_CONTRACT" cid
-      (_templateTypeRep cid) (_interfaceTypeRep ivalue)
-  #else
-    None -> False
-  #endif
+  tpred (unsafeFromInterface (coerceContractId cid) ivalue)

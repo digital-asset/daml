@@ -22,6 +22,7 @@ instance DA.Internal.Desugar.HasToInterface Token Token where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface this = Some this
+  unsafeFromInterface _ this = this
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
 instance DA.Internal.Desugar.HasMethod Token "noopImpl" (()
@@ -330,6 +331,7 @@ instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
 _method_Asset_Token_getOwner
   = DA.Internal.Desugar.mkMethod
       @Asset
