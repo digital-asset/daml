@@ -1352,6 +1352,48 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             )
           }
         }
+
+        // TEST_EVIDENCE: Semantics: exercise_interface with a contract instance that does not implement the interface fails.
+        "contract doesn't implement interface" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:exercise_interface exercisingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(_, _, _)))
+                ) =>
+              msgs shouldBe Seq("starts test", "queries contract")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a non-cached global contract with failed authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:exercise_interface exercisingParty cId""",
+            Array(SParty(charlie), SContractId(cId)),
+            Set(charlie),
+            getContract = getIfaceContract,
+            getKey = getKey,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "interface guard",
+              "choice controllers",
+              "choice observers",
+            )
+          }
+        }
       }
 
       "a cached global contract" - {
