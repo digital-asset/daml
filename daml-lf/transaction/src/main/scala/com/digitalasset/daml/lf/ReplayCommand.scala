@@ -27,6 +27,16 @@ object ReplayCommand {
       argument: Value,
   ) extends ReplayCommand
 
+  /** Exercise a template choice, by template Id or interface Id. */
+  // https://github.com/digital-asset/daml/issues/12051
+  //   This command is temporary, it will be drop in 2.2
+  final case class LenientExercise(
+      templateId: Identifier,
+      contractId: Value.ContractId,
+      choiceId: ChoiceName,
+      argument: Value,
+  ) extends ReplayCommand
+
   /** Exercise a template choice, not by interface. */
   final case class ExerciseTemplate(
       templateId: Identifier,
