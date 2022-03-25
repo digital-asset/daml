@@ -86,10 +86,7 @@ object CodeGenRunner extends StrictLogging {
     }.toMap
     val fullyResolvedInterfaces =
       interfaces.map(
-        _.resolveChoices(
-          environmentInterface.astInterfaces,
-          failIfUnresolvedChoicesLeft = true,
-        )
+        _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
       )
     (fullyResolvedInterfaces, prefixes)
   }

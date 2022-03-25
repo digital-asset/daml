@@ -56,7 +56,7 @@ private class PackageService(
     private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
       def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
       val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
-      diff.transform((_, iface) => iface resolveChoices findIface)
+      diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
     }
   }
 

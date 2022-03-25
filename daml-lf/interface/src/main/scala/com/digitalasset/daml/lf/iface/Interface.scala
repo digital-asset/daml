@@ -1,8 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package iface
+package com.daml.lf.iface
 
 import java.{util => j}
 
@@ -78,9 +77,9 @@ final case class Interface(
     *  // but faster.
     * }}}
     */
-  def resolveChoices(
+  private def resolveChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
-      failIfUnresolvedChoicesLeft: Boolean = false,
+      failIfUnresolvedChoicesLeft: Boolean,
   ): Interface = {
     val outside = findInterface.lift
     def findIface(id: Identifier) =
@@ -107,6 +106,15 @@ final case class Interface(
       }
     })
   }
+
+  def resolveChoicesAndFailOnUnresolvableChoices(
+      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
+
+  def resolveChoicesAndIgnoreUnresolvedChoices(
+      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
+
 }
 
 object Interface {
