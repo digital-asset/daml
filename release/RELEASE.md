@@ -28,9 +28,9 @@ mentioning `@gary`.
    snapshot. See the instructions in the README of the [assembly] repo
    for details.
 
-1. Merge the PR and wait for the corresponding `main` build to finish.
+2. Merge the PR and wait for the corresponding `main` build to finish.
 
-1. Go to the [Testing](#testing) section of this file.
+3. Go to the [Testing](#testing) section of this file.
 
 ## 2.x release candidate
 
@@ -48,8 +48,8 @@ The process is similar to the weekly snapshot, except that both the [daml] and
 [canton] bundles have to be manually triggered. Specifically:
 
 
-0. Make sure all the changes you want are in the release branch.
-1. Start _from latest `main`_ and run
+1. Make sure all the changes you want are in the release branch.
+2. Start _from latest `main`_ and run
    ```
    $ ./release.sh snapshot origin/release/2.0.x 2.0.1
    ```
@@ -58,22 +58,22 @@ The process is similar to the weekly snapshot, except that both the [daml] and
    file, adding ` SPLIT_RELEASE` at the end of that line. You should put that line
    in the file so as to preserve semver ordering, and overwrite any existing
    snapshot with the same prefix.
-2. Make a PR against the `main` branch with just that one line added, touching
+3. Make a PR against the `main` branch with just that one line added, touching
    no other file. Add the `Standard-Change` label to that PR.
-3. When the PR is merged, the build of the corresponding commit on `main` will
+4. When the PR is merged, the build of the corresponding commit on `main` will
    create a "split release" bundle and push it to Artifactory. It should notify
    on `#ci-failures-daml` on Slack.
-4. The next step is to request a build from the [Canton] team (on
+5. The next step is to request a build from the [Canton] team (on
    `#team-canton`) that relies on the RC snapshot. Once you have a [canton]
    release, you can proceed.
-5. Go to the [assembly] repo, and follow the instructions there to make a release
+6. Go to the [assembly] repo, and follow the instructions there to make a release
    using the [Canton] version that was just created. The `LATEST` file on the
    [assembly] repo only contains one version; it is safe to overwrite it, and to
    "go backwards" if needed.
-6. Once the `main` build of the [assembly] repo has finished, you should
+7. Once the `main` build of the [assembly] repo has finished, you should
    proceed with testing. You should open up this document _in the branch of
    the release you're making_, as testing instructions change over time.
-7. After testing, if everything went well, you should go on to turning the RC
+8. After testing, if everything went well, you should go on to turning the RC
    into a stable release. If something went wrong, make appropriate changes to
    the release branch and start over.
 
@@ -92,10 +92,14 @@ Making a stable release follows the same steps as a snapshot RC, except that:
   daml, but follow the instructions there.
 - You need a team lead to approve the PR on both the [daml] and [assembly] repos.
 
+Once you have finished testing the release, coordinate with Product to decide
+how to communicate around it and when to remove the `prerelease` marker on the
+[releases page]. (This is what makes it available to `daml install`.)
+
 ## 1.x release candidate
 
-0. Make sure all the changes you want are in the release branch.
-1. Start _from latest `main`_ and run
+1. Make sure all the changes you want are in the release branch.
+2. Start _from latest `main`_ and run
    ```
    $ ./release.sh snapshot origin/release/1.18.x 1.18.3
    ```
@@ -103,16 +107,16 @@ Making a stable release follows the same steps as a snapshot RC, except that:
    snapshot release number. You need to take that line and add it to the [`LATEST`]
    file. You should put that line in the file so as to preserve semver
    ordering, and overwrite any existing snapshot with the same prefix.
-2. Make a PR against the `main` branch with just that one line added, touching
+3. Make a PR against the `main` branch with just that one line added, touching
    no other file. Add the `Standard-Change` label to that PR.
-1. Once the PR has built, check that it was considered a release build by our
+4. Once the PR has built, check that it was considered a release build by our
    CI. You can look at the output of the `check_for_release` job.
-3. When the PR is merged, the build of the `main` branch will create the
+5. When the PR is merged, the build of the `main` branch will create the
    release, push it to GitHub releases, and announce it is ready for testing on
    `#team-daml`.
-4. Follow the testing instructions in this document, but from the tip of the
+6. Follow the testing instructions in this document, but from the tip of the
    release branch.
-5. After testing, if everything went well, you should go on to turning the RC
+7. After testing, if everything went well, you should go on to turning the RC
    into a stable release. If something went wrong, make appropriate changes to
    the release branch and start over.
 
@@ -131,6 +135,10 @@ Making a stable release follows the same steps as a snapshot RC, except that:
 - Instead of adding a line to [`LATEST`], remove the `-snapshot` part of the
   version number for the existing RC.
 - You need a team lead to approve the PR.
+
+Once you have finished testing the release, coordinate with Product to decide
+how to communicate around it and when to remove the `prerelease` marker on the
+[releases page]. (This is what makes it available to `daml install`.)
 
 ## Testing
 
