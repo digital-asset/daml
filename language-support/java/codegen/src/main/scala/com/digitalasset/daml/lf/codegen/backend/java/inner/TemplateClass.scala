@@ -55,7 +55,7 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addMethod(staticCreateMethod)
         .addType(
-          IdClass
+          ContractIdClass
             .builder(
               className,
               template.choices,
@@ -69,7 +69,7 @@ private[inner] object TemplateClass extends StrictLogging {
             .build()
         )
         .addType(
-          ContractIdClass
+          ContractClass
             .builder(className, template.key, packagePrefixes)
             .addGenerateFromMethods()
             .build()

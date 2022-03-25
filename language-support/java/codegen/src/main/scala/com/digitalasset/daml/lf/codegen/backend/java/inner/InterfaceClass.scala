@@ -30,17 +30,12 @@ object InterfaceClass extends StrictLogging {
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addField(generateTemplateIdField(packageId, interfaceId))
         .addType(
-          IdClass
+          ContractIdClass
             .builder(
               interfaceName,
               interface.choices,
               packagePrefixes,
             )
-            .build()
-        )
-        .addType(
-          ContractIdClass
-            .builder(interfaceName, None, packagePrefixes)
             .build()
         )
         .build()

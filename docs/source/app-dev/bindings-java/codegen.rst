@@ -485,9 +485,7 @@ From this daml definition:
    :caption: Interfaces.daml
 
 The generated file for the interface definition can be seen below.
-Effectively it is a class that contains similar to the code for templates the inner types Contract & ContractId.
-The main difference there is that the interface doesn't contain inner data but only choices which also reflects in the generated methods in the classes.
-There won't be any support for `CreateFrom` because the only possible way to interact with interfaces is via the ContractId.
+Effectively it is a class that contains only the inner type ContractId because one will always only be able to deal with Interfaces via their ContractId.
 
 .. code-block:: java
   :caption: interfaces/TIf.java
@@ -506,36 +504,11 @@ There won't be any support for `CreateFrom` because the only possible way to int
 
       public ExerciseCommand exerciseHam(Ham arg) { /* ... */ }
     }
-
-    public static class Contract implements com.daml.ledger.javaapi.data.Contract {
-      public final ContractId id;
-
-      public final TIf data;
-
-      public final Optional<String> agreementText;
-
-      public final Set<String> signatories;
-
-      public final Set<String> observers;
-
-      public Contract(ContractId id, TIf data, Optional<String> agreementText,
-          Set<String> signatories, Set<String> observers) { /* ... */ }
-
-      @Override
-      public boolean equals(Object object) { /* ... */ }
-
-      @Override
-      public int hashCode() { /* ... */ }
-
-      @Override
-      public String toString() { /* ... */ }
-    }
   }
 
 For templates the code generation will be slightly different if a template implements interfaces.
 Main difference here is that the choices from inherited interfaces are included in the class declaration.
 Moreover to allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterfaceName` is generated.
-
 
 .. code-block:: java
   :caption: interfaces/Child.java

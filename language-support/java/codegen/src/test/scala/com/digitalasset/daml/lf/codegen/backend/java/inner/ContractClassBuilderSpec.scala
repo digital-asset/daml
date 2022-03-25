@@ -14,7 +14,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
-final class ContractIdClassBuilderSpec
+final class ContractClassBuilderSpec
     extends AnyFlatSpec
     with Matchers
     with OptionValues
@@ -59,14 +59,14 @@ final class ContractIdClassBuilderSpec
   private[this] val idClassName = ClassName.bestGuess("Id")
   private[this] val ckClassName = ClassName.bestGuess("Ck")
   private[this] val fromIdAndRecord =
-    ContractIdClass.Builder.generateFromIdAndRecord(
+    ContractClass.Builder.generateFromIdAndRecord(
       className,
       templateClassName,
       idClassName,
       Some(ckClassName),
     )
   private[this] val fromIdAndRecordWithoutKey =
-    ContractIdClass.Builder.generateFromIdAndRecord(className, templateClassName, idClassName, None)
+    ContractClass.Builder.generateFromIdAndRecord(className, templateClassName, idClassName, None)
   private[this] val string = TypeName.get(classOf[String])
   private[this] val record = TypeName.get(classOf[javaapi.data.DamlRecord])
   private[this] val optionalString =
