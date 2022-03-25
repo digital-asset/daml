@@ -47,6 +47,6 @@ object CatsInstancesSpec {
 
   implicit def `nonempty f eq`[F[_], A](implicit FA: Eq[F[A]]): Eq[NonEmptyF[F, A]] = {
     type T[k[_]] = Eq[k[A]]
-    NonEmpty.substF[T, F](FA)
+    NonEmptyColl.Instance.substF[T, F](FA)
   }
 }

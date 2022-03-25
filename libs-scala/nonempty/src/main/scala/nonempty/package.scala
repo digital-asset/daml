@@ -4,7 +4,6 @@
 package com.daml
 
 package object nonempty {
-  val NonEmpty: NonEmptyColl = NonEmptyColl.Instance
 
   /** A non-empty `A`.  Implicitly converts to `A` in relevant contexts.
     *
@@ -29,7 +28,7 @@ package object nonempty {
     * Using this library sensibly with Scala 2.12 requires `-Xsource:2.13` and
     * `-Ypartial-unification`.
     */
-  type NonEmpty[+A] = NonEmpty.NonEmpty[A]
+  type NonEmpty[+A] = NonEmptyColl.Instance.NonEmpty[A]
 
   /** A subtype of `NonEmpty[F[A]]` where `A` is in position to be inferred
     * properly.  When attempting to fit a type to the type params `C[T]`, scalac
@@ -50,7 +49,7 @@ package object nonempty {
     * V]]`, then `bar.toNEF: NonEmptyF[Map[K, *], V]`, because that's how scalac
     * destructures that type.
     */
-  type NonEmptyF[F[_], A] = NonEmpty.NonEmptyF[F, A]
+  type NonEmptyF[F[_], A] = NonEmptyColl.Instance.NonEmptyF[F, A]
 
   val ±: : +-:.type = +-:
   val :∓ : :-+.type = :-+

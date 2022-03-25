@@ -28,19 +28,30 @@ sealed abstract class NonEmptyColl {
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
   private[nonempty] def subst[F[_[_]]](tf: F[Id]): F[NonEmpty]
   private[nonempty] def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self): NonEmpty[Self]
+}
+
+object NonEmpty {
 
   /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
     * this in an upper-bound, because that would prevent us from adding implicit
     * methods that replace the stdlib ones.)
     */
-  def subtype[A]: NonEmpty[A] <~< A
+  def subtype[A]: NonEmpty[A] <~< A = {
+    type K[F[_]] = F[A] <~< A
+    NonEmptyColl.Instance.subst[K](Liskov.refl[A])
+  }
 
   /** Usable proof that [[NonEmptyF]] is actually equivalent to its [[NonEmpty]]
     * parent type, not a strict subtype.  (We want Scala to treat it as a strict
     * subtype, usually, so that the type will be deconstructed by
     * partial-unification correctly.)
     */
-  def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
+  def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A] = {
+    type K[T[_]] = T[F[A]] === F[A]
+    type KR[T[_]] = NonEmpty[F[A]] === T[A]
+    import NonEmptyColl.Instance.{subst, substF}
+    substF[KR, F](subst[K](Leibniz.refl[F[A]]))
+  }
 
   /** {{{
     *  NonEmpty(List, 1, 2, 3) : NonEmpty[List[Int]] // with (1, 2, 3) as elements
@@ -51,7 +62,7 @@ sealed abstract class NonEmptyColl {
   ): NonEmpty[C] = {
     val bb = into.newBuilder
     discard { (bb += hd) ++= tl }
-    unsafeNarrow(bb.result())
+    NonEmptyColl.Instance.unsafeNarrow(bb.result())
   }
 
   /** Like `apply`, but because `A` occurs directly in the result type, if the
@@ -81,7 +92,10 @@ sealed abstract class NonEmptyColl {
     * The type-checker will not permit you to apply this to a value that already
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
-  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
+  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = {
+    type K[F[_]] = F[Self]
+    if (self.nonEmpty) Some(NonEmptyColl.Instance.subst[K](self)) else None
+  }
 
   /** Like `unapply`, but when you don't want pattern matching. */
   final def from[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
@@ -91,17 +105,14 @@ sealed abstract class NonEmptyColl {
   * settings are probably wrong.
   */
 object NonEmptyColl extends NonEmptyCollInstances {
-  private[nonempty] object Instance extends NonEmptyColl {
+  val Instance: NonEmptyColl = new NonEmptyColl {
     type NonEmpty[+A] = A
     type NonEmptyF[F[_], A] = F[A]
-    private[nonempty] override def substF[T[_[_]], F[_]](tf: T[F]) = tf
-    private[nonempty] override def subst[F[_[_]]](tf: F[Id]) = tf
-    override def subtype[A] = Liskov.refl[A]
-    override def equiv[F[_], A] = Leibniz.refl
-
-    override def unapply[Self](self: Self with imm.Iterable[_]) =
-      if (self.nonEmpty) Some(self) else None
-    private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
+    private[nonempty] override def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]] = tf
+    private[nonempty] override def subst[F[_[_]]](tf: F[Id]): F[NonEmpty] = tf
+    private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](
+        self: Self
+    ): NonEmpty[Self] = self
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
@@ -136,7 +147,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
       private val self: NonEmpty[imm.MapOps[K, V, CC, _]]
   ) extends AnyVal {
     private type ESelf = imm.MapOps[K, V, CC, _]
-    import NonEmpty.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
     def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
     def ++(xs: IterableOnce[(K, V)]): NonEmpty[CC[K, V]] = un((self: ESelf) ++ xs)
@@ -151,7 +162,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
       private val self: NonEmpty[imm.SetOps[A, CC, C]]
   ) extends AnyVal {
     private type ESelf = imm.SetOps[A, CC, C]
-    import NonEmpty.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
     def incl(elem: A): NonEmpty[C] = un((self: ESelf) + elem)
     def ++(that: IterableOnce[A]): NonEmpty[C] = un((self: ESelf) ++ that)
@@ -160,10 +171,10 @@ object NonEmptyColl extends NonEmptyCollInstances {
   implicit final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
       private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
   ) extends AnyVal {
-    import NonEmpty.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
     private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
     def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
-      NonEmpty.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
+      NonEmptyColl.Instance.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
     def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
@@ -184,7 +195,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
       private val self: NonEmpty[SeqOps[A, CC, C with imm.Seq[A]]]
   ) extends AnyVal {
-    import NonEmpty.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
     private type ESelf = SeqOps[A, CC, C with imm.Iterable[A]]
     // the +: :+ set here is so you don't needlessly "lose" your NE-ness
     def +:[B >: A](elem: B): NonEmpty[CC[B]] = un(elem +: (self: ESelf))
@@ -210,33 +221,33 @@ object NonEmptyColl extends NonEmptyCollInstances {
   implicit final class NEPseudofunctorOps[A, CC[X] <: imm.Iterable[X], C](
       private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
   ) extends AnyVal {
-    import NonEmpty.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
     private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
 
     def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
     def flatMap[B](f: A => NonEmpty[IterableOnce[B]]): NonEmpty[CC[B]] = {
       type K[F[_]] = (F[ESelf], A => F[IterableOnce[B]]) => F[CC[B]]
-      NonEmpty.subst[K](_ flatMap _)(self, f)
+      NonEmptyColl.Instance.subst[K](_ flatMap _)(self, f)
     }
   }
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
-    NonEmpty.substF(F)
+    NonEmptyColl.Instance.substF(F)
 
   // by requiring Monoid instead of Semigroup, we exclude intersection semigroups,
   // which are not legitimate for lifting into NonEmpty
   implicit def semigroup[A](implicit A: Monoid[A]): Semigroup[NonEmpty[A]] =
-    NonEmpty.subst[Lambda[k[_] => Semigroup[k[A]]]](A)
+    NonEmptyColl.Instance.subst[Lambda[k[_] => Semigroup[k[A]]]](A)
 }
 
 sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
   implicit def foldable[F[_]](implicit F: Foldable[F]): Foldable[NonEmptyF[F, *]] =
-    NonEmpty.substF(F)
+    NonEmptyColl.Instance.substF(F)
 }
 
 sealed abstract class NonEmptyCollInstances0 {
   implicit def foldable1[F[_]](implicit F: Foldable[F]): Foldable1[NonEmptyF[F, *]] =
-    NonEmpty.substF(new Foldable1[F] with FoldableContravariant[F, F] {
+    NonEmptyColl.Instance.substF(new Foldable1[F] with FoldableContravariant[F, F] {
       private[this] def errEmpty(fa: F[_]) =
         throw new IllegalArgumentException(
           s"empty structure coerced to non-empty: $fa: ${fa.getClass.getSimpleName}"

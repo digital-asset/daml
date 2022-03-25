@@ -7,5 +7,5 @@ import cats.Traverse
 
 package object catsinstances extends catsinstances.impl.CatsInstancesLow {
   implicit def `cats nonempty traverse`[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
-    NonEmpty substF F
+    NonEmptyColl.Instance substF F
 }
