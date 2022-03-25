@@ -1353,6 +1353,59 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
       }
+
+      "a cached global contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a cached global contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId Human) ->
+               ubind x: M:Human <- fetch @M:Human cId in
+               Test:exercise_interface exercisingParty cId
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getIfaceContract,
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "interface guard",
+              "choice controllers",
+              "choice observers",
+              "choice body",
+              "ends test",
+            )
+          }
+        }
+      }
+
+      "a local contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a local contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) ->
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty} in
+             Test:exercise_interface exercisingParty cId
+             """,
+            Array(SParty(alice)),
+            Set(alice),
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "interface guard",
+              "choice controllers",
+              "choice observers",
+              "choice body",
+              "ends test",
+            )
+          }
+        }
+      }
     }
 
     "fetch" - {
