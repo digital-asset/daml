@@ -107,7 +107,7 @@ Making a stable release follows the same steps as a snapshot RC, except that:
    no other file. Add the `Standard-Change` label to that PR.
 1. Once the PR has built, check that it was considered a release build by our
    CI. You can look at the output of the `check_for_release` job.
-3. When the PR is merged, the buil of the `main` branch will create the
+3. When the PR is merged, the build of the `main` branch will create the
    release, push it to GitHub releases, and announce it is ready for testing on
    `#team-daml`.
 4. Follow the testing instructions in this document, but from the tip of the
