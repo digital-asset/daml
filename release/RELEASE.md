@@ -39,7 +39,7 @@ snapshot can work. In the world we live in, though, we frequently want to add a
 few things, or patch previous minor rleases.
 
 In those cases, we create `release/` branches (e.g. `release/2.0.x`). Those are
-special branches, protected by GiTHub rules and treated specially by CI.
+special branches, protected by GitHub rules and treated specially by CI.
 
 When making a release candidate, you generally want to pick the tip of one of
 those release branches. The release itself is always triggered from `main`.
