@@ -68,7 +68,7 @@ The process is similar to the weekly snapshot, except that both the [daml] and
    release, you can proceed.
 5. Go to the [assembly] repo, and follow the instructions there to make a release
    using the [Canton] version that was just created. The `LATEST` file on the
-   [assembly] repo only contains on version; it is safe to overwrite it, and to
+   [assembly] repo only contains one version; it is safe to overwrite it, and to
    "go backwards" if needed.
 6. Once the `main` build of the [assembly] repo has finished, you should
    proceed with testing. You should open up this document _in the branch of
