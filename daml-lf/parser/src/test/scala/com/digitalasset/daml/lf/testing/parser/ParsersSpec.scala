@@ -344,6 +344,22 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromInterface(T.tycon, I.tycon, e"body"),
         "from_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
           EFromInterface(T.tycon, I.tycon, e"body"),
+        "unsafe_from_interface @Mod:T @Mod:I cid body" ->
+          EUnsafeFromInterface(T.tycon, I.tycon, e"cid", e"body"),
+        "unsafe_from_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I cid body" ->
+          EUnsafeFromInterface(T.tycon, I.tycon, e"cid", e"body"),
+        "to_required_interface @Mod:T @Mod:I body" ->
+          EToRequiredInterface(T.tycon, I.tycon, e"body"),
+        "to_required_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
+          EToRequiredInterface(T.tycon, I.tycon, e"body"),
+        "from_required_interface @Mod:T @Mod:I body" ->
+          EFromRequiredInterface(T.tycon, I.tycon, e"body"),
+        "from_required_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
+          EFromRequiredInterface(T.tycon, I.tycon, e"body"),
+        "unsafe_from_required_interface @Mod:T @Mod:I cid body" ->
+          EUnsafeFromRequiredInterface(T.tycon, I.tycon, e"cid", e"body"),
+        "unsafe_from_required_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I cid body" ->
+          EUnsafeFromRequiredInterface(T.tycon, I.tycon, e"cid", e"body"),
         "interface_template_type_rep @Mod:I body" ->
           EInterfaceTemplateTypeRep(I.tycon, e"body"),
         "interface_template_type_rep @'-pkgId-':Mod:I body" ->
@@ -874,6 +890,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     "catch",
     "to_interface",
     "from_interface",
+    "unsafe_from_interface",
+    "to_required_interface",
+    "from_required_interface",
+    "unsafe_from_required_interface",
     "interface_template_type_rep",
     "signatory_interface",
     "observer_interface",

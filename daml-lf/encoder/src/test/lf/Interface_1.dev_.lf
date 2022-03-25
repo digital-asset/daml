@@ -1,0 +1,71 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module InterfaceMod {
+
+  interface (this: Root) = {
+    precondition True;
+  };
+
+  interface (this: Boxy) = {
+    requires InterfaceMod:Root;
+    precondition True;
+    method getParty: Party;
+    choice @nonConsuming ReturnInt (self) (i: Int64): Int64
+      , controllers Cons @Party [call_method @InterfaceMod:Boxy getParty this] (Nil @Party)
+      , observers Nil @Party
+      to upure @Int64 i;
+  };
+
+  record @serializable Box = { party: Party, name: Text };
+
+  template (this: Box) = {
+    precondition True;
+    signatories Cons @Party [InterfaceMod:Box {party} this] (Nil @Party);
+    observers Cons @Party [InterfaceMod:Box {party} this] (Nil @Party);
+    agreement "Lorem ipsum, dolor sit amet";
+
+    implements InterfaceMod:Root {
+    };
+    implements InterfaceMod:Boxy {
+      method getParty = InterfaceMod:Box {party} this;
+      choice ReturnInt;
+    };
+  };
+
+  val boxToBoxy: InterfaceMod:Box -> InterfaceMod:Boxy =
+    \(box: InterfaceMod:Box) ->
+      to_interface @InterfaceMod:Boxy @InterfaceMod:Box box;
+
+  val boxyToBox: InterfaceMod:Boxy -> Option InterfaceMod:Box =
+    \(boxy: InterfaceMod:Boxy) ->
+      from_interface @InterfaceMod:Boxy @InterfaceMod:Box boxy;
+
+  val unsafeBoxyToBox: ContractId InterfaceMod:Boxy -> InterfaceMod:Boxy -> InterfaceMod:Box =
+    \(cid: ContractId InterfaceMod:Boxy) (boxy: InterfaceMod:Boxy) ->
+      unsafe_from_interface @InterfaceMod:Boxy @InterfaceMod:Box cid boxy;
+
+  val boxyToRoot: InterfaceMod:Boxy -> InterfaceMod:Root =
+    \(box: InterfaceMod:Boxy) ->
+      to_required_interface @InterfaceMod:Root @InterfaceMod:Boxy box;
+
+  val rootToBoxy: InterfaceMod:Root -> Option InterfaceMod:Boxy =
+    \(root: InterfaceMod:Root) ->
+      from_required_interface @InterfaceMod:Root @InterfaceMod:Boxy root;
+
+  val unsafeRootToBoxy: ContractId InterfaceMod:Root -> InterfaceMod:Root -> InterfaceMod:Boxy =
+    \(cid: ContractId InterfaceMod:Root) (root: InterfaceMod:Root) ->
+      unsafe_from_required_interface @InterfaceMod:Root @InterfaceMod:Boxy cid root;
+
+  val boxyTemplateTypeRep: InterfaceMod:Boxy -> TypeRep =
+    \(boxy: InterfaceMod:Boxy) ->
+      interface_template_type_rep @InterfaceMod:Boxy boxy;
+
+  val boxySignatory: InterfaceMod:Boxy -> List Party =
+    \(boxy: InterfaceMod:Boxy) ->
+      signatory_interface @InterfaceMod:Boxy boxy;
+
+  val boxyObserver: InterfaceMod:Boxy -> List Party =
+    \(boxy: InterfaceMod:Boxy) ->
+      observer_interface @InterfaceMod:Boxy boxy;
+}

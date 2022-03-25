@@ -714,6 +714,30 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setContractIdExpr(cid)
               .setInterfaceExpr(value)
           )
+        case EInterfaceTemplateTypeRep(iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setInterfaceTemplateTypeRep(
+            PLF.Expr.InterfaceTemplateTypeRep
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
+        case ESignatoryInterface(iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setSignatoryInterface(
+            PLF.Expr.SignatoryInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
+        case EObserverInterface(iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setObserverInterface(
+            PLF.Expr.ObserverInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))

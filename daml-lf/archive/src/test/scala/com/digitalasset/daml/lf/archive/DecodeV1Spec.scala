@@ -12,17 +12,23 @@ import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.daml_lf_dev.DamlLf1
 import com.daml.lf.language.Ast.{
+  EFromInterface,
+  EFromRequiredInterface,
   EInterfaceTemplateTypeRep,
   EObserverInterface,
-  EPrimLit,
   EPrimCon,
-  PCUnit,
-  GenTemplate,
+  EPrimLit,
+  ESignatoryInterface,
+  EToInterface,
+  EToRequiredInterface,
+  EUnsafeFromInterface,
+  EUnsafeFromRequiredInterface,
+  FeatureFlags,
   GenDefInterface,
   GenModule,
+  GenTemplate,
   GenTemplateImplements,
-  FeatureFlags,
-  ESignatoryInterface,
+  PCUnit,
   PLRoundingMode,
 }
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -53,6 +59,11 @@ class DecodeV1Spec
   val unitExpr: DamlLf1.Expr = DamlLf1.Expr
     .newBuilder()
     .setPrimCon(DamlLf1.PrimCon.CON_UNIT)
+    .build()
+
+  val falseExpr: DamlLf1.Expr = DamlLf1.Expr
+    .newBuilder()
+    .setPrimCon(DamlLf1.PrimCon.CON_FALSE)
     .build()
 
   "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
@@ -1063,7 +1074,7 @@ class DecodeV1Spec
     }
 
     val interfacePrimitivesDottedNameTable =
-      ImmArraySeq("Mod", "I").map(Ref.DottedName.assertFromString)
+      ImmArraySeq("Mod", "T", "I", "J").map(Ref.DottedName.assertFromString)
 
     val interfacePrimitivesTestCases = {
 
@@ -1071,9 +1082,15 @@ class DecodeV1Spec
       val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
       val modRef =
         DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-      val ifaceTyConName =
+      val templateTyConName =
         DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+      val ifaceTyConName =
+        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+      val requiredIfaceTyConName =
+        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
+      val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
       val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
+      val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
 
       val interfaceTemplateTypeRep = DamlLf1.Expr
         .newBuilder()
@@ -1108,6 +1125,75 @@ class DecodeV1Spec
         )
         .build()
 
+      val toInterface = DamlLf1.Expr
+        .newBuilder()
+        .setToInterface(
+          DamlLf1.Expr.ToInterface
+            .newBuilder()
+            .setInterfaceType(ifaceTyConName)
+            .setTemplateType(templateTyConName)
+            .setTemplateExpr(unitExpr)
+            .build()
+        )
+        .build()
+      val fromInterface = DamlLf1.Expr
+        .newBuilder()
+        .setFromInterface(
+          DamlLf1.Expr.FromInterface
+            .newBuilder()
+            .setInterfaceType(ifaceTyConName)
+            .setTemplateType(templateTyConName)
+            .setInterfaceExpr(unitExpr)
+            .build()
+        )
+        .build()
+      val unsafeFromInterface = DamlLf1.Expr
+        .newBuilder()
+        .setUnsafeFromInterface(
+          DamlLf1.Expr.UnsafeFromInterface
+            .newBuilder()
+            .setInterfaceType(ifaceTyConName)
+            .setTemplateType(templateTyConName)
+            .setContractIdExpr(unitExpr)
+            .setInterfaceExpr(falseExpr)
+            .build()
+        )
+        .build()
+      val toRequiredInterface = DamlLf1.Expr
+        .newBuilder()
+        .setToRequiredInterface(
+          DamlLf1.Expr.ToRequiredInterface
+            .newBuilder()
+            .setRequiredInterface(requiredIfaceTyConName)
+            .setRequiringInterface(ifaceTyConName)
+            .setExpr(unitExpr)
+            .build()
+        )
+        .build()
+      val fromRequiredInterface = DamlLf1.Expr
+        .newBuilder()
+        .setFromRequiredInterface(
+          DamlLf1.Expr.FromRequiredInterface
+            .newBuilder()
+            .setRequiredInterface(requiredIfaceTyConName)
+            .setRequiringInterface(ifaceTyConName)
+            .setExpr(unitExpr)
+            .build()
+        )
+        .build()
+      val unsafeFromRequiredInterface = DamlLf1.Expr
+        .newBuilder()
+        .setUnsafeFromRequiredInterface(
+          DamlLf1.Expr.UnsafeFromRequiredInterface
+            .newBuilder()
+            .setRequiredInterface(requiredIfaceTyConName)
+            .setRequiringInterface(ifaceTyConName)
+            .setContractIdExpr(unitExpr)
+            .setInterfaceExpr(falseExpr)
+            .build()
+        )
+        .build()
+
       Table(
         "input" -> "expected output",
         interfaceTemplateTypeRep -> EInterfaceTemplateTypeRep(
@@ -1116,6 +1202,38 @@ class DecodeV1Spec
         ),
         signatoryInterface -> ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
         observerInterface -> EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+        toInterface -> EToInterface(
+          interfaceId = scalaIfaceTyConName,
+          templateId = scalaTemplateTyConName,
+          value = EUnit,
+        ),
+        fromInterface -> EFromInterface(
+          interfaceId = scalaIfaceTyConName,
+          templateId = scalaTemplateTyConName,
+          value = EUnit,
+        ),
+        unsafeFromInterface -> EUnsafeFromInterface(
+          interfaceId = scalaIfaceTyConName,
+          templateId = scalaTemplateTyConName,
+          contractIdExpr = EUnit,
+          ifaceExpr = EFalse,
+        ),
+        toRequiredInterface -> EToRequiredInterface(
+          requiredIfaceId = scalaRequiredIfaceTyConName,
+          requiringIfaceId = scalaIfaceTyConName,
+          body = EUnit,
+        ),
+        fromRequiredInterface -> EFromRequiredInterface(
+          requiredIfaceId = scalaRequiredIfaceTyConName,
+          requiringIfaceId = scalaIfaceTyConName,
+          body = EUnit,
+        ),
+        unsafeFromRequiredInterface -> EUnsafeFromRequiredInterface(
+          requiredIfaceId = scalaRequiredIfaceTyConName,
+          requiringIfaceId = scalaIfaceTyConName,
+          contractIdExpr = EUnit,
+          ifaceExpr = EFalse,
+        ),
       )
     }
 
