@@ -5,16 +5,22 @@ package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.Update
-import com.daml.ledger.participant.state.v2.Update.TransactionAccepted
+import com.daml.ledger.participant.state.v2.Update.{CommandRejected, TransactionAccepted}
+import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.logging.ContextualizedLogger
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
+import com.daml.platform.store.interfaces.TransactionLogUpdate.{
+  CompletionDetails,
+  LedgerEndMarker,
+  SubmissionRejected,
+}
 
 object Stream {
   private val logger = ContextualizedLogger.get(getClass)
@@ -27,12 +33,13 @@ object Stream {
         TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, initSeqId): TransactionLogUpdate
       )((prev, current) => {
         var currSeqId = prev match {
-          case TransactionLogUpdate.Transaction(_, _, _, _, events) =>
+          case TransactionLogUpdate.TransactionAccepted(_, _, _, _, events, _) =>
             events.last.eventSequentialId
           case TransactionLogUpdate.LedgerEndMarker(_, lastEventSeqId) => lastEventSeqId
+          case rejection: SubmissionRejected => rejection.lastEventSeqId
         }
         current match {
-          case transaction: TransactionLogUpdate.Transaction =>
+          case transaction: TransactionLogUpdate.TransactionAccepted =>
             transaction.copy(events = transaction.events.flatMap {
               case _: TransactionLogUpdate.DivulgenceEvent =>
                 currSeqId += 1
@@ -48,11 +55,13 @@ object Stream {
             })
           case ledgerEndMarker: LedgerEndMarker =>
             ledgerEndMarker.copy(lastEventSeqId = currSeqId)
+          case rejection: SubmissionRejected =>
+            rejection.copy(lastEventSeqId = currSeqId)
         }
       })
       .drop(1)
       .flatMapConcat {
-        case transaction: TransactionLogUpdate.Transaction =>
+        case transaction: TransactionLogUpdate.TransactionAccepted =>
           Source.fromIterator(() => {
             val eventSequentialId = transaction.events.last.eventSequentialId
             val offset = transaction.offset
@@ -68,6 +77,10 @@ object Stream {
           Source.fromIterator(() =>
             Iterator((ledgerEndMarker.offset -> ledgerEndMarker.lastEventSeqId, ledgerEndMarker))
           )
+        case rejection: SubmissionRejected =>
+          Source.fromIterator(() =>
+            Iterator((rejection.offset -> rejection.lastEventSeqId, rejection))
+          )
       }
       .map { case up @ ((offset, seqId), update) =>
         logger.withoutContext.info(
@@ -82,7 +95,7 @@ object TransactionUpdateToTransactionLogUpdate {
     case (
           offset,
           u @ TransactionAccepted(
-            _,
+            optCompletionInfo,
             transactionMeta,
             transaction,
             transactionId,
@@ -180,17 +193,70 @@ object TransactionUpdateToTransactionLogUpdate {
           )
       }
 
-      TransactionLogUpdate.Transaction(
+      TransactionLogUpdate.TransactionAccepted(
         transactionId = transactionId,
         workflowId = transactionMeta.workflowId.getOrElse(""), // TODO check
         effectiveAt = transactionMeta.ledgerEffectiveTime,
         offset = offset,
         events = events.toVector,
+        completionDetails = optCompletionInfo.map(completionInfo => {
+          val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+            deduplicationInfo(completionInfo)
+
+          CompletionDetails(
+            CompletionFromTransaction.acceptedCompletion(
+              recordTime = u.recordTime,
+              offset = offset,
+              commandId = completionInfo.commandId,
+              transactionId = transactionId,
+              applicationId = completionInfo.applicationId,
+              optSubmissionId = completionInfo.submissionId,
+              optDeduplicationOffset = deduplicationOffset,
+              optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+              optDeduplicationDurationNanos = deduplicationDurationNanos,
+            ),
+            submitters = completionInfo.actAs.toSet,
+          )
+        }),
+      )
+
+    case (offset, CommandRejected(recordTime, completionInfo, reasonTemplate)) =>
+      val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+        deduplicationInfo(completionInfo)
+
+      TransactionLogUpdate.SubmissionRejected(
+        offset = offset,
+        lastEventSeqId = 0L,
+        completionDetails = CompletionDetails(
+          CompletionFromTransaction.rejectedCompletion(
+            recordTime = recordTime,
+            offset = offset,
+            commandId = completionInfo.commandId,
+            status = reasonTemplate.status,
+            applicationId = completionInfo.applicationId,
+            optSubmissionId = completionInfo.submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
+          ),
+          submitters = completionInfo.actAs.toSet,
+        ),
       )
 
     case (offset, _) => LedgerEndMarker(offset, 0L)
   }
 
+  private def deduplicationInfo(completionInfo: CompletionInfo) =
+    completionInfo.optDeduplicationPeriod
+      .map {
+        case DeduplicationOffset(offset) =>
+          (Some(offset.toHexString), None, None)
+        case DeduplicationDuration(duration) =>
+          (None, Some(duration.getSeconds), Some(duration.getNano))
+      }
+      .getOrElse((None, None, None))
+
   type UpdateToTransactionLogUpdate =
     ((Offset, Update)) => TransactionLogUpdate
+
 }

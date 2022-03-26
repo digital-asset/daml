@@ -24,14 +24,14 @@ import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.g
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.{Transaction => TxUpdate}
+import com.daml.platform.store.interfaces.TransactionLogUpdate.{TransactionAccepted => TxUpdate}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
-    val transactionsBuffer: EventsBuffer[Offset, TransactionLogUpdate],
+    val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     toFlatTransaction: (
         TxUpdate,
         FilterRelation,
@@ -45,6 +45,11 @@ private[events] class BufferedTransactionsReader(
     extends LedgerDaoTransactionsReader {
 
   private val outputStreamBufferSize = 128
+
+  private val flatTransactionsBufferMetrics =
+    metrics.daml.services.index.BufferReader("flat_transacions")
+  private val transactionTreesBufferMetrics =
+    metrics.daml.services.index.BufferReader("transaction_trees")
 
   override def getFlatTransactions(
       startExclusive: Offset,
@@ -61,12 +66,11 @@ private[events] class BufferedTransactionsReader(
       toApiTx = toFlatTransaction(_, _, wildcardParties, templatesParties, _),
       apiResponseCtor = GetTransactionsResponse(_),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
-      toApiTxTimer = metrics.daml.services.index.streamsBuffer.toFlatTransactions,
-      sourceTimer = metrics.daml.services.index.streamsBuffer.getFlatTransactions,
-      resolvedFromBufferCounter =
-        metrics.daml.services.index.streamsBuffer.flatTransactionsBuffered,
-      totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.flatTransactionsTotal,
-      bufferSizeCounter = metrics.daml.services.index.streamsBuffer.flatTransactionsBufferSize,
+      toApiTxTimer = flatTransactionsBufferMetrics.conversion,
+      sourceTimer = flatTransactionsBufferMetrics.fetchTimer,
+      resolvedFromBufferCounter = flatTransactionsBufferMetrics.fetchedBuffered,
+      totalRetrievedCounter = flatTransactionsBufferMetrics.fetchedTotal,
+      bufferSizeCounter = flatTransactionsBufferMetrics.bufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
   }
@@ -84,12 +88,11 @@ private[events] class BufferedTransactionsReader(
         toTransactionTree(tx, requestingParties.map(_.toString), verbose),
       apiResponseCtor = GetTransactionTreesResponse(_),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
-      toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
-      sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
-      resolvedFromBufferCounter =
-        metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
-      totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-      bufferSizeCounter = metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
+      toApiTxTimer = transactionTreesBufferMetrics.conversion,
+      sourceTimer = transactionTreesBufferMetrics.fetchTimer,
+      resolvedFromBufferCounter = transactionTreesBufferMetrics.fetchedBuffered,
+      totalRetrievedCounter = transactionTreesBufferMetrics.fetchedTotal,
+      bufferSizeCounter = transactionTreesBufferMetrics.bufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
 
@@ -146,7 +149,7 @@ private[platform] object BufferedTransactionsReader {
 
   def apply(
       delegate: LedgerDaoTransactionsReader,
-      transactionsBuffer: EventsBuffer[Offset, TransactionLogUpdate],
+      transactionsBuffer: EventsBuffer[TransactionLogUpdate],
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
   )(implicit
@@ -164,7 +167,7 @@ private[platform] object BufferedTransactionsReader {
     )
 
   private[events] def getTransactions[FILTER, API_TX, API_RESPONSE](
-      transactionsBuffer: EventsBuffer[Offset, TransactionLogUpdate]
+      transactionsBuffer: EventsBuffer[TransactionLogUpdate]
   )(
       startExclusive: Offset,
       endInclusive: Offset,

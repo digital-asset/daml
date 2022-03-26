@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.io.PrintWriter
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -22,6 +21,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer._
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
@@ -255,8 +255,11 @@ class IntegrityChecker[LogResult](
     val indexerFactory = new JdbcIndexer.Factory(
       config,
       readService,
+      stringInterningView = null, // TODO LLP
       metrics,
       lfValueTranslationCache,
+      updatesQueue = null, // TODO LLP
+      ledgerEndUpdater = (_: LedgerEnd) => (), // TODO LLP
     )
     for {
       migrating <- ResourceOwner.forFuture(() =>

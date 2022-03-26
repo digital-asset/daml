@@ -19,6 +19,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 
@@ -65,11 +66,14 @@ class IndexerBenchmark() {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
-        config.indexerConfig,
-        readService,
-        metrics,
-        LfValueTranslationCache.Cache.none,
+      val indexerFactory = new JdbcIndexer.Factory(
+        config = config.indexerConfig,
+        readService = readService,
+        stringInterningView = null, // TODO LLP
+        metrics = metrics,
+        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+        updatesQueue = null, // TODO LLP
+        ledgerEndUpdater = (_: LedgerEnd) => (), // TODO LLP
       )
 
       val resource = for {

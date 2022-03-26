@@ -347,14 +347,15 @@ private[appendonlydao] final class TransactionsReader(
 
   private def toTransaction(
       events: Vector[TransactionLogUpdate.Event]
-  ): TransactionLogUpdate.Transaction = {
+  ): TransactionLogUpdate.TransactionAccepted = {
     val first = events.head
-    TransactionLogUpdate.Transaction(
+    TransactionLogUpdate.TransactionAccepted(
       transactionId = first.transactionId,
       workflowId = first.workflowId,
       effectiveAt = first.ledgerEffectiveTime,
       offset = first.eventOffset,
       events = events,
+      completionDetails = None,
     )
   }
 

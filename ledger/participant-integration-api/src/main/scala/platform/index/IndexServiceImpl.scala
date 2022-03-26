@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   LedgerId,
@@ -27,16 +26,12 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.{
-  ContractStore,
-  IndexService,
-  MaximumLedgerTime,
-  _,
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
@@ -44,11 +39,15 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.appendonlydao.{
+  LedgerDaoCommandCompletionsReader,
+  LedgerDaoTransactionsReader,
+  LedgerReadDao,
+}
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
@@ -59,6 +58,7 @@ private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
+    completionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
@@ -144,7 +144,7 @@ private[index] class IndexServiceImpl(
       dispatcher
         .startingAt(
           beginOpt,
-          RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
+          RangeSource(completionsReader.getCommandCompletions(_, _, applicationId, parties)),
           None,
         )
         .map(_._2)
@@ -161,7 +161,7 @@ private[index] class IndexServiceImpl(
       dispatcher
         .startingAt(
           start.getOrElse(Offset.beforeBegin),
-          RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
+          RangeSource(completionsReader.getCommandCompletions(_, _, applicationId, parties)),
           end,
         )
         .map(_._2)

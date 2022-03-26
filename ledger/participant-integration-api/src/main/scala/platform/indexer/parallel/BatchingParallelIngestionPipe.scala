@@ -24,7 +24,8 @@ object BatchingParallelIngestionPipe {
       tailer: (DB_BATCH, DB_BATCH) => DB_BATCH,
       tailingRateLimitPerSecond: Int,
       ingestTail: DB_BATCH => Future[DB_BATCH],
-  )(source: Source[IN, NotUsed]): Source[Unit, NotUsed] =
+  )(source: Source[IN, NotUsed]): Source[Unit, NotUsed] = {
+    val _ = tailingRateLimitPerSecond // TODO LLP
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
@@ -41,8 +42,8 @@ object BatchingParallelIngestionPipe {
       .mapAsync(ingestingParallelism)(ingester)
       // Stage 6: Preparing data sequentially for throttled mutations in database (tracking the ledger-end, corresponding sequential event ids and latest-at-the-time configurations)
       .conflate(tailer)
-      .throttle(tailingRateLimitPerSecond, FiniteDuration(1, "seconds"))
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .map(_ => ())
+  }
 }

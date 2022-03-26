@@ -3,9 +3,8 @@
 
 package com.daml.platform.index
 
-import java.util.concurrent.atomic.AtomicReference
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream._
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -14,10 +13,11 @@ import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEven
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 /** Creates and manages a subscription to a transaction log updates source
   * (see [[LedgerDaoTransactionsReader.getTransactionLogUpdates]]
@@ -109,6 +109,7 @@ private[index] object BuffersUpdater {
   def apply(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
+      updateCompletionsBuffer: (Offset, TransactionLogUpdate) => Unit,
       updateMutableCache: ContractStateEvent => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
@@ -122,6 +123,7 @@ private[index] object BuffersUpdater {
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
     updateCaches = (offset, transactionLogUpdate) => {
       updateTransactionsBuffer(offset, transactionLogUpdate)
+      updateCompletionsBuffer(offset, transactionLogUpdate)
       toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
@@ -132,7 +134,7 @@ private[index] object BuffersUpdater {
       tx: TransactionLogUpdate
   ): Iterator[ContractStateEvent] =
     tx match {
-      case tx: TransactionLogUpdate.Transaction =>
+      case tx: TransactionLogUpdate.TransactionAccepted =>
         tx.events.iterator.collect {
           case createdEvent: TransactionLogUpdate.CreatedEvent =>
             ContractStateEvent.Created(
@@ -163,5 +165,8 @@ private[index] object BuffersUpdater {
         }
       case TransactionLogUpdate.LedgerEndMarker(eventOffset, eventSequentialId) =>
         Iterator(ContractStateEvent.LedgerEndMarker(eventOffset, eventSequentialId))
+      case _: TransactionLogUpdate.SubmissionRejected =>
+        // Nothing to update the cache on rejections
+        Iterator.empty
     }
 }

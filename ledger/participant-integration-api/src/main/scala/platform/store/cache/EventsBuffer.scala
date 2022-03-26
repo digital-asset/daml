@@ -3,19 +3,21 @@
 
 package com.daml.platform.store.cache
 
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.ledger.offset.Offset
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.cache.BufferSlice.{BufferSlice, Empty, Inclusive, Prefix}
 import com.daml.platform.store.cache.EventsBuffer.{
   BufferStateRef,
   RequestOffBufferBounds,
   SearchableByVector,
   UnorderedException,
 }
-import com.daml.platform.store.cache.BufferSlice.{Inclusive, Prefix, BufferSlice, Empty}
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.math.Ordering
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** An ordered-by-offset ring buffer.
   *
@@ -24,23 +26,25 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   * @param maxBufferSize The maximum buffer size.
   * @param metrics The Daml metrics.
   * @param bufferQualifier The qualifier used for metrics tag specialization.
-  * @param isRangeEndMarker Identifies if an element [[E]] should be treated
+  * @param ignoreMarker Identifies if an element [[E]] should be treated
   *                         as a range end marker, in which case the element would be treated
   *                         as a buffer range end updater and not appended to the actual buffer.
   * @tparam O The offset type.
   * @tparam E The entry buffer type.
   */
-private[platform] final class EventsBuffer[O: Ordering, E](
+private[platform] final class EventsBuffer[E](
     maxBufferSize: Long,
     metrics: Metrics,
     bufferQualifier: String,
-    isRangeEndMarker: E => Boolean,
+    ignoreMarker: E => Boolean,
 ) {
-  @volatile private var _bufferStateRef = BufferStateRef[O, E]()
+  @volatile private var _bufferStateRef = BufferStateRef[Offset, E]()
+  private var lastPrunedOffset = Option.empty[Offset]
 
-  private val pushTimer = metrics.daml.services.index.streamsBuffer.push(bufferQualifier)
-  private val sliceTimer = metrics.daml.services.index.streamsBuffer.slice(bufferQualifier)
-  private val pruneTimer = metrics.daml.services.index.streamsBuffer.prune(bufferQualifier)
+  private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
+  private val pushTimer = bufferMetrics.push
+  private val sliceTimer = bufferMetrics.slice
+  private val pruneTimer = bufferMetrics.prune
 
   /** Appends a new event to the buffer.
     *
@@ -51,7 +55,7 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     *              of the range end marker, which can have an offset equal to the last appended element.
     * @param entry The buffer entry.
     */
-  def push(offset: O, entry: E): Unit =
+  def push(offset: Offset, entry: E): Unit =
     Timed.value(
       pushTimer,
       synchronized {
@@ -59,7 +63,7 @@ private[platform] final class EventsBuffer[O: Ordering, E](
           // Ensure vector grows with strictly monotonic offsets.
           // Only specially-designated range end markers are allowed
           // to have offsets equal to the buffer range end.
-          if (lastOffset > offset || (lastOffset == offset && !isRangeEndMarker(entry))) {
+          if (lastOffset > offset || (lastOffset == offset && !ignoreMarker(entry))) {
             throw UnorderedException(lastOffset, offset)
           }
         }
@@ -67,7 +71,7 @@ private[platform] final class EventsBuffer[O: Ordering, E](
         var auxBufferVector = _bufferStateRef.vector
 
         // The range end markers are not appended to the buffer
-        if (!isRangeEndMarker(entry)) {
+        if (!ignoreMarker(entry)) {
           if (auxBufferVector.size.toLong == maxBufferSize) {
             auxBufferVector = auxBufferVector.drop(1)
           }
@@ -87,7 +91,17 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     * @param endInclusive The end inclusive bound of the requested range.
     * @return The series of events as an ordered vector satisfying the input bounds.
     */
-  def slice(startExclusive: O, endInclusive: O): BufferSlice[(O, E)] =
+  def slice(startExclusive: Offset, endInclusive: Offset): BufferSlice[(Offset, E)] = if (
+    lastPrunedOffset.exists(_ > startExclusive)
+  ) {
+    throw LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
+      .Reject(
+        cause =
+          s"Buffered entries request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${lastPrunedOffset.get.toHexString}",
+        earliestOffset = lastPrunedOffset.get.toHexString,
+      )(DamlContextualizedErrorLogger.forTesting(getClass))
+      .asGrpcError
+  } else
     Timed.value(
       sliceTimer, {
         val bufferSnapshot = _bufferStateRef
@@ -117,11 +131,12 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     *
     * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
     */
-  def prune(endInclusive: O): Unit =
+  def prune(endInclusive: Offset): Unit =
     Timed.value(
       pruneTimer,
       synchronized {
-        _bufferStateRef.vector.searchBy[O](endInclusive, _._1) match {
+        lastPrunedOffset = Some(endInclusive)
+        _bufferStateRef.vector.searchBy(endInclusive, _._1) match {
           case Found(foundIndex) =>
             _bufferStateRef =
               _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(foundIndex + 1))

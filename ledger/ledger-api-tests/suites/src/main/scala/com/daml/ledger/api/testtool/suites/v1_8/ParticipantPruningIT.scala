@@ -131,7 +131,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
-            s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
+            s"(request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
           )
         ),
       )
@@ -177,7 +177,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
-            s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
+            s"(request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
           )
         ),
       )
@@ -230,7 +230,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
-            s"Command completions? request from [0-9a-fA-F]* to [0-9a-fA-F]* overlaps with pruned offset ${offsetToPruneUpTo.getAbsolute}"
+            s"(request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute}|request from [0-9a-fA-F]* to [0-9a-fA-F]* overlaps with pruned offset ${offsetToPruneUpTo.getAbsolute})"
           )
         ),
       )

@@ -17,11 +17,20 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
-import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
-import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.appendonlydao.events.{
+  BufferedCommandCompletionsReader,
+  BufferedTransactionsReader,
+  LfValueTranslation,
+}
+import com.daml.platform.store.appendonlydao.{
+  LedgerDaoCommandCompletionsReader,
+  LedgerDaoTransactionsReader,
+  LedgerReadDao,
+}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{EventsBuffer, LedgerEndCache, MutableCacheBackedContractStore}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
@@ -74,11 +83,10 @@ private[platform] case class IndexServiceBuilder(
         maxContractStateCacheSize,
         maxContractKeyStateCacheSize,
       )(servicesExecutionContext, loggingContext)
-      (transactionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
+      (transactionsReader, completionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
         contractStore,
         ledgerDao,
         prefetchingDispatcher,
-        ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
         ledgerEndCache,
         updatesSource,
       )
@@ -87,6 +95,7 @@ private[platform] case class IndexServiceBuilder(
       participantId,
       ledgerDao,
       transactionsReader,
+      completionsReader,
       contractStore,
       pruneBuffers,
       generalDispatcher,
@@ -97,17 +106,28 @@ private[platform] case class IndexServiceBuilder(
       contractStore: MutableCacheBackedContractStore,
       ledgerReadDao: LedgerReadDao,
       cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
-      startExclusive: (Offset, Long),
       ledgerEndCache: LedgerEndCache,
       updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
-  ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] = {
-    val _ = startExclusive // TODO LLP
+  ): ResourceOwner[(LedgerDaoTransactionsReader, LedgerDaoCommandCompletionsReader, PruneBuffers)] =
     if (enableInMemoryFanOutForLedgerApi) {
-      val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
+      val completionsBuffer = new EventsBuffer[TransactionLogUpdate](
+        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
+        metrics = metrics,
+        bufferQualifier = "completions",
+        ignoreMarker = _.isInstanceOf[LedgerEndMarker],
+      )
+
+      val bufferedCompletionsReader = new BufferedCommandCompletionsReader(
+        completionsBuffer = completionsBuffer,
+        delegate = ledgerReadDao.completions,
+        metrics = metrics,
+      )
+
+      val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
-        isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+        ignoreMarker = !_.isInstanceOf[TransactionLogUpdate.TransactionAccepted],
       )
 
       val bufferedTransactionsReader = BufferedTransactionsReader(
@@ -128,11 +148,19 @@ private[platform] case class IndexServiceBuilder(
           BuffersUpdater(
             subscribeToTransactionLogUpdates = _ => updatesSource,
             updateTransactionsBuffer = transactionsBuffer.push,
+            updateCompletionsBuffer = completionsBuffer.push,
             updateMutableCache = contractStore.push,
             executionContext = servicesExecutionContext,
           )
         )
-      } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
+      } yield (
+        bufferedTransactionsReader,
+        bufferedCompletionsReader,
+        (offset: Offset) => {
+          transactionsBuffer.prune(offset)
+          completionsBuffer.prune(offset)
+        },
+      )
     } else
       new MutableCacheBackedContractStore.CacheUpdateSubscription(
         contractStore = contractStore,
@@ -148,8 +176,7 @@ private[platform] case class IndexServiceBuilder(
             )
             .map(_._2)
         },
-      ).map(_ => (ledgerReadDao.transactionsReader, PruneBuffersNoOp))
-  }
+      ).map(_ => (ledgerReadDao.transactionsReader, ledgerReadDao.completions, PruneBuffersNoOp))
 
   private def dispatcherOffsetSeqIdOwner(
       ledgerEnd: LedgerEnd

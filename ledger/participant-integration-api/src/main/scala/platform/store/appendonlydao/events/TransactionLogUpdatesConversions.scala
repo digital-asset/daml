@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def apply(
-        tx: TransactionLogUpdate.Transaction,
+        tx: TransactionLogUpdate.TransactionAccepted,
         filter: FilterRelation,
         wildcardParties: Set[String],
         templateSpecificParties: Map[events.Identifier, Set[String]],
@@ -192,7 +192,7 @@ private[events] object TransactionLogUpdatesConversions {
 
   object ToTransactionTree {
     def apply(
-        tx: TransactionLogUpdate.Transaction,
+        tx: TransactionLogUpdate.TransactionAccepted,
         requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
