@@ -57,8 +57,8 @@ private[index] class BuffersUpdater(
         )
       )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
       .map { case ((offset, eventSequentialId), update) =>
-        logger.info(s"Updating caches at offset $offset - $eventSequentialId")
         updateCaches(offset, update)
+        logger.info(s"Updated caches at offset $offset - $eventSequentialId")
         updaterIndex.set(Some(offset -> eventSequentialId))
       }
       .mapError { case NonFatal(e) =>

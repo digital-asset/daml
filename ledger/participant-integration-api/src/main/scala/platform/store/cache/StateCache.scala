@@ -106,7 +106,7 @@ private[platform] case class StateCache[K, V](
       loggingContext: LoggingContext
   ): Unit = {
     cache.put(key, value)
-    logger.debug(s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt")
+    logger.info(s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt")
   }
 
   private def registerEventualCacheUpdate(

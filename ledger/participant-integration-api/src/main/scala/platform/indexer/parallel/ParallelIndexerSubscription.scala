@@ -82,6 +82,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           le => { connection =>
             parameterStorageBackend.updateLedgerEnd(le)(connection)
             ledgerEndUpdater(le)
+            logger.info(s"Updated ledger end globally: $le")
           },
           dbDispatcher,
           metrics,
