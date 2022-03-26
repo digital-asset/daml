@@ -72,7 +72,7 @@ class BufferedTransactionsReaderSpec
       maxBufferSize = 3L,
       metrics = metrics,
       bufferQualifier = "test",
-      isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+      ignoreMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
     )
 
     offsetUpdates.foreach { case (offset, update) =>
@@ -95,12 +95,12 @@ class BufferedTransactionsReaderSpec
           toApiTx = toApiTx,
           apiResponseCtor = apiResponseCtor,
           fetchTransactions = fetchTransactions,
-          toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
-          sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
+          toApiTxTimer = metrics.daml.services.index.BufferReader.toTransactionTrees,
+          sourceTimer = metrics.daml.services.index.BufferReader.getTransactionTrees,
           resolvedFromBufferCounter =
-            metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
-          totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-          bufferSizeCounter = metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
+            metrics.daml.services.index.BufferReader.transactionTreesBuffered,
+          totalRetrievedCounter = metrics.daml.services.index.BufferReader.transactionTreesTotal,
+          bufferSizeCounter = metrics.daml.services.index.BufferReader.transactionTreesBufferSize,
           outputStreamBufferSize = 128,
         )
         .runWith(Sink.seq)
@@ -165,7 +165,7 @@ class BufferedTransactionsReaderSpec
           maxBufferSize = 1L,
           metrics = metrics,
           bufferQualifier = "test",
-          isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+          ignoreMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
         )
 
         offsetUpdates.foreach { case (offset, update) =>

@@ -72,12 +72,12 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
     } yield {
       val (
         Seq(
-          actualTx1: TransactionLogUpdate.Transaction,
-          actualTx2: TransactionLogUpdate.Transaction,
-          actualTx3: TransactionLogUpdate.Transaction,
-          actualTx4: TransactionLogUpdate.Transaction,
-          actualTx5: TransactionLogUpdate.Transaction,
-          actualTx6: TransactionLogUpdate.Transaction,
+          actualTx1: TransactionLogUpdate.TransactionAccepted,
+          actualTx2: TransactionLogUpdate.TransactionAccepted,
+          actualTx3: TransactionLogUpdate.TransactionAccepted,
+          actualTx4: TransactionLogUpdate.TransactionAccepted,
+          actualTx5: TransactionLogUpdate.TransactionAccepted,
+          actualTx6: TransactionLogUpdate.TransactionAccepted,
         ),
         Seq(endMarker: TransactionLogUpdate.LedgerEndMarker),
       ) = result.splitAt(6)
@@ -101,7 +101,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
   }
 
   private def assertExpectedEquality(
-      actual: TransactionLogUpdate.Transaction,
+      actual: TransactionLogUpdate.TransactionAccepted,
       expected: LedgerEntry.Transaction,
       expectedOffset: Offset,
       exercisedContractKey: Map[Offset, Value],

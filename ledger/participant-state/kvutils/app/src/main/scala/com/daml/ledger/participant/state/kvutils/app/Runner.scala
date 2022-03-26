@@ -182,6 +182,9 @@ final class Runner[T <: ReadWriteService, Extra](
                   config = configProvider.indexerConfig(participantConfig, config),
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
+                  stringInterningView = null,
+                  updatesQueue = null,
+                  ledgerEndUpdater = _ => (),
                 ).acquire()
               } yield {
                 new HealthChecks(
@@ -222,6 +225,12 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
+                  updatesSource = null, // TODO LLP
+                  stringInterningView = null, // TODO LLP
+                  ledgerEnd = null, // TODO LLP
+                  ledgerEndCache = null, // TODO LLP
+                  generalDispatcher = null, // TODO LLP
+                  ledgerReadDao = null, // TODO LLP
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,

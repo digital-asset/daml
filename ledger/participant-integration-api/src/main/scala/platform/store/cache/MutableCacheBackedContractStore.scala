@@ -18,7 +18,12 @@ import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{ActiveContract, ArchivedContract, ContractState, KeyState}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
+  ActiveContract,
+  ArchivedContract,
+  ContractState,
+  KeyState,
+}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}

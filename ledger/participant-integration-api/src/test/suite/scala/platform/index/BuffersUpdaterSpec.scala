@@ -68,6 +68,7 @@ final class BuffersUpdaterSpec
       val buffersUpdater = BuffersUpdater(
         subscribeToTransactionLogUpdates = { _ => source },
         updateTransactionsBuffer = updateTransactionsBufferMock,
+        updateCompletionsBuffer = (_, _) => (),
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
         updateMutableCache = contractStateMock += _,
         executionContext = scala.concurrent.ExecutionContext.global,
@@ -129,6 +130,7 @@ final class BuffersUpdaterSpec
       val buffersUpdater = BuffersUpdater(
         subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
         updateTransactionsBuffer = updateTransactionsBufferMock,
+        updateCompletionsBuffer = (_, _) => (),
         toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
         updateMutableCache = _ => (),
         executionContext = scala.concurrent.ExecutionContext.global,
@@ -162,6 +164,7 @@ final class BuffersUpdaterSpec
         subscribeToTransactionLogUpdates =
           _ => Source(scala.collection.immutable.Seq(offset1 -> update1, offset2 -> update2)),
         updateTransactionsBuffer = updateTransactionsBufferMock,
+        updateCompletionsBuffer = (_, _) => (),
         toContractStateEvents = Map.empty,
         updateMutableCache = _ => (),
         executionContext = scala.concurrent.ExecutionContext.global,
@@ -197,7 +200,7 @@ final class BuffersUpdaterSpec
       )
     }
 
-    "convert TransactionLogUpdate.Transaction to a series of ContractStateEvent (created/archived)" in {
+    "convert TransactionLogUpdate.TransactionAccepted to a series of ContractStateEvent (created/archived)" in {
       val createdCid = ContractId.V1(Hash.hashPrivateKey("createdCid"))
       val createdOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
       val createdEventSeqId = 9876L
@@ -258,7 +261,7 @@ final class BuffersUpdaterSpec
         createObservers = null,
         createAgreementText = Some(createAgreement),
       )
-      val transaction = TransactionLogUpdate.Transaction(
+      val transaction = TransactionLogUpdate.TransactionAccepted(
         transactionId = "some-tx-id",
         workflowId = "some-workflow-id",
         effectiveAt = Timestamp.Epoch,
@@ -271,6 +274,7 @@ final class BuffersUpdaterSpec
             eventSequentialId = consumingExercise.eventSequentialId + 1L,
           ),
         ),
+        completionDetails = None, // TODO LLP address
       )
 
       BuffersUpdater
