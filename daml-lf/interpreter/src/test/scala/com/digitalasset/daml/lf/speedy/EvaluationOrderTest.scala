@@ -354,7 +354,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         ImmArray(
           None -> Value.ValueParty(alice),
           None -> Value.ValueParty(bob),
-          None -> Value.ValueParty { alice },
+          None -> Value.ValueParty(alice),
         ),
       ),
       "agreement",
@@ -1616,7 +1616,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                     SErrorDamlException(
                       IE.FailedAuthorization(
                         _,
-                        IE.FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
+                        FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
                       )
                     )
                   )
