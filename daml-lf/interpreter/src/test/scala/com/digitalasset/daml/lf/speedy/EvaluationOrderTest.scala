@@ -204,6 +204,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty
           in exercise @Test:Bridge FetchById bridgeId cId;
 
+      val fetch_by_interface: Party -> ContractId M:Person -> Update Unit =
+        \(fetchingParty: Party) (cId: ContractId M:Person) ->
+          ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty
+          in exercise @Test:Bridge FetchByInterface bridgeId cId;
+
       val fetch_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit =
         \(fetchingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) ->
            ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty
@@ -266,6 +271,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
           to Test:run @M:T (fetch @M:T cId);
+        choice FetchByInterface (self) (cId: ContractId M:Person): Unit,
+          controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
+          observers Nil @Party
+          to Test:run @M:Person (fetch_by_interface @M:Person cId);
         choice FetchByKey (self) (params: Test:TKeyParams): Unit,
           controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
@@ -2137,6 +2146,262 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq("starts test", "maintainers")
         }
       }
+    }
+
+    "fetch by interface" - {
+
+      "a non-cached global contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_interface of a non-cached global contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""Test:fetch_by_interface""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getIfaceContract,
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "ends test",
+            )
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a non-cached global contract that doesn't implement interface.
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""Test:fetch_by_interface""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
+                ) =>
+              msgs shouldBe Seq("starts test", "queries contract")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a non-cached global contract with failed authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""Test:fetch_by_interface""",
+            Array(SParty(charlie), SContractId(cId)),
+            Set(alice, charlie),
+            getContract = getIfaceContract,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+            )
+          }
+        }
+      }
+
+      "a cached global contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_interface of a cached global contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:Person) ->
+               ubind x: M:Person <- fetch @M:Person cId in
+               Test:fetch_by_interface fetchingParty cId
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getIfaceContract,
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq("starts test", "ends test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an inactive global contract
+        "inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:Person)  ->
+             ubind x: Unit <- exercise @M:Human Archive cId ()
+             in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getIfaceContract,
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a cached global contract not implementing the interface.
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:Person) ->
+               ubind x: M:Dummy <- fetch @M:Dummy cId
+               in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
+                ) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:Human) ->
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId ()
+               in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of cached global contract with failure authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:Person) ->
+               ubind x: M:Person <- fetch @M:Person cId
+               in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(charlie), SContractId(cId)),
+            Set(alice, charlie),
+            getContract = getIfaceContract,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq("starts test")
+          }
+        }
+      }
+
+      "a local contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_interface of a local contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
+             ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig }
+             in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(alice), SParty(bob), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq("starts test", "ends test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an inactive local contract
+        "inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (obs : Party) (fetchingParty: Party) ->
+             ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig }
+             in ubind x: Unit <- exercise @M:Human Archive cId ()
+             in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(alice), SParty(bob), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an local contract not implementing the interface
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (fetchingParty: Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
+             in let cId2: ContractId M:Human = COERCE_CONTRACT_ID @M:Dummy @M:Human cId1
+             in Test:fetch_by_interface fetchingParty cId2""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
+                ) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+        // TEST_EVIDENCE: Semantics: This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (fetchingParty: Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
+             in let cId2: ContractId M:Human = COERCE_CONTRACT_ID @M:Dummy @M:Human cId1
+             in Test:fetch_by_interface fetchingParty cId2""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a cached global contract with failure authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
+                  ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig }
+                  in Test:fetch_by_interface fetchingParty cId""",
+            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            Set(alice, charlie),
+            getContract = getIfaceContract,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq("starts test")
+          }
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an unknown contract
+      "unknown contract" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(fetchingParty: Party) (cId: ContractId M:Person) -> Test:fetch_by_interface fetchingParty cId""",
+          Array(SParty(alice), SContractId(cId)),
+          Set(alice),
+          getContract = PartialFunction.empty,
+        )
+        inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
+          msgs shouldBe Seq("starts test", "queries contract")
+        }
+      }
+
     }
 
     "lookup_by_key" - {
