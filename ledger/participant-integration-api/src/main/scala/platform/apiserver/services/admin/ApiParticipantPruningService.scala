@@ -112,7 +112,7 @@ final class ApiParticipantPruningService private (
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
       .asScala
       .flatMap {
-        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case NotPruned(status) => Future.failed(errorFactories.grpcError(status))
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
