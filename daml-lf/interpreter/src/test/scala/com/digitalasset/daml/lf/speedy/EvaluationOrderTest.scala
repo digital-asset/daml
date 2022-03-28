@@ -13,6 +13,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
@@ -78,12 +79,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       interface (this: Person) = {
         precondition True;
         method asParty: Party;
+        method getCtrl: Party;
         method getName: Text;
         choice Sleep (self) (u:Unit) : ContractId M:Person
-          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person asParty this] (Nil @Party))
+          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person getCtrl this] (Nil @Party))
           to upure @(ContractId M:Person) self;
         choice @nonConsuming Nap (self) (i : Int64): Int64
-          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person asParty this] (Nil @Party))
+          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person getCtrl this] (Nil @Party))
           , observers TRACE @(List Party) "choice observers" (Nil @Party)
           to upure @Int64 (TRACE @Int64 "choice body" i);
       } ;
@@ -123,7 +125,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         };
       };
 
-      record @serializable Human = { person: Party, obs: Party };
+      record @serializable Human = { person: Party, obs: Party, ctrl: Party };
       template (this : Human) = {
         precondition True;
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
@@ -135,6 +137,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         implements M:Person {
           method asParty = M:Human {person} this;
           method getName = "foobar";
+          method getCtrl = M:Human {ctrl} this;
           choice Sleep;
           choice Nap;
           };
@@ -351,6 +354,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         ImmArray(
           None -> Value.ValueParty(alice),
           None -> Value.ValueParty(bob),
+          None -> Value.ValueParty(alice),
         ),
       ),
       "agreement",
@@ -1468,7 +1472,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // This checks that type checking is done after checking activeness.
+        // TEST_EVIDENCE: Semantics: This checks that type checking is done after checking activeness.
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1516,7 +1520,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty} in
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty} in
              Test:exercise_interface exercisingParty cId
              """,
             Array(SParty(alice)),
@@ -1531,6 +1535,98 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "choice body",
               "ends test",
             )
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an inactive local contract
+        "inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) ->
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty} in
+             ubind x: Unit <- exercise @M:Human Archive cId ()
+             in
+             Test:exercise_interface exercisingParty cId
+             """,
+            Array(SParty(alice)),
+            Set(alice),
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an local contract not implementing the interface
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = exercisingParty }
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in
+               Test:exercise_interface exercisingParty cId1
+             """,
+            Array(SParty(alice)),
+            Set(alice),
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
+                ) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: This checks that type checking in exercise_interface is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = exercisingParty}
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in
+               Test:exercise_interface exercisingParty cId1
+             """,
+            Array(SParty(alice)),
+            Set(alice),
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a cached local contract with failed authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (other : Party)->
+                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = other, ctrl = other} in
+                    Test:exercise_interface exercisingParty cId
+                  """,
+            Array(SParty(alice), SParty(bob)),
+            Set(alice),
+          )
+
+          inside(res) {
+            case Success(
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
+                      )
+                    )
+                  )
+                ) =>
+              msgs shouldBe Seq(
+                "starts test",
+                "interface guard",
+                "choice controllers",
+                "choice observers",
+              )
           }
         }
       }
