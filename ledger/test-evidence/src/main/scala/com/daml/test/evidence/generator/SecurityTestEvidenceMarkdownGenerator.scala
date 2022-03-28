@@ -8,7 +8,7 @@ import com.daml.test.evidence.tag.Security
 import java.nio.file.{Files, Paths, StandardOpenOption}
 
 object SecurityTestEvidenceMarkdownGenerator {
-  private val GitHubSourceLinkTemplate = "<https://github.com/digital-asset/daml/blob/%s/%s#L%d>"
+  private val GitHubSourceLinkTemplate = "https://github.com/digital-asset/daml/blob/%s/%s#L%d"
 
   private def genText(version: String): String = {
     val securityTestEntries = TestEntryLookup.securityTestEntries
@@ -28,7 +28,7 @@ object SecurityTestEvidenceMarkdownGenerator {
         version: String
     )(entry: TestEntry[Security.SecurityTest, TS]): String = {
       val url = GitHubSourceLinkTemplate.format(version, entry.tag.file, entry.tag.line)
-      s"""`${entry.description} $url>`_
+      s"""`${entry.description} <$url>`_
          |${"-" * 300}
          |    :Asset: ${entry.tag.asset}
          |${scenarioDescription(entry.tag.scenario)}
