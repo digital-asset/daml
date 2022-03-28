@@ -23,6 +23,7 @@ cleanup()
   rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/app-dev/grpc/error-codes-inventory.rst.inc
   rm -f ../source/app-dev/grpc/error-categories-inventory.rst.inc
+  rm -f ../source/concepts/test-evidence/security-test-evidence.rst.inc
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
