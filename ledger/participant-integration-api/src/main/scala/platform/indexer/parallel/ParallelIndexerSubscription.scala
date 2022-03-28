@@ -18,9 +18,11 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend._
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
 import java.sql.Connection
+import scala.collection.mutable
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -38,6 +40,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     batchWithinMillis: Long,
     metrics: Metrics,
     ledgerEndUpdater: LedgerEnd => Unit,
+    buffersUpdaterCache: LedgerEndCache,
 ) {
   import ParallelIndexerSubscription._
 
@@ -76,8 +79,11 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
+        keepAlive =
+          keepAlive[DB_BATCH](ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
+        holdTailerIngestion = holdTailerIngestion[DB_BATCH](buffersUpdaterCache),
         ingestTail = ingestTail[DB_BATCH](
           le => { connection =>
             parameterStorageBackend.updateLedgerEnd(le)(connection)
@@ -258,6 +264,39 @@ object ParallelIndexerSubscription {
         batchSize = 0, // not used anymore
         offsets = Vector.empty, // not used anymore
       )
+
+  def keepAlive[DB_BATCH](zeroDbBatch: DB_BATCH): () => Batch[DB_BATCH] =
+    () =>
+      Batch[DB_BATCH](
+        lastOffset = null,
+        lastSeqEventId = -1L, // this is property of interest in the zero element
+        lastStringInterningId = 0, // this is property of interest in the zero element
+        lastRecordTime = 0,
+        batch = zeroDbBatch,
+        batchSize = 0,
+        offsets = Vector.empty,
+      )
+
+  def holdTailerIngestion[DB_BATCH](
+      buffersUpdaterCache: LedgerEndCache
+  ): () => Batch[DB_BATCH] => Iterator[Batch[DB_BATCH]] =
+    () => {
+      val ledgerEndsQueue = mutable.Queue.empty[Batch[DB_BATCH]]
+
+      le => {
+        val currentBuffersLedgerEnd = buffersUpdaterCache.opt()
+        if (le.lastSeqEventId >= 0L) {
+          ledgerEndsQueue.enqueue(le)
+        }
+        currentBuffersLedgerEnd match {
+          case Some(currentBuffersLedgerEnd) =>
+            ledgerEndsQueue
+              .dequeueWhile(_.lastOffset <= currentBuffersLedgerEnd._1)
+              .iterator
+          case None => Iterator.empty
+        }
+      }
+    }
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
     LedgerEnd(

@@ -12,6 +12,7 @@ import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingCo
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.cache.MutableLedgerEndCache
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -103,6 +104,7 @@ object IndexerStabilityTestFixture {
                     stringInterningView = null, // TODO LLP
                     updatesQueue = null, // TODO LLP
                     ledgerEndUpdater = null, // TODO LLP
+                    buffersUpdaterCache = MutableLedgerEndCache(), // TODO LLP
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

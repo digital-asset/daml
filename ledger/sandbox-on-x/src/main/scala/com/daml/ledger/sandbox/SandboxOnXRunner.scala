@@ -40,7 +40,7 @@ import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.cache.{LedgerEndCache, MutableLedgerEndCache}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
@@ -200,6 +200,8 @@ object SandboxOnXRunner {
             generalDispatcher.signalNewHead(ledgerEnd.lastOffset)
           }
 
+          buffersUpdaterCache = MutableLedgerEndCache()
+
           indexerHealthChecks <- buildIndexerServer(
             metrics,
             new TimedReadService(readServiceWithSubscriber, metrics),
@@ -207,6 +209,7 @@ object SandboxOnXRunner {
             updatesQueue,
             stringInterningView,
             ledgerEndUpdater,
+            buffersUpdaterCache,
           )
 
           ledgerDao = JdbcLedgerDao.read(
@@ -246,6 +249,7 @@ object SandboxOnXRunner {
             ledgerEndCache = ledgerEndCache,
             generalDispatcher = generalDispatcher,
             ledgerReadDao = ledgerDao,
+            buffersUpdaterCache = buffersUpdaterCache,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -352,6 +356,7 @@ object SandboxOnXRunner {
       updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
       stringInterningView: StringInterningView,
       ledgerEndUpdater: LedgerEnd => Unit,
+      buffersUpdaterCache: LedgerEndCache,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -367,6 +372,7 @@ object SandboxOnXRunner {
         updatesQueue = updatesQueue,
         ledgerEndUpdater = ledgerEndUpdater,
         stringInterningView = stringInterningView,
+        buffersUpdaterCache = buffersUpdaterCache,
       )
     } yield new HealthChecks(
       "read" -> readService,

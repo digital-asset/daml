@@ -28,7 +28,12 @@ import com.daml.platform.store.appendonlydao.{
   LedgerReadDao,
 }
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{EventsBuffer, LedgerEndCache, MutableCacheBackedContractStore}
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  LedgerEndCache,
+  MutableCacheBackedContractStore,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
@@ -65,6 +70,7 @@ private[platform] case class IndexServiceBuilder(
     ledgerEndCache: LedgerEndCache,
     generalDispatcher: Dispatcher[Offset],
     ledgerDao: LedgerReadDao,
+    buffersUpdaterCache: MutableLedgerEndCache,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -150,6 +156,7 @@ private[platform] case class IndexServiceBuilder(
             updateTransactionsBuffer = transactionsBuffer.push,
             updateCompletionsBuffer = completionsBuffer.push,
             updateMutableCache = contractStore.push,
+            updateBuffersCache = buffersUpdaterCache.set,
             executionContext = servicesExecutionContext,
           )
         )
