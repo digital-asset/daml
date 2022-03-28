@@ -123,12 +123,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         };
       };
 
-      record @serializable Human = { person: Party };
+      record @serializable Human = { person: Party, obs: Party };
       template (this : Human) = {
         precondition True;
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
-        observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {person} this] (Nil @Party));
+        observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {obs} this] (Nil @Party));
         agreement TRACE @Text "agreement" "";
+        choice Archive (self) (arg: Unit): Unit,
+          controllers Cons @Party [M:Human {person} this] (Nil @Party)
+          to upure @Unit (TRACE @Unit "archive" ());
         implements M:Person {
           method asParty = M:Human {person} this;
           method getName = "foobar";
@@ -293,6 +296,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     case _ => sys.error("unexpect error")
   }
 
+  private[this] val Person = t"M:Person" match {
+    case TTyCon(tycon) => tycon
+    case _ => sys.error("unexpect error")
+  }
+
   private[this] val Dummy = t"M:Dummy" match {
     case TTyCon(tycon) => tycon
     case _ => sys.error("unexpect error")
@@ -341,7 +349,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       Value.ValueRecord(
         None,
         ImmArray(
-          None -> Value.ValueParty(alice)
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueParty(bob),
         ),
       ),
       "agreement",
@@ -1379,7 +1388,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Array(SParty(charlie), SContractId(cId)),
             Set(charlie),
             getContract = getIfaceContract,
-            getKey = getKey,
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
@@ -1421,6 +1429,84 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             )
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of an inactive global contract
+        "inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:Human)  ->
+             ubind x: Unit <- exercise @M:Human Archive cId () in
+               Test:exercise_interface exercisingParty cId
+             """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getIfaceContract,
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Human, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of a cached global contract that does not implement the interface.
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
+               ubind x: M:Dummy <- fetch @M:Dummy cId in
+               Test:exercise_interface exercisingParty cId
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(Person, _, Dummy)))
+                ) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
+               Test:exercise_interface exercisingParty cId
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of cached global contract with failed authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
+               ubind x: M:Human <- fetch @M:Human cId
+               in  Test:exercise_interface exercisingParty cId""",
+            Array(SParty(bob), SContractId(cId)),
+            Set(bob),
+            getContract = getIfaceContract,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "interface guard",
+              "choice controllers",
+              "choice observers",
+            )
+          }
+        }
       }
 
       "a local contract" - {
@@ -1430,7 +1516,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty} in
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty} in
              Test:exercise_interface exercisingParty cId
              """,
             Array(SParty(alice)),
