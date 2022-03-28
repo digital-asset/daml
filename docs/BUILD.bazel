@@ -107,6 +107,7 @@ genrule(
         "//:NOTICES",
         ":generate-docs-error-codes-inventory-into-rst-file",
         ":generate-docs-error-categories-inventory-into-rst-file",
+        ":generate-security-test-evidence-docs-into-rst-file",
     ],
     outs = ["source.tar.gz"],
     cmd = """
@@ -119,6 +120,10 @@ genrule(
         # we append an '.inc' suffix. (See `source_suffix` in `conf.py`.)
         cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst.inc
         cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst.inc
+
+
+        # Copy in test evidence
+        cp -L -- $(location //docs:generate-security-test-evidence-docs-into-rst-file)     source/concepts/test-evidence/security-test-evidence.rst.inc
 
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
@@ -268,8 +273,8 @@ EOF
     cd $$DIR
     $$MKTGZ $$OUT_PATH target
   """.format(
-                  target = target,
                   name = name,
+                  target = target,
               ),
         tools = [
             "//bazel_tools/sh:mktgz",
@@ -466,9 +471,9 @@ genrule(
         rm -r html/.buildinfo html/.doctrees html/objects.inv
         $(execpath //bazel_tools/sh:mktgz) $@ html
     """.format(
+        foot = """</urlset>""",
         head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
         item = """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
-        foot = """</urlset>""",
         version = sdk_version,
     ),
     stamp = 1,
@@ -755,6 +760,15 @@ pkg_tar(
         exclude = ["**/*~"],
     ),
     strip_prefix = "source/daml-script/template-root",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-security-test-evidence-docs-into-rst-file",
+    srcs = [],
+    outs = ["security-test-evidence.rst.inc"],
+    cmd = "$(location //ledger/test-evidence:security-test-evidence-markdown-generator) $(location security-test-evidence.rst.inc) {version}".format(version = sdk_version),
+    tools = ["//ledger/test-evidence:security-test-evidence-markdown-generator"],
     visibility = ["//visibility:public"],
 )
 

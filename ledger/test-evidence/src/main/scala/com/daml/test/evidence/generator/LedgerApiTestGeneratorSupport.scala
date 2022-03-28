@@ -21,10 +21,10 @@ object LedgerApiTestGeneratorSupport {
       }
 
       suite.tests
-        .map { test => test.name -> test.tags }
-        .mapFilter { case (testName, testTags) =>
+        .map { test => (test.suite.name, test.description) -> test.tags }
+        .mapFilter { case ((testName, description), testTags) =>
           testTags.collectFirst { case testTag: TT =>
-            testEntry(suite.name, testName, testTag, false, testSuite)
+            testEntry(testName, description, testTag, false, testSuite)
           }
         }
     }

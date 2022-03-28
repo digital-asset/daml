@@ -4,29 +4,24 @@
 package com.daml.test.evidence.generator
 
 import better.files.File
-import com.daml.ledger.api.testtool.suites
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.test.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
-import com.daml.test.evidence.generator.TestEntryCsvEncoder.{
-  ReliabilityTestEntryCsv,
-  SecurityTestEntryCsv,
-  TestEntryCsv,
-}
-import com.daml.test.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
-import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
+import com.daml.test.evidence.generator.TestEntryCsvEncoder.TestEntryCsv
+import com.daml.test.evidence.scalatest.JsonCodec.SecurityJson._
+import com.daml.test.evidence.scalatest.JsonCodec.ReliabilityJson._
 import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.scalatest.Suite
-import com.daml.test.evidence.scalatest.JsonCodec.SecurityJson._
-import com.daml.test.evidence.scalatest.JsonCodec.ReliabilityJson._
-import org.scalatest.daml.ScalaTestAdapter
-
-import scala.reflect.ClassTag
 
 object Main {
 
-  private def loadClasspath(): Option[String] = Some(System.getProperty("java.class.path"))
+  private def writeEvidenceToJsonFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
+    println(s"Writing inventory to $fileName...")
+    val path = File(fileName)
+      .write(entries.asJson.spaces2)
+      .path
+      .toAbsolutePath
+      .toString
+    println(s"Wrote to $path")
+  }
 
   private def writeEvidenceToJsonFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
     println(s"Writing inventory to $fileName...")
@@ -39,9 +34,9 @@ object Main {
   }
 
   private def writeEvidenceToCsvFile[TE <: TestEntryCsv](
-      fileName: String,
-      entries: List[TE],
-  ): Unit = {
+                                                          fileName: String,
+                                                          entries: List[TE],
+                                                        ): Unit = {
     println(s"Writing inventory to $fileName...")
     val file = File(fileName)
     val path = file.path.toAbsolutePath
@@ -49,53 +44,15 @@ object Main {
     println(s"Wrote to $path")
   }
 
-  private def collectTestEvidence[TT: ClassTag, TS: ClassTag, TE](
-      scalaTestSuites: List[Suite],
-      ledgerApiSuites: List[LedgerTestSuite],
-      testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
-  ): List[TE] =
-    List.empty
-      .concat(ScalaTestGeneratorSupport.testEntries(scalaTestSuites, testEntry))
-      .concat(LedgerApiTestGeneratorSupport.testEntries(ledgerApiSuites, testEntry))
-
   def main(args: Array[String]): Unit = {
-    val runpathList: List[String] = loadClasspath()
-      .map(_.split(":").toList)
-      .getOrElse(List.empty)
 
-    val ledgerApiTests = List()
-      .concat(suites.v1_14.default(timeoutScaleFactor = 0L))
-      .concat(suites.v1_14.optional(tlsConfig = None))
+    val securityTestEntries = TestEntryLookup.securityTestEntries
 
-    val testSuites: List[Suite] = ScalaTestAdapter.loadTestSuites(runpathList)
+    val reliabilityTestEntries = TestEntryLookup.reliabilityTestEntries
 
-    println("Writing security tests inventory..")
+    writeEvidenceToFile("security-tests.json", securityTestEntries.asJson.spaces2)
 
-    val securityTestEntries =
-      collectTestEvidence[SecurityTest, SecurityTestSuite, SecurityTestEntry](
-        testSuites,
-        ledgerApiTests,
-        SecurityTestEntry,
-      )
-
-    val reliabilityTestEntries =
-      collectTestEvidence[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
-        testSuites,
-        ledgerApiTests,
-        ReliabilityTestEntry,
-      )
-
-    writeEvidenceToJsonFile("security-tests.json", securityTestEntries)
-    writeEvidenceToCsvFile(
-      "security-tests.csv",
-      securityTestEntries.map(SecurityTestEntryCsv.apply),
-    )
-
-    writeEvidenceToJsonFile("reliability-tests.json", reliabilityTestEntries)
-    writeEvidenceToCsvFile(
-      "reliability-tests.csv",
-      reliabilityTestEntries.map(ReliabilityTestEntryCsv.apply),
-    )
+    writeEvidenceToFile("reliability-tests.json", reliabilityTestEntries.asJson.spaces2)
 
     sys.exit()
   }
