@@ -1616,7 +1616,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                     SErrorDamlException(
                       IE.FailedAuthorization(
                         _,
-                        FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
+                        IE.FailedAuthorization.ExerciseMissingAuthorization(Human, _, None, _, _),
                       )
                     )
                   )
