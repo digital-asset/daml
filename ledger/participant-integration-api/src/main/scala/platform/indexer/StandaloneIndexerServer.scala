@@ -11,6 +11,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
@@ -25,6 +26,7 @@ final class StandaloneIndexerServer(
     stringInterningView: StringInterningView,
     updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
     ledgerEndUpdater: LedgerEnd => Unit,
+    buffersUpdaterCache: LedgerEndCache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
@@ -45,6 +47,7 @@ final class StandaloneIndexerServer(
       lfValueTranslationCache,
       updatesQueue = updatesQueue,
       ledgerEndUpdater = ledgerEndUpdater,
+      buffersUpdaterCache = buffersUpdaterCache,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

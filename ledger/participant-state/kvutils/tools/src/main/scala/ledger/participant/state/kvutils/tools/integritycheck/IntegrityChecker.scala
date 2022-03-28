@@ -22,6 +22,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.indexer._
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.cache.MutableLedgerEndCache
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
@@ -260,6 +261,7 @@ class IntegrityChecker[LogResult](
       lfValueTranslationCache,
       updatesQueue = null, // TODO LLP
       ledgerEndUpdater = (_: LedgerEnd) => (), // TODO LLP
+      buffersUpdaterCache = MutableLedgerEndCache(),
     )
     for {
       migrating <- ResourceOwner.forFuture(() =>

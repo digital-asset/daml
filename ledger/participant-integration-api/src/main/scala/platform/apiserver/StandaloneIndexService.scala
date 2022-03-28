@@ -44,6 +44,7 @@ object StandaloneIndexService {
       ledgerEndCache: MutableLedgerEndCache,
       generalDispatcher: Dispatcher[Offset],
       ledgerReadDao: LedgerReadDao,
+      buffersUpdaterCache: MutableLedgerEndCache,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -110,6 +111,7 @@ object StandaloneIndexService {
         ledgerEndCache = ledgerEndCache,
         generalDispatcher = generalDispatcher,
         ledgerDao = ledgerReadDao,
+        buffersUpdaterCache = buffersUpdaterCache,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

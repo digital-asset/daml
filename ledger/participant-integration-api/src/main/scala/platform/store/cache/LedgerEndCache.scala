@@ -7,6 +7,7 @@ import com.daml.ledger.offset.Offset
 
 trait LedgerEndCache {
   def apply(): (Offset, Long)
+  def opt(): Option[(Offset, Long)]
 }
 
 trait MutableLedgerEndCache extends LedgerEndCache {
@@ -23,5 +24,7 @@ object MutableLedgerEndCache {
       override def apply(): (Offset, Long) =
         if (ledgerEnd == null) throw new IllegalStateException("uninitialized")
         else ledgerEnd
+
+      def opt(): Option[(Offset, Long)] = Option(ledgerEnd)
     }
 }

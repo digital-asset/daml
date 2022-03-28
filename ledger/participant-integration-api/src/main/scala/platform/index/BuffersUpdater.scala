@@ -113,6 +113,7 @@ private[index] object BuffersUpdater {
       updateMutableCache: ContractStateEvent => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
+      updateBuffersCache: ((Offset, Long)) => Unit,
       executionContext: ExecutionContext,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
@@ -125,6 +126,14 @@ private[index] object BuffersUpdater {
       updateTransactionsBuffer(offset, transactionLogUpdate)
       updateCompletionsBuffer(offset, transactionLogUpdate)
       toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
+      transactionLogUpdate match {
+        case TransactionLogUpdate.TransactionAccepted(_, _, _, offset, events, _) =>
+          updateBuffersCache(offset -> events.last.eventSequentialId)
+        case TransactionLogUpdate.SubmissionRejected(offset, lastEventSeqId, _) =>
+          updateBuffersCache(offset -> lastEventSeqId)
+        case TransactionLogUpdate.LedgerEndMarker(offset, lastEventSeqId) =>
+          updateBuffersCache(offset -> lastEventSeqId)
+      }
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,

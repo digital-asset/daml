@@ -24,6 +24,7 @@ import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
@@ -39,6 +40,7 @@ object JdbcIndexer {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
       ledgerEndUpdater: LedgerEnd => Unit,
+      buffersUpdaterCache: LedgerEndCache,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -99,6 +101,7 @@ object JdbcIndexer {
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
           ledgerEndUpdater = ledgerEndUpdater,
+          buffersUpdaterCache = buffersUpdaterCache,
         ),
         stringInterningView = stringInterningView,
         meteringAggregator = new MeteringAggregator.Owner(
