@@ -9,11 +9,9 @@ import com.daml.lf.speedy.SValue._
 // ---------------------
 // Preprocessed commands
 // ---------------------
-sealed abstract class Command extends Product with Serializable {
-  val templateId: Identifier
-}
+private[lf] sealed abstract class Command extends Product with Serializable
 
-object Command {
+private[lf] object Command {
 
   /** Create a template, not by interface */
   final case class Create(
@@ -53,13 +51,7 @@ object Command {
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,
-  ) extends Command {
-    // TODO https://github.com/digital-asset/daml/issues/12051
-    // TODO https://github.com/digital-asset/daml/issues/11342
-    //   The actual template id isn't known until run time.
-    //   The interface id is the best we've got.
-    val templateId = interfaceId
-  }
+  ) extends Command
 
   final case class ExerciseByKey(
       templateId: Identifier,

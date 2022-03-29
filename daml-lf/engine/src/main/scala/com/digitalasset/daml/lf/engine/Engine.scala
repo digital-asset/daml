@@ -111,21 +111,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        ) map { case (tx, meta) =>
-          // Annotate the transaction with the package dependencies. Since
-          // all commands are actions on a contract template, with a fully typed
-          // argument, we only need to consider the templates mentioned in the command
-          // to compute the full dependencies.
-          val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
-            val pkgId = cmd.templateId.packageId
-            val transitiveDeps =
-              compiledPackages
-                .getPackageDependencies(pkgId)
-                .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-            (pkgIds + pkgId) union transitiveDeps
-          }
-          tx -> meta.copy(submissionSeed = Some(submissionSeed), usedPackages = deps)
-        }
+        ) map { case (tx, meta) => tx -> meta.copy(submissionSeed = Some(submissionSeed)) }
       }
   }
 
@@ -320,6 +306,30 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     interpretLoop(machine, ledgerTime)
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  private[engine] def deps(tx: VersionedTransaction): Result[Set[PackageId]] = {
+    val nodePkgIds = tx.fold(Set.empty[Ref.PackageId]) {
+      case (acc, (_, node: Node.Action)) =>
+        node.byInterface.fold(acc)(acc + _.packageId) + node.templateId.packageId
+      case (acc, (_, _: Node.Rollback)) =>
+        acc
+    }
+    val deps = nodePkgIds.foldLeft(nodePkgIds)((acc, pkgId) =>
+      acc | compiledPackages
+        .getPackageDependencies(pkgId)
+        .getOrElse(
+          return ResultError(
+            Error.Interpretation.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"INTERNAL ERROR: Missing dependencies of package $pkgId",
+              None,
+            )
+          )
+        )
+    )
+    ResultDone(deps)
+  }
+
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
@@ -388,20 +398,22 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     onLedger.finish match {
       case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
-        val meta = Tx.Metadata(
-          submissionSeed = None,
-          submissionTime = onLedger.ptxInternal.submissionTime,
-          usedPackages = Set.empty,
-          dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = nodeSeeds,
-        )
-        config.profileDir.foreach { dir =>
-          val desc = Engine.profileDesc(tx)
-          machine.profile.name = s"${meta.submissionTime}-$desc"
-          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-          machine.profile.writeSpeedscopeJson(profileFile)
+        deps(tx).flatMap { deps =>
+          val meta = Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = onLedger.ptxInternal.submissionTime,
+            usedPackages = deps,
+            dependsOnTime = onLedger.dependsOnTime,
+            nodeSeeds = nodeSeeds,
+          )
+          config.profileDir.foreach { dir =>
+            val desc = Engine.profileDesc(tx)
+            machine.profile.name = s"${meta.submissionTime}-$desc"
+            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.writeSpeedscopeJson(profileFile)
+          }
+          ResultDone((tx, meta))
         }
-        ResultDone((tx, meta))
       case PartialTransaction.IncompleteTransaction(ptx) =>
         ResultError(
           Error.Interpretation.Internal(
