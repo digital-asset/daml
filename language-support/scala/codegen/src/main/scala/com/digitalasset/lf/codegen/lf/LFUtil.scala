@@ -12,8 +12,7 @@ import iface.{Type => IType, PrimType => PT, _}
 import com.daml.lf.iface.InterfaceType
 import java.io.File
 
-import com.daml.lf.codegen.Util
-import com.daml.lf.codegen.lf.UsedTypeParams.Variance
+import com.daml.lf.codegen.dependencygraph.TransitiveClosure
 import scalaz._
 import scalaz.std.set._
 import scalaz.syntax.id._
@@ -33,7 +32,7 @@ final case class LFUtil(
   import scala.reflect.runtime.universe._
   import LFUtil._
 
-  def templateAndTypeFiles(wp: WriteParams[DefTemplateWithRecord]) =
+  def templateAndTypeFiles(wp: WriteParams) =
     parent.CodeGen.produceTemplateAndTypeFilesLF(wp, this)
 
   def mkDamlScalaName(
@@ -293,37 +292,6 @@ final case class LFUtil(
                 $choiceMethod(${TermName(actorParamName)}, $dctorName(..$dargs))"""
       }.toList
   }
-
-  def templateCount(interface: EnvironmentInterface): Int = {
-    interface.typeDecls.count {
-      case (_, InterfaceType.Template(_, _)) => true
-      case _ => false
-    }
-  }
-
-  private[this] def foldTemplateReferencedTypeDeclRoots[Z](interface: EnvironmentInterface, z: Z)(
-      f: (Z, ScopedDataType.Name) => Z
-  ): Z =
-    interface.typeDecls.foldLeft(z) {
-      case (z, (id, InterfaceType.Template(_, tpl))) =>
-        tpl.foldMap(typ => Util.genTypeTopLevelDeclNames(typ).toSet).foldLeft(f(z, id))(f)
-      case (z, _) => z
-    }
-
-  protected[this] def precacheVariance(
-      interface: EnvironmentInterface
-  ): ScopedDataType.Name => ImmArraySeq[Variance] = {
-    import UsedTypeParams.ResolvedVariance
-    val resolved = foldTemplateReferencedTypeDeclRoots(interface, ResolvedVariance.Empty) {
-      (resolved, id) => resolved.allCovariantVars(id, interface)._1
-    }
-    id => resolved.allCovariantVars(id, interface)._2
-  }
-
-  private[this] lazy val precachedVariance = precacheVariance(iface)
-
-  def variance(sdt: ScopedDataType[_]): Seq[Variance] =
-    precachedVariance(sdt.name)
 }
 
 object LFUtil {
@@ -457,10 +425,18 @@ object LFUtil {
   // sequence of trees to write as Scala source code
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
-  final case class WriteParams[+TmplI](
-      templateIds: Map[Ref.Identifier, TmplI],
-      definitions: List[ScopedDataType.FWT],
+  final case class WriteParams(
+      templateIds: Map[Ref.Identifier, DefTemplateWithRecord],
+      definitions: Vector[ScopedDataType.FWT],
   )
+
+  object WriteParams {
+    def apply(tc: TransitiveClosure): WriteParams =
+      WriteParams(
+        templateIds = tc.templateIds.toMap,
+        definitions = tc.typeDeclarations.map(ScopedDataType.fromDefDataType),
+      )
+  }
 
   val reservedNames: Set[String] =
     Set("id", "template", "namedArguments", "archive")

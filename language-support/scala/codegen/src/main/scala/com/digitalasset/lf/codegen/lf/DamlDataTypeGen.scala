@@ -65,11 +65,13 @@ object DamlDataTypeGen {
     lazy val argumentValueProtocolDefName: TermName =
       TermName(s"${damlScalaName.name} Value")
 
+    val variance = new VarianceCache(util.iface)
+
     val typeVars: List[String] = typeDecl.typeVars.toList
     val typeVarsInUse: Set[String] = UsedTypeParams.collectTypeParamsInUse(typeDecl)
     val typeParams: List[TypeDef] = typeVars.map(LFUtil.toTypeDef)
     val typeArgs: List[TypeName] = typeVars.map(TypeName(_))
-    val covariantTypeParams: List[TypeDef] = (typeVars zip util.variance(typeDecl)) map {
+    val covariantTypeParams: List[TypeDef] = (typeVars zip variance(typeDecl)) map {
       case (v, Covariant) => LFUtil.toCovariantTypeDef(v)
       case (v, Invariant) => LFUtil.toTypeDef(v)
     }

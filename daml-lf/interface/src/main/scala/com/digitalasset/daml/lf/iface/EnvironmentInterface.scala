@@ -46,8 +46,13 @@ final case class EnvironmentInterface(
 }
 
 object EnvironmentInterface {
-  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface = {
-    val all = i +: o
+  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface =
+    fromReaderInterfaces(i +: o)
+
+  def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
+    fromReaderInterfaces(dar.main, dar.dependencies: _*)
+
+  def fromReaderInterfaces(all: Seq[Interface]): EnvironmentInterface = {
     val typeDecls = all.iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
@@ -59,9 +64,6 @@ object EnvironmentInterface {
     }.toMap
     EnvironmentInterface(metadata, typeDecls, astInterfaces)
   }
-
-  def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
-    fromReaderInterfaces(dar.main, dar.dependencies: _*)
 
   implicit val environmentInterfaceSemigroup: Semigroup[EnvironmentInterface] = Semigroup instance {
     (f1, f2) =>

@@ -32,7 +32,7 @@ object Main extends StrictLogging {
       setGlobalLogLevel(verbosity)
       logUnsupportedEventDecoderOverride(decoderPkgAndClass)
       val (dars, packageName) = darsAndOnePackageName(darMap)
-      CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel, roots)
+      CodeGen.generateCode(dars, packageName, outputDir.toFile, roots)
   }
 
   private def setGlobalLogLevel(verbosity: Level): Unit = {
