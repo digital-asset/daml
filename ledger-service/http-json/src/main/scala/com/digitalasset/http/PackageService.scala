@@ -56,7 +56,7 @@ private class PackageService(
     private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
       def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
       val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
-      diff.transform((_, iface) => iface resolveChoices findIface)
+      diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
     }
   }
 
@@ -317,7 +317,7 @@ object PackageService {
   ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
     val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
       interface.typeDecls.iterator.collect {
-        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _, _))) =>
           (qn, choices)
       } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
         (qn, defIf.choices)
@@ -346,7 +346,7 @@ object PackageService {
       case (
             qn,
             iface.InterfaceType
-              .Template(_, iface.DefTemplate(_, _, Some(keyType))),
+              .Template(_, iface.DefTemplate(_, _, Some(keyType), _)),
           ) =>
         val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)

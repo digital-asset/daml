@@ -360,7 +360,7 @@ The Java code generated for this variant is:
 
     public static final Color fromValue(Value value$) { /* ... */ }
 
-    public final DamlEnum toValue() {  /* ... */ }
+    public final DamlEnum toValue() { /* ... */ }
   }
 
 
@@ -470,6 +470,87 @@ functions to convert back the container's entries.
                         .getValue()
                )
       );
+
+
+Daml Interfaces
+^^^^^^^^^^^^^^^
+
+From this daml definition:
+
+
+.. literalinclude:: ./code-snippets/Interfaces.daml
+   :language: daml
+   :start-after: -- start snippet: interface example
+   :end-before: -- end snippet: interface example
+   :caption: Interfaces.daml
+
+The generated file for the interface definition can be seen below.
+Effectively it is a class that contains only the inner type ContractId because one will always only be able to deal with Interfaces via their ContractId.
+
+.. code-block:: java
+  :caption: interfaces/TIf.java
+
+  package interfaces
+
+  /* imports */
+  
+  public final class TIf {
+    public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
+
+    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<TIf> {
+      public ContractId(String contractId) { /* ... */ }
+
+      public ExerciseCommand exerciseUseless(Useless arg) { /* ... */ }
+
+      public ExerciseCommand exerciseHam(Ham arg) { /* ... */ }
+    }
+  }
+
+For templates the code generation will be slightly different if a template implements interfaces.
+Main difference here is that the choices from inherited interfaces are included in the class declaration.
+Moreover to allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterfaceName` is generated.
+
+.. code-block:: java
+  :caption: interfaces/Child.java
+
+  package interfaces
+
+  /* ... */
+  
+
+  public final class Child extends Template {
+
+    /* ... */
+
+    public CreateAndExerciseCommand createAndExerciseHam(Ham arg) { /* ... */ }
+
+    public CreateAndExerciseCommand createAndExerciseHam() { /* ... */ }
+
+    public CreateAndExerciseCommand createAndExerciseUseless(Useless arg) { /* ... */ }
+
+    public CreateAndExerciseCommand createAndExerciseUseless(TIf.ContractId interfacely) { /* ... */ }
+    
+    /* ... */
+    
+    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Child> {
+
+      /* ... */
+
+      public ExerciseCommand exerciseHam(Ham arg) { /* ... */ }
+
+      public ExerciseCommand exerciseUseless(Useless arg) { /* ... */ }
+
+      public ExerciseCommand exerciseHam() { /* ... */ }
+
+      public ExerciseCommand exerciseUseless(TIf.ContractId interfacely) { /* ... */ }
+
+      public TIf.ContractId toTIf() { /* ... */ }
+
+    }
+
+    /* ... */
+
+  }
 
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Value.html

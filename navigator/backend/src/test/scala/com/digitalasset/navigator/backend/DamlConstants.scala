@@ -292,6 +292,7 @@ case object DamlConstants {
       ),
       Map.empty,
       None,
+      Seq.empty,
     ),
   )
   val complexRecordTemplate = DamlLfIface.InterfaceType.Template(
@@ -305,6 +306,7 @@ case object DamlConstants {
       ),
       Map.empty,
       None,
+      Seq.empty,
     ),
   )
   val treeNodeTemplate = DamlLfIface.InterfaceType.Template(
@@ -318,6 +320,7 @@ case object DamlConstants {
       ),
       Map.empty,
       None,
+      Seq.empty,
     ),
   )
 

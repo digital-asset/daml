@@ -6,7 +6,6 @@ package com.daml.lf.codegen
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
-
 import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.Backend
 import com.daml.lf.codegen.backend.java.JavaBackend
@@ -18,6 +17,7 @@ import com.daml.lf.iface.{Type => _, _}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.immutable.Map
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -79,10 +79,16 @@ object CodeGenRunner extends StrictLogging {
     }
 
     val interfaces = interfacesAndPrefixes.map(_._1)
+    val environmentInterface =
+      EnvironmentInterface.fromReaderInterfaces(interfaces.head, interfaces.tail: _*)
     val prefixes = interfacesAndPrefixes.collect { case (_, (key, Some(value))) =>
       (key, value)
     }.toMap
-    (interfaces, prefixes)
+    val fullyResolvedInterfaces =
+      interfaces.map(
+        _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
+      )
+    (fullyResolvedInterfaces, prefixes)
   }
 
   private[CodeGenRunner] def generateFile(
@@ -196,6 +202,7 @@ object CodeGenRunner extends StrictLogging {
         _ <- Future.traverse(preprocessedInterfaceTrees.interfaceTrees)(
           processInterfaceTree(_, conf, prefixes)
         )
+
       } yield ()
     }
 

@@ -37,9 +37,11 @@ object DependencyGraphSpec {
           Map.empty,
           Map.empty,
           Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
+          Seq.empty,
         ),
       ),
-      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, Map.empty, None)),
+      "a:b:NoKey" -> InterfaceType
+        .Template(fooRec, DefTemplate(Map.empty, Map.empty, None, Seq.empty)),
       "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
     ) mapKeys Ref.Identifier.assertFromString,
     astInterfaces = Map.empty,

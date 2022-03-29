@@ -1,0 +1,31 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Interfaces where
+
+interface TIf where
+  getOwner: Party
+  dup: Update (ContractId TIf)
+  choice Ham: ContractId TIf with
+    controller getOwner this
+    do dup this
+  choice Useless: ContractId TIf with
+      interfacely: ContractId TIf
+    controller getOwner this
+    do
+      dup this
+
+template Child
+    with
+    party: Party
+  where
+    signatory party
+    choice Bar: () with
+      controller party
+      do
+        return ()
+
+    implements TIf where
+      getOwner = party
+      dup = toInterfaceContractId <$> create this

@@ -1,8 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package iface
+package com.daml.lf.iface
 
 import java.{util => j}
 
@@ -78,22 +77,44 @@ final case class Interface(
     *  // but faster.
     * }}}
     */
-  def resolveChoices(
-      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+  private def resolveChoices(
+      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
+      failIfUnresolvedChoicesLeft: Boolean,
   ): Interface = {
     val outside = findInterface.lift
     def findIface(id: Identifier) =
       if (id.packageId == packageId) astInterfaces get id.qualifiedName
       else outside(id)
     val tplFindIface = Function unlift findIface
+    val transformTemplate = {
+      def transform(ift: InterfaceType.Template) =
+        ift.copy(template = ift.template resolveChoices tplFindIface)
+      if (failIfUnresolvedChoicesLeft)
+        transform _ andThen (res =>
+          if (res.template.unresolvedInheritedChoices.isEmpty) res
+          else
+            throw new IllegalStateException(
+              s"Couldn't resolve all inherited choices for template $res"
+            )
+        )
+      else transform _
+    }
     copy(typeDecls = typeDecls transform { (_, ift) =>
       ift match {
-        case ift: InterfaceType.Template =>
-          ift.copy(template = ift.template resolveChoices tplFindIface)
+        case ift: InterfaceType.Template => transformTemplate(ift)
         case n: InterfaceType.Normal => n
       }
     })
   }
+
+  def resolveChoicesAndFailOnUnresolvableChoices(
+      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
+
+  def resolveChoicesAndIgnoreUnresolvedChoices(
+      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+  ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
+
 }
 
 object Interface {
