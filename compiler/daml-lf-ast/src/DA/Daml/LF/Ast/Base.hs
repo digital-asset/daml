@@ -358,7 +358,7 @@ data BuiltinExpr
 
 
 data Binding = Binding
-  { bindingBinder :: !(ExprVarName, Type)
+  { bindingBinder :: !(ExprVarName, Type) -- redundant type
   , bindingBound  :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -373,14 +373,14 @@ data Expr
   | EBuiltin !BuiltinExpr
   -- | Record construction.
   | ERecCon
-    { recTypeCon :: !TypeConApp
+    { recTypeCon :: !TypeConApp -- needed for typechecking
       -- ^ Applied type constructor of the record type.
     , recFields  :: ![(FieldName, Expr)]
       -- ^ Fields togehter with the expressions to assign to them.
     }
   -- | Record projection.
   | ERecProj
-    { recTypeCon :: !TypeConApp
+    { recTypeCon :: !TypeConApp -- tycon needed in speedy, rest is redundant
       -- ^ Applied type constructor of the record type.
     , recField   :: !FieldName
       -- ^ Field to project to.
@@ -389,7 +389,7 @@ data Expr
     }
   -- | Non-destructuve record update.
   | ERecUpd
-    { recTypeCon :: !TypeConApp
+    { recTypeCon :: !TypeConApp -- tycon needed in speedy, rest is redundant
       -- ^ Applied type constructor of the record type.
     , recField :: !FieldName
       -- ^ Field to update.
@@ -400,7 +400,7 @@ data Expr
     }
   -- | Variant construction.
   | EVariantCon
-    { varTypeCon :: !TypeConApp
+    { varTypeCon :: !TypeConApp -- needed for type checking
       -- ^ Applied type constructor of the variant type.
     , varVariant :: !VariantConName
       -- ^ Data constructor of the variant type.
@@ -411,7 +411,7 @@ data Expr
     -- using variant constructors as functions that can be around not applied.
   -- | Enum construction.
   | EEnumCon
-    { enumTypeCon :: !(Qualified TypeConName)
+    { enumTypeCon :: !(Qualified TypeConName) -- needed for type checking
       -- ^ Type constructor of the enum type.
     , enumDataCon :: !VariantConName
       -- ^ Data constructor of the enum type.
@@ -448,19 +448,19 @@ data Expr
   | ETyApp
     { tyappExpr :: !Expr
       -- ^ Expression to apply.
-    , tyappType :: !Type
+    , tyappType :: !Type -- needed for type checking, needed in speedy when kind is nat
       -- ^ Type to apply expression on.
     }
   -- | (Expression) abstraction (aka small lambda).
   | ETmLam
-    { tmlamBinder :: !(ExprVarName, Type)
+    { tmlamBinder :: !(ExprVarName, Type) -- type needed for type checking
       -- ^ Variable to abstract.
     , tmlamBody   :: !Expr
       -- ^ Expression to abstract from.
     }
   -- | Type abstraction (aka capital lambda).
   | ETyLam
-    { tylamBinder :: !(TypeVarName, Kind)
+    { tylamBinder :: !(TypeVarName, Kind) -- kind needed for type checking
       -- ^ Type variable to abstract.
     , tylamBody   :: !Expr
       -- ^ Expression to abstract from.
@@ -479,7 +479,7 @@ data Expr
     }
   -- | Let binding.
   | ELet
-    { letBinding :: !Binding
+    { letBinding :: !Binding -- type in binding is redundant
       -- ^ Binding.
     , letBody    :: !Expr
       -- ^ Expression to bind variable in.
@@ -488,7 +488,7 @@ data Expr
   | ENil
     -- TODO(MH): When we move 'ECons' to 'BuiltinExpr' or remove it entirely,
     -- do the same to 'ENil'.
-    { nilType :: !Type
+    { nilType :: !Type -- needed for type checking
       -- ^ Element type of the list.
     }
   -- | Construct list from head and tail.s
@@ -496,7 +496,7 @@ data Expr
     -- TODO(MH): Move 'ECons' into 'BuiltinExpr' if we decide to allow using
     -- it as a function that can be passed around not fully applied.
     -- OR: Remove 'ECons' entirely if we allow for recursive data types.
-    { consType :: !Type
+    { consType :: !Type -- redundant
       -- ^ Element type of the list.
     , consHead :: !Expr
       -- ^ Head of the list.
@@ -504,94 +504,94 @@ data Expr
       -- ^ Tail of the list.
     }
   | ESome
-    { someType :: !Type
+    { someType :: !Type -- redundant
     , someBody :: !Expr
     }
   | ENone
-    { noneType :: !Type
+    { noneType :: !Type -- needed for type checking
     }
   | EToAny
-    { toAnyType :: !Type
+    { toAnyType :: !Type -- needed in speedy
     , toAnyBody :: !Expr
     }
   | EFromAny
-    { fromAnyType :: !Type
+    { fromAnyType :: !Type -- needed for type checking & speedy
     , fromAnyBody :: !Expr
     }
   | ETypeRep !Type
   -- | Construct an 'AnyException' value from a value of an exception type.
   | EToAnyException
-    { toAnyExceptionType :: !Type
+    { toAnyExceptionType :: !Type -- needed in speedy
     , toAnyExceptionValue :: !Expr
     }
   -- | Convert 'AnyException' back to its underlying value, if possible.
   | EFromAnyException
-    { fromAnyExceptionType :: !Type
+    { fromAnyExceptionType :: !Type -- needed for type checking & speedy
     , fromAnyExceptionValue :: !Expr
     }
   -- | Throw an exception.
   | EThrow
-    { throwReturnType :: !Type
-    , throwExceptionType :: !Type
+    { throwReturnType :: !Type -- needed for type checking
+    , throwExceptionType :: !Type -- needed in speedy
     , throwExceptionValue :: !Expr
     }
   -- | Convert template payload to interface type.
   | EToInterface
-    { toInterfaceInterface :: !(Qualified TypeConName)
-    , toInterfaceTemplate :: !(Qualified TypeConName)
+    { toInterfaceInterface :: !(Qualified TypeConName) -- needed for type checking
+    , toInterfaceTemplate :: !(Qualified TypeConName) -- needed in speedy
     , toInterfaceExpr :: !Expr
     }
   -- | Convert interface type to template payload when possible.
   | EFromInterface
-    { fromInterfaceInterface :: !(Qualified TypeConName)
-    , fromInterfaceTemplate :: !(Qualified TypeConName)
+    { fromInterfaceInterface :: !(Qualified TypeConName) -- redundant
+    , fromInterfaceTemplate :: !(Qualified TypeConName) -- needed for type checking & speedy
     , fromInterfaceExpr :: !Expr
     }
   -- | Convert interface type to template payload or raise WronglyTypedContract error if not possible.
   | EUnsafeFromInterface
-    { unsafeFromInterfaceInterface :: !(Qualified TypeConName)
-    , unsafeFromInterfaceTemplate :: !(Qualified TypeConName)
+    { unsafeFromInterfaceInterface :: !(Qualified TypeConName) -- redundant
+    , unsafeFromInterfaceTemplate :: !(Qualified TypeConName) -- needed for type checking & speedy
     , unsafeFromInterfaceContractId :: !Expr
     , unsafeFromInterfaceExpr :: !Expr
     }
   -- | Invoke an interface method
   | ECallInterface
-    { callInterfaceType :: !(Qualified TypeConName)
+    { callInterfaceType :: !(Qualified TypeConName) -- needed in speedy
     , callInterfaceMethod :: !MethodName
     , callInterfaceExpr :: !Expr
     }
   -- | Upcast interface
   | EToRequiredInterface
-    { triRequiredInterface :: !(Qualified TypeConName)
-    , triRequiringInterface :: !(Qualified TypeConName)
+    { triRequiredInterface :: !(Qualified TypeConName) -- needed for type checking
+    , triRequiringInterface :: !(Qualified TypeConName) -- redundant
     , triExpr :: !Expr
     }
   -- | Downcast interface
   | EFromRequiredInterface
-    { friRequiredInterface :: !(Qualified TypeConName)
-    , friRequiringInterface :: !(Qualified TypeConName)
+    { friRequiredInterface :: !(Qualified TypeConName) -- redundant
+    , friRequiringInterface :: !(Qualified TypeConName) -- needed for type checking & speedy
     , friExpr :: !Expr
     }
   -- | Downcast interface or raise WronglyTypedContract error if not possible.
   | EUnsafeFromRequiredInterface
-    { unsafeFromRequiredInterfaceInterface :: !(Qualified TypeConName)
-    , unsafeFromRequiredInterfaceTemplate :: !(Qualified TypeConName)
+    { unsafeFromRequiredInterfaceInterface :: !(Qualified TypeConName) -- redundant
+    , unsafeFromRequiredInterfaceTemplate :: !(Qualified TypeConName) -- needed for type checking & speedy
     , unsafeFromRequiredInterfaceContractId :: !Expr
     , unsafeFromRequiredInterfaceExpr :: !Expr
     }
   -- | Obtain type representation of contract's template through an interface
   | EInterfaceTemplateTypeRep
-    { ttrInterface :: !(Qualified TypeConName)
+    { ttrInterface :: !(Qualified TypeConName) -- redundant
     , ttrExpr :: !Expr
     }
   -- | Obtain signatories of contract through an interface
   | ESignatoryInterface
-    { rvsInterface :: !(Qualified TypeConName)
+    { rvsInterface :: !(Qualified TypeConName) -- redundant
     , rvsExpr :: !Expr
     }
   -- | Obtain observers of contract through an interface
   | EObserverInterface
-    { rvoInterface :: !(Qualified TypeConName)
+    { rvoInterface :: !(Qualified TypeConName) -- redundant
     , rvoExpr :: !Expr
     }
   -- | Update expression.
@@ -601,7 +601,7 @@ data Expr
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
   -- | Experimental Expression Hook
-  | EExperimental !T.Text !Type
+  | EExperimental !T.Text !Type -- needed for type checking
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Pattern matching alternative.
@@ -616,7 +616,7 @@ data CaseAlternative = CaseAlternative
 data CasePattern
   -- | Match on a constructor of a variant type.
   = CPVariant
-    { patTypeCon :: !(Qualified TypeConName)
+    { patTypeCon :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Type constructor of the type to match on.
     , patVariant :: !VariantConName
       -- ^ Variant constructor to match on.
@@ -625,7 +625,7 @@ data CasePattern
     }
   -- | Match on a constructor of an enum type.
   | CPEnum
-    { patTypeCon :: !(Qualified TypeConName)
+    { patTypeCon :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Type constructor of the type to match on.
     , patDataCon :: !VariantConName
       -- ^ Data constructor to match on.
@@ -655,7 +655,7 @@ data CasePattern
 -- | Expression in the update monad.
 data Update
   = UPure
-    { pureType :: !Type
+    { pureType :: !Type -- redundant
     , pureExpr :: !Expr
     }
     -- TODO(MH): Move 'UPure' to 'BuiltinExpr' when we decide to make it a
@@ -663,7 +663,7 @@ data Update
     -- class.
   -- | Bind in the update monad.
   | UBind
-    { bindBinding :: !Binding
+    { bindBinding :: !Binding -- type in binding is redundant
       -- ^ Variable and the expression to bind.
     , bindBody   :: !Expr
     }
@@ -671,14 +671,14 @@ data Update
     -- proper function, porentially as part of a 'Monad' type class.
   -- | Create contract template instance.
   | UCreate
-    { creTemplate :: !(Qualified TypeConName)
+    { creTemplate :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Qualified type constructor corresponding to the contract template.
     , creArg      :: !Expr
       -- ^ Argument for the contract template.
     }
   -- | Create contract instance based on interface payload.
   | UCreateInterface
-    { creInterface :: !(Qualified TypeConName)
+    { creInterface :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Interface type.
     , creArg :: !Expr
       -- ^ Payload expression.
@@ -686,7 +686,7 @@ data Update
 
   -- | Exercise choice on a contract given a contract ID.
   | UExercise
-    { exeTemplate   :: !(Qualified TypeConName)
+    { exeTemplate   :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Qualified type constructor corresponding to the contract template.
     , exeChoice     :: !ChoiceName
       -- ^ Choice to exercise.
@@ -697,7 +697,7 @@ data Update
     }
   -- | Exercise choice on a contract of an interface given a contract ID.
   | UExerciseInterface
-    { exeInterface   :: !(Qualified TypeConName)
+    { exeInterface   :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Qualified type constructor corresponding to the interface.
     , exeChoice     :: !ChoiceName
       -- ^ Choice to exercise.
@@ -711,7 +711,7 @@ data Update
     }
   -- | Exercise a choice on a contract by key.
   | UExerciseByKey
-    { exeTemplate   :: !(Qualified TypeConName)
+    { exeTemplate   :: !(Qualified TypeConName) -- needed in speedy & for type checking
       -- ^ Qualified type constructor corresponding to the contract template.
     , exeChoice     :: !ChoiceName
       -- ^ Choice to exercise.
@@ -722,7 +722,7 @@ data Update
     }
   -- | Retrieve the argument of an existing contract template instance.
   | UFetch
-    { fetTemplate   :: !(Qualified TypeConName)
+    { fetTemplate   :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Qualified type constructor corresponding to the contract template.
     , fetContractId :: !Expr
       -- ^ Contract id of the contract template instance whose argument shall be
@@ -730,7 +730,7 @@ data Update
     }
   -- | Retrieve the argument of an existing contract interface instance.
   | UFetchInterface
-    { fetInterface   :: !(Qualified TypeConName)
+    { fetInterface   :: !(Qualified TypeConName) -- needed in speedy
       -- ^ Qualified type constructor corresponding to the interface.
     , fetContractId :: !Expr
       -- ^ Contract id of the contract template instance whose argument shall be
@@ -740,13 +740,13 @@ data Update
   | UGetTime
   -- | See comment for 'SEmbedExpr'
   | UEmbedExpr
-    { updateEmbedType :: !Type
+    { updateEmbedType :: !Type -- redundant
     , updateEmbedBody :: !Expr
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
   | UTryCatch
-    { tryCatchType :: !Type
+    { tryCatchType :: !Type -- redundant
     , tryCatchExpr :: !Expr
     , tryCatchVar :: !ExprVarName
     , tryCatchHandler :: !Expr
@@ -756,18 +756,18 @@ data Update
 -- | Expression in the scenario monad
 data Scenario
   = SPure
-    { spureType :: !Type
+    { spureType :: !Type -- redundant
     , spureExpr :: !Expr
     }
   -- Bind in the scenario monad
   | SBind
-    { sbindBinding :: !Binding
+    { sbindBinding :: !Binding -- type in binding is redundant
       -- ^ Variable and the expression to bind.
     , sbindBody :: !Expr
     }
   -- | Commit an update action to the ledger.
   | SCommit
-    { scommitType :: !Type
+    { scommitType :: !Type -- redundant
     -- ^ Type of the update to commit.
     , scommitParty :: !Expr
     -- ^ The committing party.
@@ -776,7 +776,7 @@ data Scenario
     }
   -- | A commit to the ledger that is expected to fail.
   | SMustFailAt
-    { smustFailAtType :: !Type
+    { smustFailAtType :: !Type -- redundant
     -- ^ Type of the update to commit.
     , smustFailAtParty :: !Expr
     -- ^ The committing party.
@@ -811,13 +811,13 @@ data Scenario
   -- wrapping the `if` is run every execution -- as expected. Particularly
   -- useful for scenarios that call error.
   | SEmbedExpr
-    { scenarioEmbedType :: !Type
+    { scenarioEmbedType :: !Type -- redundant
     , scenarioEmbedExpr :: !Expr
     }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data RetrieveByKey = RetrieveByKey
-  { retrieveByKeyTemplate :: !(Qualified TypeConName)
+  { retrieveByKeyTemplate :: !(Qualified TypeConName) -- needed in speedy & for type checking
   , retrieveByKeyKey :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
