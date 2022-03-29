@@ -5,9 +5,9 @@ package com.daml.ledger.sandbox
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.Sink
-import akka.stream.{BoundedSourceQueue, Materializer}
-import com.codahale.metrics.InstrumentedExecutorService
+import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
+import akka.stream.{Materializer, OverflowStrategy}
+import com.codahale.metrics.{InstrumentedExecutorService, Timer}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{
@@ -33,7 +33,8 @@ import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.engine.{Engine, EngineConfig, ValueEnricher}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{InstrumentedSource, JvmMetricSet, Metrics}
+import com.daml.metrics.InstrumentedSource.InstrumentedSourceQueueWithComplete
+import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
@@ -163,15 +164,35 @@ object SandboxOnXRunner {
             stateUpdatesSource,
           )
 
-          (updatesQueue, updatesSource) =
-            InstrumentedSource
-              .queue[((Offset, Long), TransactionLogUpdate)](
-                128,
+          (updatesQueue, updatesSource) = {
+            val bufferSize = 1500
+            val (boundedQueue, source) =
+              Source
+                .queue[(Timer.Context, ((Offset, Long), TransactionLogUpdate))](
+                  1500,
+                  OverflowStrategy.backpressure,
+                )
+                .preMaterialize()
+
+            val instrumentedQueue =
+              new InstrumentedSourceQueueWithComplete(
+                boundedQueue,
+                bufferSize,
                 metrics.daml.index.IndexBypassBuffer.capacity,
                 metrics.daml.index.IndexBypassBuffer.length,
                 metrics.daml.index.IndexBypassBuffer.delay,
+                servicesExecutionContext,
               )
-              .preMaterialize()
+
+            metrics.daml.index.IndexBypassBuffer.capacity.inc(bufferSize.toLong)
+
+            source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
+              timingContext.stop()
+              metrics.daml.index.IndexBypassBuffer.length.dec()
+              item
+            }
+          }
+            .preMaterialize()
 
           dbSupport <- DbSupport
             .owner(
@@ -353,7 +374,7 @@ object SandboxOnXRunner {
       metrics: Metrics,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
-      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
       stringInterningView: StringInterningView,
       ledgerEndUpdater: LedgerEnd => Unit,
       buffersUpdaterCache: LedgerEndCache,

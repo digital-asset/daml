@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
@@ -16,6 +17,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText}
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
@@ -36,6 +38,7 @@ final class BuffersUpdaterSpec
     with Matchers
     with Eventually
     with BeforeAndAfterAll {
+  private val metrics = new Metrics(new MetricRegistry)
   private val actorSystem = ActorSystem("test")
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private implicit val materializer: Materializer = Materializer(actorSystem)
@@ -72,6 +75,8 @@ final class BuffersUpdaterSpec
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
         updateMutableCache = contractStateMock += _,
         executionContext = scala.concurrent.ExecutionContext.global,
+        metrics = metrics,
+        updateBuffersCache = _ => (),
         minBackoffStreamRestart = 10.millis,
         sysExitWithCode = _ => fail("should not be triggered"),
       )(materializer, loggingContext)
@@ -133,6 +138,8 @@ final class BuffersUpdaterSpec
         updateCompletionsBuffer = (_, _) => (),
         toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
         updateMutableCache = _ => (),
+        metrics = metrics,
+        updateBuffersCache = _ => (),
         executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 1.millis,
         sysExitWithCode = _ => fail("should not be triggered"),
@@ -167,6 +174,8 @@ final class BuffersUpdaterSpec
         updateCompletionsBuffer = (_, _) => (),
         toContractStateEvents = Map.empty,
         updateMutableCache = _ => (),
+        metrics = metrics,
+        updateBuffersCache = _ => (),
         executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 1.millis,
         sysExitWithCode = shutdownCodeCapture.set,

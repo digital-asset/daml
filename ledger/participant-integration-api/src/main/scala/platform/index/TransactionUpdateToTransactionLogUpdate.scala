@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.logging.ContextualizedLogger
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -22,8 +21,7 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate.{
   SubmissionRejected,
 }
 
-object Stream {
-  private val logger = ContextualizedLogger.get(getClass)
+object LedgerBuffersUpdater {
   def flow(
       initSeqId: Long
   ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] =
@@ -82,157 +80,146 @@ object Stream {
             Iterator((rejection.offset -> rejection.lastEventSeqId, rejection))
           )
       }
-      .map { case up @ ((offset, seqId), update) =>
-        logger.withoutContext.info(
-          s"Forwarding log update at $offset, $seqId for ${update.getClass}"
-        )
-        up
-      }
 }
 
 object TransactionUpdateToTransactionLogUpdate {
+  type UpdateToTransactionLogUpdate = ((Offset, Update)) => TransactionLogUpdate
+
   def apply: UpdateToTransactionLogUpdate = {
-    case (
-          offset,
-          u @ TransactionAccepted(
-            optCompletionInfo,
-            transactionMeta,
-            transaction,
-            transactionId,
-            _,
-            _,
-            _,
-          ),
-        ) =>
-      val rawEvents = transaction.transaction
-        .foldInExecutionOrder(List.empty[(NodeId, Node)])(
-          exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
-          // Rollback nodes are not included in the indexer
-          rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-          leaf = (acc, nid, node) => (nid -> node) :: acc,
-          exerciseEnd = (acc, _, _) => acc,
-          rollbackEnd = (acc, _, _) => acc,
-        )
-        .reverse
-        .iterator
+    case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
+    case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
+    case (offset, _) => LedgerEndMarker(offset, 0L)
+  }
 
-      val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
+  private def updateToSubmissionRejected(offset: Offset, u: CommandRejected) = {
+    val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+      deduplicationInfo(u.completionInfo)
 
-      val logUpdates = rawEvents.collect {
-        case (nodeId, create: Create) =>
-          TransactionLogUpdate.CreatedEvent(
-            eventOffset = offset,
-            transactionId = transactionId,
-            nodeIndex = nodeId.index,
-            eventSequentialId = 0L,
-            eventId = EventId(u.transactionId, nodeId),
-            contractId = create.coid,
-            ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
-            templateId = create.templateId,
-            commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-            workflowId = u.transactionMeta.workflowId.map(_.toString).getOrElse(""),
-            contractKey =
-              create.key.map(k => com.daml.lf.transaction.Versioned(create.version, k.key)),
-            treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-            flatEventWitnesses = create.stakeholders.map(_.toString),
-            submitters = u.optCompletionInfo
-              .map(_.actAs.iterator.map(_.toString).toSet)
-              .getOrElse(Set.empty),
-            createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
-            createSignatories = create.signatories.map(_.toString),
-            createObservers = create.stakeholders.diff(create.signatories).map(_.toString),
-            createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
-          )
-        case (nodeId, exercise: Exercise) =>
-          TransactionLogUpdate.ExercisedEvent(
-            eventOffset = offset,
-            transactionId = transactionId,
-            nodeIndex = nodeId.index,
-            eventSequentialId = 0L,
-            eventId = EventId(u.transactionId, nodeId),
-            contractId = exercise.targetCoid,
-            ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
-            templateId = exercise.templateId,
-            commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-            workflowId = u.transactionMeta.workflowId.map(_.toString).getOrElse(""),
-            contractKey =
-              exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
-            treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-            flatEventWitnesses =
-              if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
-            submitters = u.optCompletionInfo
-              .map(_.actAs.iterator.map(_.toString).toSet)
-              .getOrElse(Set.empty),
-            choice = exercise.choiceId,
-            actingParties = exercise.actingParties,
-            children = exercise.children.iterator
-              .map(EventId(u.transactionId, _).toLedgerString.toString)
-              .toSeq,
-            exerciseArgument = exercise.versionedChosenValue,
-            exerciseResult = exercise.versionedExerciseResult,
-            consuming = exercise.consuming,
-          )
-      }
+    TransactionLogUpdate.SubmissionRejected(
+      offset = offset,
+      lastEventSeqId = 0L,
+      completionDetails = CompletionDetails(
+        CompletionFromTransaction.rejectedCompletion(
+          recordTime = u.recordTime,
+          offset = offset,
+          commandId = u.completionInfo.commandId,
+          status = u.reasonTemplate.status,
+          applicationId = u.completionInfo.applicationId,
+          optSubmissionId = u.completionInfo.submissionId,
+          optDeduplicationOffset = deduplicationOffset,
+          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+          optDeduplicationDurationNanos = deduplicationDurationNanos,
+        ),
+        submitters = u.completionInfo.actAs.toSet,
+      ),
+    )
+  }
 
-      val events = logUpdates ++ blinding.divulgence.iterator.collect {
-        // only store divulgence events, which are divulging to parties
-        case (_, visibleToParties) if visibleToParties.nonEmpty =>
-          TransactionLogUpdate.DivulgenceEvent(
-            eventOffset = offset,
-            eventSequentialId = 0L,
-            transactionId = null,
-            eventId = null,
-            commandId = null,
-            workflowId = null,
-            ledgerEffectiveTime = null,
-            treeEventWitnesses = null,
-            flatEventWitnesses = null,
-            submitters = null,
-            templateId = null,
-            contractId = null,
-          )
-      }
-
-      TransactionLogUpdate.TransactionAccepted(
-        transactionId = transactionId,
-        workflowId = transactionMeta.workflowId.getOrElse(""), // TODO check
-        effectiveAt = transactionMeta.ledgerEffectiveTime,
-        offset = offset,
-        events = events.toVector,
-        completionDetails = optCompletionInfo.map(completionInfo => {
-          val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
-            deduplicationInfo(completionInfo)
-
-          CompletionDetails(
-            CompletionFromTransaction.acceptedCompletion(
-              recordTime = u.recordTime,
-              offset = offset,
-              commandId = completionInfo.commandId,
-              transactionId = transactionId,
-              applicationId = completionInfo.applicationId,
-              optSubmissionId = completionInfo.submissionId,
-              optDeduplicationOffset = deduplicationOffset,
-              optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-              optDeduplicationDurationNanos = deduplicationDurationNanos,
-            ),
-            submitters = completionInfo.actAs.toSet,
-          )
-        }),
+  private def updateToTransactionAccepted(offset: Offset, u: TransactionAccepted) = {
+    val rawEvents = u.transaction.transaction
+      .foldInExecutionOrder(List.empty[(NodeId, Node)])(
+        exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
+        // Rollback nodes are not included in the indexer
+        rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+        leaf = (acc, nid, node) => (nid -> node) :: acc,
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackEnd = (acc, _, _) => acc,
       )
+      .reverseIterator
 
-    case (offset, CommandRejected(recordTime, completionInfo, reasonTemplate)) =>
-      val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
-        deduplicationInfo(completionInfo)
+    val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
 
-      TransactionLogUpdate.SubmissionRejected(
-        offset = offset,
-        lastEventSeqId = 0L,
-        completionDetails = CompletionDetails(
-          CompletionFromTransaction.rejectedCompletion(
-            recordTime = recordTime,
+    val logUpdates = rawEvents.collect {
+      case (nodeId, create: Create) =>
+        TransactionLogUpdate.CreatedEvent(
+          eventOffset = offset,
+          transactionId = u.transactionId,
+          nodeIndex = nodeId.index,
+          eventSequentialId = 0L,
+          eventId = EventId(u.transactionId, nodeId),
+          contractId = create.coid,
+          ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
+          templateId = create.templateId,
+          commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
+          workflowId = u.transactionMeta.workflowId.map(_.toString).getOrElse(""),
+          contractKey =
+            create.key.map(k => com.daml.lf.transaction.Versioned(create.version, k.key)),
+          treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+          flatEventWitnesses = create.stakeholders.map(_.toString),
+          submitters = u.optCompletionInfo
+            .map(_.actAs.iterator.map(_.toString).toSet)
+            .getOrElse(Set.empty),
+          createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
+          createSignatories = create.signatories.map(_.toString),
+          createObservers = create.stakeholders.diff(create.signatories).map(_.toString),
+          createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
+        )
+      case (nodeId, exercise: Exercise) =>
+        TransactionLogUpdate.ExercisedEvent(
+          eventOffset = offset,
+          transactionId = u.transactionId,
+          nodeIndex = nodeId.index,
+          eventSequentialId = 0L,
+          eventId = EventId(u.transactionId, nodeId),
+          contractId = exercise.targetCoid,
+          ledgerEffectiveTime = u.transactionMeta.ledgerEffectiveTime,
+          templateId = exercise.templateId,
+          commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
+          workflowId = u.transactionMeta.workflowId.map(_.toString).getOrElse(""),
+          contractKey =
+            exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
+          treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+          flatEventWitnesses =
+            if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
+          submitters = u.optCompletionInfo
+            .map(_.actAs.iterator.map(_.toString).toSet)
+            .getOrElse(Set.empty),
+          choice = exercise.choiceId,
+          actingParties = exercise.actingParties,
+          children = exercise.children.iterator
+            .map(EventId(u.transactionId, _).toLedgerString.toString)
+            .toSeq,
+          exerciseArgument = exercise.versionedChosenValue,
+          exerciseResult = exercise.versionedExerciseResult,
+          consuming = exercise.consuming,
+        )
+    }
+
+    val events = logUpdates ++ blinding.divulgence.iterator.collect {
+      // only store divulgence events, which are divulging to parties
+      case (_, visibleToParties) if visibleToParties.nonEmpty =>
+        TransactionLogUpdate.DivulgenceEvent(
+          eventOffset = offset,
+          eventSequentialId = 0L,
+          transactionId = null,
+          eventId = null,
+          commandId = null,
+          workflowId = null,
+          ledgerEffectiveTime = null,
+          treeEventWitnesses = null,
+          flatEventWitnesses = null,
+          submitters = null,
+          templateId = null,
+          contractId = null,
+        )
+    }
+
+    TransactionLogUpdate.TransactionAccepted(
+      transactionId = u.transactionId,
+      workflowId = u.transactionMeta.workflowId.getOrElse(""), // TODO check
+      effectiveAt = u.transactionMeta.ledgerEffectiveTime,
+      offset = offset,
+      events = events.toVector,
+      completionDetails = u.optCompletionInfo.map(completionInfo => {
+        val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
+          deduplicationInfo(completionInfo)
+
+        CompletionDetails(
+          CompletionFromTransaction.acceptedCompletion(
+            recordTime = u.recordTime,
             offset = offset,
             commandId = completionInfo.commandId,
-            status = reasonTemplate.status,
+            transactionId = u.transactionId,
             applicationId = completionInfo.applicationId,
             optSubmissionId = completionInfo.submissionId,
             optDeduplicationOffset = deduplicationOffset,
@@ -240,10 +227,9 @@ object TransactionUpdateToTransactionLogUpdate {
             optDeduplicationDurationNanos = deduplicationDurationNanos,
           ),
           submitters = completionInfo.actAs.toSet,
-        ),
-      )
-
-    case (offset, _) => LedgerEndMarker(offset, 0L)
+        )
+      }),
+    )
   }
 
   private def deduplicationInfo(completionInfo: CompletionInfo) =
@@ -255,8 +241,4 @@ object TransactionUpdateToTransactionLogUpdate {
           (None, Some(duration.getSeconds), Some(duration.getNano))
       }
       .getOrElse((None, None, None))
-
-  type UpdateToTransactionLogUpdate =
-    ((Offset, Update)) => TransactionLogUpdate
-
 }

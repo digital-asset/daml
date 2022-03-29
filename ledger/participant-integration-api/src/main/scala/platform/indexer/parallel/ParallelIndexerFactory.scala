@@ -3,7 +3,8 @@
 
 package com.daml.platform.indexer.parallel
 
-import akka.stream.{BoundedSourceQueue, KillSwitch, Materializer}
+import akka.stream.scaladsl.SourceQueueWithComplete
+import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -44,7 +45,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
