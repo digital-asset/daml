@@ -41,6 +41,8 @@ final class Metrics(val registry: MetricRegistry) {
       val inputBufferDelay: Timer = registry.timer(Prefix :+ "input_buffer_delay")
       val maxInFlightLength: Counter = registry.counter(Prefix :+ "max_in_flight_length")
       val maxInFlightCapacity: Counter = registry.counter(Prefix :+ "max_in_flight_capacity")
+
+      val updateBuffers: Timer = registry.timer(Prefix :+ "update_buffers")
     }
 
     object execution {

@@ -158,6 +158,7 @@ private[platform] case class IndexServiceBuilder(
             updateMutableCache = contractStore.push,
             updateBuffersCache = buffersUpdaterCache.set,
             executionContext = servicesExecutionContext,
+            metrics = metrics,
           )
         )
       } yield (

@@ -145,7 +145,7 @@ object ErrorCategory {
         grpcCode = Some(Code.INTERNAL),
         logLevel = Level.ERROR,
         retryable = None,
-        securitySensitive = false,
+        securitySensitive = true,
         asInt = 4,
         rank = 1,
       )
@@ -165,7 +165,7 @@ object ErrorCategory {
         grpcCode = Some(Code.UNKNOWN),
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = false,
+        securitySensitive = true,
         asInt = 5,
         rank = 2,
       )
@@ -184,7 +184,7 @@ object ErrorCategory {
         grpcCode = Some(Code.UNAUTHENTICATED),
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = false,
+        securitySensitive = true,
         asInt = 6,
         rank = 2,
       )
@@ -203,7 +203,7 @@ object ErrorCategory {
         grpcCode = Some(Code.PERMISSION_DENIED),
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = false,
+        securitySensitive = true,
         asInt = 7,
         rank = 2,
       )
@@ -346,7 +346,7 @@ object ErrorCategory {
         grpcCode = Some(Code.UNIMPLEMENTED),
         logLevel = Level.ERROR,
         retryable = None,
-        securitySensitive = false,
+        securitySensitive = true,
         asInt = 14,
         rank = 1,
       )

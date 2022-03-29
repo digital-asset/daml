@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.BuffersUpdater._
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -37,6 +38,7 @@ import scala.util.{Failure, Success}
 private[index] class BuffersUpdater(
     subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
     updateCaches: (Offset, TransactionLogUpdate) => Unit,
+    metrics: Metrics,
     minBackoffStreamRestart: FiniteDuration,
     sysExitWithCode: Int => Unit,
 )(implicit mat: Materializer, loggingContext: LoggingContext, executionContext: ExecutionContext)
@@ -57,7 +59,7 @@ private[index] class BuffersUpdater(
         )
       )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
       .map { case ((offset, eventSequentialId), update) =>
-        updateCaches(offset, update)
+        Timed.value(metrics.daml.commands.updateBuffers, updateCaches(offset, update))
         logger.info(s"Updated caches at offset $offset - $eventSequentialId")
         updaterIndex.set(Some(offset -> eventSequentialId))
       }
@@ -115,6 +117,7 @@ private[index] object BuffersUpdater {
         convertToContractStateEvents,
       updateBuffersCache: ((Offset, Long)) => Unit,
       executionContext: ExecutionContext,
+      metrics: Metrics,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
@@ -135,6 +138,7 @@ private[index] object BuffersUpdater {
           updateBuffersCache(offset -> lastEventSeqId)
       }
     },
+    metrics = metrics,
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,
   )(mat, loggingContext, executionContext)

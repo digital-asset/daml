@@ -4,6 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.stream._
+import akka.stream.scaladsl.SourceQueueWithComplete
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
@@ -38,7 +39,7 @@ object JdbcIndexer {
       stringInterningView: StringInterningView,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
       ledgerEndUpdater: LedgerEnd => Unit,
       buffersUpdaterCache: LedgerEndCache,
   )(implicit materializer: Materializer) {

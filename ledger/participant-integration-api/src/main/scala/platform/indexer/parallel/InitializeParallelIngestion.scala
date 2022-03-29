@@ -4,7 +4,7 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
@@ -32,7 +32,7 @@ private[platform] case class InitializeParallelIngestion(
       dbDispatcher: DbDispatcher,
       updatingStringInterningView: UpdatingStringInterningView,
       readService: ReadService,
-      updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
       ec: ExecutionContext,
       mat: Materializer,
   )(implicit loggingContext: LoggingContext): Future[InitializeParallelIngestion.Initialized] = {
@@ -64,10 +64,10 @@ private[platform] case class InitializeParallelIngestion(
       readServiceSource = readService
         .stateUpdates(beginAfter = ledgerEnd.lastOffsetOption)
         .alsoTo(
-          com.daml.platform.index.Stream
+          com.daml.platform.index.LedgerBuffersUpdater
             .flow(ledgerEnd.lastEventSeqId)
-            .to(Sink.foreach[((Offset, Long), TransactionLogUpdate)] { o =>
-              updatesQueue.offer(o) match {
+            .to(Sink.foreachAsync[((Offset, Long), TransactionLogUpdate)](1) { o =>
+              updatesQueue.offer(o).map {
                 case QueueOfferResult.Enqueued =>
                 case r => throw new RuntimeException(s"Offset/update pair ($o) not enqueued: $r")
               }

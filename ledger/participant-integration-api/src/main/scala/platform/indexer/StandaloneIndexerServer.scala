@@ -3,7 +3,8 @@
 
 package com.daml.platform.indexer
 
-import akka.stream.{BoundedSourceQueue, Materializer}
+import akka.stream.Materializer
+import akka.stream.scaladsl.SourceQueueWithComplete
 import com.daml.ledger.api.health.{Healthy, ReportsHealth}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
@@ -24,7 +25,7 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     stringInterningView: StringInterningView,
-    updatesQueue: BoundedSourceQueue[((Offset, Long), TransactionLogUpdate)],
+    updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
     ledgerEndUpdater: LedgerEnd => Unit,
     buffersUpdaterCache: LedgerEndCache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
