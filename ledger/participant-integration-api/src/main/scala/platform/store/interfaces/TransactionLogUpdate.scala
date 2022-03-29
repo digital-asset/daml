@@ -5,7 +5,7 @@ package com.daml.platform.store.interfaces
 
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref.IdString
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.{Value => LfValue}
@@ -73,9 +73,9 @@ object TransactionLogUpdate {
     def commandId: String
     def workflowId: String
     def ledgerEffectiveTime: Timestamp
-    def treeEventWitnesses: Set[String]
-    def flatEventWitnesses: Set[String]
-    def submitters: Set[String]
+    def treeEventWitnesses: Set[Party]
+    def flatEventWitnesses: Set[Party]
+    def submitters: Set[Party]
     def templateId: Identifier
     def contractId: ContractId
   }
@@ -93,12 +93,12 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       contractKey: Option[LfValue.VersionedValue],
-      treeEventWitnesses: Set[String],
-      flatEventWitnesses: Set[String],
-      submitters: Set[String],
+      treeEventWitnesses: Set[Party],
+      flatEventWitnesses: Set[Party],
+      submitters: Set[Party],
       createArgument: LfValue.VersionedValue,
-      createSignatories: Set[String],
-      createObservers: Set[String],
+      createSignatories: Set[Party],
+      createObservers: Set[Party],
       createAgreementText: Option[String],
   ) extends Event
 
@@ -110,9 +110,9 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       ledgerEffectiveTime: Timestamp,
-      treeEventWitnesses: Set[String],
-      flatEventWitnesses: Set[String],
-      submitters: Set[String],
+      treeEventWitnesses: Set[Party],
+      flatEventWitnesses: Set[Party],
+      submitters: Set[Party],
       templateId: Identifier,
       contractId: ContractId,
   ) extends Event
@@ -129,11 +129,11 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       contractKey: Option[LfValue.VersionedValue],
-      treeEventWitnesses: Set[String],
-      flatEventWitnesses: Set[String],
-      submitters: Set[String],
+      treeEventWitnesses: Set[Party],
+      flatEventWitnesses: Set[Party],
+      submitters: Set[Party],
       choice: String,
-      actingParties: Set[IdString.Party],
+      actingParties: Set[Party],
       children: Seq[String],
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],

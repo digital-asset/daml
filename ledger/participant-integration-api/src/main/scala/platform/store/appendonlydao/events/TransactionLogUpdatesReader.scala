@@ -34,9 +34,9 @@ object TransactionLogUpdatesReader {
               _,
             )
           ),
-          treeEventWitnesses = raw.treeEventWitnesses,
-          flatEventWitnesses = raw.flatEventWitnesses,
-          submitters = raw.submitters,
+          treeEventWitnesses = raw.treeEventWitnesses.map(Ref.Party.assertFromString),
+          flatEventWitnesses = raw.flatEventWitnesses.map(Ref.Party.assertFromString),
+          submitters = raw.submitters.map(Ref.Party.assertFromString),
           choice = raw.exerciseChoice.mandatory("exercise_choice"),
           actingParties = raw.exerciseActors
             .mandatory("exercise_actors")
@@ -90,12 +90,20 @@ object TransactionLogUpdatesReader {
           commandId = raw.commandId.getOrElse(""),
           workflowId = raw.workflowId.getOrElse(""),
           contractKey = maybeGlobalKey,
-          treeEventWitnesses = raw.treeEventWitnesses,
-          flatEventWitnesses = raw.flatEventWitnesses,
-          submitters = raw.submitters,
+          treeEventWitnesses = raw.treeEventWitnesses.map(Ref.Party.assertFromString),
+          flatEventWitnesses = raw.flatEventWitnesses.map(Ref.Party.assertFromString),
+          submitters = raw.submitters.map(Ref.Party.assertFromString),
           createArgument = createArgumentDecompressed,
-          createSignatories = raw.createSignatories.mandatory("create_signatories").toSet,
-          createObservers = raw.createObservers.mandatory("create_observers").toSet,
+          createSignatories = raw.createSignatories
+            .mandatory("create_signatories")
+            .iterator
+            .map(Ref.Party.assertFromString)
+            .toSet,
+          createObservers = raw.createObservers
+            .mandatory("create_observers")
+            .iterator
+            .map(Ref.Party.assertFromString)
+            .toSet,
           createAgreementText = raw.createAgreementText,
         )
       case unknownKind =>

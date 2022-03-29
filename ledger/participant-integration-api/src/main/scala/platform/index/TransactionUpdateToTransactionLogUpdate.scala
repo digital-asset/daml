@@ -144,14 +144,14 @@ object TransactionUpdateToTransactionLogUpdate {
           workflowId = u.transactionMeta.workflowId.map(_.toString).getOrElse(""),
           contractKey =
             create.key.map(k => com.daml.lf.transaction.Versioned(create.version, k.key)),
-          treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-          flatEventWitnesses = create.stakeholders.map(_.toString),
+          treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
+          flatEventWitnesses = create.stakeholders,
           submitters = u.optCompletionInfo
-            .map(_.actAs.iterator.map(_.toString).toSet)
+            .map(_.actAs.toSet)
             .getOrElse(Set.empty),
           createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
-          createSignatories = create.signatories.map(_.toString),
-          createObservers = create.stakeholders.diff(create.signatories).map(_.toString),
+          createSignatories = create.signatories,
+          createObservers = create.stakeholders.diff(create.signatories),
           createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
         )
       case (nodeId, exercise: Exercise) =>
@@ -168,11 +168,10 @@ object TransactionUpdateToTransactionLogUpdate {
           workflowId = u.transactionMeta.workflowId.map(_.toString).getOrElse(""),
           contractKey =
             exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
-          treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-          flatEventWitnesses =
-            if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
+          treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
+          flatEventWitnesses = if (exercise.consuming) exercise.stakeholders else Set.empty,
           submitters = u.optCompletionInfo
-            .map(_.actAs.iterator.map(_.toString).toSet)
+            .map(_.actAs.toSet)
             .getOrElse(Set.empty),
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,

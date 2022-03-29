@@ -658,6 +658,7 @@ final class Metrics(val registry: MetricRegistry) {
           val fetchTimer: Timer = registry.timer(Prefix :+ "fetch")
           val conversion: Timer = registry.timer(Prefix :+ "conversion")
           val bufferSize: Counter = registry.counter(Prefix :+ "buffer_size")
+          val inStreamBufferLength: Counter = registry.counter(Prefix :+ "in_stream_buffer_length")
         }
 
         val getContractStateEventsChunkSize: Histogram =
