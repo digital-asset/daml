@@ -180,7 +180,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def fetchByKey(contract: Node.Create): Node.Fetch =
     fetch(contract, byKey = true)
 
-  def lookupByKey(contract: Node.Create, found: Boolean): Node.LookupByKey =
+  def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
     Node.LookupByKey(
       templateId = contract.templateId,
       key = contract.key.get,
