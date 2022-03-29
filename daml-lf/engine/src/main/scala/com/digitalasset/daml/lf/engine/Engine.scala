@@ -308,12 +308,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def deps(tx: VersionedTransaction): Result[Set[PackageId]] = {
-    val nodePkgIds = tx.fold(Set.empty[Ref.PackageId]) {
-      case (acc, (_, node: Node.Action)) =>
-        node.byInterface.fold(acc)(acc + _.packageId) + node.templateId.packageId
-      case (acc, (_, _: Node.Rollback)) =>
-        acc
-    }
+    val nodePkgIds =
+      tx.nodes.values.collect { case node: Node.Action => node.templateId.packageId }.toSet
     val deps = nodePkgIds.foldLeft(nodePkgIds)((acc, pkgId) =>
       acc | compiledPackages
         .getPackageDependencies(pkgId)
