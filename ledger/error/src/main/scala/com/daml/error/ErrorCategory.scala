@@ -134,7 +134,9 @@ object ErrorCategory {
 
   /** Some internal error
     */
-  @Description("Request processing failed due to a violation of system internal invariants.  This error is exposed on the API with grpc-status INTERNAL without any details for security reasons")
+  @Description(
+    "Request processing failed due to a violation of system internal invariants.  This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"
+  )
   @RetryStrategy("Retry after operator intervention.")
   @Resolution(
     """Expectation: this is due to a bug in the implementation or data corruption in the systems databases.
@@ -153,8 +155,10 @@ object ErrorCategory {
 
   /** Malicious or faulty behaviour detected
     */
-  @Description("""Request processing failed due to unrecoverable data loss or corruption
-                 |(e.g. detected via checksums). This error is exposed on the API with grpc-status INTERNAL without any details for security reasons""")
+  @Description(
+    """Request processing failed due to unrecoverable data loss or corruption
+                 |(e.g. detected via checksums). This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+  )
   @RetryStrategy("Retry after operator intervention.")
   @Resolution(
     """Expectation: this can be a severe issue that requires operator attention or intervention, and
@@ -173,7 +177,9 @@ object ErrorCategory {
 
   /** Client is not authenticated properly
     */
-  @Description("""The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons""")
+  @Description(
+    """The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+  )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug, application misconfiguration or ledger-level
@@ -192,7 +198,9 @@ object ErrorCategory {
 
   /** Client does not have appropriate permissions
     */
-  @Description("""The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons""")
+  @Description(
+    """The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+  )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or application misconfiguration. Resolution requires
