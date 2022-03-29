@@ -127,7 +127,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class UnexpectedOrUnknownException(t: Throwable)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Unexpected or unknown exception occurred.",
+          cause = "Unexpected or unknown exception occurred.",
           throwableO = Some(t),
         )
 

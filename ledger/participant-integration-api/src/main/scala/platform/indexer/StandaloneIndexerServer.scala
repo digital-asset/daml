@@ -25,8 +25,8 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     stringInterningView: StringInterningView,
-    updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
-    ledgerEndUpdater: LedgerEnd => Unit,
+    buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
+    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
     buffersUpdaterCache: LedgerEndCache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
@@ -46,8 +46,8 @@ final class StandaloneIndexerServer(
       stringInterningView = stringInterningView,
       metrics,
       lfValueTranslationCache,
-      updatesQueue = updatesQueue,
-      ledgerEndUpdater = ledgerEndUpdater,
+      buffersUpdatesQueue = buffersUpdatesQueue,
+      updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
       buffersUpdaterCache = buffersUpdaterCache,
     )
     val indexer = RecoveringIndexer(

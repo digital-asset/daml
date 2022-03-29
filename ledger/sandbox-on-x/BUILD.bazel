@@ -14,7 +14,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_library(
     name = "sandbox-on-x",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
+    resources = glob(["src/app/resources/**/*"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",

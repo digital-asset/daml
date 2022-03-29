@@ -39,8 +39,8 @@ object JdbcIndexer {
       stringInterningView: StringInterningView,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
-      ledgerEndUpdater: LedgerEnd => Unit,
+      buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
+      updateLedgerApiLedgerEnd: LedgerEnd => Unit,
       buffersUpdaterCache: LedgerEndCache,
   )(implicit materializer: Materializer) {
 
@@ -101,7 +101,7 @@ object JdbcIndexer {
           tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
-          ledgerEndUpdater = ledgerEndUpdater,
+          updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
           buffersUpdaterCache = buffersUpdaterCache,
         ),
         stringInterningView = stringInterningView,
@@ -113,7 +113,7 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        updatesQueue = updatesQueue,
+        buffersUpdatesQueue = buffersUpdatesQueue,
       )
       indexer
     }

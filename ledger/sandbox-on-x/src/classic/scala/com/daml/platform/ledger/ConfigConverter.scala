@@ -66,7 +66,7 @@ object ConfigConverter {
       acsIdQueueLimit = sandboxConfig.acsIdQueueLimit,
       configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
       commandConfig = sandboxConfig.commandConfig,
-      enableInMemoryFanOutForLedgerApi = false,
+      enableInMemoryFanOutForLedgerApi = true,
       eventsPageSize = sandboxConfig.eventsPageSize,
       eventsProcessingParallelism = sandboxConfig.eventsProcessingParallelism,
       extra = extraBridgeConfig,

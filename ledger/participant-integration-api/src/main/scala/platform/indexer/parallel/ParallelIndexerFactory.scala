@@ -45,7 +45,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
+      buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -122,7 +122,7 @@ object ParallelIndexerFactory {
             readService = readService,
             ec = ec,
             mat = mat,
-            updatesQueue = updatesQueue,
+            buffersUpdatesQueue = buffersUpdatesQueue,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,

@@ -322,7 +322,6 @@ private object MutableCacheBackedContractStoreRaceTests {
       ec: ExecutionContext,
   ) = MutableCacheBackedContractStore(
     contractsReader = indexViewContractsReader,
-    signalNewLedgerHead = (_, _) => (),
     startIndexExclusive = EventSequentialId.beforeBegin,
     metrics = new Metrics(new MetricRegistry),
     maxContractsCacheSize = 1L,

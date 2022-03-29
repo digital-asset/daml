@@ -39,7 +39,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     tailingRateLimitPerSecond: Int,
     batchWithinMillis: Long,
     metrics: Metrics,
-    ledgerEndUpdater: LedgerEnd => Unit,
+    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
     buffersUpdaterCache: LedgerEndCache,
 ) {
   import ParallelIndexerSubscription._
@@ -83,12 +83,11 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           keepAlive[DB_BATCH](ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-        holdTailerIngestion = holdTailerIngestion[DB_BATCH](buffersUpdaterCache),
+        synchronizeLedgerEndTailIngestion = synchronizeLedgerEnd[DB_BATCH](buffersUpdaterCache),
         ingestTail = ingestTail[DB_BATCH](
           le => { connection =>
             parameterStorageBackend.updateLedgerEnd(le)(connection)
-            ledgerEndUpdater(le)
-            logger.info(s"Updated ledger end globally: $le")
+            updateLedgerApiLedgerEnd(le)
           },
           dbDispatcher,
           metrics,
@@ -277,7 +276,7 @@ object ParallelIndexerSubscription {
         offsets = Vector.empty,
       )
 
-  def holdTailerIngestion[DB_BATCH](
+  def synchronizeLedgerEnd[DB_BATCH](
       buffersUpdaterCache: LedgerEndCache
   ): () => Batch[DB_BATCH] => Iterator[Batch[DB_BATCH]] =
     () => {

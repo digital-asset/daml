@@ -102,8 +102,8 @@ object IndexerStabilityTestFixture {
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
                     stringInterningView = null, // TODO LLP
-                    updatesQueue = null, // TODO LLP
-                    ledgerEndUpdater = null, // TODO LLP
+                    buffersUpdatesQueue = null, // TODO LLP
+                    updateLedgerApiLedgerEnd = null, // TODO LLP
                     buffersUpdaterCache = MutableLedgerEndCache(), // TODO LLP
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)

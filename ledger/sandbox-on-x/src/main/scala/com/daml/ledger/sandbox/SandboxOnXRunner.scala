@@ -164,35 +164,10 @@ object SandboxOnXRunner {
             stateUpdatesSource,
           )
 
-          (updatesQueue, updatesSource) = {
-            val bufferSize = 1500
-            val (boundedQueue, source) =
-              Source
-                .queue[(Timer.Context, ((Offset, Long), TransactionLogUpdate))](
-                  1500,
-                  OverflowStrategy.backpressure,
-                )
-                .preMaterialize()
-
-            val instrumentedQueue =
-              new InstrumentedSourceQueueWithComplete(
-                boundedQueue,
-                bufferSize,
-                metrics.daml.index.IndexBypassBuffer.capacity,
-                metrics.daml.index.IndexBypassBuffer.length,
-                metrics.daml.index.IndexBypassBuffer.delay,
-                servicesExecutionContext,
-              )
-
-            metrics.daml.index.IndexBypassBuffer.capacity.inc(bufferSize.toLong)
-
-            source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
-              timingContext.stop()
-              metrics.daml.index.IndexBypassBuffer.length.dec()
-              item
-            }
-          }
-            .preMaterialize()
+          (buffersUpdatesQueue, bufferUpdatesSource) = bufferUpdatesPipe(
+            metrics,
+            servicesExecutionContext,
+          )
 
           dbSupport <- DbSupport
             .owner(
@@ -213,7 +188,7 @@ object SandboxOnXRunner {
           stringInterningView = createStringInterningView(dbSupport, metrics)
           ledgerEndCache = MutableLedgerEndCache()
 
-          ledgerEndUpdater = (ledgerEnd: LedgerEnd) => {
+          updateLedgerApiLedgerEnd = (ledgerEnd: LedgerEnd) => {
             ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
             // the order here is very important: first we need to make data available for point-wise lookups
             // and SQL queries, and only then we can make it available on the streams.
@@ -227,9 +202,9 @@ object SandboxOnXRunner {
             metrics,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
-            updatesQueue,
+            buffersUpdatesQueue,
             stringInterningView,
-            ledgerEndUpdater,
+            updateLedgerApiLedgerEnd,
             buffersUpdaterCache,
           )
 
@@ -254,7 +229,7 @@ object SandboxOnXRunner {
 
           ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
           // Update heads
-          _ = ledgerEndUpdater(ledgerEnd)
+          _ = updateLedgerApiLedgerEnd(ledgerEnd)
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
@@ -264,7 +239,7 @@ object SandboxOnXRunner {
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
-            updatesSource = updatesSource,
+            updatesSource = bufferUpdatesSource,
             stringInterningView = stringInterningView,
             ledgerEnd = ledgerEnd,
             ledgerEndCache = ledgerEndCache,
@@ -297,6 +272,38 @@ object SandboxOnXRunner {
         } yield (apiServer, writeService, indexService)
     }
   }
+
+  private def bufferUpdatesPipe(
+      metrics: Metrics,
+      servicesExecutionContext: ExecutionContextExecutorService,
+  )(implicit materializer: Materializer) = {
+    val bufferSize = 1500
+    val (boundedQueue, source) =
+      Source
+        .queue[(Timer.Context, ((Offset, Long), TransactionLogUpdate))](
+          1500,
+          OverflowStrategy.backpressure,
+        )
+        .preMaterialize()
+
+    val instrumentedQueue =
+      new InstrumentedSourceQueueWithComplete(
+        boundedQueue,
+        bufferSize,
+        metrics.daml.index.IndexBypassBuffer.capacity,
+        metrics.daml.index.IndexBypassBuffer.length,
+        metrics.daml.index.IndexBypassBuffer.delay,
+        servicesExecutionContext,
+      )
+
+    metrics.daml.index.IndexBypassBuffer.capacity.inc(bufferSize.toLong)
+
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
+      timingContext.stop()
+      metrics.daml.index.IndexBypassBuffer.length.dec()
+      item
+    }
+  }.preMaterialize()
 
   private def createStringInterningView(dbSupport: DbSupport, metrics: Metrics) = {
     val stringInterningStorageBackend =
@@ -374,9 +381,9 @@ object SandboxOnXRunner {
       metrics: Metrics,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
-      updatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
+      buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
       stringInterningView: StringInterningView,
-      ledgerEndUpdater: LedgerEnd => Unit,
+      updateLedgerApiLedgerEnd: LedgerEnd => Unit,
       buffersUpdaterCache: LedgerEndCache,
   )(implicit
       loggingContext: LoggingContext,
@@ -390,8 +397,8 @@ object SandboxOnXRunner {
         config = BridgeConfigProvider.indexerConfig(participantConfig, config),
         metrics = metrics,
         lfValueTranslationCache = translationCache,
-        updatesQueue = updatesQueue,
-        ledgerEndUpdater = ledgerEndUpdater,
+        buffersUpdatesQueue = buffersUpdatesQueue,
+        updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
         stringInterningView = stringInterningView,
         buffersUpdaterCache = buffersUpdaterCache,
       )

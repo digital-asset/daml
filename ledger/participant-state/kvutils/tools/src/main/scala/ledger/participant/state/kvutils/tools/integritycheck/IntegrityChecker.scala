@@ -259,8 +259,8 @@ class IntegrityChecker[LogResult](
       stringInterningView = null, // TODO LLP
       metrics,
       lfValueTranslationCache,
-      updatesQueue = null, // TODO LLP
-      ledgerEndUpdater = (_: LedgerEnd) => (), // TODO LLP
+      buffersUpdatesQueue = null, // TODO LLP
+      updateLedgerApiLedgerEnd = (_: LedgerEnd) => (), // TODO LLP
       buffersUpdaterCache = MutableLedgerEndCache(),
     )
     for {

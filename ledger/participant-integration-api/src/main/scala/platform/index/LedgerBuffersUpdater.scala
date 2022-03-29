@@ -14,6 +14,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{
   CompletionDetails,
@@ -25,75 +26,84 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerBuffersUpdater {
-  def flow(initSeqId: Long)(implicit
-      asyncExecutionContext: ExecutionContext
+  private type UpdateToTransactionLogUpdate = ((Offset, Update)) => TransactionLogUpdate
+  private val prepareUpdatesParallelism = 2
+  private val ec: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(prepareUpdatesParallelism))
+
+  def flow(
+      initSeqId: Long
   ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] =
     Flow[(Offset, Update)]
-      .mapAsync(1)(o => Future(TransactionUpdateToTransactionLogUpdate(o)))
+      .mapAsync(prepareUpdatesParallelism)(o => Future(transform(o))(ec))
       .async
-      .scan(
-        TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, initSeqId): TransactionLogUpdate
-      )((prev, current) => {
-        var currSeqId = prev match {
-          case TransactionLogUpdate.TransactionAccepted(_, _, _, _, events, _) =>
-            events.last.eventSequentialId
-          case TransactionLogUpdate.LedgerEndMarker(_, lastEventSeqId) => lastEventSeqId
-          case rejection: SubmissionRejected => rejection.lastEventSeqId
-        }
-        current match {
-          case transaction: TransactionLogUpdate.TransactionAccepted =>
-            transaction.copy(events = transaction.events.flatMap {
-              case _: TransactionLogUpdate.DivulgenceEvent =>
-                currSeqId += 1
-                // don't forward divulgence events
-                Iterator.empty
-              case create: TransactionLogUpdate.CreatedEvent =>
-                currSeqId += 1
-                Iterator(create.copy(eventSequentialId = currSeqId))
-              case exercise: TransactionLogUpdate.ExercisedEvent =>
-                currSeqId += 1
-                Iterator(exercise.copy(eventSequentialId = currSeqId))
-              case unchanged => Iterator(unchanged)
-            })
-          case ledgerEndMarker: LedgerEndMarker =>
-            ledgerEndMarker.copy(lastEventSeqId = currSeqId)
-          case rejection: SubmissionRejected =>
-            rejection.copy(lastEventSeqId = currSeqId)
-        }
-      })
+      .scan[TransactionLogUpdate](LedgerEndMarker(Offset.beforeBegin, initSeqId))(sequence)
       .drop(1)
-      .flatMapConcat {
-        case transaction: TransactionLogUpdate.TransactionAccepted =>
-          Source.fromIterator(() => {
-            val eventSequentialId = transaction.events.last.eventSequentialId
-            val offset = transaction.offset
-            val ledgerEndMarker = TransactionLogUpdate.LedgerEndMarker(offset, eventSequentialId)
-            if (transaction.events.nonEmpty) // Divulgence-only transactions should not be forwarded
-              Iterator(
-                (offset -> eventSequentialId, transaction),
-                (offset -> eventSequentialId, ledgerEndMarker),
-              )
-            else Iterator((offset -> eventSequentialId, ledgerEndMarker))
-          })
-        case ledgerEndMarker: TransactionLogUpdate.LedgerEndMarker =>
-          Source.fromIterator(() =>
-            Iterator((ledgerEndMarker.offset -> ledgerEndMarker.lastEventSeqId, ledgerEndMarker))
-          )
-        case rejection: SubmissionRejected =>
-          Source.fromIterator(() =>
-            Iterator((rejection.offset -> rejection.lastEventSeqId, rejection))
-          )
-      }
-}
+      .flatMapConcat(withLedgerEndMarkers)
 
-object TransactionUpdateToTransactionLogUpdate {
-  type UpdateToTransactionLogUpdate = ((Offset, Update)) => TransactionLogUpdate
-
-  def apply: UpdateToTransactionLogUpdate = {
+  private def transform: UpdateToTransactionLogUpdate = {
     case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
     case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
     case (offset, _) => LedgerEndMarker(offset, 0L)
   }
+
+  private def sequence(
+      prev: TransactionLogUpdate,
+      current: TransactionLogUpdate,
+  ): TransactionLogUpdate = {
+    var currSeqId = prev match {
+      case TransactionLogUpdate.TransactionAccepted(_, _, _, _, events, _) =>
+        events.last.eventSequentialId
+      case TransactionLogUpdate.LedgerEndMarker(_, lastEventSeqId) => lastEventSeqId
+      case rejection: SubmissionRejected => rejection.lastEventSeqId
+    }
+    current match {
+      case transaction: TransactionLogUpdate.TransactionAccepted =>
+        transaction.copy(events = transaction.events.flatMap {
+          case _: TransactionLogUpdate.DivulgenceEvent =>
+            currSeqId += 1
+            // don't forward divulgence events
+            Iterator.empty
+          case create: TransactionLogUpdate.CreatedEvent =>
+            currSeqId += 1
+            Iterator(create.copy(eventSequentialId = currSeqId))
+          case exercise: TransactionLogUpdate.ExercisedEvent =>
+            currSeqId += 1
+            Iterator(exercise.copy(eventSequentialId = currSeqId))
+          case unchanged => Iterator(unchanged)
+        })
+      case ledgerEndMarker: LedgerEndMarker =>
+        ledgerEndMarker.copy(lastEventSeqId = currSeqId)
+      case rejection: SubmissionRejected =>
+        rejection.copy(lastEventSeqId = currSeqId)
+    }
+  }
+
+  private def withLedgerEndMarkers(
+      transactionLogUpdate: TransactionLogUpdate
+  ): Source[((Offset, EventSequentialId), TransactionLogUpdate), NotUsed] =
+    transactionLogUpdate match {
+      case transaction: TransactionLogUpdate.TransactionAccepted =>
+        Source.fromIterator(() => {
+          val eventSequentialId = transaction.events.last.eventSequentialId
+          val offset = transaction.offset
+          val ledgerEndMarker = TransactionLogUpdate.LedgerEndMarker(offset, eventSequentialId)
+          if (transaction.events.nonEmpty) // Divulgence-only transactions should not be forwarded
+            Iterator(
+              (offset -> eventSequentialId, transaction),
+              (offset -> eventSequentialId, ledgerEndMarker),
+            )
+          else Iterator((offset -> eventSequentialId, ledgerEndMarker))
+        })
+      case ledgerEndMarker: TransactionLogUpdate.LedgerEndMarker =>
+        Source.fromIterator(() =>
+          Iterator((ledgerEndMarker.offset -> ledgerEndMarker.lastEventSeqId, ledgerEndMarker))
+        )
+      case rejection: SubmissionRejected =>
+        Source.fromIterator(() =>
+          Iterator((rejection.offset -> rejection.lastEventSeqId, rejection))
+        )
+    }
 
   private def updateToSubmissionRejected(offset: Offset, u: CommandRejected) = {
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
@@ -123,7 +133,7 @@ object TransactionUpdateToTransactionLogUpdate {
     val rawEvents = u.transaction.transaction
       .foldInExecutionOrder(List.empty[(NodeId, Node)])(
         exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
-        // Rollback nodes are not included in the indexer
+        // Rollback nodes are not indexed
         rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
         leaf = (acc, nid, node) => (nid -> node) :: acc,
         exerciseEnd = (acc, _, _) => acc,
@@ -191,6 +201,8 @@ object TransactionUpdateToTransactionLogUpdate {
     val events = logUpdates ++ blinding.divulgence.iterator.collect {
       // only store divulgence events, which are divulging to parties
       case (_, visibleToParties) if visibleToParties.nonEmpty =>
+        // This DTO is never used in Ledger API buffers
+        // Only for created for the purpose of `sequence` phase ^
         TransactionLogUpdate.DivulgenceEvent(
           eventOffset = offset,
           eventSequentialId = 0L,

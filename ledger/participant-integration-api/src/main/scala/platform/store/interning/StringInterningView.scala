@@ -89,7 +89,6 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
         rawStringInterning = raw,
       )
       updateView(newEntries)
-      println(s"Internizing entries: ${newEntries}")
       newEntries
     }
 
