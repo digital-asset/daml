@@ -58,10 +58,15 @@ private[index] class BuffersUpdater(
           randomFactor = 0.0,
         )
       )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
-      .map { case ((offset, eventSequentialId), update) =>
-        Timed.value(metrics.daml.commands.updateBuffers, updateCaches(offset, update))
-        logger.info(s"Updated caches at offset $offset - $eventSequentialId")
-        updaterIndex.set(Some(offset -> eventSequentialId))
+      .mapAsync(1) { case ((offset, eventSequentialId), update) =>
+        Timed.future(
+          metrics.daml.commands.updateBuffers,
+          Future {
+            updateCaches(offset, update)
+            logger.info(s"Updated caches at offset $offset - $eventSequentialId")
+          },
+        )
+
       }
       .mapError { case NonFatal(e) =>
         logger.error("Error encountered when updating caches", e)
