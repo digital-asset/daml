@@ -29,8 +29,8 @@ private[events] object TransactionLogUpdatesConversions {
     def apply(
         tx: TransactionLogUpdate.TransactionAccepted,
         filter: FilterRelation,
-        wildcardParties: Set[String],
-        templateSpecificParties: Map[events.Identifier, Set[String]],
+        wildcardParties: Set[Party],
+        templateSpecificParties: Map[events.Identifier, Set[Party]],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -45,7 +45,7 @@ private[events] object TransactionLogUpdatesConversions {
       filtered.headOption
         .map { first =>
           val events = removeTransient(filtered)
-          val requestingParties = filter.keySet.map(_.toString)
+          val requestingParties = filter.keySet
 
           Future
             .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
@@ -87,8 +87,8 @@ private[events] object TransactionLogUpdatesConversions {
     private val FlatTransactionPredicate =
       (
           event: TransactionLogUpdate.Event,
-          wildcardParties: Set[String],
-          templateSpecificParties: Map[events.Identifier, Set[String]],
+          wildcardParties: Set[Party],
+          templateSpecificParties: Map[events.Identifier, Set[Party]],
       ) => {
 
         val stakeholdersMatchingParties =
@@ -101,7 +101,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def toFlatEvent(
         event: TransactionLogUpdate.Event,
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -120,7 +120,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def createdToFlatEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
@@ -175,7 +175,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def exercisedToFlatEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         exercisedEvent: ExercisedEvent,
     ): apiEvent.Event =
       apiEvent.Event(
@@ -184,7 +184,8 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
-            witnessParties = requestingParties.view.filter(exercisedEvent.flatEventWitnesses).toSeq,
+            witnessParties =
+              requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
           )
         )
       )
@@ -193,7 +194,7 @@ private[events] object TransactionLogUpdatesConversions {
   object ToTransactionTree {
     def apply(
         tx: TransactionLogUpdate.TransactionAccepted,
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -239,7 +240,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def toTransactionTreeEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(event: TransactionLogUpdate.Event)(implicit
@@ -265,7 +266,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def exercisedToTransactionTreeEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         exercisedEvent: ExercisedEvent,
@@ -330,7 +331,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def createdToTransactionTreeEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
@@ -388,7 +389,7 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    private val TransactionTreePredicate: Set[String] => TransactionLogUpdate.Event => Boolean =
+    private val TransactionTreePredicate: Set[Party] => TransactionLogUpdate.Event => Boolean =
       requestingParties => {
         case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
         case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
@@ -401,7 +402,7 @@ private[events] object TransactionLogUpdatesConversions {
 
   private def getCommandId(
       flatTransactionEvents: Vector[TransactionLogUpdate.Event],
-      requestingParties: Set[String],
+      requestingParties: Set[Party],
   ) =
     flatTransactionEvents
       .collectFirst {

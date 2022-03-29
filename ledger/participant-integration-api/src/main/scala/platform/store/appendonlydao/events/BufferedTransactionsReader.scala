@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -19,8 +20,8 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao
-import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, events}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
+import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, events}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -35,11 +36,11 @@ private[events] class BufferedTransactionsReader(
     toFlatTransaction: (
         TxUpdate,
         FilterRelation,
-        Set[String],
-        Map[events.Identifier, Set[String]],
+        Set[Party],
+        Map[events.Identifier, Set[Party]],
         Boolean,
     ) => Future[Option[FlatTransaction]],
-    toTransactionTree: (TxUpdate, Set[String], Boolean) => Future[Option[TransactionTree]],
+    toTransactionTree: (TxUpdate, Set[Party], Boolean) => Future[Option[TransactionTree]],
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
@@ -47,7 +48,7 @@ private[events] class BufferedTransactionsReader(
   private val outputStreamBufferSize = 128
 
   private val flatTransactionsBufferMetrics =
-    metrics.daml.services.index.BufferReader("flat_transacions")
+    metrics.daml.services.index.BufferReader("flat_transactions")
   private val transactionTreesBufferMetrics =
     metrics.daml.services.index.BufferReader("transaction_trees")
 
@@ -58,7 +59,7 @@ private[events] class BufferedTransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
-    val wildcardParties = parties.keySet.map(_.toString)
+    val wildcardParties = parties.keySet
 
     val templatesParties = invertMapping(partiesTemplates)
 
@@ -72,6 +73,7 @@ private[events] class BufferedTransactionsReader(
       totalRetrievedCounter = flatTransactionsBufferMetrics.fetchedTotal,
       bufferSizeCounter = flatTransactionsBufferMetrics.bufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
+      inStreamBufferLength = flatTransactionsBufferMetrics.inStreamBufferLength,
     )
   }
 
@@ -85,7 +87,7 @@ private[events] class BufferedTransactionsReader(
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
       toApiTx = (tx: TxUpdate, requestingParties: Set[Party], verbose) =>
-        toTransactionTree(tx, requestingParties.map(_.toString), verbose),
+        toTransactionTree(tx, requestingParties, verbose),
       apiResponseCtor = GetTransactionTreesResponse(_),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       toApiTxTimer = transactionTreesBufferMetrics.conversion,
@@ -94,6 +96,7 @@ private[events] class BufferedTransactionsReader(
       totalRetrievedCounter = transactionTreesBufferMetrics.fetchedTotal,
       bufferSizeCounter = transactionTreesBufferMetrics.bufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
+      inStreamBufferLength = transactionTreesBufferMetrics.inStreamBufferLength,
     )
 
   override def lookupFlatTransactionById(
@@ -132,7 +135,7 @@ private[events] class BufferedTransactionsReader(
 
   private def invertMapping(partiesTemplates: Map[Party, Set[appendonlydao.events.Identifier]]) =
     partiesTemplates
-      .foldLeft(Map.empty[appendonlydao.events.Identifier, mutable.Builder[String, Set[String]]]) {
+      .foldLeft(Map.empty[appendonlydao.events.Identifier, mutable.Builder[Party, Set[Party]]]) {
         case (acc, (k, vs)) =>
           vs.foldLeft(acc) { case (a, v) =>
             a + (v -> (a.getOrElse(v, Set.newBuilder) += k))
@@ -183,19 +186,23 @@ private[platform] object BufferedTransactionsReader {
       totalRetrievedCounter: Counter,
       outputStreamBufferSize: Int,
       bufferSizeCounter: Counter,
+      inStreamBufferLength: Counter,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
     def bufferedSource(
         slice: Vector[(Offset, TransactionLogUpdate)]
     ): Source[(Offset, API_RESPONSE), NotUsed] =
       Source
         .fromIterator(() => slice.iterator)
-        // Using collect + mapAsync as an alternative to the non-existent collectAsync
-        .collect { case (offset, tx: TxUpdate) =>
-          Timed.future(toApiTxTimer, toApiTx(tx, filter, verbose).map(offset -> _))
+        .collect { case (offset, tx: TransactionLogUpdate.TransactionAccepted) =>
+          offset -> tx
+        }
+        .collectType[(Offset, TransactionLogUpdate.TransactionAccepted)]
+        .buffered(128)(inStreamBufferLength)
+        .mapAsync(1) { case (offset, txAccepted) =>
+          Timed.future(toApiTxTimer, toApiTx(txAccepted, filter, verbose).map(offset -> _))
         }
         // Note that it is safe to use high parallelism for mapAsync as long
         // as the Futures executed within are running on a bounded thread pool
-        .mapAsync(32)(identity)
         .async
         .collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()
@@ -231,5 +238,19 @@ private[platform] object BufferedTransactionsReader {
       counter = bufferSizeCounter,
       size = outputStreamBufferSize,
     )
+  }
+
+  private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
+    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Source[T, NotUsed] =
+      source
+        .map { in =>
+          counter.inc()
+          in
+        }
+        .buffer(bufferLength, OverflowStrategy.backpressure)
+        .map { in =>
+          counter.dec()
+          in
+        }
   }
 }
