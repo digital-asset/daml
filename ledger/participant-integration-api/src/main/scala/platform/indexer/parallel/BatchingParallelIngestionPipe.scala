@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 
 object BatchingParallelIngestionPipe {
@@ -28,11 +27,11 @@ object BatchingParallelIngestionPipe {
       tailingRateLimitPerSecond: Int,
       ingestTail: DB_BATCH => Future[DB_BATCH],
   )(source: Source[IN, NotUsed]): Source[Unit, NotUsed] = {
-    val _ = tailingRateLimitPerSecond // TODO LLP
+    val _ = (tailingRateLimitPerSecond, batchWithinMillis) // TODO LLP
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(batchWithinMillis, "millis"))
+      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(10, "millis"))
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
@@ -43,7 +42,7 @@ object BatchingParallelIngestionPipe {
       // Stage 5: Inserting data into the database. Almost no CPU load here, threads are executing SQL commands over JDBC, and waiting for the result. This defines the parallelism on the SQL database side, same amount of PostgreSQL Backend processes will do the ingestion work.
       .async
       .mapAsync(ingestingParallelism)(ingester)
-      .keepAlive(100.millis, keepAlive)
+      .keepAlive(10.millis, keepAlive)
       // Stage 6: Preparing data sequentially for throttled mutations in database (tracking the ledger-end, corresponding sequential event ids and latest-at-the-time configurations)
       .statefulMapConcat(synchronizeLedgerEndTailIngestion)
       .conflate(tailer)
