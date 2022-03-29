@@ -411,7 +411,7 @@ data Expr
     -- using variant constructors as functions that can be around not applied.
   -- | Enum construction.
   | EEnumCon
-    { enumTypeCon :: !(Qualified TypeConName) -- needed for type checking & speedy
+    { enumTypeCon :: !(Qualified TypeConName) -- needed for type inference & speedy
       -- ^ Type constructor of the enum type.
     , enumDataCon :: !VariantConName
       -- ^ Data constructor of the enum type.
