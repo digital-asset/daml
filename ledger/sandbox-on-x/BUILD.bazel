@@ -203,6 +203,9 @@ da_scala_test_suite(
     # Sandbox-on-X has high end-to-end submission latency.
     # TODO Downsize to `small` once the latency is optimized
     size = "medium",
+    srcs = glob(
+        ["src/test/it/**/*.scala"],
+    ),
     deps = [
         ":sandbox-on-x-it-tests-lib",
     ],
