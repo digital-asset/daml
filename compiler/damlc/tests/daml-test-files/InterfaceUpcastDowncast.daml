@@ -69,11 +69,12 @@ main = scenario do
 
         let cidt2a = toInterfaceContractId @A cidt2
 
-        cidt1b' <- fromInterfaceContractId @B cidt1a
-        cidt2b' <- fromInterfaceContractId @B cidt2a
+        cidt1b === fromInterfaceContractId cidt1a
 
-        cidt1b' === Some cidt1b
-        cidt2b' === None
+        fetchPair1 <- fetchFromInterface @B cidt1a
+        fetchPair2 <- fetchFromInterface @B cidt2a
+        fetchPair1 === Some (cidt1b, t1b)
+        fetchPair2 === None
 
         exercise cidt1a ChoiceA
         exercise cidt1b ChoiceA

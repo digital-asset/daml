@@ -43,14 +43,17 @@ main = scenario do
         let ifaceCid1 = toInterfaceContractId @Iface templateCid1
             ifaceCid2 = toInterfaceContractId @Iface templateCid2
 
-        x1 <- fromInterfaceContractId @Template1 ifaceCid1
-        x2 <- fromInterfaceContractId @Template2 ifaceCid1
-        x3 <- fromInterfaceContractId @Template1 ifaceCid2
-        x4 <- fromInterfaceContractId @Template2 ifaceCid2
+        fromInterfaceContractId ifaceCid1 === templateCid1
+        fromInterfaceContractId ifaceCid2 === templateCid2
 
-        x1 === Some templateCid1
+        x1 <- fetchFromInterface @Template1 ifaceCid1
+        x2 <- fetchFromInterface @Template2 ifaceCid1
+        x3 <- fetchFromInterface @Template1 ifaceCid2
+        x4 <- fetchFromInterface @Template2 ifaceCid2
+
+        x1 === Some (templateCid1, template1)
         x2 === None
         x3 === None
-        x4 === Some templateCid2
+        x4 === Some (templateCid2, template2)
 
 -- @ENABLE-SCENARIOS
