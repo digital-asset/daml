@@ -78,7 +78,7 @@ object TestMain extends StrictLogging {
     }
 
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages.assertBuild(darMap)
+    val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
     val testScripts: Map[Ref.Identifier, Script.Action] = dar.main._2.modules.flatMap {
       case (moduleName, module) =>
         module.definitions.collect(Function.unlift { case (name, _) =>
