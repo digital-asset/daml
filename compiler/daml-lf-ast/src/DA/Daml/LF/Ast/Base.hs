@@ -373,7 +373,7 @@ data Expr
   | EBuiltin !BuiltinExpr
   -- | Record construction.
   | ERecCon
-    { recTypeCon :: !TypeConApp -- needed for typechecking
+    { recTypeCon :: !TypeConApp -- needed for type inference, tycon needed in speedy
       -- ^ Applied type constructor of the record type.
     , recFields  :: ![(FieldName, Expr)]
       -- ^ Fields togehter with the expressions to assign to them.
@@ -400,7 +400,7 @@ data Expr
     }
   -- | Variant construction.
   | EVariantCon
-    { varTypeCon :: !TypeConApp -- needed for type checking
+    { varTypeCon :: !TypeConApp -- needed for type inference, tycon needed in speedy
       -- ^ Applied type constructor of the variant type.
     , varVariant :: !VariantConName
       -- ^ Data constructor of the variant type.
@@ -411,7 +411,7 @@ data Expr
     -- using variant constructors as functions that can be around not applied.
   -- | Enum construction.
   | EEnumCon
-    { enumTypeCon :: !(Qualified TypeConName) -- needed for type checking
+    { enumTypeCon :: !(Qualified TypeConName) -- needed for type checking & speedy
       -- ^ Type constructor of the enum type.
     , enumDataCon :: !VariantConName
       -- ^ Data constructor of the enum type.
