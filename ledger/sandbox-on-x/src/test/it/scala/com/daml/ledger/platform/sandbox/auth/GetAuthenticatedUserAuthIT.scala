@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
-import java.util.UUID
-
 import com.daml.ledger.api.v1.admin.user_management_service.{
   GetUserRequest,
   GetUserResponse,
   User,
   UserManagementServiceGrpc,
 }
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.Assertion
 
+import java.util.UUID
 import scala.concurrent.Future
 
 /** Tests covering the special behaviour of GetUser wrt the authenticated user. */
@@ -31,23 +31,36 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
 
   behavior of serviceCallName
 
-  it should "deny unauthenticated access" in {
+  it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
+    attack(threat = "Exploit a call without token")
+  ) in {
     expectUnauthenticated(serviceCallWithToken(None))
   }
 
-  it should "deny access for a standard token referring to an unknown user" in {
+  it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
+    .setAttack(
+      attack(threat = "Exploit a call with standard token referring to an unknown user")
+    ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
-  it should "return the 'participant_admin' user when using its standard token" in {
+  it should "return the 'participant_admin' user when using its standard token" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can connect with standard token"
+    ) in {
     expectUser(canReadAsAdminStandardJWT, User("participant_admin", ""))
   }
 
-  it should "return invalid argument for custom token" in {
+  it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
+    attack(threat = "Exploit a call with custom token")
+  ) in {
     expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
   }
 
-  it should "allow access to a non-admin user's own user record" in {
+  it should "allow access to a non-admin user's own user record" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can read non-admin user's own record"
+    ) in {
     for {
       // admin creates user
       (alice, aliceToken) <- createUserByAdmin(testId + "-alice")
