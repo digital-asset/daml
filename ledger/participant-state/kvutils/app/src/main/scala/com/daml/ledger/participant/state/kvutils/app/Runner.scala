@@ -184,8 +184,8 @@ final class Runner[T <: ReadWriteService, Extra](
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                   stringInterningView = null,
-                  updatesQueue = null,
-                  ledgerEndUpdater = _ => (),
+                  buffersUpdatesQueue = null,
+                  updateLedgerApiLedgerEnd = _ => (),
                   buffersUpdaterCache = MutableLedgerEndCache(),
                 ).acquire()
               } yield {

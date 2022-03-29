@@ -73,8 +73,8 @@ class IndexerBenchmark() {
         stringInterningView = null, // TODO LLP
         metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        updatesQueue = null, // TODO LLP
-        ledgerEndUpdater = (_: LedgerEnd) => (), // TODO LLP
+        buffersUpdatesQueue = null, // TODO LLP
+        updateLedgerApiLedgerEnd = (_: LedgerEnd) => (), // TODO LLP
         buffersUpdaterCache = MutableLedgerEndCache(),
       )
 

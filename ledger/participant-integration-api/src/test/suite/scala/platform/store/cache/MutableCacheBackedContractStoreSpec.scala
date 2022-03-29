@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.QueueOfferResult.Enqueued
@@ -28,14 +26,9 @@ import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
   EventSequentialId,
-  SignalNewLedgerHead,
   SubscribeToContractStateEvents,
 }
-import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
-  ContractsReaderFixture,
-  contractStore,
-  _,
-}
+import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec._
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
@@ -80,11 +73,6 @@ class MutableCacheBackedContractStoreSpec
 
   "event stream consumption" should {
     "populate the caches from the contract state event stream" in {
-      val lastLedgerHead =
-        new AtomicReference[(Offset, Long)]((Offset.beforeBegin, EventSequentialId.beforeBegin))
-      val capture_signalLedgerHead: SignalNewLedgerHead =
-        (offset, seqId) => lastLedgerHead.set((offset, seqId))
-
       implicit val (
         queue: BoundedSourceQueue[ContractStateEvent],
         source: Source[ContractStateEvent, NotUsed],
@@ -96,7 +84,6 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
-          capture_signalLedgerHead,
           () => source,
         ).asFuture
         c1 <- createdEvent(cId_1, contract1, Some(someKey), Set(charlie), 1L, t1)
@@ -113,9 +100,6 @@ class MutableCacheBackedContractStoreSpec
 
         someOffset = Offset.fromByteArray(1337.toByteArray)
         _ <- ledgerEnd(someOffset, 3L)
-        _ <- eventually {
-          lastLedgerHead.get() shouldBe (someOffset -> 3L)
-        }
       } yield succeed
     }
 
@@ -174,7 +158,6 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
-          (_, _) => (),
           sourceSubscriptionFixture,
         ).asFuture
         _ <- eventually {
@@ -433,7 +416,6 @@ object MutableCacheBackedContractStoreSpec {
   private def contractStore(
       cachesSize: Long,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
-      signalNewLedgerHead: (Offset, Long) => Unit = (_, _) => (),
       sourceSubscriber: SubscribeToContractStateEvents = () => Source.empty,
       startIndexExclusive: EventSequentialId = EventSequentialId.beforeBegin,
   )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
@@ -443,7 +425,6 @@ object MutableCacheBackedContractStoreSpec {
 
     val contractStore = MutableCacheBackedContractStore(
       readerFixture,
-      signalNewLedgerHead,
       startIndexExclusive,
       new Metrics(new MetricRegistry),
       cachesSize,
