@@ -25,11 +25,17 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerBuffersUpdater {
-  def flow(initSeqId: Long)(implicit
-      asyncExecutionContext: ExecutionContext
+  private val prepareUpdatesParallelism = 2
+  private val ec: ExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(prepareUpdatesParallelism))
+
+  def flow(
+      initSeqId: Long
   ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] =
     Flow[(Offset, Update)]
-      .mapAsync(1)(o => Future(TransactionUpdateToTransactionLogUpdate(o)))
+      .mapAsync(prepareUpdatesParallelism)(o =>
+        Future(TransactionUpdateToTransactionLogUpdate.transform(o))(ec)
+      )
       .async
       .scan(
         TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, initSeqId): TransactionLogUpdate
@@ -89,7 +95,7 @@ object LedgerBuffersUpdater {
 object TransactionUpdateToTransactionLogUpdate {
   type UpdateToTransactionLogUpdate = ((Offset, Update)) => TransactionLogUpdate
 
-  def apply: UpdateToTransactionLogUpdate = {
+  def transform: UpdateToTransactionLogUpdate = {
     case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
     case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
     case (offset, _) => LedgerEndMarker(offset, 0L)
