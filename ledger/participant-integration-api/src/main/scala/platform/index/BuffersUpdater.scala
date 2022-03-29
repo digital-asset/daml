@@ -14,6 +14,7 @@ import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEven
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -43,6 +44,8 @@ private[index] class BuffersUpdater(
     sysExitWithCode: Int => Unit,
 )(implicit mat: Materializer, loggingContext: LoggingContext, executionContext: ExecutionContext)
     extends AutoCloseable {
+  private val buffersUpdaterExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
 
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -63,8 +66,8 @@ private[index] class BuffersUpdater(
           metrics.daml.commands.updateBuffers,
           Future {
             updateCaches(offset, update)
-            logger.info(s"Updated caches at offset $offset - $eventSequentialId")
-          },
+            logger.debug(s"Updated caches at offset $offset - $eventSequentialId")
+          }(buffersUpdaterExecutionContext),
         )
 
       }
