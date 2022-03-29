@@ -201,8 +201,6 @@ private[platform] object BufferedTransactionsReader {
         .mapAsync(1) { case (offset, txAccepted) =>
           Timed.future(toApiTxTimer, toApiTx(txAccepted, filter, verbose).map(offset -> _))
         }
-        // Note that it is safe to use high parallelism for mapAsync as long
-        // as the Futures executed within are running on a bounded thread pool
         .async
         .collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()

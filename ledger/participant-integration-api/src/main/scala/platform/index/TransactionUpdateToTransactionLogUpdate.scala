@@ -21,12 +21,16 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate.{
   SubmissionRejected,
 }
 
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, Future}
+
 object LedgerBuffersUpdater {
-  def flow(
-      initSeqId: Long
+  def flow(initSeqId: Long)(implicit
+      asyncExecutionContext: ExecutionContext
   ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] =
     Flow[(Offset, Update)]
-      .map(TransactionUpdateToTransactionLogUpdate.apply)
+      .mapAsync(1)(o => Future(TransactionUpdateToTransactionLogUpdate(o)))
+      .async
       .scan(
         TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, initSeqId): TransactionLogUpdate
       )((prev, current) => {
