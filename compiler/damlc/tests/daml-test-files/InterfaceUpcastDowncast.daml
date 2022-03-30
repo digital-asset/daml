@@ -8,6 +8,7 @@ module InterfaceUpcastDowncast where
 
 import DA.Assert ((===))
 import DA.Optional (isNone)
+import DA.Functor (void)
 
 interface A where
   getOwner : Party
@@ -84,5 +85,18 @@ main = scenario do
         exercise cidt1 ChoiceB
 
         pure ()
+
+    -- Test that using fromInterfaceContractId incorrectly will result
+    -- in failed fetch/exercise, across interface hierarchy.
+    -- I.e. Test that using a T2 contract id as if it were a B contract id
+    -- will always fail, even for actions that make sense with A contracts.
+    let useAction : (ContractId B -> Update ()) -> Update ()
+        useAction action = do
+            cid <- create (toInterface @A (T2 p))
+            action (fromInterfaceContractId @B cid)
+    submit p do useAction $ \_bcid -> pure ()
+    submitMustFail p do useAction $ \bcid -> void (fetch bcid)
+    submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceA)
+    submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceB)
 
 -- @ENABLE-SCENARIOS
