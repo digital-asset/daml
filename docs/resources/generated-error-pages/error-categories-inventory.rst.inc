@@ -51,7 +51,7 @@ SystemInternalAssumptionViolated
 
     **Default log level**: ERROR
 
-    **Description**: Request processing failed due to a violation of system internal invariants.
+    **Description**: Request processing failed due to a violation of system internal invariants.  This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
 
     **Resolution**: Expectation: this is due to a bug in the implementation or data corruption in the systems databases. Resolution will require operator intervention, and potentially vendor support.
 
@@ -66,7 +66,7 @@ MaliciousOrFaultyBehaviour
 
     **Default log level**: WARN
 
-    **Description**: Request processing failed due to unrecoverable data loss or corruption (e.g. detected via checksums)
+    **Description**: Request processing failed due to unrecoverable data loss or corruption (e.g. detected via checksums). This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
 
     **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support.
 
@@ -81,7 +81,7 @@ AuthInterceptorInvalidAuthenticationCredentials
 
     **Default log level**: WARN
 
-    **Description**: The request does not have valid authentication credentials for the operation.
+    **Description**: The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
 
     **Resolution**: Expectation: this is an application bug, application misconfiguration or ledger-level misconfiguration. Resolution requires application and/or ledger operator intervention.
 
@@ -96,7 +96,7 @@ InsufficientPermission
 
     **Default log level**: WARN
 
-    **Description**: The caller does not have permission to execute the specified operation.
+    **Description**: The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
 
     **Resolution**: Expectation: this is an application bug or application misconfiguration. Resolution requires application operator intervention.
 
@@ -201,7 +201,7 @@ InternalUnsupportedOperation
 
     **Default log level**: ERROR
 
-    **Description**: This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request.
+    **Description**: This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
 
     **Resolution**: This error is caused by a ledger-level misconfiguration or by an implementation bug. Resolution requires participant operator intervention.
 
