@@ -216,7 +216,7 @@ object Runner {
     override def toString: String = Pretty.prettyError(error).render(80)
   }
 
-  private val compilerConfig = {
+  private[script] val compilerConfig = {
     import Compiler._
     Config(
       // FIXME: Should probably not include 1.dev by default.
