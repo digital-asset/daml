@@ -5195,6 +5195,14 @@ Type Representation function
   [*Available in versions >= 1.7*]
 
 
+* ``TYPEREP_TYCON_NAME`` : 'TypeRep' → 'Optional' 'Text'``
+
+  Returns the type constructor name, as a string, of the given ``'TypeRep'``,
+  if it is indeed a type constructor. Otherwise returns ``'None'``
+
+  [*Available in versions >= 1.dev*]
+
+
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
 
