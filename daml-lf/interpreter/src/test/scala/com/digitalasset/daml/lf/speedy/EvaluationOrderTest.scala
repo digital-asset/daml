@@ -125,9 +125,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         };
       };
 
-      record @serializable Human = { person: Party, obs: Party, ctrl: Party };
+      record @serializable Human = { person: Party, obs: Party, ctrl: Party, precond: Bool, key: M:TKey, nested: M:Nested };
       template (this : Human) = {
-        precondition True;
+        precondition TRACE @Bool "precondition" (M:Human {precond} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {obs} this] (Nil @Party));
         agreement TRACE @Text "agreement" "";
@@ -141,6 +141,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           choice Sleep;
           choice Nap;
           };
+        key @M:TKey
+           (TRACE @M:TKey "key" (M:Human {key} this))
+           (\(key : M:TKey) -> TRACE @(List Party) "maintainers" (M:TKey {maintainers} key));
       };
 
       record @serializable Dummy = { signatory : Party };
@@ -169,6 +172,12 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       val create: M:T -> Update Unit =
         \(arg: M:T) -> Test:run @(ContractId M:T) (create @M:T arg);
+
+      val create_interface: M:Human -> Update Unit =
+        \(arg: M:Human) -> Test:run @(ContractId M:Person) (create_by_interface @M:Person (to_interface @M:Person @M:Human arg));
+
+      val create_interface2: M:T2 -> Update Unit =
+        \(arg: M:T2) -> Test:run @(ContractId M:I2) (create_by_interface @M:I2 (to_interface @M:I2 @M:T2 arg));
 
       val create2: M:T2 -> Update Unit =
         \(arg: M:T2) -> Test:run @(ContractId M:T2) (create @M:T2 arg);
@@ -364,6 +373,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           None -> Value.ValueParty(alice),
           None -> Value.ValueParty(bob),
           None -> Value.ValueParty(alice),
+          None -> Value.ValueTrue,
+          None -> keyValue,
+          None -> emptyNestedValue,
         ),
       ),
       "agreement",
@@ -637,6 +649,231 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           e"""\(sig : Party) (obs : Party) ->
               let key: M:TKey = M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 }
               in Test:create M:T { signatory = sig, observer = obs, precondition = True, key = key, nested = M:buildNested 0 }
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
+        }
+      }
+    }
+
+    "create by interface" - {
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of successful create_interface
+      "success" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                 Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) { case Success(Right(_)) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+            "ends test",
+          )
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with failed precondition
+      "failed precondition" in {
+        // Note that for LF >= 1.14 we don’t hit this as the compiler
+        // generates code that throws an exception instead of returning False.
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                 Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = False, key = M:toKey sig, nested = M:buildNested 0}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) {
+          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(Human, _, _)))) =>
+            msgs shouldBe Seq("starts test", "precondition")
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order: Template precondition before interface preconditions.
+      "failed template precondition and interface precondition" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create_interface2 M:T2 { signatory = sig, observer = obs, precondition = False}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) {
+          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
+            msgs shouldBe Seq("starts test", "precondition")
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order: Interface preconditions are evaluated in the order given by the implementation list.
+      "order of evaluation of interface preconditions" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create_interface2 M:T2 { signatory = sig, observer = obs, precondition = True}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) {
+          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
+            msgs shouldBe Seq("starts test", "precondition", "precondition1", "precondition2")
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with duplicate contract key
+      "duplicate contract key" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                let c: M:Human = M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
+                in ubind x : ContractId M:Human <- create @M:Human c
+                  in Test:create_interface c
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with empty contract key maintainers
+      "empty contract key maintainers" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:keyNoMaintainers, nested = M:buildNested 0}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(Human, _, _)))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with authorization failure
+      "authorization failure" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(bob),
+        )
+        inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with contract ID in contract key
+      "contract ID in contract key" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) ->
+                Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKeyWithCid sig cid, nested = M:buildNested 0}
+           """,
+          Array(
+            SParty(alice),
+            SParty(bob),
+            SContractId(Value.ContractId.V1.assertFromString("00" * 32 + "0000")),
+          ),
+          Set(alice),
+        )
+        inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with create argument exceeding max nesting
+      "create argument exceeds max nesting" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 100 }
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with contract key exceeding max nesting
+      "key exceeds max nesting" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+              let key: M:TKey = M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 }
+              in Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = key, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
           Set(alice),
@@ -1366,6 +1603,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "queries contract",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "interface guard",
               "choice controllers",
               "choice observers",
@@ -1409,6 +1648,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "queries contract",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "interface guard",
               "choice controllers",
               "choice observers",
@@ -1529,7 +1770,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty} in
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
              Test:exercise_interface exercisingParty cId
              """,
             Array(SParty(alice)),
@@ -1552,7 +1793,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty} in
+             ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
              ubind x: Unit <- exercise @M:Human Archive cId ()
              in
              Test:exercise_interface exercisingParty cId
@@ -1612,7 +1853,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (other : Party)->
-                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = other, ctrl = other} in
+                  ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, ob = other, ctrl = other, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
                     Test:exercise_interface exercisingParty cId
                   """,
             Array(SParty(alice), SParty(bob)),
@@ -2167,6 +2408,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "queries contract",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "ends test",
             )
           }
@@ -2205,6 +2448,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "queries contract",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
             )
           }
         }
@@ -2307,7 +2552,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig }
+             ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
              in Test:fetch_by_interface fetchingParty cId""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
@@ -2322,7 +2567,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (fetchingParty: Party) ->
-             ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig }
+             ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
              in ubind x: Unit <- exercise @M:Human Archive cId ()
              in Test:fetch_by_interface fetchingParty cId""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
@@ -2375,7 +2620,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
-                  ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig }
+                  ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
                   in Test:fetch_by_interface fetchingParty cId""",
             Array(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
