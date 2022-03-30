@@ -318,7 +318,7 @@ For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 The value for ``actAs`` is specified as a list and you provide it with the party that you want to use,
 such as in the example above which uses ``Alice`` for a party. ``actAs`` may include more than just one party
-as the JSON API supports `multi-party submissions <https://blog.digitalasset.com/developers/roles-in-daml-introducing-multi-party-submissions>`_.
+as the JSON API supports multi-party submissions.
 
 The party should reference an already allocated party.
 
