@@ -3,27 +3,29 @@
 
 package com.daml.lf.codegen.backend.java
 
+import java.nio.file.Path
+
 import com.daml.lf.codegen.backend.Backend
-import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, InterfaceClass}
-import com.daml.lf.codegen.conf.Conf
-import com.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
+import com.daml.lf.codegen.backend.java.inner.{ClassForType, InterfaceClass, DecoderClass}
+import com.daml.lf.codegen.{NodeWithContext, ModuleWithContext, InterfaceTree}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Interface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.MDC
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Future, ExecutionContext}
 
 private[codegen] object JavaBackend extends Backend with StrictLogging {
 
   override def preprocess(
       interfaces: Seq[Interface],
-      conf: Conf,
+      outputDirectory: Path,
+      decoderPkgAndClass: Option[(String, String)] = None,
       packagePrefixes: Map[PackageId, String],
-  )(implicit ec: ExecutionContext): Future[InterfaceTrees] = {
-    val tree = InterfaceTrees.fromInterfaces(interfaces)
-    for ((decoderPkg, decoderClassName) <- conf.decoderPkgAndClass) {
+  )(implicit ec: ExecutionContext): Future[Seq[InterfaceTree]] = {
+    val tree = interfaces.map(InterfaceTree.fromInterface)
+    for ((decoderPkg, decoderClassName) <- decoderPkgAndClass) {
       val templateNames = extractTemplateNames(tree, packagePrefixes)
       val decoderFile = JavaFile
         .builder(
@@ -31,16 +33,16 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
           DecoderClass.generateCode(decoderClassName, templateNames),
         )
         .build()
-      decoderFile.writeTo(conf.outputDirectory)
+      decoderFile.writeTo(outputDirectory)
     }
     Future.successful(tree)
   }
 
   private def extractTemplateNames(
-      tree: InterfaceTrees,
+      interfaceTrees: Seq[InterfaceTree],
       packagePrefixes: Map[PackageId, String],
   ) = {
-    tree.interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
+    interfaceTrees.flatMap(_.bfs(Vector[ClassName]()) {
       case (res, module: ModuleWithContext) =>
         val templateNames = module.typesLineages
           .collect {
@@ -54,8 +56,8 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
 
   def process(
       nodeWithContext: NodeWithContext,
-      conf: Conf,
       packagePrefixes: Map[PackageId, String],
+      outputDirectory: Path,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext =>
@@ -66,9 +68,9 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
           )
           for (javaFile <- createTypeDefinitionClasses(moduleWithContext, packagePrefixes)) {
             logger.info(
-              s"Writing ${javaFile.packageName}.${javaFile.typeSpec.name} to directory ${conf.outputDirectory}"
+              s"Writing ${javaFile.packageName}.${javaFile.typeSpec.name} to directory $outputDirectory"
             )
-            javaFile.writeTo(conf.outputDirectory)
+            javaFile.writeTo(outputDirectory)
           }
         }
       case _ =>

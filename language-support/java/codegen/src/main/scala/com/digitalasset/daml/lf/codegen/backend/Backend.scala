@@ -3,25 +3,31 @@
 
 package com.daml.lf.codegen.backend
 
-import com.daml.lf.codegen.conf.Conf
-import com.daml.lf.codegen.{InterfaceTrees, NodeWithContext}
+import _root_.java.nio.file.Path
+
+import com.daml.lf.codegen.{NodeWithContext, InterfaceTree}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Interface
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Future, ExecutionContext}
 
 private[codegen] trait Backend {
 
-  /** Transform a [[InterfaceTrees]] such that it works for a given backend, e.g. by escaping
+  /** Transform an [[Interface]] such that it works for a given backend, e.g. by escaping
     * the reserved keywords.
     */
-  def preprocess(interfaces: Seq[Interface], conf: Conf, packagePrefixes: Map[PackageId, String])(
-      implicit ec: ExecutionContext
-  ): Future[InterfaceTrees]
+  def preprocess(
+      interfaces: Seq[Interface],
+      outputDirectory: Path,
+      decoderPkgAndClass: Option[(String, String)] = None,
+      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Seq[InterfaceTree]]
 
   def process(
       nodeWithContext: NodeWithContext,
-      conf: Conf,
       packagePrefixes: Map[PackageId, String],
+      outputDirectory: Path,
   )(implicit ec: ExecutionContext): Future[Unit]
 }

@@ -3,8 +3,7 @@
 
 package com.daml.lf.codegen
 
-import java.io.File
-import java.nio.file.Files
+import java.nio.file.Path
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.DarReader
@@ -19,33 +18,25 @@ import com.daml.lf.data.Ref.{
 }
 import com.daml.lf.iface.{DefDataType, Interface, InterfaceType, PackageMetadata, Record}
 import com.daml.lf.codegen.backend.java.JavaBackend
-import com.daml.lf.codegen.conf.{Conf, PackageReference}
+import com.daml.lf.codegen.conf.PackageReference
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
+final class CodeGenTests extends AnyFlatSpec with Matchers {
 
-  behavior of "collectDamlLfInterfaces"
+  import CodeGenTests._
 
-  def path(p: String) = new File(p).getAbsoluteFile.toPath
-
-  val testDar = path(rlocation("language-support/java/codegen/test-daml.dar"))
-  val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
-
-  val dummyOutputDir = Files.createTempDirectory("codegen")
+  behavior of "backend"
 
   it should "always use JavaBackend, which is currently hardcoded" in {
     CodeGenRunner.backend should be theSameInstanceAs JavaBackend
   }
 
+  behavior of "collectDamlLfInterfaces"
+
   it should "read interfaces from a single DAR file without a prefix" in {
 
-    val conf = Conf(
-      Map(testDar -> None),
-      dummyOutputDir,
-    )
-
-    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
+    val (interfaces, pkgPrefixes) = CodeGen.collectDamlLfInterfaces(Map(testDar -> None))
 
     assert(interfaces.length == 25)
     assert(pkgPrefixes == Map.empty)
@@ -53,12 +44,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val conf = Conf(
-      Map(testDar -> Some("PREFIX")),
-      dummyOutputDir,
-    )
-
-    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
+    val (interfaces, pkgPrefixes) = CodeGen.collectDamlLfInterfaces(Map(testDar -> Some("PREFIX")))
 
     assert(interfaces.map(_.packageId).length == dar.all.length)
     assert(pkgPrefixes.size == dar.all.length)
@@ -67,29 +53,9 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   behavior of "detectModuleCollisions"
 
-  def interface(pkgId: String, modNames: String*): Interface =
-    interface(pkgId, None, modNames: _*)
-
-  def interface(pkgId: String, metadata: Option[PackageMetadata], modNames: String*): Interface = {
-    val dummyType = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
-    Interface(
-      PackageId.assertFromString(pkgId),
-      metadata,
-      modNames.view
-        .map(n =>
-          QualifiedName(
-            ModuleName.assertFromString(n),
-            DottedName.assertFromString("Dummy"),
-          ) -> dummyType
-        )
-        .toMap,
-      Map.empty,
-    )
-  }
-
   it should "succeed if there are no collisions" in {
     assert(
-      CodeGenRunner.detectModuleCollisions(
+      CodeGen.detectModuleCollisions(
         Map.empty,
         Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
       ) === (())
@@ -98,7 +64,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   it should "fail if there is a collision" in {
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.detectModuleCollisions(
+      CodeGen.detectModuleCollisions(
         Map.empty,
         Seq(interface("pkg1", "A"), interface("pkg2", "A")),
       )
@@ -107,7 +73,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   it should "fail if there is a collision caused by prefixing" in {
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.detectModuleCollisions(
+      CodeGen.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
         Seq(interface("pkg1", "A.B"), interface("pkg2", "B")),
       )
@@ -116,7 +82,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   it should "succeed if collision is resolved by prefixing" in {
     assert(
-      CodeGenRunner.detectModuleCollisions(
+      CodeGen.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
         Seq(interface("pkg1", "A"), interface("pkg2", "A")),
       ) === (())
@@ -141,7 +107,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
     val interface2 = interface(pkg2, Some(PackageMetadata(name2, version)))
     val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
     assert(
-      CodeGenRunner.resolvePackagePrefixes(
+      CodeGen.resolvePackagePrefixes(
         pkgPrefixes,
         modulePrefixes,
         Seq(interface1, interface2, interface3),
@@ -155,7 +121,39 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
+      CodeGen.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
     }
   }
+}
+
+object CodeGenTests {
+
+  private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
+  private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
+  private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
+
+  private def interface(pkgId: String, modNames: String*): Interface =
+    interface(pkgId, None, modNames: _*)
+
+  private def interface(
+      pkgId: String,
+      metadata: Option[PackageMetadata],
+      modNames: String*
+  ): Interface = {
+    val dummyType = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
+    Interface(
+      PackageId.assertFromString(pkgId),
+      metadata,
+      modNames.view
+        .map(n =>
+          QualifiedName(
+            ModuleName.assertFromString(n),
+            DottedName.assertFromString("Dummy"),
+          ) -> dummyType
+        )
+        .toMap,
+      Map.empty,
+    )
+  }
+
 }

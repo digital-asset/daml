@@ -215,11 +215,3 @@ private[codegen] object InterfaceTree extends StrictLogging {
     }
   }
 }
-
-private[codegen] final case class InterfaceTrees(interfaceTrees: List[InterfaceTree])
-
-private[codegen] object InterfaceTrees extends StrictLogging {
-
-  def fromInterfaces(interfaces: Seq[Interface]): InterfaceTrees =
-    InterfaceTrees(interfaces.view.map(InterfaceTree.fromInterface).toList)
-}
