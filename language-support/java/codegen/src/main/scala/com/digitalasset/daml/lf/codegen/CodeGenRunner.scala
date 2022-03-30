@@ -54,18 +54,16 @@ object CodeGenRunner extends StrictLogging {
     )
     val ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
-    val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf)
+    val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf.darFiles)
     generateCode(interfaces, conf, pkgPrefixes)(ec)
     val _ = executor.shutdownNow()
   }
 
   private[codegen] def collectDamlLfInterfaces(
-      conf: Conf
+      darFiles: Map[Path, Option[String]]
   ): (Seq[Interface], Map[PackageId, String]) = {
-    val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
-      val file = path.toFile
-      // Explicitly calling `get` to bubble up any exception when reading the dar
-      val dar = DarParser.assertReadArchiveFromFile(file)
+    val interfacesAndPrefixes = darFiles.toList.flatMap { case (path, pkgPrefix) =>
+      val dar = DarParser.assertReadArchiveFromFile(path.toFile)
       dar.all.map { archive =>
         val (errors, interface) = InterfaceReader.readInterface(archive)
         if (!errors.equals(Errors.zeroErrors)) {
