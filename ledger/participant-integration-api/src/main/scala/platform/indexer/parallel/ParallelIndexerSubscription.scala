@@ -52,6 +52,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
+      val zeroBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView)
       val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
         submissionBatchSize = submissionBatchSize,
         batchWithinMillis = batchWithinMillis,
@@ -79,9 +80,8 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
-        keepAlive =
-          keepAlive[DB_BATCH](ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
-        tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
+        keepAlive = keepAlive[DB_BATCH](zeroBatch),
+        tailer = tailer(zeroBatch),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
         synchronizeLedgerEndTailIngestion = synchronizeLedgerEnd[DB_BATCH](buffersUpdaterCache),
         ingestTail = ingestTail[DB_BATCH](
