@@ -1036,21 +1036,22 @@ private[lf] object SBuiltin {
     }
   }
 
-  // SBCastAnyInterface: ContractId ifaceId -> Option TypRep -> Any -> ifaceId
-  final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(3) {
+  // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
+  final case class SBCastAnyInterface(
+      ifaceId: TypeConName,
+      optExpectedTmplId: Option[TypeConName] = None,
+  ) extends SBuiltin(2) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       def coid = getSContractId(args, 0)
-      val (actualTmplId, _) = getSAnyContract(args, 2)
-      getSOptional(args, 1).foreach {
-        case STypeRep(Ast.TTyCon(expectedTmplId)) =>
-          if (actualTmplId != expectedTmplId)
-            throw SErrorDamlException(IE.WronglyTypedContract(coid, expectedTmplId, actualTmplId))
-        case otherwise =>
-          crash(s"expected a type constructor, but got $otherwise")
+      val (actualTmplId, _) = getSAnyContract(args, 1)
+      optExpectedTmplId.foreach { expectedTmplId: TypeConName =>
+        if (actualTmplId != expectedTmplId)
+          throw SErrorDamlException(IE.WronglyTypedContract(coid, expectedTmplId, actualTmplId))
       }
+
       if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTmplId, ifaceId)).isEmpty)
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
-      machine.returnValue = args.get(2)
+      machine.returnValue = args.get(1)
     }
   }
 
