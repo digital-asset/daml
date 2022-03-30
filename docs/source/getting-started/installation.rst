@@ -16,8 +16,63 @@ You need to install:
 
    As part of the installation process you may need to set up the ``JAVA_HOME`` variable. You can find instructions for this process on :doc:`Windows,macOS, and Linux here <path-variables>`.
 
-2. Installing the SDK
-*********************
+2. Choosing Daml Enterprise or Daml Open Source
+***********************************************
+
+Daml comes in two variants: Daml Enterprise or Daml Open-Source. Both include the best in class SDK, Canton and all of the components that you need to write and deploy multi-party 
+applications in production, but they differ in terms of enterprise and non-functional capabilities:
+
+
+.. list-table::
+   :widths: 20 10 10
+   :header-rows: 1
+
+   * - Capability
+     - Enterprise
+     - Open Source
+   * - Daml Synchronisation
+     - Yes
+     - Yes
+   * - Sub-Transaction Privacy
+     - Yes
+     - Yes
+   * - `Transaction Processing <https://docs.daml.com/canton/architecture/overview.html#node-scaling>`_
+     - Parallel (fast)
+     - Sequential (slow)
+   * - `High Availability <https://docs.daml.com/canton/usermanual/ha.html>`_
+     - Yes
+     - No
+   * - High Throughput via Microservices
+     - Yes
+     - No
+   * - Resource Management
+     - Yes
+     - No
+   * - `Ledger Pruning <https://docs.daml.com/canton/usermanual/operational_processes.html#ledger-pruning>`_
+     - Yes
+     - No
+   * - Postgres Backend
+     - Yes
+     - Yes
+   * - Oracle Backend
+     - Yes
+     - No
+   * - Besu driver
+     - Yes
+     - No
+   * - Fabric driver
+     - Yes
+     - No
+   * - `Profiler <https://docs.daml.com/tools/profiler.html>`_
+     - Yes
+     - No
+   * - `Non-repudiation Middleware <https://docs.daml.com/tools/non-repudiation.html>`_
+     - Yes (early access)
+     - No
+
+
+3. Installing Daml Open Source SDK
+**********************************
 
 Windows 10
 ==========
@@ -49,6 +104,9 @@ Installing Daml Enterprise
 If you have a license for Daml Enterprise, you
 can install it as follows:
 
+
+- Canton can be downloaded from the respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_
+  , or you can use our Canton Enterprise Docker images as described in our `Docker instructions <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#docker-instructions>`_.
 - On Windows, download the installer from Artifactory_ instead of Github
   releases. 
 - On Linux and MacOS, download the corresponding tarball,
