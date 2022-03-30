@@ -16,7 +16,7 @@ import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.platform.services.time.TimeProviderType
 
 object Owner {
-  // Utily if you want to spin this up as a library.
+  // Utility if you want to spin this up as a library.
   def apply(config: Config[Unit]): ResourceOwner[Unit] = {
     val features = LedgerFeatures(
       staticTime = config.timeProviderType match {
