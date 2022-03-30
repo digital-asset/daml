@@ -14,6 +14,7 @@ module DA.Internal.Interface (
   toInterface,
   toInterfaceContractId,
   fromInterfaceContractId,
+  fetchFromInterface,
   _exerciseDefault,
   _exerciseInterfaceGuard
 ) where
@@ -107,7 +108,7 @@ toInterfaceContractId = coerceContractId
 -- template type.
 --
 -- In all other cases, consider using `fetchFromInterface` instead.
-fromInterfaceContractId : forall t i. (HasFromInterface t i) => ContractId i -> ContractId t
+fromInterfaceContractId : forall t i. HasFromInterface t i => ContractId i -> ContractId t
 fromInterfaceContractId = coerceContractId
 
 -- | (1.dev only) Fetch an interface and convert it to a specific
