@@ -15,29 +15,6 @@ CANTON_COMMAND=(
   "--bootstrap=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/bootstrap.canton)"
 )
 
-PARTICIPANT_1_HOST=localhost
-PARTICIPANT_1_MONITORING_PORT=7000
-
-TIMEOUT=60
-
-function wait_until() {
-  local start
-
-  start="$(date +%s)"
-  while true; do
-    if [[ "$(("$(date +%s)" - start))" -gt "$TIMEOUT" ]]; then
-      echo >&2 "Timed out after ${TIMEOUT} seconds."
-      return 1
-    fi
-
-    if "$@" >&/dev/null; then
-      return 0
-    fi
-
-    sleep 1
-  done
-}
-
 command=("${CANTON_COMMAND[@]}" "$@")
 
 export UNIQUE_CONTRACT_KEYS="$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/unique-contract-keys.conf)"
@@ -76,9 +53,5 @@ function stop() {
 }
 
 trap stop EXIT INT TERM
-
-wait_until curl -fsS "http://${PARTICIPANT_1_HOST}:${PARTICIPANT_1_MONITORING_PORT}/health"
-
-echo >&2 'Canton is up and running.'
 
 wait "$pid"
