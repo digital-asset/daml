@@ -1124,6 +1124,20 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBGuardMatchTemplateId(
+      expectedTmplId: TypeConName
+  ) extends SBuiltinPure(2) {
+    override private[speedy] def executePure(
+        args: util.ArrayList[SValue]
+    ): SBool = {
+      val contractId = getSContractId(args, 0)
+      val (actualTmplId, record @ _) = getSAnyContract(args, 1)
+      if (actualTmplId != expectedTmplId)
+        throw SErrorDamlException(IE.WronglyTypedContract(contractId, expectedTmplId, actualTmplId))
+      SBool(true)
+    }
+  }
+
   final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,
