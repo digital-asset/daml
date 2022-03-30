@@ -40,6 +40,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreeBlinding",
     "Trees should be served according to the blinding/projection rules",
     allocate(TwoParties, SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
     tags = privacyHappyCase(
       asset = "Transaction Tree",
       happyCase = "Transaction trees are served according to the blinding/projection rules",
@@ -164,6 +165,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreeHideCommandIdToNonSubmittingStakeholders",
     "A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
     tags = privacyHappyCase(
       asset = "Transaction Tree",
       happyCase =
@@ -201,6 +203,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXHideCommandIdToNonSubmittingStakeholders",
     "A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
     tags = privacyHappyCase(
       asset = "Flat Transaction",
       happyCase =
@@ -337,6 +340,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToObservers",
     "Disclose create to observers",
     allocate(SingleParty, TwoParties),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
     tags = privacyHappyCase(
       asset = "Flat Transaction",
       happyCase = "Transaction with a create event is disclosed to observers",

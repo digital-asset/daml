@@ -73,6 +73,7 @@ private[apiserver] final class ApiVersionService private (
           commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(ledgerFeatures.contractIdFeatures),
+          committerEventLog = Some(ledgerFeatures.committerEventLog),
         )
       ),
     )
