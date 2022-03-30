@@ -345,6 +345,9 @@ data BuiltinExpr
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
 
+  -- TypeRep
+  | BETypeRepTyConName           -- :: TypeRep -> Optional Text
+
   -- Experimental Text Primitives
   | BETextToUpper                -- :: Text -> Text
   | BETextToLower                -- :: Text -> Text

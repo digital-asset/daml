@@ -1657,6 +1657,18 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $type_rep_ty_con_name
+    *    :: TypeRep
+    *    -> Optional Text
+    */
+  final case object SBTypeRepTyConName extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+      getSTypeRep(args, 0) match {
+        case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
+        case _ => SOptional(None)
+      }
+  }
+
   // Unstable text primitives.
 
   /** $text_to_upper :: Text -> Text */
@@ -1856,19 +1868,10 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
-    private object SBExperimentalTypeRepTyConName extends SBuiltinPure(1) {
-      override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
-        getSTypeRep(args, 0) match {
-          case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
-          case _ => SOptional(None)
-        }
-    }
-
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
-        "ANSWER" -> SBExperimentalAnswer,
-        "TYPEREP_TYCON_NAME" -> SBExperimentalTypeRepTyConName,
+        "ANSWER" -> SBExperimentalAnswer
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =

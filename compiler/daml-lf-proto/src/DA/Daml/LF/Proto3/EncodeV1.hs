@@ -550,6 +550,8 @@ encodeBuiltinExpr = \case
     BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
     BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
+    BETypeRepTyConName -> builtin P.BuiltinFunctionTYPEREP_TYCON_NAME
+
     BETextToUpper -> builtin P.BuiltinFunctionTEXT_TO_UPPER
     BETextToLower -> builtin P.BuiltinFunctionTEXT_TO_LOWER
     BETextSlice -> builtin P.BuiltinFunctionTEXT_SLICE
