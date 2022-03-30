@@ -14,7 +14,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_library(
     name = "sandbox-on-x",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
+    resources = glob(["src/main/resources/*"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
@@ -334,7 +334,7 @@ da_scala_library(
 da_scala_library(
     name = "sandbox-on-x-app-lib",
     srcs = glob(["src/app/scala/**/*.scala"]),
-    resources = glob(["src/app/resources/**/*"]),
+    resources = glob(["src/main/resources/*"]),
     scala_deps = [],
     tags = ["maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -350,7 +350,6 @@ da_scala_library(
 da_scala_library(
     name = "sandbox-on-x-test-app",
     srcs = glob(["src/test/app/scala/**/*.scala"]),
-    resources = glob(["src/test/app/resources/**/*"]),
     scala_deps = [],
     visibility = ["//visibility:public"],
     deps = [
