@@ -19,7 +19,7 @@ You need to install:
 2. Choosing Daml Enterprise or Daml Open Source
 ***********************************************
 
-Daml comes in two variants: Daml Enterprise or Daml Open-Source. Both include the best in class SDK, Canton and all of the components that you need to write and deploy multi-party 
+Daml comes in two variants: Daml Enterprise or Daml Open Source. Both include the best in class SDK, Canton and all of the components that you need to write and deploy multi-party 
 applications in production, but they differ in terms of enterprise and non-functional capabilities:
 
 
@@ -105,7 +105,7 @@ If you have a license for Daml Enterprise, you
 can install it as follows:
 
 
-- Canton can be downloaded from the respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_
+- Canton can be downloaded from this `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_
   , or you can use our Canton Enterprise Docker images as described in our `Docker instructions <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#docker-instructions>`_.
 - On Windows, download the installer from Artifactory_ instead of Github
   releases. 
