@@ -143,7 +143,7 @@ created it.
 .. figure:: daml-studio/images/daml_studio_script_table_detailed.png
    :scale: 70%
    :align: center
-   :The table as described above, with the associated script in the left panel. "Show archived" and "Show detailed disclosure" are now selected.
+   :alt: The table as described above, with the associated script in the left panel. "Show archived" and "Show detailed disclosure" are now selected.
 
 If you want to see the detailed transaction graph you can click on the
 ``Show transaction view`` button. The transaction graph
