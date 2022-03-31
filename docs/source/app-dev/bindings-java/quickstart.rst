@@ -192,7 +192,7 @@ Now everything is running, you can try out the quickstart application:
 #. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
    .. figure:: quickstart/images/createIou.png
-   :alt: Fill out the form by entering Alice as the Issuer and as the Owner, AliceCoin as the Currency, and 1.0 as the Amount.
+      :alt: Fill out the form by entering Alice as the Issuer and as the Owner, AliceCoin as the Currency, and 1.0 as the Amount.
 
 #. On the left-hand side, click **Issued Ious** to go to that page. You can see the Iou you just issued yourself.
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
