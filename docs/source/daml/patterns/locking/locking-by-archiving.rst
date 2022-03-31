@@ -91,7 +91,7 @@ In the event that changing the original contract is not desirable and assuming t
   :end-before: -- END_COIN_COMMITMENT_TEMPLATE_LOCK_COIN
 
 .. figure:: ../images/lockingByArchiving2.png
-:alt: Locking by Archiving Contract uses the CoinCommitment contract to archive Coin and create LockedCoin
+   :alt: Locking by Archiving Contract uses the CoinCommitment contract to archive Coin and create LockedCoin
 
   Locking By Archiving Contract Diagram
 
