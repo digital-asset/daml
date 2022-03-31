@@ -73,7 +73,8 @@ In Daml Studio, you should see the text "Script results" just above the line ``t
 This opens the script view in a separate column in VS Code. The default view is a tabular representation of the final state of the ledger:
 
 .. figure:: images/2_Scenario/tabular_view1.png
-:alt: The script view as a separate column, with a table that shows Alice's token. Full display explained immediately below.
+   :alt: The script view as a separate column, with a table that shows Alice's token. Full display explained immediately below.
+
 What this display means:
 
 - The big title reading ``Token_Test:Token`` is the identifier of the type of contract that's listed below. ``Token_Test`` is the module name, ``Token`` the template name.
