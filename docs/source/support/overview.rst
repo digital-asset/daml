@@ -22,7 +22,7 @@ Architecture
 A high level view of the architecture of a Daml application or solution is helpful to make sense of how individual components, APIs and features fit into the Daml Stack.
 
 .. figure:: architecture.png
-:alt: High level Daml architecture flowchart, described in-depth in the following two paragraphs.
+   :alt: High level Daml architecture flowchart, described in-depth in the following two paragraphs.
 
 The stack is segmented into two parts. Daml drivers encompass those components which enable an infrastructure to run Daml Smart Contracts, turning it into a **Daml Network**. **Daml Components** consists of everything developers and users need to connect to a Daml Network: the tools to build, deploy, integrate, and maintain a Daml Application. 
 
