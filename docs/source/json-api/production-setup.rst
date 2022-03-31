@@ -221,7 +221,7 @@ active one drops. Just as for the *HTTP JSON API* itself, you can use orchestrat
 monitor the status of the participant nodes and have those point your (possibly highly available) *HTTP JSON API*
 nodes to the active participant node.
 
-To learn how Canton can be run with high availability and how to monitor it refer to the :ref:`Canton documentation <high-availability>`.
+To learn how Canton can be run with high availability and how to monitor it refer to the :ref:`Canton documentation <ha_arch>`.
 
 Logging
 *******
