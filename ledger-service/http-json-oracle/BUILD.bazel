@@ -68,6 +68,7 @@ da_scala_test_suite(
     data = [
         "//docs:quickstart-model.dar",
         "//ledger-service/http-json:Account.dar",
+        "//ledger-service/http-json:CIou.dar",
         "//ledger-service/http-json:User.dar",
         "//ledger/test-common:dar-files",
         "//ledger/test-common/test-certificates",

@@ -200,6 +200,7 @@ daml_compile(
         "src/it/daml/IIou.daml",
     ],
     target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    visibility = ["//ledger-service:__subpackages__"],
 )
 
 [
