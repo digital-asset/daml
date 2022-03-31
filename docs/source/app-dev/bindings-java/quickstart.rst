@@ -212,7 +212,7 @@ Now everything is running, you can try out the quickstart application:
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
-   :alt: Fill out the form by entering Alice as the buyer, Bob as the seller, #13:1 as the baseIouCid, EUR_Bank as the baseIssuer, EUR as the baseCurrency, 100.00 as the baseAmount, USD_Bank as the quote_Issuer, USD as the quoteCurrency, and 110.0 as the quoteAmount.
+      :alt: Fill out the form by entering Alice as the buyer, Bob as the seller, #13:1 as the baseIouCid, EUR_Bank as the baseIssuer, EUR as the baseCurrency, 100.00 as the baseAmount, USD_Bank as the quote_Issuer, USD as the quoteCurrency, and 110.0 as the quoteAmount.
 
 #. Go to the **Trades** page. It shows the just-proposed trade.
 #. You are now going to switch user to Bob, so you can accept the trades you have just proposed. Start by clicking on the logout button next to the username, at the top of the screen. On the login page, select **Bob** from the dropdown.
