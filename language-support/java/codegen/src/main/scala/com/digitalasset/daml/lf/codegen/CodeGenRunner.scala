@@ -36,7 +36,7 @@ object CodeGenRunner extends StrictLogging {
 
     val codegen = CodeGen.configure(backend, conf)
 
-    implicit val executionContext: ExecutionContextExecutorService =
+    val executionContext: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newFixedThreadPool(
           Runtime.getRuntime.availableProcessors(),

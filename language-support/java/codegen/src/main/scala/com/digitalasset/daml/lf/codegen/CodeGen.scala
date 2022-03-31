@@ -65,34 +65,40 @@ final class CodeGen(
 
 object CodeGen extends StrictLogging {
 
-  private[codegen] def collectDamlLfInterfaces(
-      darFiles: Map[Path, Option[String]]
-  ): (Seq[Interface], Map[PackageId, String]) = {
-    val interfacesAndPrefixes = darFiles.toList.flatMap { case (path, pkgPrefix) =>
-      val dar = DarParser.assertReadArchiveFromFile(path.toFile)
-      dar.all.map { archive =>
-        val (errors, interface) = InterfaceReader.readInterface(archive)
-        if (!errors.equals(Errors.zeroErrors)) {
-          throw new RuntimeException(
-            InterfaceReader.InterfaceReaderError.treeReport(errors).toString
-          )
-        }
-        logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
-        (interface, interface.packageId -> pkgPrefix)
+  private def decodeDarAt(path: Path): Seq[Interface] =
+    for (archive <- DarParser.assertReadArchiveFromFile(path.toFile).all) yield {
+      val (errors, interface) = Interface.read(archive)
+      if (!errors.equals(Errors.zeroErrors)) {
+        throw new RuntimeException(
+          InterfaceReader.InterfaceReaderError.treeReport(errors).toString
+        )
       }
+      logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
+      interface
     }
 
-    val interfaces = interfacesAndPrefixes.map(_._1)
-    val environmentInterface =
-      EnvironmentInterface.fromReaderInterfaces(interfaces.head, interfaces.tail: _*)
-    val prefixes = interfacesAndPrefixes.collect { case (_, (key, Some(value))) =>
-      (key, value)
-    }.toMap
-    val fullyResolvedInterfaces =
-      interfaces.map(
-        _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
-      )
-    (fullyResolvedInterfaces, prefixes)
+  private def resolveChoices(environmentInterface: EnvironmentInterface): Interface => Interface =
+    _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
+
+  private[codegen] def collectDamlLfInterfaces(
+      darFiles: Iterable[(Path, Option[String])]
+  ): (Seq[Interface], Map[PackageId, String]) = {
+    val interfacesAndPrefixes =
+      for {
+        (path, packagePrefix) <- darFiles.view
+        interface <- decodeDarAt(path)
+      } yield (interface, packagePrefix)
+    val (interfaces, prefixes) =
+      interfacesAndPrefixes.foldLeft((Vector.empty[Interface], Map.empty[PackageId, String])) {
+        case ((interfaces, prefixes), (interface, prefix)) =>
+          val updatedInterfaces = interfaces :+ interface
+          val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(interface.packageId, _))
+          (updatedInterfaces, updatedPrefixes)
+      }
+
+    val environmentInterface = EnvironmentInterface.fromReaderInterfaces(interfaces)
+    val resolvedInterfaces = interfaces.map(resolveChoices(environmentInterface))
+    (resolvedInterfaces, prefixes)
   }
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
