@@ -61,11 +61,28 @@ jobs:
   parameters:
     final_job_name: da_ghc_lib
 
+- job: build_inputs
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+        eval "$(dev-env/bin/dade assist)"
+        if [ -f broken-off/build.sh ]; then
+            broken-off/build.sh
+        fi
+      env:
+        # uploading to daml-binaries
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
 - job: Linux
   dependsOn:
     - da_ghc_lib
     - check_for_release
     - git_sha
+    - build_inputs
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -115,6 +132,7 @@ jobs:
     - da_ghc_lib
     - check_for_release
     - git_sha
+    - build_inputs
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
@@ -160,6 +178,7 @@ jobs:
     - check_for_release
     - patch_bazel_windows
     - git_sha
+    - build_inputs
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -198,6 +217,12 @@ jobs:
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
+    - bash: |
+        set -euo pipefail
+        if [ -f broken-off/build.sh ]; then
+            cd broken-off
+            WINDOWS=1 ./build.sh
+        fi
     - template: build-windows.yml
       parameters:
         release_tag: $(release_tag)
@@ -224,6 +249,7 @@ jobs:
 - job: Linux_oracle
   dependsOn:
     - da_ghc_lib
+    - build_inputs
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -252,6 +278,9 @@ jobs:
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
+        if [ -f broken-off/build.sh ]; then
+            broken-off/build.sh
+        fi
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
         IMAGE=$(cat ci/oracle_image)
         docker pull $IMAGE

@@ -46,6 +46,6 @@ da_scala_test(
     scalacopts = scalacopts,
     deps = [
         ":scala-utils",
-        "//libs-scala/scalatest-utils",
+        "//build-inputs:scalatest-utils",
     ],
 )

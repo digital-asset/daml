@@ -64,8 +64,8 @@ da_scala_test(
     scalacopts = hj_scalacopts,
     deps = [
         ":fetch-contracts",
+        "//build-inputs:scalatest-utils",
         "//ledger-service/db-backend",
-        "//libs-scala/scalatest-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

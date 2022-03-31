@@ -47,7 +47,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":data",
+        "//build-inputs:scalatest-utils",
         "//daml-lf/data-scalacheck",
-        "//libs-scala/scalatest-utils",
     ],
 )

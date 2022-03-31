@@ -147,6 +147,7 @@ da_scala_library(
         deps = [
             ":test-utils",
             "//bazel_tools/runfiles:scala_runfiles",
+            "//build-inputs:scalatest-utils",
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//daml-lf/interpreter",
@@ -169,7 +170,6 @@ da_scala_library(
             "//ledger/test-common",
             "//libs-scala/ports",
             "//libs-scala/resources",
-            "//libs-scala/scalatest-utils",
             "//triggers/runner:trigger-runner-lib",
         ],
     )

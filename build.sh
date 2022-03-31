@@ -4,7 +4,10 @@
 
 set -euo pipefail
 
-eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+eval "$("$DIR"/dev-env/bin/dade-assist)"
+
+bash broken-off/build.sh
 
 execution_log_postfix=${1:-}
 

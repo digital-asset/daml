@@ -1,0 +1,43 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:pom_file.bzl", "pom_file")
+
+filegroup(
+    name = "files",
+    srcs = glob(["*"]),
+)
+
+[
+    genrule(
+        name = "scalatest-utils{}".format(rule_suffix),
+        srcs = [":files"],
+        outs = ["scalatest-utils{}".format(ext_out)],
+        cmd = """
+        set -euo pipefail
+        VERSION=$$(cat bazel-out/stable-status.txt | grep STABLE_SCALATEST_UTILS_VERSION | head -1 | cut -f 2 -d' ')
+        for loc in $(locations :files); do
+            if [ "$$(basename $$loc)" = "scalatest-utils_2.13-$$VERSION{}" ]; then
+                cp $$loc $@
+                exit 0
+            fi
+        done
+        echo "Required scalatest-utils not found, please run //build.sh."
+        exit 1
+    """.format(ext_in),
+        # gives access to (and dependency on) stable-status.txt
+        stamp = 1,
+    )
+    for rule_suffix, ext_in, ext_out in [
+        ("-jar", ".jar", ".jar"),
+        ("_pom", ".pom", "_pom.xml"),
+        ("_src.jar", "-sources.jar", "_src.jar"),
+        ("_scaladoc.jar", "-javadoc.jar", "_scaladoc.jar"),
+    ]
+]
+
+java_import(
+    name = "scalatest-utils",
+    jars = [":scalatest-utils-jar"],
+    visibility = ["//visibility:public"],
+)

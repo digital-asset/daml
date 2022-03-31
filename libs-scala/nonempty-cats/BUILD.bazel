@@ -56,8 +56,8 @@ da_scala_test(
     scalacopts = scalacopts,
     deps = [
         ":nonempty-cats",
+        "//build-inputs:scalatest-utils",
         "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
-        "//libs-scala/scalatest-utils",
     ],
 )
