@@ -72,6 +72,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
 
+  private[http] val ciouDar = requiredResource("ledger-service/http-json/CIou.dar")
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
@@ -364,6 +366,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
     object User {
       val User: Id = domain.TemplateId(None, "User", "User")
+    }
+    object IIou {
+      val IIou: Id = domain.TemplateId(None, "IIou", "IIou")
     }
   }
 
@@ -888,6 +893,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
+  import AbstractHttpServiceIntegrationTestFuns.ciouDar
   import HttpServiceTestFixture._
   import json.JsonProtocol._
 
@@ -1200,6 +1206,31 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         status shouldBe StatusCodes.BadRequest
         assertStatus(output, StatusCodes.BadRequest)
       }: Future[Assertion]
+  }
+
+  "fail to query by interface ID" in withHttpService { (uri, encoder, _, _) =>
+    for {
+      _ <- uploadPackage(uri)(ciouDar)
+      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      (alice, aliceHeaders) = aliceH
+      searchResp <- search(
+        List.empty,
+        Map(
+          "templateIds" -> Seq(TpId.IIou.IIou).toJson,
+          "query" -> spray.json.JsObject(),
+        ).toJson.asJsObject,
+        uri,
+        encoder,
+        aliceHeaders,
+      )
+    } yield inside(searchResp) {
+      case domain.ErrorResponse(
+            Seq(_),
+            Some(domain.UnknownTemplateIds(Seq(TpId.IIou.IIou))),
+            StatusCodes.BadRequest,
+          ) =>
+        succeed
+    }
   }
 
   protected def searchAllExpectOk(

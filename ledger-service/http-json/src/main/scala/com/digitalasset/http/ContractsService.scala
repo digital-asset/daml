@@ -43,6 +43,7 @@ import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
 
 class ContractsService(
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateId: PackageService.ResolveTemplateId,
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -79,12 +80,13 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] = {
-    val resolve = resolveTemplateId(lc)(jwt, ledgerId)
+    def resolveCt = resolveContractTypeId(lc)(jwt, ledgerId)
+    def resolveTp = resolveTemplateId(lc)(jwt, ledgerId)
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
-        resolve(templateId).map(_.toOption.flatten.map(x => -\/(x -> key)))
+        resolveTp(templateId).map(_.toOption.flatten.map(x => -\/(x -> key)))
       case domain.EnrichedContractId(Some(templateId), contractId) =>
-        resolve(templateId).map(_.toOption.flatten.map(x => \/-(x -> contractId)))
+        resolveCt(templateId).map(_.toOption.flatten.map(x => \/-(x -> contractId)))
       case domain.EnrichedContractId(None, contractId) =>
         findByContractId(jwt, parties, None, ledgerId, contractId)
           .map(_.map(a => \/-(a.templateId -> a.contractId)))
