@@ -95,12 +95,12 @@ s3Path :: DocOptions -> FilePath -> String
 s3Path DocOptions{s3Subdir} file =
     "s3://docs-daml-com" </> fromMaybe "" s3Subdir </> file
 
--- We use a check for the versions.json file to check if the docs for a given version exist or not.
+-- We use a check for a file to check if the docs for a given version exist or not.
 -- This is technically slightly racy if the upload happens concurrently and we end up with a partial upload
 -- but the window seems small enough to make this acceptable.
 doesVersionExist :: DocOptions -> Version -> IO Bool
 doesVersionExist opts version = do
-    r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> "versions.json"), file]
+    r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> fileToCheck opts), file]
     pure (isRight r)
 
 build_and_push :: DocOptions -> FilePath -> [Version] -> IO ()
@@ -204,6 +204,7 @@ data DocOptions = DocOptions
   , includedVersion :: Version -> Bool
     -- Exclusive minimum version bound for which we build docs
   , build :: FilePath -> Version -> IO ()
+  , fileToCheck :: FilePath
   }
 
 sdkDocOpts :: DocOptions
@@ -218,6 +219,7 @@ sdkDocOpts = DocOptions
         shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //docs:docs"
         proc_ ["mkdir", "-p", temp </> show version]
         proc_ ["tar", "xzf", "bazel-bin/docs/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  , fileToCheck = "versions.json"
   }
 
 damlOnSqlDocOpts :: DocOptions
@@ -231,6 +233,7 @@ damlOnSqlDocOpts = DocOptions
         shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
         proc_ ["mkdir", "-p", temp </> show version]
         proc_ ["tar", "xzf", "bazel-bin/ledger/daml-on-sql/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  , fileToCheck = "index.html"
   }
 
 docs :: DocOptions -> IO ()

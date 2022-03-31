@@ -13,8 +13,8 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
 
   "orderedDependencies" should {
     "include contract keys" in {
-      val ei = Util.filterTemplatesBy(Seq("HasKey".r))(DependencyGraphSpec.envInterfaceWithKey)
-      DependencyGraph.orderedDependencies(ei).deps map (_._1) should ===(
+      val declarations = Util.filterTemplatesBy(Seq("HasKey".r))(DependencyGraphSpec.typeDecls)
+      DependencyGraph.orderedDependencies(declarations).deps map (_._1) should ===(
         Vector("a:b:It", "a:b:HasKey") map Ref.Identifier.assertFromString
       )
     }
@@ -28,8 +28,7 @@ object DependencyGraphSpec {
   import com.daml.lf.data.ImmArray.ImmArraySeq
 
   private[this] val fooRec = Record(ImmArraySeq.empty)
-  private val envInterfaceWithKey = EnvironmentInterface(
-    Map.empty,
+  private val typeDecls =
     Map(
       "a:b:HasKey" -> InterfaceType.Template(
         fooRec,
@@ -37,12 +36,12 @@ object DependencyGraphSpec {
           Map.empty,
           Map.empty,
           Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
+          Seq.empty,
         ),
       ),
-      "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, Map.empty, None)),
+      "a:b:NoKey" -> InterfaceType
+        .Template(fooRec, DefTemplate(Map.empty, Map.empty, None, Seq.empty)),
       "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
-    ) mapKeys Ref.Identifier.assertFromString,
-    astInterfaces = Map.empty,
-  )
+    ) mapKeys Ref.Identifier.assertFromString
 
 }

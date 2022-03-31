@@ -123,7 +123,7 @@ private[codegen] final case class TypeWithContext(
 private[codegen] object InterfaceTree extends StrictLogging {
 
   def fromInterface(interface: Interface): InterfaceTree = {
-    val builder = InterfaceTreeBuilder.fromPackageId(interface.packageId)
+    val builder = new InterfaceTreeBuilder(new mutable.HashMap())
     interface.getTypeDecls.asScala.foreach { case (identifier, typ) =>
       builder.insert(identifier, typ)
     }
@@ -202,8 +202,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
   }
 
   private final class InterfaceTreeBuilder(
-      val name: Ref.PackageId,
-      children: mutable.HashMap[String, ModuleBuilder],
+      children: mutable.HashMap[String, ModuleBuilder]
   ) {
 
     def build(interface: Interface): InterfaceTree =
@@ -214,11 +213,6 @@ private[codegen] object InterfaceTree extends StrictLogging {
         .getOrElseUpdate(qualifiedName.module.segments.head, ModuleBuilder.empty)
         .insert(qualifiedName.module.segments.tail, qualifiedName.name.segments, `type`)
     }
-  }
-
-  private object InterfaceTreeBuilder {
-    def fromPackageId(packageId: Ref.PackageId) =
-      new InterfaceTreeBuilder(packageId, new mutable.HashMap())
   }
 }
 

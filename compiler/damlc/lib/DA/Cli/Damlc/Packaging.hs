@@ -138,7 +138,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
           , deps = dalfsFromDependenciesWithFps
           , dataDeps = dalfsFromDataDependenciesWithFps
           }
-        pkgs = dalfsFromDependencies <> dalfsFromDataDependencies
+        pkgs =
+          [ dalfPkg
+          | (node, _) <- vertexToNode <$> vertices depGraph
+          , Just dalfPkg <- [packageNodeDecodedDalf node]
+          ]
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes dalfsFromAllDependencies)
 
@@ -592,6 +596,10 @@ buildLfPackageGraph BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode')
     -- order the packages in topological order
     (depGraph0, vertexToNode0, _keyToVertex0) =
         graphFromEdges $
+          -- We might have multiple copies of the same package if, for example,
+          -- the project we're building has multiple data-dependencies from older
+          -- SDKs, each of which bring a copy of daml-prim and daml-stdlib.
+          nubSortOn (\(_,pid,_) -> pid) $
             [ (node, pid, pkgRefs)
             | (isDataDep, (dalf, DecodedDalf{decodedUnitId=unitId, decodedDalfPkg=dalfPackage})) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let
@@ -624,6 +632,17 @@ isDataDependencyPackageNode :: PackageNode -> Bool
 isDataDependencyPackageNode = \case
   MkDataDependencyPackageNode {} -> True
   _ -> False
+
+packageNodeDecodedDalf :: PackageNode -> Maybe DecodedDalf
+packageNodeDecodedDalf = \case
+  MkDependencyPackageNode DependencyPackageNode {unitId, dalfPackage} ->
+    Just $ DecodedDalf dalfPackage unitId
+  MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} ->
+    Just $ DecodedDalf dalfPackage unitId
+  MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {} ->
+    Nothing
+  MkStableDependencyPackageNode ->
+    Nothing
 
 data DependencyPackageNode = DependencyPackageNode
   { dalf :: FilePath

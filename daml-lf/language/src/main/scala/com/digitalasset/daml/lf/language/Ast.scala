@@ -158,6 +158,16 @@ object Ast {
   final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
       extends Expr
 
+  /** Convert interface back to template payload,
+    * or raise a WronglyTypedContracg error if not possible
+    */
+  final case class EUnsafeFromInterface(
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      contractIdExpr: Expr,
+      ifaceExpr: Expr,
+  ) extends Expr
+
   /** Upcast from an interface payload to an interface it requires. */
   final case class EToRequiredInterface(
       requiredIfaceId: TypeConName,
@@ -170,6 +180,16 @@ object Ast {
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
       body: Expr,
+  ) extends Expr
+
+  /** Downcast from an interface payload to an interface that requires it,
+    * or raise a WronglyTypedContract error if not possible.
+    */
+  final case class EUnsafeFromRequiredInterface(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      contractIdExpr: Expr,
+      ifaceExpr: Expr,
   ) extends Expr
 
   /** Invoke an interface method */
@@ -492,6 +512,9 @@ object Ast {
   final case object BBigNumericToNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
   final case object BNumericToBigNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
   final case object BBigNumericToText extends BuiltinFunction // : BigNumeric → Text
+
+  // TypeRep
+  final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
 
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction // Text → Text

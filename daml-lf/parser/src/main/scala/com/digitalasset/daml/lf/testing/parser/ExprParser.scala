@@ -43,10 +43,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eToTextTypeConName |
       eThrow |
       eCallInterface |
-      eToRequiredInterface |
       eToInterface |
-      eFromRequiredInterface |
       eFromInterface |
+      eUnsafeFromInterface |
+      eToRequiredInterface |
+      eFromRequiredInterface |
+      eUnsafeFromRequiredInterface |
       eInterfaceTemplateTypeRep |
       eSignatoryInterface |
       eObserverInterface |
@@ -233,6 +235,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EFromInterface(ifaceId, tmplId, e)
     }
 
+  private lazy val eUnsafeFromInterface: Parser[Expr] =
+    `unsafe_from_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ~ expr0 ^^ {
+      case ifaceId ~ _ ~ tmplId ~ cid ~ expr =>
+        EUnsafeFromInterface(ifaceId, tmplId, cid, expr)
+    }
+
   private lazy val eToRequiredInterface: Parser[Expr] =
     `to_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
       case ifaceId1 ~ _ ~ ifaceId2 ~ e =>
@@ -243,6 +251,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     `from_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
       case ifaceId1 ~ _ ~ ifaceId2 ~ e =>
         EFromRequiredInterface(ifaceId1, ifaceId2, e)
+    }
+
+  private lazy val eUnsafeFromRequiredInterface: Parser[Expr] =
+    `unsafe_from_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ~ expr0 ^^ {
+      case ifaceId1 ~ _ ~ ifaceId2 ~ cid ~ expr =>
+        EUnsafeFromRequiredInterface(ifaceId1, ifaceId2, cid, expr)
     }
 
   private lazy val eInterfaceTemplateTypeRep: Parser[Expr] =
@@ -362,6 +376,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "BIGNUMERIC_TO_NUMERIC" -> BBigNumericToNumeric,
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
+    "TYPEREP_TYCON_NAME" -> BTypeRepTyConName,
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =

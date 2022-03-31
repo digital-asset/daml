@@ -11,7 +11,7 @@ abstract class CatsInstancesLow extends CatsInstancesLow1 {
   implicit def `cats nonempty foldable`[F[_]](implicit
       F: Foldable[F]
   ): Foldable[NonEmptyF[F, *]] with ImplicitPreference[Nothing] =
-    ImplicitPreference[Foldable[NonEmptyF[F, *]], Nothing](NonEmpty substF F)
+    ImplicitPreference[Foldable[NonEmptyF[F, *]], Nothing](NonEmptyColl.Instance substF F)
 }
 
 abstract class CatsInstancesLow1 {

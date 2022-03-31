@@ -262,6 +262,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // EFromInterface
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
+        // EUnsafeFromInterface
+        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:Ti cid i ))" ->
+          T"ContractId Mod:I → Mod:I → Mod:Ti",
+        // EToRequiredInterface
+        E"λ (sub: Mod:SubI) → (( to_required_interface @Mod:I @Mod:SubI sub ))" ->
+          T"Mod:SubI → Mod:I",
+        // EFromRequiredInterface
+        E"λ (i: Mod:I) → (( from_required_interface @Mod:I @Mod:SubI i ))" ->
+          T"Mod:I → Option Mod:SubI",
+        // EUnsafeFromRequiredInterface
+        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_required_interface @Mod:I @Mod:SubI cid i ))" ->
+          T"ContractId Mod:I → Mod:I → Mod:SubI",
         // ECallInterface
         E"λ (i: Mod:I) → (( call_method @Mod:I getParties i ))" ->
           T"Mod:I → List Party",
@@ -1855,6 +1867,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
+         };
+
+         interface (this : SubI) = {
+              requires Mod:I;
+              precondition True;
          };
 
           interface (this : J) = {

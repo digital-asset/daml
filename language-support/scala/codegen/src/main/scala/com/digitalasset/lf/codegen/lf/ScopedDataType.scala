@@ -22,10 +22,10 @@ object ScopedDataType {
   type FWT = ScopedDataType[DataType.FWT]
   type DT[+RF, +VF] = ScopedDataType[DataType[RF, VF]]
 
-  def fromDefDataType[RF, VF](
-      name: Ref.Identifier,
-      ddt: DefDataType[RF, VF],
-  ): ScopedDataType[DataType[RF, VF]] = {
+  def fromDefDataType(
+      nameAndDdt: (Ref.Identifier, DefDataType.FWT)
+  ): ScopedDataType.FWT = {
+    val (name, ddt) = nameAndDdt
     val DefDataType(typeVars, dataType) = ddt
     apply(name, typeVars, dataType)
   }

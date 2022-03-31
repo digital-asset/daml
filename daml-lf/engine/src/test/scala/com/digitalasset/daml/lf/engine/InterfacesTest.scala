@@ -206,7 +206,7 @@ class InterfacesTest
       val command = ApiCommand.Exercise(idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
       inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Error.Interpretation.DamlException(
-          IE.WronglyTypedContract(cid1, idT2, idT1)
+          IE.ContractDoesNotImplementInterface(idI2, cid1, idT1)
         )
       }
     }
@@ -280,7 +280,7 @@ class InterfacesTest
         ReplayCommand.ExerciseByInterface(idI2, idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
       inside(runReplay(command)) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Error.Interpretation.DamlException(
-          IE.WronglyTypedContract(cid1, idT2, idT1)
+          IE.ContractDoesNotImplementInterface(idI2, cid1, idT1)
         )
       }
     }

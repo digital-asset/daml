@@ -7,23 +7,24 @@ import com.daml.lf.codegen.Util
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.codegen.lf.DefTemplateWithRecord
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
+import com.daml.lf.iface.{InterfaceType, DefDataType}
+import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
   def orderedDependencies(
-      library: EnvironmentInterface
-  ): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord]] = {
-    val decls = library.typeDecls
+      decls: Map[Identifier, InterfaceType]
+  ): OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] = {
     // invariant: no type decl name equals any template alias
     val typeDeclNodes =
       decls.to(ImmArraySeq).collect { case (qualName, InterfaceType.Normal(typeDecl)) =>
         (
           qualName,
           Node(
-            TypeDeclWrapper(typeDecl),
+            Right(typeDecl),
             typeDecl.bifoldMap(Util.genTypeTopLevelDeclNames)(Util.genTypeTopLevelDeclNames),
             collectDepError = false,
           ),
@@ -36,13 +37,33 @@ private[codegen] object DependencyGraph {
         (
           qualName,
           Node(
-            TemplateWrapper(DefTemplateWithRecord(typ, tpl)),
+            Left(DefTemplateWithRecord(typ, tpl)),
             recDeps ++ choiceAndKeyDeps,
             collectDepError = true,
           ),
         )
       }
     Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)
+  }
+
+  /** Computes the collection of templates in the `library` and
+    * all the type declarations for which code must be generated
+    * so that the output of the codegen compiles while only
+    * targeting template definitions that can be observed through
+    * the Ledger API.
+    */
+  def transitiveClosure(decls: Map[Identifier, InterfaceType]): TransitiveClosure = {
+    val dependencies = orderedDependencies(decls)
+    val (templateIds, typeDeclarations) =
+      dependencies.deps
+        .partitionMap { case (templateId, Node(content, _, _)) =>
+          content.bimap((templateId, _), (templateId, _))
+        }
+    TransitiveClosure(
+      templateIds = templateIds,
+      typeDeclarations = typeDeclarations,
+      errors = dependencies.errors,
+    )
   }
 
 }

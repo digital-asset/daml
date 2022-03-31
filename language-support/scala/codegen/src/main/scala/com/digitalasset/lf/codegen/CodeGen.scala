@@ -19,10 +19,9 @@ import com.daml.lf.iface.reader.Errors.ErrorLoc
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
-import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.std.string._
-import scalaz.syntax.bifunctor._
+import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
@@ -30,9 +29,6 @@ import scalaz.syntax.traverse1._
 object CodeGen {
 
   private val logger: Logger = Logger(getClass)
-
-  sealed abstract class Mode extends Serializable with Product
-  case object Novel extends Mode
 
   val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
   import universe._
@@ -58,14 +54,13 @@ object CodeGen {
       files: List[File],
       packageName: String,
       outputDir: File,
-      mode: Mode,
       roots: Seq[String] = Seq(),
   ): Unit =
     files match {
       case Nil =>
         throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
       case f :: fs =>
-        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode, roots)
+        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, roots)
           .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
     }
 
@@ -76,23 +71,15 @@ object CodeGen {
       files: NonEmptyList[File],
       packageName: String,
       outputDir: File,
-      mode: Mode,
       roots: Seq[String],
   ): ValidationNel[String, Unit] =
-    decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
-      val combinedIface: EnvironmentInterface =
-        combineEnvInterfaces(ifaces map Util.filterTemplatesBy(roots map (_.r)))
-      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
+    decodeInterfaces(files).map { interfaces: NonEmptyList[EnvironmentInterface] =>
+      val combined = interfaces.suml1
+      val interface = combined.copy(
+        typeDecls = Util.filterTemplatesBy(roots.map(_.r))(combined.typeDecls)
+      )
+      packageInterfaceToScalaCode(LFUtil(packageName, interface, outputDir))
     }
-
-  private def util(
-      mode: Mode,
-      packageName: String,
-      iface: EnvironmentInterface,
-      outputDir: File,
-  ): LFUtil = mode match {
-    case Novel => LFUtil(packageName, iface, outputDir)
-  }
 
   private def decodeInterfaces(
       files: NonEmptyList[File]
@@ -137,49 +124,34 @@ object CodeGen {
   private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     EnvironmentInterface.fromReaderInterfaces(dar)
 
-  private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
-    as.suml1
-
-  private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
-    val interface = util.iface
-
-    val orderedDependencies
-        : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord]] =
-      DependencyGraph.orderedDependencies(util.iface)
-    val (templateIds, typeDeclsToGenerate): (
-        Map[Identifier, DefTemplateWithRecord],
-        List[ScopedDataType.FWT],
-    ) = {
-
-      /* Here we collect templates and the
-       * [[TypeDecl]]s without generating code for them.
-       */
-      val templateIdOrTypeDecls
-          : List[(Identifier, DefTemplateWithRecord) Either ScopedDataType.FWT] =
-        orderedDependencies.deps.toList.flatMap {
-          case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
-            Seq(Right(ScopedDataType.fromDefDataType(templateId, typeDecl)))
-          case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
-            Seq(Left((templateId, templateInterface)))
-        }
-
-      templateIdOrTypeDecls.partitionMap(identity).leftMap(_.toMap)
+  private def templateCount(interface: EnvironmentInterface): Int =
+    interface.typeDecls.count {
+      case (_, InterfaceType.Template(_, _)) => true
+      case _ => false
     }
 
+  private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
+    val typeDeclarationsToGenerate = DependencyGraph.transitiveClosure(util.iface.typeDecls)
+
     // Each record/variant has Scala code generated for it individually, unless their names are related
-    writeTemplatesAndTypes(util)(WriteParams(templateIds, typeDeclsToGenerate))
+    writeTemplatesAndTypes(util)(WriteParams(typeDeclarationsToGenerate))
+
+    val totalTemplates = templateCount(util.iface)
+    val generated = typeDeclarationsToGenerate.templateIds.size
+    val notGenerated = totalTemplates - generated
+
+    val errorMessages = typeDeclarationsToGenerate.errors.map(_.msg).mkString("\n")
 
     logger.info(
       s"""Scala Codegen result:
-          |Number of generated templates: ${templateIds.size}
-          |Number of not generated templates: ${util
-        .templateCount(interface) - templateIds.size}
-          |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
+          |Number of generated templates: $generated
+          |Number of not generated templates: $notGenerated
+          |Details: $errorMessages""".stripMargin
     )
   }
 
   private[codegen] def produceTemplateAndTypeFilesLF(
-      wp: WriteParams[DefTemplateWithRecord],
+      wp: WriteParams,
       util: lf.LFUtil,
   ): IterableOnce[FilePlan] = {
     import wp._
@@ -220,10 +192,10 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  private[this] def splitNTDs[RT, VT](definitions: List[ScopedDataType.DT[RT, VT]]): (
-      List[ScopedDataType[Record[RT]]],
-      List[ScopedDataType[Variant[VT]]],
-      List[ScopedDataType[Enum]],
+  private[this] def splitNTDs[RT, VT](definitions: Vector[ScopedDataType.DT[RT, VT]]): (
+      Vector[ScopedDataType[Record[RT]]],
+      Vector[ScopedDataType[Variant[VT]]],
+      Vector[ScopedDataType[Enum]],
   ) = {
 
     val (recordAndVariants, enums) = definitions.partitionMap {
@@ -252,11 +224,11 @@ object CodeGen {
     * unchanged.
     */
   private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
-      definitions: List[ScopedDataType.DT[RT, VT]]
+      definitions: Vector[ScopedDataType.DT[RT, VT]]
   ): (
-      List[ScopedDataType[Record[RT]]],
-      List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
-      List[ScopedDataType[Enum]],
+      Vector[ScopedDataType[Record[RT]]],
+      Vector[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
+      Vector[ScopedDataType[Enum]],
   ) = {
     type VariantField = List[(Ref.Name, RT)] \/ VT
 
@@ -269,7 +241,7 @@ object CodeGen {
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
     val (deletedRecords, newVariants) =
-      variants.toList.traverse {
+      variants.traverse {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = LFUtil simplyDelegates vTypeVars
           val (deleted, sdt) = fields.traverse { case (vn, vt) =>
@@ -290,12 +262,12 @@ object CodeGen {
           (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))
       }
 
-    ((recordMap -- deletedRecords).values.toList, newVariants, enums.toList)
+    ((recordMap -- deletedRecords).valuesIterator.toVector, newVariants, enums)
   }
 
   private[this] def writeTemplatesAndTypes(
       util: LFUtil
-  )(wp: WriteParams[DefTemplateWithRecord]): Unit = {
+  )(wp: WriteParams): Unit = {
     util.templateAndTypeFiles(wp).iterator.foreach {
       case -\/(msg) => logger.debug(msg)
       case \/-((msg, filePath, trees)) =>

@@ -18,6 +18,7 @@ def conformance_test(
         test_tool_args = [],
         tags = [],
         runner = "@//bazel_tools/client_server/runner_with_port_check",
+        extra_runner_args = [],
         lf_versions = ["default"],
         flaky = False):
     for lf_version in lf_versions_aggregate(lf_versions):
@@ -27,7 +28,7 @@ def conformance_test(
             client_server_test(
                 name = test_name,
                 runner = runner,
-                runner_args = ["%s" % port for port in ports],
+                runner_args = ["%s" % port for port in ports] + extra_runner_args,
                 timeout = "long",
                 client = "//ledger/ledger-api-tests/tool:tool-%s" % lf_version,
                 client_args = test_tool_args + ["localhost:%s" % port for port in ports],

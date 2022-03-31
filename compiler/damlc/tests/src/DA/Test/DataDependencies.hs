@@ -286,6 +286,70 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           validate $ projc </> "projc.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
+    [ testCaseSteps ("Cross Daml-LF version with double data-dependency from old SDK: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer) $
+        -- Given a dar "Old" built with an older SDK, this tests that a project
+        -- which depends on "Old" through different paths on its dependency graph
+        -- will not end up with multiple copies of daml-prim and daml-stdlib
+        -- from the older SDK, which would prevent it from compiling.
+        \step -> withTempDir $ \tmpDir -> do
+            let proja = tmpDir </> "proja"
+            let projb = tmpDir </> "projb"
+
+            step "Build proja"
+            createDirectoryIfMissing True (proja </> "src")
+            writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+                [ "module A where"
+                , "import Old ()"
+                , "template T"
+                , "  with"
+                , "    party : Party"
+                , "  where"
+                , "    signatory party"
+                ]
+            writeFileUTF8 (proja </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: proja"
+                , "version: 0.0.1"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies:"
+                , " - " <> show oldProjDar
+                ]
+            callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+
+            step "Build projb"
+            createDirectoryIfMissing True (projb </> "src")
+            writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+                [ "module B where"
+                , "import Old ()"
+                , "import A ()"
+                ]
+            writeFileUTF8 (projb </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: projb"
+                , "version: 0.0.1"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies: "
+                , " - " <> show oldProjDar
+                , " - " <> show (proja </> "proja.dar")
+                ]
+            callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", projb
+                , "--target", LF.renderVersion targetLfVer
+                , "-o", projb </> "projb.dar"
+                ]
+
+            step "Validating DAR"
+            validate $ projb </> "projb.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")

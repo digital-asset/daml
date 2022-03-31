@@ -228,6 +228,13 @@ alphaExpr' env = \case
             && alphaTypeCon t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
+    EUnsafeFromInterface t1a t1b e1a e1b -> \case
+        EUnsafeFromInterface t2a t2b e2a e2b
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     ECallInterface t1 m1 e1 -> \case
         ECallInterface t2 m2 e2
             -> alphaTypeCon t1 t2
@@ -245,6 +252,13 @@ alphaExpr' env = \case
             -> alphaTypeCon t1a t2a
             && alphaTypeCon t1b t2b
             && alphaExpr' env e1 e2
+        _ -> False
+    EUnsafeFromRequiredInterface t1a t1b e1a e1b -> \case
+        EUnsafeFromRequiredInterface t2a t2b e2a e2b
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
         _ -> False
     EInterfaceTemplateTypeRep ty1 expr1 -> \case
         EInterfaceTemplateTypeRep ty2 expr2

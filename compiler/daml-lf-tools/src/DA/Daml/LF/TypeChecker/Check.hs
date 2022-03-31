@@ -302,6 +302,8 @@ typeOfBuiltin = \case
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
 
+  BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
+
   BETextToUpper -> pure (TText :-> TText)
   BETextToLower -> pure (TText :-> TText)
   BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
@@ -748,6 +750,11 @@ typeOf' = \case
     checkImplements tpl iface
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
+  EUnsafeFromInterface iface tpl cid val -> do
+    checkImplements tpl iface
+    checkExpr cid (TContractId (TCon iface))
+    checkExpr val (TCon iface)
+    pure (TCon tpl)
   ECallInterface iface method val -> do
     method <- inWorld (lookupInterfaceMethod (iface, method))
     checkExpr val (TCon iface)
@@ -764,6 +771,13 @@ typeOf' = \case
       throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
     checkExpr expr (TCon requiredIface)
     pure (TOptional (TCon requiringIface))
+  EUnsafeFromRequiredInterface requiredIface requiringIface cid expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr cid (TContractId (TCon requiredIface))
+    checkExpr expr (TCon requiredIface)
+    pure (TCon requiringIface)
   EInterfaceTemplateTypeRep iface expr -> do
     void $ inWorld (lookupInterface iface)
     checkExpr expr (TCon iface)
@@ -786,9 +800,6 @@ typeOf' = \case
 
 checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
 checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
-checkExperimentalType "TYPEREP_TYCON_NAME" (TTypeRep :-> TOptional TText) = pure ()
-checkExperimentalType "THROW_WRONGLY_TYPED_CONTRACT"
-  (TContractId _ :-> TTypeRep :-> TTypeRep :-> _) = pure ()
 checkExperimentalType name ty =
   throwWithContext (EUnknownExperimental name ty)
 

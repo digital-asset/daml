@@ -1036,21 +1036,22 @@ private[lf] object SBuiltin {
     }
   }
 
-  // SBCastAnyInterface: ContractId ifaceId -> Option TypRep -> Any -> ifaceId
-  final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(3) {
+  // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
+  final case class SBCastAnyInterface(
+      ifaceId: TypeConName,
+      optExpectedTmplId: Option[TypeConName] = None,
+  ) extends SBuiltin(2) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       def coid = getSContractId(args, 0)
-      val (actualTmplId, _) = getSAnyContract(args, 2)
-      getSOptional(args, 1).foreach {
-        case STypeRep(Ast.TTyCon(expectedTmplId)) =>
-          if (actualTmplId != expectedTmplId)
-            throw SErrorDamlException(IE.WronglyTypedContract(coid, expectedTmplId, actualTmplId))
-        case otherwise =>
-          crash(s"expected a type constructor, but got $otherwise")
+      val (actualTmplId, _) = getSAnyContract(args, 1)
+      optExpectedTmplId.foreach { expectedTmplId: TypeConName =>
+        if (actualTmplId != expectedTmplId)
+          throw SErrorDamlException(IE.WronglyTypedContract(coid, expectedTmplId, actualTmplId))
       }
+
       if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTmplId, ifaceId)).isEmpty)
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
-      machine.returnValue = args.get(2)
+      machine.returnValue = args.get(1)
     }
   }
 
@@ -1098,29 +1099,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBThrowWronglyTypedContract extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
-      val contractId = getSContractId(args, 0)
-      val expectedTemplateId = getSTypeRep(args, 1) match {
-        case Ast.TTyCon(templateId) => templateId
-        case _ =>
-          throw SErrorDamlException(
-            IE.UserError("unexpected typerep when throwing WronglyTypedContract error")
-          )
-      }
-      val actualTemplateId = getSTypeRep(args, 2) match {
-        case Ast.TTyCon(templateId) => templateId
-        case _ =>
-          throw SErrorDamlException(
-            IE.UserError("unexpected typerep when throwing WronglyTypedContract error")
-          )
-      }
-      throw SErrorDamlException(
-        IE.WronglyTypedContract(contractId, expectedTemplateId, actualTemplateId)
-      )
-    }
-  }
-
   final case class SBApplyChoiceGuard(
       choiceName: ChoiceName,
       byInterface: Option[TypeConName],
@@ -1143,6 +1121,20 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue]
     ): SBool = {
       discard(getSAnyContract(args, 0))
+      SBool(true)
+    }
+  }
+
+  final case class SBGuardMatchTemplateId(
+      expectedTmplId: TypeConName
+  ) extends SBuiltinPure(2) {
+    override private[speedy] def executePure(
+        args: util.ArrayList[SValue]
+    ): SBool = {
+      val contractId = getSContractId(args, 0)
+      val (actualTmplId, record @ _) = getSAnyContract(args, 1)
+      if (actualTmplId != expectedTmplId)
+        throw SErrorDamlException(IE.WronglyTypedContract(contractId, expectedTmplId, actualTmplId))
       SBool(true)
     }
   }
@@ -1217,6 +1209,23 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Convert an interface to a given template type if possible. Since interfaces are represented
+  // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
+  // matches the template type, and then return the SAny internal value.
+  final case class SBUnsafeFromInterface(
+      tplId: TypeConName
+  ) extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+      val coid = getSContractId(args, 0)
+      val (tyCon, record) = getSAnyContract(args, 1)
+      if (tplId == tyCon) {
+        record
+      } else {
+        throw SErrorDamlException(IE.WronglyTypedContract(coid, tplId, tyCon))
+      }
+    }
+  }
+
   // Convert an interface `requiredIface` to another interface `requiringIface`, if
   // the `requiringIface` implements `requiredIface`.
   final case class SBFromRequiredInterface(
@@ -1236,6 +1245,30 @@ private[lf] object SBuiltin {
           SOptional(Some(SAnyContract(tyCon, record)))
         case _ =>
           SOptional(None)
+      }
+    }
+  }
+
+  // Convert an interface `requiredIface` to another interface `requiringIface`, if
+  // the `requiringIface` implements `requiredIface`.
+  final case class SBUnsafeFromRequiredInterface(
+      requiringIface: TypeConName
+  ) extends SBuiltin(2) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ) = {
+      val coid = getSContractId(args, 0)
+      val (tyCon, record) = getSAnyContract(args, 1)
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      // TODO https://github.com/digital-asset/daml/issues/11345
+      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
+          SAnyContract(tyCon, record)
+        case _ =>
+          throw SErrorDamlException(IE.WronglyTypedContract(coid, requiringIface, tyCon))
       }
     }
   }
@@ -1639,6 +1672,18 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $type_rep_ty_con_name
+    *    :: TypeRep
+    *    -> Optional Text
+    */
+  final case object SBTypeRepTyConName extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+      getSTypeRep(args, 0) match {
+        case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
+        case _ => SOptional(None)
+      }
+  }
+
   // Unstable text primitives.
 
   /** $text_to_upper :: Text -> Text */
@@ -1838,20 +1883,10 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
-    private object SBExperimentalTypeRepTyConName extends SBuiltinPure(1) {
-      override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
-        getSTypeRep(args, 0) match {
-          case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
-          case _ => SOptional(None)
-        }
-    }
-
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
-        "ANSWER" -> SBExperimentalAnswer,
-        "TYPEREP_TYCON_NAME" -> SBExperimentalTypeRepTyConName,
-        "THROW_WRONGLY_TYPED_CONTRACT" -> SBThrowWronglyTypedContract,
+        "ANSWER" -> SBExperimentalAnswer
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =

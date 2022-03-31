@@ -676,6 +676,68 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setTemplateType(tpl)
               .setInterfaceExpr(value)
           )
+        case EUnsafeFromInterface(iface, tpl, cid, value) =>
+          assertSince(LV.Features.interfaces, "Expr.UnsafeFromInterface")
+          builder.setUnsafeFromInterface(
+            PLF.Expr.UnsafeFromInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setContractIdExpr(cid)
+              .setInterfaceExpr(value)
+          )
+        case EToRequiredInterface(superIface, iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.ToRequiredInterface")
+          builder.setToRequiredInterface(
+            PLF.Expr.ToRequiredInterface
+              .newBuilder()
+              .setRequiredInterface(superIface)
+              .setRequiringInterface(iface)
+              .setExpr(value)
+          )
+        case EFromRequiredInterface(superIface, iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.FromRequiredInterface")
+          builder.setFromRequiredInterface(
+            PLF.Expr.FromRequiredInterface
+              .newBuilder()
+              .setRequiredInterface(superIface)
+              .setRequiringInterface(iface)
+              .setExpr(value)
+          )
+        case EUnsafeFromRequiredInterface(superIface, iface, cid, value) =>
+          assertSince(LV.Features.interfaces, "Expr.UnsafeFromRequiredInterface")
+          builder.setUnsafeFromRequiredInterface(
+            PLF.Expr.UnsafeFromRequiredInterface
+              .newBuilder()
+              .setRequiredInterface(superIface)
+              .setRequiringInterface(iface)
+              .setContractIdExpr(cid)
+              .setInterfaceExpr(value)
+          )
+        case EInterfaceTemplateTypeRep(iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setInterfaceTemplateTypeRep(
+            PLF.Expr.InterfaceTemplateTypeRep
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
+        case ESignatoryInterface(iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setSignatoryInterface(
+            PLF.Expr.SignatoryInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
+        case EObserverInterface(iface, value) =>
+          assertSince(LV.Features.interfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setObserverInterface(
+            PLF.Expr.ObserverInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))

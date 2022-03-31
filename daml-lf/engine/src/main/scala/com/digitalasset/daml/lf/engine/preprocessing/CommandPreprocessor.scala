@@ -191,6 +191,11 @@ private[lf] final class CommandPreprocessor(
         unsafePreprocessCreate(templateId, argument)
       case command.ReplayCommand.CreateByInterface(interfaceId, templateId, argument) =>
         unsafePreprocessCreateByInterface(interfaceId, templateId, argument)
+      case command.ReplayCommand.LenientExercise(templateId, coid, choiceId, argument) =>
+        // https://github.com/digital-asset/daml/issues/12051
+        //   We temporary add a lenient version of Exercise acting like ApiCommand.Exercise.
+        //   It will be shipped in 2.1 but dropped in 2.2.
+        unsafePreprocessExercise(templateId, coid, choiceId, argument)
       case command.ReplayCommand.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
         unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
       case command.ReplayCommand.ExerciseByInterface(

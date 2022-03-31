@@ -5,7 +5,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 
 da_scala_library(
     name = "test-evidence-scalatest",
-    srcs = glob(["src/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",

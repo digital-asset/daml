@@ -47,6 +47,8 @@ private[parser] object Lexer extends RegexParsers {
     "to_required_interface" -> `to_required_interface`,
     "from_interface" -> `from_interface`,
     "from_required_interface" -> `from_required_interface`,
+    "unsafe_from_interface" -> `unsafe_from_interface`,
+    "unsafe_from_required_interface" -> `unsafe_from_required_interface`,
     "call_method" -> `call_method`,
     "interface_template_type_rep" -> `interface_template_type_rep`,
     "signatory_interface" -> `signatory_interface`,
