@@ -30,10 +30,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - Capability
      - Enterprise
      - Open Source
-   * - Daml Synchronisation
-     - Yes
-     - Yes
-   * - Sub-Transaction Privacy
+   * - `Sub-Transaction Privacy <https://docs.daml.com/concepts/ledger-model/ledger-privacy.html>`_
      - Yes
      - Yes
    * - `Transaction Processing <https://docs.daml.com/canton/architecture/overview.html#node-scaling>`_
@@ -42,19 +39,22 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - `High Availability <https://docs.daml.com/canton/usermanual/ha.html>`_
      - Yes
      - No
-   * - High Throughput via Microservices
-     - Yes
-     - No
-   * - Resource Management
+   * - `Horizontal scalability <https://docs.daml.com/canton/usermanual/ha.html#sequencer>`_
      - Yes
      - No
    * - `Ledger Pruning <https://docs.daml.com/canton/usermanual/operational_processes.html#ledger-pruning>`_
      - Yes
      - No
-   * - Postgres Backend
+   * - Local contract store in PostgreSQL
      - Yes
      - Yes
-   * - Oracle Backend
+   * - Local contract store in Oracle
+     - Yes
+     - No
+   * - PostgreSQL driver
+     - Yes
+     - Yes
+   * - Oracle driver
      - Yes
      - No
    * - Besu driver
