@@ -1194,6 +1194,13 @@ class DecodeV1Spec
         )
         .build()
 
+      val typeRepTyConName = DamlLf1.Expr
+        .newBuilder()
+        .setBuiltin(
+          DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
+        )
+        .build()
+
       Table(
         "input" -> "expected output",
         interfaceTemplateTypeRep -> EInterfaceTemplateTypeRep(
@@ -1234,6 +1241,7 @@ class DecodeV1Spec
           contractIdExpr = EUnit,
           ifaceExpr = EFalse,
         ),
+        typeRepTyConName -> Ast.EBuiltin(Ast.BTypeRepTyConName),
       )
     }
 

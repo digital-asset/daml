@@ -262,7 +262,7 @@ deriving instance Ord TemplateTypeRep
 -- represented by a TemplateTypeRep, as a string.
 templateTypeRepToText : TemplateTypeRep -> Text
 templateTypeRepToText (TemplateTypeRep x) =
-  case primitive @"$TYPEREP_TYCON_NAME" x of
+  case primitive @"ETypeRepTyConName" x of
     None -> error "Invalid TemplateTypeRep, does not contain a type constructor."
     Some y -> y
 

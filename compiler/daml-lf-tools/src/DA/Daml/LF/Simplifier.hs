@@ -166,6 +166,7 @@ safetyStep = \case
       BETextToInt64 -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
+      BETypeRepTyConName -> Safe 1
       BETextToUpper -> Safe 1
       BETextToLower -> Safe 1
       BETextSlice -> Safe 3

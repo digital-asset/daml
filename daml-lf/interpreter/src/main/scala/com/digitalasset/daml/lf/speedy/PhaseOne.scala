@@ -493,6 +493,9 @@ private[lf] final class PhaseOne(
           case BBigNumericToNumeric => SBBigNumericToNumeric
           case BBigNumericToText => SBToText
 
+          // TypeRep
+          case BTypeRepTyConName => SBTypeRepTyConName
+
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
           case BTextToLower => SBTextToLower

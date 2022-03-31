@@ -302,6 +302,8 @@ typeOfBuiltin = \case
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
 
+  BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
+
   BETextToUpper -> pure (TText :-> TText)
   BETextToLower -> pure (TText :-> TText)
   BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
@@ -798,7 +800,6 @@ typeOf' = \case
 
 checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
 checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
-checkExperimentalType "TYPEREP_TYCON_NAME" (TTypeRep :-> TOptional TText) = pure ()
 checkExperimentalType name ty =
   throwWithContext (EUnknownExperimental name ty)
 

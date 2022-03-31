@@ -500,6 +500,8 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> pure BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> pure BECoerceContractId
 
+  LF1.BuiltinFunctionTYPEREP_TYCON_NAME -> pure BETypeRepTyConName
+
   LF1.BuiltinFunctionTEXT_TO_UPPER -> pure BETextToUpper
   LF1.BuiltinFunctionTEXT_TO_LOWER -> pure BETextToLower
   LF1.BuiltinFunctionTEXT_SLICE -> pure BETextSlice

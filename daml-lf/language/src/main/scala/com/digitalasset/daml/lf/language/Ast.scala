@@ -513,6 +513,9 @@ object Ast {
   final case object BNumericToBigNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
   final case object BBigNumericToText extends BuiltinFunction // : BigNumeric → Text
 
+  // TypeRep
+  final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
+
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction // Text → Text
   final case object BTextToLower extends BuiltinFunction // : Text → Text

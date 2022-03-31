@@ -416,6 +416,8 @@ convertPrim _ "EUnsafeFromRequiredInterface" (TContractId (TCon superIface) :-> 
         $ ETmLam (mkVar "i", TCon superIface)
         $ EUnsafeFromRequiredInterface superIface subIface (EVar $ mkVar "cid") (EVar $ mkVar "i")
 
+convertPrim _ "ETypeRepTyConName" (TTypeRep :-> TOptional TText) = EBuiltin BETypeRepTyConName
+
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ
 
