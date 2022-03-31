@@ -3,9 +3,10 @@
 
 package com.daml.platform.store.serialization
 
+import com.daml.crypto.MessageDigestPrototype
+
 import java.nio.ByteBuffer
 import java.security.MessageDigest
-
 import com.daml.lf.data.{Numeric, Utf8}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -154,7 +155,7 @@ object KeyHasher extends KeyHasher {
   /** @deprecated in favor of [[GlobalKey.hash]]
     */
   override def hashKey(key: GlobalKey): Array[Byte] = {
-    val digest = MessageDigest.getInstance("SHA-256")
+    val digest = MessageDigestPrototype.Sha256.newDigest
 
     // First, write the template ID
     putString(digest, key.templateId.packageId)

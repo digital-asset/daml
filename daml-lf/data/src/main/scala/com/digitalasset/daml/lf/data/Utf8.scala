@@ -4,10 +4,8 @@
 package com.daml.lf
 package data
 
-import java.security.MessageDigest
-
+import com.daml.crypto.MessageDigestPrototype
 import com.daml.scalautil.Statement.discard
-
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import scalaz.Order
@@ -40,7 +38,7 @@ object Utf8 {
     Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
   def sha256(s: String): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
+    val digest = MessageDigestPrototype.Sha256.newDigest
     digest.update(getBytes(s).toByteBuffer)
     BaseEncoding.base16().lowerCase().encode(digest.digest())
   }

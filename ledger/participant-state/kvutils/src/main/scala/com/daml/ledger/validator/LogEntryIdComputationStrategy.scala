@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator
 
-import java.security.MessageDigest
+import com.daml.crypto.MessageDigestPrototype
 
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
@@ -30,8 +30,7 @@ object HashingLogEntryIdComputationStrategy extends LogEntryIdComputationStrateg
       .build
 
   private def hash(rawEnvelope: Raw.Envelope): ByteString = {
-    val messageDigest = MessageDigest
-      .getInstance("SHA-256")
+    val messageDigest = MessageDigestPrototype.Sha256.newDigest
     messageDigest.update(rawEnvelope.bytes.asReadOnlyByteBuffer())
     val hash = messageDigest
       .digest()
