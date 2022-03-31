@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -16,12 +17,8 @@ import com.daml.ledger.api.auth.{
   AuthServiceWildcard,
 }
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-}
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.{
   Config,
   ConfigProvider,
@@ -30,8 +27,6 @@ import com.daml.ledger.runner.common.{
   ParticipantConfig,
   ParticipantRunMode,
 }
-import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -49,6 +44,7 @@ final class Runner[T <: ReadWriteService, Extra](
     name: String,
     factory: LedgerFactory[Extra],
     configProvider: ConfigProvider[Extra],
+    ledgerFeatures: LedgerFeatures,
 ) {
   private val cleanedName = "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
   private val logger = ContextualizedLogger.get(getClass)
@@ -66,13 +62,14 @@ final class Runner[T <: ReadWriteService, Extra](
           DumpIndexMetadata(jdbcUrls, name)
           sys.exit(0)
         case Mode.Run =>
-          run(config)
+          run(config, ledgerFeatures)
       }
     }
   }
 
   private[app] def run(
-      config: Config[Extra]
+      config: Config[Extra],
+      ledgerFeatures: LedgerFeatures,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(cleanedName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -96,7 +93,7 @@ final class Runner[T <: ReadWriteService, Extra](
         // initialize all configured participants
         _ <- Resource.sequenceIgnoringValues(
           config.participants.map(participantConfig =>
-            runParticipant(config, participantConfig, sharedEngine)
+            runParticipant(config, participantConfig, sharedEngine, ledgerFeatures)
           )
         )
       } yield logInitializationHeader(config)
@@ -133,6 +130,7 @@ final class Runner[T <: ReadWriteService, Extra](
       config: Config[Extra],
       participantConfig: ParticipantConfig,
       sharedEngine: Engine,
+      ledgerFeatures: LedgerFeatures,
   )(implicit
       resourceContext: ResourceContext,
       loggingContext: LoggingContext,
@@ -244,24 +242,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   otherInterceptors = configProvider.interceptors(config),
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
-                  ledgerFeatures = LedgerFeatures(
-                    staticTime = timeServiceBackend.isDefined,
-                    commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-                      deduplicationPeriodSupport = Some(
-                        CommandDeduplicationPeriodSupport.of(
-                          offsetSupport =
-                            CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
-                          durationSupport =
-                            CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-                        )
-                      ),
-                      deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
-                      maxDeduplicationDurationEnforced = true,
-                    ),
-                    contractIdFeatures = ExperimentalContractIds.of(
-                      v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
-                    ),
-                  ),
+                  ledgerFeatures = ledgerFeatures,
                   userManagementConfig = config.userManagementConfig,
                 ).acquire()
               } yield Some(apiServer.port)

@@ -19,7 +19,6 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc,
 }
-import com.daml.ledger.runner.common._
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
@@ -34,6 +33,7 @@ import com.daml.ledger.participant.state.v2.{
   WriteService,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -41,6 +41,7 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
+import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.status.{Status => StatusProto}
@@ -64,7 +65,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll 
     "started" should {
       "respond to requests" in {
         val participantConfig = newTestParticipantConfig()
-        val runner = new Runner(Name, TestLedgerFactory, TestConfigProvider)
+        val runner = new Runner(Name, TestLedgerFactory, TestConfigProvider, LedgerFeatures())
 
         newApp(config, participantConfig, runner).use { channel =>
           LedgerIdentityServiceGrpc
@@ -80,7 +81,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll 
 
       "respond to health checks" in {
         val participantConfig = newTestParticipantConfig()
-        val runner = new Runner(Name, TestLedgerFactory, TestConfigProvider)
+        val runner = new Runner(Name, TestLedgerFactory, TestConfigProvider, LedgerFeatures())
 
         newApp(config, participantConfig, runner).use { channel =>
           requestHealthForAllServices(HealthGrpc.stub(channel)).map { responses =>
@@ -94,7 +95,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll 
       "respond with the correct health statuses" in {
         val participantConfig = newTestParticipantConfig()
         val ledgerFactory = new TestLedgerFactory(readServiceHealth = Unhealthy)
-        val runner = new Runner(Name, ledgerFactory, TestConfigProvider)
+        val runner = new Runner(Name, ledgerFactory, TestConfigProvider, LedgerFeatures())
 
         newApp(config, participantConfig, runner).use { channel =>
           requestHealthForAllServices(HealthGrpc.stub(channel)).map { responses =>
@@ -112,7 +113,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll 
       "respond with the correct health statuses" in {
         val participantConfig = newTestParticipantConfig()
         val ledgerFactory = new TestLedgerFactory(writeServiceHealth = Unhealthy)
-        val runner = new Runner(Name, ledgerFactory, TestConfigProvider)
+        val runner = new Runner(Name, ledgerFactory, TestConfigProvider, LedgerFeatures())
 
         newApp(config, participantConfig, runner).use { channel =>
           requestHealthForAllServices(HealthGrpc.stub(channel)).map { responses =>
@@ -181,7 +182,7 @@ object RunnerSpec {
       port <- new ResourceOwner[Port] {
         override def acquire()(implicit context: ResourceContext): Resource[Port] =
           runner
-            .runParticipant(config, participantConfig, engine)
+            .runParticipant(config, participantConfig, engine, LedgerFeatures())
             .map(_.get)
       }
       channel <- ResourceOwner
