@@ -59,18 +59,16 @@ object LedgerBuffersUpdater {
     }
     current match {
       case transaction: TransactionLogUpdate.TransactionAccepted =>
-        transaction.copy(events = transaction.events.flatMap {
-          case _: TransactionLogUpdate.DivulgenceEvent =>
+        transaction.copy(events = transaction.events.map {
+          case divulgence: TransactionLogUpdate.DivulgenceEvent =>
             currSeqId += 1
-            // don't forward divulgence events
-            Iterator.empty
+            divulgence.copy(eventSequentialId = currSeqId)
           case create: TransactionLogUpdate.CreatedEvent =>
             currSeqId += 1
-            Iterator(create.copy(eventSequentialId = currSeqId))
+            create.copy(eventSequentialId = currSeqId)
           case exercise: TransactionLogUpdate.ExercisedEvent =>
             currSeqId += 1
-            Iterator(exercise.copy(eventSequentialId = currSeqId))
-          case unchanged => Iterator(unchanged)
+            exercise.copy(eventSequentialId = currSeqId)
         })
       case ledgerEndMarker: LedgerEndMarker =>
         ledgerEndMarker.copy(lastEventSeqId = currSeqId)
@@ -88,9 +86,12 @@ object LedgerBuffersUpdater {
           val eventSequentialId = transaction.events.last.eventSequentialId
           val offset = transaction.offset
           val ledgerEndMarker = TransactionLogUpdate.LedgerEndMarker(offset, eventSequentialId)
-          if (transaction.events.nonEmpty) // Divulgence-only transactions should not be forwarded
+          val woDivulgence = transaction.copy(events =
+            transaction.events.filterNot(_.isInstanceOf[TransactionLogUpdate.DivulgenceEvent])
+          )
+          if (woDivulgence.events.nonEmpty) // Divulgence-only transactions should not be forwarded
             Iterator(
-              (offset -> eventSequentialId, transaction),
+              (offset -> eventSequentialId, woDivulgence),
               (offset -> eventSequentialId, ledgerEndMarker),
             )
           else Iterator((offset -> eventSequentialId, ledgerEndMarker))

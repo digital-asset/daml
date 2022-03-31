@@ -4,8 +4,8 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import akka.stream.{Materializer, QueueOfferResult}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{ReadService, Update}
@@ -14,7 +14,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.UpdatingStringInterningView
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,7 +31,6 @@ private[platform] case class InitializeParallelIngestion(
       dbDispatcher: DbDispatcher,
       updatingStringInterningView: UpdatingStringInterningView,
       readService: ReadService,
-      buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
       ec: ExecutionContext,
       mat: Materializer,
   )(implicit loggingContext: LoggingContext): Future[InitializeParallelIngestion.Initialized] = {
@@ -61,20 +59,10 @@ private[platform] case class InitializeParallelIngestion(
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.lastEventSeqId,
       initialStringInterningId = ledgerEnd.lastStringInterningId,
-      readServiceSource = readService
-        .stateUpdates(beginAfter = ledgerEnd.lastOffsetOption)
-        .alsoTo(
-          com.daml.platform.index.LedgerBuffersUpdater
-            .flow(ledgerEnd.lastEventSeqId)
-            .to(Sink.foreachAsync[((Offset, Long), TransactionLogUpdate)](1) { o =>
-              buffersUpdatesQueue.offer(o).map {
-                case QueueOfferResult.Enqueued =>
-                case r => throw new RuntimeException(s"Offset/update pair ($o) not enqueued: $r")
-              }
-            })
-        ),
+      readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.lastOffsetOption),
     )
   }
+
 }
 
 object InitializeParallelIngestion {
@@ -84,4 +72,5 @@ object InitializeParallelIngestion {
       initialStringInterningId: Int,
       readServiceSource: Source[(Offset, Update), NotUsed],
   )
+
 }

@@ -3,17 +3,16 @@
 
 package com.daml.platform.indexer
 
+import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.SourceQueueWithComplete
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.health.{Healthy, ReportsHealth}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.LedgerEndCache
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
@@ -25,10 +24,8 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     stringInterningView: StringInterningView,
-    buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
-    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
-    buffersUpdaterCache: LedgerEndCache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
+    indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -46,9 +43,7 @@ final class StandaloneIndexerServer(
       stringInterningView = stringInterningView,
       metrics,
       lfValueTranslationCache,
-      buffersUpdatesQueue = buffersUpdatesQueue,
-      updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
-      buffersUpdaterCache = buffersUpdaterCache,
+      indexedUpdatesConsumer,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

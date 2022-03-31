@@ -34,7 +34,6 @@ import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
@@ -182,9 +181,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                   stringInterningView = null,
-                  buffersUpdatesQueue = null,
-                  updateLedgerApiLedgerEnd = _ => (),
-                  buffersUpdaterCache = MutableLedgerEndCache(),
+                  indexedUpdatesConsumer = null,
                 ).acquire()
               } yield {
                 new HealthChecks(
@@ -225,13 +222,13 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
-                  updatesSource = null, // TODO LLP
                   stringInterningView = null, // TODO LLP
                   ledgerEnd = null, // TODO LLP
                   ledgerEndCache = null, // TODO LLP
                   generalDispatcher = null, // TODO LLP
                   ledgerReadDao = null, // TODO LLP
-                  buffersUpdaterCache = MutableLedgerEndCache(), // TODO LLP
+                  updateLedgerApiLedgerEnd = null,
+                  indexedUpdatesSource = null,
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,

@@ -479,12 +479,12 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-in-memory-fan-out",
+    name = "conformance-test-in-memory-fan-out-small-caches",
     ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=10000",
+        "--participant participant-id=example,port=6865,contract-state-cache-max-size=10,contract-key-state-cache-max-size=3,ledger-api-transactions-buffer-max-size=3",
         "--buffered-ledger-api-streams",
     ],
     test_tool_args = [

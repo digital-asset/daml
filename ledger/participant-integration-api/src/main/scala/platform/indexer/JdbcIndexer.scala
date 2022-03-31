@@ -3,9 +3,11 @@
 
 package com.daml.platform.indexer
 
+import akka.NotUsed
 import akka.stream._
-import akka.stream.scaladsl.SourceQueueWithComplete
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
@@ -22,11 +24,8 @@ import com.daml.platform.store.DbType.{
 }
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.daml.platform.store.cache.LedgerEndCache
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
@@ -39,9 +38,7 @@ object JdbcIndexer {
       stringInterningView: StringInterningView,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
-      updateLedgerApiLedgerEnd: LedgerEnd => Unit,
-      buffersUpdaterCache: LedgerEndCache,
+      indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -98,11 +95,8 @@ object JdbcIndexer {
           batchingParallelism = config.batchingParallelism,
           ingestionParallelism = config.ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
-          tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
-          updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
-          buffersUpdaterCache = buffersUpdaterCache,
         ),
         stringInterningView = stringInterningView,
         meteringAggregator = new MeteringAggregator.Owner(
@@ -113,7 +107,7 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        buffersUpdatesQueue = buffersUpdatesQueue,
+        indexedUpdatesConsumer = indexedUpdatesConsumer,
       )
       indexer
     }

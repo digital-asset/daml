@@ -6,7 +6,7 @@ package com.daml.ledger.indexerbenchmark
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
@@ -19,8 +19,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
 
@@ -70,12 +69,12 @@ class IndexerBenchmark() {
       val indexerFactory = new JdbcIndexer.Factory(
         config = config.indexerConfig,
         readService = readService,
-        stringInterningView = null, // TODO LLP
+        stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
+        ), // TODO LLP
         metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        buffersUpdatesQueue = null, // TODO LLP
-        updateLedgerApiLedgerEnd = (_: LedgerEnd) => (), // TODO LLP
-        buffersUpdaterCache = MutableLedgerEndCache(),
+        indexedUpdatesConsumer = Sink.ignore.mapMaterializedValue(_ => NotUsed),
       )
 
       val resource = for {

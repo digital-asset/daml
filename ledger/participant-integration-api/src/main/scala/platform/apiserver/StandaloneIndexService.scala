@@ -10,6 +10,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -22,7 +23,6 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.store.appendonlydao.LedgerReadDao
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.MutableLedgerEndCache
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
@@ -38,13 +38,13 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
+      indexedUpdatesSource: Source[(Offset, Update), NotUsed],
       stringInterningView: StringInterningView,
       ledgerEnd: LedgerEnd,
       ledgerEndCache: MutableLedgerEndCache,
       generalDispatcher: Dispatcher[Offset],
       ledgerReadDao: LedgerReadDao,
-      buffersUpdaterCache: MutableLedgerEndCache,
+      updateLedgerApiLedgerEnd: LedgerEnd => Unit,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -105,13 +105,13 @@ object StandaloneIndexService {
         maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
         maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-        updatesSource = updatesSource,
+        indexedUpdatesSource = indexedUpdatesSource,
         stringInterningView = stringInterningView,
         ledgerEnd = ledgerEnd,
         ledgerEndCache = ledgerEndCache,
         generalDispatcher = generalDispatcher,
         ledgerDao = ledgerReadDao,
-        buffersUpdaterCache = buffersUpdaterCache,
+        updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

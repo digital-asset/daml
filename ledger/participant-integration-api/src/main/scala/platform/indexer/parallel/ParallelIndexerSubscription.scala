@@ -18,11 +18,9 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend._
-import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
 import java.sql.Connection
-import scala.collection.mutable
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -36,11 +34,8 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     batchingParallelism: Int,
     ingestionParallelism: Int,
     submissionBatchSize: Long,
-    tailingRateLimitPerSecond: Int,
     batchWithinMillis: Long,
     metrics: Metrics,
-    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
-    buffersUpdaterCache: LedgerEndCache,
 ) {
   import ParallelIndexerSubscription._
 
@@ -49,10 +44,10 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
       stringInterningView: StringInterning with InternizingStringInterningView,
+      indexedUpdatesConsumer: Sink[(Offset, state.Update), NotUsed],
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
-      val zeroBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView)
       val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
         submissionBatchSize = submissionBatchSize,
         batchWithinMillis = batchWithinMillis,
@@ -80,18 +75,9 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
-        keepAlive = keepAlive[DB_BATCH](zeroBatch),
-        tailer = tailer(zeroBatch),
-        tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-        synchronizeLedgerEndTailIngestion = synchronizeLedgerEnd[DB_BATCH](buffersUpdaterCache),
-        ingestTail = ingestTail[DB_BATCH](
-          le => { connection =>
-            parameterStorageBackend.updateLedgerEnd(le)(connection)
-            updateLedgerApiLedgerEnd(le)
-          },
-          dbDispatcher,
-          metrics,
-        ),
+        tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
+        ingestTail =
+          ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
         InstrumentedSource
           .bufferedSource(
@@ -100,15 +86,16 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
             size = maxInputBufferSize,
           )
       )
-        .map(_ => ())
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-        .toMat(Sink.ignore)(Keep.both)
+        .watchTermination()(Keep.both)
+        .toMat(indexedUpdatesConsumer)(Keep.left)
         .run()(materializer)
       Handle(completionFuture.map(_ => ())(materializer.executionContext), killSwitch)
   }
 }
 
 object ParallelIndexerSubscription {
+  type WithUpdatesBatch[T] = (Iterable[(Offset, state.Update)], T)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -137,7 +124,7 @@ object ParallelIndexerSubscription {
       toMeteringDbDto: Iterable[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
   )(implicit
       loggingContext: LoggingContext
-  ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
+  ): Iterable[(Offset, state.Update)] => WithUpdatesBatch[Batch[Vector[DbDto]]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case (offset, update) =>
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
@@ -154,7 +141,7 @@ object ParallelIndexerSubscription {
 
     val batch = mainBatch ++ meteringBatch
 
-    Batch(
+    input -> Batch(
       lastOffset = input.last._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
       lastStringInterningId = 0, // will be filled later in the sequential step
@@ -168,8 +155,8 @@ object ParallelIndexerSubscription {
   def seqMapperZero(
       initialSeqId: Long,
       initialStringInterningId: Int,
-  ): Batch[Vector[DbDto]] =
-    Batch(
+  ): WithUpdatesBatch[Batch[Vector[DbDto]]] =
+    Iterable((null, null)) -> Batch(
       lastOffset = null,
       lastSeqEventId = initialSeqId, // this is property of interest in the zero element
       lastStringInterningId =
@@ -184,41 +171,42 @@ object ParallelIndexerSubscription {
       internize: Iterable[DbDto] => Iterable[(Int, String)],
       metrics: Metrics,
   )(
-      previous: Batch[Vector[DbDto]],
-      current: Batch[Vector[DbDto]],
-  ): Batch[Vector[DbDto]] = {
+      previous: WithUpdatesBatch[Batch[Vector[DbDto]]],
+      current: WithUpdatesBatch[Batch[Vector[DbDto]]],
+  ): WithUpdatesBatch[Batch[Vector[DbDto]]] = {
     Timed.value(
       metrics.daml.parallelIndexer.seqMapping.duration, {
-        var eventSeqId = previous.lastSeqEventId
-        val batchWithSeqIds = current.batch.map {
-          case dbDto: DbDto.EventCreate =>
-            eventSeqId += 1
-            dbDto.copy(event_sequential_id = eventSeqId)
+        var eventSeqId = previous._2.lastSeqEventId
+        val batchWithSeqIds = current._2.batch
+          .map {
+            case dbDto: DbDto.EventCreate =>
+              eventSeqId += 1
+              dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.EventExercise =>
-            eventSeqId += 1
-            dbDto.copy(event_sequential_id = eventSeqId)
+            case dbDto: DbDto.EventExercise =>
+              eventSeqId += 1
+              dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.EventDivulgence =>
-            eventSeqId += 1
-            dbDto.copy(event_sequential_id = eventSeqId)
+            case dbDto: DbDto.EventDivulgence =>
+              eventSeqId += 1
+              dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.CreateFilter =>
-            // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
-            dbDto.copy(event_sequential_id = eventSeqId)
+            case dbDto: DbDto.CreateFilter =>
+              // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
+              dbDto.copy(event_sequential_id = eventSeqId)
 
-          case unChanged => unChanged
-        }
+            case unChanged => unChanged
+          }
 
         val (newLastStringInterningId, dbDtosWithStringInterning) =
           internize(batchWithSeqIds)
             .map(DbDto.StringInterningDto.from) match {
             case noNewEntries if noNewEntries.isEmpty =>
-              previous.lastStringInterningId -> batchWithSeqIds
+              previous._2.lastStringInterningId -> batchWithSeqIds
             case newEntries => newEntries.last.internalId -> (batchWithSeqIds ++ newEntries)
           }
 
-        current.copy(
+        current._1 -> current._2.copy(
           lastSeqEventId = eventSeqId,
           lastStringInterningId = newLastStringInterningId,
           batch = dbDtosWithStringInterning,
@@ -229,10 +217,12 @@ object ParallelIndexerSubscription {
 
   def batcher[DB_BATCH](
       batchF: Vector[DbDto] => DB_BATCH
-  ): Batch[Vector[DbDto]] => Batch[DB_BATCH] = { inBatch =>
-    val dbBatch = batchF(inBatch.batch)
-    inBatch.copy(
-      batch = dbBatch
+  ): WithUpdatesBatch[Batch[Vector[DbDto]]] => WithUpdatesBatch[Batch[DB_BATCH]] = { inBatch =>
+    val dbBatch = batchF(inBatch._2.batch)
+    inBatch.copy(_2 =
+      inBatch._2.copy(
+        batch = dbBatch
+      )
     )
   }
 
@@ -240,62 +230,33 @@ object ParallelIndexerSubscription {
       ingestFunction: (Connection, DB_BATCH) => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): WithUpdatesBatch[Batch[DB_BATCH]] => Future[WithUpdatesBatch[Batch[DB_BATCH]]] =
     batch =>
-      withEnrichedLoggingContext("updateOffsets" -> batch.offsets) { implicit loggingContext =>
+      withEnrichedLoggingContext("updateOffsets" -> batch._2.offsets) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
-          ingestFunction(connection, batch.batch)
+          metrics.daml.parallelIndexer.updates.inc(batch._2.batchSize.toLong)
+          ingestFunction(connection, batch._2.batch)
           batch
         }
       }
 
   def tailer[DB_BATCH](
       zeroDbBatch: DB_BATCH
-  ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
-    (_, curr) =>
-      Batch[DB_BATCH](
-        lastOffset = curr.lastOffset,
-        lastSeqEventId = curr.lastSeqEventId,
-        lastStringInterningId = curr.lastStringInterningId,
-        lastRecordTime = curr.lastRecordTime,
-        batch = zeroDbBatch, // not used anymore
-        batchSize = 0, // not used anymore
-        offsets = Vector.empty, // not used anymore
-      )
-
-  def keepAlive[DB_BATCH](zeroDbBatch: DB_BATCH): () => Batch[DB_BATCH] =
-    () =>
-      Batch[DB_BATCH](
-        lastOffset = null,
-        lastSeqEventId = -1L, // this is property of interest in the zero element
-        lastStringInterningId = 0, // this is property of interest in the zero element
-        lastRecordTime = 0,
-        batch = zeroDbBatch,
-        batchSize = 0,
-        offsets = Vector.empty,
-      )
-
-  def synchronizeLedgerEnd[DB_BATCH](
-      buffersUpdaterCache: LedgerEndCache
-  ): () => Batch[DB_BATCH] => Iterator[Batch[DB_BATCH]] =
-    () => {
-      val ledgerEndsQueue = mutable.Queue.empty[Batch[DB_BATCH]]
-
-      le => {
-        val currentBuffersLedgerEnd = buffersUpdaterCache.opt()
-        if (le.lastSeqEventId >= 0L) {
-          ledgerEndsQueue.enqueue(le)
-        }
-        currentBuffersLedgerEnd match {
-          case Some(currentBuffersLedgerEnd) =>
-            ledgerEndsQueue
-              .dequeueWhile(_.lastOffset <= currentBuffersLedgerEnd._1)
-              .iterator
-          case None => Iterator.empty
-        }
-      }
-    }
+  ): (WithUpdatesBatch[Batch[DB_BATCH]], WithUpdatesBatch[Batch[DB_BATCH]]) => WithUpdatesBatch[
+    Batch[DB_BATCH]
+  ] = { case ((prevUpdates, _), (currUpdates, currentBatch)) =>
+    prevUpdates ++ currUpdates -> Batch[DB_BATCH](
+      lastOffset = currentBatch.lastOffset,
+      lastSeqEventId = currentBatch.lastSeqEventId,
+      lastStringInterningId = currentBatch.lastStringInterningId,
+      lastRecordTime = currentBatch.lastRecordTime,
+      batch = zeroDbBatch, // not used anymore
+      batchSize = 0, // not used anymore
+      offsets = Vector.empty, // not used anymore
+    )
+  }
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
     LedgerEnd(
@@ -308,16 +269,18 @@ object ParallelIndexerSubscription {
       ingestTailFunction: LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): WithUpdatesBatch[Batch[DB_BATCH]] => Future[Iterable[(Offset, state.Update)]] =
     batch =>
-      withEnrichedLoggingContext("updateOffset" -> batch.lastOffset) { implicit loggingContext =>
+      withEnrichedLoggingContext("updateOffset" -> batch._2.lastOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-          ingestTailFunction(ledgerEndFrom(batch))(connection)
-          metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
-          metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
-          metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)
+          ingestTailFunction(ledgerEndFrom(batch._2))(connection)
+          metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch._2.lastSeqEventId)
+          metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch._2.lastRecordTime)
+          metrics.daml.indexer.lastReceivedOffset.updateValue(batch._2.lastOffset.toHexString)
           logger.info("Ledger end updated")
-          batch
+          batch._1
         }
       }
 }
