@@ -318,7 +318,7 @@ If the access token cannot be retrieved, is missing or wrong, you'll be unable t
 .. image:: images/access-denied.png
   :width: 50%
   :align: center
-  :The Digital Asset Navigator home screen with the error message "You don't have the necessary authorization to access. Make sure to start the Navigator server with a valid access token." displayed in red.
+  :alt: The Digital Asset Navigator home screen with the error message "You don't have the necessary authorization to access. Make sure to start the Navigator server with a valid access token." displayed in red.
 
 .. _navigator-manual-advanced-usage:
 
