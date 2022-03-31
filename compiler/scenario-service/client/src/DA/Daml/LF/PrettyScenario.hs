@@ -436,7 +436,7 @@ prettyScenarioErrorError (Just err) =  do
         ]
     ScenarioErrorErrorContractDoesNotImplementInterface ScenarioError_ContractDoesNotImplementInterface {..} ->
       pure $ vcat
-        [ "Attempt to use a contract as an interface it does not implement"
+        [ "Attempt to use a contract via an interface that the contract does not implement"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
               (prettyContractRef world)
