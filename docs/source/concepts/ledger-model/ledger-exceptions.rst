@@ -115,7 +115,7 @@ The second:
 .. image:: ./images/exception-integrity-continuity-2.svg
    :align: center
    :width: 80%
-    :alt: The paint agreement flowchart with rollbacks, showing continuity for a scenario where Bank2 provides the Iou.
+   :alt: The paint agreement flowchart with rollbacks, showing continuity for a scenario where Bank2 provides the Iou.
 
 And the third:
 
