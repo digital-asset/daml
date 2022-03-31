@@ -31,7 +31,7 @@ object BatchingParallelIngestionPipe {
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(10, "millis"))
+      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(1, "millis"))
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
