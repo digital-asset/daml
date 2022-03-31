@@ -7,6 +7,11 @@ import better.files.File
 import com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.test.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
+import com.daml.test.evidence.generator.TestEntryCsvEncoder.{
+  ReliabilityTestEntryCsv,
+  SecurityTestEntryCsv,
+  TestEntryCsv,
+}
 import com.daml.test.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
 import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 import io.circe.Encoder
@@ -23,13 +28,24 @@ object Main {
 
   private def loadClasspath(): Option[String] = Some(System.getProperty("java.class.path"))
 
-  private def writeEvidenceToFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
+  private def writeEvidenceToJsonFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
     println(s"Writing inventory to $fileName...")
     val path = File(fileName)
       .write(entries.asJson.spaces2)
       .path
       .toAbsolutePath
       .toString
+    println(s"Wrote to $path")
+  }
+
+  private def writeEvidenceToCsvFile[TE <: TestEntryCsv](
+      fileName: String,
+      entries: List[TE],
+  ): Unit = {
+    println(s"Writing inventory to $fileName...")
+    val file = File(fileName)
+    val path = file.path.toAbsolutePath
+    TestEntryCsvEncoder.write(file, entries)
     println(s"Wrote to $path")
   }
 
@@ -69,9 +85,17 @@ object Main {
         ReliabilityTestEntry,
       )
 
-    writeEvidenceToFile("security-tests.json", securityTestEntries)
+    writeEvidenceToJsonFile("security-tests.json", securityTestEntries)
+    writeEvidenceToCsvFile(
+      "security-tests.csv",
+      securityTestEntries.map(SecurityTestEntryCsv.apply),
+    )
 
-    writeEvidenceToFile("reliability-tests.json", reliabilityTestEntries)
+    writeEvidenceToJsonFile("reliability-tests.json", reliabilityTestEntries)
+    writeEvidenceToCsvFile(
+      "reliability-tests.csv",
+      reliabilityTestEntries.map(ReliabilityTestEntryCsv.apply),
+    )
 
     sys.exit()
   }
