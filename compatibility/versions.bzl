@@ -21,7 +21,7 @@ sdk_versions = [
     "1.15.0",
     "1.16.0",
     "1.17.1",
-    "1.18.1",
+    "1.18.2",
     "2.0.0",
     "0.0.0",
 ]
@@ -44,7 +44,7 @@ platform_versions = [
     "1.15.0",
     "1.16.0",
     "1.17.1",
-    "1.18.1",
+    "1.18.2",
     "2.0.0",
     "0.0.0",
 ]
@@ -67,7 +67,7 @@ stable_versions = [
     "1.15.0",
     "1.16.0",
     "1.17.1",
-    "1.18.1",
+    "1.18.2",
     "2.0.0",
     "0.0.0",
 ]
@@ -252,14 +252,14 @@ version_sha256s = {
         "daml_react": "9c607beb044c1ee1d26efc83b8b1f55ca5d53780802365cdf1ee95ddfd7c0e4e",
         "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
     },
-    "1.18.1": {
-        "linux": "fbc2be515ca8a76449b19bfa28e960c0031af872c59befa61a38d06812404cba",
-        "macos": "d48a25c73fa4b1ae0654d355d64e8320e63e72c97ac03b98ec6b2939a712ab12",
-        "windows": "f0fef6d3cfd1076093b7cffe7c9cb4ed23b62e888b26f30ad8b63c3be76cde51",
-        "test_tool": "3f00d67d009d3dbf2fc4eb2c37489a7fa448ea6f64b28ea30262c965b9581b6a",
-        "daml_types": "d2a1641def079bea6e80f5aac6fd1f5969e891718345938565257880050095ba",
-        "daml_ledger": "59e6ab418be74f89c4ac45f766e63c580d15d2bd27452b2b3e1fb1b044d1cefe",
-        "daml_react": "0b11d789a70a523b78a2f0efc7c9b120b3957036dbb969cdf5a0f9f02dc93e32",
+    "1.18.2": {
+        "linux": "7bea426379743a99f84d6470287df298be453b85642d0e8c00923d60c72dd551",
+        "macos": "45b96b449c701e8f99e4ce450ed93c140e96a139ed76bb9e910f34b83b42699f",
+        "windows": "2a534f5b1403c540419dda318395b7615ab99899c1cde84cbce56e4588e8d047",
+        "test_tool": "15c917b80a03537cf23052b26c438d0bdd7cc9f27b120628e70a23bbd1546d1c",
+        "daml_types": "ef4b3577a5fe7a9cd9d46891fcf72dcee0062553eb5c81bc0215caff2aafcc0c",
+        "daml_ledger": "56c33b7871ec18353af28eea597b6245d207b3bc29019703e9e0d4c2c67e760b",
+        "daml_react": "fcbd707c5ab26d5f40861c2363efd99153dec48af08c944d314fea6f6e5ab61f",
         "create_daml_app_patch": "ce4f78ca29799f95fabe18d7992847bc90002dacde726f5e07c8f9bba23943a5",
     },
     "2.0.0": {
