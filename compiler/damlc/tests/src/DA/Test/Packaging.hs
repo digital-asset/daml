@@ -22,10 +22,10 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process
-import qualified Test.QuickCheck.Monadic as Q (monadicIO, run)
+-- import qualified Test.QuickCheck.Monadic as Q (monadicIO, run)
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
+-- import Test.Tasty.QuickCheck
 
 import SdkVersion
 
@@ -731,6 +731,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           exitCode @?= ExitFailure 1
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
 
+{-
     , testProperty "data-dependencies + exposed-modules" $ \(n1 :: Int) (n2 :: Int) ->
         -- Since the order in which dependencies are processed depends on their PackageIds,
         -- which in turn depends on their contents, we check that 'data-dependency' is
@@ -795,6 +796,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "foo = f"
             ]
           withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
+-}
     , testCaseSteps "dependency with data-dependency" $ \step -> withTempDir $ \projDir -> do
           -- This tests that a Daml project ('main') can depend on a package ('dependency') which in turn
           -- has a data-dependency on a third package ('data-dependency'). Note that, as usual, all the
