@@ -418,7 +418,34 @@ prettyScenarioErrorError (Just err) =  do
         [ "Tried to submit a command for parties that have not ben allocated:"
         , prettyParties scenarioError_PartiesNotAllocatedParties
         ]
-
+    ScenarioErrorErrorChoiceGuardFailed ScenarioError_ChoiceGuardFailed {..} ->
+      pure $ vcat
+        [ "Attempt to exercise a choice with a failing guard"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef world)
+              scenarioError_ChoiceGuardFailedContractRef
+        , label_ "Choice: " $
+            prettyChoiceId world
+              (contractRefTemplateId =<< scenarioError_ChoiceGuardFailedContractRef)
+              scenarioError_ChoiceGuardFailedChoiceId
+        , maybe
+            mempty
+            (\iid -> label_ "Interface: " $ prettyDefName world iid)
+            scenarioError_ChoiceGuardFailedByInterface
+        ]
+    ScenarioErrorErrorContractDoesNotImplementInterface ScenarioError_ContractDoesNotImplementInterface {..} ->
+      pure $ vcat
+        [ "Attempt to use a contract as an interface it does not implement"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef world)
+              scenarioError_ContractDoesNotImplementInterfaceContractRef
+        , label_ "Interface: " $
+            prettyMay "<missing interface>"
+              (prettyDefName world)
+              scenarioError_ContractDoesNotImplementInterfaceInterfaceId
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
