@@ -383,7 +383,7 @@ Compare the script with the ``initialize`` script in ``daml/Main.daml``. You wil
 After a short time, the text *Script results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
 
 .. figure:: quickstart/images/ledger.png
-:alt: The Script Results view showing two subtransactions: one with Issuer USD_Bank and Owner Alice, the other with Issuer EUR_Bank and Owner Bob.
+   :alt: The Script Results view showing two subtransactions: one with Issuer USD_Bank and Owner Alice, the other with Issuer EUR_Bank and Owner Bob.
 
 Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
