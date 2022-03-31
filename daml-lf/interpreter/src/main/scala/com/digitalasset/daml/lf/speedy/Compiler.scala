@@ -223,8 +223,6 @@ private[lf] final class Compiler(
   private val Env3 = Env2.pushVar
   private val Pos4 = Env3.nextPosition
   private val Env4 = Env3.pushVar
-  private val Pos5 = Env4.nextPosition
-  private val Env5 = Env4.pushVar
 
   private[this] def fun1(body: (Position, Env) => s.SExpr) =
     s.SEAbs(1, body(Pos1, Env1))
@@ -235,8 +233,8 @@ private[lf] final class Compiler(
   private[this] def fun3(body: (Position, Position, Position, Env) => s.SExpr) =
     s.SEAbs(3, body(Pos1, Pos2, Pos3, Env3))
 
-  private[this] def fun5(body: (Position, Position, Position, Position, Position, Env) => s.SExpr) =
-    s.SEAbs(5, body(Pos1, Pos2, Pos3, Pos4, Pos5, Env5))
+  private[this] def fun4(body: (Position, Position, Position, Position, Env) => s.SExpr) =
+    s.SEAbs(4, body(Pos1, Pos2, Pos3, Pos4, Env4))
 
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -264,12 +262,12 @@ private[lf] final class Compiler(
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(fun3(body))
 
-  private[this] def topLevelFunction5[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
+  private[this] def topLevelFunction4[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
-      body: (Position, Position, Position, Position, Position, Env) => s.SExpr
+      body: (Position, Position, Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(fun5(body))
+    topLevelFunction(ref)(fun4(body))
 
   val phaseOne = {
     val config1 =
@@ -469,14 +467,12 @@ private[lf] final class Compiler(
       choiceArgPos: Position,
       cidPos: Position,
       tokenPos: Position,
-      typeRepPos: Position,
       guardPos: Position,
   ) =
     let(
       env,
       SBCastAnyInterface(ifaceId)(
         env.toSEVar(cidPos),
-        env.toSEVar(typeRepPos),
         SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
       ),
     ) { (payloadPos, _env) =>
@@ -520,16 +516,13 @@ private[lf] final class Compiler(
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction3(t.ChoiceDefRef(ifaceId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        let(env, s.SEValue(SOptional(None))) { (typeRepPos, env) =>
-          let(env, s.SEBuiltin(SBGuardConstTrue)) { (guardPos, env) =>
-            translateInterfaceChoiceBody(env, ifaceId, param, choice)(
-              choiceArgPos,
-              cidPos,
-              tokenPos,
-              typeRepPos,
-              guardPos,
-            )
-          }
+        let(env, s.SEBuiltin(SBGuardConstTrue)) { (guardPos, env) =>
+          translateInterfaceChoiceBody(env, ifaceId, param, choice)(
+            choiceArgPos,
+            cidPos,
+            tokenPos,
+            guardPos,
+          )
         }
     }
 
@@ -538,13 +531,12 @@ private[lf] final class Compiler(
       param: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction5(t.GuardedChoiceDefRef(ifaceId, choice.name)) {
-      (cidPos, choiceArgPos, typeRepPos, guardPos, tokenPos, env) =>
+    topLevelFunction4(t.GuardedChoiceDefRef(ifaceId, choice.name)) {
+      (cidPos, choiceArgPos, guardPos, tokenPos, env) =>
         translateInterfaceChoiceBody(env, ifaceId, param, choice)(
           choiceArgPos,
           cidPos,
           tokenPos,
-          typeRepPos,
           guardPos,
         )
     }
@@ -642,14 +634,13 @@ private[lf] final class Compiler(
   private[this] def compileFetchInterfaceBody(
       env: Env,
       ifaceId: Identifier,
+      tmplId: Option[TypeConName],
       cidPos: Position,
-      typeRepPos: Position,
   ) =
     let(
       env,
-      SBCastAnyInterface(ifaceId)(
+      SBCastAnyInterface(ifaceId, tmplId)(
         env.toSEVar(cidPos),
-        env.toSEVar(typeRepPos),
         SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
       ),
     ) { (payloadPos, env) =>
@@ -665,9 +656,7 @@ private[lf] final class Compiler(
       ifaceId: Identifier
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchDefRef(ifaceId)) { (cidPos, _, env) =>
-      let(env, s.SEValue(SOptional(None))) { (typeRepPos, env) =>
-        compileFetchInterfaceBody(env, ifaceId, cidPos, typeRepPos)
-      }
+      compileFetchInterfaceBody(env, ifaceId, None, cidPos)
     }
 
   private[this] def compileInterfacePrecond(
@@ -893,8 +882,7 @@ private[lf] final class Compiler(
       t.GuardedChoiceDefRef(interfaceId, choiceId)(
         s.SEValue(contractId),
         s.SEValue(argument),
-        s.SEValue(SOptional(Some(STypeRep(TTyCon(templateId))))),
-        s.SEBuiltin(SBGuardConstTrue),
+        s.SEApp(s.SEBuiltin(SBGuardMatchTemplateId(templateId)), List(s.SEValue(contractId))),
         env.toSEVar(tokenPos),
       )
     }
@@ -907,9 +895,7 @@ private[lf] final class Compiler(
   ): s.SExpr =
     unaryFunction(env) { (_, env) =>
       let(env, s.SEValue(contractId)) { (cidPos, env) =>
-        let(env, s.SEValue(SOptional(Some(STypeRep(TTyCon(templateId)))))) { (typeRepPos, env) =>
-          compileFetchInterfaceBody(env, interfaceId, cidPos, typeRepPos)
-        }
+        compileFetchInterfaceBody(env, interfaceId, Some(templateId), cidPos)
       }
     }
 

@@ -723,9 +723,6 @@ private[lf] final class PhaseOne(
                 t.GuardedChoiceDefRef(ifaceId, chId)(
                   cid,
                   arg,
-                  SEValue(
-                    SOptional(None)
-                  ), // TODO https://github.com/digital-asset/daml/issues/13277
                   guard,
                 )
               )
