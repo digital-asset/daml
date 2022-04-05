@@ -105,16 +105,15 @@ import scala.util.control.NonFatal
 final class SingleParticipantTestContext private[participant] (
     val ledgerId: String,
     val endpointId: String,
-    override val applicationId: String,
-    val identifierSuffix: String,
-    override val referenceOffset: LedgerOffset,
+    val applicationId: String,
+    identifierSuffix: String,
+    val referenceOffset: LedgerOffset,
     protected[participant] val services: LedgerServices,
     partyAllocationConfig: PartyAllocationConfiguration,
-    override val ledgerEndpoint: Endpoint,
-    override val features: Features,
+    val ledgerEndpoint: Endpoint,
+    val features: Features,
 )(protected[participant] implicit val ec: ExecutionContext)
-    extends UserManagementTestContext
-    with ParticipantTestContext {
+    extends ParticipantTestContext {
   private val logger = ContextualizedLogger.get(getClass)
 
   import SingleParticipantTestContext._
