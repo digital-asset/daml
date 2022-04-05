@@ -482,7 +482,7 @@ camelcase 6.3.0 : MIT License
 camelcase-keys 2.1.0 : MIT License
 camelize 1.0.0 : MIT License
 caniuse-lite 1.0.30001260 : Creative Commons Attribution 4.0
-caniuse-lite 1.0.30001324 : Creative Commons Attribution 4.0
+caniuse-lite 1.0.30001325 : Creative Commons Attribution 4.0
 Cardinal 2.1.1 : MIT License
 case-sensitive-paths-webpack-plugin 2.4.0 : MIT License
 Cats core 2.6.1 : MIT License
@@ -5589,7 +5589,7 @@ POSSIBILITY OF SUCH DAMAGES.
 ---
 
 Creative Commons Attribution 4.0
-(caniuse-lite 1.0.30001260, caniuse-lite 1.0.30001324)
+(caniuse-lite 1.0.30001260, caniuse-lite 1.0.30001325)
 
 Creative Commons Attribution 4.0
 ================================
