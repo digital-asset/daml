@@ -100,8 +100,7 @@ with SHA-256) with the public key loaded from the given JWKS URL.
    }]
 
 .. note:: In order to prevent man-in-the-middle attacks, in production it is highly recommended to use
-          TLS with server authentication as defined by `RFC2818 <https://tools.ietf.org/html/rfc2818>`__
-          for any request sent to the Ledger API.
+          TLS with server authentication as described in :ref:`sandbox-tls` for any request sent to the Ledger API.
 
 Generating JSON Web Tokens (JWT)
 ================================
