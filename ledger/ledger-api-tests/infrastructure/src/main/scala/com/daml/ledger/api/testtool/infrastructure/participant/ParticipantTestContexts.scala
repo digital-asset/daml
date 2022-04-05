@@ -6,6 +6,7 @@ import java.time.Instant
 
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
 import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.admin.config_management_service.{
@@ -68,6 +69,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   val ledgerId: String
+  val applicationId: String
   val endpointId: String
   def ledgerEndpoint: Endpoint
   def features: Features
@@ -370,5 +372,11 @@ trait ParticipantTestContext extends UserManagementTestContext {
       attempts: Int = 10,
       pruneAllDivulgedContracts: Boolean = false,
   ): Future[PruneResponse]
+
+}
+
+object ParticipantTestContext {
+
+  case class CompletionResponse(completion: Completion, offset: LedgerOffset, recordTime: Instant)
 
 }
