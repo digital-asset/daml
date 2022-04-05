@@ -4,117 +4,39 @@
 package com.daml.platform.store
 
 import com.daml.ledger.resources.ResourceContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.FlywayMigrations._
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.VerifiedDataSource
-import com.daml.timer.RetryStrategy
 import javax.sql.DataSource
-import org.flywaydb.core.Flyway
-import org.flywaydb.core.api.MigrationVersion
-import org.flywaydb.core.api.configuration.FluentConfiguration
-
-import scala.annotation.nowarn
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] class FlywayMigrations(
     jdbcUrl: String,
     additionalMigrationPaths: Seq[String] = Seq.empty,
-)(implicit resourceContext: ResourceContext, loggingContext: LoggingContext) {
-  private val logger = ContextualizedLogger.get(this.getClass)
+)(implicit resourceContext: ResourceContext, loggingContext: LoggingContext)
+    extends FlywayMigrationsBase {
   private val dbType = DbType.jdbcType(jdbcUrl)
   implicit private val ec: ExecutionContext = resourceContext.executionContext
 
-  private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
-    VerifiedDataSource(jdbcUrl).flatMap(dataSource => t(configurationBase(dataSource)))
-
-  private def run[T](t: FluentConfiguration => T): Future[T] =
-    runF(fc => Future(t(fc)))
-
-  private def configurationBase(dataSource: DataSource): FluentConfiguration =
-    Flyway
-      .configure()
-      .locations((locations(dbType) ++ additionalMigrationPaths): _*)
-      .dataSource(dataSource)
-
-  // There is currently no way to get the previous behavior in
-  // a non-deprecated way. See https://github.com/flyway/flyway/issues/3338
-  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
-  def validate(): Future[Unit] = run { configBase =>
-    val flyway = configBase
-      .ignoreFutureMigrations(false)
-      .load()
-    logger.info("Running Flyway validation...")
-    flyway.validate()
-    logger.info("Flyway schema validation finished successfully.")
+  // A "baseline migration" represents all migrations up to and including the "baseline version"
+  // Baseline migrations are a first class feature in Flyway, however they are not available in the free version.
+  // To move the baseline version, use the following procedure:
+  //   1. Apply all migrations up to and including the new baseline version to a fresh database
+  //   2. Export the resulting schema as the new baseline migration, and assign it a version number equal to the
+  //      baseline version
+  //   3. Double check that the migrations from step 1 and the migration from step 2 produce exactly the same
+  //      database
+  //   4. Delete all migrations used in step 1
+  //   5. Update the value below
+  override protected def baselineVersion: String = dbType match {
+    case DbType.Postgres => "38"
+    case DbType.Oracle => "0"
+    case DbType.H2Database => "0"
   }
 
-  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
-  def migrate(allowExistingSchema: Boolean = false): Future[Unit] = run { configBase =>
-    val flyway = configBase
-      .baselineOnMigrate(allowExistingSchema)
-      .baselineVersion(MigrationVersion.fromVersion("0"))
-      .ignoreFutureMigrations(false)
-      .load()
-    logger.info("Running Flyway migration...")
-    val migrationResult = flyway.migrate()
-    logger.info(
-      s"Flyway schema migration finished successfully, applying ${migrationResult.migrationsExecuted} steps."
-    )
-  }
+  override protected def getDataSource: Future[DataSource] = VerifiedDataSource(jdbcUrl)
 
-  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
-  def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = runF {
-    configBase =>
-      val flyway = configBase
-        .ignoreFutureMigrations(false)
-        .load()
-
-      logger.info("Running Flyway validation...")
-
-      RetryStrategy.constant(retries, retryBackoff) { (attempt, _) =>
-        val pendingMigrations = flyway.info().pending().length
-        if (pendingMigrations == 0) {
-          logger.info("No pending migrations.")
-          Future.unit
-        } else {
-          logger.debug(
-            s"Pending migrations ${pendingMigrations} on attempt ${attempt} of ${retries} attempts"
-          )
-          Future.failed(MigrationIncomplete(pendingMigrations))
-        }
-      }
-  }
-
-  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
-  def migrateOnEmptySchema(): Future[Unit] = run { configBase =>
-    val flyway = configBase
-      .ignoreFutureMigrations(false)
-      .load()
-    logger.info(
-      "Ensuring Flyway migration has either not started or there are no pending migrations..."
-    )
-    val flywayInfo = flyway.info()
-
-    (flywayInfo.pending().length, flywayInfo.applied().length) match {
-      case (0, appliedMigrations) =>
-        logger.info(s"No pending migrations with ${appliedMigrations} migrations applied.")
-
-      case (pendingMigrations, 0) =>
-        logger.info(
-          s"Running Flyway migration on empty database with $pendingMigrations migrations pending..."
-        )
-        val migrationResult = flyway.migrate()
-        logger.info(
-          s"Flyway schema migration finished successfully, applying ${migrationResult.migrationsExecuted} steps on empty database."
-        )
-
-      case (pendingMigrations, appliedMigrations) =>
-        val ex = MigrateOnEmptySchema(appliedMigrations, pendingMigrations)
-        logger.warn(ex.getMessage)
-        throw ex
-    }
-  }
+  override protected def locations: List[String] =
+    FlywayMigrations.locations(dbType) ++ additionalMigrationPaths
 }
 
 private[platform] object FlywayMigrations {
@@ -127,12 +49,4 @@ private[platform] object FlywayMigrations {
       sqlMigrationClasspathBase + dbType.name + "-appendonly",
       javaMigrationClasspathBase + dbType.name,
     )
-
-  case class MigrationIncomplete(pendingMigrations: Int)
-      extends RuntimeException(s"Migration incomplete with $pendingMigrations migrations remaining")
-  case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
-      extends RuntimeException(
-        s"Asked to migrate-on-empty-schema, but encountered neither an empty database with $appliedMigrations " +
-          s"migrations already applied nor a fully-migrated databases with $pendingMigrations migrations pending."
-      )
 }

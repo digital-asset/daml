@@ -95,6 +95,23 @@ Given the Ledger API Compatibility above, network upgrades are seamless if they 
 
 As an example, from an application standpoint, the only effect of upgrading Daml for Postgres 1.4.0 to Daml for Postgres 1.6.0 is an uptick in the Ledger API version. There may be significant changes to components or database schemas, but these are not public APIs. 
 
+Participant database migration
+==============================
+
+Participant Nodes automatically manage their database schema. The database schema is tied to the Daml SDK version, and schema migrations are always data preserving. The below lists which Daml SDK version can be upgraded from which Daml SDK version.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Daml SDK version
+     - Upgradeable from
+   * - 2.1
+     - 1.7 or later
+   * - <= 2.0
+     - 1.0 or later
+
+As an example, to upgrade a Participant Node built with Daml SDK 1.4.0 to a version built with Daml SDK 2.1, the operator should first upgrade to Daml SDK 1.7 (or any other version between 1.7 and and 2.0), then upgrade to Daml SDK 2.1.
+
 SDK, Runtime Component, and Library Compatibility: Daml Upgradeability
 **********************************************************************
 
