@@ -153,7 +153,7 @@ the certificate chain. This enables TLS for both the Ledger API and
 the Canton Admin API. When enabling client authentication, you also
 need to specify client certificates which can be used by Canton’s
 internal processes. Note that the identity of the application
-will not be proven by using this method, i.e. application identity (application id)
+will not be proven by using this method, i.e. the `application_id` field in the request
 is not necessarily correlated with the CN (Common Name) in the certificate.
 Below, you can see an example config. For more details on TLS, refer to
 :ref:`Canton’s documentation on TLS <tls-configuration>`.

@@ -16,12 +16,12 @@ You thus need to add support for authorization using access token to your applic
 
 For the
 
-.. note:: In case of mutual (two-way) TLS authentication setup the Ledger API
-          client presents in addition to an access token its certificate to
-          Ledger API Server as part of the authentication process. The provided
+.. note:: In case of mutual (two-way) TLS authentication, the Ledger API
+          client must present (in addition to an access token) its certificate to
+          the Ledger API server as part of the authentication process. The provided
           certificate must be signed by a certificate authority (CA) trusted
-          by Ledger API server. Note that the identity of the application
-          will not be proven by using this method, i.e. application identity (application id)
+          by the Ledger API server. Note that the identity of the application
+          will not be proven by using this method, i.e. the `application_id` field in the request
           is not necessarily correlated with the CN (Common Name) in the certificate.
 
 Introduction
