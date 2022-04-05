@@ -108,7 +108,7 @@ Below, we list the versions of Daml-LF 1.x that a Daml-LF engine
 compliant with the present specification must handle, in ascending
 order. The optional preview version is marked with the tag *(preview)*
 while the development version is marked with the tag *(development)*.
-Conventionally development version is call 1.dev.  The list comes with
+Conventionally development version is called 1.dev.  The list comes with
 a brief description of the changes, and some links to help unfamiliar
 readers learn about the features involved in the change.  One can
 refer also to the `Serialization` section which is particularly
