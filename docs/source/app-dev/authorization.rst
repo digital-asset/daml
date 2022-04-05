@@ -14,6 +14,16 @@ This is not the case for participant nodes of :doc:`deployed ledgers </deploying
 They check for every Ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
 You thus need to add support for authorization using access token to your application to run it against a deployed ledger.
 
+For the
+
+.. note:: In case of mutual (two-way) TLS authentication setup the Ledger API
+          client presents in addition to an access token its certificate to
+          Ledger API Server as part of the authentication process. The provided
+          certificate must be signed by a certificate authority (CA) trusted
+          by Ledger API server. Note that the identity of the application
+          will not be proven by using this method, i.e. application identity (application id)
+          is not necessarily correlated with the CN (Common Name) in the certificate.
+
 Introduction
 ************
 
