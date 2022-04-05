@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.benchtool.util
 
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.utils.ErrorDetails
 import io.grpc.stub.StreamObserver
 import org.slf4j.Logger
 
@@ -30,8 +32,7 @@ abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObser
   }
 
   private def isServerShuttingDownError(ex: io.grpc.StatusRuntimeException): Boolean =
-    ex.getStatus.getCode == io.grpc.Status.Code.UNAVAILABLE &&
-      ex.getMessage.contains("Server is shutting down")
+    ErrorDetails.matches(ex, LedgerApiErrors.ServerIsShuttingDown)
 
   override def onCompleted(): Unit = {
     logger.info(withStreamName(s"Stream completed."))
