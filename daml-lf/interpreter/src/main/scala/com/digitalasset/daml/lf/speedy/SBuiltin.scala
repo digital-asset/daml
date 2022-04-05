@@ -980,7 +980,6 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-      byInterface: Option[TypeConName],
   ) extends OnLedgerBuiltin(4) {
 
     override protected def execute(
@@ -1019,7 +1018,9 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
-          byInterface = byInterface,
+          // https://github.com/digital-asset/daml/issues/13491
+          //  TODO Drop byInterface argument
+          byInterface = None,
           version = machine.tmplId2TxVersion(templateId),
         )
       checkAborted(onLedger.ptx)
@@ -1144,8 +1145,6 @@ private[lf] object SBuiltin {
   final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,
-      byKey: Boolean,
-      ifaceId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
@@ -1153,8 +1152,7 @@ private[lf] object SBuiltin {
           getSAnyContract(args, 0)._1,
           choiceName,
           consuming,
-          byKey,
-          byInterface = Some(ifaceId),
+          byKey = false,
         )
       )
   }

@@ -436,7 +436,6 @@ private[lf] final class Compiler(
           choice.name,
           choice.consuming,
           byKey = mbKey.isDefined,
-          byInterface = None,
         )(
           env.toSEVar(choiceArgPos),
           env.toSEVar(cidPos),
@@ -488,8 +487,6 @@ private[lf] final class Compiler(
           SBResolveSBUBeginExercise(
             choiceName = choice.name,
             consuming = choice.consuming,
-            byKey = false,
-            ifaceId = ifaceId,
           )(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),
