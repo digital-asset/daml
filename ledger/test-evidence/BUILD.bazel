@@ -16,6 +16,7 @@ da_scala_library(
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_generic",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//ledger/ledger-api-tests/infrastructure",
         "//ledger/ledger-api-tests/suites",
@@ -44,7 +45,7 @@ da_scala_binary(
 )
 
 da_scala_binary(
-    name = "security-test-evidence-markdown-generator",
+    name = "security-test-evidence-csv-generator",
     main_class = "com.daml.test.evidence.generator.SecurityTestEvidenceMarkdownGenerator",
     visibility = ["//visibility:public"],
     runtime_deps = [

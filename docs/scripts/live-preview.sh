@@ -23,7 +23,6 @@ cleanup()
   rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/app-dev/grpc/error-codes-inventory.rst.inc
   rm -f ../source/app-dev/grpc/error-categories-inventory.rst.inc
-  rm -f ../source/concepts/test-evidence/security-test-evidence.rst.inc
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
@@ -89,9 +88,6 @@ do
         tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
             --strip-components 1 -C ../source/daml/stdlib
 
-        #Test Evidence
-        bazel build //docs:generate-security-test-evidence-docs-into-rst-file
-        cp -L ../../bazel-bin/docs/security-test-evidence.rst.inc $BUILD_DIR/source/concepts/test-evidence/security-test-evidence.rst.inc
     fi
     if  [ "$arg" = "--gen" ] || [ "$arg" = "--gen-error-codes" ]; then
       GEN_ERROR_CODES=true

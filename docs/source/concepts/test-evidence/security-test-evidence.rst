@@ -6,6 +6,7 @@ Security
 
 .. _security-test-evidence:
 
-.. This file is generated:
-.. include:: security-test-evidence.rst.inc
+Download the file `CSV <security-test-evidence.csv>`_
 
+.. csv-table:: Frozen Delights!
+   :file: security-test-evidence.csv

@@ -10,8 +10,9 @@ import java.nio.file.{Files, Paths, StandardOpenOption}
 object SecurityTestEvidenceMarkdownGenerator {
   private val GitHubSourceLinkTemplate = "https://github.com/digital-asset/daml/blob/%s/%s#L%d"
 
-  private def genText(version: String): String = {
+  def genText(): String = {
     val securityTestEntries = TestEntryLookup.securityTestEntries
+    val version = "whatever"
 
     def scenarioDescription(scenario: Option[Security.HappyOrAttack]) = scenario match {
       case None => ""
@@ -61,14 +62,10 @@ object SecurityTestEvidenceMarkdownGenerator {
   def main(args: Array[String]): Unit = {
     if (args.length >= 1) {
       val outputFile = Paths.get(args(0))
-      val version = if (args.length >= 2) {
-        args(1)
-      } else
-        "main"
-      val outputText = genText(version)
+      val outputText = genText()
       Files.write(outputFile, outputText.getBytes, StandardOpenOption.CREATE_NEW): Unit
     } else {
-      val outputText = genText("main")
+      val outputText = genText()
       println(outputText)
     }
   }

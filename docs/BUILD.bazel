@@ -107,7 +107,6 @@ genrule(
         "//:NOTICES",
         ":generate-docs-error-codes-inventory-into-rst-file",
         ":generate-docs-error-categories-inventory-into-rst-file",
-        ":generate-security-test-evidence-docs-into-rst-file",
     ],
     outs = ["source.tar.gz"],
     cmd = """
@@ -120,10 +119,6 @@ genrule(
         # we append an '.inc' suffix. (See `source_suffix` in `conf.py`.)
         cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst.inc
         cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst.inc
-
-
-        # Copy in test evidence
-        cp -L -- $(location //docs:generate-security-test-evidence-docs-into-rst-file)     source/concepts/test-evidence/security-test-evidence.rst.inc
 
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
@@ -764,11 +759,11 @@ pkg_tar(
 )
 
 genrule(
-    name = "generate-security-test-evidence-docs-into-rst-file",
+    name = "generate-security-test-evidence-docs-into-csv-file",
     srcs = [],
-    outs = ["security-test-evidence.rst.inc"],
-    cmd = "$(location //ledger/test-evidence:security-test-evidence-markdown-generator) $(location security-test-evidence.rst.inc) {version}".format(version = sdk_version),
-    tools = ["//ledger/test-evidence:security-test-evidence-markdown-generator"],
+    outs = ["security-test-evidence.csv"],
+    cmd = "$(location //ledger/test-evidence:security-test-evidence-csv-generator) $(location security-test-evidence.csv) {version}".format(version = sdk_version),
+    tools = ["//ledger/test-evidence:security-test-evidence-csv-generator"],
     visibility = ["//visibility:public"],
 )
 
@@ -815,6 +810,7 @@ da_scala_test(
     ],
     deps = [
         "//ledger/error/generator:lib",
+        "//ledger/test-evidence:ledger-generator-lib",
         "@maven//:commons_io_commons_io",
     ],
 ) if not is_windows else None
