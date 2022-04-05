@@ -1,0 +1,28 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module InterfaceContractDoesNotImplementInterface where
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+interface I
+interface J requires I where
+  getController : Party
+  choice JChoice : ()
+    controller getController this
+    do pure ()
+
+template T
+  with
+    party : Party
+  where
+    signatory party
+    implements I
+
+-- @ENABLE-SCENARIOS
+-- @ERROR range=23:1-23:5; Attempt to use a contract via an interface that the contract does not implement
+main = do
+  alice <- getParty "alice"
+  cidT <- alice `submit` create T with party = alice
+  let cidI = toInterfaceContractId @I cidT
+      cidJ = fromInterfaceContractId @J cidI
+  alice `submit` exercise cidJ JChoice

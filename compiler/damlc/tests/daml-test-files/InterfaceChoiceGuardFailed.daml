@@ -1,0 +1,27 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module InterfaceChoiceGuardFailed where
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+interface I where
+  getController : Party
+  choice IChoice : ()
+    controller getController this
+    do pure ()
+
+template T
+  with
+    party : Party
+  where
+    signatory party
+    implements I where
+      getController = party
+
+-- @ENABLE-SCENARIOS
+-- @ERROR range=23:1-23:5; Attempt to exercise a choice with a failing guard
+main = do
+  alice <- getParty "alice"
+  cidT <- alice `submit` create T with party = alice
+  let cidI = toInterfaceContractId @I cidT
+  alice `submit` exerciseGuarded (const False) cidI IChoice
