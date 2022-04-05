@@ -1,0 +1,70 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Design3 where -- using AnyCoin interface
+
+import qualified DA.Map as Map
+import DA.Map (Map)
+
+interface AnyCoin where
+
+  getOwner : Party
+
+  transferTo : Party -> Update (ContractId AnyCoin)
+
+  --setOwner : Party -> AnyCoin --TODO: try this instead of transferTo
+
+  choice Transfer : (ContractId AnyCoin)
+    with newOwner : Party
+    controller [getOwner this, newOwner]
+    do
+     transferTo this newOwner
+     --create (setOwner this newOwner)
+
+
+data AcceptedCoins = AcceptedCoins (Map Text Int)
+  deriving (Eq,Show)
+
+valueCoin : AcceptedCoins -> AnyCoin -> Int
+valueCoin (AcceptedCoins m) coin = do
+  let k = templateTypeRepToText (interfaceTypeRep coin)
+  case Map.lookup k m of
+    Some v -> v
+    None -> error "unacceptable coin"
+
+
+template Invoice
+  with
+    orderId : Text
+    seller : Party
+    buyer : Party
+    price : Int
+    accepted : AcceptedCoins
+  where
+    signatory [seller]
+    observer [buyer]
+
+    ensure (price >= 0)
+
+    choice Pay : ContractId Receipt
+      with payment: [ContractId AnyCoin]
+      controller buyer
+      do
+        paymentFetched <- sequence [ do coin <- fetch p; pure (p,coin) | p <- payment ]
+        let value = sum [ valueCoin accepted coin | (_,coin) <- paymentFetched ]
+        if (value == price) then pure () else
+          error (show ("wrong payment",value,price))
+        sequence
+          [ do exercise p Transfer with newOwner = seller
+          | (p,coin) <- paymentFetched
+          ]
+        create Receipt with orderId, seller, buyer
+
+
+template Receipt
+  with
+    orderId : Text
+    seller : Party
+    buyer : Party
+  where
+    signatory [seller,buyer]

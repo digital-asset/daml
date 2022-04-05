@@ -1,0 +1,58 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Test where
+
+import Daml.Script
+
+import qualified DA.Map as Map
+import Design3
+import SomeCoinsForDesign3
+
+script1 : Script ()
+script1 = do
+
+  alice <- allocateParty "Alice"
+  bank <- allocateParty "Bank"
+  charlie <- allocateParty "Charlie"
+
+  -- coin1 is bank-issued and transfered to bob
+
+  coin1b <- submit bank do
+    createCmd UnitCoin with issuer = bank, owner = bank
+
+  coin1offerC <- submit bank do
+    exerciseCmd coin1b UnitCoin_OfferTransfer with
+      newOwner = charlie
+
+  coin1c <- submit charlie do
+    exerciseCmd coin1offerC UnitCoinOffer_Accept
+
+  -- coin2 (a double coin) is self-issued by bob
+
+  coin2c <- submit charlie do
+    createCmd DoubleCoin with issuer = charlie, owner = charlie
+
+  -- Test the happy path for invoice payment...
+
+  let accepted = AcceptedCoins $ Map.fromList $
+        [ (templateTypeRepToText $ templateTypeRep @UnitCoin, 1)
+        , (templateTypeRepToText $ templateTypeRep @DoubleCoin, 2)
+        ]
+
+  invoice1 <- submit alice do
+    createCmd Invoice with
+      orderId = "#001"
+      seller = alice
+      buyer = charlie
+      price = 3
+      accepted = accepted
+
+  submit charlie do
+    exerciseCmd invoice1 Pay with
+      payment =
+        [ toInterfaceContractId coin1c
+        , toInterfaceContractId coin2c
+        ]
+
+  pure ()

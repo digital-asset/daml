@@ -1,0 +1,95 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module SomeCoinsForDesign3 where
+
+-- Nothing in Design3 depends directly on specific Coins, so the templates below which
+-- implement AnyCoin can be defined later, and even be in a different package.
+
+import Design3 (AnyCoin)
+
+-- As before we assume that UnitCoin is backed by an off-ledger legal contract which
+-- ensures the owner can redeem the on-ledger UnitCoin for a unit of the specified
+-- off-ledger real-world currency.
+
+template UnitCoin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory [issuer,owner]
+
+    implements AnyCoin where
+      getOwner = owner
+
+      transferTo newOwner = do
+        newCoin <- create UnitCoin with issuer, owner = newOwner
+        pure (toInterfaceContractId newCoin)
+
+    preconsuming choice UnitCoin_OfferTransfer : ContractId UnitCoinOffer
+      with newOwner: Party
+      controller owner
+      do
+        create UnitCoinOffer with coin = self, issuer, owner, tempted = newOwner
+
+
+template UnitCoinOffer
+  with
+    coin : ContractId UnitCoin
+    issuer : Party
+    owner : Party
+    tempted : Party
+  where
+    signatory [issuer,owner]
+    observer tempted
+
+    preconsuming choice UnitCoinOffer_Accept : ContractId UnitCoin
+      controller tempted
+      do
+        create UnitCoin with issuer, owner = tempted
+
+
+-- And here we have a new kind of coin (DoubleCoin) which is worth two units of the
+-- off-ledger currency. We can avoid the need for specific off-ledger legal backing by
+-- providing the ability to exchange (on-ledger) into a pair of UnitCoin.
+
+template DoubleCoin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory [issuer,owner]
+
+    implements AnyCoin where
+      getOwner = owner
+
+      transferTo newOwner = do
+        newCoin <- create DoubleCoin with issuer, owner = newOwner
+        pure (toInterfaceContractId newCoin)
+
+    preconsuming choice Split : (ContractId UnitCoin, ContractId UnitCoin)
+      controller owner
+      do
+        a <- create UnitCoin with issuer, owner
+        b <- create UnitCoin with issuer, owner
+        pure (a,b)
+
+
+-- And here is a _bad_ coin...  It implements the AnyCoin interface, but the behaviour of
+-- transferTo is very unexpected; it retains the original owner!  You would not want to
+-- accept this coin as any form of payment.
+
+template DodgeCoin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory [issuer,owner]
+
+    implements AnyCoin where
+      getOwner = owner
+
+      transferTo newOwner = do
+        -- ignore the newOwner
+        newCoin <- create UnitCoin with issuer, owner
+        pure (toInterfaceContractId newCoin)
