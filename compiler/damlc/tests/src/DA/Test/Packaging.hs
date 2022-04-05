@@ -6,6 +6,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Exception.Safe
 import DA.Bazel.Runfiles
+import DA.Cli.Damlc.Packaging (BuildLfPackageGraphArgs' (..), BuildLfPackageGraphMetaArgs (..), buildLfPackageGraph')
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
@@ -14,8 +15,11 @@ import DA.Test.Util
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
+import qualified Data.Graph as Graph (path)
 import Data.List.Extra
 import Data.Maybe
+import qualified Data.Set as Set
+import qualified Data.Text as Text
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -24,6 +28,9 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck
+
+import "ghc-lib-parser" Module (stringToUnitId)
 
 import SdkVersion
 
@@ -730,6 +737,9 @@ tests Tools{damlc} = testGroup "Packaging" $
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
 
     , testCaseSteps "data-dependencies + exposed-modules" $ \step -> withTempDir $ \projDir -> do
+        -- Since the order in which dependencies are processed depends on their PackageIds,
+        -- which in turn depends on their contents, we also test buildLfPackageGraph' directly,
+        -- in the property-based test below.
           step "Building dependency"
           createDirectoryIfMissing True (projDir </> "dependency")
           writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
@@ -788,6 +798,32 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "foo = f"
             ]
           withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
+
+    , testProperty "a dependency without data-dependencies should be reachable from any data-dependency in the dependency graph" $ \(n1 :: Int) (n2 :: Int) ->
+        let
+          intPkgId = LF.PackageId . Text.pack . show
+          p1 = intPkgId n1
+          p2 = intPkgId n2
+          (graph, _vertexToNode, keyToVertex) =
+            buildLfPackageGraph' @LF.PackageId @LF.PackageId
+              BuildLfPackageGraphMetaArgs
+                { getDecodedDalfPath = show
+                , getDecodedDalfUnitId = stringToUnitId . show
+                , getDecodedDalfPkg = id
+                , getDalfPkgId = id
+                , getDalfPkgRefs = const []
+                }
+              BuildLfPackageGraphArgs
+                { builtinDeps = Set.empty
+                , stablePkgs = Set.empty
+                , dataDeps = [p1]
+                , deps = [p2]
+                }
+        in
+          fromMaybe False $
+            Graph.path graph
+              <$> keyToVertex p1
+              <*> keyToVertex p2
 
     , testCaseSteps "dependency with data-dependency" $ \step -> withTempDir $ \projDir -> do
           -- This tests that a Daml project ('main') can depend on a package ('dependency') which in turn
