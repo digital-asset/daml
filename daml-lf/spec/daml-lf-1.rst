@@ -1955,7 +1955,7 @@ Then, a collection of packages ``Ξ`` is well-formed if:
 Operational semantics
 ^^^^^^^^^^^^^^^^^^^^^
 
-The section presents a call-by value operational semantics of the language.
+The section presents a call-by-value operational semantics of the language.
 
 Similarly to the type system, every rule for expression evaluation and
 update interpretation operates on the packages available for
@@ -2285,7 +2285,8 @@ grammar below. ::
 
   Expression Evaluation Context
     E ::= [ ]
-       |  E₁ e₂ | v₁ E₂
+       |  E₁ e₂
+       |  v₁ E₂
        |  E @τ
        |  Λ α : ek . E
        |  'let' x : τ = E₁ 'in' e₂
