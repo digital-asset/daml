@@ -3,6 +3,8 @@
 
 package com.daml.test.evidence.tag
 
+import better.files.File
+
 object Reliability {
 
   // TODO test evidencing: Capture test-suite level data for reliability tests
@@ -19,24 +21,51 @@ object Reliability {
     * is the sequencer as next dependent. It should, e.g., not be the participant connected to the sequencer (which also wouldn't be able to
     * process transactions over that sequencer anymore) because the participant is not the next dependent.
     *
-    * @param component the component that should remain available, continue processing or recover
+    * @param component         the component that should remain available, continue processing or recover
     * @param dependencyFailure the failure scenario of a dependency and its remediation
-    * @param remediation how the system remediates the adverse scenario
-    * @param outcome in what way the component is still available, can continue operating or recovers
+    * @param remediation       how the system remediates the adverse scenario
+    * @param outcome           in what way the component is still available, can continue operating or recovers
+    * @param file              The filename that contains the test
+    * @param line              The line number of the test
     */
   final case class ReliabilityTest(
       component: Component,
       dependencyFailure: AdverseScenario,
       remediation: Remediation,
       outcome: String,
+      file: String,
+      line: Int,
   ) extends EvidenceTag
 
+  object ReliabilityTest {
+
+    def apply(
+        component: Component,
+        dependencyFailure: AdverseScenario,
+        remediation: Remediation,
+        outcome: String,
+    )(implicit
+        lineNo: sourcecode.Line,
+        fileName: sourcecode.File,
+    ): ReliabilityTest = {
+      val relPath = File.currentWorkingDirectory.relativize(File(fileName.value))
+      ReliabilityTest(
+        component = component,
+        dependencyFailure = dependencyFailure,
+        remediation = remediation,
+        outcome = outcome,
+        file = relPath.toString,
+        line = lineNo.value,
+      )
+    }
+  }
+
   /** @param remediator the component carrying out the remediation
-    *  @param action what steps are taken for the remediation
+    * @param action      what steps are taken for the remediation
     */
   case class Remediation(remediator: String, action: String)
 
-  /** @param name name of the component that must remain available, continue processing or recover
+  /** @param name   name of the component that must remain available, continue processing or recover
     * @param setting whether the component is replicated, embedded etc.
     */
   case class Component(name: String, setting: String)
@@ -50,7 +79,7 @@ object Reliability {
     * the possible errors of the underlying network stack).
     *
     * @param dependency what dependency is affected
-    * @param details how the dependency is adversely affected
+    * @param details    how the dependency is adversely affected
     */
   case class AdverseScenario(dependency: String, details: String)
 }
