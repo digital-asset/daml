@@ -45,6 +45,7 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
+        "@maven//:com_daml_scalatest_utils",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
@@ -58,6 +59,5 @@ da_scala_test(
         ":nonempty-cats",
         "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
-        "//libs-scala/scalatest-utils",
     ],
 )

@@ -139,6 +139,7 @@ da_scala_library(
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
         scala_deps = [
+            "@maven//:com_daml_scalatest_utils",
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalatestplus_scalacheck_1_15",
@@ -169,7 +170,6 @@ da_scala_library(
             "//ledger/test-common",
             "//libs-scala/ports",
             "//libs-scala/resources",
-            "//libs-scala/scalatest-utils",
             "//triggers/runner:trigger-runner-lib",
         ],
     )

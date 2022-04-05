@@ -39,6 +39,7 @@ da_scala_test(
     name = "data-test",
     size = "small",
     scala_deps = [
+        "@maven//:com_daml_scalatest_utils",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
@@ -48,6 +49,5 @@ da_scala_test(
     deps = [
         ":data",
         "//daml-lf/data-scalacheck",
-        "//libs-scala/scalatest-utils",
     ],
 )

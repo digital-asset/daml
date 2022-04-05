@@ -30,7 +30,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @S11001001 
+/daml-lf/data-scalacheck/src/main/ @S11001001
 /daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
 /daml-lf/transaction-test-lib/src/main/ @S11001001
@@ -86,5 +86,4 @@ NOTICES     @garyverhaegen-da @dasormeter
 /libs-scala/        @stefanobaghino-da
 /libs-scala/nonempty-cats/src/    @S11001001
 /libs-scala/scala-utils/src/    @S11001001
-/libs-scala/scalatest-utils/src/    @S11001001
 /libs-scala/test-evidence/ @digital-asset/kv-participant @soren-da @matthiasS-da

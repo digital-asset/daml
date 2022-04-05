@@ -52,6 +52,7 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
+        "@maven//:com_daml_scalatest_utils",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -65,7 +66,6 @@ da_scala_test(
     deps = [
         ":fetch-contracts",
         "//ledger-service/db-backend",
-        "//libs-scala/scalatest-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

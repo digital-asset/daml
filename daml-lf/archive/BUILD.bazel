@@ -124,6 +124,7 @@ da_scala_test_suite(
         ":DarReaderTest.dar",
     ],
     scala_deps = [
+        "@maven//:com_daml_scalatest_utils",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_flatspec",
@@ -141,7 +142,6 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

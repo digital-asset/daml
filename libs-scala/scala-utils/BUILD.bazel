@@ -41,11 +41,11 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
+        "@maven//:com_daml_scalatest_utils",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,
     deps = [
         ":scala-utils",
-        "//libs-scala/scalatest-utils",
     ],
 )

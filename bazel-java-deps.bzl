@@ -212,6 +212,8 @@ def install_java_deps():
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",
             "org.scala-lang:scala-library:{}".format(scala_version),
+            # extracted
+            "com.daml:scalatest-utils_{}:2.0.0".format(scala_major_version),
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),
