@@ -16,6 +16,7 @@ import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient.CreateResult
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -116,10 +117,16 @@ case class CommandSubmitter(
       }
     } yield ()
 
-  private def submitAndWait(id: String, party: Primitive.Party, commands: List[Command])(implicit
+  private def submitAndWait(
+      id: String,
+      party: Primitive.Party,
+      createCmdAndContinuations: Seq[CreateCmdAndContinuations],
+  )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    val result = new Commands(
+    val commands = createCmdAndContinuations.map(_.createCommand)
+
+    def makeCommands(commands: Seq[Command]) = new Commands(
       ledgerId = benchtoolUserServices.ledgerId,
       applicationId = names.benchtoolApplicationId,
       commandId = id,
@@ -127,7 +134,25 @@ case class CommandSubmitter(
       commands = commands,
       workflowId = names.workflowId,
     )
-    benchtoolUserServices.commandService.submitAndWait(result).map(_ => ())
+
+    for {
+      createCmdResult <- benchtoolUserServices.commandService
+        .submitAndWaitForTransactionTree(makeCommands(commands))
+      continuations: Seq[Command] = createCmdResult
+        .zip(createCmdAndContinuations)
+        .collect { case (cr: CreateResult, commandAndCont) =>
+          commandAndCont.continuationF(cr.contractId)
+        }
+        .flatten
+      _ <-
+        if (continuations.nonEmpty) {
+          val commands1 = makeCommands(continuations).copy(commandId = id + "-cont")
+          benchtoolUserServices.commandService
+            .submitAndWaitForTransactionTree(commands1)
+            .map(_ => ())
+        } else
+          Future.successful(())
+    } yield ()
   }
 
   private def submitCommands(
@@ -143,7 +168,7 @@ case class CommandSubmitter(
 
     val numBatches: Int = config.numberOfInstances / submissionBatchSize
     val progressMeter = CommandSubmitter.ProgressMeter(config.numberOfInstances)
-    // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
+    // Output a log line roughly once per 10% progress, or once every 10000 submissions (whichever comes first)
     val progressLogInterval = math.min(config.numberOfInstances / 10 + 1, 10000)
     val progressLoggingSink = {
       var lastInterval = 0
@@ -185,7 +210,7 @@ case class CommandSubmitter(
                 submitAndWait(
                   id = names.commandId(index),
                   party = signatory,
-                  commands = commands,
+                  createCmdAndContinuations = commands,
                 )
               )
                 .map(_ => index + commands.length - 1)

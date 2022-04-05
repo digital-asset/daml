@@ -23,6 +23,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      weight: 50
           |      payload_size_bytes: 60
           |      archive_probability: 0.9
+          |  nonconsuming_exercises:
+          |      probability: 4.9
+          |      payload_size_bytes: 100
+          |  consuming_exercises:
+          |      probability: 0.5
+          |      payload_size_bytes: 200
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -48,6 +54,18 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   weight = 50,
                   payloadSizeBytes = 60,
                   archiveChance = 0.9,
+                )
+              ),
+              nonconsumingExercises = Some(
+                WorkflowConfig.SubmissionConfig.NonconsumingExercises(
+                  probability = 4.9,
+                  payloadSizeBytes = 100,
+                )
+              ),
+              consumingExercises = Some(
+                WorkflowConfig.SubmissionConfig.ConsumingExercises(
+                  probability = 0.5,
+                  payloadSizeBytes = 200,
                 )
               ),
             )
@@ -120,6 +138,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   archiveChance = 0.7,
                 ),
               ),
+              nonconsumingExercises = None,
+              consumingExercises = None,
             )
           ),
           streams = Nil,
