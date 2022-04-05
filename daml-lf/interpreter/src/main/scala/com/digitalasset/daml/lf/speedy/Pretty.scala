@@ -519,11 +519,7 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate(None) =>
-              text("$create")
-            case SBUCreate(Some(iface)) =>
-              text("$createByInterface") + char(',') + text(iface.qualifiedName.toString) +
-                char(']')
+            case SBUCreate => text("$create")
             case SBFetchAny => text("$fetchAny")
             case SBGetTime => text("$getTime")
             case _ => str(x)

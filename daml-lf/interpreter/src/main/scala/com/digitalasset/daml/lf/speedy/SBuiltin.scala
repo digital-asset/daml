@@ -925,7 +925,7 @@ private[lf] object SBuiltin {
     *    -> CachedContract
     *    -> ContractId arg
     */
-  final case class SBUCreate(byInterface: Option[TypeConName]) extends OnLedgerBuiltin(2) {
+  final case object SBUCreate extends OnLedgerBuiltin(2) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -951,7 +951,9 @@ private[lf] object SBuiltin {
           signatories = cached.signatories,
           stakeholders = cached.stakeholders,
           key = cached.key,
-          byInterface = byInterface,
+          // https://github.com/digital-asset/daml/issues/13491
+          //  TODO Drop byInterface argument
+          byInterface = None,
           version = machine.tmplId2TxVersion(cached.templateId),
         )
 
@@ -1157,12 +1159,10 @@ private[lf] object SBuiltin {
       )
   }
 
-  final case class SBResolveSBUInsertFetchNode(
-      ifaceId: TypeConName
-  ) extends SBuiltin(1) {
+  final case object SBResolveSBUInsertFetchNode extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
-        SBUInsertFetchNode(getSAnyContract(args, 0)._1, byKey = false, byInterface = Some(ifaceId))
+        SBUInsertFetchNode(getSAnyContract(args, 0)._1, byKey = false)
       )
   }
 
@@ -1174,8 +1174,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBResolveCreateByInterface(ifaceId: TypeConName)
-      extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
+  final case object SBResolveCreate extends SBResolveVirtual(CreateDefRef)
 
   final case class SBSignatoryInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(SignatoriesDefRef)
@@ -1185,7 +1184,7 @@ private[lf] object SBuiltin {
 
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
-  final case class SBToInterface(
+  final case class SBToAnyContract(
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
@@ -1294,7 +1293,6 @@ private[lf] object SBuiltin {
   final case class SBUInsertFetchNode(
       templateId: TypeConName,
       byKey: Boolean,
-      byInterface: Option[TypeConName],
   ) extends OnLedgerBuiltin(1) {
     override protected def execute(
         args: util.ArrayList[SValue],
@@ -1323,8 +1321,10 @@ private[lf] object SBuiltin {
         stakeholders = stakeholders,
         key = key,
         byKey = byKey,
-        byInterface = byInterface,
         version = machine.tmplId2TxVersion(templateId),
+        // https://github.com/digital-asset/daml/issues/13491
+        //  TODO Drop byInterface argument
+        byInterface = None,
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit

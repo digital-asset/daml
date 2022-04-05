@@ -327,7 +327,7 @@ private[lf] final class PhaseOne(
         }
       case EToInterface(iface @ _, tpl @ _, exp) =>
         compileExp(env, exp) { exp =>
-          Return(SBToInterface(tpl)(exp))
+          Return(SBToAnyContract(tpl)(exp))
         }
       case EFromInterface(iface @ _, tpl, exp) =>
         compileExp(env, exp) { exp =>
@@ -708,9 +708,9 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(iface, arg) =>
+      case UpdateCreateInterface(_, arg) =>
         compileExp(env, arg) { arg =>
-          Return(t.CreateDefRef(iface)(arg))
+          Return(SBResolveCreate(arg))
         }
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
