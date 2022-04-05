@@ -14,7 +14,7 @@ object Main {
         Tests.default(timeoutScaleFactor = config.timeoutScaleFactor)
 
       override def optionalTests: Vector[LedgerTestSuite] =
-        Tests.optional()
+        Tests.optional(config.tlsConfig)
     }
     new TestRunner(availableTests, config).runAndExit()
   }

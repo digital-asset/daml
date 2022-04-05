@@ -49,7 +49,6 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](
       optSubmissionIdSubmittedCompletion <- service
         .submitRequest(ledger, party, requestWithSubmissionId)
     } yield {
-      assertApplicationIdIsPreserved(ledger.applicationId, optNoDeduplicationSubmittedCompletion)
       service.assertCompletion(optNoDeduplicationSubmittedCompletion)
       assertDeduplicationPeriodIsReported(optNoDeduplicationSubmittedCompletion)
       assertSubmissionIdIsPreserved(optSubmissionIdSubmittedCompletion, RandomSubmissionId)
@@ -172,22 +171,6 @@ private[testtool] object CompletionDeduplicationInfoIT {
     val completion = assertDefined(optCompletion, "No completion has been produced")
     assert(completion.status.forall(_.code == Status.Code.OK.value()))
     assert(completion.deduplicationPeriod.isDefined, "The deduplication period was not reported")
-  }
-
-  private def assertApplicationIdIsPreserved(
-      requestedApplicationId: String,
-      optCompletion: Option[Completion],
-  ): Unit = {
-    val expectedApplicationId = requestedApplicationId
-    assertDefined(optCompletion, "No completion has been produced")
-    val applicationIdCompletion = optCompletion.get
-    assert(applicationIdCompletion.status.forall(_.code == Status.Code.OK.value()))
-    val actualApplicationId = applicationIdCompletion.applicationId
-    assert(
-      Ref.ApplicationId.fromString(actualApplicationId).contains(expectedApplicationId),
-      "Wrong application ID in completion, " +
-        s"expected: $expectedApplicationId, actual: $actualApplicationId",
-    )
   }
 
   private def simpleCreate(party: Primitive.Party): Command = Dummy(party).create.command

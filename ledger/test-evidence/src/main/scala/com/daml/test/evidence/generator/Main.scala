@@ -49,7 +49,7 @@ object Main {
 
     val ledgerApiTests = List()
       .concat(suites.v1_14.default(timeoutScaleFactor = 0L))
-      .concat(suites.v1_14.optional())
+      .concat(suites.v1_14.optional(tlsConfig = None))
 
     val testSuites: List[Suite] = ScalaTestAdapter.loadTestSuites(runpathList)
 
