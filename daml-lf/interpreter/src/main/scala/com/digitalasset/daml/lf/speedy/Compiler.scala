@@ -874,8 +874,6 @@ private[lf] final class Compiler(
   private[this] def translateCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
-    case Command.CreateByInterface(interfaceId @ _, templateId @ _, argument) =>
-      SBResolveCreate(s.SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>

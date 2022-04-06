@@ -951,9 +951,6 @@ private[lf] object SBuiltin {
           signatories = cached.signatories,
           stakeholders = cached.stakeholders,
           key = cached.key,
-          // https://github.com/digital-asset/daml/issues/13491
-          //  TODO Drop byInterface argument
-          byInterface = None,
           version = machine.tmplId2TxVersion(cached.templateId),
         )
 
@@ -1018,9 +1015,6 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
-          // https://github.com/digital-asset/daml/issues/13491
-          //  TODO Drop byInterface argument
-          byInterface = None,
           version = machine.tmplId2TxVersion(templateId),
         )
       checkAborted(onLedger.ptx)
@@ -1320,9 +1314,6 @@ private[lf] object SBuiltin {
         key = key,
         byKey = byKey,
         version = machine.tmplId2TxVersion(templateId),
-        // https://github.com/digital-asset/daml/issues/13491
-        //  TODO Drop byInterface argument
-        byInterface = None,
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit

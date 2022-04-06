@@ -398,7 +398,7 @@ private[speedy] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
-      byInterface: Option[TypeConName],
+      byInterface: Option[TypeConName] = None,
       version: TxVersion,
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
@@ -492,7 +492,7 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
-      byInterface: Option[TypeConName],
+      byInterface: Option[TypeConName] = None,
       version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -550,7 +550,7 @@ private[speedy] case class PartialTransaction(
       mbKey: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       chosenValue: Value,
-      byInterface: Option[TypeConName],
+      byInterface: Option[TypeConName] = None,
       version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
