@@ -537,9 +537,6 @@ final class Conversions(
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-        fetch.byInterface.foreach(ifaceId =>
-          fetchBuilder.setByInterface(convertIdentifier(ifaceId))
-        )
         builder.setFetch(fetchBuilder.build)
       case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -559,14 +556,9 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
-        ex.byInterface.foreach(ifaceId =>
-          exerciseBuilder.setByInterface(convertIdentifier(ifaceId))
-        )
-
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
         }
-
         builder.setExercise(exerciseBuilder.build)
 
       case lbk: Node.LookupByKey =>
@@ -622,9 +614,6 @@ final class Conversions(
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
-        create.byInterface.foreach(ifaceId =>
-          createBuilder.setByInterface(convertIdentifier(ifaceId))
-        )
         create.versionedKey.foreach(key =>
           createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key))
         )
