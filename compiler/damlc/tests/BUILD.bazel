@@ -416,6 +416,7 @@ da_haskell_test(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "extra",
         "ghc-lib-parser",
         "filepath",
@@ -425,6 +426,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "tasty-quickcheck",
+        "text",
         "zip-archive",
     ],
     main_function = "DA.Test.Packaging.main",
@@ -435,6 +437,7 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

@@ -7,6 +7,11 @@ module DA.Cli.Damlc.Packaging
   ( createProjectPackageDb
   , mbErr
   , getUnitId
+
+    -- * Dependency graph construction
+  , buildLfPackageGraph'
+  , BuildLfPackageGraphArgs' (..)
+  , BuildLfPackageGraphMetaArgs (..)
   ) where
 
 import Control.Exception.Safe (tryAny)
@@ -536,12 +541,14 @@ mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
 
-data BuildLfPackageGraphArgs = BuildLfPackageGraphArgs
+data BuildLfPackageGraphArgs' decodedDalfWithPath = BuildLfPackageGraphArgs
   { builtinDeps :: Set LF.PackageId
   , stablePkgs :: Set LF.PackageId
-  , deps :: [(FilePath, DecodedDalf)]
-  , dataDeps :: [(FilePath, DecodedDalf)]
+  , deps :: [decodedDalfWithPath]
+  , dataDeps :: [decodedDalfWithPath]
   }
+
+type BuildLfPackageGraphArgs = BuildLfPackageGraphArgs' (FilePath, DecodedDalf)
 
 -- | The graph will have an edge from package A to package B:
 --   1. if A depends on B _OR_
@@ -562,20 +569,50 @@ data BuildLfPackageGraphArgs = BuildLfPackageGraphArgs
 --   on data-dependencies.
 --
 buildLfPackageGraph :: BuildLfPackageGraphArgs -> (Graph, Vertex -> (PackageNode, LF.PackageId))
-buildLfPackageGraph BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode')
+buildLfPackageGraph =
+  (\(graph, vertexToNode, _keyToVertex) -> (graph, vertexToNode)) .
+    buildLfPackageGraph' BuildLfPackageGraphMetaArgs
+      { getDecodedDalfPath = fst
+      , getDecodedDalfUnitId = decodedUnitId . snd
+      , getDecodedDalfPkg = decodedDalfPkg . snd
+      , getDalfPkgId = LF.dalfPackageId
+      , getDalfPkgRefs = dalfPackageRefs
+      }
   where
-    allPackageRefs :: LF.Package -> [LF.PackageRef]
-    allPackageRefs pkg =
-      toListOf packageRefs pkg
-        <>
-        [ qualPackage
-        | m <- NM.toList $ LF.packageModules pkg
-        , Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName (LF.moduleValues m)]
-        , Just quals <- [LFC.decodeModuleImports ty]
-        , LF.Qualified { LF.qualPackage } <- Set.toList quals
+    dalfPackageRefs :: LF.DalfPackage -> [LF.PackageId]
+    dalfPackageRefs dalfPkg =
+      let
+        pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPkg)
+        pid = LF.dalfPackageId dalfPkg
+      in
+        [ pid'
+        | LF.PRImport pid' <-
+            toListOf packageRefs pkg
+              <>
+              [ qualPackage
+              | m <- NM.toList $ LF.packageModules pkg
+              , Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName (LF.moduleValues m)]
+              , Just quals <- [LFC.decodeModuleImports ty]
+              , LF.Qualified { LF.qualPackage } <- Set.toList quals
+              ]
+        , pid' /= pid
         ]
 
-    (depGraph, vertexToNode, _keyToVertex) =
+data BuildLfPackageGraphMetaArgs decodedDalfWithPath dalfPackage = BuildLfPackageGraphMetaArgs
+  { getDecodedDalfPath :: decodedDalfWithPath -> FilePath
+  , getDecodedDalfUnitId :: decodedDalfWithPath -> UnitId
+  , getDecodedDalfPkg :: decodedDalfWithPath -> dalfPackage
+  , getDalfPkgId :: dalfPackage -> LF.PackageId
+  , getDalfPkgRefs :: dalfPackage -> [LF.PackageId]
+  }
+
+buildLfPackageGraph' ::
+     BuildLfPackageGraphMetaArgs decodedDalfWithPath dalfPackage
+  -> BuildLfPackageGraphArgs' decodedDalfWithPath
+  -> (Graph, Vertex -> (PackageNode' dalfPackage, LF.PackageId), LF.PackageId -> Maybe Vertex)
+buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode', keyToVertex)
+  where
+    (depGraph, vertexToNode, keyToVertex) =
         graphFromEdges
           [ (node, key, deps <> etc)
           | v <- vertices depGraph0
@@ -601,11 +638,13 @@ buildLfPackageGraph BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode')
           -- SDKs, each of which bring a copy of daml-prim and daml-stdlib.
           nubSortOn (\(_,pid,_) -> pid) $
             [ (node, pid, pkgRefs)
-            | (isDataDep, (dalf, DecodedDalf{decodedUnitId=unitId, decodedDalfPkg=dalfPackage})) <- fmap (False,) deps <> fmap (True,) dataDeps
+            | (isDataDep, decodedDalfWithPath) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let
-                pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
-                pid = LF.dalfPackageId dalfPackage
-                pkgRefs = nubOrd [ pid' | LF.PRImport pid' <- allPackageRefs pkg, pid' /= pid ]
+                dalf = getDecodedDalfPath decodedDalfWithPath
+                unitId = getDecodedDalfUnitId decodedDalfWithPath
+                dalfPackage = getDecodedDalfPkg decodedDalfWithPath
+                pid = getDalfPkgId dalfPackage
+                pkgRefs = getDalfPkgRefs dalfPackage
                 node
                   | pid `elem` builtinDeps = MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {..}
                   | pid `elem` stablePkgs = MkStableDependencyPackageNode
@@ -617,18 +656,20 @@ buildLfPackageGraph BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode')
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
 
-data PackageNode
-  = MkDependencyPackageNode DependencyPackageNode
-  | MkDataDependencyPackageNode DataDependencyPackageNode
+data PackageNode' dalfPackage
+  = MkDependencyPackageNode (DependencyPackageNode' dalfPackage)
+  | MkDataDependencyPackageNode (DataDependencyPackageNode' dalfPackage)
   | MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode
   | MkStableDependencyPackageNode
 
-isDependencyPackageNode :: PackageNode -> Bool
+type PackageNode = PackageNode' LF.DalfPackage
+
+isDependencyPackageNode :: PackageNode' dalfPackage -> Bool
 isDependencyPackageNode = \case
   MkDependencyPackageNode {} -> True
   _ -> False
 
-isDataDependencyPackageNode :: PackageNode -> Bool
+isDataDependencyPackageNode :: PackageNode' dalfPackage -> Bool
 isDataDependencyPackageNode = \case
   MkDataDependencyPackageNode {} -> True
   _ -> False
@@ -644,15 +685,15 @@ packageNodeDecodedDalf = \case
   MkStableDependencyPackageNode ->
     Nothing
 
-data DependencyPackageNode = DependencyPackageNode
+data DependencyPackageNode' dalfPackage = DependencyPackageNode
   { dalf :: FilePath
   , unitId :: UnitId
-  , dalfPackage :: LF.DalfPackage
+  , dalfPackage :: dalfPackage
   }
 
-data DataDependencyPackageNode = DataDependencyPackageNode
+data DataDependencyPackageNode' dalfPackage = DataDependencyPackageNode
   { unitId :: UnitId
-  , dalfPackage :: LF.DalfPackage
+  , dalfPackage :: dalfPackage
   }
 
 data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
