@@ -211,6 +211,7 @@ final class LedgerTestCasesRunner(
       participantChannels = participantChannels,
       maxConnectionAttempts = maxConnectionAttempts,
       commandInterceptors = commandInterceptors,
+      timeoutScaleFactor = timeoutScaleFactor,
     )
     sessions
       .flatMap { sessions: Vector[ParticipantSession] =>

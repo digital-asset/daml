@@ -35,6 +35,7 @@ private[infrastructure] final class ParticipantSession private (
     ledgerId: String,
     ledgerEndpoint: Endpoint,
     val features: Features,
+    timeoutScaleFactor: Double,
 )(implicit val executionContext: ExecutionContext) {
 
   private[testtool] def createInitContext(
@@ -57,16 +58,19 @@ private[infrastructure] final class ParticipantSession private (
   ): Future[ParticipantTestContext] =
     for {
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
-    } yield new SingleParticipantTestContext(
-      ledgerId = ledgerId,
-      endpointId = endpointId,
-      applicationId = applicationId,
-      identifierSuffix = identifierSuffix,
-      referenceOffset = end,
-      services = services,
-      partyAllocationConfig = partyAllocationConfig,
-      ledgerEndpoint = ledgerEndpoint,
-      features = features,
+    } yield new TimeoutParticipantTestContext(
+      timeoutScaleFactor,
+      new SingleParticipantTestContext(
+        ledgerId = ledgerId,
+        endpointId = endpointId,
+        applicationId = applicationId,
+        identifierSuffix = identifierSuffix,
+        referenceOffset = end,
+        services = services,
+        partyAllocationConfig = partyAllocationConfig,
+        ledgerEndpoint = ledgerEndpoint,
+        features = features,
+      ),
     )
 }
 
@@ -78,6 +82,7 @@ object ParticipantSession {
       participantChannels: Vector[ChannelEndpoint],
       maxConnectionAttempts: Int,
       commandInterceptors: Seq[ClientInterceptor],
+      timeoutScaleFactor: Double,
   )(implicit
       executionContext: ExecutionContext
   ): Future[Vector[ParticipantSession]] =
@@ -116,6 +121,7 @@ object ParticipantSession {
         ledgerId = ledgerId,
         ledgerEndpoint = participant.endpoint,
         features = features,
+        timeoutScaleFactor = timeoutScaleFactor,
       )
     }
 }
