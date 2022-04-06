@@ -783,7 +783,6 @@ app-dev/bindings-java/javadocs/com/digitalasset/ledger/api/v1/PackageServiceOute
 app-dev/bindings-java/javadocs/com/digitalasset/ledger/api/v1/EventOuterClass.Event.Builder.html -> /app-dev/bindings-java/javadocs/com/daml/ledger/api/v1/EventOuterClass.Event.Builder.html
 packages/da-cli-docs/index.html -> /tools/assistant.html
 genindex.html
-tools.html -> /tools/assistant.html
 examples.html -> /examples/bond-trading/index.html
 search.html
 getting-started/installation.htm -> /getting-started/installation.html
