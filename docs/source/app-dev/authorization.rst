@@ -17,7 +17,7 @@ You thus need to add support for authorization using access token to your applic
 For the
 
 .. note:: In case of mutual (two-way) TLS authentication, the Ledger API
-          client must present (in addition to an access token) its certificate to
+          client must present its certificate (in addition to an access token) to
           the Ledger API server as part of the authentication process. The provided
           certificate must be signed by a certificate authority (CA) trusted
           by the Ledger API server. Note that the identity of the application
