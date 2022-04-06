@@ -180,19 +180,19 @@ class CommandSubmitterITSpec
     val foo2Config = WorkflowConfig.SubmissionConfig.ContractDescription(
       template = "Foo2",
       weight = 1,
-      payloadSizeBytes = 1000,
+      payloadSizeBytes = 200,
       archiveChance = 0,
     )
     val consumingExercisesConfig = ConsumingExercises(
       probability = 0.6,
-      payloadSizeBytes = 5000,
+      payloadSizeBytes = 300,
     )
     val nonconsumingExercisesConfig = NonconsumingExercises(
       probability = 2.3,
-      payloadSizeBytes = 500,
+      payloadSizeBytes = 400,
     )
     val config = WorkflowConfig.SubmissionConfig(
-      numberOfInstances = 100,
+      numberOfInstances = 1000,
       numberOfObservers = 1,
       uniqueParties = false,
       instanceDistribution = List(

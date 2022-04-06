@@ -162,43 +162,29 @@ final class CommandGenerator(
 
   private def createExerciseCmd(templateId: Identifier, choiceName: String, argValue: String)(
       cid: ContractId
-  ): Command =
-    doCreateExerciseCmd(
-      templateId = templateId,
-      choiceName = choiceName,
-      argName = "exercisePayload",
-      argValue = argValue,
-      cid = cid,
-    )
-
-  private def doCreateExerciseCmd(
-      templateId: Identifier,
-      choiceName: String,
-      argName: String,
-      argValue: String,
-      cid: ContractId,
   ): Command = {
+    val choiceArgument = Some(
+      Value(
+        Value.Sum.Record(
+          Record(
+            None,
+            Seq(
+              RecordField(
+                label = "exercisePayload",
+                value = Some(Value(Value.Sum.Text(argValue))),
+              )
+            ),
+          )
+        )
+      )
+    )
     val c: Command = Command(
       command = Command.Command.Exercise(
         value = ExerciseCommand(
           templateId = Some(templateId),
           contractId = cid.coid,
           choice = choiceName,
-          choiceArgument = Some(
-            Value(
-              Value.Sum.Record(
-                Record(
-                  None,
-                  Seq(
-                    RecordField(
-                      label = argName,
-                      value = Some(Value(Value.Sum.Text(argValue))),
-                    )
-                  ),
-                )
-              )
-            )
-          ),
+          choiceArgument = choiceArgument,
         )
       )
     )
@@ -206,22 +192,23 @@ final class CommandGenerator(
   }
 
   private def doCreateArchiveExerciseCmd(templateId: Identifier, cid: ContractId): Command = {
+    val choiceArgument = Some(
+      Value(
+        Value.Sum.Record(
+          Record(
+            None,
+            Seq.empty[RecordField],
+          )
+        )
+      )
+    )
     val c: Command = Command(
       command = Command.Command.Exercise(
         value = ExerciseCommand(
           templateId = Some(templateId),
           contractId = cid.coid,
           choice = TemplateDescriptor.ArchiveChoiceName,
-          choiceArgument = Some(
-            Value(
-              Value.Sum.Record(
-                Record(
-                  None,
-                  Seq.empty[RecordField],
-                )
-              )
-            )
-          ),
+          choiceArgument = choiceArgument,
         )
       )
     )
