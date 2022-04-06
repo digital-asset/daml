@@ -67,14 +67,16 @@ final class CompletionStreamAuthIT
 
   it should "allow calls with an application ID present in the message and a token with an empty application ID" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can make a call with an empty application ID for a token with an application id"
+      "Ledger API client can make a call with an application ID present in the message and a token with an empty application ID"
     ) in {
     expectSuccess(serviceCallWithoutApplicationId(canActAsMainActorActualApplicationId))
   }
 
   it should "deny calls with an application ID present in the message and a token without application ID" taggedAs securityAsset
-    .setHappyCase(
-      "Ledger API client can make a call with an empty application ID for a token without an application id"
+    .setAttack(
+      attack(threat =
+        "Exploit a call with an application ID present in the message and a token without application ID"
+      )
     ) in {
     // Note: need canActAsMainActor as the test first submits a change that it then listens for.
     expectInvalidArgument(serviceCallWithoutApplicationId(canActAsMainActor))
