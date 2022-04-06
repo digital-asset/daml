@@ -99,6 +99,10 @@ with SHA-256) with the public key loaded from the given JWKS URL.
        secret = "not-safe-for-production"
    }]
 
+.. note:: To prevent man-in-the-middle attacks, it is highly recommended to use
+          TLS with server authentication as described in :ref:`sandbox-tls` for
+          any request sent to the Ledger API in production.
+
 Generating JSON Web Tokens (JWT)
 ================================
 
@@ -148,8 +152,10 @@ To enable TLS, you need to specify the private key for your server and
 the certificate chain. This enables TLS for both the Ledger API and
 the Canton Admin API. When enabling client authentication, you also
 need to specify client certificates which can be used by Canton’s
-internal processes. Below, you can see an example config. For more
-details on TLS, refer to
+internal processes. Note that the identity of the application
+will not be proven by using this method, i.e. the `application_id` field in the request
+is not necessarily correlated with the CN (Common Name) in the certificate.
+Below, you can see an example config. For more details on TLS, refer to
 :ref:`Canton’s documentation on TLS <tls-configuration>`.
 
 
