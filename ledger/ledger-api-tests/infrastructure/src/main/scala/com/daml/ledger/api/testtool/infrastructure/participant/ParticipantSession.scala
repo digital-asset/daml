@@ -10,7 +10,6 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerServices,
   PartyAllocationConfiguration,
 }
-import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
@@ -41,14 +40,12 @@ private[infrastructure] final class ParticipantSession private (
   private[testtool] def createInitContext(
       applicationId: String,
       identifierSuffix: String,
-      clientTlsConfiguration: Option[TlsConfiguration],
       features: Features,
   ): Future[ParticipantTestContext] =
     createTestContext(
       "init",
       applicationId,
       identifierSuffix,
-      clientTlsConfiguration = clientTlsConfiguration,
       features = features,
     )
 
@@ -56,12 +53,11 @@ private[infrastructure] final class ParticipantSession private (
       endpointId: String,
       applicationId: String,
       identifierSuffix: String,
-      clientTlsConfiguration: Option[TlsConfiguration],
       features: Features,
   ): Future[ParticipantTestContext] =
     for {
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
-    } yield new ParticipantTestContext(
+    } yield new SingleParticipantTestContext(
       ledgerId = ledgerId,
       endpointId = endpointId,
       applicationId = applicationId,
@@ -70,7 +66,6 @@ private[infrastructure] final class ParticipantSession private (
       services = services,
       partyAllocationConfig = partyAllocationConfig,
       ledgerEndpoint = ledgerEndpoint,
-      clientTlsConfiguration = clientTlsConfiguration,
       features = features,
     )
 }

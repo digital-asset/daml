@@ -18,10 +18,8 @@ import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicati
   assertDeduplicationDuration,
   assertDeduplicationOffset,
 }
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  CompletionResponse,
-  ParticipantTestContext,
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
 import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
