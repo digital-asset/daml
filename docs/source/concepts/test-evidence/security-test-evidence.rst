@@ -6,7 +6,5 @@ Security
 
 .. _security-test-evidence:
 
-Download the file `CSV <security-test-evidence.csv>`_
+Download `security-test-evidence.csv <https://github.com/digital-asset/daml/blob/|version|/docs/resources/generated-test-evidence/security-test-evidence.csv>`_
 
-.. csv-table:: Frozen Delights!
-   :file: security-test-evidence.csv
