@@ -454,7 +454,7 @@ For a stable release, you need to additionally:
 Thanks for making a release!
 
 [assembly]: https://github.com/DACH-NY/assembly
-[canton]: https://github.com/DACH-NY/canton
+[canton]: https://github.com/digital-asset/canton
 [`LATEST`]: https://github.com/digital-asset/daml/blob/main/LATEST
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
 [daml]: https://github.com/digital-asset/daml
