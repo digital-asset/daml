@@ -20,6 +20,7 @@ fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
+test:postgres  --test_env POSTGRESQL_HOST --test_env POSTGRESQL_PORT --test_env POSTGRESQL_USERNAME --test_env POSTGRESQL_PASSWORD
 
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
