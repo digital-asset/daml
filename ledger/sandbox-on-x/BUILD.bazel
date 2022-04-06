@@ -220,6 +220,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -255,6 +256,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",

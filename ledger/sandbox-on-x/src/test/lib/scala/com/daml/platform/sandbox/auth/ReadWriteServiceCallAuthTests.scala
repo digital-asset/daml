@@ -108,13 +108,13 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   ) in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomApplicationId))
   }
-  it should "allow calls with an empty application ID for a token with an application id" taggedAs securityAsset
+  it should "allow calls with an application ID present in the message and a token with an empty application ID" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with an empty application ID for a token with an application id"
     ) in {
     expectSuccess(serviceCallWithoutApplicationId(canActAsMainActorActualApplicationId))
   }
-  it should "deny calls with an empty application ID for a token without an application id" taggedAs securityAsset
+  it should "deny calls with an application ID present in the message and a token without an application id" taggedAs securityAsset
     .setAttack(
       attack(threat = "Exploit an empty application ID for a token without an application id")
     ) in {
