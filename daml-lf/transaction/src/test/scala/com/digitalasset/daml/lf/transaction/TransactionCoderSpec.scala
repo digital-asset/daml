@@ -906,10 +906,6 @@ class TransactionCoderSpec
     create.copy(
       arg = normalize(create.arg, create.version),
       key = create.key.map(normalizeKey(_, create.version)),
-      byInterface =
-        if (create.version >= TransactionVersion.minInterfaces)
-          create.byInterface
-        else None,
     )
   }
 
@@ -920,10 +916,6 @@ class TransactionCoderSpec
         if (fetch.version >= TransactionVersion.minByKey)
           fetch.byKey
         else false,
-      byInterface =
-        if (fetch.version >= TransactionVersion.minInterfaces)
-          fetch.byInterface
-        else None,
     )
 
   private[this] def normalizeExe(exe: Node.Exercise) =
@@ -946,10 +938,6 @@ class TransactionCoderSpec
         if (exe.version >= TransactionVersion.minByKey)
           exe.byKey
         else false,
-      byInterface =
-        if (exe.version >= TransactionVersion.minInterfaces)
-          exe.byInterface
-        else None,
     )
 
   private[this] def normalizeKey(
