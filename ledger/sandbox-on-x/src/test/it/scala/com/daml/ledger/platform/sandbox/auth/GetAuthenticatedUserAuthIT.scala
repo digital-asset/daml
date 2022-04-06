@@ -46,7 +46,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
 
   it should "return the 'participant_admin' user when using its standard token" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with standard token"
+      "Ledger API client can make a call with a standard token"
     ) in {
     expectUser(canReadAsAdminStandardJWT, User("participant_admin", ""))
   }

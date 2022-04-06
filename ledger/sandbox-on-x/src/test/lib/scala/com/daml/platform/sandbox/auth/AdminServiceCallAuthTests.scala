@@ -39,23 +39,23 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
   it should "allow calls with explicitly non-expired admin token" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with explicitly non-expired admin token"
+      "Ledger API client can make a call with explicitly non-expired admin token"
     ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))
   }
   it should "allow calls with admin token without expiration" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with admin token without expiration"
+    "Ledger API client can make a call with admin token without expiration"
   ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
   it should "allow calls with user token for 'participant_admin' without expiration" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with user token for 'participant_admin' without expiration"
+      "Ledger API client can make a call with user token for 'participant_admin' without expiration"
     ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "allow calls with freshly created admin user" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with freshly created admin user"
+    "Ledger API client can make a call with freshly created admin user"
   ) in {
     expectSuccess(
       serviceCallWithFreshUser(
@@ -81,7 +81,7 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectInvalidArgument(serviceCallWithToken(canReadAsInvalidUserStandardJWT))
   }
   it should "allow calls with the correct ledger ID" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with the correct ledger ID"
+    "Ledger API client can make a call with the correct ledger ID"
   ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminActualLedgerId))
   }
@@ -91,7 +91,7 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectPermissionDenied(serviceCallWithToken(canReadAsAdminRandomLedgerId))
   }
   it should "allow calls with the correct participant ID" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with the correct participant ID"
+    "Ledger API client can make a call with the correct participant ID"
   ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminActualParticipantId))
   }

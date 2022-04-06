@@ -88,7 +88,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
   it should "allow calls with the correct participant ID" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with the correct participant ID"
+      "Ledger API client can make a call with the correct participant ID"
     ) in {
     expectSuccess(serviceCallWithToken(canActAsMainActorActualParticipantId))
   }
