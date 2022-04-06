@@ -481,7 +481,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
 
   private def withTimeout[T](hint: String, future: => Future[T]): Future[T] = {
-    val timeoutDuration = Durations.scaledDuration(15.seconds, timeoutScaleFactor)
+    val timeoutDuration = Durations.scaleDuration(15.seconds, timeoutScaleFactor)
     Future.firstCompletedOf(
       Seq(
         Delayed.Future.by(timeoutDuration)(

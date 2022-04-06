@@ -51,7 +51,7 @@ final class CommandDeduplicationIT(
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private val deduplicationDuration: FiniteDuration =
-    Durations.scaledDuration(2.seconds, timeoutScaleFactor)
+    Durations.scaleDuration(2.seconds, timeoutScaleFactor)
 
   test(
     s"SimpleDeduplicationBasic",
@@ -901,7 +901,7 @@ final class CommandDeduplicationIT(
   )(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is adjusted by min skew and max skew when running using pre-execution
     // to account for this we adjust the time model
-    val skew = Durations.scaledDuration(3.second, timeoutScaleFactor).asProtobuf
+    val skew = Durations.scaleDuration(3.second, timeoutScaleFactor).asProtobuf
     runWithUpdatedTimeModel(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),

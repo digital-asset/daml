@@ -6,7 +6,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 
 object Durations {
 
-  def scaledDuration(duration: FiniteDuration, timeoutScaleFactor: Double): FiniteDuration =
+  def scaleDuration(duration: FiniteDuration, timeoutScaleFactor: Double): FiniteDuration =
     asFiniteDuration(
       duration * timeoutScaleFactor
     )
