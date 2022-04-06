@@ -187,47 +187,26 @@ private[lf] final class CommandPreprocessor(
       cmd: command.ReplayCommand
   ): speedy.Command =
     cmd match {
-      case command.ReplayCommand.CreateByTemplate(templateId, argument) =>
+      case command.ReplayCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.ReplayCommand.CreateByInterface(interfaceId, templateId, argument) =>
-        unsafePreprocessCreateByInterface(interfaceId, templateId, argument)
-      case command.ReplayCommand.LenientExercise(templateId, coid, choiceId, argument) =>
-        // https://github.com/digital-asset/daml/issues/12051
-        //   We temporary add a lenient version of Exercise acting like ApiCommand.Exercise.
-        //   It will be shipped in 2.1 but dropped in 2.2.
+      case command.ReplayCommand.Exercise(templateId, coid, choiceId, argument) =>
         unsafePreprocessExercise(templateId, coid, choiceId, argument)
-      case command.ReplayCommand.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
-        unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
-      case command.ReplayCommand.ExerciseByInterface(
-            interfaceId,
-            templateId,
-            contractId,
-            choiceId,
-            argument,
-          ) =>
-        unsafePreprocessExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
-      case command.ReplayCommand.ExerciseTemplateByKey(
+      case command.ReplayCommand.ExerciseByKey(
             templateId,
             contractKey,
             choiceId,
             argument,
           ) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
-      case command.ReplayCommand.FetchTemplate(templateId, coid) => {
+      case command.ReplayCommand.Fetch(templateId, coid) =>
         discard(handleLookup(interface.lookupTemplate(templateId)))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.Fetch(templateId, cid)
-      }
-      case command.ReplayCommand.FetchByInterface(interfaceId, templateId, coid) => {
-        discard(handleLookup(interface.lookupTemplateImplements(templateId, interfaceId)))
-        val cid = valueTranslator.unsafeTranslateCid(coid)
-        speedy.Command.FetchByInterface(interfaceId, templateId, cid)
-      }
-      case command.ReplayCommand.FetchTemplateByKey(templateId, key) =>
+      case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
         speedy.Command.FetchByKey(templateId, sKey)
-      case command.ReplayCommand.LookupTemplateByKey(templateId, key) =>
+      case command.ReplayCommand.LookupByKey(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)
         speedy.Command.LookupByKey(templateId, sKey)

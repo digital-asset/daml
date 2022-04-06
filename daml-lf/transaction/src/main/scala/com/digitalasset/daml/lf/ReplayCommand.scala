@@ -15,39 +15,13 @@ sealed abstract class ReplayCommand extends Product with Serializable {
 object ReplayCommand {
 
   /** Create template contract, by template */
-  final case class CreateByTemplate(
-      templateId: Identifier,
-      argument: Value,
-  ) extends ReplayCommand
-
-  /** Create template contract, by interface */
-  final case class CreateByInterface(
-      interfaceId: Identifier,
+  final case class Create(
       templateId: Identifier,
       argument: Value,
   ) extends ReplayCommand
 
   /** Exercise a template choice, by template Id or interface Id. */
-  // https://github.com/digital-asset/daml/issues/12051
-  //   This command is temporary, it will be drop in 2.2
-  final case class LenientExercise(
-      templateId: Identifier,
-      contractId: Value.ContractId,
-      choiceId: ChoiceName,
-      argument: Value,
-  ) extends ReplayCommand
-
-  /** Exercise a template choice, not by interface. */
-  final case class ExerciseTemplate(
-      templateId: Identifier,
-      contractId: Value.ContractId,
-      choiceId: ChoiceName,
-      argument: Value,
-  ) extends ReplayCommand
-
-  /** Exercise a template choice, by interface. */
-  final case class ExerciseByInterface(
-      interfaceId: Identifier,
+  final case class Exercise(
       templateId: Identifier,
       contractId: Value.ContractId,
       choiceId: ChoiceName,
@@ -61,7 +35,7 @@ object ReplayCommand {
     * @param choiceId    identifier choice
     * @param argument    value passed for the choice
     */
-  final case class ExerciseTemplateByKey(
+  final case class ExerciseByKey(
       templateId: Identifier,
       contractKey: Value,
       choiceId: ChoiceName,
@@ -69,24 +43,17 @@ object ReplayCommand {
   ) extends ReplayCommand
 
   /** Fetch a template, not by interface */
-  final case class FetchTemplate(
+  final case class Fetch(
       templateId: Identifier,
       coid: Value.ContractId,
   ) extends ReplayCommand
 
-  /** Fetch a template, by interface */
-  final case class FetchByInterface(
-      interfaceId: Identifier,
-      templateId: Identifier,
-      coid: Value.ContractId,
-  ) extends ReplayCommand
-
-  final case class FetchTemplateByKey(
+  final case class FetchByKey(
       templateId: Identifier,
       key: Value,
   ) extends ReplayCommand
 
-  final case class LookupTemplateByKey(
+  final case class LookupByKey(
       templateId: Identifier,
       contractKey: Value,
   ) extends ReplayCommand

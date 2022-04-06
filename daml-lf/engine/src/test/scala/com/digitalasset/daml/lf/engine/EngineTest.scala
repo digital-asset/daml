@@ -292,11 +292,7 @@ class EngineTest
         val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
         val validated = suffixLenientEngine
           .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
+          .consume(lookupContract, lookupPackage, lookupKey)
         validated match {
           case Left(e) =>
             fail(e.message)
@@ -1308,16 +1304,12 @@ class EngineTest
           suffixLenientEngine
             .reinterpret(
               n.requiredAuthorizers,
-              ReplayCommand.FetchTemplate(n.templateId, n.coid),
+              ReplayCommand.Fetch(n.templateId, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
             )
-            .consume(
-              lookupContract,
-              lookupPackage,
-              lookupKey,
-            )
+            .consume(lookupContract, lookupPackage, lookupKey)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
       }
     }
@@ -1359,7 +1351,7 @@ class EngineTest
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = newEngine()
 
-      val fetchNode = ReplayCommand.FetchTemplate(
+      val fetchNode = ReplayCommand.Fetch(
         templateId = fetchedTid,
         coid = fetchedCid,
       )
@@ -1371,11 +1363,7 @@ class EngineTest
       val reinterpreted =
         engine
           .reinterpret(submitters, fetchNode, None, let, let)
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe a[Right[_, _]]
     }
@@ -1486,16 +1474,12 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupTemplateByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
           )
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -1533,16 +1517,12 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupTemplateByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
           )
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -2328,24 +2308,24 @@ object EngineTest {
             state <- acc
             cmd = tx.transaction.nodes(nodeId) match {
               case create: Node.Create =>
-                ReplayCommand.CreateByTemplate(create.templateId, create.arg)
+                ReplayCommand.Create(create.templateId, create.arg)
               case fetch: Node.Fetch if fetch.byKey =>
                 val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
-                ReplayCommand.FetchTemplateByKey(fetch.templateId, key)
+                ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
-                ReplayCommand.FetchTemplate(fetch.templateId, fetch.coid)
+                ReplayCommand.Fetch(fetch.templateId, fetch.coid)
               case lookup: Node.LookupByKey =>
-                ReplayCommand.LookupTemplateByKey(lookup.templateId, lookup.key.key)
+                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.key)
               case exe: Node.Exercise if exe.byKey =>
                 val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
-                ReplayCommand.ExerciseTemplateByKey(
+                ReplayCommand.ExerciseByKey(
                   exe.templateId,
                   key,
                   exe.choiceId,
                   exe.chosenValue,
                 )
               case exe: Node.Exercise =>
-                ReplayCommand.ExerciseTemplate(
+                ReplayCommand.Exercise(
                   exe.templateId,
                   exe.targetCoid,
                   exe.choiceId,
