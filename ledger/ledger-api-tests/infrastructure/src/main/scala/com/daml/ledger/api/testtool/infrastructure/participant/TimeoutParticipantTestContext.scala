@@ -62,6 +62,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: ParticipantTestContext)
     extends ParticipantTestContext {
 
+  private val timeoutDuration = Durations.scaleDuration(15.seconds, timeoutScaleFactor)
+
   override val ledgerId: String = delegate.ledgerId
   override val applicationId: String = delegate.applicationId
   override val endpointId: String = delegate.endpointId
@@ -481,7 +483,6 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
 
   private def withTimeout[T](hint: String, future: => Future[T]): Future[T] = {
-    val timeoutDuration = Durations.scaleDuration(15.seconds, timeoutScaleFactor)
     Future.firstCompletedOf(
       Seq(
         Delayed.Future.by(timeoutDuration)(
