@@ -6,5 +6,5 @@ Security
 
 .. _security-test-evidence:
 
-Download `security-test-evidence.csv <https://github.com/digital-asset/daml/blob/|version|/docs/resources/generated-test-evidence/security-test-evidence.csv>`_
+Download `security-test-evidence.csv <https://github.com/digital-asset/daml/blob/__VERSION__/docs/resources/generated-test-evidence/security-test-evidence.csv>`_
 
