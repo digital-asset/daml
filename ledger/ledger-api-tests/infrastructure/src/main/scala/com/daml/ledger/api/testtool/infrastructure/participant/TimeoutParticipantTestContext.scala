@@ -272,7 +272,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       eventId: String,
       parties: Primitive.Party*
   ): Future[Transaction] = withTimeout(
-    s"Flat transaction by event id for even id $eventId and parties $parties",
+    s"Flat transaction by event id for event id $eventId and parties $parties",
     delegate.flatTransactionByEventId(eventId, parties: _*),
   )
   override def create[T](
