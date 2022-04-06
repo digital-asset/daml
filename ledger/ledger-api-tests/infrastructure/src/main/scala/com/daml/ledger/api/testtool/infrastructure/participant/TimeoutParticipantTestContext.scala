@@ -411,7 +411,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   override def findCompletion(parties: Primitive.Party*)(
       p: Completion => Boolean
   ): Future[Option[ParticipantTestContext.CompletionResponse]] =
-    delegate.findCompletion(parties: _*)(p)
+    withTimeout(s"Find completion for parties $parties", delegate.findCompletion(parties: _*)(p))
   override def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
     withTimeout(s"$n checkpoints for request $request", delegate.checkpoints(n, request))
   override def checkpoints(n: Int, from: LedgerOffset)(
