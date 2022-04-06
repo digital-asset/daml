@@ -28,7 +28,6 @@ import scalaz.scalacheck.ScalaCheckBinding._
 object ValueGenerators {
 
   import TransactionVersion.minExceptions
-  import TransactionVersion.minInterfaces
 
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
@@ -304,17 +303,16 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-      byInterface <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
     } yield Node.Create(
-      coid,
-      templateId,
-      arg,
-      agreement,
-      signatories,
-      stakeholders,
-      key,
-      byInterface,
-      version,
+      coid = coid,
+      templateId = templateId,
+      arg = arg,
+      agreementText = agreement,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      key = key,
+      byInterface = None,
+      version = version,
     )
   }
 
@@ -333,17 +331,16 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
-      byInterface <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
     } yield Node.Fetch(
-      coid,
-      templateId,
-      actingParties,
-      signatories,
-      stakeholders,
-      key,
-      byKey,
-      byInterface,
-      version,
+      coid = coid,
+      templateId = templateId,
+      actingParties = actingParties,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      key = key,
+      byKey = byKey,
+      byInterface = None,
+      version = version,
     )
   }
 
@@ -385,23 +382,22 @@ object ValueGenerators {
       exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
-      byInterface <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
     } yield Node.Exercise(
-      targetCoid,
-      templateId,
-      choiceId,
-      consume,
-      actingParties,
-      chosenValue,
-      stakeholders,
-      signatories,
+      targetCoid = targetCoid,
+      templateId = templateId,
+      choiceId = choiceId,
+      consuming = consume,
+      actingParties = actingParties,
+      chosenValue = chosenValue,
+      stakeholders = stakeholders,
+      signatories = signatories,
       choiceObservers = choiceObservers,
-      children,
-      exerciseResult,
-      key,
-      byKey,
-      byInterface,
-      version,
+      children = children,
+      exerciseResult = exerciseResult,
+      key = key,
+      byKey = byKey,
+      byInterface = None,
+      version = version,
     )
   }
 
