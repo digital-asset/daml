@@ -1069,7 +1069,7 @@ private[validation] object Typing {
       case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
-    def typeOf(expr0: Expr): Type = expr0 match {
+    def typeOf(expr: ExprAtomic): Type = expr match {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
@@ -1080,6 +1080,20 @@ private[validation] object Typing {
         typeOfPRimCon(con)
       case EPrimLit(lit) =>
         typeOfPrimLit(lit)
+      case EEnumCon(tyCon, constructor) =>
+        checkEnumCon(tyCon, constructor)
+        TTyCon(tyCon)
+      case ENil(typ) =>
+        checkType(typ, KStar)
+        TList(typ)
+      case ENone(typ) =>
+        checkType(typ, KStar)
+        TOptional(typ)
+    }
+
+    def typeOf(expr0: Expr): Type = expr0 match {
+      case expr: ExprAtomic =>
+        typeOf(expr)
       case ERecCon(tycon, fields) =>
         checkRecCon(tycon, fields)
         typeConAppToType(tycon)
@@ -1090,9 +1104,6 @@ private[validation] object Typing {
       case EVariantCon(tycon, variant, arg) =>
         checkVariantCon(tycon, variant, arg)
         typeConAppToType(tycon)
-      case EEnumCon(tyCon, constructor) =>
-        checkEnumCon(tyCon, constructor)
-        TTyCon(tyCon)
       case EStructCon(fields) =>
         typeOfStructCon(fields)
       case proj: EStructProj =>
@@ -1114,9 +1125,6 @@ private[validation] object Typing {
         typeOfCase(scruct, alts)
       case ELet(binding, body) =>
         typeOfLet(binding, body)
-      case ENil(typ) =>
-        checkType(typ, KStar)
-        TList(typ)
       case ECons(typ, front, tail) =>
         checkCons(typ, front, tail)
         TList(typ)
@@ -1126,9 +1134,6 @@ private[validation] object Typing {
         typeOfScenario(scenario)
       case ELocation(loc, expr) =>
         newLocation(loc).typeOf(expr)
-      case ENone(typ) =>
-        checkType(typ, KStar)
-        TOptional(typ)
       case ESome(typ, body) =>
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
