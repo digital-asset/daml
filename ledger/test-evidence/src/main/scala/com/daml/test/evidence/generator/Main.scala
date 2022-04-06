@@ -5,8 +5,6 @@ package com.daml.test.evidence.generator
 
 import better.files.File
 import com.daml.test.evidence.generator.TestEntryCsvEncoder.TestEntryCsv
-import com.daml.test.evidence.scalatest.JsonCodec.SecurityJson._
-import com.daml.test.evidence.scalatest.JsonCodec.ReliabilityJson._
 import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -23,20 +21,10 @@ object Main {
     println(s"Wrote to $path")
   }
 
-  private def writeEvidenceToJsonFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
-    println(s"Writing inventory to $fileName...")
-    val path = File(fileName)
-      .write(entries.asJson.spaces2)
-      .path
-      .toAbsolutePath
-      .toString
-    println(s"Wrote to $path")
-  }
-
   private def writeEvidenceToCsvFile[TE <: TestEntryCsv](
-                                                          fileName: String,
-                                                          entries: List[TE],
-                                                        ): Unit = {
+      fileName: String,
+      entries: List[TE],
+  ): Unit = {
     println(s"Writing inventory to $fileName...")
     val file = File(fileName)
     val path = file.path.toAbsolutePath
@@ -50,9 +38,11 @@ object Main {
 
     val reliabilityTestEntries = TestEntryLookup.reliabilityTestEntries
 
-    writeEvidenceToFile("security-tests.json", securityTestEntries.asJson.spaces2)
+    writeEvidenceToJsonFile("security-tests.json", securityTestEntries)
+    writeEvidenceToCsvFile("security-tests.csv", securityTestEntries)
 
-    writeEvidenceToFile("reliability-tests.json", reliabilityTestEntries.asJson.spaces2)
+    writeEvidenceToJsonFile("reliability-tests.json", reliabilityTestEntries)
+    writeEvidenceToCsvFile("reliability-tests.json", reliabilityTestEntries)
 
     sys.exit()
   }
