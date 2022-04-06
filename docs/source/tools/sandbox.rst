@@ -100,7 +100,8 @@ with SHA-256) with the public key loaded from the given JWKS URL.
    }]
 
 .. note:: To prevent man-in-the-middle attacks, it is highly recommended to use
-          TLS with server authentication as described in :ref:`sandbox-tls` for any request sent to the Ledger API in production.
+          TLS with server authentication as described in :ref:`sandbox-tls` for
+          any request sent to the Ledger API in production.
 
 Generating JSON Web Tokens (JWT)
 ================================
