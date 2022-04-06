@@ -925,7 +925,7 @@ private[lf] object SBuiltin {
     *    -> CachedContract
     *    -> ContractId arg
     */
-  final case class SBUCreate(byInterface: Option[TypeConName]) extends OnLedgerBuiltin(2) {
+  final case object SBUCreate extends OnLedgerBuiltin(2) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -951,7 +951,6 @@ private[lf] object SBuiltin {
           signatories = cached.signatories,
           stakeholders = cached.stakeholders,
           key = cached.key,
-          byInterface = byInterface,
           version = machine.tmplId2TxVersion(cached.templateId),
         )
 
@@ -978,7 +977,6 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-      byInterface: Option[TypeConName],
   ) extends OnLedgerBuiltin(4) {
 
     override protected def execute(
@@ -1017,7 +1015,6 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
-          byInterface = byInterface,
           version = machine.tmplId2TxVersion(templateId),
         )
       checkAborted(onLedger.ptx)
@@ -1142,8 +1139,6 @@ private[lf] object SBuiltin {
   final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,
-      byKey: Boolean,
-      ifaceId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
@@ -1151,18 +1146,15 @@ private[lf] object SBuiltin {
           getSAnyContract(args, 0)._1,
           choiceName,
           consuming,
-          byKey,
-          byInterface = Some(ifaceId),
+          byKey = false,
         )
       )
   }
 
-  final case class SBResolveSBUInsertFetchNode(
-      ifaceId: TypeConName
-  ) extends SBuiltin(1) {
+  final case object SBResolveSBUInsertFetchNode extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
-        SBUInsertFetchNode(getSAnyContract(args, 0)._1, byKey = false, byInterface = Some(ifaceId))
+        SBUInsertFetchNode(getSAnyContract(args, 0)._1, byKey = false)
       )
   }
 
@@ -1174,8 +1166,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBResolveCreateByInterface(ifaceId: TypeConName)
-      extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
+  final case object SBResolveCreate extends SBResolveVirtual(CreateDefRef)
 
   final case class SBSignatoryInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(SignatoriesDefRef)
@@ -1185,7 +1176,7 @@ private[lf] object SBuiltin {
 
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
-  final case class SBToInterface(
+  final case class SBToAnyContract(
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
@@ -1294,7 +1285,6 @@ private[lf] object SBuiltin {
   final case class SBUInsertFetchNode(
       templateId: TypeConName,
       byKey: Boolean,
-      byInterface: Option[TypeConName],
   ) extends OnLedgerBuiltin(1) {
     override protected def execute(
         args: util.ArrayList[SValue],
@@ -1323,7 +1313,6 @@ private[lf] object SBuiltin {
         stakeholders = stakeholders,
         key = key,
         byKey = byKey,
-        byInterface = byInterface,
         version = machine.tmplId2TxVersion(templateId),
       )
       checkAborted(onLedger.ptx)

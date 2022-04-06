@@ -19,13 +19,6 @@ private[lf] object Command {
       argument: SValue,
   ) extends Command
 
-  /** Create a template, by interface */
-  final case class CreateByInterface(
-      interfaceId: Identifier,
-      templateId: Identifier,
-      argument: SValue,
-  ) extends Command
-
   /** Exercise a template choice, not by interface */
   final case class Exercise(
       templateId: Identifier,

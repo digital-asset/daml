@@ -323,7 +323,6 @@ private[lf] final class Compiler(
       addDef(compileObservers(identifier, tmpl))
       addDef(compileToCachedContract(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
-        addDef(compileCreateByInterface(identifier, tmpl, impl.interfaceId))
         addDef(compileImplements(identifier, impl.interfaceId))
         impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, identifier, impl.interfaceId, method))
@@ -341,7 +340,6 @@ private[lf] final class Compiler(
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
-      addDef(compileCreateInterface(identifier))
       addDef(compileFetchInterface(identifier))
       addDef(compileInterfacePrecond(identifier, iface.param, iface.precond))
       iface.fixedChoices.values.foreach { choice =>
@@ -438,7 +436,6 @@ private[lf] final class Compiler(
           choice.name,
           choice.consuming,
           byKey = mbKey.isDefined,
-          byInterface = None,
         )(
           env.toSEVar(choiceArgPos),
           env.toSEVar(cidPos),
@@ -490,8 +487,6 @@ private[lf] final class Compiler(
           SBResolveSBUBeginExercise(
             choiceName = choice.name,
             consuming = choice.consuming,
-            byKey = false,
-            ifaceId = ifaceId,
           )(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),
@@ -612,7 +607,7 @@ private[lf] final class Compiler(
       val env = _env.bindExprVar(tmpl.param, tmplArgPos)
       let(
         env,
-        SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined, byInterface = None)(env.toSEVar(cidPos)),
+        SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(env.toSEVar(cidPos)),
       ) { (_, env) =>
         env.toSEVar(tmplArgPos)
       }
@@ -646,7 +641,7 @@ private[lf] final class Compiler(
     ) { (payloadPos, env) =>
       let(
         env,
-        SBResolveSBUInsertFetchNode(ifaceId)(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+        SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
       ) { (_, env) =>
         env.toSEVar(payloadPos)
       }
@@ -742,14 +737,13 @@ private[lf] final class Compiler(
   private[this] def translateCreateBody(
       tmplId: Identifier,
       tmpl: Template,
-      byInterface: Option[Identifier],
       tmplArgPos: Position,
       env: Env,
   ) = {
     val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
     val implementsPrecondsIterator = tmpl.implements.iterator.map[s.SExpr](impl =>
       // `SBToInterface` is needed because interfaces do not have the same representation as the underlying template
-      t.InterfacePrecondDefRef(impl._1)(SBToInterface(tmplId)(env2.toSEVar(tmplArgPos)))
+      t.InterfacePrecondDefRef(impl._1)(SBToAnyContract(tmplId)(env2.toSEVar(tmplArgPos)))
     )
 
     val precondsArray: ImmArray[s.SExpr] =
@@ -760,7 +754,7 @@ private[lf] final class Compiler(
     )
 
     let(env2, preconds) { (_, env) =>
-      SBUCreate(byInterface)(
+      SBUCreate(
         translateExp(env, tmpl.agreementText),
         t.ToCachedContractDefRef(tmplId)(env.toSEVar(tmplArgPos), s.SEValue.None),
       )
@@ -776,30 +770,8 @@ private[lf] final class Compiler(
     //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
     topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
-      translateCreateBody(tmplId, tmpl, None, tmplArgPos, env)
+      translateCreateBody(tmplId, tmpl, tmplArgPos, env)
     )
-  }
-
-  private[this] def compileCreateByInterface(
-      tmplId: Identifier,
-      tmpl: Template,
-      ifaceId: Identifier,
-  ): (t.SDefinitionRef, SDefinition) = {
-    // Similar to compileCreate, but sets the 'byInterface' field in the transaction.
-    topLevelFunction2(t.CreateByInterfaceDefRef(tmplId, ifaceId))((tmplArgPos, _, env) =>
-      translateCreateBody(tmplId, tmpl, Some(ifaceId), tmplArgPos, env)
-    )
-  }
-
-  private[this] def compileCreateInterface(
-      ifaceId: Identifier
-  ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction2(t.CreateDefRef(ifaceId)) { (tmplArgPos, tokenPos, env) =>
-      SBResolveCreateByInterface(ifaceId)(
-        env.toSEVar(tmplArgPos),
-        env.toSEVar(tokenPos),
-      )
-    }
   }
 
   private[this] def compileCreateAndExercise(
@@ -902,8 +874,6 @@ private[lf] final class Compiler(
   private[this] def translateCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
-    case Command.CreateByInterface(interfaceId, templateId, argument) =>
-      t.CreateByInterfaceDefRef(templateId, interfaceId)(s.SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
