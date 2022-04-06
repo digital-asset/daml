@@ -278,7 +278,7 @@ object TransactionCoder {
 
           node match {
 
-            case nc @ Node.Create(_, _, _, _, _, _, _, _, _) =>
+            case nc @ Node.Create(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
@@ -310,7 +310,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
+            case nf @ Node.Fetch(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
               nf.stakeholders.foreach(builder.addStakeholders)
@@ -329,7 +329,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
@@ -524,7 +524,6 @@ object TransactionCoder {
           signatories = signatories,
           stakeholders = stakeholders,
           key = key,
-          byInterface = None,
           version = nodeVersion,
         )
       case NodeTypeCase.FETCH =>
@@ -553,7 +552,6 @@ object TransactionCoder {
           stakeholders = stakeholders,
           key = key,
           byKey = byKey,
-          byInterface = None,
           version = nodeVersion,
         )
 
@@ -617,7 +615,6 @@ object TransactionCoder {
           exerciseResult = rvOpt,
           key = keyWithMaintainers,
           byKey = byKey,
-          byInterface = None,
           version = nodeVersion,
         )
       case NodeTypeCase.LOOKUP_BY_KEY =>

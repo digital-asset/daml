@@ -37,7 +37,6 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
       observers = Seq("Carl"),
       key = Some(Value.ValueUnit),
       maintainers = maintainers,
-      byInterface = None,
     )
 
   "create" - {

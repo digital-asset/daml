@@ -1147,7 +1147,6 @@ class EngineTest
               _,
               _,
               _,
-              _,
             ) =>
           coid shouldBe originalCoid
           consuming shouldBe true
@@ -1234,7 +1233,7 @@ class EngineTest
 
     def actFetchActors(n: Node): Set[Party] = {
       n match {
-        case Node.Fetch(_, _, actingParties, _, _, _, _, _, _) => actingParties
+        case Node.Fetch(_, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1620,7 +1619,7 @@ class EngineTest
         )
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.Fetch(_, _, _, _, _, key, _, _, _)) =>
+        case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1849,7 +1848,7 @@ class EngineTest
       val stx = suffix(tx)
 
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.Exercise(_, _, _, _, _, _, _, _, _, children, _, _, _, _, _) =
+      val Node.Exercise(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
