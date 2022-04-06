@@ -6,5 +6,9 @@ Security
 
 .. _security-test-evidence:
 
+test 1 __VERSION__
+
+test 2 |version|
+
 Download `security-test-evidence.csv <https://github.com/digital-asset/daml/blob/__VERSION__/docs/resources/generated-test-evidence/security-test-evidence.csv>`_
 
