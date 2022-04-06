@@ -115,7 +115,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.ExerciseTemplate(
+        ReplayCommand.Exercise(
           templateId,
           cid,
           choiceName,
@@ -132,7 +132,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.ExerciseTemplate(
+        ReplayCommand.Exercise(
           templateId,
           cid,
           choiceName,
@@ -149,7 +149,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.ExerciseTemplate(
+        ReplayCommand.Exercise(
           templateId,
           cid,
           choiceName,
@@ -166,7 +166,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.ExerciseTemplate(
+        ReplayCommand.Exercise(
           templateId,
           cid,
           choiceName,
@@ -183,7 +183,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.ExerciseTemplate(
+        ReplayCommand.Exercise(
           templateId,
           cid,
           choiceName,

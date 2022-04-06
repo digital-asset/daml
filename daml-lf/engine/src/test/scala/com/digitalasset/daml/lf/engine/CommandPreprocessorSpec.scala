@@ -163,17 +163,17 @@ class CommandPreprocessorSpec
 
     "reject improperly typed ReplayCommands" in {
       // TEST_EVIDENCE: Input Validation: well formed fetch command is accepted
-      val validFetch = ReplayCommand.FetchTemplate(
+      val validFetch = ReplayCommand.Fetch(
         "Mod:Record",
         newCid,
       )
       // TEST_EVIDENCE: Input Validation: well formed fetch-by-key command is accepted
-      val validFetchByKey = ReplayCommand.FetchTemplateByKey(
+      val validFetchByKey = ReplayCommand.FetchByKey(
         "Mod:Record",
         valueParties,
       )
       // TEST_EVIDENCE: Input Validation: well formed lookup command is accepted
-      val validLookup = ReplayCommand.LookupTemplateByKey(
+      val validLookup = ReplayCommand.LookupByKey(
         "Mod:Record",
         valueParties,
       )
