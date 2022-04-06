@@ -1,1010 +1,139 @@
-
-Privacy
-============================================================================================================================================================================================================================================================================================================
-
-TransactionServiceVisibilityIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`Trees should be served according to the blinding/projection rules <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L43>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Transaction Tree
-    :Happy Case: Transaction trees are served according to the blinding/projection rules
-
-`Data should not be exposed to parties unrelated to a transaction <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L147>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Transaction
-    :Happy Case: Transactions are not exposed to parties unrelated to a transaction
-
-`A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L167>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Transaction Tree
-    :Happy Case: Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty
-
-`A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L204>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Flat Transaction
-    :Happy Case: A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty
-
-`Not disclose create to non-chosen branching signatory <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L243>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Flat Transaction
-    :Happy Case: Transaction with a create event is not disclosed to non-chosen branching signatory
-
-`Disclose create to the chosen branching controller <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L273>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Flat Transaction
-    :Happy Case: Transaction with a create event is disclosed to chosen branching controller
-
-`Not disclose create to non-chosen branching controller <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L314>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Flat Transaction
-    :Happy Case: Transaction with a create event is not disclosed to non-chosen branching controller
-
-`Disclose create to observers <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L340>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Flat Transaction
-    :Happy Case: Transaction with a create event is disclosed to observers
-
-`Transactions in the flat transactions stream should be disclosed only to the stakeholders <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L367>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Transaction
-    :Happy Case: Transactions in the flat transactions stream are disclosed only to the stakeholders
-
-`Transactions in the flat transactions stream should not leak witnesses <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L440>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Transaction
-    :Happy Case: Transactions in the flat transactions stream are not leaking witnesses
-
-`Transactions in the transaction trees stream should not leak witnesses <https://github.com/digital-asset/daml/blob/whatever/ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala#L472>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: Transaction
-    :Happy Case: Transactions in the transaction trees stream are not leaking witnesses
-
-
-
-
-Authorization
-============================================================================================================================================================================================================================================================================================================
-
-SubmitAndWaitForTransactionIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandService#SubmitAndWaitForTransactionId should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandService#SubmitAndWaitForTransactionId
-    :Attack Actor: Ledger API client calling CommandService#SubmitAndWaitForTransactionId
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandService#SubmitAndWaitForTransactionId
-    
-
-
-
-GetActiveContractsAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`ActiveContractsService#GetActiveContracts should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: ActiveContractsService#GetActiveContracts
-    :Attack Actor: Ledger API client calling ActiveContractsService#GetActiveContracts
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to ActiveContractsService#GetActiveContracts
-    
-
-
-
-SubmitAndWaitForTransactionTreeAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandService#SubmitAndWaitForTransactionTree should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandService#SubmitAndWaitForTransactionTree
-    :Attack Actor: Ledger API client calling CommandService#SubmitAndWaitForTransactionTree
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandService#SubmitAndWaitForTransactionTree
-    
-
-
-
-ListKnownPartiesAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`PartyManagementService#ListKnownParties should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: PartyManagementService#ListKnownParties
-    :Attack Actor: Ledger API client calling PartyManagementService#ListKnownParties
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to PartyManagementService#ListKnownParties
-    
-
-
-
-SubmitAndWaitForTransactionAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandService#SubmitAndWaitForTransaction should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandService#SubmitAndWaitForTransaction
-    :Attack Actor: Ledger API client calling CommandService#SubmitAndWaitForTransaction
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandService#SubmitAndWaitForTransaction
-    
-
-
-
-ListUserRightsWithGivenUserIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`UserManagementService#ListUserRights(given-user-id) should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: UserManagementService#ListUserRights(given-user-id)
-    :Attack Actor: Ledger API client calling UserManagementService#ListUserRights(given-user-id)
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to UserManagementService#ListUserRights(given-user-id)
-    
-
-
-
-GetFlatTransactionByIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetFlatTransactionById should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetFlatTransactionById
-    :Attack Actor: Ledger API client calling TransactionService#GetFlatTransactionById
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetFlatTransactionById
-    
-
-
-
-GetTransactionByIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetTransactionById should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetTransactionById
-    :Attack Actor: Ledger API client calling TransactionService#GetTransactionById
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetTransactionById
-    
-
-
-
-SubmitAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandSubmissionService#Submit should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandSubmissionService#Submit
-    :Attack Actor: Ledger API client calling CommandSubmissionService#Submit
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandSubmissionService#Submit
-    
-
-
-
-CreateUserAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`UserManagementService#CreateUser should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: UserManagementService#CreateUser
-    :Attack Actor: Ledger API client calling UserManagementService#CreateUser
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to UserManagementService#CreateUser
-    
-
-
-
-GetFlatTransactionByEventIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetFlatTransactionByEventId should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetFlatTransactionByEventId
-    :Attack Actor: Ledger API client calling TransactionService#GetFlatTransactionByEventId
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetFlatTransactionByEventId
-    
-
-
-
-CompletionEndAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandCompletionService#CompletionEnd should deny calls with expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L48>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit an expired 'participant_admin' user token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with non-expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L40>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with non-expired `participant_admin` user token
-
-`CommandCompletionService#CompletionEnd should deny calls with an expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L107>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit expired admin token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should deny calls with non-expired 'unknown_user' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L83>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit non-expired 'unknown_user' user token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L113>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with explicitly non-expired admin token
-
-`CommandCompletionService#CompletionEnd should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with read-only token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L29>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with token without expiration
-
-`CommandCompletionService#CompletionEnd should deny calls with a random ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L131>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit random ledger ID
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L95>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with explicitly non-expired read/write token
-
-`CommandCompletionService#CompletionEnd should deny calls with an expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L17>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit an expired read-only token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L24>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with token expiring tomorrow
-
-`CommandCompletionService#CompletionEnd should allow calls with the correct ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L125>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with the correct ledger ID
-
-`CommandCompletionService#CompletionEnd should allow calls with 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L33>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Connect with `participant_admin` token
-
-`CommandCompletionService#CompletionEnd should deny calls with a random participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L143>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit calls with a random participant ID
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with the correct participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L137>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with the correct participant ID
-
-`CommandCompletionService#CompletionEnd should allow calls with freshly created user <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L74>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: allow calls with freshly created user
-
-`CommandCompletionService#CompletionEnd should deny calls with an expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L89>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit expired read/write token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with read/write token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L101>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with read/write token without expiration
-
-`CommandCompletionService#CompletionEnd should allow calls with admin token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L119>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with admin token without expiration
-
-`CommandCompletionService#CompletionEnd should deny calls with 'participant_admin' user token for another participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L66>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionEnd
-    :Attack Threat: Exploit 'participant_admin' user token for another participant node
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionEnd
-    
-
-`CommandCompletionService#CompletionEnd should allow calls with 'participant_admin' user token for this participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L57>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionEnd
-    :Happy Case: Ledger API client can connect with 'participant_admin' user token for this participant node
-
-
-
-MeteringReportAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`MeteringReportService#GetMeteringReport should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: MeteringReportService#GetMeteringReport
-    :Attack Actor: Ledger API client calling MeteringReportService#GetMeteringReport
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to MeteringReportService#GetMeteringReport
-    
-
-
-
-GetTimeAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TimeService#GetTime should deny calls with non-expired 'unknown_user' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L83>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit non-expired 'unknown_user' user token
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should deny calls with a random participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L143>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit calls with a random participant ID
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should allow calls with explicitly non-expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L24>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with token expiring tomorrow
-
-`TimeService#GetTime should allow calls with read/write token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L101>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with read/write token without expiration
-
-`TimeService#GetTime should deny calls with an expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L17>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit an expired read-only token
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should deny calls with a random ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L131>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit random ledger ID
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should allow calls with non-expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L40>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with non-expired `participant_admin` user token
-
-`TimeService#GetTime should deny calls with expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L48>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit an expired 'participant_admin' user token
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should allow calls with read-only token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L29>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with token without expiration
-
-`TimeService#GetTime should allow calls with explicitly non-expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L113>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with explicitly non-expired admin token
-
-`TimeService#GetTime should deny calls with an expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L89>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit expired read/write token
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should allow calls with the correct ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L125>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with the correct ledger ID
-
-`TimeService#GetTime should allow calls with admin token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L119>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with admin token without expiration
-
-`TimeService#GetTime should allow calls with 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L33>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Connect with `participant_admin` token
-
-`TimeService#GetTime should deny calls with an expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L107>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit expired admin token
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should allow calls with explicitly non-expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L95>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with explicitly non-expired read/write token
-
-`TimeService#GetTime should allow calls with 'participant_admin' user token for this participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L57>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with 'participant_admin' user token for this participant node
-
-`TimeService#GetTime should allow calls with the correct participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L137>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: Ledger API client can connect with the correct participant ID
-
-`TimeService#GetTime should deny calls with 'participant_admin' user token for another participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L66>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit 'participant_admin' user token for another participant node
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Attack Actor: Ledger API client calling TimeService#GetTime
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TimeService#GetTime
-    
-
-`TimeService#GetTime should allow calls with freshly created user <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L74>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TimeService#GetTime
-    :Happy Case: allow calls with freshly created user
-
-
-
-AllocatePartyAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`PartyManagementService#AllocateParty should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: PartyManagementService#AllocateParty
-    :Attack Actor: Ledger API client calling PartyManagementService#AllocateParty
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to PartyManagementService#AllocateParty
-    
-
-
-
-GetUserWithGivenUserIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`UserManagementService#GetUser(given-user-id) should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: UserManagementService#GetUser(given-user-id)
-    :Attack Actor: Ledger API client calling UserManagementService#GetUser(given-user-id)
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to UserManagementService#GetUser(given-user-id)
-    
-
-
-
-GetTransactionTreesAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetTransactionTrees should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetTransactionTrees
-    :Attack Actor: Ledger API client calling TransactionService#GetTransactionTrees
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetTransactionTrees
-    
-
-
-
-SubmitAndWaitMultiPartyAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandService#SubmitAndWait should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandService#SubmitAndWait
-    :Attack Actor: Ledger API client calling CommandService#SubmitAndWait
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandService#SubmitAndWait
-    
-
-
-
-ListKnownPackagesAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`PackageManagementService#ListKnownPackages should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: PackageManagementService#ListKnownPackages
-    :Attack Actor: Ledger API client calling PackageManagementService#ListKnownPackages
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to PackageManagementService#ListKnownPackages
-    
-
-
-
-GetLedgerEndAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetLedgerEnd should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should allow calls with the correct ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L125>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with the correct ledger ID
-
-`TransactionService#GetLedgerEnd should allow calls with non-expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L40>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with non-expired `participant_admin` user token
-
-`TransactionService#GetLedgerEnd should deny calls with an expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L107>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit expired admin token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should deny calls with an expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L17>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit an expired read-only token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should allow calls with 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L33>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Connect with `participant_admin` token
-
-`TransactionService#GetLedgerEnd should deny calls with an expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L89>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit expired read/write token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should allow calls with 'participant_admin' user token for this participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L57>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with 'participant_admin' user token for this participant node
-
-`TransactionService#GetLedgerEnd should allow calls with the correct participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L137>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with the correct participant ID
-
-`TransactionService#GetLedgerEnd should deny calls with 'participant_admin' user token for another participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L66>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit 'participant_admin' user token for another participant node
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should allow calls with admin token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L119>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with admin token without expiration
-
-`TransactionService#GetLedgerEnd should allow calls with freshly created user <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L74>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: allow calls with freshly created user
-
-`TransactionService#GetLedgerEnd should deny calls with expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L48>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit an expired 'participant_admin' user token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should allow calls with explicitly non-expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L24>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with token expiring tomorrow
-
-`TransactionService#GetLedgerEnd should allow calls with read/write token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L101>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with read/write token without expiration
-
-`TransactionService#GetLedgerEnd should allow calls with read-only token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L29>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with token without expiration
-
-`TransactionService#GetLedgerEnd should allow calls with explicitly non-expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L95>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with explicitly non-expired read/write token
-
-`TransactionService#GetLedgerEnd should deny calls with a random participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L143>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit calls with a random participant ID
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should allow calls with explicitly non-expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L113>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Happy Case: Ledger API client can connect with explicitly non-expired admin token
-
-`TransactionService#GetLedgerEnd should deny calls with non-expired 'unknown_user' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L83>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit non-expired 'unknown_user' user token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-`TransactionService#GetLedgerEnd should deny calls with a random ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L131>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetLedgerEnd
-    :Attack Actor: Ledger API client calling TransactionService#GetLedgerEnd
-    :Attack Threat: Exploit random ledger ID
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetLedgerEnd
-    
-
-
-
-SubmitAndWaitAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandService#SubmitAndWait should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandService#SubmitAndWait
-    :Attack Actor: Ledger API client calling CommandService#SubmitAndWait
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandService#SubmitAndWait
-    
-
-
-
-GetTransactionByEventIdAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetTransactionByEventId should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetTransactionByEventId
-    :Attack Actor: Ledger API client calling TransactionService#GetTransactionByEventId
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetTransactionByEventId
-    
-
-
-
-GetTransactionsAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`TransactionService#GetTransactions should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: TransactionService#GetTransactions
-    :Attack Actor: Ledger API client calling TransactionService#GetTransactions
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to TransactionService#GetTransactions
-    
-
-
-
-GetLedgerIdentityAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`LedgerIdentityService#GetLedgerIdentity should allow calls with the correct participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L137>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with the correct participant ID
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L33>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Connect with `participant_admin` token
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with the correct ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L125>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with the correct ledger ID
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with read/write token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L101>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with read/write token without expiration
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L48>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit an expired 'participant_admin' user token
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with admin token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L119>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with admin token without expiration
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with 'participant_admin' user token for another participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L66>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit 'participant_admin' user token for another participant node
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with non-expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L40>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with non-expired `participant_admin` user token
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with an expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L17>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit an expired read-only token
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with 'participant_admin' user token for this participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L57>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with 'participant_admin' user token for this participant node
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with a random participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L143>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit calls with a random participant ID
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with a random ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L131>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit random ledger ID
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L113>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with explicitly non-expired admin token
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with freshly created user <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L74>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: allow calls with freshly created user
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with read-only token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L29>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with token without expiration
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with an expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L89>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit expired read/write token
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L95>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with explicitly non-expired read/write token
-
-`LedgerIdentityService#GetLedgerIdentity should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with an expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L107>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit expired admin token
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-`LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L24>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Happy Case: Ledger API client can connect with token expiring tomorrow
-
-`LedgerIdentityService#GetLedgerIdentity should deny calls with non-expired 'unknown_user' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L83>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerIdentityService#GetLedgerIdentity
-    :Attack Actor: Ledger API client calling LedgerIdentityService#GetLedgerIdentity
-    :Attack Threat: Exploit non-expired 'unknown_user' user token
-    :Attack Mitigation: Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity
-    
-
-
-
-CompletionStreamAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandCompletionService#CompletionStream should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandCompletionService#CompletionStream
-    :Attack Actor: Ledger API client calling CommandCompletionService#CompletionStream
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandCompletionService#CompletionStream
-    
-
-
-
-GetLedgerConfigurationAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L95>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with explicitly non-expired read/write token
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with 'participant_admin' user token for another participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L66>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit 'participant_admin' user token for another participant node
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with the correct ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L125>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with the correct ledger ID
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L17>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit an expired read-only token
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L48>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit an expired 'participant_admin' user token
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired read/write token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L89>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit expired read/write token
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with read-only token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L29>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with token without expiration
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired read-only token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L24>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with token expiring tomorrow
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with 'participant_admin' user token for this participant node <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L57>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with 'participant_admin' user token for this participant node
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with freshly created user <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L74>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: allow calls with freshly created user
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L33>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Connect with `participant_admin` token
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with a random ledger ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L131>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit random ledger ID
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with non-expired 'unknown_user' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L83>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit non-expired 'unknown_user' user token
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with the correct participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L137>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with the correct participant ID
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L113>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with explicitly non-expired admin token
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with a random participant ID <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L143>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit calls with a random participant ID
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with non-expired 'participant_admin' user token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L40>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with non-expired `participant_admin` user token
-
-`LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired admin token <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L107>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Actor: Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration
-    :Attack Threat: Exploit expired admin token
-    :Attack Mitigation: Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration
-    
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with admin token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L119>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with admin token without expiration
-
-`LedgerConfigurationService#GetLedgerConfiguration should allow calls with read/write token without expiration <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala#L101>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: LedgerConfigurationService#GetLedgerConfiguration
-    :Happy Case: Ledger API client can connect with read/write token without expiration
-
-
-
-SubmitMultiPartyAuthIT
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-`CommandSubmissionService#Submit should deny unauthenticated calls <https://github.com/digital-asset/daml/blob/whatever/ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala#L22>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    :Asset: CommandSubmissionService#Submit
-    :Attack Actor: Ledger API client calling CommandSubmissionService#Submit
-    :Attack Threat: Exploit a missing token
-    :Attack Mitigation: Refuse to connect the user to CommandSubmissionService#Submit
-    
-
-
+testSuiteName,testDescription,property,asset,attacker,threat,mitigation,happyCase,unimplemented,ignored,testPath
+GetFlatTransactionByIdAuthIT,TransactionService#GetFlatTransactionById should deny unauthenticated calls,Authorization,TransactionService#GetFlatTransactionById,Ledger API client calling TransactionService#GetFlatTransactionById,Exploit a missing token,Refuse to connect the user to TransactionService#GetFlatTransactionById,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+ListKnownPartiesAuthIT,PartyManagementService#ListKnownParties should deny unauthenticated calls,Authorization,PartyManagementService#ListKnownParties,Ledger API client calling PartyManagementService#ListKnownParties,Exploit a missing token,Refuse to connect the user to PartyManagementService#ListKnownParties,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+CreateUserAuthIT,UserManagementService#CreateUser should deny unauthenticated calls,Authorization,UserManagementService#CreateUser,Ledger API client calling UserManagementService#CreateUser,Exploit a missing token,Refuse to connect the user to UserManagementService#CreateUser,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with the correct participant ID,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with the correct participant ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:137
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with 'participant_admin' user token,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Connect with `participant_admin` token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:33
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with the correct ledger ID,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with the correct ledger ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:125
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with read/write token without expiration,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with read/write token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:101
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with expired 'participant_admin' user token,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit an expired 'participant_admin' user token,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:48
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with admin token without expiration,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with admin token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:119
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with 'participant_admin' user token for another participant node,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit 'participant_admin' user token for another participant node,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:66
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with non-expired 'participant_admin' user token,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with non-expired `participant_admin` user token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:40
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with an expired read-only token,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit an expired read-only token,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:17
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with 'participant_admin' user token for this participant node,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with 'participant_admin' user token for this participant node,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:57
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with a random participant ID,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit calls with a random participant ID,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:143
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with a random ledger ID,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit random ledger ID,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:131
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired admin token,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with explicitly non-expired admin token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:113
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with freshly created user,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,allow calls with freshly created user,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:74
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with read-only token without expiration,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:29
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with an expired read/write token,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit expired read/write token,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:89
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired read/write token,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with explicitly non-expired read/write token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:95
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny unauthenticated calls,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit a missing token,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with an expired admin token,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit expired admin token,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:107
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired read-only token,Authorization,LedgerIdentityService#GetLedgerIdentity,,,,Ledger API client can connect with token expiring tomorrow,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:24
+GetLedgerIdentityAuthIT,LedgerIdentityService#GetLedgerIdentity should deny calls with non-expired 'unknown_user' user token,Authorization,LedgerIdentityService#GetLedgerIdentity,Ledger API client calling LedgerIdentityService#GetLedgerIdentity,Exploit non-expired 'unknown_user' user token,Refuse to connect the user to LedgerIdentityService#GetLedgerIdentity,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:83
+ListKnownPackagesAuthIT,PackageManagementService#ListKnownPackages should deny unauthenticated calls,Authorization,PackageManagementService#ListKnownPackages,Ledger API client calling PackageManagementService#ListKnownPackages,Exploit a missing token,Refuse to connect the user to PackageManagementService#ListKnownPackages,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitAndWaitAuthIT,CommandService#SubmitAndWait should deny unauthenticated calls,Authorization,CommandService#SubmitAndWait,Ledger API client calling CommandService#SubmitAndWait,Exploit a missing token,Refuse to connect the user to CommandService#SubmitAndWait,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitAuthIT,CommandSubmissionService#Submit should deny unauthenticated calls,Authorization,CommandSubmissionService#Submit,Ledger API client calling CommandSubmissionService#Submit,Exploit a missing token,Refuse to connect the user to CommandSubmissionService#Submit,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitAndWaitMultiPartyAuthIT,CommandService#SubmitAndWait should deny unauthenticated calls,Authorization,CommandService#SubmitAndWait,Ledger API client calling CommandService#SubmitAndWait,Exploit a missing token,Refuse to connect the user to CommandService#SubmitAndWait,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitAndWaitForTransactionAuthIT,CommandService#SubmitAndWaitForTransaction should deny unauthenticated calls,Authorization,CommandService#SubmitAndWaitForTransaction,Ledger API client calling CommandService#SubmitAndWaitForTransaction,Exploit a missing token,Refuse to connect the user to CommandService#SubmitAndWaitForTransaction,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetFlatTransactionByEventIdAuthIT,TransactionService#GetFlatTransactionByEventId should deny unauthenticated calls,Authorization,TransactionService#GetFlatTransactionByEventId,Ledger API client calling TransactionService#GetFlatTransactionByEventId,Exploit a missing token,Refuse to connect the user to TransactionService#GetFlatTransactionByEventId,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetTransactionsAuthIT,TransactionService#GetTransactions should deny unauthenticated calls,Authorization,TransactionService#GetTransactions,Ledger API client calling TransactionService#GetTransactions,Exploit a missing token,Refuse to connect the user to TransactionService#GetTransactions,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired read/write token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with explicitly non-expired read/write token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:95
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with 'participant_admin' user token for another participant node,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit 'participant_admin' user token for another participant node,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:66
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with the correct ledger ID,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with the correct ledger ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:125
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired read-only token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit an expired read-only token,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:17
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with expired 'participant_admin' user token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit an expired 'participant_admin' user token,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:48
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny unauthenticated calls,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit a missing token,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired read/write token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit expired read/write token,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:89
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with read-only token without expiration,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:29
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired read-only token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with token expiring tomorrow,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:24
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with 'participant_admin' user token for this participant node,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with 'participant_admin' user token for this participant node,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:57
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with freshly created user,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,allow calls with freshly created user,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:74
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with 'participant_admin' user token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Connect with `participant_admin` token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:33
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with a random ledger ID,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit random ledger ID,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:131
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with non-expired 'unknown_user' user token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit non-expired 'unknown_user' user token,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:83
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with the correct participant ID,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with the correct participant ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:137
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired admin token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with explicitly non-expired admin token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:113
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with a random participant ID,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit calls with a random participant ID,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:143
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with non-expired 'participant_admin' user token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with non-expired `participant_admin` user token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:40
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired admin token,Authorization,LedgerConfigurationService#GetLedgerConfiguration,Ledger API client calling LedgerConfigurationService#GetLedgerConfiguration,Exploit expired admin token,Refuse to connect the user to LedgerConfigurationService#GetLedgerConfiguration,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:107
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with admin token without expiration,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with admin token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:119
+GetLedgerConfigurationAuthIT,LedgerConfigurationService#GetLedgerConfiguration should allow calls with read/write token without expiration,Authorization,LedgerConfigurationService#GetLedgerConfiguration,,,,Ledger API client can connect with read/write token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:101
+GetActiveContractsAuthIT,ActiveContractsService#GetActiveContracts should deny unauthenticated calls,Authorization,ActiveContractsService#GetActiveContracts,Ledger API client calling ActiveContractsService#GetActiveContracts,Exploit a missing token,Refuse to connect the user to ActiveContractsService#GetActiveContracts,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetUserWithGivenUserIdAuthIT,UserManagementService#GetUser(given-user-id) should deny unauthenticated calls,Authorization,UserManagementService#GetUser(given-user-id),Ledger API client calling UserManagementService#GetUser(given-user-id),Exploit a missing token,Refuse to connect the user to UserManagementService#GetUser(given-user-id),,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny unauthenticated calls,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit a missing token,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with the correct ledger ID,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with the correct ledger ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:125
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with non-expired 'participant_admin' user token,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with non-expired `participant_admin` user token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:40
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with an expired admin token,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit expired admin token,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:107
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with an expired read-only token,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit an expired read-only token,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:17
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with 'participant_admin' user token,Authorization,TransactionService#GetLedgerEnd,,,,Connect with `participant_admin` token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:33
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with an expired read/write token,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit expired read/write token,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:89
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with 'participant_admin' user token for this participant node,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with 'participant_admin' user token for this participant node,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:57
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with the correct participant ID,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with the correct participant ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:137
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with 'participant_admin' user token for another participant node,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit 'participant_admin' user token for another participant node,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:66
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with admin token without expiration,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with admin token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:119
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with freshly created user,Authorization,TransactionService#GetLedgerEnd,,,,allow calls with freshly created user,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:74
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with expired 'participant_admin' user token,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit an expired 'participant_admin' user token,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:48
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with explicitly non-expired read-only token,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with token expiring tomorrow,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:24
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with read/write token without expiration,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with read/write token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:101
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with read-only token without expiration,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:29
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with explicitly non-expired read/write token,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with explicitly non-expired read/write token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:95
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with a random participant ID,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit calls with a random participant ID,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:143
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should allow calls with explicitly non-expired admin token,Authorization,TransactionService#GetLedgerEnd,,,,Ledger API client can connect with explicitly non-expired admin token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:113
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with non-expired 'unknown_user' user token,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit non-expired 'unknown_user' user token,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:83
+GetLedgerEndAuthIT,TransactionService#GetLedgerEnd should deny calls with a random ledger ID,Authorization,TransactionService#GetLedgerEnd,Ledger API client calling TransactionService#GetLedgerEnd,Exploit random ledger ID,Refuse to connect the user to TransactionService#GetLedgerEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:131
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with expired 'participant_admin' user token,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit an expired 'participant_admin' user token,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:48
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with non-expired 'participant_admin' user token,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with non-expired `participant_admin` user token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:40
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with an expired admin token,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit expired admin token,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:107
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with non-expired 'unknown_user' user token,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit non-expired 'unknown_user' user token,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:83
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired admin token,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with explicitly non-expired admin token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:113
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny unauthenticated calls,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit a missing token,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with read-only token without expiration,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:29
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with a random ledger ID,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit random ledger ID,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:131
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired read/write token,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with explicitly non-expired read/write token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:95
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with an expired read-only token,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit an expired read-only token,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:17
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired read-only token,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with token expiring tomorrow,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:24
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with the correct ledger ID,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with the correct ledger ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:125
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with 'participant_admin' user token,Authorization,CommandCompletionService#CompletionEnd,,,,Connect with `participant_admin` token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:33
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with a random participant ID,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit calls with a random participant ID,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:143
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with the correct participant ID,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with the correct participant ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:137
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with freshly created user,Authorization,CommandCompletionService#CompletionEnd,,,,allow calls with freshly created user,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:74
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with an expired read/write token,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit expired read/write token,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:89
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with read/write token without expiration,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with read/write token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:101
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with admin token without expiration,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with admin token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:119
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should deny calls with 'participant_admin' user token for another participant node,Authorization,CommandCompletionService#CompletionEnd,Ledger API client calling CommandCompletionService#CompletionEnd,Exploit 'participant_admin' user token for another participant node,Refuse to connect the user to CommandCompletionService#CompletionEnd,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:66
+CompletionEndAuthIT,CommandCompletionService#CompletionEnd should allow calls with 'participant_admin' user token for this participant node,Authorization,CommandCompletionService#CompletionEnd,,,,Ledger API client can connect with 'participant_admin' user token for this participant node,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:57
+GetTransactionTreesAuthIT,TransactionService#GetTransactionTrees should deny unauthenticated calls,Authorization,TransactionService#GetTransactionTrees,Ledger API client calling TransactionService#GetTransactionTrees,Exploit a missing token,Refuse to connect the user to TransactionService#GetTransactionTrees,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetTransactionByEventIdAuthIT,TransactionService#GetTransactionByEventId should deny unauthenticated calls,Authorization,TransactionService#GetTransactionByEventId,Ledger API client calling TransactionService#GetTransactionByEventId,Exploit a missing token,Refuse to connect the user to TransactionService#GetTransactionByEventId,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitMultiPartyAuthIT,CommandSubmissionService#Submit should deny unauthenticated calls,Authorization,CommandSubmissionService#Submit,Ledger API client calling CommandSubmissionService#Submit,Exploit a missing token,Refuse to connect the user to CommandSubmissionService#Submit,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitAndWaitForTransactionIdAuthIT,CommandService#SubmitAndWaitForTransactionId should deny unauthenticated calls,Authorization,CommandService#SubmitAndWaitForTransactionId,Ledger API client calling CommandService#SubmitAndWaitForTransactionId,Exploit a missing token,Refuse to connect the user to CommandService#SubmitAndWaitForTransactionId,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+SubmitAndWaitForTransactionTreeAuthIT,CommandService#SubmitAndWaitForTransactionTree should deny unauthenticated calls,Authorization,CommandService#SubmitAndWaitForTransactionTree,Ledger API client calling CommandService#SubmitAndWaitForTransactionTree,Exploit a missing token,Refuse to connect the user to CommandService#SubmitAndWaitForTransactionTree,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetTimeAuthIT,TimeService#GetTime should deny calls with non-expired 'unknown_user' user token,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit non-expired 'unknown_user' user token,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:83
+GetTimeAuthIT,TimeService#GetTime should deny calls with a random participant ID,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit calls with a random participant ID,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:143
+GetTimeAuthIT,TimeService#GetTime should allow calls with explicitly non-expired read-only token,Authorization,TimeService#GetTime,,,,Ledger API client can connect with token expiring tomorrow,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:24
+GetTimeAuthIT,TimeService#GetTime should allow calls with read/write token without expiration,Authorization,TimeService#GetTime,,,,Ledger API client can connect with read/write token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:101
+GetTimeAuthIT,TimeService#GetTime should deny calls with an expired read-only token,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit an expired read-only token,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:17
+GetTimeAuthIT,TimeService#GetTime should deny calls with a random ledger ID,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit random ledger ID,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:131
+GetTimeAuthIT,TimeService#GetTime should allow calls with non-expired 'participant_admin' user token,Authorization,TimeService#GetTime,,,,Ledger API client can connect with non-expired `participant_admin` user token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:40
+GetTimeAuthIT,TimeService#GetTime should deny calls with expired 'participant_admin' user token,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit an expired 'participant_admin' user token,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:48
+GetTimeAuthIT,TimeService#GetTime should allow calls with read-only token without expiration,Authorization,TimeService#GetTime,,,,Ledger API client can connect with token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:29
+GetTimeAuthIT,TimeService#GetTime should allow calls with explicitly non-expired admin token,Authorization,TimeService#GetTime,,,,Ledger API client can connect with explicitly non-expired admin token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:113
+GetTimeAuthIT,TimeService#GetTime should deny calls with an expired read/write token,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit expired read/write token,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:89
+GetTimeAuthIT,TimeService#GetTime should allow calls with the correct ledger ID,Authorization,TimeService#GetTime,,,,Ledger API client can connect with the correct ledger ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:125
+GetTimeAuthIT,TimeService#GetTime should allow calls with admin token without expiration,Authorization,TimeService#GetTime,,,,Ledger API client can connect with admin token without expiration,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:119
+GetTimeAuthIT,TimeService#GetTime should allow calls with 'participant_admin' user token,Authorization,TimeService#GetTime,,,,Connect with `participant_admin` token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:33
+GetTimeAuthIT,TimeService#GetTime should deny calls with an expired admin token,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit expired admin token,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:107
+GetTimeAuthIT,TimeService#GetTime should allow calls with explicitly non-expired read/write token,Authorization,TimeService#GetTime,,,,Ledger API client can connect with explicitly non-expired read/write token,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:95
+GetTimeAuthIT,TimeService#GetTime should allow calls with 'participant_admin' user token for this participant node,Authorization,TimeService#GetTime,,,,Ledger API client can connect with 'participant_admin' user token for this participant node,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:57
+GetTimeAuthIT,TimeService#GetTime should allow calls with the correct participant ID,Authorization,TimeService#GetTime,,,,Ledger API client can connect with the correct participant ID,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:137
+GetTimeAuthIT,TimeService#GetTime should deny calls with 'participant_admin' user token for another participant node,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit 'participant_admin' user token for another participant node,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:66
+GetTimeAuthIT,TimeService#GetTime should deny unauthenticated calls,Authorization,TimeService#GetTime,Ledger API client calling TimeService#GetTime,Exploit a missing token,Refuse to connect the user to TimeService#GetTime,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetTimeAuthIT,TimeService#GetTime should allow calls with freshly created user,Authorization,TimeService#GetTime,,,,allow calls with freshly created user,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala:74
+ListUserRightsWithGivenUserIdAuthIT,UserManagementService#ListUserRights(given-user-id) should deny unauthenticated calls,Authorization,UserManagementService#ListUserRights(given-user-id),Ledger API client calling UserManagementService#ListUserRights(given-user-id),Exploit a missing token,Refuse to connect the user to UserManagementService#ListUserRights(given-user-id),,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+AllocatePartyAuthIT,PartyManagementService#AllocateParty should deny unauthenticated calls,Authorization,PartyManagementService#AllocateParty,Ledger API client calling PartyManagementService#AllocateParty,Exploit a missing token,Refuse to connect the user to PartyManagementService#AllocateParty,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+MeteringReportAuthIT,MeteringReportService#GetMeteringReport should deny unauthenticated calls,Authorization,MeteringReportService#GetMeteringReport,Ledger API client calling MeteringReportService#GetMeteringReport,Exploit a missing token,Refuse to connect the user to MeteringReportService#GetMeteringReport,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+CompletionStreamAuthIT,CommandCompletionService#CompletionStream should deny unauthenticated calls,Authorization,CommandCompletionService#CompletionStream,Ledger API client calling CommandCompletionService#CompletionStream,Exploit a missing token,Refuse to connect the user to CommandCompletionService#CompletionStream,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+GetTransactionByIdAuthIT,TransactionService#GetTransactionById should deny unauthenticated calls,Authorization,TransactionService#GetTransactionById,Ledger API client calling TransactionService#GetTransactionById,Exploit a missing token,Refuse to connect the user to TransactionService#GetTransactionById,,false,false,ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/SecuredServiceCallAuthTests.scala:22
+TransactionServiceVisibilityIT,Trees should be served according to the blinding/projection rules,Privacy,Transaction Tree,,,,Transaction trees are served according to the blinding/projection rules,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:44
+TransactionServiceVisibilityIT,Data should not be exposed to parties unrelated to a transaction,Privacy,Transaction,,,,Transactions are not exposed to parties unrelated to a transaction,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:148
+TransactionServiceVisibilityIT,A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty,Privacy,Transaction Tree,,,,Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:169
+TransactionServiceVisibilityIT,A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty,Privacy,Flat Transaction,,,,A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:207
+TransactionServiceVisibilityIT,Not disclose create to non-chosen branching signatory,Privacy,Flat Transaction,,,,Transaction with a create event is not disclosed to non-chosen branching signatory,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:246
+TransactionServiceVisibilityIT,Disclose create to the chosen branching controller,Privacy,Flat Transaction,,,,Transaction with a create event is disclosed to chosen branching controller,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:276
+TransactionServiceVisibilityIT,Not disclose create to non-chosen branching controller,Privacy,Flat Transaction,,,,Transaction with a create event is not disclosed to non-chosen branching controller,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:317
+TransactionServiceVisibilityIT,Disclose create to observers,Privacy,Flat Transaction,,,,Transaction with a create event is disclosed to observers,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:344
+TransactionServiceVisibilityIT,Transactions in the flat transactions stream should be disclosed only to the stakeholders,Privacy,Transaction,,,,Transactions in the flat transactions stream are disclosed only to the stakeholders,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:371
+TransactionServiceVisibilityIT,Transactions in the flat transactions stream should not leak witnesses,Privacy,Transaction,,,,Transactions in the flat transactions stream are not leaking witnesses,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:444
+TransactionServiceVisibilityIT,Transactions in the transaction trees stream should not leak witnesses,Privacy,Transaction,,,,Transactions in the transaction trees stream are not leaking witnesses,false,false,ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/TransactionServiceVisibilityIT.scala:476
