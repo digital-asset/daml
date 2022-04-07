@@ -10,7 +10,7 @@ load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
 unpack_tar(
     name = "unpack",
-    src = "@da-ghc//:ghc-lib-{}.tar.gz".format(GHC_LIB_VERSION),
+    src = "@da-ghc//:ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION),
     outs = [
         "srcs/LICENSE",
         "srcs/compiler/",
