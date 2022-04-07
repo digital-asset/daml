@@ -3,7 +3,7 @@
 
 package com.daml.lf.codegen.lf
 
-import com.daml.lf.iface.{DefTemplate, Record, Type}
+import com.daml.lf.iface.{DefTemplate, Type, Record}
 
 final case class DefTemplateWithRecord(
     `type`: Record[Type],

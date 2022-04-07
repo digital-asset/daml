@@ -124,9 +124,9 @@ object CodeGen {
   private def combineInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     EnvironmentInterface.fromReaderInterfaces(dar)
 
-  private def templateCount(interface: EnvironmentInterface): Int =
-    interface.typeDecls.count {
-      case (_, InterfaceType.Template(_, _)) => true
+  private def templateCount(types: Iterable[(_, InterfaceType)]): Int =
+    types.count {
+      case (_, _: InterfaceType.Template) => true
       case _ => false
     }
 
@@ -136,8 +136,8 @@ object CodeGen {
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(typeDeclarationsToGenerate))
 
-    val totalTemplates = templateCount(util.iface)
-    val generated = typeDeclarationsToGenerate.templateIds.size
+    val totalTemplates = templateCount(util.iface.typeDecls)
+    val generated = templateCount(typeDeclarationsToGenerate.interfaceTypes)
     val notGenerated = totalTemplates - generated
 
     val errorMessages = typeDeclarationsToGenerate.errors.map(_.msg).mkString("\n")
