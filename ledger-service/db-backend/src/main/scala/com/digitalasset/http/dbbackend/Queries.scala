@@ -583,6 +583,22 @@ object Queries {
     (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
   }
 
+  // The fixed-point reached by the union of roots and iteratively invoking
+  // `walk` with the fresh Ps and accumulation of all Ps reached so far.
+  private[dbbackend] def reachableParties[P, M[_]: cats.Monad](
+      roots: Set[P]
+  )(walk: (Set[P], Set[P]) => M[Set[P]]): M[Set[P]] = {
+    import cats.syntax.applicative._, cats.syntax.flatMap._
+    def go(direct: Set[P], indirect: Set[P]): M[Set[P]] =
+      walk(direct, indirect) flatMap { added =>
+        val newIndirect = indirect union direct
+        val newP = added diff newIndirect
+        if (newP.isEmpty) newIndirect.pure[M]
+        else go(newP, newIndirect)
+      }
+    go(roots, Set.empty)
+  }
+
   import doobie.util.invariant.InvalidValue
 
   @throws[InvalidValue[_, _]]
