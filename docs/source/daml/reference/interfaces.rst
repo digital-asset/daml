@@ -78,17 +78,19 @@ Interface choices
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
-   :start-after: -- INTERFACE_CHOICE_BEGIN
-   :end-before: -- INTERFACE_CHOICE_END
+   :start-after: -- INTERFACE_CHOICES_BEGIN
+   :end-before: -- INTERFACE_CHOICES_END
 
 - Interface choices work in a very similar way to template choices. Any contract
   of an implementing interface will grant the choice to the controlling party.
 - Interface methods can be used to define the controller of a choice
   (e.g. ``method1``) as well as the actions that run when the choice is
   *exercised* (e.g. ``method2`` and ``method3``).
-- As for template choices, the ``choice`` keyword can be prefixed with one of
-  ``preconsuming``, ``postconsuming`` or ``nonconsuming`` to further specify
-  the behaviour of the choice when exercised.
+- As for template choices, the ``choice`` keyword can be optionally prefixed
+  with the ``nonconsuming`` keyword to specify that the contract will not be
+  consumed when the choice is exercised. If not specified, the choice will be
+  ``consuming``. Note that the ``preconsuming`` and ``postconsuming`` qualifiers
+  are not supported on interface choices.
 - See :doc:`choices` for full reference information, but note that
   controller-first syntax is not supported for interface choices.
 

@@ -19,7 +19,7 @@ interface MyInterface where
   ensure myGuard (method1 this)
 -- INTERFACE_ENSURE_END
 
--- INTERFACE_CHOICE_BEGIN
+-- INTERFACE_CHOICES_BEGIN
   choice MyChoice : (ContractId MyInterface, Int)
     with
       argument1 : Bool
@@ -29,7 +29,12 @@ interface MyInterface where
       let n0 = method2 this
       let n1 = method3 this argument1 argument2 n0
       pure (self, n1)
--- INTERFACE_CHOICE_END
+
+  nonconsuming choice MyNonConsumingChoice : Int
+    controller method1 this
+    do
+      pure $ method2 this
+-- INTERFACE_CHOICES_END
 
 -- INTERFACE_METHODS_TOP_LEVEL_BEGIN
 func1 : Implements t MyInterface => t -> Party
