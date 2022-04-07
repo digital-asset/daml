@@ -9,6 +9,7 @@ import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
@@ -28,12 +29,7 @@ import com.daml.platform.store.appendonlydao.{
   LedgerReadDao,
 }
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{
-  EventsBuffer,
-  LedgerEndCache,
-  MutableCacheBackedContractStore,
-  MutableLedgerEndCache,
-}
+import com.daml.platform.store.cache.{EventsBuffer, LedgerEndCache, MutableCacheBackedContractStore}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
@@ -64,13 +60,13 @@ private[platform] case class IndexServiceBuilder(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
-    updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
+    indexedUpdatesSource: Source[(Offset, Update), NotUsed],
     stringInterningView: StringInterningView,
     ledgerEnd: LedgerEnd,
     ledgerEndCache: LedgerEndCache,
     generalDispatcher: Dispatcher[Offset],
     ledgerDao: LedgerReadDao,
-    buffersUpdaterCache: MutableLedgerEndCache,
+    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -89,6 +85,7 @@ private[platform] case class IndexServiceBuilder(
         maxContractStateCacheSize,
         maxContractKeyStateCacheSize,
       )(servicesExecutionContext, loggingContext)
+      updatesSource = indexedUpdatesSource.via(LedgerBuffersUpdater.flow(ledgerEnd.lastEventSeqId))
       (transactionsReader, completionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
         contractStore,
         ledgerDao,
@@ -156,7 +153,7 @@ private[platform] case class IndexServiceBuilder(
             updateTransactionsBuffer = transactionsBuffer.push,
             updateCompletionsBuffer = completionsBuffer.push,
             updateMutableCache = contractStore.push,
-            updateBuffersCache = buffersUpdaterCache.set,
+            updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
             executionContext = servicesExecutionContext,
             metrics = metrics,
           )

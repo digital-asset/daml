@@ -14,20 +14,17 @@ object BatchingParallelIngestionPipe {
       submissionBatchSize: Long,
       batchWithinMillis: Long,
       inputMappingParallelism: Int,
-      inputMapper: Iterable[IN] => Future[IN_BATCH],
-      seqMapperZero: IN_BATCH,
-      seqMapper: (IN_BATCH, IN_BATCH) => IN_BATCH,
+      inputMapper: Iterable[IN] => Future[(Iterable[IN], IN_BATCH)],
+      seqMapperZero: (Iterable[IN], IN_BATCH),
+      seqMapper: ((Iterable[IN], IN_BATCH), (Iterable[IN], IN_BATCH)) => (Iterable[IN], IN_BATCH),
       batchingParallelism: Int,
-      batcher: IN_BATCH => Future[DB_BATCH],
+      batcher: ((Iterable[IN], IN_BATCH)) => Future[(Iterable[IN], DB_BATCH)],
       ingestingParallelism: Int,
-      ingester: DB_BATCH => Future[DB_BATCH],
-      tailer: (DB_BATCH, DB_BATCH) => DB_BATCH,
-      keepAlive: () => DB_BATCH,
-      synchronizeLedgerEndTailIngestion: () => DB_BATCH => Iterator[DB_BATCH],
-      tailingRateLimitPerSecond: Int,
-      ingestTail: DB_BATCH => Future[DB_BATCH],
-  )(source: Source[IN, NotUsed]): Source[Unit, NotUsed] = {
-    val _ = (tailingRateLimitPerSecond, batchWithinMillis) // TODO LLP
+      ingester: ((Iterable[IN], DB_BATCH)) => Future[(Iterable[IN], DB_BATCH)],
+      tailer: ((Iterable[IN], DB_BATCH), (Iterable[IN], DB_BATCH)) => (Iterable[IN], DB_BATCH),
+      ingestTail: ((Iterable[IN], DB_BATCH)) => Future[Iterable[IN]],
+  )(source: Source[IN, NotUsed]): Source[IN, NotUsed] = {
+    val _ = batchWithinMillis
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
@@ -42,12 +39,10 @@ object BatchingParallelIngestionPipe {
       // Stage 5: Inserting data into the database. Almost no CPU load here, threads are executing SQL commands over JDBC, and waiting for the result. This defines the parallelism on the SQL database side, same amount of PostgreSQL Backend processes will do the ingestion work.
       .async
       .mapAsync(ingestingParallelism)(ingester)
-      .keepAlive(10.millis, keepAlive)
       // Stage 6: Preparing data sequentially for throttled mutations in database (tracking the ledger-end, corresponding sequential event ids and latest-at-the-time configurations)
-      .statefulMapConcat(synchronizeLedgerEndTailIngestion)
       .conflate(tailer)
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
-      .map(_ => ())
+      .flatMapConcat(out => Source.fromIterator(() => out.iterator))
   }
 }

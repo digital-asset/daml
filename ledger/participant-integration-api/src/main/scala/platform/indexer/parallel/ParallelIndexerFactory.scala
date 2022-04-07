@@ -3,10 +3,11 @@
 
 package com.daml.platform.indexer.parallel
 
-import akka.stream.scaladsl.SourceQueueWithComplete
+import akka.NotUsed
+import akka.stream.scaladsl.Sink
 import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.ReadService
+import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -17,7 +18,6 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -45,7 +45,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      buffersUpdatesQueue: SourceQueueWithComplete[((Offset, Long), TransactionLogUpdate)],
+      indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -122,7 +122,6 @@ object ParallelIndexerFactory {
             readService = readService,
             ec = ec,
             mat = mat,
-            buffersUpdatesQueue = buffersUpdatesQueue,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,
@@ -130,6 +129,7 @@ object ParallelIndexerFactory {
               dbDispatcher = dbDispatcher,
               stringInterningView = stringInterningView,
               materializer = mat,
+              indexedUpdatesConsumer = indexedUpdatesConsumer,
             )
           )
         }

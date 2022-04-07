@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -22,16 +21,9 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationType,
   ExperimentalContractIds,
 }
-import com.daml.ledger.runner.common.{
-  Config,
-  ConfigProvider,
-  DumpIndexMetadata,
-  Mode,
-  ParticipantConfig,
-  ParticipantRunMode,
-}
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common._
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -39,11 +31,11 @@ import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
 
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.ExecutionContext
 
 final class Runner[T <: ReadWriteService, Extra](
@@ -184,9 +176,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                   stringInterningView = null,
-                  buffersUpdatesQueue = null,
-                  updateLedgerApiLedgerEnd = _ => (),
-                  buffersUpdaterCache = MutableLedgerEndCache(),
+                  indexedUpdatesConsumer = null,
                 ).acquire()
               } yield {
                 new HealthChecks(
@@ -227,13 +217,13 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
-                  updatesSource = null, // TODO LLP
                   stringInterningView = null, // TODO LLP
                   ledgerEnd = null, // TODO LLP
                   ledgerEndCache = null, // TODO LLP
                   generalDispatcher = null, // TODO LLP
                   ledgerReadDao = null, // TODO LLP
-                  buffersUpdaterCache = MutableLedgerEndCache(), // TODO LLP
+                  updateLedgerApiLedgerEnd = null,
+                  indexedUpdatesSource = null,
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,

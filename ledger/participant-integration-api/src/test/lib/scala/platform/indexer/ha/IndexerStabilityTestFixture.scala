@@ -3,7 +3,9 @@
 
 package com.daml.platform.indexer.ha
 
+import akka.NotUsed
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -12,10 +14,10 @@ import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingCo
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 
 import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Stores a running indexer and the read service the indexer is reading from.
   * The read service is used exclusively by this indexer.
@@ -101,10 +103,10 @@ object IndexerStabilityTestFixture {
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-                    stringInterningView = null, // TODO LLP
-                    buffersUpdatesQueue = null, // TODO LLP
-                    updateLedgerApiLedgerEnd = null, // TODO LLP
-                    buffersUpdaterCache = MutableLedgerEndCache(), // TODO LLP
+                    stringInterningView = new StringInterningView(
+                      loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
+                    ), // TODO LLP
+                    indexedUpdatesConsumer = Sink.ignore.mapMaterializedValue(_ => NotUsed),
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

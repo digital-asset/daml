@@ -11,6 +11,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.BuffersUpdater._
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
@@ -123,7 +124,7 @@ private[index] object BuffersUpdater {
       updateMutableCache: ContractStateEvent => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
-      updateBuffersCache: ((Offset, Long)) => Unit,
+      updateLedgerApiLedgerEnd: LedgerEnd => Unit,
       executionContext: ExecutionContext,
       metrics: Metrics,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
@@ -139,11 +140,11 @@ private[index] object BuffersUpdater {
       toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
       transactionLogUpdate match {
         case TransactionLogUpdate.TransactionAccepted(_, _, _, offset, events, _) =>
-          updateBuffersCache(offset -> events.last.eventSequentialId)
+          updateLedgerApiLedgerEnd(LedgerEnd(offset, events.last.eventSequentialId, -1))
         case TransactionLogUpdate.SubmissionRejected(offset, lastEventSeqId, _) =>
-          updateBuffersCache(offset -> lastEventSeqId)
+          updateLedgerApiLedgerEnd(LedgerEnd(offset, lastEventSeqId, -1))
         case TransactionLogUpdate.LedgerEndMarker(offset, lastEventSeqId) =>
-          updateBuffersCache(offset -> lastEventSeqId)
+          updateLedgerApiLedgerEnd(LedgerEnd(offset, lastEventSeqId, -1))
       }
     },
     metrics = metrics,
