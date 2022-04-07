@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -261,7 +260,7 @@ class IntegrityChecker[LogResult](
       ), // TODO LLP      metrics,
       metrics = metrics,
       lfValueTranslationCache,
-      indexedUpdatesConsumer = Sink.ignore.mapMaterializedValue(_ => NotUsed),
+      updateInMemoryBuffersFlow = null,
     )
     for {
       migrating <- ResourceOwner.forFuture(() =>

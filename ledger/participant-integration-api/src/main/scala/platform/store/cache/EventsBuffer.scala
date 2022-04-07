@@ -32,7 +32,7 @@ import scala.math.Ordering
   * @tparam O The offset type.
   * @tparam E The entry buffer type.
   */
-private[platform] final class EventsBuffer[E](
+final class EventsBuffer[E](
     maxBufferSize: Long,
     metrics: Metrics,
     bufferQualifier: String,

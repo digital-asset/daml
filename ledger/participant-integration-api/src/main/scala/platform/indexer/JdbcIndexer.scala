@@ -5,7 +5,7 @@ package com.daml.platform.indexer
 
 import akka.NotUsed
 import akka.stream._
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Flow
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
@@ -26,6 +26,7 @@ import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValu
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
@@ -38,7 +39,7 @@ object JdbcIndexer {
       stringInterningView: StringInterningView,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
+      updateInMemoryBuffersFlow: Flow[(Iterable[(Offset, Update)], LedgerEndMarker), Unit, NotUsed],
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -107,7 +108,7 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        indexedUpdatesConsumer = indexedUpdatesConsumer,
+        updateInMemoryBuffersFlow = updateInMemoryBuffersFlow,
       )
       indexer
     }

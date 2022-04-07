@@ -31,11 +31,11 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupContractState(
         contractId,
-        ledgerEndAtCreate.lastEventSeqId,
+        ledgerEndAtCreate.lastOffset,
       )
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
-        ledgerEndAfterArchive.lastEventSeqId,
+        ledgerEndAfterArchive.lastOffset,
       )
     } yield {
       queryAfterCreate.value match {
@@ -70,8 +70,8 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
       ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
       _ <- store(txArchiveContract(alice, (contractId, None)))
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
-      queryAfterCreate <- contractsReader.lookupKeyState(key, ledgerEndAtCreate.lastEventSeqId)
-      queryAfterArchive <- contractsReader.lookupKeyState(key, ledgerEndAfterArchive.lastEventSeqId)
+      queryAfterCreate <- contractsReader.lookupKeyState(key, ledgerEndAtCreate.lastOffset)
+      queryAfterArchive <- contractsReader.lookupKeyState(key, ledgerEndAfterArchive.lastOffset)
     } yield {
       queryAfterCreate match {
         case LedgerDaoContractsReader.KeyAssigned(fetchedContractId, stakeholders) =>

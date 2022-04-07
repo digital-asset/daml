@@ -2,39 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
-import akka.NotUsed
-import akka.stream._
-import akka.stream.scaladsl.Source
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
+import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.appendonlydao.LedgerReadDao
 import com.daml.platform.store.appendonlydao.events.{
   BufferedCommandCompletionsReader,
   BufferedTransactionsReader,
   LfValueTranslation,
 }
-import com.daml.platform.store.appendonlydao.{
-  LedgerDaoCommandCompletionsReader,
-  LedgerDaoTransactionsReader,
-  LedgerReadDao,
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  MutableCacheBackedContractStore,
+  MutableContractStateCaches,
 }
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{EventsBuffer, LedgerEndCache, MutableCacheBackedContractStore}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
-import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
-import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -42,33 +33,18 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] case class IndexServiceBuilder(
-    dbSupport: DbSupport,
     initialLedgerId: LedgerId,
-    eventsPageSize: Int,
-    eventsProcessingParallelism: Int,
-    acsIdPageSize: Int,
-    acsIdFetchingParallelism: Int,
-    acsContractFetchingParallelism: Int,
-    acsGlobalParallelism: Int,
-    acsIdQueueLimit: Int,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
-    maxContractStateCacheSize: Long,
-    maxContractKeyStateCacheSize: Long,
-    maxTransactionsInMemoryFanOutBufferSize: Long,
-    enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
-    indexedUpdatesSource: Source[(Offset, Update), NotUsed],
-    stringInterningView: StringInterningView,
-    ledgerEnd: LedgerEnd,
-    ledgerEndCache: LedgerEndCache,
     generalDispatcher: Dispatcher[Offset],
     ledgerDao: LedgerReadDao,
-    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
+    mutableContractStateCaches: MutableContractStateCaches,
+    completionsBuffer: EventsBuffer[TransactionLogUpdate],
+    transactionsBuffer: EventsBuffer[TransactionLogUpdate],
 )(implicit
-    mat: Materializer,
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
 ) {
@@ -77,22 +53,31 @@ private[platform] case class IndexServiceBuilder(
   def owner(): ResourceOwner[IndexService] = {
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
-      prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEnd)
-      contractStore = MutableCacheBackedContractStore(
-        ledgerDao.contractsReader,
-        ledgerEnd.lastEventSeqId,
+
+      contractStore = new MutableCacheBackedContractStore(
         metrics,
-        maxContractStateCacheSize,
-        maxContractKeyStateCacheSize,
+        ledgerDao.contractsReader,
+        mutableContractStateCaches,
       )(servicesExecutionContext, loggingContext)
-      updatesSource = indexedUpdatesSource.via(LedgerBuffersUpdater.flow(ledgerEnd.lastEventSeqId))
-      (transactionsReader, completionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
-        contractStore,
-        ledgerDao,
-        prefetchingDispatcher,
-        ledgerEndCache,
-        updatesSource,
+
+      completionsReader = new BufferedCommandCompletionsReader(
+        completionsBuffer = completionsBuffer,
+        delegate = ledgerDao.completions,
+        metrics = metrics,
       )
+
+      transactionsReader = BufferedTransactionsReader(
+        delegate = ledgerDao.transactionsReader,
+        transactionsBuffer = transactionsBuffer,
+        lfValueTranslation = new LfValueTranslation(
+          cache = lfValueTranslationCache,
+          metrics = metrics,
+          enricherO = Some(enricher),
+          loadPackage =
+            (packageId, loggingContext) => ledgerDao.getLfArchive(packageId)(loggingContext),
+        ),
+        metrics = metrics,
+      )(loggingContext, servicesExecutionContext)
     } yield new IndexServiceImpl(
       ledgerId,
       participantId,
@@ -100,97 +85,13 @@ private[platform] case class IndexServiceBuilder(
       transactionsReader,
       completionsReader,
       contractStore,
-      pruneBuffers,
+      (offset: Offset) => {
+        transactionsBuffer.prune(offset)
+        completionsBuffer.prune(offset)
+      },
       generalDispatcher,
     )
   }
-
-  private def cacheComponentsAndSubscription(
-      contractStore: MutableCacheBackedContractStore,
-      ledgerReadDao: LedgerReadDao,
-      cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
-      ledgerEndCache: LedgerEndCache,
-      updatesSource: Source[((Offset, Long), TransactionLogUpdate), NotUsed],
-  ): ResourceOwner[(LedgerDaoTransactionsReader, LedgerDaoCommandCompletionsReader, PruneBuffers)] =
-    if (enableInMemoryFanOutForLedgerApi) {
-      val completionsBuffer = new EventsBuffer[TransactionLogUpdate](
-        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
-        metrics = metrics,
-        bufferQualifier = "completions",
-        ignoreMarker = _.isInstanceOf[LedgerEndMarker],
-      )
-
-      val bufferedCompletionsReader = new BufferedCommandCompletionsReader(
-        completionsBuffer = completionsBuffer,
-        delegate = ledgerReadDao.completions,
-        metrics = metrics,
-      )
-
-      val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
-        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
-        metrics = metrics,
-        bufferQualifier = "transactions",
-        ignoreMarker = !_.isInstanceOf[TransactionLogUpdate.TransactionAccepted],
-      )
-
-      val bufferedTransactionsReader = BufferedTransactionsReader(
-        delegate = ledgerReadDao.transactionsReader,
-        transactionsBuffer = transactionsBuffer,
-        lfValueTranslation = new LfValueTranslation(
-          cache = lfValueTranslationCache,
-          metrics = metrics,
-          enricherO = Some(enricher),
-          loadPackage =
-            (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
-        ),
-        metrics = metrics,
-      )(loggingContext, servicesExecutionContext)
-
-      for {
-        _ <- ResourceOwner.forCloseable(() =>
-          BuffersUpdater(
-            subscribeToTransactionLogUpdates = _ => updatesSource,
-            updateTransactionsBuffer = transactionsBuffer.push,
-            updateCompletionsBuffer = completionsBuffer.push,
-            updateMutableCache = contractStore.push,
-            updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
-            executionContext = servicesExecutionContext,
-            metrics = metrics,
-          )
-        )
-      } yield (
-        bufferedTransactionsReader,
-        bufferedCompletionsReader,
-        (offset: Offset) => {
-          transactionsBuffer.prune(offset)
-          completionsBuffer.prune(offset)
-        },
-      )
-    } else
-      new MutableCacheBackedContractStore.CacheUpdateSubscription(
-        contractStore = contractStore,
-        subscribeToContractStateEvents = () => {
-          val subscriptionStartExclusive = ledgerEndCache()
-          logger.info(s"Subscribing to contract state events after $subscriptionStartExclusive")
-          cacheUpdatesDispatcher
-            .startingAt(
-              subscriptionStartExclusive,
-              RangeSource(
-                ledgerReadDao.transactionsReader.getContractStateEvents(_, _)
-              ),
-            )
-            .map(_._2)
-        },
-      ).map(_ => (ledgerReadDao.transactionsReader, ledgerReadDao.completions, PruneBuffersNoOp))
-
-  private def dispatcherOffsetSeqIdOwner(
-      ledgerEnd: LedgerEnd
-  ): ResourceOwner[Dispatcher[(Offset, Long)]] =
-    Dispatcher.owner(
-      name = "cache-updates",
-      zeroIndex = (Offset.beforeBegin, EventSequentialId.beforeBegin),
-      headAtInitialization = (ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId),
-    )
 
   private def verifyLedgerId(
       ledgerDao: LedgerReadDao

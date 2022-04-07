@@ -14,97 +14,35 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.{
-  CompletionDetails,
-  LedgerEndMarker,
-  SubmissionRejected,
-}
+import com.daml.platform.store.interfaces.TransactionLogUpdate.{CompletionDetails, LedgerEndMarker}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerBuffersUpdater {
-  private type UpdateToTransactionLogUpdate = ((Offset, Update)) => TransactionLogUpdate
   private val prepareUpdatesParallelism = 2
   private val ec: ExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(prepareUpdatesParallelism))
 
-  def flow(
-      initSeqId: Long
-  ): Flow[(Offset, Update), ((Offset, Long), TransactionLogUpdate), NotUsed] =
-    Flow[(Offset, Update)]
-      .mapAsync(prepareUpdatesParallelism)(o => Future(transform(o))(ec))
+  def flow: Flow[(Iterable[(Offset, Update)], LedgerEndMarker), TransactionLogUpdate, NotUsed] =
+    Flow[(Iterable[(Offset, Update)], LedgerEndMarker)]
+      .mapAsync(prepareUpdatesParallelism)(o => Future(transformBatch(o))(ec))
       .async
-      .scan[TransactionLogUpdate](LedgerEndMarker(Offset.beforeBegin, initSeqId))(sequence)
-      .drop(1)
-      .flatMapConcat(withLedgerEndMarkers)
+      .flatMapConcat { updates => Source.fromIterator(() => updates) }
 
-  private def transform: UpdateToTransactionLogUpdate = {
-    case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
-    case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
-    case (offset, _) => LedgerEndMarker(offset, 0L)
+  private def transformBatch(
+      batch: (Iterable[(Offset, Update)], LedgerEndMarker)
+  ): Iterator[TransactionLogUpdate] = {
+    val ledgerEndMarker = batch._2
+    val transactionLogUpdates = batch._1.view.collect {
+      case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
+      case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
+    }.toVector
+
+    if (transactionLogUpdates.isEmpty) Iterator(ledgerEndMarker)
+    else transactionLogUpdates.concat(Iterable(ledgerEndMarker)).iterator
   }
-
-  private def sequence(
-      prev: TransactionLogUpdate,
-      current: TransactionLogUpdate,
-  ): TransactionLogUpdate = {
-    var currSeqId = prev match {
-      case TransactionLogUpdate.TransactionAccepted(_, _, _, _, events, _) =>
-        events.last.eventSequentialId
-      case TransactionLogUpdate.LedgerEndMarker(_, lastEventSeqId) => lastEventSeqId
-      case rejection: SubmissionRejected => rejection.lastEventSeqId
-    }
-    current match {
-      case transaction: TransactionLogUpdate.TransactionAccepted =>
-        transaction.copy(events = transaction.events.map {
-          case divulgence: TransactionLogUpdate.DivulgenceEvent =>
-            currSeqId += 1
-            divulgence.copy(eventSequentialId = currSeqId)
-          case create: TransactionLogUpdate.CreatedEvent =>
-            currSeqId += 1
-            create.copy(eventSequentialId = currSeqId)
-          case exercise: TransactionLogUpdate.ExercisedEvent =>
-            currSeqId += 1
-            exercise.copy(eventSequentialId = currSeqId)
-        })
-      case ledgerEndMarker: LedgerEndMarker =>
-        ledgerEndMarker.copy(lastEventSeqId = currSeqId)
-      case rejection: SubmissionRejected =>
-        rejection.copy(lastEventSeqId = currSeqId)
-    }
-  }
-
-  private def withLedgerEndMarkers(
-      transactionLogUpdate: TransactionLogUpdate
-  ): Source[((Offset, EventSequentialId), TransactionLogUpdate), NotUsed] =
-    transactionLogUpdate match {
-      case transaction: TransactionLogUpdate.TransactionAccepted =>
-        Source.fromIterator(() => {
-          val eventSequentialId = transaction.events.last.eventSequentialId
-          val offset = transaction.offset
-          val ledgerEndMarker = TransactionLogUpdate.LedgerEndMarker(offset, eventSequentialId)
-          val woDivulgence = transaction.copy(events =
-            transaction.events.filterNot(_.isInstanceOf[TransactionLogUpdate.DivulgenceEvent])
-          )
-          if (woDivulgence.events.nonEmpty) // Divulgence-only transactions should not be forwarded
-            Iterator(
-              (offset -> eventSequentialId, woDivulgence),
-              (offset -> eventSequentialId, ledgerEndMarker),
-            )
-          else Iterator((offset -> eventSequentialId, ledgerEndMarker))
-        })
-      case ledgerEndMarker: TransactionLogUpdate.LedgerEndMarker =>
-        Source.fromIterator(() =>
-          Iterator((ledgerEndMarker.offset -> ledgerEndMarker.lastEventSeqId, ledgerEndMarker))
-        )
-      case rejection: SubmissionRejected =>
-        Source.fromIterator(() =>
-          Iterator((rejection.offset -> rejection.lastEventSeqId, rejection))
-        )
-    }
 
   private def updateToSubmissionRejected(offset: Offset, u: CommandRejected) = {
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
@@ -144,7 +82,7 @@ object LedgerBuffersUpdater {
 
     val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
 
-    val logUpdates = rawEvents.collect {
+    val events = rawEvents.collect {
       case (nodeId, create: Create) =>
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
@@ -196,27 +134,6 @@ object LedgerBuffersUpdater {
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,
           consuming = exercise.consuming,
-        )
-    }
-
-    val events = logUpdates ++ blinding.divulgence.iterator.collect {
-      // only store divulgence events, which are divulging to parties
-      case (_, visibleToParties) if visibleToParties.nonEmpty =>
-        // This DTO is never used in Ledger API buffers
-        // Only for created for the purpose of `sequence` phase ^
-        TransactionLogUpdate.DivulgenceEvent(
-          eventOffset = offset,
-          eventSequentialId = 0L,
-          transactionId = null,
-          eventId = null,
-          commandId = null,
-          workflowId = null,
-          ledgerEffectiveTime = null,
-          treeEventWitnesses = null,
-          flatEventWitnesses = null,
-          submitters = null,
-          templateId = null,
-          contractId = null,
         )
     }
 

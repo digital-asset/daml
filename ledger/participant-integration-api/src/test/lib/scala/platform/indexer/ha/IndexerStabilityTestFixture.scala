@@ -3,9 +3,7 @@
 
 package com.daml.platform.indexer.ha
 
-import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -106,7 +104,7 @@ object IndexerStabilityTestFixture {
                     stringInterningView = new StringInterningView(
                       loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
                     ), // TODO LLP
-                    indexedUpdatesConsumer = Sink.ignore.mapMaterializedValue(_ => NotUsed),
+                    updateInMemoryBuffersFlow = null,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )
