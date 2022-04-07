@@ -301,7 +301,6 @@ object NormalizeRollbackSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -325,7 +324,6 @@ object NormalizeRollbackSpec {
       exerciseResult = None,
       key = None,
       byKey = false,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 }

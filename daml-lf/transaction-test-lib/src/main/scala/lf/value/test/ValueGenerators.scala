@@ -294,7 +294,7 @@ object ValueGenerators {
     */
   def malformedCreateNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[Node.Create] = {
+  ): Gen[Node.Create] =
     for {
       coid <- coidGen
       templateId <- idGen
@@ -311,10 +311,8 @@ object ValueGenerators {
       signatories = signatories,
       stakeholders = stakeholders,
       key = key,
-      byInterface = None,
       version = version,
     )
-  }
 
   val fetchNodeGen: Gen[Node.Fetch] =
     for {
@@ -322,7 +320,7 @@ object ValueGenerators {
       node <- fetchNodeGenWithVersion(version)
     } yield node
 
-  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] = {
+  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
       templateId <- idGen
@@ -339,10 +337,8 @@ object ValueGenerators {
       stakeholders = stakeholders,
       key = key,
       byKey = byKey,
-      byInterface = None,
       version = version,
     )
-  }
 
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[Node.Rollback] = {
@@ -364,7 +360,7 @@ object ValueGenerators {
   /** Makes exercise nodes with the given version and some random child IDs. */
   def danglingRefExerciseNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[Node.Exercise] = {
+  ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -396,10 +392,8 @@ object ValueGenerators {
       exerciseResult = exerciseResult,
       key = key,
       byKey = byKey,
-      byInterface = None,
       version = version,
     )
-  }
 
   val lookupNodeGen: Gen[Node.LookupByKey] =
     for {

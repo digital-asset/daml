@@ -19,7 +19,7 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
   "Engine#desp" should {
 
-    val createWithoutInterface = newBuilder.create(
+    val create = newBuilder.create(
       id = TransactionBuilder.newCid,
       templateId = Ref.Identifier("pkgT", "M:T"),
       argument = ValueUnit,
@@ -27,29 +27,27 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       observers = noOne,
       key = Some(ValueParty("alice")),
       maintainers = parties,
-      byInterface = None,
     )
     val nodeWithoutInterface = Table[TransactionBuilder => Node](
       "transaction",
-      _ => createWithoutInterface,
+      _ => create,
       _.exercise(
-        contract = createWithoutInterface,
+        contract = create,
         choice = "ChT",
         consuming = false,
         actingParties = parties,
         argument = ValueUnit,
-        byInterface = createWithoutInterface.byInterface,
       ),
       _.exerciseByKey(
-        contract = createWithoutInterface,
+        contract = create,
         choice = "ChT",
         consuming = false,
         actingParties = parties,
         argument = ValueUnit,
       ),
-      _.fetch(contract = createWithoutInterface, byInterface = createWithoutInterface.byInterface),
-      _.fetchByKey(contract = createWithoutInterface),
-      _.lookupByKey(contract = createWithoutInterface),
+      _.fetch(contract = create),
+      _.fetchByKey(contract = create),
+      _.lookupByKey(contract = create),
     )
 
     val createWithInterface = newBuilder.create(
@@ -60,7 +58,6 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       observers = noOne,
       key = Some(ValueParty("alice")),
       maintainers = parties,
-      byInterface = Some(Ref.Identifier("pkgInt", "M:Int")),
     )
     val nodeWithInterface = Table[TransactionBuilder => Node](
       "transaction",
@@ -71,9 +68,8 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
         consuming = false,
         actingParties = parties,
         argument = ValueUnit,
-        byInterface = createWithInterface.byInterface,
       ),
-      _.fetch(contract = createWithInterface, byInterface = createWithInterface.byInterface),
+      _.fetch(contract = createWithInterface),
     )
 
     "works as expected on root actions node by template" in {
@@ -113,7 +109,6 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
         argument = ValueUnit,
         signatories = parties,
         observers = noOne,
-        byInterface = None,
       )
       forEvery(nodeWithoutInterface) { mkNodeWithout =>
         forEvery(nodeWithInterface) { mkNodeWith =>

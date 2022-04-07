@@ -12,7 +12,6 @@ import com.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
-import com.daml.scalautil.Statement.discard
 
 final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
@@ -287,17 +286,6 @@ sealed abstract class HasTxNodes {
       }
     )
 
-  private[lf] def byInterfaceNodes: List[Node.Action] = {
-    val builder = List.newBuilder[Node.Action]
-    foreach {
-      case (_, action: Node.Action) if action.byInterface.isDefined =>
-        discard(builder += action)
-      case _ =>
-        ()
-    }
-    builder.result()
-  }
-
   /** This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
@@ -450,9 +438,9 @@ sealed abstract class HasTxNodes {
     */
   final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.LookupByKey(_, _, Some(coid), _))) =>
         acc + coid
@@ -780,13 +768,13 @@ object Transaction {
 
     tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
       node match {
-        case Node.Create(_, tmplId, _, _, _, _, Some(key), _, _) =>
+        case Node.Create(_, tmplId, _, _, _, _, Some(key), _) =>
           state.created(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, true, _, _, _, _, _, _, _, Some(key), _, _, _) =>
+        case Node.Exercise(_, tmplId, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.consumed(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, false, _, _, _, _, _, _, _, Some(key), _, _, _) =>
+        case Node.Exercise(_, tmplId, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.referenced(globalKey(tmplId, key.key))
-        case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _, _) =>
+        case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _) =>
           state.referenced(globalKey(tmplId, key.key))
         case Node.LookupByKey(tmplId, key, Some(_), _) =>
           state.referenced(globalKey(tmplId, key.key))

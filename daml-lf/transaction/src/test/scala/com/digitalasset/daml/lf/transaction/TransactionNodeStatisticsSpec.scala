@@ -61,7 +61,6 @@ class TransactionNodeStatisticsSpec
         observers = Set.empty,
         key = if (withKey) Some(Value.ValueUnit) else None,
         maintainers = if (withKey) parties else Set.empty,
-        byInterface = None,
       )
     }
 
@@ -76,12 +75,11 @@ class TransactionNodeStatisticsSpec
         result = Some(Value.ValueUnit),
         choiceObservers = Set.empty,
         byKey = byKey,
-        byInterface = None,
       )
     }
 
     def fetch(byKey: Boolean)(b: TxBuilder) =
-      b.fetch(create(b, byKey), byKey, None)
+      b.fetch(create(b, byKey), byKey)
 
     def lookup(b: TxBuilder) =
       b.lookupByKey(create(b, withKey = true), true)
