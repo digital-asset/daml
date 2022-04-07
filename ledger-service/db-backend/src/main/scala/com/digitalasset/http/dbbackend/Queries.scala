@@ -769,6 +769,32 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
     )
   }
 
+  /*TODO SC #13529
+  private[http] def partiesConnectedByContract(
+      parties: PartySet,
+      allStoredForTpids: PartySet,
+      tpids: NonEmpty[Set[SurrogateTpId]],
+  ): ConnectionIO[PartySet] =
+    reachableParties(parties intersect allStoredForTpids) { (searchFrom, alreadySeen) =>
+      val partyVector = searchFrom.toVector
+      val seen = searchFrom union alreadySeen
+      import Queries.CompatImplicits.catsReducibleFromFoldable1, scalaz.std.iterable._
+      sql"""SELECT signatories || observers
+            FROM $contractTableName AS c
+            WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                  AND (NOT ($seen::text[] @> (signatories || observers)))
+                  AND ${Fragments.in(fr"tpid", tpids.toNEF)}
+         """
+        .query[Vector[String]]
+        .map(obs => obs.toSet diff seen intersect allStoredForTpids)
+        .to[Set]
+        .map(_.flatten)
+    }.map {
+      case NonEmpty(p) => p // TODO SC #13529 move to reachableParties
+      case _ => connection.raiseError(new IllegalStateException())
+    }
+   */
+
   private[this] def fragmentContractPath(path: JsonPath) =
     concatFragment(
       OneAnd(
