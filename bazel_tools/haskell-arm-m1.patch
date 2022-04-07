@@ -1,0 +1,197 @@
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+index 6be79b0d..1e324ec5 100644
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -171,10 +171,11 @@ def _cabal_toolchain_info(hs, cc, workspace_name, runghc):
+         runghc = runghc.path,
+         ar = ar,
+         cc = cc.tools.cc,
++        ld = cc.tools.ld,
+         strip = cc.tools.strip,
+         is_windows = hs.toolchain.is_windows,
+         workspace = workspace_name,
+-        ghc_cc_args = ghc_cc_program_args(hs, "$CC"),
++        ghc_cc_args = ghc_cc_program_args(hs, "$CC", "$LD"),
+     )
+ 
+ def _prepare_cabal_inputs(
+diff --git a/haskell/cc.bzl b/haskell/cc.bzl
+index 3726133c..d59f84f7 100644
+--- a/haskell/cc.bzl
++++ b/haskell/cc.bzl
+@@ -186,11 +186,12 @@ def cc_interop_info(ctx, override_cc_toolchain = None):
+         ]).linking_context.linker_inputs.to_list() for lib in li.libraries],
+     )
+ 
+-def ghc_cc_program_args(hs, cc):
++def ghc_cc_program_args(hs, cc, ld):
+     """Returns the -pgm* flags required to override cc.
+ 
+     Args:
+       cc: string, path to the C compiler (cc_wrapper).
++      ld: string, path to the linker (ld).
+ 
+     Returns:
+       list of string, GHC arguments.
+@@ -220,4 +221,11 @@ def ghc_cc_program_args(hs, cc):
+     ]
+     if hs.toolchain.numeric_version >= [8, 10, 3]:
+         args.append("-pgmc-supports-no-pie")
++    if hs.toolchain.numeric_version >= [9, 0, 1]:
++        args.extend([
++            "-pgmlm",
++            ld,
++            "-optlm",
++            "-r",
++        ])
+     return args
+diff --git a/haskell/doctest.bzl b/haskell/doctest.bzl
+index 1cd3f675..f7a2200a 100644
+--- a/haskell/doctest.bzl
++++ b/haskell/doctest.bzl
+@@ -98,7 +98,7 @@ def _haskell_doctest_single(target, ctx):
+         ctx,
+         override_cc_toolchain = hs.tools_config.maybe_exec_cc_toolchain,
+     )
+-    args.add_all(ghc_cc_program_args(hs, cc.tools.cc))
++    args.add_all(ghc_cc_program_args(hs, cc.tools.cc, cc.tools.ld))
+ 
+     doctest_log = ctx.actions.declare_file(
+         "doctest-log-" + ctx.label.name + "-" + target.label.name,
+diff --git a/haskell/nixpkgs.bzl b/haskell/nixpkgs.bzl
+index 7ccead78..6692fe6b 100644
+--- a/haskell/nixpkgs.bzl
++++ b/haskell/nixpkgs.bzl
+@@ -1,5 +1,6 @@
+ """Workspace rules (Nixpkgs)"""
+ 
++load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
+ load(
+     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
+     "nixpkgs_package",
+@@ -145,15 +146,21 @@ def _ghc_nixpkgs_toolchain_impl(repository_ctx):
+     # platform. But they are important to state because Bazel
+     # toolchain resolution prefers other toolchains with more specific
+     # constraints otherwise.
+-    if repository_ctx.attr.target_constraints == [] and repository_ctx.attr.exec_constraints == []:
+-        target_constraints = ["@platforms//cpu:x86_64"]
+-        if repository_ctx.os.name == "linux":
+-            target_constraints.append("@platforms//os:linux")
+-        elif repository_ctx.os.name == "mac os x":
+-            target_constraints.append("@platforms//os:osx")
+-        exec_constraints = list(target_constraints)
++    cpu_value = get_cpu_value(repository_ctx)
++    cpu = {
++        "darwin": "@platforms//cpu:x86_64",
++        "darwin_arm64": "@platforms//cpu:arm64",
++    }.get(cpu_value, "@platforms//cpu:x86_64")
++    os = {
++        "darwin": "@platforms//os:osx",
++        "darwin_arm64": "@platforms//os:osx",
++    }.get(cpu_value, "@platforms//os:linux")
++
++    if not repository_ctx.attr.target_constraints and not repository_ctx.attr.exec_constraints:
++        target_constraints = [cpu, os]
++        exec_constraints = target_constraints
+     else:
+-        target_constraints = repository_ctx.attr.target_constraints
++        target_constraints = list(repository_ctx.attr.target_constraints)
+         exec_constraints = list(repository_ctx.attr.exec_constraints)
+ 
+     exec_constraints.append("@io_tweag_rules_nixpkgs//nixpkgs/constraints:support_nix")
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+index 1ba677b3..b14135f9 100755
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -129,6 +129,7 @@ path_args = json_args["path_args"]
+ 
+ ar = find_exe(toolchain_info["ar"])
+ cc = find_exe(toolchain_info["cc"])
++ld = find_exe(toolchain_info["ld"])
+ strip = find_exe(toolchain_info["strip"])
+ 
+ def recache_db():
+@@ -261,10 +262,14 @@ with mkdtemp(distdir_prefix()) as distdir:
+         "--with-hsc2hs=" + hsc2hs,
+         "--with-ar=" + ar,
+         "--with-gcc=" + cc,
++        "--with-ld=" + ld,
+         "--with-strip=" + strip,
+         "--enable-deterministic", \
+         ] +
+-        [ "--ghc-option=" + flag.replace("$CC", cc) for flag in toolchain_info["ghc_cc_args"] ] +
++        [ "--ghc-option=" + flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"] ] +
++        [ "--hsc2hs-option=-c" + cc,
++          "--hsc2hs-option=-l" + cc,
++        ] +
+         enable_relocatable_flags + \
+         [ \
+         # Make `--builddir` a relative path. Using an absolute path would
+diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
+index 311c0f96..9249f30b 100644
+--- a/haskell/private/cc_wrapper.py.tpl
++++ b/haskell/private/cc_wrapper.py.tpl
+@@ -84,6 +84,7 @@ CC = os.environ.get("CC_WRAPPER_CC_PATH", "{:cc:}")
+ PLATFORM = os.environ.get("CC_WRAPPER_PLATFORM", "{:platform:}")
+ CPU = os.environ.get("CC_WRAPPER_CPU", "{:cpu:}")
+ INSTALL_NAME_TOOL = "/usr/bin/install_name_tool"
++CODESIGN = "/usr/bin/codesign"
+ OTOOL = "/usr/bin/otool"
+ 
+ 
+@@ -938,6 +939,14 @@ def darwin_rewrite_load_commands(rewrites, output):
+         args.extend(["-change", old, os.path.join("@rpath", new)])
+     if args:
+         subprocess.check_call([INSTALL_NAME_TOOL] + args + [output])
++        # Resign the binary after patching it.
++        # This is necessary on MacOS Monterey on M1.
++        # The moving back and forth is necessary because the OS caches the signature.
++        # See this note from nixpkgs for reference:
++        # https://github.com/NixOS/nixpkgs/blob/5855ff74f511423e3e2646248598b3ffff229223/pkgs/os-specific/darwin/signing-utils/utils.sh#L1-L6
++        os.rename(output, f"{output}.resign")
++        subprocess.check_call([CODESIGN] + ["-f", "-s", "-"] + [f"{output}.resign"])
++        os.rename(f"{output}.resign", output)
+ 
+ 
+ # --------------------------------------------------------------------
+diff --git a/haskell/repl.bzl b/haskell/repl.bzl
+index 6cc44499..0833ec92 100644
+--- a/haskell/repl.bzl
++++ b/haskell/repl.bzl
+@@ -396,7 +396,12 @@ def _create_repl(hs, cc, posix, ctx, repl_info, output):
+         "$RULES_HASKELL_EXEC_ROOT",
+         hs.toolchain.cc_wrapper.executable.path,
+     )
+-    args.extend(['"{}"'.format(arg) for arg in ghc_cc_program_args(hs, cc_path)])
++    ld_path = paths.join(
++        "$RULES_HASKELL_EXEC_ROOT",
++        cc.ld_executable,
++    )
++    args.extend(['"{}"'.format(arg) for arg in ghc_cc_program_args(hs, cc_path, ld_path)])
++
+ 
+     # Load source files
+     # Force loading by source with `:add *...`.
+@@ -518,7 +523,8 @@ def _create_hie_bios(hs, cc, posix, ctx, repl_info, path_prefix):
+     path_prefix = paths.join("", *path_prefix)
+     args, inputs = _compiler_flags_and_inputs(hs, cc, repl_info, path_prefix = path_prefix, static = True)
+     cc_path = paths.join(path_prefix, hs.toolchain.cc_wrapper.executable.path)
+-    args.extend(ghc_cc_program_args(hs, cc_path))
++    ld_path = paths.join(path_prefix, cc.ld_executable)
++    args.extend(ghc_cc_program_args(hs, cc_path, ld_path))
+     args.extend(hs.toolchain.ghcopts)
+     args.extend(repl_info.load_info.compiler_flags)
+ 
+diff --git a/haskell/toolchain.bzl b/haskell/toolchain.bzl
+index 2cecc0b8..74f72163 100644
+--- a/haskell/toolchain.bzl
++++ b/haskell/toolchain.bzl
+@@ -46,7 +46,7 @@ def _run_ghc(hs, cc, inputs, outputs, mnemonic, arguments, env, params_file = No
+ 
+     # XXX: We should also tether Bazel's CC toolchain to GHC's, so that we can properly mix Bazel-compiled
+     # C libraries with Haskell targets.
+-    args.add_all(ghc_cc_program_args(hs, cc.tools.cc))
++    args.add_all(ghc_cc_program_args(hs, cc.tools.cc, cc.tools.ld))
+ 
+     compile_flags_file = hs.actions.declare_file("compile_flags_%s_%s_%s" % (hs.name, extra_name, mnemonic))
+     extra_args_file = hs.actions.declare_file("extra_args_%s_%s_%s" % (hs.name, extra_name, mnemonic))
