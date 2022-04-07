@@ -4,7 +4,7 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Flow
 import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{ReadService, Update}
@@ -18,6 +18,7 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -45,7 +46,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
+      updateInMemoryBuffersFlow: Flow[(Iterable[(Offset, Update)], LedgerEndMarker), Unit, NotUsed],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -129,7 +130,7 @@ object ParallelIndexerFactory {
               dbDispatcher = dbDispatcher,
               stringInterningView = stringInterningView,
               materializer = mat,
-              indexedUpdatesConsumer = indexedUpdatesConsumer,
+              updateInMemoryBuffersFlow = updateInMemoryBuffersFlow,
             )
           )
         }

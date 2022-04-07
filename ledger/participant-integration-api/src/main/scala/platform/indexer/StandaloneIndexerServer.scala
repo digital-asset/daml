@@ -5,7 +5,7 @@ package com.daml.platform.indexer
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.health.{Healthy, ReportsHealth}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
@@ -25,7 +26,7 @@ final class StandaloneIndexerServer(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     stringInterningView: StringInterningView,
     additionalMigrationPaths: Seq[String] = Seq.empty,
-    indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
+    updateInMemoryBuffersFlow: Flow[(Iterable[(Offset, Update)], LedgerEndMarker), Unit, NotUsed],
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -43,7 +44,7 @@ final class StandaloneIndexerServer(
       stringInterningView = stringInterningView,
       metrics,
       lfValueTranslationCache,
-      indexedUpdatesConsumer,
+      updateInMemoryBuffersFlow,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

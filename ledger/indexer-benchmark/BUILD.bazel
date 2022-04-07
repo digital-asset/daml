@@ -27,6 +27,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -35,6 +36,7 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",

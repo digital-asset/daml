@@ -176,7 +176,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                   stringInterningView = null,
-                  indexedUpdatesConsumer = null,
+                  updateInMemoryBuffersFlow = null,
                 ).acquire()
               } yield {
                 new HealthChecks(
@@ -210,20 +210,17 @@ final class Runner[T <: ReadWriteService, Extra](
                   timeProvider = TimeProvider.UTC,
                 )(servicesExecutionContext, loggingContext)
                 indexService <- StandaloneIndexService(
-                  dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
                   metrics = metrics,
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
-                  stringInterningView = null, // TODO LLP
-                  ledgerEnd = null, // TODO LLP
-                  ledgerEndCache = null, // TODO LLP
                   generalDispatcher = null, // TODO LLP
                   ledgerReadDao = null, // TODO LLP
-                  updateLedgerApiLedgerEnd = null,
-                  indexedUpdatesSource = null,
+                  mutableContractStateCaches = null,
+                  completionsBuffer = null,
+                  transactionsBuffer = null,
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,

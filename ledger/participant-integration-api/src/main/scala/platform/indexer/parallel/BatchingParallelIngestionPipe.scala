@@ -4,7 +4,8 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Source}
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -14,16 +15,35 @@ object BatchingParallelIngestionPipe {
       submissionBatchSize: Long,
       batchWithinMillis: Long,
       inputMappingParallelism: Int,
-      inputMapper: Iterable[IN] => Future[(Iterable[IN], IN_BATCH)],
-      seqMapperZero: (Iterable[IN], IN_BATCH),
-      seqMapper: ((Iterable[IN], IN_BATCH), (Iterable[IN], IN_BATCH)) => (Iterable[IN], IN_BATCH),
+      inputMapper: Iterable[IN] => Future[((Iterable[IN], LedgerEndMarker), IN_BATCH)],
+      seqMapperZero: ((Iterable[IN], LedgerEndMarker), IN_BATCH),
+      seqMapper: (
+          ((Iterable[IN], LedgerEndMarker), IN_BATCH),
+          ((Iterable[IN], LedgerEndMarker), IN_BATCH),
+      ) => (
+          (Iterable[IN], LedgerEndMarker),
+          IN_BATCH,
+      ),
       batchingParallelism: Int,
-      batcher: ((Iterable[IN], IN_BATCH)) => Future[(Iterable[IN], DB_BATCH)],
+      batcher: (
+          ((Iterable[IN], LedgerEndMarker), IN_BATCH)
+      ) => Future[((Iterable[IN], LedgerEndMarker), DB_BATCH)],
       ingestingParallelism: Int,
-      ingester: ((Iterable[IN], DB_BATCH)) => Future[(Iterable[IN], DB_BATCH)],
-      tailer: ((Iterable[IN], DB_BATCH), (Iterable[IN], DB_BATCH)) => (Iterable[IN], DB_BATCH),
-      ingestTail: ((Iterable[IN], DB_BATCH)) => Future[Iterable[IN]],
-  )(source: Source[IN, NotUsed]): Source[IN, NotUsed] = {
+      ingester: (
+          ((Iterable[IN], LedgerEndMarker), DB_BATCH)
+      ) => Future[((Iterable[IN], LedgerEndMarker), DB_BATCH)],
+      tailer: (
+          ((Iterable[IN], LedgerEndMarker), DB_BATCH),
+          ((Iterable[IN], LedgerEndMarker), DB_BATCH),
+      ) => (
+          (Iterable[IN], LedgerEndMarker),
+          DB_BATCH,
+      ),
+      ingestTail: (
+          ((Iterable[IN], LedgerEndMarker), DB_BATCH)
+      ) => Future[(Iterable[IN], LedgerEndMarker)],
+      updateInMemoryBuffersFlow: Flow[(Iterable[IN], LedgerEndMarker), Unit, NotUsed],
+  )(source: Source[IN, NotUsed]): Source[Unit, NotUsed] = {
     val _ = batchWithinMillis
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
@@ -43,6 +63,6 @@ object BatchingParallelIngestionPipe {
       .conflate(tailer)
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
-      .flatMapConcat(out => Source.fromIterator(() => out.iterator))
+      .via(updateInMemoryBuffersFlow)
   }
 }

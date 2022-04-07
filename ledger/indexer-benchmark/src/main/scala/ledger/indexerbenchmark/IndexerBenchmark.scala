@@ -6,7 +6,7 @@ package com.daml.ledger.indexerbenchmark
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
@@ -17,8 +17,18 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.index.{LedgerBuffersUpdater, ParticipantInMemoryState}
 import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  MutableContractStateCaches,
+  MutableLedgerEndCache,
+}
+import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
@@ -66,18 +76,21 @@ class IndexerBenchmark() {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-      val indexerFactory = new JdbcIndexer.Factory(
-        config = config.indexerConfig,
-        readService = readService,
-        stringInterningView = new StringInterningView(
-          loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
-        ), // TODO LLP
-        metrics = metrics,
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        indexedUpdatesConsumer = Sink.ignore.mapMaterializedValue(_ => NotUsed),
-      )
 
       val resource = for {
+        ledgerApiBuffersUpdateFlow <- ledgerApiUpdateFlow(metrics, indexerExecutionContext)
+
+        indexerFactory = new JdbcIndexer.Factory(
+          config = config.indexerConfig,
+          readService = readService,
+          stringInterningView = new StringInterningView(
+            loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
+          ), // TODO LLP
+          metrics = metrics,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+          updateInMemoryBuffersFlow = ledgerApiBuffersUpdateFlow,
+        )
+
         _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
         indexer <- indexer(config, indexerExecutionContext, indexerFactory)
@@ -106,6 +119,55 @@ class IndexerBenchmark() {
       resource.asFuture
     }
   }
+
+  private def ledgerApiUpdateFlow(metrics: Metrics, executionContext: ExecutionContext)(implicit
+      resourceContext: ResourceContext,
+      loggingContext: LoggingContext,
+  ) = for {
+    generalDispatcher <-
+      Dispatcher
+        .owner[Offset](
+          name = "sql-ledger",
+          zeroIndex = Offset.beforeBegin,
+          headAtInitialization = Offset.beforeBegin,
+        )
+        .acquire()
+    ledgerEndCache = MutableLedgerEndCache()
+
+    updateLedgerApiLedgerEnd = (ledgerEnd: LedgerEnd) => {
+      ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
+      // the order here is very important: first we need to make data available for point-wise lookups
+      // and SQL queries, and only then we can make it available on the streams.
+      // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+      generalDispatcher.signalNewHead(ledgerEnd.lastOffset)
+    }
+
+    participantInMemoryState = new ParticipantInMemoryState(
+      mutableContractStateCaches = MutableContractStateCaches.build(
+        maxKeyCacheSize = 100000,
+        maxContractsCacheSize = 100000,
+        metrics = metrics,
+      )(executionContext),
+      completionsBuffer = new EventsBuffer[TransactionLogUpdate](
+        maxBufferSize = 10000,
+        metrics = metrics,
+        bufferQualifier = "completions",
+        ignoreMarker = _.isInstanceOf[LedgerEndMarker],
+      ),
+      transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+        // TODO LLP differentiate to completions
+        maxBufferSize = 10000,
+        metrics = metrics,
+        bufferQualifier = "transactions",
+        ignoreMarker = !_.isInstanceOf[TransactionLogUpdate.TransactionAccepted],
+      ),
+      updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
+      metrics = metrics,
+    )
+  } yield LedgerBuffersUpdater.flow
+    .mapAsync(1) { batch =>
+      participantInMemoryState.updateBatch(batch)
+    }
 
   private def indexer(
       config: Config,

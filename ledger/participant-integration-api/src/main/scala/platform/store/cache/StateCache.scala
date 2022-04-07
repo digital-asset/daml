@@ -5,6 +5,8 @@ package com.daml.platform.store.cache
 
 import com.codahale.metrics.Timer
 import com.daml.caching.Cache
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
@@ -24,13 +26,12 @@ import scala.concurrent.{ExecutionContext, Future}
   * stemming from read-throughs triggered from command interpretation on cache misses.
   */
 private[platform] case class StateCache[K, V](
-    initialCacheIndex: Long,
     cache: Cache[K, V],
     registerUpdateTimer: Timer,
 )(implicit ec: ExecutionContext) {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
-  @volatile private[cache] var cacheIndex = initialCacheIndex
+  @volatile private[cache] var cacheIndex = Option.empty[Offset]
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -54,19 +55,22 @@ private[platform] case class StateCache[K, V](
     * @param validAt ordering discriminator for pending updates for the same key
     * @param value the value to insert
     */
-  def put(key: K, validAt: Long, value: V)(implicit loggingContext: LoggingContext): Unit =
+  def putBatch(validAt: Offset, batch: Seq[(K, V)])(implicit loggingContext: LoggingContext): Unit =
     Timed.value(
       registerUpdateTimer, {
         pendingUpdates.synchronized {
           // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
           // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
           // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
-          if (validAt > cacheIndex) {
-            pendingUpdates
-              .get(key)
-              .foreach(_.latestValidAt = validAt)
-            cacheIndex = validAt
-            putInternal(key, value, validAt)
+          if (validAt >= cacheIndex.getOrElse(Offset.beforeBegin)) {
+            batch.foreach { case (key, value) =>
+              pendingUpdates
+                .get(key)
+                .foreach(_.latestValidAt = validAt)
+              putInternal(key, value, validAt)
+            }
+
+            cacheIndex = Some(validAt)
           } else
             logger.warn(
               s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
@@ -85,12 +89,13 @@ private[platform] case class StateCache[K, V](
     * @param key the key at which to update the cache
     * @param fetchAsync fetches asynchronously the value for key `key` at the current cache index
     */
-  def putAsync(key: K, fetchAsync: Long => Future[V])(implicit
+  def putAsync(key: K, fetchAsync: Offset => Future[V])(implicit
       loggingContext: LoggingContext
   ): Future[V] = Timed.value(
     registerUpdateTimer,
     pendingUpdates.synchronized {
-      val validAt = cacheIndex
+      // TODO LLP: Check sanity of this condition
+      val validAt = cacheIndex.getOrElse(Offset.fromHexString(Ref.HexString.assertFromString("FF")))
       val eventualValue = Future.delegate(fetchAsync(validAt))
       val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
       if (pendingUpdatesForKey.latestValidAt < validAt) {
@@ -102,7 +107,7 @@ private[platform] case class StateCache[K, V](
     },
   )
 
-  private def putInternal(key: K, value: V, validAt: Long)(implicit
+  private def putInternal(key: K, value: V, validAt: Offset)(implicit
       loggingContext: LoggingContext
   ): Unit = {
     cache.put(key, value)
@@ -112,7 +117,7 @@ private[platform] case class StateCache[K, V](
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
-      validAt: Long,
+      validAt: Offset,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     eventualUpdate
       .map { (value: V) =>
@@ -181,12 +186,12 @@ object StateCache {
     */
   private[cache] case class PendingUpdatesState(
       var pendingCount: Long,
-      var latestValidAt: Long,
+      var latestValidAt: Offset,
   )
   private[cache] object PendingUpdatesState {
     def empty: PendingUpdatesState = PendingUpdatesState(
       0L,
-      Long.MinValue,
+      Offset.beforeBegin,
     )
   }
 }

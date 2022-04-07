@@ -3,17 +3,12 @@
 
 package com.daml.platform.store.cache
 
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
-import akka.{Done, NotUsed}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -25,7 +20,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
 }
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success}
@@ -33,22 +27,15 @@ import scala.util.{Failure, Success}
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
-    private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
-    private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
+    val caches: MutableContractStateCaches,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ContractStore {
   private val logger = ContextualizedLogger.get(getClass)
 
-  def push(event: ContractStateEvent): Unit = {
-    debugEvents(event)
-    updateCaches(event)
-    updateOffsets(event)
-  }
-
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
-    contractsCache
+    caches.contractState
       .get(contractId)
       .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))
@@ -57,7 +44,7 @@ private[platform] class MutableCacheBackedContractStore(
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    keyCache
+    caches.keyState
       .get(key)
       .map(Future.successful)
       .getOrElse(readThroughKeyCache(key))
@@ -112,7 +99,7 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit
       loggingContext: LoggingContext
   ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
-    val cacheQueried = ids.map(id => id -> contractsCache.get(id))
+    val cacheQueried = ids.map(id => id -> caches.contractState.get(id))
 
     val cached = cacheQueried.view
       .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
@@ -139,7 +126,7 @@ private[platform] class MutableCacheBackedContractStore(
       loggingContext: LoggingContext
   ): Future[ContractStateValue] = {
     val readThroughRequest =
-      (validAt: Long) =>
+      (validAt: Offset) =>
         contractsReader
           .lookupContractState(contractId, validAt)
           .map(toContractCacheValue)
@@ -153,7 +140,7 @@ private[platform] class MutableCacheBackedContractStore(
             case result => Future.fromTry(result)
           }
 
-    contractsCache
+    caches.contractState
       .putAsync(contractId, readThroughRequest)
       .transformWith {
         case Failure(_: ContractReadThroughNotFound) => Future.successful(NotFound)
@@ -232,136 +219,17 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext): Future[ContractKeyStateValue] = {
-    val readThroughRequest = (validAt: Long) =>
+    val readThroughRequest = (validAt: Offset) =>
       contractsReader.lookupKeyState(key, validAt).map(toKeyCacheValue)
-    keyCache.putAsync(key, readThroughRequest)
+    caches.keyState.putAsync(key, readThroughRequest)
   }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty
-
-  private def updateOffsets(event: ContractStateEvent): Unit = {
-    metrics.daml.execution.cache.indexSequentialId.updateValue(event.eventSequentialId)
-  }
-
-  private val updateCaches: ContractStateEvent => Unit = {
-    case ContractStateEvent.Created(
-          contractId,
-          contract,
-          globalKey,
-          createLedgerEffectiveTime,
-          flatEventWitnesses,
-          _,
-          eventSequentialId,
-        ) =>
-      globalKey.foreach(
-        keyCache.put(_, eventSequentialId, Assigned(contractId, flatEventWitnesses))
-      )
-      contractsCache.put(
-        contractId,
-        eventSequentialId,
-        Active(contract, flatEventWitnesses, createLedgerEffectiveTime),
-      )
-    case ContractStateEvent.Archived(
-          contractId,
-          globalKey,
-          stakeholders,
-          _,
-          eventSequentialId,
-        ) =>
-      globalKey.foreach(keyCache.put(_, eventSequentialId, Unassigned))
-      contractsCache.put(
-        contractId,
-        eventSequentialId,
-        Archived(stakeholders),
-      )
-    case _: LedgerEndMarker => ()
-  }
-
-  private def debugEvents(
-      event: ContractStateEvent
-  )(implicit loggingContext: LoggingContext): Unit =
-    event match {
-      case ContractStateEvent.Created(
-            contractId,
-            _,
-            globalKey,
-            _,
-            _,
-            eventOffset,
-            eventSequentialId,
-          ) =>
-        logger.debug(
-          s"State events update: Created(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
-        )
-      case ContractStateEvent.Archived(
-            contractId,
-            globalKey,
-            _,
-            eventOffset,
-            eventSequentialId,
-          ) =>
-        logger.debug(
-          s"State events update: Archived(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
-        )
-      case LedgerEndMarker(eventOffset, eventSequentialId) =>
-        logger.debug(
-          s"Ledger end reached: $eventOffset -> $eventSequentialId"
-        )
-    }
 }
 
 private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
-  // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
-  type SubscribeToContractStateEvents =
-    () => Source[ContractStateEvent, NotUsed]
-
-  def apply(
-      contractsReader: LedgerDaoContractsReader,
-      startIndexExclusive: Long,
-      metrics: Metrics,
-      maxContractsCacheSize: Long,
-      maxKeyCacheSize: Long,
-  )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): MutableCacheBackedContractStore =
-    new MutableCacheBackedContractStore(
-      metrics,
-      contractsReader,
-      ContractKeyStateCache(startIndexExclusive, maxKeyCacheSize, metrics),
-      ContractsStateCache(startIndexExclusive, maxContractsCacheSize, metrics),
-    )
-
-  final class CacheUpdateSubscription(
-      contractStore: MutableCacheBackedContractStore,
-      subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      minBackoffStreamRestart: FiniteDuration = 100.millis,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[Unit] {
-    override def acquire()(implicit
-        context: ResourceContext
-    ): Resource[Unit] =
-      Resource(Future {
-        RestartSource
-          .withBackoff(
-            RestartSettings(
-              minBackoff = minBackoffStreamRestart,
-              maxBackoff = 10.seconds,
-              randomFactor = 0.2,
-            )
-          )(() => subscribeToContractStateEvents())
-          .map(contractStore.push)
-          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
-          .run()
-      }(context.executionContext)) {
-        case (contractStateUpdateKillSwitch, contractStateUpdateDone) =>
-          contractStateUpdateKillSwitch.shutdown()
-          contractStateUpdateDone.map(_ => ())(context.executionContext)
-      }.map(_ => ())
-  }
 
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =

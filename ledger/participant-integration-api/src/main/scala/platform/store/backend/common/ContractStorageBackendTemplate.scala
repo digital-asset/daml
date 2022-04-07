@@ -4,9 +4,9 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -29,7 +29,7 @@ class ContractStorageBackendTemplate(
 ) extends ContractStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
 
-  override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState =
     contractKey(
       resultColumns = List("contract_id", "flat_event_witnesses"),
       resultParser = (
@@ -68,7 +68,7 @@ class ContractStorageBackendTemplate(
           )
       }
 
-  override def contractState(contractId: ContractId, before: Long)(
+  override def contractState(contractId: ContractId, before: Offset)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
@@ -83,7 +83,7 @@ class ContractStorageBackendTemplate(
            FROM participant_events
            WHERE
              contract_id = $contractId
-             AND event_sequential_id <= $before
+             AND event_offset <= ${before.toHexString.toString}
              AND (event_kind = 10 OR event_kind = 20)
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
@@ -291,7 +291,7 @@ class ContractStorageBackendTemplate(
     )(
       readers = Some(readers),
       key = key,
-      validAt = ledgerEndCache()._2,
+      validAt = ledgerEndCache()._1,
     )(connection)
 
   private def contractKey[T](
@@ -300,7 +300,7 @@ class ContractStorageBackendTemplate(
   )(
       readers: Option[Set[Ref.Party]],
       key: Key,
-      validAt: Long,
+      validAt: Offset,
   )(
       connection: Connection
   ): Option[T] = {
@@ -345,7 +345,7 @@ class ContractStorageBackendTemplate(
                    WHERE event_kind = 10 -- create
                      AND create_key_hash = ${key.hash}
                          -- do NOT check visibility here, as otherwise we do not abort the scan early
-                     AND event_sequential_id <= $validAt
+                     AND event_offset <= ${validAt.toHexString.toString}
                    ORDER BY event_sequential_id DESC
                    FETCH NEXT 1 ROW ONLY
                 )
@@ -358,7 +358,7 @@ class ContractStorageBackendTemplate(
                     WHERE event_kind = 20 AND -- consuming exercise
                       $participantEventsFlatEventWitnessesClause
                       contract_id = last_contract_key_create.contract_id
-                      AND event_sequential_id <= $validAt
+                      AND event_offset <= ${validAt.toHexString.toString}
                   )"""
         .as(resultParser.singleOpt)(connection)
     }

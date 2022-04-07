@@ -102,21 +102,6 @@ object TransactionLogUpdate {
       createAgreementText: Option[String],
   ) extends Event
 
-  final case class DivulgenceEvent(
-      eventOffset: Offset,
-      eventSequentialId: EventSequentialId,
-      transactionId: String,
-      eventId: EventId,
-      commandId: String,
-      workflowId: String,
-      ledgerEffectiveTime: Timestamp,
-      treeEventWitnesses: Set[Party],
-      flatEventWitnesses: Set[Party],
-      submitters: Set[Party],
-      templateId: Identifier,
-      contractId: ContractId,
-  ) extends Event
-
   final case class ExercisedEvent(
       eventOffset: Offset,
       transactionId: String,

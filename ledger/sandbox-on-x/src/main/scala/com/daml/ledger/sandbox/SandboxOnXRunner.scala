@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.{BroadcastHub, Keep, MergeHub, Sink}
+import akka.stream.scaladsl.{Flow, Sink}
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
@@ -37,10 +37,12 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
+import com.daml.platform.index.{LedgerBuffersUpdater, ParticipantInMemoryState}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
@@ -148,14 +150,6 @@ object SandboxOnXRunner {
 
           (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-          (indexedUpdatesSink, indexedUpdatesSource) <- ResourceOwner.forValue(() => {
-            MergeHub
-              .source[(Offset, Update)]
-              .toMat(BroadcastHub.sink)(Keep.both)
-              .run()
-              .tap { _ => logger.info("Instantiated Akka submissions bridge.") }
-          })
-
           servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
           servicesExecutionContext <- buildServicesExecutionContext(
             metrics,
@@ -179,15 +173,15 @@ object SandboxOnXRunner {
               metrics = metrics,
             )
 
+          stringInterningView = createStringInterningView(dbSupport, metrics)
+          ledgerEndCache = MutableLedgerEndCache()
+
           generalDispatcher <-
             Dispatcher.owner[Offset](
               name = "sql-ledger",
               zeroIndex = Offset.beforeBegin,
               headAtInitialization = Offset.beforeBegin,
             )
-
-          stringInterningView = createStringInterningView(dbSupport, metrics)
-          ledgerEndCache = MutableLedgerEndCache()
 
           updateLedgerApiLedgerEnd = (ledgerEnd: LedgerEnd) => {
             ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
@@ -197,12 +191,24 @@ object SandboxOnXRunner {
             generalDispatcher.signalNewHead(ledgerEnd.lastOffset)
           }
 
+          participantInMemoryState = ParticipantInMemoryState.build(
+            apiServerConfig = apiServerConfig,
+            metrics = metrics,
+            servicesExecutionContext = servicesExecutionContext,
+            updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
+          )
+
+          ledgerApiBufersUpdateFlow = LedgerBuffersUpdater.flow
+            .mapAsync(1) { batch =>
+              participantInMemoryState.updateBatch(batch)
+            }
+
           indexerHealthChecks <- buildIndexerServer(
             metrics,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
             stringInterningView,
-            indexedUpdatesSink,
+            ledgerApiBufersUpdateFlow,
           )
 
           ledgerDao = JdbcLedgerDao.read(
@@ -225,7 +231,6 @@ object SandboxOnXRunner {
           )
 
           ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
-          // Update heads
           _ = updateLedgerApiLedgerEnd(ledgerEnd)
 
           indexService <- StandaloneIndexService(
@@ -235,14 +240,11 @@ object SandboxOnXRunner {
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
-            dbSupport = dbSupport,
-            indexedUpdatesSource = indexedUpdatesSource,
-            stringInterningView = stringInterningView,
-            ledgerEnd = ledgerEnd,
-            ledgerEndCache = ledgerEndCache,
             generalDispatcher = generalDispatcher,
             ledgerReadDao = ledgerDao,
-            updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
+            mutableContractStateCaches = participantInMemoryState.mutableContractStateCaches,
+            completionsBuffer = participantInMemoryState.completionsBuffer,
+            transactionsBuffer = participantInMemoryState.transactionsBuffer,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -347,7 +349,7 @@ object SandboxOnXRunner {
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
       stringInterningView: StringInterningView,
-      indexedUpdatesConsumer: Sink[(Offset, Update), NotUsed],
+      updateInMemoryBuffersFlow: Flow[(Iterable[(Offset, Update)], LedgerEndMarker), Unit, NotUsed],
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -361,7 +363,7 @@ object SandboxOnXRunner {
         metrics = metrics,
         lfValueTranslationCache = translationCache,
         stringInterningView = stringInterningView,
-        indexedUpdatesConsumer = indexedUpdatesConsumer,
+        updateInMemoryBuffersFlow = updateInMemoryBuffersFlow,
       )
     } yield new HealthChecks(
       "read" -> readService,
