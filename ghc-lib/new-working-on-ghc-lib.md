@@ -33,12 +33,6 @@ git submodule update --init --recursive
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
 
-Note: on macOS, you might get errors related to the Integer library GMP. Until those are fixed, adding `--integer-simple` to the flags above should allow you to build GHC.
-
-```
-hadrian/build.stack.sh --configure --flavour=quickest -j --integer-simple
-```
-
 ### Iterating on parser/desugaring in `ghc`
 
 Working locally in a branch from `da-master-8.8.1`, there are two files which generally need changing to update syntax and desugaring:
