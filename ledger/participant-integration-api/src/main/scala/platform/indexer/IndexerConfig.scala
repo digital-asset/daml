@@ -31,6 +31,7 @@ case class IndexerConfig(
     postgresTcpKeepalivesIdle: Option[Int] = Some(10),
     postgresTcpKeepalivesInterval: Option[Int] = Some(1),
     postgresTcpKeepalivesCount: Option[Int] = Some(5),
+    storeCreateArguments: Boolean = true,
 )
 
 object IndexerConfig {

@@ -7,6 +7,7 @@ import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.v2.ContractPayloadStore
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
@@ -35,7 +36,12 @@ import com.daml.platform.store.interning.{
   StringInterningView,
   UpdatingStringInterningView,
 }
-import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
+import com.daml.platform.store.{
+  DbSupport,
+  EventSequentialId,
+  LfValueTranslationCache,
+  PersistentContractPayloadStore,
+}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -60,6 +66,7 @@ private[platform] case class IndexServiceBuilder(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
+    contractPayloadStore: Option[ContractPayloadStore],
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -70,7 +77,18 @@ private[platform] case class IndexServiceBuilder(
   def owner(): ResourceOwner[IndexService] = {
     val ledgerEndCache = MutableLedgerEndCache()
     val stringInterningView = createStringInterningView()
-    val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
+    val ledgerDao = createLedgerReadDao(
+      ledgerEndCache,
+      stringInterningView,
+      contractPayloadStore.getOrElse(
+        new PersistentContractPayloadStore(
+          dbSupport.dbDispatcher,
+          dbSupport.storageBackendFactory
+            .createContractStorageBackend(ledgerEndCache, stringInterningView),
+          metrics,
+        )
+      ),
+    )
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
       ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
@@ -303,6 +321,7 @@ private[platform] case class IndexServiceBuilder(
   private def createLedgerReadDao(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      contractPayloadStore: ContractPayloadStore,
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
@@ -320,5 +339,6 @@ private[platform] case class IndexServiceBuilder(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       materializer = mat,
+      contractPayloadStore = contractPayloadStore,
     )
 }

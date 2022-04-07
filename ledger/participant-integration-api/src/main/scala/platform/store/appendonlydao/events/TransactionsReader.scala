@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
+
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -19,7 +20,9 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.ContractPayloadStore
 import com.daml.lf.data.Ref
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
@@ -57,6 +60,7 @@ private[appendonlydao] final class TransactionsReader(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     acsReader: ACSReader,
+    contractPayloadStore: ContractPayloadStore,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -78,15 +82,24 @@ private[appendonlydao] final class TransactionsReader(
   private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
-  private def deserializeEvent[E](verbose: Boolean)(entry: EventsTable.Entry[Raw[E]])(implicit
-      loggingContext: LoggingContext
-  ): Future[E] =
-    entry.event.applyDeserialization(lfValueTranslation, verbose)
-
-  private def deserializeEntry[E](verbose: Boolean)(
+  private def deserializeEntry[E](
+      contractPayloads: Map[ContractId, VersionedContractInstance],
+      verbose: Boolean,
+  )(
       entry: EventsTable.Entry[Raw[E]]
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
-    deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
+    entry.event
+      .applyDeserialization(lfValueTranslation, contractPayloads, verbose)
+      .map(event => entry.copy(event = event))
+
+  private def contractIdsFrom(events: Vector[EventsTable.Entry[_]]): Set[ContractId] =
+    events.view
+      .map(_.event)
+      .collect {
+        case c: Raw.FlatEvent.Created => ContractId.assertFromString(c.partial.contractId)
+        case c: Raw.TreeEvent.Created => ContractId.assertFromString(c.partial.contractId)
+      }
+      .toSet
 
   override def getFlatTransactions(
       startExclusive: Offset,
@@ -122,6 +135,7 @@ private[appendonlydao] final class TransactionsReader(
             dbMetrics.getFlatTransactions,
             query,
             nextPageRange[Event](requestedRange.endInclusive),
+            contractIdsFrom,
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -155,8 +169,8 @@ private[appendonlydao] final class TransactionsReader(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupFlatTransactionById)(
+    for {
+      rawEvents <- dispatcher.executeSql(dbMetrics.lookupFlatTransactionById)(
         eventStorageBackend.flatTransaction(
           transactionId,
           FilterParams(
@@ -165,13 +179,14 @@ private[appendonlydao] final class TransactionsReader(
           ),
         )
       )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-          value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
-        )
+      contractPayloads <- contractPayloadStore.loadContractPayloads(
+        contractIdsFrom(rawEvents)
       )
-      .map(EventsTable.Entry.toGetFlatTransactionResponse)
+      events <- Timed.value(
+        timer = dbMetrics.lookupFlatTransactionById.translationTimer,
+        value = Future.traverse(rawEvents)(deserializeEntry(contractPayloads, verbose = true)),
+      )
+    } yield EventsTable.Entry.toGetFlatTransactionResponse(events)
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -223,6 +238,7 @@ private[appendonlydao] final class TransactionsReader(
             dbMetrics.getTransactionTrees,
             query,
             nextPageRange[TreeEvent](requestedRange.endInclusive),
+            contractIdsFrom,
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -256,8 +272,8 @@ private[appendonlydao] final class TransactionsReader(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupTransactionTreeById)(
+    for {
+      rawEvents <- dispatcher.executeSql(dbMetrics.lookupTransactionTreeById)(
         eventStorageBackend.transactionTree(
           transactionId,
           FilterParams(
@@ -266,13 +282,14 @@ private[appendonlydao] final class TransactionsReader(
           ),
         )
       )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-          value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
-        )
+      contractPayloads <- contractPayloadStore.loadContractPayloads(
+        contractIdsFrom(rawEvents)
       )
-      .map(EventsTable.Entry.toGetTransactionResponse)
+      events <- Timed.value(
+        timer = dbMetrics.lookupTransactionTreeById.translationTimer,
+        value = Future.traverse(rawEvents)(deserializeEntry(contractPayloads, verbose = true)),
+      )
+    } yield EventsTable.Entry.toGetTransactionResponse(events)
 
   override def getTransactionLogUpdates(
       startExclusive: (Offset, Long),
@@ -306,27 +323,33 @@ private[appendonlydao] final class TransactionsReader(
       }
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
-        dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
-          queryNonPruned.executeSql(
-            query = eventStorageBackend.rawEvents(
-              startExclusive = range.startExclusive,
-              endInclusive = range.endInclusive,
-            )(conn),
-            minOffsetExclusive = startExclusive._1,
-            error = pruned =>
-              s"Transaction log updates request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+        for {
+          rawEvents <- dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
+            queryNonPruned.executeSql(
+              query = eventStorageBackend.rawEvents(
+                startExclusive = range.startExclusive,
+                endInclusive = range.endInclusive,
+              )(conn),
+              minOffsetExclusive = startExclusive._1,
+              error = pruned =>
+                s"Transaction log updates request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+            )
+          }
+          contractPayloads <- contractPayloadStore.loadContractPayloads(
+            rawEvents.view
+              .filter(_.eventKind == 10)
+              .map(_.contractId)
+              .toSet
           )
-        }
+          events <- Timed.future(
+            metrics.daml.index.decodeTransactionLogUpdate,
+            Future(
+              rawEvents.map(TransactionLogUpdatesReader.toTransactionEvent(_, contractPayloads))
+            ),
+          )
+        } yield events
       }
       .mapConcat(identity)
-      .async
-      // Decode transaction log updates in parallel
-      .mapAsync(eventProcessingParallelism) { raw =>
-        Timed.future(
-          metrics.daml.index.decodeTransactionLogUpdate,
-          Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
-        )
-      }
 
     val transactionLogUpdatesSource = TransactionsReader
       .groupContiguous(eventsSource)(by = _.transactionId)
@@ -374,14 +397,25 @@ private[appendonlydao] final class TransactionsReader(
           .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
       .mapAsync(eventProcessingParallelism) { rawResult =>
-        Timed.future(
-          future = Future(
-            Future.traverse(rawResult)(
-              deserializeEntry(verbose)
+        contractPayloadStore
+          .loadContractPayloads(
+            rawResult.view
+              .map(_.event)
+              .collect { case c: Raw.FlatEvent.Created =>
+                ContractId.assertFromString(c.partial.contractId)
+              }
+              .toSet
+          )
+          .flatMap(contractPayloads =>
+            Timed.future(
+              future = Future(
+                Future.traverse(rawResult)(
+                  deserializeEntry(contractPayloads, verbose)
+                )
+              ).flatMap(identity),
+              timer = dbMetrics.getActiveContracts.translationTimer,
             )
-          ).flatMap(identity),
-          timer = dbMetrics.getActiveContracts.translationTimer,
-        )
+          )
       }
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
@@ -425,25 +459,28 @@ private[appendonlydao] final class TransactionsReader(
       }
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
-        dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
-          queryNonPruned.executeSql(
-            contractStorageBackend
-              .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
-            startExclusive._1,
-            pruned =>
-              s"Contract state events request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
+        for {
+          rawContractStateEvents <- dispatcher.executeSql(dbMetrics.getContractStateEvents) {
+            implicit conn =>
+              queryNonPruned.executeSql(
+                contractStorageBackend
+                  .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
+                startExclusive._1,
+                pruned =>
+                  s"Contract state events request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
+              )
+          }
+          contractPayloads <- contractPayloadStore.loadContractPayloads(
+            rawContractStateEvents.map(_.contractId).toSet
           )
-        }
+          contractStateEvents <- Future {
+            rawContractStateEvents.view
+              .map(ContractStateEventsReader.toContractStateEvent(_, contractPayloads))
+              .map(event => (event.eventOffset, event.eventSequentialId) -> event)
+          }
+        } yield contractStateEvents
       }
       .mapConcat(identity)
-      .async
-      .mapAsync(eventProcessingParallelism) { raw =>
-        Timed.future(
-          metrics.daml.index.decodeStateEvent,
-          Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
-        )
-      }
-      .map(event => (event.eventOffset, event.eventSequentialId) -> event)
       .mapMaterializedValue(_ => NotUsed)
 
     InstrumentedSource
@@ -506,6 +543,7 @@ private[appendonlydao] final class TransactionsReader(
       queryMetric: DatabaseMetrics,
       query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
       getNextPageRange: EventsTable.Entry[E] => EventsRange[A],
+      getContractIds: Vector[EventsTable.Entry[Raw[E]]] => Set[ContractId],
   )(range: EventsRange[A])(implicit
       loggingContext: LoggingContext
   ): Source[EventsTable.Entry[E], NotUsed] =
@@ -513,14 +551,14 @@ private[appendonlydao] final class TransactionsReader(
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)
       else {
-        val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
-          dispatcher.executeSql(queryMetric)(query(range1))
-        rawEvents.flatMap(es =>
-          Timed.future(
-            future = Future.traverse(es)(deserializeEntry(verbose)),
+        for {
+          rawEvents <- dispatcher.executeSql(queryMetric)(query(range1))
+          contractPayloads <- contractPayloadStore.loadContractPayloads(getContractIds(rawEvents))
+          events <- Timed.future(
+            future = Future.traverse(rawEvents)(deserializeEntry(contractPayloads, verbose)),
             timer = queryMetric.translationTimer,
           )
-        )
+        } yield events
       }
     }
 

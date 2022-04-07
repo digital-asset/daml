@@ -34,18 +34,11 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(
       updateLedgerEnd(offset(1), 1L)
     )
-    val rawContractO = executeSql(
-      backend.contract.activeContractWithArgument(Set(signatory), contractId)
-    )
     val templateIdO = executeSql(
       backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
     )
 
     templateIdO shouldBe Some(someTemplateId.toString)
-    inside(rawContractO) { case Some(rawContract) =>
-      rawContract.templateId shouldBe someTemplateId.toString
-      rawContract.createArgumentCompression shouldBe None
-    }
   }
 
   it should "not find an archived contract" in {
@@ -67,15 +60,11 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(
       updateLedgerEnd(offset(2), 2L)
     )
-    val rawContractO = executeSql(
-      backend.contract.activeContractWithArgument(Set(signatory), contractId)
-    )
     val templateIdO = executeSql(
       backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
     )
 
     templateIdO shouldBe None
-    rawContractO shouldBe None
   }
 
   it should "correctly find a divulged contract" in {
@@ -94,18 +83,11 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(
       updateLedgerEnd(offset(1), 1L)
     )
-    val rawContractO = executeSql(
-      backend.contract.activeContractWithArgument(Set(divulgee), contractId)
-    )
     val templateIdO = executeSql(
       backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
     )
 
     templateIdO shouldBe Some(someTemplateId.toString)
-    inside(rawContractO) { case Some(rawContract) =>
-      rawContract.templateId shouldBe someTemplateId.toString
-      rawContract.createArgumentCompression shouldBe None
-    }
   }
 
   it should "correctly find an active contract that is also divulged" in {
@@ -130,18 +112,11 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(
       updateLedgerEnd(offset(2), 2L)
     )
-    val rawContractO = executeSql(
-      backend.contract.activeContractWithArgument(Set(divulgee), contractId)
-    )
     val templateIdO = executeSql(
       backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
     )
 
     templateIdO shouldBe Some(someTemplateId.toString)
-    inside(rawContractO) { case Some(rawContract) =>
-      rawContract.templateId shouldBe someTemplateId.toString
-      rawContract.createArgumentCompression shouldBe None
-    }
   }
 
   it should "not disclose to divulgees that a contract was archived" in {
@@ -168,14 +143,8 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(
       updateLedgerEnd(offset(3), 3L)
     )
-    val rawContractDivulgeeO = executeSql(
-      backend.contract.activeContractWithArgument(Set(divulgee), contractId)
-    )
     val templateIdDivulgeeO = executeSql(
       backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
-    )
-    val rawContractSignatoryO = executeSql(
-      backend.contract.activeContractWithArgument(Set(signatory), contractId)
     )
     val templateIdSignatoryO = executeSql(
       backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
@@ -183,13 +152,8 @@ private[backend] trait StorageBackendTestsContracts
 
     // The divulgee still sees the contract
     templateIdDivulgeeO shouldBe Some(someTemplateId.toString)
-    inside(rawContractDivulgeeO) { case Some(rawContract) =>
-      rawContract.templateId shouldBe someTemplateId.toString
-      rawContract.createArgumentCompression shouldBe None
-    }
     // The signatory knows it's archived
     templateIdSignatoryO shouldBe None
-    rawContractSignatoryO shouldBe None
   }
 
 }

@@ -6,13 +6,15 @@ package com.daml.platform.store.appendonlydao.events
 import java.io.ByteArrayInputStream
 
 import com.daml.lf.data.Ref
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 object TransactionLogUpdatesReader {
   def toTransactionEvent(
-      raw: RawTransactionEvent
+      raw: RawTransactionEvent,
+      contractPayloads: Map[ContractId, VersionedContractInstance],
   ): TransactionLogUpdate.Event =
     raw.eventKind match {
       case EventKind.NonConsumingExercise | EventKind.ConsumingExercise =>
@@ -63,8 +65,6 @@ object TransactionLogUpdatesReader {
           consuming = raw.eventKind == EventKind.ConsumingExercise,
         )
       case EventKind.Create =>
-        val createArgument =
-          raw.createArgument.mandatory("create_argument")
         val maybeGlobalKey =
           raw.createKeyValue.map(
             decompressAndDeserialize(
@@ -73,10 +73,7 @@ object TransactionLogUpdatesReader {
             )
           )
 
-        val createArgumentDecompressed = decompressAndDeserialize(
-          Compression.Algorithm.assertLookup(raw.createArgumentCompression),
-          createArgument,
-        )
+        val createArgumentDecompressed = contractPayloads(raw.contractId).map(_.arg)
 
         TransactionLogUpdate.CreatedEvent(
           eventOffset = raw.offset,

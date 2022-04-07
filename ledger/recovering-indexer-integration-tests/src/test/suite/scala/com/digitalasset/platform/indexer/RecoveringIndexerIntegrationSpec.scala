@@ -262,6 +262,7 @@ class RecoveringIndexerIntegrationSpec
           ledgerEndCache = mutableLedgerEndCache,
           stringInterning = stringInterning,
           materializer = materializer,
+          contractPayloadStore = null,
         ) -> mutableLedgerEndCache
       )
   }

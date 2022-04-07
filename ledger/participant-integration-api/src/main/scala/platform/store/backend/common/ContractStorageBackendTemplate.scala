@@ -6,7 +6,7 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 
 import anorm.SqlParser.{array, byteArray, int, long}
-import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
+import anorm.{ResultSetParser, Row, RowParser, SimpleSql, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -50,22 +50,17 @@ class ContractStorageBackendTemplate(
   private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
     (int("template_id").?
       ~ array[Int]("flat_event_witnesses")
-      ~ byteArray("create_argument").?
-      ~ int("create_argument_compression").?
       ~ int("event_kind")
       ~ timestampFromMicros("ledger_effective_time").?)
-      .map {
-        case internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
-          RawContractState(
-            templateId = internalTemplateId.map(stringInterning.templateId.unsafe.externalize),
-            flatEventWitnesses = flatEventWitnesses.view
-              .map(stringInterning.party.externalize)
-              .toSet,
-            createArgument = createArgument,
-            createArgumentCompression = createArgumentCompression,
-            eventKind = eventKind,
-            ledgerEffectiveTime = ledgerEffectiveTime,
-          )
+      .map { case internalTemplateId ~ flatEventWitnesses ~ eventKind ~ ledgerEffectiveTime =>
+        RawContractState(
+          templateId = internalTemplateId.map(stringInterning.templateId.unsafe.externalize),
+          flatEventWitnesses = flatEventWitnesses.view
+            .map(stringInterning.party.externalize)
+            .toSet,
+          eventKind = eventKind,
+          ledgerEffectiveTime = ledgerEffectiveTime,
+        )
       }
 
   override def contractState(contractId: ContractId, before: Long)(
@@ -77,8 +72,6 @@ class ContractStorageBackendTemplate(
              event_sequential_id,
              template_id,
              flat_event_witnesses,
-             create_argument,
-             create_argument_compression,
              10 as event_kind,
              ledger_effective_time
            FROM participant_events_create
@@ -90,8 +83,6 @@ class ContractStorageBackendTemplate(
              event_sequential_id,
              template_id,
              flat_event_witnesses,
-             NULL as create_argument,
-             NULL as create_argument_compression,
              20 as event_kind,
              ledger_effective_time
            FROM participant_events_consuming_exercise
@@ -110,12 +101,10 @@ class ContractStorageBackendTemplate(
       timestampFromMicros("ledger_effective_time").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
-      byteArray("create_argument").? ~
-      int("create_argument_compression").? ~
       long("event_sequential_id") ~
       array[Int]("flat_event_witnesses") ~
       offset("event_offset")).map {
-      case eventKind ~ contractId ~ internalTemplateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
+      case eventKind ~ contractId ~ internalTemplateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
         ContractStorageBackend.RawContractStateEvent(
           eventKind,
           contractId,
@@ -123,8 +112,6 @@ class ContractStorageBackendTemplate(
           ledgerEffectiveTime,
           createKeyValue,
           createKeyCompression,
-          createArgument,
-          createArgumentCompression,
           flatEventWitnesses.view
             .map(stringInterning.party.externalize)
             .toSet,
@@ -143,8 +130,6 @@ class ContractStorageBackendTemplate(
                template_id,
                create_key_value,
                create_key_value_compression,
-               create_argument,
-               create_argument_compression,
                flat_event_witnesses,
                ledger_effective_time,
                event_sequential_id,
@@ -161,8 +146,6 @@ class ContractStorageBackendTemplate(
                template_id,
                create_key_value,
                create_key_value_compression,
-               NULL as create_argument,
-               NULL as create_argument_compression,
                flat_event_witnesses,
                ledger_effective_time,
                event_sequential_id,
@@ -175,19 +158,6 @@ class ContractStorageBackendTemplate(
          ORDER BY event_sequential_id ASC"""
       .asVectorOf(contractStateRowParser)(connection)
   }
-
-  private val contractRowParser: RowParser[ContractStorageBackend.RawContract] =
-    (int("template_id")
-      ~ byteArray("create_argument")
-      ~ int("create_argument_compression").?)
-      .map(SqlParser.flatten)
-      .map { case (internalTemplateId, createArgument, createArgumentCompression) =>
-        new ContractStorageBackend.RawContract(
-          stringInterning.templateId.unsafe.externalize(internalTemplateId),
-          createArgument,
-          createArgumentCompression,
-        )
-      }
 
   protected def activeContractSqlLiteral(
       contractId: ContractId,
@@ -284,19 +254,6 @@ class ContractStorageBackendTemplate(
   private val contractWithoutValueRowParser: RowParser[Int] =
     int("template_id")
 
-  override def activeContractWithArgument(
-      readers: Set[Ref.Party],
-      contractId: ContractId,
-  )(connection: Connection): Option[ContractStorageBackend.RawContract] = {
-    activeContract(
-      resultSetParser = contractRowParser.singleOpt,
-      resultColumns = List("template_id", "create_argument", "create_argument_compression"),
-    )(
-      readers = readers,
-      contractId = contractId,
-    )(connection)
-  }
-
   override def activeContractWithoutArgument(
       readers: Set[Ref.Party],
       contractId: ContractId,
@@ -386,6 +343,59 @@ class ContractStorageBackendTemplate(
                       AND event_sequential_id <= $validAt
                   )"""
         .as(resultParser.singleOpt)(connection)
+    }
+  }
+
+  def contractPayloadBatch(
+      contracts: Set[ContractId]
+  )(connection: Connection): Map[ContractId, (Array[Byte], Ref.Identifier)] = {
+
+    val fromCreate = SQL"""
+           SELECT
+               contract_id,
+               create_argument,
+               template_id
+           FROM
+               participant_events_create
+           WHERE
+               contract_id ${queryStrategy.anyOfStrings(contracts.view.map(_.coid).toVector)}
+           """
+      .asVectorOf(contractId("contract_id") ~ byteArray("create_argument") ~ int("template_id"))(
+        connection
+      )
+      .view
+      .map { case contractId ~ createArgument ~ internedTemplateId =>
+        contractId -> (createArgument -> stringInterning.templateId.externalize(internedTemplateId))
+      }
+      .toMap
+
+    if (fromCreate.size == contracts.size) fromCreate
+    else {
+      // TODO Slightly suboptimal: gets all divulgences (not just one)
+      val fromDivulgence = SQL"""
+           SELECT
+               contract_id,
+               create_argument,
+               template_id
+           FROM
+               participant_events_divulgence
+           WHERE
+               contract_id ${queryStrategy.anyOfStrings(
+        contracts.view.filterNot(fromCreate.contains).map(_.coid).toVector
+      )}
+               AND template_id is not null
+           """
+        .asVectorOf(
+          contractId("contract_id") ~ byteArray("create_argument").? ~ int("template_id").?
+        )(connection)
+        .view
+        .collect { case contractId ~ Some(createArgument) ~ Some(internedTemplateId) =>
+          contractId -> (createArgument -> stringInterning.templateId.externalize(
+            internedTemplateId
+          ))
+        }
+        .toMap
+      fromCreate ++ fromDivulgence
     }
   }
 }

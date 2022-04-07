@@ -37,6 +37,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     tailingRateLimitPerSecond: Int,
     batchWithinMillis: Long,
     metrics: Metrics,
+    storeCreateArguments: Boolean,
 ) {
   import ParallelIndexerSubscription._
 
@@ -59,6 +60,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               participantId = participantId,
               translation = translation,
               compressionStrategy = compressionStrategy,
+              storeCreateArguments = storeCreateArguments,
             ),
             UpdateToMeteringDbDto(),
           )

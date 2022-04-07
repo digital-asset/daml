@@ -210,9 +210,6 @@ trait ContractStorageBackend {
   def contractState(contractId: ContractId, before: Long)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState]
-  def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[ContractStorageBackend.RawContract]
   def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
       connection: Connection
   ): Option[String]
@@ -222,22 +219,22 @@ trait ContractStorageBackend {
   def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[ContractStorageBackend.RawContractStateEvent]
+
+  def contractPayloadBatch(
+      allFilterParties: Set[ContractId]
+  )(connection: Connection): Map[ContractId, (Array[Byte], Ref.Identifier)]
 }
 
 object ContractStorageBackend {
   case class RawContractState(
       templateId: Option[String],
       flatEventWitnesses: Set[Ref.Party],
-      createArgument: Option[Array[Byte]],
-      createArgumentCompression: Option[Int],
       eventKind: Int,
       ledgerEffectiveTime: Option[Timestamp],
   )
 
   class RawContract(
-      val templateId: String,
-      val createArgument: Array[Byte],
-      val createArgumentCompression: Option[Int],
+      val templateId: String
   )
 
   case class RawContractStateEvent(
@@ -247,8 +244,6 @@ object ContractStorageBackend {
       ledgerEffectiveTime: Option[Timestamp],
       createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
-      createArgument: Option[Array[Byte]],
-      createArgumentCompression: Option[Int],
       flatEventWitnesses: Set[Ref.Party],
       eventSequentialId: Long,
       offset: Offset,
@@ -332,8 +327,6 @@ object EventStorageBackend {
       createAgreementText: Option[String],
       createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
-      createArgument: Option[Array[Byte]],
-      createArgumentCompression: Option[Int],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],

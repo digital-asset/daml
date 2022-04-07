@@ -23,6 +23,7 @@ object UpdateToDbDto {
       participantId: Ref.ParticipantId,
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
+      storeCreateArguments: Boolean = true,
   ): Offset => state.Update => Iterator[DbDto] = { offset =>
     import state.Update._
     {
@@ -159,8 +160,9 @@ object UpdateToDbDto {
                   flat_event_witnesses = stakeholders,
                   tree_event_witnesses =
                     blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-                  create_argument = Some(createArgument)
-                    .map(compressionStrategy.createArgumentCompression.compress),
+                  create_argument =
+                    Some(if (storeCreateArguments) createArgument else Array.empty[Byte])
+                      .map(compressionStrategy.createArgumentCompression.compress),
                   create_signatories = Some(create.signatories.map(_.toString)),
                   create_observers =
                     Some(create.stakeholders.diff(create.signatories).map(_.toString)),

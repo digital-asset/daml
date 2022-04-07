@@ -92,6 +92,7 @@ object JdbcIndexer {
           tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
+          storeCreateArguments = config.storeCreateArguments,
         ),
         stringInterningStorageBackend = stringInterningStorageBackend,
         meteringAggregator = new MeteringAggregator.Owner(

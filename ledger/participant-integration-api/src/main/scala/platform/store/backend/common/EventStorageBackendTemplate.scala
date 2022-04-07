@@ -46,8 +46,6 @@ abstract class EventStorageBackendTemplate(
       "event_id",
       "contract_id",
       "template_id",
-      "create_argument",
-      "create_argument_compression",
       "create_signatories",
       "create_observers",
       "create_agreement_text",
@@ -67,8 +65,6 @@ abstract class EventStorageBackendTemplate(
       "event_id",
       "contract_id",
       "template_id",
-      "NULL as create_argument",
-      "NULL as create_argument_compression",
       "NULL as create_signatories",
       "NULL as create_observers",
       "NULL as create_agreement_text",
@@ -105,13 +101,11 @@ abstract class EventStorageBackendTemplate(
       array[Int]("submitters").?
 
   private type CreatedEventRow =
-    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
+    SharedRow ~ Array[Int] ~ Array[Int] ~ Option[String] ~
       Option[Array[Byte]] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
-      byteArray("create_argument") ~
-      int("create_argument_compression").? ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
       str("create_agreement_text").? ~
@@ -144,7 +138,7 @@ abstract class EventStorageBackendTemplate(
   ): RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
-          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~
           createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
@@ -164,8 +158,6 @@ abstract class EventStorageBackendTemplate(
             eventId = eventId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
-            createArgument = createArgument,
-            createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
               createSignatories.map(stringInterning.party.unsafe.externalize)
             ),
@@ -227,7 +219,7 @@ abstract class EventStorageBackendTemplate(
       allQueryingParties: Set[Int]
   ): RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
@@ -246,8 +238,6 @@ abstract class EventStorageBackendTemplate(
             eventId = eventId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
-            createArgument = createArgument,
-            createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
               createSignatories.map(stringInterning.party.unsafe.externalize)
             ),
@@ -325,8 +315,6 @@ abstract class EventStorageBackendTemplate(
     "ledger_effective_time",
     "template_id",
     "workflow_id",
-    "create_argument",
-    "create_argument_compression",
     "create_signatories",
     "create_observers",
     "create_agreement_text",
@@ -352,8 +340,6 @@ abstract class EventStorageBackendTemplate(
     "ledger_effective_time",
     "template_id",
     "workflow_id",
-    "NULL as create_argument",
-    "NULL as create_argument_compression",
     "NULL as create_signatories",
     "NULL as create_observers",
     "NULL as create_agreement_text",
@@ -748,8 +734,6 @@ abstract class EventStorageBackendTemplate(
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
-      byteArray("create_argument").? ~
-      int("create_argument_compression").? ~
       array[Int]("tree_event_witnesses") ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("submitters").? ~
@@ -764,7 +748,7 @@ abstract class EventStorageBackendTemplate(
       offset("event_offset")).map {
       case eventKind ~ transactionId ~ nodeIndex ~ commandId ~ workflowId ~ eventId ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createSignatories ~
           createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~
-          createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
+          treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
         RawTransactionEvent(
@@ -782,8 +766,6 @@ abstract class EventStorageBackendTemplate(
           createAgreementText,
           createKeyValue,
           createKeyCompression,
-          createArgument,
-          createArgumentCompression,
           treeEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
           flatEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
           submitters
@@ -821,8 +803,6 @@ abstract class EventStorageBackendTemplate(
            create_agreement_text,
            create_key_value,
            create_key_value_compression,
-           create_argument,
-           create_argument_compression,
            tree_event_witnesses,
            flat_event_witnesses,
            submitters,
@@ -856,8 +836,6 @@ abstract class EventStorageBackendTemplate(
            NULL as create_agreement_text,
            create_key_value,
            create_key_value_compression,
-           NULL as create_argument,
-           NULL as create_argument_compression,
            tree_event_witnesses,
            flat_event_witnesses,
            submitters,
@@ -891,8 +869,6 @@ abstract class EventStorageBackendTemplate(
            NULL as create_agreement_text,
            create_key_value,
            create_key_value_compression,
-           NULL as create_argument,
-           NULL as create_argument_compression,
            tree_event_witnesses,
            flat_event_witnesses,
            submitters,

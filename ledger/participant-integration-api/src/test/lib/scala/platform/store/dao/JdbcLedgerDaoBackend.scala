@@ -19,7 +19,12 @@ import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
+import com.daml.platform.store.{
+  DbSupport,
+  DbType,
+  LfValueTranslationCache,
+  PersistentContractPayloadStore,
+}
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.{Await, Future}
@@ -93,6 +98,12 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
           materializer = materializer,
+          contractPayloadStore = new PersistentContractPayloadStore(
+            dbSupport.dbDispatcher,
+            dbSupport.storageBackendFactory
+              .createContractStorageBackend(ledgerEndCache, stringInterningView),
+            metrics,
+          ),
         )
       }
   }

@@ -14,6 +14,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2.ContractPayloadStore
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -54,6 +55,7 @@ private class JdbcLedgerDao(
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
     materializer: Materializer,
+    contractPayloadStore: ContractPayloadStore,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -479,12 +481,18 @@ private class JdbcLedgerDao(
         querylimiter =
           new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
       ),
+      contractPayloadStore = contractPayloadStore,
     )(
       servicesExecutionContext
     )
 
   override val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, metrics, readStorageBackend.contractStorageBackend)(
+    ContractsReader(
+      dbDispatcher,
+      metrics,
+      readStorageBackend.contractStorageBackend,
+      contractPayloadStore,
+    )(
       servicesExecutionContext
     )
 
@@ -578,6 +586,7 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
+      contractPayloadStore: ContractPayloadStore,
   ): LedgerReadDao =
     new MeteredLedgerReadDao(
       new JdbcLedgerDao(
@@ -597,6 +606,7 @@ private[platform] object JdbcLedgerDao {
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         materializer = materializer,
+        contractPayloadStore = contractPayloadStore,
       ),
       metrics,
     )
@@ -618,6 +628,7 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
+      contractPayloadStore: ContractPayloadStore,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -637,6 +648,7 @@ private[platform] object JdbcLedgerDao {
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         materializer = materializer,
+        contractPayloadStore = contractPayloadStore,
       ),
       metrics,
     )

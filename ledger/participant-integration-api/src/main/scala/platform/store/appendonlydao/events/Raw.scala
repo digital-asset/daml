@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.event.{
   ExercisedEvent => PbExercisedEvent,
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.LoggingContext
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.Compression
@@ -32,6 +33,7 @@ sealed trait Raw[+E] {
     */
   def applyDeserialization(
       lfValueTranslation: LfValueTranslation,
+      contractPayloads: Map[ContractId, VersionedContractInstance],
       verbose: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -49,8 +51,6 @@ object Raw {
     */
   sealed abstract class Created[E](
       val partial: PbCreatedEvent,
-      val createArgument: Array[Byte],
-      val createArgumentCompression: Compression.Algorithm,
       val createKeyValue: Option[Array[Byte]],
       val createKeyValueCompression: Compression.Algorithm,
   ) extends Raw[E] {
@@ -58,12 +58,13 @@ object Raw {
 
     final override def applyDeserialization(
         lfValueTranslation: LfValueTranslation,
+        contractPayloads: Map[ContractId, VersionedContractInstance],
         verbose: Boolean,
     )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[E] =
-      lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
+      lfValueTranslation.deserialize(this, contractPayloads, verbose).map(wrapInEvent)
   }
 
   object Created {
@@ -95,14 +96,10 @@ object Raw {
 
     final class Created private[Raw] (
         raw: PbCreatedEvent,
-        createArgument: Array[Byte],
-        createArgumentCompression: Compression.Algorithm,
         createKeyValue: Option[Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
     ) extends Raw.Created[PbFlatEvent](
           raw,
-          createArgument,
-          createArgumentCompression,
           createKeyValue,
           createKeyValueCompression,
         )
@@ -116,8 +113,6 @@ object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
-          createArgument: Array[Byte],
-          createArgumentCompression: Option[Int],
           createSignatories: ArraySeq[String],
           createObservers: ArraySeq[String],
           createAgreementText: Option[String],
@@ -135,8 +130,6 @@ object Raw {
             createAgreementText = createAgreementText,
             eventWitnesses = eventWitnesses,
           ),
-          createArgument = createArgument,
-          createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
@@ -149,6 +142,7 @@ object Raw {
     ) extends FlatEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
+          contractPayloads: Map[ContractId, VersionedContractInstance],
           verbose: Boolean,
       )(implicit
           ec: ExecutionContext,
@@ -183,14 +177,10 @@ object Raw {
 
     final class Created(
         raw: PbCreatedEvent,
-        createArgument: Array[Byte],
-        createArgumentCompression: Compression.Algorithm,
         createKeyValue: Option[Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
     ) extends Raw.Created[PbTreeEvent](
           raw,
-          createArgument,
-          createArgumentCompression,
           createKeyValue,
           createKeyValueCompression,
         )
@@ -204,8 +194,6 @@ object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
-          createArgument: Array[Byte],
-          createArgumentCompression: Option[Int],
           createSignatories: ArraySeq[String],
           createObservers: ArraySeq[String],
           createAgreementText: Option[String],
@@ -223,8 +211,6 @@ object Raw {
             createAgreementText = createAgreementText,
             eventWitnesses = eventWitnesses,
           ),
-          createArgument = createArgument,
-          createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
@@ -239,6 +225,7 @@ object Raw {
     ) extends TreeEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
+          contractPayloads: Map[ContractId, VersionedContractInstance],
           verbose: Boolean,
       )(implicit
           ec: ExecutionContext,

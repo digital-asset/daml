@@ -17,8 +17,10 @@ import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.index.IndexServiceBuilder
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-
 import java.io.File
+
+import com.daml.ledger.participant.state.v2.ContractPayloadStore
+
 import scala.concurrent.ExecutionContextExecutor
 
 object StandaloneIndexService {
@@ -31,6 +33,7 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      contractPayloadStore: Option[ContractPayloadStore] = None,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -89,6 +92,7 @@ object StandaloneIndexService {
         maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
         maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+        contractPayloadStore = contractPayloadStore,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

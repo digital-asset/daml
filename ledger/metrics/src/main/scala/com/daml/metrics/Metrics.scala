@@ -533,6 +533,8 @@ final class Metrics(val registry: MetricRegistry) {
           val exerciseResultUncompressed: Histogram =
             registry.histogram(Prefix :+ "exercise_result_uncompressed")
         }
+
+        val getContractPayloads: DatabaseMetrics = createDbMetrics("get_contract_payloads")
       }
     }
 

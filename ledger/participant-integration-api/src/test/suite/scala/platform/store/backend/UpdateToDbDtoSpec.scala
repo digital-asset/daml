@@ -26,8 +26,10 @@ import io.grpc.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.time.Duration
+
+import com.daml.lf.value.Value.VersionedContractInstance
+
 import scala.concurrent.{ExecutionContext, Future}
 
 // Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
@@ -1462,7 +1464,11 @@ object UpdateToDbDtoSpec {
         exercise: Exercise,
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
       (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
-    override def deserialize[E](raw: Raw.Created[E], verbose: Boolean)(implicit
+    override def deserialize[E](
+        raw: Raw.Created[E],
+        contractPayloads: Map[ContractId, VersionedContractInstance],
+        verbose: Boolean,
+    )(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))

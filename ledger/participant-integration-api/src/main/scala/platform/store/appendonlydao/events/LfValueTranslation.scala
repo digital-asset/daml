@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.value.{
 }
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.ledger.EventId
-import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.Value.{VersionedContractInstance, VersionedValue}
 import com.daml.lf.{engine => LfEngine}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -58,6 +58,7 @@ trait LfValueSerialization {
 
   def deserialize[E](
       raw: Raw.Created[E],
+      contractPayloads: Map[ContractId, VersionedContractInstance],
       verbose: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -271,6 +272,7 @@ final class LfValueTranslation(
 
   override def deserialize[E](
       raw: Raw.Created[E],
+      contractPayloads: Map[ContractId, VersionedContractInstance],
       verbose: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -283,7 +285,8 @@ final class LfValueTranslation(
         .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
           LfValueTranslationCache.EventCache.Value.Create(
-            argument = decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
+            argument =
+              contractPayloads(ContractId.assertFromString(raw.partial.contractId)).map(_.arg),
             key = raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
           )
         )

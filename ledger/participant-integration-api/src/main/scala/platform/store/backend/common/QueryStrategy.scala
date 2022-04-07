@@ -73,6 +73,10 @@ trait QueryStrategy {
       longs.view.map(Long.box).toArray
     cSQL"= ANY($longArray)"
   }
+  def anyOfStrings(strings: Iterable[String]): CompositeSql = {
+    val stringArray: Array[String] = strings.toArray
+    cSQL"= ANY($stringArray)"
+  }
 
   /** Expression for `(offset <= endInclusive)`
     *
