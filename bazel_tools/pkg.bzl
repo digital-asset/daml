@@ -19,9 +19,16 @@ def _unpack_tar_impl(ctx):
             outputs.append(ctx.actions.declare_directory(out[:-1]))
         else:
             outputs.append(ctx.actions.declare_file(out))
+    src = ctx.file.src
     args = ctx.actions.args()
-    args.add("xf")
-    args.add(ctx.file.src)
+    if src.path.endswith(".tar.gz") or src.path.endswith(".tgz"):
+        command = "gzip -cd {src} | tar x $@".format(
+            src = src.path,
+        )
+    else:
+        command = "tar xf {src} $@".format(
+            src = src.path,
+        )
     if ctx.attr.strip:
         args.add_all(["--strip", ctx.attr.strip])
     prefix = paths.join(
@@ -34,7 +41,7 @@ def _unpack_tar_impl(ctx):
     ctx.actions.run_shell(
         outputs = outputs,
         inputs = [ctx.file.src],
-        command = "tar $@",
+        command = command,
         arguments = [args],
         mnemonic = "UnpackTar",
         progress_message = "Unpacking {} to {}".format(
