@@ -31,10 +31,10 @@ def _unpack_tar_impl(ctx):
         ctx.attr.prefix,
     )
     args.add_all(["-C", prefix])
-    ctx.actions.run(
+    ctx.actions.run_shell(
         outputs = outputs,
         inputs = [ctx.file.src],
-        executable = ctx.executable._tar,
+        command = "tar $@",
         arguments = [args],
         mnemonic = "UnpackTar",
         progress_message = "Unpacking {} to {}".format(
@@ -63,11 +63,6 @@ unpack_tar = rule(
         ),
         prefix = attr.string(
             doc = "Add this prefix to the unpacked paths, relative to the current package.",
-        ),
-        _tar = attr.label(
-            default = "@tar_dev_env//:tar",
-            executable = True,
-            cfg = "exec",
         ),
     ),
 )
