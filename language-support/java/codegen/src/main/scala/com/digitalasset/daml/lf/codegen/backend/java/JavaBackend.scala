@@ -6,7 +6,7 @@ package com.daml.lf.codegen.backend.java
 import java.nio.file.Path
 
 import com.daml.lf.codegen.backend.Backend
-import com.daml.lf.codegen.backend.java.inner.{ClassForType, InterfaceClass, DecoderClass}
+import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
 import com.daml.lf.codegen.{NodeWithContext, ModuleWithContext, InterfaceTree}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Interface
@@ -54,7 +54,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     })
   }
 
-  def process(
+  override def process(
       nodeWithContext: NodeWithContext,
       packagePrefixes: Map[PackageId, String],
       outputDirectory: Path,
@@ -62,14 +62,12 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext =>
         // this is a Daml module that contains type declarations => the codegen will create one file
+        val moduleName = moduleWithContext.lineage.map(_._1).toSeq.mkString(".")
         Future {
-          logger.info(
-            s"Generating code for module ${moduleWithContext.lineage.map(_._1).toSeq.mkString(".")}"
-          )
+          logger.info(s"Generating code for module $moduleName")
           for (javaFile <- createTypeDefinitionClasses(moduleWithContext, packagePrefixes)) {
-            logger.info(
-              s"Writing ${javaFile.packageName}.${javaFile.typeSpec.name} to directory $outputDirectory"
-            )
+            val javaFileFullName = s"${javaFile.packageName}.${javaFile.typeSpec.name}"
+            logger.info(s"Writing $javaFileFullName to directory $outputDirectory")
             javaFile.writeTo(outputDirectory)
           }
         }
@@ -85,27 +83,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     MDC.put("packageId", moduleWithContext.packageId)
     MDC.put("packageIdShort", moduleWithContext.packageId.take(7))
     MDC.put("moduleName", moduleWithContext.name)
-    val typeSpecs = {
-      moduleWithContext.typesLineages.flatMap { typeWithContext =>
-        typeWithContext.interface.astInterfaces.map { case (interfaceName, interface) =>
-          val className = InterfaceClass.classNameForInterface(interfaceName)
-          val javaPackage = className.packageName()
-          JavaFile
-            .builder(
-              javaPackage,
-              InterfaceClass
-                .generate(
-                  className,
-                  interface,
-                  packagePrefixes,
-                  moduleWithContext.packageId,
-                  interfaceName,
-                ),
-            )
-            .build()
-        } ++ ClassForType(typeWithContext, packagePrefixes)
-      }
-    }
+    val typeSpecs = moduleWithContext.typesLineages.flatMap(ClassForType(_, packagePrefixes))
     MDC.remove("packageId")
     MDC.remove("packageIdShort")
     MDC.remove("moduleName")

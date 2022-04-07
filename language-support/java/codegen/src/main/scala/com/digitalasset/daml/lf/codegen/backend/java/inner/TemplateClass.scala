@@ -22,10 +22,10 @@ private[inner] object TemplateClass extends StrictLogging {
       template: DefTemplate.FWT,
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
-  ): TypeSpec =
+  ): com.squareup.javapoet.TypeSpec =
     TrackLineage.of("template", typeWithContext.name) {
-      val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       logger.info("Start")
+      val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
       val templateType = TypeSpec
@@ -219,7 +219,7 @@ private[inner] object TemplateClass extends StrictLogging {
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String],
   ) = {
-    val methods = for ((choiceName, choice) <- choices) yield {
+    val methods = for ((choiceName, choice) <- choices.toList) yield {
       val createAndExerciseChoiceMethod =
         generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
       val splatted =

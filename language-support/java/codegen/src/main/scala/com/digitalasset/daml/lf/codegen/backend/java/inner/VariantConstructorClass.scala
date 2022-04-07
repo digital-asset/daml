@@ -17,13 +17,14 @@ import scala.jdk.CollectionConverters._
 object VariantConstructorClass extends StrictLogging {
 
   def generate(
+      packageId: PackageId,
       variant: TypeName,
       typeArgs: IndexedSeq[String],
       constructorName: String,
       javaName: String,
       body: Type,
       packagePrefixes: Map[PackageId, String],
-  ): TypeSpec = {
+  ): com.squareup.javapoet.TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 
@@ -36,6 +37,10 @@ object VariantConstructorClass extends StrictLogging {
           javaType.rawType.simpleName
       })
 
+      val constructor = ConstructorGenerator.generateConstructor(
+        IndexedSeq(FieldInfo("body", body, variantFieldName, javaType))
+      )
+
       val conversionMethods = distinctTypeVars(body, typeArgs).flatMap { params =>
         List(
           toValue(constructorName, params, body, variantFieldName, packagePrefixes),
@@ -43,20 +48,21 @@ object VariantConstructorClass extends StrictLogging {
         )
       }
 
-      TypeSpec
-        .classBuilder(javaName)
-        .addModifiers(Modifier.PUBLIC)
-        .addTypeVariables(typeArgs.map(TypeVariableName.get).asJava)
-        .superclass(variant)
-        .addField(javaType, variantFieldName, Modifier.PUBLIC, Modifier.FINAL)
-        .addMethod(
-          ConstructorGenerator.generateConstructor(
-            IndexedSeq(FieldInfo("body", body, variantFieldName, javaType))
-          )
-        )
-        .addMethods(conversionMethods.asJava)
-        .addMethods(ObjectMethods(className.rawType, typeArgs, Vector(variantFieldName)).asJava)
-        .build()
+      val typeSpec =
+        TypeSpec
+          .classBuilder(javaName)
+          .addModifiers(Modifier.PUBLIC)
+          .addTypeVariables(typeArgs.map(TypeVariableName.get).asJava)
+          .superclass(variant)
+          .addField(javaType, variantFieldName, Modifier.PUBLIC, Modifier.FINAL)
+          .addField(createPackageIdField(packageId))
+          .addMethod(constructor)
+          .addMethods(conversionMethods.asJava)
+          .addMethods(ObjectMethods(className.rawType, typeArgs, Vector(variantFieldName)).asJava)
+          .build()
+
+      logger.info("End")
+      typeSpec
     }
   }
 
