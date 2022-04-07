@@ -30,7 +30,7 @@ git submodule update --init --recursive
 
 4. Make initial build (takes about 15 mins)
 ```
-hadrian/build.stack.sh --configure --flavour=quickest -j
+hadrian/build.sh --configure --flavour=quickest -j
 ```
 
 ### Iterating on parser/desugaring in `ghc`
@@ -44,7 +44,7 @@ Working locally in a branch from `da-master-8.8.1`, there are two files which ge
 
 The quickest way to build and test is:
 
-1. `hadrian/build.stack.sh --configure --flavour=quickest -j`
+1. `hadrian/build.sh --configure --flavour=quickest -j`
 
 2. `./_build/stage1/bin/ghc ./Example.hs -ddump-parsed | tee desugar.out`
 
