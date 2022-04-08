@@ -5,7 +5,12 @@ package com.daml.test.evidence.generator
 
 import better.files.File
 import com.daml.test.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
-import com.daml.test.evidence.tag.Reliability.{AdverseScenario, Component, ReliabilityTest, Remediation}
+import com.daml.test.evidence.tag.Reliability.{
+  AdverseScenario,
+  Component,
+  ReliabilityTest,
+  Remediation,
+}
 import com.daml.test.evidence.tag.Security.{Attack, HappyCase, HappyOrAttack, SecurityTest}
 import com.github.tototoshi.csv.{CSVWriter, DefaultCSVFormat}
 
