@@ -46,6 +46,14 @@ private[lf] object Command {
       argument: SValue,
   ) extends Command
 
+  final case class ExerciseByInheritedInterface(
+      requiredIface: Identifier,
+      requiringIface: Identifier,
+      contractId: SContractId,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ) extends Command
+
   final case class ExerciseByKey(
       templateId: Identifier,
       contractKey: SValue,

@@ -317,7 +317,17 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       case Right(interface) =>
         interface.fixedChoices.get(chName) match {
           case Some(choice) => Right(ChoiceInfo.Interface(choice))
-          case None => Left(LookupError(context, context))
+          case None => {
+            interface.requires.view
+              .map((iface) =>
+                lookupInterfaceChoice(iface, chName, context).map((choice) => (choice, iface))
+              )
+              .collectFirst({ case Right((choice, iface)) => (choice, iface) }) match {
+              case Some((choice, iface)) =>
+                Right(ChoiceInfo.InterfaceInherited(iface, choice))
+              case None => Left(LookupError(context, context))
+            }
+          }
         }
     }
   }
@@ -448,6 +458,11 @@ object PackageInterface {
 
     final case class Inherited(ifaceId: Identifier, choice: TemplateChoiceSignature)
         extends ChoiceInfo
+
+    final case class InterfaceInherited(
+        ifaceId: Identifier,
+        choice: TemplateChoiceSignature,
+    ) extends ChoiceInfo
 
   }
 

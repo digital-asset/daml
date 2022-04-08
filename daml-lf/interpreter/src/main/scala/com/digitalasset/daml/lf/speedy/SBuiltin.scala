@@ -1136,6 +1136,32 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBGuardRequiredInterfaceId(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ) = {
+      val contractId = getSContractId(args, 0)
+      val (actualTmplId, record @ _) = getSAnyContract(args, 1)
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(actualTmplId) match {
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIfaceId) =>
+          SBool(true)
+        case _ =>
+          throw SErrorDamlException(
+            IE.ContractDoesNotImplementRequiringInterface(
+              requiringIfaceId,
+              requiredIfaceId,
+              contractId,
+              actualTmplId,
+            )
+          )
+      }
+    }
+  }
+
   final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,
