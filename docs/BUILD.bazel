@@ -759,15 +759,6 @@ pkg_tar(
 )
 
 genrule(
-    name = "generate-security-test-evidence-docs-into-csv-file",
-    srcs = [],
-    outs = ["security-test-evidence.csv"],
-    cmd = "$(location //ledger/test-evidence:security-test-evidence-csv-generator) $(location security-test-evidence.csv) {version}".format(version = sdk_version),
-    tools = ["//ledger/test-evidence:security-test-evidence-csv-generator"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
     name = "generate-error-codes-json",
     srcs = [],
     outs = ["error_codes_export.json"],
@@ -799,7 +790,7 @@ exports_files([
 ])
 
 da_scala_test(
-    name = "generated-resources-are-up-to-date",
+    name = "generated-error-pages-are-up-to-date",
     srcs = glob(["src/test/**/*.scala"]),
     resources = glob(["resources/**/*"]),
     scala_deps = [
@@ -808,12 +799,8 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
-    runtime_deps = [
-        "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
-    ],
     deps = [
         "//ledger/error/generator:lib",
-        "//ledger/test-evidence:ledger-generator-lib",
         "@maven//:commons_io_commons_io",
     ],
 ) if not is_windows else None

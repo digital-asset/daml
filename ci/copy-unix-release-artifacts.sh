@@ -104,4 +104,8 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/docs/sphinx-source-tree.tar.gz $OUTPUT_DIR/split-release/docs/sphinx-source-tree-$RELEASE_TAG.tar.gz
     cp bazel-bin/docs/pdf-fonts-tar.tar.gz $OUTPUT_DIR/split-release/docs/pdf-fonts-$RELEASE_TAG.tar.gz
     cp bazel-bin/docs/non-sphinx-html-docs.tar.gz $OUTPUT_DIR/split-release/docs/non-sphinx-html-docs-$RELEASE_TAG.tar.gz
+
+    bazel build //ledger/test-evidence:generate-security-test-evidence-files
+    cp bazel-bin/ledger/test-evidence/security-test-evidence.csv $OUTPUT_DIR/github/security-test-evidence.csv
+    cp bazel-bin/ledger/test-evidence/security-test-evidence.json $OUTPUT_DIR/github/security-test-evidence.json
 fi

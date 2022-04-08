@@ -14,11 +14,8 @@ import com.daml.test.evidence.tag.Reliability.{
 import com.daml.test.evidence.tag.Security.{Attack, HappyCase, HappyOrAttack, SecurityTest}
 import com.github.tototoshi.csv.{CSVWriter, DefaultCSVFormat}
 
-import java.io.ByteArrayOutputStream
-import java.nio.charset.StandardCharsets
-
 object TestEntryCsvEncoder {
-  implicit object MyFormat extends DefaultCSVFormat {
+  implicit object CsvFormat extends DefaultCSVFormat {
     override val lineTerminator = System.lineSeparator()
   }
 
@@ -32,16 +29,6 @@ object TestEntryCsvEncoder {
     values.headOption.foreach { first =>
       CSVWriter.open(file.toJava).writeAll(first.header +: values.map(_.values))
     }
-  }
-
-  def generateOutput[A <: TestEntryCsv](values: Seq[A]): String = {
-    val fos = new ByteArrayOutputStream()
-    values.headOption
-      .map { first =>
-        CSVWriter.open(fos).writeAll(first.header +: values.map(_.values))
-        new String(fos.toByteArray, StandardCharsets.UTF_8)
-      }
-      .getOrElse("")
   }
 
   /** A flattened representation of a security test entry for CSV exporting. */
