@@ -32,19 +32,6 @@ module EnumMod {
     right: EnumMod:ColoredTree
   };
 
-  record @serializable TemplateRecord = {
-    optionalColor: EnumMod:OptionalColor,
-    coloredTree: EnumMod:ColoredTree,
-    party: Party
-  };
-
-  template (this : TemplateRecord) =  {
-    precondition True;
-    signatories (PartyMod:one (EnumMod:TemplateRecord {party} this));
-    observers (Nil @Party);
-    agreement "Agreement for EnumMod:TemplateRecord";
-  };
-
   val createContracts: Scenario Unit =
     sbind
       c1 : ContractId EnumMod:Box <- EnumMod:createColoredContract EnumMod:Color:Red ;
