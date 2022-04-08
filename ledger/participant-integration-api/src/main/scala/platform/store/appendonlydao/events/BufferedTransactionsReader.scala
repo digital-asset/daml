@@ -192,15 +192,25 @@ private[platform] object BufferedTransactionsReader {
         slice: Vector[(Offset, TransactionLogUpdate)]
     ): Source[(Offset, API_RESPONSE), NotUsed] =
       Source
-        .fromIterator(() => slice.iterator)
-        .collect { case (offset, tx: TransactionLogUpdate.TransactionAccepted) =>
-          offset -> tx
+        .fromIterator(() =>
+          slice
+            .collect { case (offset, tx: TransactionLogUpdate.TransactionAccepted) =>
+              offset -> tx
+            }
+            .iterator
+            .grouped(10)
+        )
+        .collectType[Seq[(Offset, TransactionLogUpdate.TransactionAccepted)]]
+        .buffered(32)(inStreamBufferLength)
+        .mapAsync(2) { batch =>
+          Timed.future(
+            toApiTxTimer,
+            Future.sequence(batch.iterator.map { case (offset, tx) =>
+              toApiTx(tx, filter, verbose).map(offset -> _)
+            }),
+          )
         }
-        .collectType[(Offset, TransactionLogUpdate.TransactionAccepted)]
-        .buffered(128)(inStreamBufferLength)
-        .mapAsync(1) { case (offset, txAccepted) =>
-          Timed.future(toApiTxTimer, toApiTx(txAccepted, filter, verbose).map(offset -> _))
-        }
+        .flatMapConcat(it => Source.fromIterator(() => it))
         .async
         .collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()
