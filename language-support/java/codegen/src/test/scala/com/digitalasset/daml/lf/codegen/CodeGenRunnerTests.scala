@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java
+package com.daml.lf.codegen
 
 import java.nio.file.Path
 
@@ -14,15 +14,15 @@ import com.daml.lf.codegen.conf.PackageReference
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
+final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
-  import JavaCodeGenTests._
+  import CodeGenRunnerTests._
 
   behavior of "collectDamlLfInterfaces"
 
   it should "read interfaces from a single DAR file without a prefix" in {
 
-    val (interfaces, pkgPrefixes) = JavaCodeGen.collectDamlLfInterfaces(Map(testDar -> None))
+    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(Map(testDar -> None))
 
     assert(interfaces.length == 25)
     assert(pkgPrefixes == Map.empty)
@@ -31,7 +31,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
   it should "read interfaces from a single DAR file with a prefix" in {
 
     val (interfaces, pkgPrefixes) =
-      JavaCodeGen.collectDamlLfInterfaces(Map(testDar -> Some("PREFIX")))
+      CodeGenRunner.collectDamlLfInterfaces(Map(testDar -> Some("PREFIX")))
 
     assert(interfaces.map(_.packageId).length == dar.all.length)
     assert(pkgPrefixes.size == dar.all.length)
@@ -42,7 +42,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
 
   it should "succeed if there are no collisions" in {
     assert(
-      JavaCodeGen.detectModuleCollisions(
+      CodeGenRunner.detectModuleCollisions(
         Map.empty,
         Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
       ) === (())
@@ -51,7 +51,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
 
   it should "fail if there is a collision" in {
     assertThrows[IllegalArgumentException] {
-      JavaCodeGen.detectModuleCollisions(
+      CodeGenRunner.detectModuleCollisions(
         Map.empty,
         Seq(interface("pkg1", "A"), interface("pkg2", "A")),
       )
@@ -60,7 +60,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
 
   it should "fail if there is a collision caused by prefixing" in {
     assertThrows[IllegalArgumentException] {
-      JavaCodeGen.detectModuleCollisions(
+      CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
         Seq(interface("pkg1", "A.B"), interface("pkg2", "B")),
       )
@@ -69,7 +69,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
 
   it should "succeed if collision is resolved by prefixing" in {
     assert(
-      JavaCodeGen.detectModuleCollisions(
+      CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
         Seq(interface("pkg1", "A"), interface("pkg2", "A")),
       ) === (())
@@ -94,7 +94,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
     val interface2 = interface(pkg2, Some(PackageMetadata(name2, version)))
     val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
     assert(
-      JavaCodeGen.resolvePackagePrefixes(
+      CodeGenRunner.resolvePackagePrefixes(
         pkgPrefixes,
         modulePrefixes,
         Seq(interface1, interface2, interface3),
@@ -108,12 +108,12 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      JavaCodeGen.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
+      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
     }
   }
 }
 
-object JavaCodeGenTests {
+object CodeGenRunnerTests {
 
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
