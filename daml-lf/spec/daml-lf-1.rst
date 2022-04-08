@@ -584,12 +584,12 @@ Then we can define our kinds, types, and expressions::
   Kinds
     k
       ::= 'nat'                                     -- KindNat  [Daml-LF ≥ 1.7]
-       | ek                                         -- KindErasable
+       |  kᵪ                                        -- KindErasable
 
   Erasable Kind
-    ek
+    kᵪ
       ::= ⋆                                         -- KindStar
-       | k → ek                                     -- KindArrow
+       |  k → kᵪ                                    -- KindArrow
 
   Module references
     Mod
@@ -1975,7 +1975,7 @@ need to be evaluated further. ::
 
     v ::=  λ x : τ . e                              -- ValExpAbs
         |  Λ α : 'nat' . e                          -- ValExpTyAbsNat
-        |  Λ α : ek . v                             -- ValExpTyAbsErasable
+        |  Λ α : kᵪ . v                             -- ValExpTyAbsErasable
         |  LitInt64                                 -- ValExpLitInt64
         |  LitNumeric                               -- ValExpLitNumeric
         |  LitBigNumeric                            -- ValExpLitBigNumeric
@@ -2288,7 +2288,7 @@ grammar below. ::
        |  E₁ e₂
        |  v₁ E₂
        |  E @τ
-       |  Λ α : ek . E
+       |  Λ α : kᵪ . E
        |  'let' x : τ = E₁ 'in' e₂
        |  'case' E 'of' p₁ → e₁ '|' … '|' pₙ → eₙ
        |  Mod:T @τ₁ … @τₙ { f₁ = v₁, …, fₖ₋₁ = vₖ₋₁, fₖ = Eₖ, fₖ₊₁ = eₖ₊₁, … fₘ = eₘ }
@@ -2386,36 +2386,28 @@ exact output.
     err ::=  Throw v                                -- ErrThrow, v is a value of AnyException type
          |   Fatal t                                -- ErrFatal, t is a text value
 
-                                              ┌──────┐
-  Applying result to an evaluation context    │ E[r] │
-                                              └──────┘
-
-    E[ Ok e ] = Ok E[e]
-    E[ Err err ] = Err err
-
-
                              ┌──────────┐
   Redex evaluation           │  e →ᵦ r  │
                              └──────────┘
 
     —————————————————————————————————————————————————————————————————————— EvExpTyAppErasable
-      (Λ α : ek . v) @τ  →ᵦ  Ok  v[α ↦ τ]
+      (Λ α : kᵪ . v) @τ  →ᵦ  Ok  v[α ↦ τ]
 
     —————————————————————————————————————————————————————————————————————— EvExpTyAppNat
       (Λ α : 'nat' . e) @τ  →ᵦ  Ok  e[α ↦ τ]
 
     —————————————————————————————————————————————————————————————————————— EvExpAppLambda
-      (λ x : τ . e) v ]  →ᵦ  Ok  e[x ↦ v]
+      (λ x : τ . e) v   →ᵦ  Ok  e[x ↦ v]
 
     —————————————————————————————————————————————————————————————————————— EvExpLet
       'let' x : τ = v 'in' e  →ᵦ  Ok  e[x ↦ v]
 
     —————————————————————————————————————————————————————————————————————— EvExpFromAnySome
-      'from_any' @τ ('to_any' @τ v) ]  →ᵦ  Ok  ('Some' @τ v)
+      'from_any' @τ ('to_any' @τ v)  →ᵦ  Ok  ('Some' @τ v)
 
       τ₁ ≠ τ₂
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyNone
-      'from_any' @τ₁ ('to_any' @τ₂ v) ]  →ᵦ  Ok  ('None' @τ₁)
+      'from_any' @τ₁ ('to_any' @τ₂ v)  →ᵦ  Ok  ('None' @τ₁)
 
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)
     —————————————————————————————————————————————————————————————————————— EvExpCaseSucc
@@ -2461,7 +2453,7 @@ exact output.
       ⟨f₁ = v₁, …, fₙ = vₙ⟩  →ᵦ  Ok ⟨fⱼ₁ = vⱼ₁, …, fⱼₙ = vⱼₙ⟩
 
     —————————————————————————————————————————————————————————————————————— EvExpStructProj
-      ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩.fᵢ ]  →ᵦ  Ok vᵢ
+      ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩.fᵢ  →ᵦ  Ok vᵢ
 
     —————————————————————————————————————————————————————————————————————— EvExpStructUpd
       ⟨ ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ 'with' fᵢ = vᵢ' ⟩
