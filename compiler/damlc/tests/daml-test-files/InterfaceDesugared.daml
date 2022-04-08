@@ -8,7 +8,9 @@
 -- | The "desugared" counterpart to Interface.daml
 -- Please keep in sync with Interface.daml
 -- You can compare this file with the output of
--- > bazel run damlc -- compile $REPO/compiler/damlc/tests/daml-test-files/Interface.daml --target=1.dev --ghc-option=-ddump-parsed > desugared.out
+-- > bazel run damlc -- compile $REPO/compiler/damlc/tests/daml-test-files/Interface.daml
+--enable-scenarios=yes --target=1.dev --ghc-option=-ddump-parsed > desugared.out
+
 module InterfaceDesugared where
 -- import (implicit) qualified DA.Internal.Record
 -- import (implicit) qualified GHC.Types
@@ -17,29 +19,32 @@ module InterfaceDesugared where
 import DA.Assert ( (===) )
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
-  _interfaceTypeRep = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Token where
+  fetch = GHC.Types.primitive @"UFetchInterface"
 instance DA.Internal.Desugar.HasToInterface Token Token where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
-  fromInterface this = Some this
+  fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-instance DA.Internal.Desugar.HasFetch Token where
-  fetch = GHC.Types.primitive @"UFetchInterface"
-instance DA.Internal.Desugar.HasMethod Token "noopImpl" (()
-                                                         -> Update ())
-noopImpl :
-  DA.Internal.Desugar.Implements t Token => t -> () -> Update ()
-noopImpl t
+instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
+getOwner : DA.Internal.Desugar.Implements t Token => t -> Party
+getOwner t
   = GHC.Types.primitiveInterface
-      @"noopImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
-instance DA.Internal.Desugar.HasMethod Token "transferImpl" (Party
-                                                             -> Update (ContractId Token))
-transferImpl :
-  DA.Internal.Desugar.Implements t Token =>
-  t -> Party -> Update (ContractId Token)
-transferImpl t
+      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Token t)
+instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
+getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
+getAmount t
   = GHC.Types.primitiveInterface
-      @"transferImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
+      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
+instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
+                                                          -> Token)
+setAmount :
+  DA.Internal.Desugar.Implements t Token => t -> Int -> Token
+setAmount t
+  = GHC.Types.primitiveInterface
+      @"setAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
 instance DA.Internal.Desugar.HasMethod Token "splitImpl" (Int
                                                           -> Update (ContractId Token,
                                                                      ContractId Token))
@@ -49,23 +54,21 @@ splitImpl :
 splitImpl t
   = GHC.Types.primitiveInterface
       @"splitImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
-instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
-                                                          -> Token)
-setAmount :
-  DA.Internal.Desugar.Implements t Token => t -> Int -> Token
-setAmount t
+instance DA.Internal.Desugar.HasMethod Token "transferImpl" (Party
+                                                             -> Update (ContractId Token))
+transferImpl :
+  DA.Internal.Desugar.Implements t Token =>
+  t -> Party -> Update (ContractId Token)
+transferImpl t
   = GHC.Types.primitiveInterface
-      @"setAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
-instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
-getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
-getAmount t
+      @"transferImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
+instance DA.Internal.Desugar.HasMethod Token "noopImpl" (()
+                                                         -> Update ())
+noopImpl :
+  DA.Internal.Desugar.Implements t Token => t -> () -> Update ()
+noopImpl t
   = GHC.Types.primitiveInterface
-      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
-instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
-getOwner : DA.Internal.Desugar.Implements t Token => t -> Party
-getOwner t
-  = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Token t)
+      @"noopImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Token where
@@ -85,15 +88,18 @@ instance DA.Internal.Desugar.HasIsInterfaceType Token where
 instance DA.Internal.Desugar.Eq Token where
   (==) = GHC.Types.primitive @"BEEqual"
 instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
+         DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
+                                                      ContractId Token)) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasFromAnyChoice t GetRich (ContractId Token) where
+         DA.Internal.Desugar.HasFromAnyChoice t Split ((ContractId Token,
+                                                        ContractId Token)) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t GetRich (ContractId Token) where
+         DA.Internal.Desugar.HasExerciseGuarded t Split ((ContractId Token,
+                                                          ContractId Token)) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
@@ -103,31 +109,9 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t GetRich (ContractId Token) where
-  exercise
-    = DA.Internal.Desugar._exerciseDefault
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasFromAnyChoice t Noop (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t Noop (()) where
-  exerciseGuarded pred cid arg
-    = GHC.Types.primitive
-        @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
-        arg
-        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
-instance ((DA.Internal.Desugar.HasIsInterfaceType t),
-          (DA.Internal.Desugar.HasTemplateTypeRep t),
-          (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t Noop (()) where
-  exercise
-    = DA.Internal.Desugar._exerciseDefault
+         DA.Internal.Desugar.HasExercise t Split ((ContractId Token,
+                                                   ContractId Token)) where
+  exercise = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
@@ -148,21 +132,17 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
          DA.Internal.Desugar.HasExercise t Transfer (ContractId Token) where
-  exercise
-    = DA.Internal.Desugar._exerciseDefault
+  exercise = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
-                                                      ContractId Token)) where
+         DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance (DA.Internal.Desugar.Implements t Token) =>
-         DA.Internal.Desugar.HasFromAnyChoice t Split ((ContractId Token,
-                                                        ContractId Token)) where
+         DA.Internal.Desugar.HasFromAnyChoice t Noop (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExerciseGuarded t Split ((ContractId Token,
-                                                                  ContractId Token)) where
+         DA.Internal.Desugar.HasExerciseGuarded t Noop (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
         @"UExerciseInterface"
@@ -172,57 +152,59 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
-         DA.Internal.Desugar.HasExercise t Split ((ContractId Token,
-                                                   ContractId Token)) where
-  exercise
-    = DA.Internal.Desugar._exerciseDefault
-data GetRich
-  = GetRich {byHowMuch : Int}
-  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Noop
-  = Noop {nothing : ()}
+         DA.Internal.Desugar.HasExercise t Noop (()) where
+  exercise = DA.Internal.Desugar._exerciseDefault
+instance (DA.Internal.Desugar.Implements t Token) =>
+         DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance (DA.Internal.Desugar.Implements t Token) =>
+         DA.Internal.Desugar.HasFromAnyChoice t GetRich (ContractId Token) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Token)) =>
+         DA.Internal.Desugar.HasExerciseGuarded t GetRich (ContractId Token) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Token cid pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Token)) =>
+         DA.Internal.Desugar.HasExercise t GetRich (ContractId Token) where
+  exercise = DA.Internal.Desugar._exerciseDefault
+data Split
+  = Split {splitAmount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 data Transfer
   = Transfer {newOwner : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Split
-  = Split {splitAmount : Int}
+data Noop
+  = Noop {nothing : ()}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_TokenGetRich :
-  (Token -> GetRich -> [DA.Internal.Desugar.Party],
+data GetRich
+  = GetRich {byHowMuch : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_TokenSplit :
+  (Token -> Split -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
-      -> GetRich -> DA.Internal.Desugar.Update (ContractId Token),
+      -> Split
+         -> DA.Internal.Desugar.Update ((ContractId Token,
+                                         ContractId Token)),
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
-                                 -> GetRich -> [DA.Internal.Desugar.Party]))
-_choice_TokenGetRich
-  = (\ this arg@GetRich {..}
+                                 -> Split -> [DA.Internal.Desugar.Party]))
+_choice_TokenSplit
+  = (\ this arg@Split {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this),
-     \ self this arg@GetRich {..}
+     \ self this arg@Split {..}
        -> let _ = self in
-          let _ = this in
-          let _ = arg
-          in
-            do assert (byHowMuch > 0)
-               create $ setAmount this (getAmount this + byHowMuch),
+          let _ = this in let _ = arg in do splitImpl this splitAmount,
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-_choice_TokenNoop :
-  (Token -> Noop -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId Token
-   -> Token -> Noop -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.NonConsuming Token,
-   DA.Internal.Desugar.Optional (Token
-                                 -> Noop -> [DA.Internal.Desugar.Party]))
-_choice_TokenNoop
-  = (\ this arg@Noop {..}
-       -> let _ = this in
-          let _ = arg in DA.Internal.Desugar.toParties (getOwner this),
-     \ self this arg@Noop {..}
-       -> let _ = self in
-          let _ = this in let _ = arg in do noopImpl this nothing,
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
 _choice_TokenTransfer :
   (Token -> Transfer -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -243,23 +225,40 @@ _choice_TokenTransfer
        -> let _ = self in
           let _ = this in let _ = arg in do transferImpl this newOwner,
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-_choice_TokenSplit :
-  (Token -> Split -> [DA.Internal.Desugar.Party],
+_choice_TokenNoop :
+  (Token -> Noop -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
-   -> Token
-      -> Split
-         -> DA.Internal.Desugar.Update ((ContractId Token,
-                                         ContractId Token)),
-   DA.Internal.Desugar.Consuming Token,
+   -> Token -> Noop -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.NonConsuming Token,
    DA.Internal.Desugar.Optional (Token
-                                 -> Split -> [DA.Internal.Desugar.Party]))
-_choice_TokenSplit
-  = (\ this arg@Split {..}
+                                 -> Noop -> [DA.Internal.Desugar.Party]))
+_choice_TokenNoop
+  = (\ this arg@Noop {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this),
-     \ self this arg@Split {..}
+     \ self this arg@Noop {..}
        -> let _ = self in
-          let _ = this in let _ = arg in do splitImpl this splitAmount,
+          let _ = this in let _ = arg in do noopImpl this nothing,
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+_choice_TokenGetRich :
+  (Token -> GetRich -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> GetRich -> DA.Internal.Desugar.Update (ContractId Token),
+   DA.Internal.Desugar.Consuming Token,
+   DA.Internal.Desugar.Optional (Token
+                                 -> GetRich -> [DA.Internal.Desugar.Party]))
+_choice_TokenGetRich
+  = (\ this arg@GetRich {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (getOwner this),
+     \ self this arg@GetRich {..}
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do assert (byHowMuch > 0)
+               create $ setAmount this (getAmount this + byHowMuch),
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
@@ -319,11 +318,9 @@ _choice_AssetArchive :
    DA.Internal.Desugar.Optional (Asset
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice_AssetArchive
-  = (\ this@Asset {..} _
-       -> let _ = this in DA.Internal.Desugar.signatory this,
-     \ self this@Asset {..} arg@DA.Internal.Desugar.Archive
-       -> let _ = self in let _ = this in let _ = arg in pure (),
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+  = (\ this _ -> DA.Internal.Desugar.signatory this,
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming,
+     DA.Internal.Desugar.None)
 _implements_Asset_Token :
   DA.Internal.Desugar.ImplementsT Asset Token
 _implements_Asset_Token = DA.Internal.Desugar.ImplementsT
@@ -332,58 +329,81 @@ instance DA.Internal.Desugar.HasToInterface Asset Token where
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+_method_Asset_Token_getOwner :
+  DA.Internal.Desugar.Method Asset Token "getOwner"
 _method_Asset_Token_getOwner
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @"getOwner"
-      (\ this@Asset {..} -> let _ = this in owner)
+      (\ this@Asset {..}
+         -> let _ = this in let getOwner = owner in getOwner)
+_method_Asset_Token_getAmount :
+  DA.Internal.Desugar.Method Asset Token "getAmount"
 _method_Asset_Token_getAmount
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @"getAmount"
-      (\ this@Asset {..} -> let _ = this in amount)
+      (\ this@Asset {..}
+         -> let _ = this in let getAmount = amount in getAmount)
+_method_Asset_Token_setAmount :
+  DA.Internal.Desugar.Method Asset Token "setAmount"
 _method_Asset_Token_setAmount
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @"setAmount"
       (\ this@Asset {..}
-         -> let _ = this
-            in \ x -> _toInterface @_ @Token (this {amount = x}))
+         -> let _ = this in
+            let setAmount x = toInterface @Token (this {amount = x})
+            in setAmount)
+_method_Asset_Token_splitImpl :
+  DA.Internal.Desugar.Method Asset Token "splitImpl"
 _method_Asset_Token_splitImpl
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @"splitImpl"
       (\ this@Asset {..}
-         -> let _ = this
-            in
-              \ splitAmount
-                -> do assert (splitAmount < amount)
-                      cid1 <- create this {amount = splitAmount}
-                      cid2 <- create this {amount = amount - splitAmount}
-                      pure
-                        (toInterfaceContractId @Token cid1,
-                         toInterfaceContractId @Token cid2))
+         -> let _ = this in
+            let
+              splitImpl splitAmount
+                = do assert (splitAmount < amount)
+                     cid1 <- create this {amount = splitAmount}
+                     cid2 <- create this {amount = amount - splitAmount}
+                     pure
+                       (toInterfaceContractId @Token cid1,
+                        toInterfaceContractId @Token cid2)
+            in splitImpl)
+_method_Asset_Token_transferImpl :
+  DA.Internal.Desugar.Method Asset Token "transferImpl"
 _method_Asset_Token_transferImpl
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @"transferImpl"
       (\ this@Asset {..}
-         -> let _ = this
-            in
-              \ newOwner
-                -> do cid <- create this {owner = newOwner}
-                      pure (toInterfaceContractId @Token cid))
+         -> let _ = this in
+            let
+              transferImpl newOwner
+                = do cid <- create this {owner = newOwner}
+                     pure (toInterfaceContractId @Token cid)
+            in transferImpl)
+_method_Asset_Token_noopImpl :
+  DA.Internal.Desugar.Method Asset Token "noopImpl"
 _method_Asset_Token_noopImpl
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @"noopImpl"
-      (\ this@Asset {..} -> let _ = this in \ nothing -> do pure ())
+      (\ this@Asset {..}
+         -> let _ = this in
+            let
+              noopImpl nothing
+                = do [1] === [1]
+                     pure ()
+            in noopImpl)
 main
   = scenario
       do p <- getParty "Alice"
