@@ -31,10 +31,6 @@
         <test>com.daml.platform.index.BuffersUpdaterSpec</test>
     </appender>
 
-    <logger name="com.daml.platform.index.BuffersUpdater" level="INFO">
-        <appender-ref ref="BuffersUpdaterLoggerCapture"/>
-    </logger>
-
     <appender name="JdbcIndexerSpecAppender" class="com.daml.platform.testing.LogCollector">
         <test>com.daml.platform.indexer.JdbcIndexerSpec</test>
     </appender>

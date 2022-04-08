@@ -3,43 +3,11 @@
 
 package com.daml.metrics
 
-import akka.Done
-import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
+import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.{Counter, Timer}
 
-import scala.concurrent.{ExecutionContext, Future}
-
 object InstrumentedSource {
-  final class InstrumentedSourceQueueWithComplete[T](
-      delegate: SourceQueueWithComplete[(Timer.Context, T)],
-      bufferSize: Int,
-      capacityCounter: Counter,
-      lengthCounter: Counter,
-      delayTimer: Timer,
-      ec: ExecutionContext,
-  ) extends SourceQueueWithComplete[T] {
-    override def complete(): Unit = {
-      delegate.complete()
-      capacityCounter.dec(bufferSize.toLong)
-    }
-
-    override def fail(ex: Throwable): Unit = delegate.fail(ex)
-
-    override def watchCompletion(): Future[Done] = delegate.watchCompletion()
-
-    override def offer(elem: T): Future[QueueOfferResult] =
-      delegate
-        .offer(
-          delayTimer.time() -> elem
-        )
-        .map {
-          case QueueOfferResult.Enqueued =>
-            lengthCounter.inc()
-            QueueOfferResult.Enqueued
-          case other => other
-        }(ec)
-  }
 
   final class InstrumentedBoundedSourceQueue[T](
       delegate: BoundedSourceQueue[(Timer.Context, T)],

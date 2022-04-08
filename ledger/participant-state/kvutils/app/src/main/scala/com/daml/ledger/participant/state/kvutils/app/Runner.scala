@@ -223,9 +223,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   lfValueTranslationCache = lfValueTranslationCache,
                   generalDispatcher = null, // TODO LLP
                   ledgerReadDao = null, // TODO LLP
-                  mutableContractStateCaches = null,
-                  completionsBuffer = null,
-                  transactionsBuffer = null,
+                  participantInMemoryState = null,
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,

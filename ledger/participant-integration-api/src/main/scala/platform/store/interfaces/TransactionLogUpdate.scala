@@ -51,7 +51,6 @@ object TransactionLogUpdate {
 
   final case class SubmissionRejected(
       offset: Offset,
-      lastEventSeqId: EventSequentialId,
       completionDetails: CompletionDetails,
   ) extends TransactionLogUpdate
 

@@ -27,21 +27,26 @@ object LedgerBuffersUpdater {
 
   def flow: Flow[(Iterable[(Offset, Update)], LedgerEndMarker), TransactionLogUpdate, NotUsed] =
     Flow[(Iterable[(Offset, Update)], LedgerEndMarker)]
-      .mapAsync(prepareUpdatesParallelism)(o => Future(transformBatch(o))(ec))
+      .mapAsync(prepareUpdatesParallelism)(batch => Future(transformBatch(batch))(ec))
       .async
       .flatMapConcat { updates => Source.fromIterator(() => updates) }
 
   private def transformBatch(
       batch: (Iterable[(Offset, Update)], LedgerEndMarker)
   ): Iterator[TransactionLogUpdate] = {
-    val ledgerEndMarker = batch._2
-    val transactionLogUpdates = batch._1.view.collect {
-      case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
-      case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
-    }.toVector
+    val (updatesBatch, ledgerEndMarker) = batch
 
-    if (transactionLogUpdates.isEmpty) Iterator(ledgerEndMarker)
-    else transactionLogUpdates.concat(Iterable(ledgerEndMarker)).iterator
+    val transactionLogUpdates =
+      updatesBatch.view.collect {
+        case (offset, u: TransactionAccepted) => updateToTransactionAccepted(offset, u)
+        case (offset, u: CommandRejected) => updateToSubmissionRejected(offset, u)
+      }.toVector
+
+    if (transactionLogUpdates.isEmpty) {
+      Iterator(ledgerEndMarker)
+    } else {
+      (transactionLogUpdates :+ ledgerEndMarker).iterator
+    }
   }
 
   private def updateToSubmissionRejected(offset: Offset, u: CommandRejected) = {
@@ -50,7 +55,6 @@ object LedgerBuffersUpdater {
 
     TransactionLogUpdate.SubmissionRejected(
       offset = offset,
-      lastEventSeqId = 0L,
       completionDetails = CompletionDetails(
         CompletionFromTransaction.rejectedCompletion(
           recordTime = u.recordTime,

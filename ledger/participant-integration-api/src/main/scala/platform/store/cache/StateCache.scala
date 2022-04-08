@@ -94,7 +94,7 @@ private[platform] case class StateCache[K, V](
   ): Future[V] = Timed.value(
     registerUpdateTimer,
     pendingUpdates.synchronized {
-      // TODO LLP: Check sanity of this condition
+      // TODO LLP: Revisit sanity of this condition
       val validAt = cacheIndex.getOrElse(Offset.fromHexString(Ref.HexString.assertFromString("FF")))
       val eventualValue = Future.delegate(fetchAsync(validAt))
       val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)

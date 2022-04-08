@@ -12,7 +12,6 @@ import com.daml.platform.store.cache.EventsBuffer.{
   BufferStateRef,
   RequestOffBufferBounds,
   SearchableByVector,
-  UnorderedException,
 }
 
 import scala.annotation.tailrec
@@ -59,27 +58,22 @@ final class EventsBuffer[E](
     Timed.value(
       pushTimer,
       synchronized {
-        _bufferStateRef.rangeEnd.foreach { lastOffset =>
-          // Ensure vector grows with strictly monotonic offsets.
-          // Only specially-designated range end markers are allowed
-          // to have offsets equal to the buffer range end.
-          if (lastOffset > offset || (lastOffset == offset && !ignoreMarker(entry))) {
-            throw UnorderedException(lastOffset, offset)
+        // Only updates with strictly increasing offsets are included in the buffer
+        // Ensures idempotency in case of replayed updates.
+        if (offset > _bufferStateRef.rangeEnd.getOrElse(Offset.beforeBegin)) {
+          var auxBufferVector = _bufferStateRef.vector
+
+          // The range end markers are not appended to the buffer
+          if (!ignoreMarker(entry)) {
+            if (auxBufferVector.size.toLong == maxBufferSize) {
+              auxBufferVector = auxBufferVector.drop(1)
+            }
+            auxBufferVector = auxBufferVector :+ offset -> entry
           }
+
+          // Update the buffer reference
+          _bufferStateRef = BufferStateRef(auxBufferVector, Some(offset))
         }
-
-        var auxBufferVector = _bufferStateRef.vector
-
-        // The range end markers are not appended to the buffer
-        if (!ignoreMarker(entry)) {
-          if (auxBufferVector.size.toLong == maxBufferSize) {
-            auxBufferVector = auxBufferVector.drop(1)
-          }
-          auxBufferVector = auxBufferVector :+ offset -> entry
-        }
-
-        // Update the buffer reference
-        _bufferStateRef = BufferStateRef(auxBufferVector, Some(offset))
       },
     )
 

@@ -243,9 +243,7 @@ object SandboxOnXRunner {
             lfValueTranslationCache = translationCache,
             generalDispatcher = generalDispatcher,
             ledgerReadDao = ledgerDao,
-            mutableContractStateCaches = participantInMemoryState.mutableContractStateCaches,
-            completionsBuffer = participantInMemoryState.completionsBuffer,
-            transactionsBuffer = participantInMemoryState.transactionsBuffer,
+            participantInMemoryState = participantInMemoryState,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)

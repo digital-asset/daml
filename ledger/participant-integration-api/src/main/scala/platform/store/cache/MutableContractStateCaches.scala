@@ -17,21 +17,13 @@ import scala.concurrent.ExecutionContext
 class MutableContractStateCaches(
     val keyState: StateCache[GlobalKey, ContractKeyStateValue],
     val contractState: StateCache[ContractId, ContractStateValue],
-    metrics: Metrics,
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
   def pushBatch(events: Seq[ContractStateEvent])(implicit loggingContext: LoggingContext): Unit = {
     events.foreach(debugEvents)
     batchUpdateCaches(events)
-    val _ = metrics
-//    updateOffsets(event)
   }
-
-//  private def updateOffsets(event: ContractStateEvent): Unit = {
-//    // TODO LLP improve
-//    metrics.daml.execution.cache.indexSequentialId.updateValue(event.eventSequentialId)
-//  }
 
   private def batchUpdateCaches(
       events: Seq[ContractStateEvent]
@@ -106,6 +98,5 @@ object MutableContractStateCaches {
     new MutableContractStateCaches(
       contractState = ContractsStateCache(maxContractsCacheSize, metrics),
       keyState = ContractKeyStateCache(maxKeyCacheSize, metrics),
-      metrics = metrics,
     )
 }

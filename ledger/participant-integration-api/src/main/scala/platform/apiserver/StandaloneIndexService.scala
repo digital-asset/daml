@@ -14,12 +14,10 @@ import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.index.IndexServiceBuilder
+import com.daml.platform.index.{IndexServiceBuilder, ParticipantInMemoryState}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.LedgerReadDao
-import com.daml.platform.store.cache.{EventsBuffer, MutableContractStateCaches}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import java.io.File
 import scala.concurrent.ExecutionContextExecutor
@@ -34,9 +32,7 @@ object StandaloneIndexService {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       generalDispatcher: Dispatcher[Offset],
       ledgerReadDao: LedgerReadDao,
-      mutableContractStateCaches: MutableContractStateCaches,
-      completionsBuffer: EventsBuffer[TransactionLogUpdate],
-      transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+      participantInMemoryState: ParticipantInMemoryState,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[IndexService] = {
@@ -86,9 +82,9 @@ object StandaloneIndexService {
         enricher = valueEnricher,
         generalDispatcher = generalDispatcher,
         ledgerDao = ledgerReadDao,
-        mutableContractStateCaches = mutableContractStateCaches,
-        completionsBuffer = completionsBuffer,
-        transactionsBuffer = transactionsBuffer,
+        mutableContractStateCaches = participantInMemoryState.mutableContractStateCaches,
+        completionsBuffer = participantInMemoryState.completionsBuffer,
+        transactionsBuffer = participantInMemoryState.transactionsBuffer,
       )(loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))
