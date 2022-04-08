@@ -2393,180 +2393,191 @@ exact output.
     E[ Ok e ] = Ok E[e]
     E[ Err err ] = Err err
 
-                           ┌───────────┐
-  Small-step evaluation    │  e  →  r  │
-                           └───────────┘
+
+                             ┌──────────┐
+  Redex evaluation           │  e →ᵦ r  │
+                             └──────────┘
 
     —————————————————————————————————————————————————————————————————————— EvExpTyAppErasable
-      E[ (Λ α : ek . v) @τ ]  →  Ok  E[ v[α ↦ τ] ]
+      (Λ α : ek . v) @τ  →ᵦ  Ok  v[α ↦ τ]
 
     —————————————————————————————————————————————————————————————————————— EvExpTyAppNat
-      E[ (Λ α : 'nat' . e) @τ ]  →  Ok  E[ e[α ↦ τ] ]
+      (Λ α : 'nat' . e) @τ  →ᵦ  Ok  e[α ↦ τ]
 
     —————————————————————————————————————————————————————————————————————— EvExpAppLambda
-      E[ (λ x : τ . e) v ]  →  Ok  E[ e[x ↦ v] ]
+      (λ x : τ . e) v ]  →ᵦ  Ok  e[x ↦ v]
 
     —————————————————————————————————————————————————————————————————————— EvExpLet
-      E[ 'let' x : τ = v 'in' e ]  →  Ok  E[ e[x ↦ v] ]
+      'let' x : τ = v 'in' e  →ᵦ  Ok  e[x ↦ v]
 
     —————————————————————————————————————————————————————————————————————— EvExpFromAnySome
-      E[ 'from_any' @τ ('to_any' @τ v) ]  →  Ok  E[ 'Some' @τ v ]
+      'from_any' @τ ('to_any' @τ v) ]  →ᵦ  Ok  ('Some' @τ v)
 
       τ₁ ≠ τ₂
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyNone
-      E[ 'from_any' @τ₁ ('to_any' @τ₂ v) ]  →  Ok  E[ 'None' ]
+      'from_any' @τ₁ ('to_any' @τ₂ v) ]  →ᵦ  Ok  ('None' @τ₁)
 
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)
     —————————————————————————————————————————————————————————————————————— EvExpCaseSucc
-      E[ 'case' v 'of' {  p₁ → e₁ | … |  pₙ → eₙ } ]
-         →
-      Ok  E[ e₁[x₁ ↦ v₁, …, xₘ ↦ vₘ] ]
+      'case' v 'of' {  p₁ → e₁ | … |  pₙ → eₙ }
+         →ᵦ
+      Ok  e₁[x₁ ↦ v₁, …, xₘ ↦ vₘ]
 
       v 'matches' p₁  ⇝  Fail
     —————————————————————————————————————————————————————————————————————— EvExpCaseFail
-      E[ 'case' v 'of' { p₁ → e₁ | p₂ → e₂ | … | pₙ → eₙ } ]
-         →
-      Ok  E[ 'case' v 'of' { p₂ → e₂ | … | pₙ → eₙ } ]
+      'case' v 'of' { p₁ → e₁ | p₂ → e₂ | … | pₙ → eₙ }
+         →ᵦ
+      Ok  ('case' v 'of' { p₂ → e₂ | … | pₙ → eₙ })
 
       v 'matches' p  ⇝  Fail
     —————————————————————————————————————————————————————————————————————— EvExpCaseEmpty
-      E[ 'case' v 'of' { p → e } ]
-         →
+      'case' v 'of' { p → e }
+         →ᵦ
       Err (Fatal "match error")
 
       𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
       𝕆(F @τ₁ … @τₘ v₁ … vₙ) = r
     —————————————————————————————————————————————————————————————————————— EvExpBuiltin
-      E[ F @τ₁ … @τₘ v₁ … vₙ ] → E[r]
+      F @τ₁ … @τₘ v₁ … vₙ   →ᵦ  r
 
       'val' W : τ ↦ e  ∈ 〚Ξ〛Mod
-      e  ⇓  r
     —————————————————————————————————————————————————————————————————————— EvExpVal
-      E[ Mod:W ] → E[r]
+      Mod:W   →ᵦ  Ok e
 
       e  ⇓  Ok (Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ, …, fₙ= vₙ})
     —————————————————————————————————————————————————————————————————————— EvExpRecProj
-      E[ Mod:T @τ₁ … @τₘ {fᵢ} (Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ, …, fₙ= vₙ}) ]
-        →
-      Ok E[ vᵢ ]
+      Mod:T @τ₁ … @τₘ {fᵢ} (Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ, …, fₙ= vₙ})
+        →ᵦ
+      Ok vᵢ
 
     —————————————————————————————————————————————————————————————————————— EvExpRecUpd
-      E[ Mod:T @τ₁ … @τₘ { (Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ, …, fₙ= vₙ}) 'with' fᵢ = vᵢ' } ]
-        →
-      Ok E[ Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ} ]
+      Mod:T @τ₁ … @τₘ { (Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ, …, fₙ= vₙ}) 'with' fᵢ = vᵢ' }
+        →ᵦ
+      Ok (Mod:T @τ₁ … @τₘ {f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ})
 
       f₁, …, fₙ are not in lexicographical order
       [f₁, …, fₙ] sorts lexicographically to [fⱼ₁, …, fⱼₙ]
     —————————————————————————————————————————————————————————————————————— EvExpStructCon
-      E[ ⟨f₁ = v₁, …, fₙ = vₙ⟩ ]  →  Ok E[ ⟨fⱼ₁ = vⱼ₁, …, fⱼₙ = vⱼₙ⟩ ]
+      ⟨f₁ = v₁, …, fₙ = vₙ⟩  →ᵦ  Ok ⟨fⱼ₁ = vⱼ₁, …, fⱼₙ = vⱼₙ⟩
 
     —————————————————————————————————————————————————————————————————————— EvExpStructProj
-      E[ ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩.fᵢ ] ⇓  Ok E[ vᵢ ]
+      ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩.fᵢ ]  →ᵦ  Ok vᵢ
 
     —————————————————————————————————————————————————————————————————————— EvExpStructUpd
-      E[ ⟨ ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ 'with' fᵢ = vᵢ' ⟩ ]
-        →
-      Ok E[ ⟨ f₁= v₁, …, fᵢ = vᵢ', …, fₙ = vₙ ⟩ ]
+      ⟨ ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ 'with' fᵢ = vᵢ' ⟩
+        →ᵦ
+      Ok ⟨ f₁= v₁, …, fᵢ = vᵢ', …, fₙ = vₙ ⟩
 
     —————————————————————————————————————————————————————————————————————— EvExpThrow
-      E[ 'throw' @σ @τ v ]  →  Err (Throw v)
+      'throw' @σ @τ v  →ᵦ  Err (Throw v)
 
       σ ≠ τ
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionNone
-      E[ 'from_any_exception' @τ ('to_any_exception' @σ v) ]  →  Ok E[ 'None' @τ ]
+      'from_any_exception' @τ ('to_any_exception' @σ v)  →ᵦ  Ok ('None' @τ)
 
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionSome
-      E[ 'from_any_exception' @τ ('to_any_exception' @τ v) ]  →  Ok E[ 'Some' @τ v ]
+      'from_any_exception' @τ ('to_any_exception' @τ v)  →ᵦ  Ok ('Some' @τ v)
 
       Mod':T ≠ Mod'':T'
     —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceNone [Daml-LF ≥ 1.dev]
-      E[ 'from_interface' @Mod:I @Mod':T ('to_interface' @Mod:I @Mod'':T' v) ]
-        →
-      Ok E[ 'None' @Mod':T ]
+      'from_interface' @Mod:I @Mod':T ('to_interface' @Mod:I @Mod'':T' v)
+        →ᵦ
+      Ok ('None' @Mod':T)
 
     —————————————————————————————————————————————————————————————————————— EvExpFromInterfaceSome [Daml-LF ≥ 1.dev]
-      E[ 'from_interface' @Mod:I @Mod':T ('to_interface' @Mod:I @Mod':T v) ]
-        →
-      Ok E[ 'Some' @Mod':T v ]
+      'from_interface' @Mod:I @Mod':T ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok ('Some' @Mod':T v)
 
       Mod':T ≠ Mod'':T'
     —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromInterfaceErr [Daml-LF ≥ 1.dev]
-      E[ 'unsafe_from_interface' @Mod:I @Mod':T cid ('to_interface' @Mod:I @Mod'':T' v) ]
-        →
+      'unsafe_from_interface' @Mod:I @Mod':T cid ('to_interface' @Mod:I @Mod'':T' v)
+        →ᵦ
       Err (Fatal "wrongly typed contract {cid} expected {Mod':T} got {Mod'':T'}")
 
     —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromInterface [Daml-LF ≥ 1.dev]
-      E[ 'unsafe_from_interface' @Mod:I @Mod':T cid ('to_interface' @Mod:I @Mod':T v) ]
-        →
-      E[ v ]
+      'unsafe_from_interface' @Mod:I @Mod':T cid ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok v
 
       'tpl' (x : T) ↦ { …, 'implements' Mod:I { 'methods' { …, f = eₘ, … }, … }, … }  ∈ 〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpCallInterface [Daml-LF ≥ 1.dev]
-      E[ 'call_interface' @Mod:I f ('to_interface' @Mod:I @Mod':T v) ]
-        →
-      Ok E[ eₘ[x ↦ v] ]
+      'call_interface' @Mod:I f ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok eₘ[x ↦ v]
 
     —————————————————————————————————————————————————————————————————————— EvExpToRequiredInterface [Daml-LF ≥ 1.dev]
-      E[ 'to_required_interface' @Mod₁:I₁ @Mod₂:I₂ ('to_interface' @Mod₂:I₂ @Mod':T v) ]
-        →
-      Ok E[ 'to_interface' @Mod₁:I₁ @Mod':T v ]
+      'to_required_interface' @Mod₁:I₁ @Mod₂:I₂ ('to_interface' @Mod₂:I₂ @Mod':T v)
+        →ᵦ
+      Ok ('to_interface' @Mod₁:I₁ @Mod':T v)
 
       Mod':T  does not implement interface  Mod₂:I₂
     —————————————————————————————————————————————————————————————————————— EvExpFromRequiredInterfaceNone [Daml-LF ≥ 1.dev]
-      E[ 'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ ('to_interface' @Mod₁:I₁ @Mod':T v) ]
-        →
-      Ok E[ 'None' @Mod₂:I₂ ]
+      'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ ('to_interface' @Mod₁:I₁ @Mod':T v)
+        →ᵦ
+      Ok ('None' @Mod₂:I₂)
 
       'tpl' (x : T) ↦ { …, 'implements' Mod₂:I₂ { … }, … } ∈ 〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpFromRequiredInterfaceSome [Daml-LF ≥ 1.dev]
-      E[ 'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ ('to_interface' @Mod₁:I₁ @Mod':T v) ]
-        →
-      Ok E[ 'Some' @Mod₂:I₂ ('to_interface' @Mod₂:I₂ @Mod':T v) ]
+      'from_required_interface' @Mod₁:I₁ @Mod₂:I₂ ('to_interface' @Mod₁:I₁ @Mod':T v)
+        →ᵦ
+      Ok ('Some' @Mod₂:I₂ ('to_interface' @Mod₂:I₂ @Mod':T v))
 
       Mod':T  does not implement interface  Mod₂:I₂
     —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromRequiredInterfaceErr [Daml-LF ≥ 1.dev]
-      E[ 'unsafe_from_required_interface' @Mod₁:I₁ @Mod₂:I₂ cid ('to_interface' @Mod₁:I₁ @Mod':T v) ]
-        →
+      'unsafe_from_required_interface' @Mod₁:I₁ @Mod₂:I₂ cid ('to_interface' @Mod₁:I₁ @Mod':T v)
+        →ᵦ
       Err (Fatal "wrongly typed contract {cid} expected {Mod₂:I₂} got {Mod':T}")
 
       'tpl' (x : T) ↦ { …, 'implements' Mod₂:I₂ { … }, … } ∈ 〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpUnsafeFromRequiredInterface [Daml-LF ≥ 1.dev]
-      E[ 'unsafe_from_required_interface' @Mod₁:I₁ @Mod₂:I₂ cid ('to_interface' @Mod₁:I₁ @Mod':T v) ]
-        →
-      Ok E[ 'to_interface' @Mod₂:I₂ @Mod':T v ]
+      'unsafe_from_required_interface' @Mod₁:I₁ @Mod₂:I₂ cid ('to_interface' @Mod₁:I₁ @Mod':T v)
+        →ᵦ
+      Ok ('to_interface' @Mod₂:I₂ @Mod':T v)
 
     —————————————————————————————————————————————————————————————————————— EvExpInterfaceTypeRep [Daml-LF ≥ 1.dev]
-      E[ 'interface_typerep' @Mod:I ('to_interface' @Mod:I @Mod':T v) ]
-        →
-      Ok E[ 'type_rep' @Mod':T ]
+      'interface_typerep' @Mod:I ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok ('type_rep' @Mod':T)
 
       'tpl' (x : T) ↦ { …, 'signatories' e', … }  ∈  〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpInterfaceSignatory [Daml-LF ≥ 1.dev]
-      E[ 'interface_signatory' @Mod:I ('to_interface' @Mod:I @Mod':T v) ]
-        →
-      Ok E[ e' [x ↦ v] ]
+      'interface_signatory' @Mod:I ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok e' [x ↦ v]
 
       'tpl' (x : T) ↦ { …, 'observers' e', … }  ∈  〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpInterfaceObserver [Daml-LF ≥ 1.dev]
-      E[ 'interface_observer' @Mod:I ('to_interface' @Mod:I @Mod':T v) ]
-        →
-      Ok E[ e' [x ↦ v] ]
+      'interface_observer' @Mod:I ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok e' [x ↦ v]
 
+                           ┌───────────┐
+  Small-step evaluation    │  e  →  r  │
+                           └───────────┘
+
+      e →ᵦ Ok e'
+    —————————————————————————————————————————————————————————————————————— EvSmallStepOk
+      E[e] → Ok E[e']
+
+      e →ᵦ Err err
+    —————————————————————————————————————————————————————————————————————— EvSmallStepErr
+      E[e] → Err err
 
                            ┌──────────┐
   Big-step evaluation      │ e  ⇓  r  │
                            └──────────┘
 
-    —————————————————————————————————————————————————————————————————————— EvValue
+    —————————————————————————————————————————————————————————————————————— EvBigStepValue
       v  ⇓  Ok v
 
       e₁  →  Ok e₂
       e₂  ⇓  r
-    —————————————————————————————————————————————————————————————————————— EvStepOk
+    —————————————————————————————————————————————————————————————————————— EvBigStepOk
       e₁  ⇓  r
 
       e  →  Err err
-    —————————————————————————————————————————————————————————————————————— EvStepErr
+    —————————————————————————————————————————————————————————————————————— EvBigStepErr
       e  ⇓  Err err
 
 Note that the rules are designed such that for every expression, there is at
