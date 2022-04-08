@@ -53,7 +53,7 @@ object BenchmarkState {
   def createInterning(entries: Array[(Int, String)]): StringInterningView = {
     Console.print(s"Creating an interning view...")
     val interning = new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
+      loadPrefixedEntries = (fromExclusive, toInclusive, _) =>
         // Note: for slice(), the begin is inclusive and the end is exclusive (opposite of the enclosing call)
         _ => Future.successful(entries.view.slice(fromExclusive + 1, toInclusive + 1))
     )

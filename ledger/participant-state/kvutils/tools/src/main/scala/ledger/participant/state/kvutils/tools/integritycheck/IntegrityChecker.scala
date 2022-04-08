@@ -256,7 +256,7 @@ class IntegrityChecker[LogResult](
       config,
       readService,
       stringInterningView = new StringInterningView(
-        loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
+        loadPrefixedEntries = (_, _, _) => _ => Future.successful(Nil)
       ), // TODO LLP      metrics,
       metrics = metrics,
       lfValueTranslationCache,

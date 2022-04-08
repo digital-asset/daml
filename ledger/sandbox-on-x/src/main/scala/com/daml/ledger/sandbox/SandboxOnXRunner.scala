@@ -41,6 +41,7 @@ import com.daml.platform.index.{LedgerBuffersUpdater, ParticipantInMemoryState}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 import com.daml.platform.store.interning.StringInterningView
@@ -173,7 +174,7 @@ object SandboxOnXRunner {
               metrics = metrics,
             )
 
-          stringInterningView = createStringInterningView(dbSupport, metrics)
+          stringInterningView = createStringInterningView(apiServerConfig.jdbcUrl, metrics)
           ledgerEndCache = MutableLedgerEndCache()
 
           generalDispatcher <-
@@ -272,14 +273,15 @@ object SandboxOnXRunner {
     }
   }
 
-  private def createStringInterningView(dbSupport: DbSupport, metrics: Metrics) = {
-    val stringInterningStorageBackend =
-      dbSupport.storageBackendFactory.createStringInterningStorageBackend
+  private def createStringInterningView(jdbcUrl: String, metrics: Metrics) = {
+    val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackendFactory = StorageBackendFactory.of(dbType)
+    val stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
 
     new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
+      loadPrefixedEntries = (fromExclusive, toInclusive, dbDispatcher) =>
         implicit loggingContext =>
-          dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+          dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
             stringInterningStorageBackend.loadStringInterningEntries(
               fromExclusive,
               toInclusive,
