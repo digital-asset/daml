@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
-
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface.InterfaceType.{Template, Normal}
-import com.daml.lf.iface.{InterfaceType, Enum, Variant, Record, DefDataType}
+import com.daml.lf.iface.InterfaceType.{Normal, Template}
+import com.daml.lf.iface.{Enum, DefDataType, InterfaceType, Record, Variant}
 import com.squareup.javapoet.{ClassName, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 
