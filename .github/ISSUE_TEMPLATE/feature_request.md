@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: Suggest an idea to improve Daml
-title: "[FEATURE REQUEST] "
+title: ""
 labels: ''
 
 ---
