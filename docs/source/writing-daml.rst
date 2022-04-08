@@ -6,7 +6,7 @@ Writing Daml
 
 Daml is a smart contract language designed to build composable applications on the `Daml Ledger Model <https://docs.daml.com/concepts/ledger-model/index.html#da-ledgers>`_.
 
-The Writing Daml section will teach you how to write Daml applications that run on any Daml Ledger implementation, including key language features, how they relate to the Daml Ledger Model, and how to use Daml’s developer tools to write, test, compile, package and ship your application. It also covers the structure of a Daml Ledger as it pertains to designing your application.
+The Writing Daml section will teach you how to write Daml applications that run on any Daml Ledger implementation, including key language features, how they relate to the Daml Ledger Model and how to use Daml’s developer tools. It also covers the structure of a Daml Ledger as it pertains to designing your application.
 
 You can find the Daml code for the example application and features in each section `here <https://github.com/digital-asset/daml/tree/main/docs/source/daml/intro/daml>`_ or download it using the Daml assistant. For example, to load the sources for section 1 into a folder called 1_Token, run daml new 1_Token --template daml-intro-1. 
 
