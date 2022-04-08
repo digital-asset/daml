@@ -84,7 +84,7 @@ class IndexerBenchmark() {
           config = config.indexerConfig,
           readService = readService,
           stringInterningView = new StringInterningView(
-            loadPrefixedEntries = (_, _) => _ => Future.successful(Nil)
+            loadPrefixedEntries = (_, _, _) => _ => Future.successful(Nil)
           ), // TODO LLP
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,

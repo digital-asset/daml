@@ -5,6 +5,7 @@ package com.daml.platform.store.interning
 
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.platform.store.appendonlydao.DbDispatcher
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -30,7 +31,9 @@ trait UpdatingStringInterningView {
     * @param lastStringInterningId this is the "version" of the persistent view, which from the StringInterningView can see if it is behind
     * @return a completion Future: if the view is behind it will load the missing entries from persistence, and update the view state
     */
-  def update(lastStringInterningId: Int)(implicit loggingContext: LoggingContext): Future[Unit]
+  def update(lastStringInterningId: Int, dbDispatcher: DbDispatcher)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit]
 }
 
 /** Encapsulate the dependency to load a range of string-interning-entries from persistence
@@ -39,6 +42,7 @@ trait LoadStringInterningEntries {
   def apply(
       fromExclusive: Int,
       toInclusive: Int,
+      dbDispatcher: DbDispatcher,
   ): LoggingContext => Future[Iterable[(Int, String)]]
 }
 
@@ -93,12 +97,13 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
     }
 
   override def update(
-      lastStringInterningId: Int
+      lastStringInterningId: Int,
+      dbDispatcher: DbDispatcher,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     if (lastStringInterningId <= raw.lastId) {
       Future.unit
     } else {
-      loadPrefixedEntries(raw.lastId, lastStringInterningId)(loggingContext)
+      loadPrefixedEntries(raw.lastId, lastStringInterningId, dbDispatcher)(loggingContext)
         .map(updateView)(ExecutionContext.parasitic)
     }
 

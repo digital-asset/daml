@@ -111,7 +111,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     ledgerEndCache = MutableLedgerEndCache()
-    stringInterningView = new StringInterningView((_, _) => _ => Future.successful(Nil))
+    stringInterningView = new StringInterningView((_, _, _) => _ => Future.successful(Nil))
     resource = newLoggingContext { implicit loggingContext =>
       for {
         dao <- daoOwner(
