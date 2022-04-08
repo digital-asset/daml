@@ -48,6 +48,7 @@ module DA.Map
     , insert
     , alter
     , union
+    , unionWith
     , merge
     , keys
     , values
@@ -175,6 +176,15 @@ alter f k m =
 -- keys are encountered.
 union : Ord k => Map k v -> Map k v -> Map k v
 union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
+
+-- | The union of two maps using the combining function to merge values that
+-- exist in both maps.
+unionWith : forall k v. Ord k => (v -> v -> v) -> Map k v -> Map k v -> Map k v
+unionWith combine m1 m2 = foldl f m1 (toList m2)
+  where f : Map k v -> (k, v) -> Map k v
+        f acc (k, v) = case lookup k acc of
+          None -> insert k v acc
+          Some v' -> insert k (combine v' v) acc
 
 -- | Combine two maps, using separate functions based on whether
 -- a key appears only in the first map, only in the second map,
