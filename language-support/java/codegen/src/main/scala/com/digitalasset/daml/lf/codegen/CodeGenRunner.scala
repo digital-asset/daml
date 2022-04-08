@@ -150,7 +150,7 @@ object CodeGenRunner extends StrictLogging {
       )
     )
 
-  private[java] def decodeDarAt(path: Path): Seq[Interface] =
+  private[codegen] def decodeDarAt(path: Path): Seq[Interface] =
     for (archive <- DarParser.assertReadArchiveFromFile(path.toFile).all) yield {
       val (errors, interface) = Interface.read(archive)
       if (!errors.equals(Errors.zeroErrors)) {
@@ -161,12 +161,12 @@ object CodeGenRunner extends StrictLogging {
       interface
     }
 
-  private[java] def resolveChoices(
+  private[codegen] def resolveChoices(
       environmentInterface: EnvironmentInterface
   ): Interface => Interface =
     _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
 
-  private[java] def collectDamlLfInterfaces(
+  private[codegen] def collectDamlLfInterfaces(
       darFiles: Iterable[(Path, Option[String])]
   ): (Seq[Interface], Map[PackageId, String]) = {
     val interfacesAndPrefixes =
@@ -190,7 +190,7 @@ object CodeGenRunner extends StrictLogging {
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
     */
-  private[java] def resolvePackagePrefixes(
+  private[codegen] def resolvePackagePrefixes(
       pkgPrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
       interfaces: Seq[Interface],
@@ -254,11 +254,11 @@ object CodeGenRunner extends StrictLogging {
     }
   }
 
-  def configure(conf: Conf): JavaCodeGen = {
+  def configure(conf: Conf): CodeGenRunner = {
     val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf.darFiles)
     val prefixes = resolvePackagePrefixes(pkgPrefixes, conf.modulePrefixes, interfaces)
     detectModuleCollisions(prefixes, interfaces)
-    new JavaCodeGen(interfaces, conf.outputDirectory, conf.decoderPkgAndClass, prefixes)
+    new CodeGenRunner(interfaces, conf.outputDirectory, conf.decoderPkgAndClass, prefixes)
   }
 
   private def isTemplate(lfInterfaceType: InterfaceType): Boolean =
