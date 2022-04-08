@@ -125,7 +125,12 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val codegen = CodeGenRunner.configure(conf)
+    val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf.darFiles)
+    val prefixes = resolvePackagePrefixes(pkgPrefixes, conf.modulePrefixes, interfaces)
+    detectModuleCollisions(prefixes, interfaces)
+
+    val codegen =
+      new CodeGenRunner(interfaces, conf.outputDirectory, conf.decoderPkgAndClass, prefixes)
     val executionContext: ExecutionContextExecutorService = createExecutionContext()
     val result = codegen.runWith(executionContext)
     Await.result(result, 10.minutes)
@@ -232,7 +237,7 @@ object CodeGenRunner extends StrictLogging {
   /** Verify that no two module names collide when the given
     * prefixes are applied.
     */
-  private[java] def detectModuleCollisions(
+  private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
       interfaces: Seq[Interface],
   ): Unit = {
@@ -252,13 +257,6 @@ object CodeGenRunner extends StrictLogging {
         )
       }
     }
-  }
-
-  def configure(conf: Conf): CodeGenRunner = {
-    val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf.darFiles)
-    val prefixes = resolvePackagePrefixes(pkgPrefixes, conf.modulePrefixes, interfaces)
-    detectModuleCollisions(prefixes, interfaces)
-    new CodeGenRunner(interfaces, conf.outputDirectory, conf.decoderPkgAndClass, prefixes)
   }
 
   private def isTemplate(lfInterfaceType: InterfaceType): Boolean =

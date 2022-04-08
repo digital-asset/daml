@@ -119,7 +119,7 @@ private[inner] object TemplateClass extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ) =
     maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
-      val methods = for ((choiceName, choice) <- choices) yield {
+      val methods = for ((choiceName, choice) <- choices.toList) yield {
         val raw = generateStaticExerciseByKeyMethod(
           choiceName,
           choice,
@@ -219,7 +219,7 @@ private[inner] object TemplateClass extends StrictLogging {
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String],
   ) = {
-    val methods = for ((choiceName, choice) <- choices.toList) yield {
+    val methods = for ((choiceName, choice) <- choices) yield {
       val createAndExerciseChoiceMethod =
         generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
       val splatted =
