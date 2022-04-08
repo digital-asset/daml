@@ -71,7 +71,7 @@ class JwksVerifier(
       )(e => Error(Symbol("getCachedVerifier"), e.getMessage))
   }
 
-  private def verifyAndInvalidate(verifier: JwtVerifier, jwt: domain.Jwt, keyId: String) = {
+  private def verifyAndInvalidateCache(verifier: JwtVerifier, jwt: domain.Jwt, keyId: String) = {
     verifier.verify(jwt).leftMap { err =>
       cache.invalidate(keyId)
       err
@@ -84,7 +84,7 @@ class JwksVerifier(
         Error(Symbol("verify"), e.getMessage)
       )
       verifier <- getCachedVerifier(keyId)
-      decoded <- verifyAndInvalidate(verifier, jwt, keyId)
+      decoded <- verifyAndInvalidateCache(verifier, jwt, keyId)
     } yield decoded
   }
 }

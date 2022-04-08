@@ -95,7 +95,6 @@ class JwksSpec extends AnyFlatSpec with Matchers {
     )
 
     val updatedServer = SimpleHttpServer.start(updatedJwks, Some(server.getAddress.getPort))
-    println(updatedServer.getAddress.getPort)
 
     val expiredToken = generateToken("test-key-1", privateKey1, secondsTillExpiration = -100)
       .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
