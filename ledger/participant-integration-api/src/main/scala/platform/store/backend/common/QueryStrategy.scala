@@ -87,6 +87,22 @@ trait QueryStrategy {
     }
   }
 
+  /** Expression for `(offset > startExclusive)`
+    *
+    *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
+    */
+  def offsetIsGreater(nonNullableColumn: String, startExclusive: Offset): CompositeSql = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    // Note: there are two reasons for special casing Offset.beforeBegin:
+    // 1. simpler query
+    // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
+    if (startExclusive == Offset.beforeBegin) {
+      cSQL"#${constBoolean(true)}"
+    } else {
+      cSQL"#$nonNullableColumn > $startExclusive"
+    }
+  }
+
   /** Expression for `(startExclusive < offset <= endExclusive)`
     *
     *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
