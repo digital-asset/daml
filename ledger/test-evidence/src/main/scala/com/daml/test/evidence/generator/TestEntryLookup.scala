@@ -24,7 +24,7 @@ object TestEntryLookup {
       .concat(ScalaTestGeneratorSupport.testEntries(scalaTestSuites, testEntry))
       .concat(LedgerApiTestGeneratorSupport.testEntries(ledgerApiSuites, testEntry))
 
-  private def loadClasspath(): Option[String] = Some(System.getProperty("java.class.path"))
+  private def loadClasspath(): Option[String] = Option(System.getProperty("java.class.path"))
 
   private def collectEntries[TT: ClassTag, TS: ClassTag, TE](
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE
