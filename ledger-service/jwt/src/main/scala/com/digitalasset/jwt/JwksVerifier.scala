@@ -71,13 +71,20 @@ class JwksVerifier(
       )(e => Error(Symbol("getCachedVerifier"), e.getMessage))
   }
 
+  private def verifyAndInvalidate(verifier: JwtVerifier, jwt: domain.Jwt, keyId: String) = {
+    verifier.verify(jwt).leftMap { err =>
+      cache.invalidate(keyId)
+      err
+    }
+  }
+
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     for {
       keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
         Error(Symbol("verify"), e.getMessage)
       )
       verifier <- getCachedVerifier(keyId)
-      decoded <- verifier.verify(jwt)
+      decoded <- verifyAndInvalidate(verifier, jwt, keyId)
     } yield decoded
   }
 }

@@ -27,8 +27,13 @@ class JwksSpec extends AnyFlatSpec with Matchers {
     mitigation = s"Refuse to verify authenticity of the token",
   )
 
-  private def generateToken(keyId: String, privateKey: RSAPrivateKey): JwtSigner.Error \/ Jwt = {
-    val jwtPayload = s"""{"test": "JwksSpec"}"""
+  private def generateToken(
+      keyId: String,
+      privateKey: RSAPrivateKey,
+      secondsTillExpiration: Long = 10L,
+  ): JwtSigner.Error \/ Jwt = {
+    val expiresIn = System.currentTimeMillis() / 1000L + secondsTillExpiration
+    val jwtPayload = s"""{"test": "JwksSpec", "exp": $expiresIn}"""
     val jwtHeader = s"""{"alg": "RS256", "typ": "JWT", "kid": "$keyId"}"""
     JwtSigner.RSA256.sign(DecodedJwt(jwtHeader, jwtPayload), privateKey)
   }
@@ -69,6 +74,48 @@ class JwksSpec extends AnyFlatSpec with Matchers {
       s"The token with a mismatching public key should not successfully verify",
     )
   }
+
+  it should "invalidate cached key-id if verification failed" in new JwksSpec.Scope {
+    val token = generateToken("test-key-1", privateKey1)
+      .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
+    val result = verifier.verify(token)
+
+    assert(
+      result.isRight,
+      s"The correctly signed token should successfully verify, but the result was ${result.leftMap(e => e.shows)}",
+    )
+
+    server.stop(3)
+    //now `test-key-1` is cached
+
+    val updatedJwks = KeyUtils.generateJwks(
+      Map(
+        "test-key-2" -> publicKey2
+      )
+    )
+
+    val updatedServer = SimpleHttpServer.start(updatedJwks, Some(server.getAddress.getPort))
+    println(updatedServer.getAddress.getPort)
+
+    val expiredToken = generateToken("test-key-1", privateKey1, secondsTillExpiration = -100)
+      .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
+    val result2 = verifier.verify(expiredToken)
+
+    assert(
+      result2.isLeft,
+      s"The expired but signed token should not successfully verify",
+    )
+    //now `test-key-1` must not be cached, but it's not part of JWKS, so it should be invalidated
+
+    val token2 = generateToken("test-key-1", privateKey1, secondsTillExpiration = 100)
+      .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
+    val result3 = verifier.verify(token2)
+
+    assert(
+      result3.isLeft,
+      s"The token with an unknown key ID (which was removed from Key Set) should not successfully verify",
+    )
+  }
 }
 
 object JwksSpec {
@@ -83,7 +130,7 @@ object JwksSpec {
     val privateKey1 = keyPair1.getPrivate.asInstanceOf[RSAPrivateKey]
 
     private val keyPair2 = kpg.generateKeyPair()
-    private val publicKey2 = keyPair2.getPublic.asInstanceOf[RSAPublicKey]
+    val publicKey2 = keyPair2.getPublic.asInstanceOf[RSAPublicKey]
     val privateKey2 = keyPair2.getPrivate.asInstanceOf[RSAPrivateKey]
 
     // Start a JWKS server and create a verifier using the JWKS server
@@ -94,7 +141,7 @@ object JwksSpec {
       )
     )
 
-    private val server = SimpleHttpServer.start(jwks)
+    val server = SimpleHttpServer.start(jwks)
     private val url = SimpleHttpServer.responseUrl(server)
 
     val verifier = JwksVerifier(url)

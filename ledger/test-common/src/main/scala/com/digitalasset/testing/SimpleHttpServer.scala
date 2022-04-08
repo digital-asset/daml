@@ -9,8 +9,8 @@ import java.net.InetSocketAddress
 
 /** Helper to create a HTTP server that serves a constant response on the "/result" URL */
 object SimpleHttpServer {
-  def start(response: String): HttpServer = {
-    val server = HttpServer.create(new InetSocketAddress(0), 0)
+  def start(response: String, port: Option[Int] = None): HttpServer = {
+    val server = HttpServer.create(new InetSocketAddress(port.getOrElse(0)), 0)
     server.createContext("/result", new HttpResultHandler(response))
     server.setExecutor(null)
     server.start()
