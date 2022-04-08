@@ -47,10 +47,13 @@ object TestEntryLookup {
   }
 
   def securityTestEntries: List[SecurityTestEntry] =
-    collectEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](SecurityTestEntry)
+    collectEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
+      SecurityTestEntry.apply
+    ).sorted
 
   def reliabilityTestEntries: List[ReliabilityTestEntry] =
     collectEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
-      ReliabilityTestEntry
-    )
+      ReliabilityTestEntry.apply
+    ).sorted
+
 }

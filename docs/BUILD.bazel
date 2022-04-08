@@ -799,7 +799,7 @@ exports_files([
 ])
 
 da_scala_test(
-    name = "generated-error-pages-are-up-to-date",
+    name = "generated-resources-are-up-to-date",
     srcs = glob(["src/test/**/*.scala"]),
     resources = glob(["resources/**/*"]),
     scala_deps = [
@@ -807,6 +807,9 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    runtime_deps = [
+        "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
     ],
     deps = [
         "//ledger/error/generator:lib",
