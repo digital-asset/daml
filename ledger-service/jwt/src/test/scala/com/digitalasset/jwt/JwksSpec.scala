@@ -58,7 +58,7 @@ class JwksSpec extends AnyFlatSpec with Matchers {
 
   it should "raise an error by verifying a token with wrong public key" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a known key-id, but not the one used for encryption")
+      attack(threat = "Exploit a known key-id, but not the one used for the token encryption")
     ) in new JwksSpec.Scope {
     val token = generateToken("test-key-1", privateKey2)
       .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
