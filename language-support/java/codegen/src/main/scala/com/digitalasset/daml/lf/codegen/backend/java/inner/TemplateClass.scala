@@ -22,7 +22,7 @@ private[inner] object TemplateClass extends StrictLogging {
       template: DefTemplate.FWT,
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
-  ): com.squareup.javapoet.TypeSpec =
+  ): TypeSpec =
     TrackLineage.of("template", typeWithContext.name) {
       logger.info("Start")
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
@@ -119,7 +119,7 @@ private[inner] object TemplateClass extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ) =
     maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
-      val methods = for ((choiceName, choice) <- choices.toList) yield {
+      val methods = for ((choiceName, choice) <- choices) yield {
         val raw = generateStaticExerciseByKeyMethod(
           choiceName,
           choice,

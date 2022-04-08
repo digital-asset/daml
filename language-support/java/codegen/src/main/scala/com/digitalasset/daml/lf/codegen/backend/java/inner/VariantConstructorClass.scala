@@ -24,7 +24,7 @@ object VariantConstructorClass extends StrictLogging {
       javaName: String,
       body: Type,
       packagePrefixes: Map[PackageId, String],
-  ): com.squareup.javapoet.TypeSpec = {
+  ): TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 

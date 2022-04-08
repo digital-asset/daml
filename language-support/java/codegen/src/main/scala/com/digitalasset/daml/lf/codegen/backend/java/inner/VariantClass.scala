@@ -25,7 +25,7 @@ private[inner] object VariantClass extends StrictLogging {
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
-  ): (com.squareup.javapoet.TypeSpec, List[com.squareup.javapoet.TypeSpec]) =
+  ): (TypeSpec, List[TypeSpec]) =
     TrackLineage.of("variant", typeWithContext.name) {
       logger.info("Start")
       val constructorInfo = getFieldsWithTypes(variant.fields, packagePrefixes)
@@ -185,9 +185,9 @@ private[inner] object VariantClass extends StrictLogging {
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
       variantClassName: ClassName,
-  ): List[com.squareup.javapoet.TypeSpec] = {
+  ): List[TypeSpec] = {
     logger.debug("Generating inner classes")
-    val innerClasses = new collection.mutable.ArrayBuffer[com.squareup.javapoet.TypeSpec]
+    val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
     for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
@@ -228,8 +228,9 @@ private[inner] object VariantClass extends StrictLogging {
               )
           case t =>
             val c = s"${typeWithContext.name}.${child.name}"
-            val msg = s"Underlying type of constructor $c is not Record (found: $t)"
-            throw new IllegalArgumentException(msg)
+            throw new IllegalArgumentException(
+              s"Underlying type of constructor $c is not Record (found: $t)"
+            )
         }
       } else {
         logger.debug(s"${child.name} is an unrelated inner type")
