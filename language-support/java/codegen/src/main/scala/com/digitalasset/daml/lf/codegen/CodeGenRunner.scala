@@ -139,6 +139,27 @@ object CodeGenRunner extends StrictLogging {
     ()
   }
 
+  private[codegen] def collectDamlLfInterfaces(
+      darFiles: Iterable[(Path, Option[String])]
+  ): (Seq[Interface], Map[PackageId, String]) = {
+    val interfacesAndPrefixes =
+      for {
+        (path, packagePrefix) <- darFiles.view
+        interface <- decodeDarAt(path)
+      } yield (interface, packagePrefix)
+    val (interfaces, prefixes) =
+      interfacesAndPrefixes.foldLeft((Vector.empty[Interface], Map.empty[PackageId, String])) {
+        case ((interfaces, prefixes), (interface, prefix)) =>
+          val updatedInterfaces = interfaces :+ interface
+          val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(interface.packageId, _))
+          (updatedInterfaces, updatedPrefixes)
+      }
+
+    val environmentInterface = EnvironmentInterface.fromReaderInterfaces(interfaces)
+    val resolvedInterfaces = interfaces.map(resolveChoices(environmentInterface))
+    (resolvedInterfaces, prefixes)
+  }
+
   private def createExecutionContext(): ExecutionContextExecutorService =
     ExecutionContext.fromExecutorService(
       Executors.newFixedThreadPool(
@@ -170,27 +191,6 @@ object CodeGenRunner extends StrictLogging {
       environmentInterface: EnvironmentInterface
   ): Interface => Interface =
     _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
-
-  private[codegen] def collectDamlLfInterfaces(
-      darFiles: Iterable[(Path, Option[String])]
-  ): (Seq[Interface], Map[PackageId, String]) = {
-    val interfacesAndPrefixes =
-      for {
-        (path, packagePrefix) <- darFiles.view
-        interface <- decodeDarAt(path)
-      } yield (interface, packagePrefix)
-    val (interfaces, prefixes) =
-      interfacesAndPrefixes.foldLeft((Vector.empty[Interface], Map.empty[PackageId, String])) {
-        case ((interfaces, prefixes), (interface, prefix)) =>
-          val updatedInterfaces = interfaces :+ interface
-          val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(interface.packageId, _))
-          (updatedInterfaces, updatedPrefixes)
-      }
-
-    val environmentInterface = EnvironmentInterface.fromReaderInterfaces(interfaces)
-    val resolvedInterfaces = interfaces.map(resolveChoices(environmentInterface))
-    (resolvedInterfaces, prefixes)
-  }
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
