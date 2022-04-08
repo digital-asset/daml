@@ -7,13 +7,13 @@ import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory}
 
-import com.daml.lf.codegen.backend.Backend
-import com.daml.lf.codegen.backend.java.JavaBackend
+import com.daml.lf.codegen.backend.java.JavaCodeGen
 import com.daml.lf.codegen.conf.Conf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{LoggerFactory, Logger}
 
-import scala.concurrent.{ExecutionContextExecutorService, ExecutionContext}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContextExecutorService, Await, ExecutionContext}
 
 object CodeGenRunner extends StrictLogging {
 
@@ -34,47 +34,46 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val codegen = CodeGen.configure(backend, conf)
+    val codegen = JavaCodeGen.configure(conf)
+    val executionContext: ExecutionContextExecutorService = createExecutionContext()
+    val result = codegen.runWith(executionContext)
+    Await.result(result, 10.minutes)
+    executionContext.shutdownNow()
 
-    val executionContext: ExecutionContextExecutorService =
-      ExecutionContext.fromExecutorService(
-        Executors.newFixedThreadPool(
-          Runtime.getRuntime.availableProcessors(),
-          new ThreadFactory {
-            val n = new AtomicInteger(0)
-            override def newThread(r: Runnable): Thread = {
-              val t = new Thread(r)
-              t.setDaemon(true)
-              t.setName(s"java-codegen-${n.getAndIncrement}")
-              t
-            }
-          },
-        )
-      )
-
-    codegen.runWith(executionContext)
-
-    val _ = executionContext.shutdownNow()
+    ()
   }
 
-  // TODO (#584): Make Java Codegen Backend configurable
-  private[codegen] val backend: Backend = JavaBackend
+  private def createExecutionContext(): ExecutionContextExecutorService =
+    ExecutionContext.fromExecutorService(
+      Executors.newFixedThreadPool(
+        Runtime.getRuntime.availableProcessors(),
+        new ThreadFactory {
+          val n = new AtomicInteger(0)
+          override def newThread(r: Runnable): Thread = {
+            val t = new Thread(r)
+            t.setDaemon(true)
+            t.setName(s"java-codegen-${n.getAndIncrement}")
+            t
+          }
+        },
+      )
+    )
 
-  private[CodeGenRunner] def assertInputFileExists(filePath: Path): Unit = {
+  private def assertInputFileExists(filePath: Path): Unit = {
     logger.trace(s"Checking that the file '$filePath' exists")
     if (Files.notExists(filePath)) {
       throw new IllegalArgumentException(s"Input file '$filePath' doesn't exist")
     }
   }
 
-  private[CodeGenRunner] def assertInputFileIsReadable(filePath: Path): Unit = {
+  private def assertInputFileIsReadable(filePath: Path): Unit = {
     logger.trace(s"Checking that the file '$filePath' is readable")
     if (!Files.isReadable(filePath)) {
       throw new IllegalArgumentException(s"Input file '$filePath' is not readable")
     }
   }
 
-  private[CodeGenRunner] def checkAndCreateOutputDir(outputPath: Path): Unit = {
+  private def checkAndCreateOutputDir(outputPath: Path): Unit = {
     val exists = Files.exists(outputPath)
     if (!exists) {
       logger.trace(s"Output directory '$outputPath' does not exists, creating it")

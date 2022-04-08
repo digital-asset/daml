@@ -46,7 +46,6 @@ da_scala_library(
         "src/main/resources/logback.xml",
     ],
     scala_deps = [
-        "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
