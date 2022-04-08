@@ -38,7 +38,6 @@ class FilterTableACSReader(
     idPageSize: Int,
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
-    acsIdQueueLimit: Int,
     metrics: Metrics,
     materializer: Materializer,
     querylimiter: ConcurrencyLimiter,
@@ -98,7 +97,6 @@ class FilterTableACSReader(
           tasks = tasks.map(_.filter),
           outputBatchSize = pageSize,
           inputBatchSize = idPageSize,
-          idQueueLimit = acsIdQueueLimit,
           metrics = metrics,
         )
       )
@@ -185,7 +183,10 @@ private[events] object FilterTableACSReader {
     val queueState = new QueueState(signalQueue, initialTasks)
 
     signalSource
-      .mapAsyncUnordered(workerParallelism) { _ =>
+      // in theory signals could be executed parallel without maintaining order with mapAsyncUnordered,
+      // but in practice with mapAsync we force the parallel processing to "wait" for a slow work item,
+      // which prevents excessive memory consumption in later stages.
+      .mapAsync(workerParallelism) { _ =>
         val task = queueState.startTask()
         work(task).map { case (result, nextTask) =>
           queueState.finishTask(nextTask)
@@ -260,15 +261,13 @@ private[events] object FilterTableACSReader {
       tasks: Iterable[TASK],
       outputBatchSize: Int,
       inputBatchSize: Int,
-      idQueueLimit: Int,
       metrics: Metrics,
   )(implicit
       loggingContext: LoggingContext
   ): () => ((TASK, Iterable[Long])) => Vector[Vector[Long]] = () => {
     val outputQueue = new BatchedDistinctOutputQueue(outputBatchSize)
     val taskQueue = new MergingTaskQueue[TASK](outputQueue.push)
-    val maxTaskQueueSize = idQueueLimit / inputBatchSize
-    val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize, maxTaskQueueSize)
+    val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize)
 
     { case (task, ids) =>
       @tailrec def go(next: (Option[(Iterable[Long], TASK)], Boolean)): Unit = {
@@ -379,7 +378,7 @@ private[events] object FilterTableACSReader {
 
   /** Helper class to encapsulate stateful tracking of task streams.
     */
-  class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int, maxQueueSize: Int) {
+  class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int) {
     assert(inputBatchSize > 0)
 
     private val idle: mutable.Set[TASK] = mutable.Set.empty
@@ -397,9 +396,6 @@ private[events] object FilterTableACSReader {
         if (idle(task)) queueEntry(task, ids)
         else {
           val previousRanges = queuedRanges.getOrElse(task, Vector.empty)
-          if (previousRanges.length >= maxQueueSize) {
-            throw new RuntimeException(s"More than $maxQueueSize id pages queued up")
-          }
           queuedRanges += (task -> previousRanges.:+(ids))
           None
         }
