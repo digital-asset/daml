@@ -56,14 +56,6 @@ there will be at least two nonconsuming exercises submitted and 30% chance of a 
 
 For consuming exercises `probablity` must in range `[0.0, 1.0]`.
 
-### Archives
-NOTE: Aa `Archive` command can be generated only if no other consuming exercise has been generated.  
-For example, given archive chance of `0.3` and `consuming_exercises.probability` of `0.4`, the chance of submitting 
-an `Archive` is 
-```
-(1-0.4) * 0.3 = 0.18
-```
-
 ## Metrics
 
 ### `CountRateMetric`

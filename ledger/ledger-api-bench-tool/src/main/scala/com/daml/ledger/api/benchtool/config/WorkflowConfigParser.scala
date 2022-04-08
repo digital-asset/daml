@@ -98,11 +98,10 @@ object WorkflowConfigParser {
         }
 
     implicit val contractDescriptionDecoder: Decoder[SubmissionConfig.ContractDescription] =
-      Decoder.forProduct4(
+      Decoder.forProduct3(
         "template",
         "weight",
         "payload_size_bytes",
-        "archive_probability",
       )(SubmissionConfig.ContractDescription.apply)
 
     implicit val nonconsumingExercisesDecoder: Decoder[SubmissionConfig.NonconsumingExercises] =

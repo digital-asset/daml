@@ -65,13 +65,11 @@ final class CommandGenerator(
     (for {
       (description, observers) <- Try((pickDescription(), pickObservers()))
       createContractPayload <- Try(randomPayload(description.payloadSizeBytes))
-      archive <- Try(pickArchive(description))
       command = createContractCommand(
         templateName = description.template,
         signatory = signatory,
         observers = observers,
         payload = createContractPayload,
-        archive = archive,
       )
     } yield command).recoverWith { case NonFatal(ex) =>
       Failure(
@@ -90,9 +88,6 @@ final class CommandGenerator(
       .filter { case (_, index) => isObserverUsed(index) }
       .map(_._1)
 
-  private def pickArchive(description: SubmissionConfig.ContractDescription): Boolean =
-    randomnessProvider.randomDouble() < description.archiveChance
-
   private def isObserverUsed(i: Int): Boolean =
     randomnessProvider.randomNatural(math.pow(10.0, i.toDouble).toInt) == 0
 
@@ -101,7 +96,6 @@ final class CommandGenerator(
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       payload: String,
-      archive: Boolean,
   ): CreateCmdAndContinuations = {
     val consumingExercisePayload: Option[String] = config.consumingExercises
       .flatMap(c =>
@@ -143,17 +137,7 @@ final class CommandGenerator(
               )(cid)
             )
           )
-          // NOTE: Archive will be generated only if prior consuming exercise is absent.
-          val archiveExerciseO = if (archive && consumingExerciseO.isEmpty) {
-            Some(
-              doCreateArchiveExerciseCmd(
-                templateId = templateDesc.templateId,
-                cid = cid,
-              )
-            )
-          } else
-            None
-          nonconsumingExercises ++ consumingExerciseO.toList ++ archiveExerciseO.toList
+          nonconsumingExercises ++ consumingExerciseO.toList
         }
         createCont
       },
@@ -184,30 +168,6 @@ final class CommandGenerator(
           templateId = Some(templateId),
           contractId = cid.coid,
           choice = choiceName,
-          choiceArgument = choiceArgument,
-        )
-      )
-    )
-    c
-  }
-
-  private def doCreateArchiveExerciseCmd(templateId: Identifier, cid: ContractId): Command = {
-    val choiceArgument = Some(
-      Value(
-        Value.Sum.Record(
-          Record(
-            None,
-            Seq.empty[RecordField],
-          )
-        )
-      )
-    )
-    val c: Command = Command(
-      command = Command.Command.Exercise(
-        value = ExerciseCommand(
-          templateId = Some(templateId),
-          contractId = cid.coid,
-          choice = TemplateDescriptor.ArchiveChoiceName,
           choiceArgument = choiceArgument,
         )
       )

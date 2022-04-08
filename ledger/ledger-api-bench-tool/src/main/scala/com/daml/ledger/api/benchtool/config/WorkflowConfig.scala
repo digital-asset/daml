@@ -30,7 +30,6 @@ object WorkflowConfig {
         template: String,
         weight: Int,
         payloadSizeBytes: Int,
-        archiveChance: Double,
     )
 
     case class NonconsumingExercises(

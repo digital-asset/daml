@@ -58,28 +58,18 @@ object EventsObserver {
       s"${_actualTemplateNames} must be a subset of $expectedTemplateNames",
     )
 
-    private val consumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filter(_.consuming)
-
-    val (archiveExercises, nonArchiveConsumingExercises)
-        : (Seq[ObservedExerciseEvent], Seq[ObservedExerciseEvent]) =
-      consumingExercises.partition(_.choiceName == TemplateDescriptor.ArchiveChoiceName)
-
+    val consumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filter(_.consuming)
     val nonconsumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filterNot(_.consuming)
 
-    val avgNonArchiveConsumingExerciseSize: Int = {
-      val n = nonArchiveConsumingExercises.size
-      if (n == 0)
-        0
-      else
-        nonArchiveConsumingExercises.map(_.choiceArgumentsSerializedSize).sum / n
+    val avgConsumingExerciseSize: Int = {
+      if (consumingExercises.isEmpty) 0
+      else consumingExercises.map(_.choiceArgumentsSerializedSize).sum / consumingExercises.size
     }
 
     val avgNonconsumingExerciseSize: Int = {
-      val n = nonconsumingExercises.size
-      if (n == 0)
-        0
+      if (nonconsumingExercises.isEmpty) 0
       else
-        nonconsumingExercises.map(_.choiceArgumentsSerializedSize).sum / n
+        nonconsumingExercises.map(_.choiceArgumentsSerializedSize).sum / nonconsumingExercises.size
     }
 
     val numberOfCreatesPerTemplateName: Map[String, Int] = {
@@ -97,12 +87,6 @@ object EventsObserver {
           )
         name -> avgSize
       }.toMap
-    }
-
-    val numberOfArchivesPerTemplateName: Map[String, Int] = {
-      val groups = archiveExercises
-        .groupBy(_.templateName)
-      expectedTemplateNames.map(name => name -> groups.get(name).fold(0)(_.size)).toMap
     }
 
   }
@@ -175,13 +159,11 @@ class CommandSubmitterITSpec
       template = "Foo1",
       weight = 1,
       payloadSizeBytes = 100,
-      archiveChance = 1.0,
     )
     val foo2Config = WorkflowConfig.SubmissionConfig.ContractDescription(
       template = "Foo2",
       weight = 1,
       payloadSizeBytes = 200,
-      archiveChance = 0,
     )
     val consumingExercisesConfig = ConsumingExercises(
       probability = 0.6,
@@ -253,29 +235,16 @@ class CommandSubmitterITSpec
         toleranceMul = 0.5,
       ) withClue ("payload size of create Foo2")
 
-      observerResult.numberOfArchivesPerTemplateName("Foo1").toDouble shouldBe roughly(
-        observerResult.numberOfCreatesPerTemplateName(
-          "Foo1"
-        ) * ((1 - consumingExercisesConfig.probability) * foo1Config.archiveChance),
-        toleranceMul = 0.4,
-      ) withClue ("number of archive exercises for Foo1")
-      observerResult.numberOfArchivesPerTemplateName("Foo2").toDouble shouldBe roughly(
-        observerResult.numberOfCreatesPerTemplateName(
-          "Foo2"
-        ) * ((1 - consumingExercisesConfig.probability) * foo2Config.archiveChance),
-        toleranceMul = 0.4,
-      ) withClue ("number of archive exercises for Foo2")
-
-      observerResult.nonArchiveConsumingExercises.size.toDouble shouldBe roughly(
+      observerResult.consumingExercises.size.toDouble shouldBe roughly(
         config.numberOfInstances * consumingExercisesConfig.probability,
         toleranceMul = 0.4,
-      ) withClue ("number of (non-archive) consuming exercises")
+      ) withClue ("number of consuming exercises")
       observerResult.nonconsumingExercises.size.toDouble shouldBe roughly(
         config.numberOfInstances * nonconsumingExercisesConfig.probability,
         toleranceMul = 0.4,
       ) withClue ("number of nonconsuming exercises")
 
-      observerResult.avgNonArchiveConsumingExerciseSize shouldBe roughly(
+      observerResult.avgConsumingExerciseSize shouldBe roughly(
         consumingExercisesConfig.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       )
