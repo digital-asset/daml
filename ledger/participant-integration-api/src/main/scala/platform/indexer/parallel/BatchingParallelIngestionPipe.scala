@@ -7,8 +7,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
 import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
-import scala.concurrent.duration._
 
 object BatchingParallelIngestionPipe {
   def apply[IN, IN_BATCH, DB_BATCH](
@@ -48,7 +48,7 @@ object BatchingParallelIngestionPipe {
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(1, "millis"))
+      .via(batchNLanes(submissionBatchSize.toInt, inputMappingParallelism))
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
@@ -64,5 +64,30 @@ object BatchingParallelIngestionPipe {
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .via(updateInMemoryBuffersFlow)
+  }
+
+  private def batchNLanes[IN](
+      maxBatchSize: Int,
+      maxNumberOfBatches: Int,
+  ): Flow[IN, ArrayBuffer[IN], NotUsed] =
+    Flow[IN]
+      .batch[Vector[ArrayBuffer[IN]]](
+        (maxBatchSize * maxNumberOfBatches).toLong,
+        in => Vector(newBatch(maxBatchSize, in)),
+      ) { case (batches, in) =>
+        val lastBatch = batches.last
+        if (lastBatch.size < maxBatchSize) {
+          lastBatch.addOne(in)
+          batches
+        } else
+          batches :+ newBatch(maxBatchSize, in)
+      }
+      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
+
+  private def newBatch[IN](maxBatchSize: Int, newElement: IN) = {
+    val newBatch = ArrayBuffer.empty[IN]
+    newBatch.sizeHint(maxBatchSize)
+    newBatch.addOne(newElement)
+    newBatch
   }
 }
