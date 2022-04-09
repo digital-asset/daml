@@ -76,7 +76,7 @@ Background concepts
    concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
-   concepts/test-evidence/index
+   concepts/test-evidence
 
 Examples
 --------

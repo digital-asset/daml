@@ -6,7 +6,4 @@
 Test Evidence
 #################
 
-.. toctree::
-   :maxdepth: 2
-
-   security-test-evidence
+Some very useful description about where to get test evidence files
