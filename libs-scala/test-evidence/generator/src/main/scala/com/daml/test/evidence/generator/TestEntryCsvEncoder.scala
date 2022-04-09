@@ -12,12 +12,9 @@ import com.daml.test.evidence.tag.Reliability.{
   Remediation,
 }
 import com.daml.test.evidence.tag.Security.{Attack, HappyCase, HappyOrAttack, SecurityTest}
-import com.github.tototoshi.csv.{CSVWriter, DefaultCSVFormat}
+import com.github.tototoshi.csv.CSVWriter
 
 object TestEntryCsvEncoder {
-  implicit object CsvFormat extends DefaultCSVFormat {
-    override val lineTerminator = System.lineSeparator()
-  }
 
   sealed trait TestEntryCsv extends Product with Serializable {
     def header: Seq[String] = productElementNames.toSeq
