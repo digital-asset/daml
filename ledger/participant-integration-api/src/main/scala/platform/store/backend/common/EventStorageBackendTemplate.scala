@@ -582,11 +582,11 @@ abstract class EventStorageBackendTemplate(
       partitions = List(
         // we do not want to fetch divulgence events
         "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBoolean(false)} as exercise_consuming",
+          .constBooleanSelect(false)} as exercise_consuming",
         "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBoolean(true)} as exercise_consuming",
+          .constBooleanSelect(true)} as exercise_consuming",
         "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBoolean(false)} as exercise_consuming",
+          .constBooleanSelect(false)} as exercise_consuming",
       ),
     )(
       limit = rangeParams.limit,
@@ -613,11 +613,11 @@ abstract class EventStorageBackendTemplate(
       partitions = List(
         // we do not want to fetch divulgence events
         "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBoolean(false)} as exercise_consuming",
+          .constBooleanSelect(false)} as exercise_consuming",
         "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBoolean(true)} as exercise_consuming",
+          .constBooleanSelect(true)} as exercise_consuming",
         "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBoolean(false)} as exercise_consuming",
+          .constBooleanSelect(false)} as exercise_consuming",
       ),
     )(
       limit = None,
