@@ -34,11 +34,16 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
-    val securityTestEntries = TestEntryLookup.securityTestEntries
-    writeEvidenceToCsvFile(
-      args(0),
-      securityTestEntries.map(SecurityTestEntryCsv.apply),
-    )
-    writeEvidenceToJsonFile(args(1), securityTestEntries)
+    if (args.length == 2) {
+      val securityTestEntries = TestEntryLookup.securityTestEntries
+      val csvEntries = securityTestEntries.map(SecurityTestEntryCsv.apply)
+      val csvFileName = args(0)
+      val jsonFileName = args(1)
+
+      writeEvidenceToCsvFile(csvFileName, csvEntries)
+      writeEvidenceToJsonFile(jsonFileName, securityTestEntries)
+    } else {
+      throw new IllegalArgumentException(s"Invalid number of arguments, was ${args.length}, should be 2")
+    }
   }
 }
