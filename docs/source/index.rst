@@ -76,6 +76,7 @@ Daml Documentation
    concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
+   concepts/test-evidence
 
 
 .. toctree::
