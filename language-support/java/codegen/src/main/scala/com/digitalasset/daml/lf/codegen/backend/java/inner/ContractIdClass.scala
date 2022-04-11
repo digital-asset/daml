@@ -39,11 +39,13 @@ object ContractIdClass {
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       packagePrefixes: Map[PackageId, String],
   ) {
-    def build() = idClassBuilder.build()
+    def build(): TypeSpec = idClassBuilder.build()
 
-    def addConversionForImplementedInterfaces(implementedInterfaces: Seq[Ref.TypeConName]) = {
+    def addConversionForImplementedInterfaces(
+        implementedInterfaces: Seq[Ref.TypeConName]
+    ): Builder = {
       implementedInterfaces.foreach { interfaceName =>
-        val name = InterfaceClass.classNameForInterface(interfaceName.qualifiedName)
+        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
         val simpleName = interfaceName.qualifiedName.name.segments.last
         idClassBuilder.addMethod(
           MethodSpec
@@ -72,7 +74,7 @@ object ContractIdClass {
     def addFlattenedExerciseMethods(
         typeDeclarations: Map[QualifiedName, InterfaceType],
         packageId: PackageId,
-    ) = {
+    ): Builder = {
       for ((choiceName, choice) <- choices) {
         for (
           record <- choice.param.fold(

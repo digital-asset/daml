@@ -3,49 +3,26 @@
 
 package com.daml.lf.codegen
 
-import java.io.File
-import java.nio.file.Files
+import java.nio.file.Path
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{
-  DottedName,
-  ModuleName,
-  PackageId,
-  PackageName,
-  PackageVersion,
-  QualifiedName,
-}
-import com.daml.lf.iface.{DefDataType, Interface, InterfaceType, PackageMetadata, Record}
-import com.daml.lf.codegen.backend.java.JavaBackend
-import com.daml.lf.codegen.conf.{Conf, PackageReference}
+import com.daml.lf.data.Ref._
+import com.daml.lf.iface._
+import com.daml.lf.codegen.conf.PackageReference
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
+final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
+
+  import CodeGenRunnerTests._
 
   behavior of "collectDamlLfInterfaces"
 
-  def path(p: String) = new File(p).getAbsoluteFile.toPath
-
-  val testDar = path(rlocation("language-support/java/codegen/test-daml.dar"))
-  val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
-
-  val dummyOutputDir = Files.createTempDirectory("codegen")
-
-  it should "always use JavaBackend, which is currently hardcoded" in {
-    CodeGenRunner.backend should be theSameInstanceAs JavaBackend
-  }
-
   it should "read interfaces from a single DAR file without a prefix" in {
 
-    val conf = Conf(
-      Map(testDar -> None),
-      dummyOutputDir,
-    )
-
-    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
+    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(Map(testDar -> None))
 
     assert(interfaces.length == 25)
     assert(pkgPrefixes == Map.empty)
@@ -53,12 +30,8 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val conf = Conf(
-      Map(testDar -> Some("PREFIX")),
-      dummyOutputDir,
-    )
-
-    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
+    val (interfaces, pkgPrefixes) =
+      CodeGenRunner.collectDamlLfInterfaces(Map(testDar -> Some("PREFIX")))
 
     assert(interfaces.map(_.packageId).length == dar.all.length)
     assert(pkgPrefixes.size == dar.all.length)
@@ -66,26 +39,6 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
   }
 
   behavior of "detectModuleCollisions"
-
-  def interface(pkgId: String, modNames: String*): Interface =
-    interface(pkgId, None, modNames: _*)
-
-  def interface(pkgId: String, metadata: Option[PackageMetadata], modNames: String*): Interface = {
-    val dummyType = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
-    Interface(
-      PackageId.assertFromString(pkgId),
-      metadata,
-      modNames.view
-        .map(n =>
-          QualifiedName(
-            ModuleName.assertFromString(n),
-            DottedName.assertFromString("Dummy"),
-          ) -> dummyType
-        )
-        .toMap,
-      Map.empty,
-    )
-  }
 
   it should "succeed if there are no collisions" in {
     assert(
@@ -158,4 +111,36 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
       CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
     }
   }
+}
+
+object CodeGenRunnerTests {
+
+  private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
+  private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
+  private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
+
+  private def interface(pkgId: String, modNames: String*): Interface =
+    interface(pkgId, None, modNames: _*)
+
+  private def interface(
+      pkgId: String,
+      metadata: Option[PackageMetadata],
+      modNames: String*
+  ): Interface = {
+    val dummyType = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Record(ImmArraySeq.empty)))
+    Interface(
+      PackageId.assertFromString(pkgId),
+      metadata,
+      modNames.view
+        .map(n =>
+          QualifiedName(
+            ModuleName.assertFromString(n),
+            DottedName.assertFromString("Dummy"),
+          ) -> dummyType
+        )
+        .toMap,
+      Map.empty,
+    )
+  }
+
 }

@@ -431,11 +431,18 @@ object LFUtil {
   )
 
   object WriteParams {
-    def apply(tc: TransitiveClosure): WriteParams =
+    def apply(tc: TransitiveClosure): WriteParams = {
+      val (templateIds, typeDeclarations) = tc.interfaceTypes.partitionMap {
+        case (id, InterfaceType.Template(record, template)) =>
+          Left(id -> DefTemplateWithRecord(record, template))
+        case (id, InterfaceType.Normal(t)) =>
+          Right(ScopedDataType(id, t.typeVars, t.dataType))
+      }
       WriteParams(
-        templateIds = tc.templateIds.toMap,
-        definitions = tc.typeDeclarations.map(ScopedDataType.fromDefDataType),
+        templateIds = templateIds.toMap,
+        definitions = typeDeclarations,
       )
+    }
   }
 
   val reservedNames: Set[String] =
