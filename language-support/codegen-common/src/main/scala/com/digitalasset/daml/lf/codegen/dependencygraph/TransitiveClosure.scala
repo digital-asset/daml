@@ -18,3 +18,19 @@ final case class TransitiveClosure(
     interfaces: Vector[(Identifier, DefInterface.FWT)],
     errors: List[UnsupportedTypeError],
 )
+
+object TransitiveClosure {
+
+  def from(orderedDependencies: OrderedDependencies[Identifier, NodeType]): TransitiveClosure = {
+    val (serializableTypes, interfaces) = orderedDependencies.deps.partitionMap {
+      case (id, Node(NodeType.Internal(defDataType), _)) =>
+        Left(id -> InterfaceType.Normal(defDataType))
+      case (id, Node(NodeType.Root.Template(record, template), _)) =>
+        Left(id -> InterfaceType.Template(record, template))
+      case (id, Node(NodeType.Root.Interface(defInterface), _)) =>
+        Right(id -> defInterface)
+    }
+    TransitiveClosure(serializableTypes, interfaces, orderedDependencies.errors)
+  }
+
+}

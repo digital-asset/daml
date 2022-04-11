@@ -58,17 +58,7 @@ private[codegen] object DependencyGraph {
   def transitiveClosure(
       serializableTypes: Map[Identifier, InterfaceType],
       interfaces: Map[Identifier, DefInterface.FWT],
-  ): TransitiveClosure = {
-    val dependencies = orderedDependencies(serializableTypes, interfaces)
-    val (s, i) = dependencies.deps.partitionMap {
-      case (id, Node(NodeType.Internal(defDataType), _)) =>
-        Left(id -> InterfaceType.Normal(defDataType))
-      case (id, Node(NodeType.Root.Template(record, template), _)) =>
-        Left(id -> InterfaceType.Template(record, template))
-      case (id, Node(NodeType.Root.Interface(defInterface), _)) =>
-        Right(id -> defInterface)
-    }
-    TransitiveClosure(s, i, dependencies.errors)
-  }
+  ): TransitiveClosure =
+    TransitiveClosure.from(orderedDependencies(serializableTypes, interfaces))
 
 }
