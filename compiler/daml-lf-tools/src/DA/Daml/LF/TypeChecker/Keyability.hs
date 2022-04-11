@@ -112,10 +112,16 @@ keyabilityConditionsType (CurrentModule currentModuleName) mUnkeyableTyConSet = 
         | otherwise -> noConditions
 
       TNumeric{} -> noConditions
-      TNat{} -> noConditions
       TVar{} -> noConditions
-      TSynApp{} -> noConditions
       TBuiltin{} -> noConditions
+
+      -- By this point, the only remaining type synonyms are the ones for constraints,
+      -- which are deemed unserializable by DA.Daml.LF.TypeChecker.Serializability, so
+      -- we don't need any special handling here.
+      TSynApp{} -> noConditions
+
+      -- These are also unserializable so no special handling is needed either.
+      TNat{} -> noConditions
       TForall{} -> noConditions
       TStruct{} -> noConditions
 
