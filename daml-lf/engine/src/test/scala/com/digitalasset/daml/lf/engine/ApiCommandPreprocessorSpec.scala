@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.command.{ApiCommand, ReplayCommand}
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data._
 import com.daml.lf.transaction.test.TransactionBuilder.newCid
 import com.daml.lf.value.Value._
@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Failure, Success, Try}
 
-class CommandPreprocessorSpec
+class ApiCommandPreprocessorSpec
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -77,26 +77,26 @@ class CommandPreprocessorSpec
 
     "reject improperly typed ApiCommands" in {
 
-      // TEST_EVIDENCE: Input Validation: well formed create command is accepted
+      // TEST_EVIDENCE: Input Validation: well formed create API command is accepted
       val validCreate = ApiCommand.Create(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise command is accepted
+      // TEST_EVIDENCE: Input Validation: well formed exercise API command is accepted
       val validExe = ApiCommand.Exercise(
         "Mod:Record",
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise-by-key command is accepted
+      // TEST_EVIDENCE: Input Validation: well formed exercise-by-key API command is accepted
       val validExeByKey = ApiCommand.ExerciseByKey(
         "Mod:Record",
         valueParties,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed create-and-exercise command is accepted
+      // TEST_EVIDENCE: Input Validation: well formed create-and-exercise API command is accepted
       val validCreateAndExe = ApiCommand.CreateAndExercise(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
@@ -113,19 +113,19 @@ class CommandPreprocessorSpec
 
       val errorTestCases = Table[ApiCommand, ResultOfATypeInvocation[_]](
         ("command", "error"),
-        // TEST_EVIDENCE: Input Validation: ill-formed create command is rejected
+        // TEST_EVIDENCE: Input Validation: ill-formed create API command is rejected
         validCreate.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed exercise command is rejected
+        // TEST_EVIDENCE: Input Validation: ill-formed exercise API command is rejected
         validExe.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExe.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExe.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key command is rejected
+        // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key API command is rejected
         validExeByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
@@ -134,7 +134,7 @@ class CommandPreprocessorSpec
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed create-and-exercise command is rejected
+        // TEST_EVIDENCE: Input Validation: ill-formed create-and-exercise API command is rejected
         validCreateAndExe.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreateAndExe.copy(createArgument =
@@ -155,57 +155,6 @@ class CommandPreprocessorSpec
 
       forEvery(errorTestCases) { (command, typ) =>
         inside(Try(defaultPreprocessor.unsafePreprocessApiCommand(command))) {
-          case Failure(error: Error.Preprocessing.Error) =>
-            error shouldBe typ
-        }
-      }
-    }
-
-    "reject improperly typed ReplayCommands" in {
-      // TEST_EVIDENCE: Input Validation: well formed fetch command is accepted
-      val validFetch = ReplayCommand.Fetch(
-        "Mod:Record",
-        newCid,
-      )
-      // TEST_EVIDENCE: Input Validation: well formed fetch-by-key command is accepted
-      val validFetchByKey = ReplayCommand.FetchByKey(
-        "Mod:Record",
-        valueParties,
-      )
-      // TEST_EVIDENCE: Input Validation: well formed lookup command is accepted
-      val validLookup = ReplayCommand.LookupByKey(
-        "Mod:Record",
-        valueParties,
-      )
-      val noErrorTestCases = Table[ReplayCommand](
-        "command",
-        validFetch,
-        validFetchByKey,
-        validLookup,
-      )
-      val errorTestCases = Table[ReplayCommand, ResultOfATypeInvocation[_]](
-        ("command", "error"),
-        // TEST_EVIDENCE: Input Validation: ill-formed fetch command is rejected
-        validFetch.copy(templateId = "Mod:Undefined") ->
-          a[Error.Preprocessing.Lookup],
-        // TEST_EVIDENCE: Input Validation: ill-formed fetch-by-key command is rejected
-        validFetchByKey.copy(templateId = "Mod:Undefined") ->
-          a[Error.Preprocessing.Lookup],
-        validFetchByKey.copy(key = ValueList(FrontStack(ValueInt64(42)))) ->
-          a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed lookup command is rejected
-        validLookup.copy(templateId = "Mod:Undefined") ->
-          a[Error.Preprocessing.Lookup],
-        validLookup.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
-          a[Error.Preprocessing.TypeMismatch],
-      )
-
-      forEvery(noErrorTestCases) { command =>
-        Try(defaultPreprocessor.unsafePreprocessReplayCommand(command)) shouldBe a[Success[_]]
-      }
-
-      forEvery(errorTestCases) { (command, typ) =>
-        inside(Try(defaultPreprocessor.unsafePreprocessReplayCommand(command))) {
           case Failure(error: Error.Preprocessing.Error) =>
             error shouldBe typ
         }
