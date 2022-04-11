@@ -55,8 +55,6 @@ trait AbstractTriggerServiceTest
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(30, Seconds)))
 
-  import AbstractTriggerServiceTest.CompatAssertion
-
   protected val darPath = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
@@ -227,11 +225,9 @@ trait AbstractTriggerServiceTest
       result <- parseTriggerIds(resp)
     } yield result should ===(expected)
 
-  def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(implicit
-      A: CompatAssertion[A]
-  ): Assertion =
+  def assertTriggerStatus(triggerInstance: UUID, pred: Vector[String] => Assertion): Assertion =
     eventually {
-      A(pred(getTriggerStatus(triggerInstance).map(_._2)))
+      pred(getTriggerStatus(triggerInstance).map(_._2))
     }
 
   it should "start up and shut down server" in
@@ -530,24 +526,6 @@ trait AbstractTriggerServiceTest
       _ <- fields.get("errors") shouldBe
         Some(JsArray(JsString(s"No trigger running with id $uuid")))
     } yield succeed
-  }
-}
-
-object AbstractTriggerServiceTest {
-  import org.scalactic.Prettifier, org.scalactic.source.Position
-  import Assertions.assert
-
-  sealed trait CompatAssertion[-A] {
-    def apply(a: A): Assertion
-  }
-  object CompatAssertion {
-    private def mk[A](f: A => Assertion) = new CompatAssertion[A] {
-      override def apply(a: A) = f(a)
-    }
-    implicit val id: CompatAssertion[Assertion] = mk(a => a)
-    @deprecated("use scalatest assertions instead", since = "2.1.0")
-    implicit def bool(implicit pretty: Prettifier, pos: Position): CompatAssertion[Boolean] =
-      mk(assert(_)(pretty, pos))
   }
 }
 
