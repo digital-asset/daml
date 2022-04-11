@@ -71,7 +71,7 @@
     "jpeg-js": "^0.4.1",
     "lodash": "^4.17.19",
     "modernizr": "^3.11.8",
-    "moment": "^2.23.0",
+    "moment": "^2.29.2",
     "normalize.css": "^8.0.1",
     "react": "^17.0.1",
     "react-autosuggest": "^10.0.4",
