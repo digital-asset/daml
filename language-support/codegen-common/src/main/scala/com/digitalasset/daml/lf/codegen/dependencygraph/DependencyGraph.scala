@@ -61,7 +61,7 @@ private[codegen] object DependencyGraph {
   ): TransitiveClosure = {
     val dependencies = orderedDependencies(serializableTypes, interfaces)
     TransitiveClosure(
-      orderedDependencies = orderedDependencies(serializableTypes, interfaces).deps.map {
+      orderedDependencies = dependencies.deps.map {
         case (id, Node(NodeType.Internal(defDataType), _)) =>
           id -> Right(InterfaceType.Normal(defDataType))
         case (id, Node(NodeType.Root.Template(record, template), _)) =>
