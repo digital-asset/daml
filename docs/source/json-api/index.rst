@@ -926,6 +926,12 @@ Contract Found HTTP Response
 Fetch Contract by Key
 *********************
 
+Show the currently active contract that matches a given key.
+
+The websocket endpoint `/v1/stream/fetch <#fetch-by-key-contracts-stream>`__ can
+be used to search multiple keys in the same request, or in place of iteratively
+invoking this endpoint to respond to changes on the ledger.
+
 HTTP Request
 ============
 
@@ -2093,6 +2099,10 @@ Fetch by Key Contracts Stream
 - Protocol: ``WebSocket``
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
+
+Simpler use-cases that search for only a single key and do not require
+continuous updates should use the simpler
+`/v1/fetch <#fetch-contract-by-key>`__ endpoint instead.
 
 ``application/json`` body must be sent first, formatted according to the following rule:
 
