@@ -83,8 +83,8 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           assert(result.activeAssets == Seq(contractId).toSet)
-          assert(result.successfulCompletions == 2)
-          assert(result.failedCompletions == 0)
+          result.successfulCompletions should ===(2)
+          result.failedCompletions should ===(0)
           assert(acs(assetMirrorId).size == 1)
         }
       }
@@ -110,8 +110,8 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           assert(result.activeAssets == Seq(contractId1, contractId2).toSet)
-          assert(result.successfulCompletions == 4)
-          assert(result.failedCompletions == 0)
+          result.successfulCompletions should ===(4)
+          result.failedCompletions should ===(0)
           assert(acs(assetMirrorId).size == 2)
         }
       }
@@ -140,8 +140,8 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           assert(result.activeAssets == Seq().toSet)
-          assert(result.successfulCompletions == 4)
-          assert(result.failedCompletions == 0)
+          result.successfulCompletions should ===(4)
+          result.failedCompletions should ===(0)
           assert(acs(assetMirrorId).size == 2)
         }
       }
@@ -489,7 +489,7 @@ abstract class AbstractFuncTests
           // 2 heartbeats
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
         } yield {
-          assert(finalState == SInt64(2))
+          finalState should ===(SInt64(2))
         }
       }
     }
@@ -515,7 +515,7 @@ abstract class AbstractFuncTests
                       // Given the limited resolution it can happen that t0 == t1
                       assert(t0 >= t1)
                     case Some(TimeProviderType.Static) =>
-                      assert(t0 == t1)
+                      t0 should ===(t1)
                   }
                 case v => fail(s"Expected list with 2 elements but got $v")
               }
