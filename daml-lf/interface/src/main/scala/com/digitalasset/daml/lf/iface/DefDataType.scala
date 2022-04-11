@@ -248,7 +248,15 @@ object TemplateChoice {
 final case class DefInterface[+Ty](choices: Map[Ref.ChoiceName, TemplateChoice[Ty]])
     extends DefTemplate.GetChoices[Ty]
 
-object DefInterface extends FWTLike[DefInterface]
+object DefInterface extends FWTLike[DefInterface] {
+
+  implicit val `InterfaceDecl fold`: Foldable[DefInterface] =
+    new Foldable.FromFoldMap[DefInterface] {
+      override def foldMap[A, B: Monoid](fa: DefInterface[A])(f: A => B): B =
+        fa.choices.foldMap(_ foldMap f)
+    }
+
+}
 
 /** Add aliases to companions. */
 sealed abstract class FWTLike[F[+_]] {

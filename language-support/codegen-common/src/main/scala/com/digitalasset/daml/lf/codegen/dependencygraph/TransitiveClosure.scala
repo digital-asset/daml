@@ -5,7 +5,7 @@ package com.daml.lf.codegen.dependencygraph
 
 import com.daml.lf.codegen.exception.UnsupportedTypeError
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface.InterfaceType
+import com.daml.lf.iface.{InterfaceType, DefInterface}
 
 /** Represents a collection of templates and all the type
   * declarations for which code must be generated so that
@@ -14,6 +14,13 @@ import com.daml.lf.iface.InterfaceType
   * Ledger API.
   */
 final case class TransitiveClosure(
-    interfaceTypes: Vector[(Identifier, InterfaceType)],
+    orderedDependencies: Vector[(Identifier, Either[DefInterface.FWT, InterfaceType])],
     errors: List[UnsupportedTypeError],
-)
+) {
+
+  lazy val (interfaces, serializableTypes) = orderedDependencies.partitionMap {
+    case (id, Left(interface)) => Left(id -> interface)
+    case (id, Right(serializable)) => Right(id -> serializable)
+  }
+
+}

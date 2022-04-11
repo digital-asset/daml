@@ -432,7 +432,7 @@ object LFUtil {
 
   object WriteParams {
     def apply(tc: TransitiveClosure): WriteParams = {
-      val (templateIds, typeDeclarations) = tc.interfaceTypes.partitionMap {
+      val (templateIds, typeDeclarations) = tc.serializableTypes.partitionMap { // TODO(#13349)
         case (id, InterfaceType.Template(record, template)) =>
           Left(id -> DefTemplateWithRecord(record, template))
         case (id, InterfaceType.Normal(t)) =>
