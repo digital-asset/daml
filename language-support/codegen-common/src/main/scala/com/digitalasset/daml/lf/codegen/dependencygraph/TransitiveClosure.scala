@@ -14,13 +14,7 @@ import com.daml.lf.iface.{InterfaceType, DefInterface}
   * Ledger API.
   */
 final case class TransitiveClosure(
-    orderedDependencies: Vector[(Identifier, Either[DefInterface.FWT, InterfaceType])],
+    serializableTypes: Vector[(Identifier, InterfaceType)],
+    interfaces: Vector[(Identifier, DefInterface.FWT)],
     errors: List[UnsupportedTypeError],
-) {
-
-  lazy val (interfaces, serializableTypes) = orderedDependencies.partitionMap {
-    case (id, Left(interface)) => Left(id -> interface)
-    case (id, Right(serializable)) => Right(id -> serializable)
-  }
-
-}
+)
