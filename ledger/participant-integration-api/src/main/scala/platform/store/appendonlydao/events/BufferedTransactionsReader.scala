@@ -189,7 +189,7 @@ private[platform] object BufferedTransactionsReader {
       inStreamBufferLength: Counter,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
     def bufferedSource(
-        slice: Vector[(Offset, TransactionLogUpdate)]
+        slice: Array[(Offset, TransactionLogUpdate)]
     ): Source[(Offset, API_RESPONSE), NotUsed] =
       Source
         .fromIterator(() =>
@@ -217,23 +217,49 @@ private[platform] object BufferedTransactionsReader {
           offset -> apiResponseCtor(Seq(tx))
         }
 
+    def getNextChunk(startExclusive: Offset): () => Source[(Offset, API_RESPONSE), NotUsed] = () =>
+      getTransactions(transactionsBuffer)(
+        startExclusive,
+        endInclusive,
+        filter,
+        verbose,
+      )(
+        toApiTx,
+        apiResponseCtor,
+        fetchTransactions,
+        sourceTimer,
+        toApiTxTimer,
+        resolvedFromBufferCounter,
+        totalRetrievedCounter,
+        outputStreamBufferSize,
+        bufferSizeCounter,
+        inStreamBufferLength,
+      )
+
     val transactionsSource = Timed.source(
       sourceTimer, {
         transactionsBuffer.slice(startExclusive, endInclusive) match {
           case BufferSlice.Empty =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          case BufferSlice.Prefix(slice) =>
-            if (slice.size <= 1) {
-              fetchTransactions(startExclusive, endInclusive, filter, verbose)
-            } else {
-              fetchTransactions(startExclusive, slice.head._1, filter, verbose)
-                .concat(bufferedSource(slice.tail))
-                .mapMaterializedValue(_ => NotUsed)
-            }
+          case BufferSlice.EmptyPrefix =>
+            fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          case BufferSlice.Inclusive(slice) =>
-            bufferedSource(slice).mapMaterializedValue(_ => NotUsed)
+          case BufferSlice.Prefix(head, tail, isChunked) =>
+            if (tail.length == 0)
+              fetchTransactions(startExclusive, endInclusive, filter, verbose)
+            else
+              fetchTransactions(startExclusive, head._1, filter, verbose)
+                .concat(bufferedSource(tail))
+                .concatLazy {
+                  if (isChunked) Source.lazySource(getNextChunk(tail.last._1)) else Source.empty
+                }
+
+          case BufferSlice.Inclusive(slice, isChunked) =>
+            bufferedSource(slice)
+              .concatLazy {
+                if (isChunked) Source.lazySource(getNextChunk(slice.last._1)) else Source.empty
+              }
         }
       }.map(tx => {
         totalRetrievedCounter.inc()

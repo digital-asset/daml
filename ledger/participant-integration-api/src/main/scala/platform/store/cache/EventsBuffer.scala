@@ -7,7 +7,13 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.offset.Offset
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.cache.BufferSlice.{BufferSlice, Empty, Inclusive, Prefix}
+import com.daml.platform.store.cache.BufferSlice.{
+  BufferSlice,
+  Empty,
+  EmptyPrefix,
+  Inclusive,
+  Prefix,
+}
 import com.daml.platform.store.cache.EventsBuffer.{
   BufferStateRef,
   RequestOffBufferBounds,
@@ -36,6 +42,8 @@ final class EventsBuffer[E](
     metrics: Metrics,
     bufferQualifier: String,
     ignoreMarker: E => Boolean,
+    // TODO LLP Specifically low to observe the cap in benchmarks. In prod setups we should use higher values
+    maxFetchSize: Int = 128,
 ) {
   @volatile private var _bufferStateRef = BufferStateRef[Offset, E]()
   private var lastPrunedOffset = Option.empty[Offset]
@@ -86,9 +94,10 @@ final class EventsBuffer[E](
     * @param endInclusive The end inclusive bound of the requested range.
     * @return The series of events as an ordered vector satisfying the input bounds.
     */
-  def slice(startExclusive: Offset, endInclusive: Offset): BufferSlice[(Offset, E)] = if (
-    lastPrunedOffset.exists(_ > startExclusive)
-  ) {
+  def slice(
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): BufferSlice[(Offset, E)] = if (lastPrunedOffset.exists(_ > startExclusive)) {
     throw LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
       .Reject(
         cause =
@@ -100,6 +109,7 @@ final class EventsBuffer[E](
     Timed.value(
       sliceTimer, {
         val bufferSnapshot = _bufferStateRef
+
         if (bufferSnapshot.rangeEnd.exists(_ < endInclusive)) {
           throw RequestOffBufferBounds(bufferSnapshot.vector.last._1, endInclusive)
         } else if (bufferSnapshot.vector.isEmpty)
@@ -116,10 +126,18 @@ final class EventsBuffer[E](
           val vectorSlice =
             bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
 
-          sliceSize.update(vectorSlice.size)
+          val (result, isChunked) =
+            if (vectorSlice.size <= maxFetchSize) vectorSlice -> false
+            else vectorSlice.take(maxFetchSize) -> true
 
-          if (bufferStartInclusiveIdx == 0) Prefix(vectorSlice)
-          else Inclusive(vectorSlice)
+          sliceSize.update(result.length)
+
+          if (bufferStartInclusiveIdx == 0) {
+            if (result.isEmpty)
+              EmptyPrefix
+            else
+              Prefix(result.head, result.tail.toArray, isChunked)
+          } else Inclusive(result.toArray, isChunked)
         }
       },
     )
@@ -149,19 +167,29 @@ private[platform] object BufferSlice {
 
   /** Specialized slice representation of a Vector */
   private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable {
-    def slice: Vector[ELEM]
+    def isChunked: Boolean
   }
 
   /** The source was empty */
   private[platform] final case object Empty extends BufferSlice[Nothing] {
-    override val slice: Vector[Nothing] = Vector.empty
+    override val isChunked: Boolean = true
   }
 
   /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq to 1) */
-  private[platform] final case class Inclusive[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  private[platform] final case class Inclusive[ELEM](slice: Array[ELEM], isChunked: Boolean)
+      extends BufferSlice[ELEM]
 
   /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
-  private[platform] final case class Prefix[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  private[platform] final case class Prefix[ELEM](head: ELEM, tail: Array[ELEM], isChunked: Boolean)
+      extends BufferSlice[ELEM]
+
+  /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  private[platform] final case object EmptyPrefix extends BufferSlice[Nothing] {
+    override val isChunked: Boolean = true
+  }
 }
 
 private[platform] object EventsBuffer {

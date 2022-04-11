@@ -31,7 +31,7 @@ class BufferedCommandCompletionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
-    def bufferedSource(slice: Vector[(Offset, TransactionLogUpdate)]) =
+    def bufferedSource(slice: Array[(Offset, TransactionLogUpdate)]) =
       Source
         .fromIterator(() => slice.iterator)
         .collect {
@@ -50,24 +50,41 @@ class BufferedCommandCompletionsReader(
           offset -> completion
         }
 
+    def getNextChunk(
+        startExclusive: Offset
+    ): () => Source[(Offset, CompletionStreamResponse), NotUsed] = () =>
+      getCommandCompletions(
+        startExclusive,
+        endInclusive,
+        applicationId,
+        parties,
+      )
+
     val transactionsSource = Timed.source(
       completionsBufferMetrics.fetchTimer, {
         completionsBuffer.slice(startExclusive, endInclusive) match {
           case BufferSlice.Empty =>
             delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
 
-          case BufferSlice.Prefix(slice) =>
-            if (slice.size <= 1) {
-              delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
-            } else {
-              delegate
-                .getCommandCompletions(startExclusive, slice.head._1, applicationId, parties)
-                .concat(bufferedSource(slice.tail))
-                .mapMaterializedValue(_ => NotUsed)
-            }
+          case BufferSlice.EmptyPrefix =>
+            delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
 
-          case BufferSlice.Inclusive(slice) =>
-            bufferedSource(slice).mapMaterializedValue(_ => NotUsed)
+          case BufferSlice.Prefix(head, tail, isChunked) =>
+            if (tail.length == 0)
+              delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
+            else
+              delegate
+                .getCommandCompletions(startExclusive, head._1, applicationId, parties)
+                .concat(bufferedSource(tail))
+                .concatLazy {
+                  if (isChunked) Source.lazySource(getNextChunk(tail.last._1)) else Source.empty
+                }
+
+          case BufferSlice.Inclusive(slice, isChunked) =>
+            bufferedSource(slice)
+              .concatLazy {
+                if (isChunked) Source.lazySource(getNextChunk(slice.last._1)) else Source.empty
+              }
         }
       }.map(tx => {
         completionsBufferMetrics.fetchedTotal.inc()
