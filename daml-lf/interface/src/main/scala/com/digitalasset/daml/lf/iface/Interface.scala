@@ -16,6 +16,24 @@ import scala.jdk.CollectionConverters._
 
 sealed abstract class InterfaceType extends Product with Serializable {
   def `type`: DefDataType.FWT
+
+  def fold[Z](normal: DefDataType.FWT => Z, template: (Record.FWT, DefTemplate[Type]) => Z): Z =
+    this match {
+      case InterfaceType.Normal(typ) => normal(typ)
+      case InterfaceType.Template(typ, tpl) => template(typ, tpl)
+    }
+
+  /** Alias for `type`. */
+  def getType: DefDataType.FWT = `type`
+  def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
+    fold(
+      { _ =>
+        j.Optional.empty()
+      },
+      { (_, tpl) =>
+        j.Optional.of(tpl)
+      },
+    )
 }
 object InterfaceType {
   final case class Normal(`type`: DefDataType.FWT) extends InterfaceType
