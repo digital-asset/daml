@@ -114,6 +114,7 @@ class JwksSpec extends AnyFlatSpec with Matchers {
       result3.isLeft,
       s"The token with an unknown key ID (which was removed from Key Set) should not successfully verify",
     )
+    updatedServer.stop(3)
   }
 }
 
