@@ -67,26 +67,18 @@ keyabilityConditionsDataType ::
   -> Maybe (HS.HashSet TypeConName)
 keyabilityConditionsDataType currentModule (DefDataType _loc _ _ _ cons) =
   mconcatMapM
-    (keyabilityConditionsType currentModule Nothing)
+    (keyabilityConditionsType currentModule)
     (toListOf dataConsType cons)
 
 -- | Determine whether a type is "keyable".
 --
--- When an 'UnkeyableTyConSet' value is not given, type constructors from the
--- current module are returned as "keyability" conditions.
---
--- When an 'UnkeyableTyConSet' value is given, the presence of a type constructor
--- from the current module in the set means that it is "unkeyable", and the
--- returned set is always empty.
---
--- Regardless of the 'UnkeyableTyConSet' being provided or not, type constructors
--- from other modules are assumed to be "keyable".
+-- Type constructors from the current module are returned as "keyability"
+-- conditions, while type constructors from other modules are assumed to be "keyable"
 keyabilityConditionsType ::
      CurrentModule
-  -> Maybe UnkeyableTyConSet
   -> Type
   -> Maybe (HS.HashSet TypeConName)
-keyabilityConditionsType (CurrentModule currentModuleName) mUnkeyableTyConSet = go
+keyabilityConditionsType (CurrentModule currentModuleName) = go
   where
     unkeyable = Nothing
     noConditions = Just HS.empty
@@ -103,12 +95,7 @@ keyabilityConditionsType (CurrentModule currentModuleName) mUnkeyableTyConSet = 
 
       TCon qtcon
         | Right tconName <- matching (_PRSelfModule currentModuleName) qtcon ->
-            case mUnkeyableTyConSet of
-              Nothing -> conditionallyOn tconName
-              Just (UnkeyableTyConSet unkeyableTyCons) ->
-                if tconName `HS.member` unkeyableTyCons
-                  then unkeyable
-                  else noConditions
+            conditionallyOn tconName
         | otherwise -> noConditions
 
       TNumeric{} -> noConditions
@@ -127,7 +114,8 @@ keyabilityConditionsType (CurrentModule currentModuleName) mUnkeyableTyConSet = 
 
 -- | Check whether a type is "keyable".
 checkKeyType :: MonadGamma m => CurrentModule -> UnkeyableTyConSet -> Type -> m ()
-checkKeyType currentModule unkeyableTyCons typ = do
-  case keyabilityConditionsType currentModule (Just unkeyableTyCons) typ of
-    Nothing -> throwWithContext (EExpectedKeyTypeWithoutContractId typ)
-    Just _ -> pure ()
+checkKeyType currentModule (UnkeyableTyConSet unkeyableTyCons) typ = do
+  case keyabilityConditionsType currentModule typ of
+    Just conds
+      | HS.null (HS.intersection conds unkeyableTyCons) -> pure ()
+    _ -> throwWithContext (EExpectedKeyTypeWithoutContractId typ)
