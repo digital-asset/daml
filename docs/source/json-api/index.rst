@@ -1019,6 +1019,10 @@ Get all Active Contracts Matching a Given Query
 
 List currently active contracts that match a given query.
 
+The websocket endpoint `/v1/stream/query <#contracts-query-stream>`__ can be
+used in place of iteratively invoking this endpoint to respond to changes on the
+ledger.
+
 HTTP Request
 ============
 
@@ -1882,6 +1886,10 @@ Contracts Query Stream
 
 List currently active contracts that match a given query, with
 continuous updates.
+
+Simpler use-cases that do not require continuous updates should use the simpler
+`/v1/query <#get-all-active-contracts-matching-a-given-query>`__ endpoint
+instead.
 
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
