@@ -120,7 +120,7 @@ daml_compile(
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
-        ],
+        ] + (["scenario/stable/no-contract-ids-in-keys/Simple.daml"] if "no-contract-ids-in-keys" in file else []),
         toolchains = [
             "@rules_sh//sh/posix:make_variables",
         ],
