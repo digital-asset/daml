@@ -4,29 +4,13 @@
 package com.daml.test.evidence.generator
 
 import better.files.File
-import com.daml.ledger.api.testtool.suites
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.test.evidence.generator.TestEntry.{ReliabilityTestEntry, SecurityTestEntry}
-import com.daml.test.evidence.generator.TestEntryCsvEncoder.{
-  ReliabilityTestEntryCsv,
-  SecurityTestEntryCsv,
-  TestEntryCsv,
-}
-import com.daml.test.evidence.tag.Reliability.{ReliabilityTest, ReliabilityTestSuite}
-import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
+import com.daml.test.evidence.generator.TestEntryCsvEncoder.{SecurityTestEntryCsv, TestEntryCsv}
 import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.scalatest.Suite
 import com.daml.test.evidence.scalatest.JsonCodec.SecurityJson._
-import com.daml.test.evidence.scalatest.JsonCodec.ReliabilityJson._
-import org.scalatest.daml.ScalaTestAdapter
-
-import scala.reflect.ClassTag
 
 object Main {
-
-  private def loadClasspath(): Option[String] = Some(System.getProperty("java.class.path"))
 
   private def writeEvidenceToJsonFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
     println(s"Writing inventory to $fileName...")
@@ -49,54 +33,19 @@ object Main {
     println(s"Wrote to $path")
   }
 
-  private def collectTestEvidence[TT: ClassTag, TS: ClassTag, TE](
-      scalaTestSuites: List[Suite],
-      ledgerApiSuites: List[LedgerTestSuite],
-      testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
-  ): List[TE] =
-    List.empty
-      .concat(ScalaTestGeneratorSupport.testEntries(scalaTestSuites, testEntry))
-      .concat(LedgerApiTestGeneratorSupport.testEntries(ledgerApiSuites, testEntry))
-
   def main(args: Array[String]): Unit = {
-    val runpathList: List[String] = loadClasspath()
-      .map(_.split(":").toList)
-      .getOrElse(List.empty)
+    if (args.length == 2) {
+      val securityTestEntries = TestEntryLookup.securityTestEntries
+      val csvEntries = securityTestEntries.map(SecurityTestEntryCsv.apply)
+      val csvFileName = args(0)
+      val jsonFileName = args(1)
 
-    val ledgerApiTests = List()
-      .concat(suites.v1_14.default(timeoutScaleFactor = 0L))
-      .concat(suites.v1_14.optional(tlsConfig = None))
-
-    val testSuites: List[Suite] = ScalaTestAdapter.loadTestSuites(runpathList)
-
-    println("Writing security tests inventory..")
-
-    val securityTestEntries =
-      collectTestEvidence[SecurityTest, SecurityTestSuite, SecurityTestEntry](
-        testSuites,
-        ledgerApiTests,
-        SecurityTestEntry,
+      writeEvidenceToCsvFile(csvFileName, csvEntries)
+      writeEvidenceToJsonFile(jsonFileName, securityTestEntries)
+    } else {
+      throw new IllegalArgumentException(
+        s"Invalid number of arguments, was ${args.length}, should be 2"
       )
-
-    val reliabilityTestEntries =
-      collectTestEvidence[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
-        testSuites,
-        ledgerApiTests,
-        ReliabilityTestEntry,
-      )
-
-    writeEvidenceToJsonFile("security-tests.json", securityTestEntries)
-    writeEvidenceToCsvFile(
-      "security-tests.csv",
-      securityTestEntries.map(SecurityTestEntryCsv.apply),
-    )
-
-    writeEvidenceToJsonFile("reliability-tests.json", reliabilityTestEntries)
-    writeEvidenceToCsvFile(
-      "reliability-tests.csv",
-      reliabilityTestEntries.map(ReliabilityTestEntryCsv.apply),
-    )
-
-    sys.exit()
+    }
   }
 }
