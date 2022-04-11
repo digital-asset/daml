@@ -12,6 +12,8 @@ exports_files(["release/oauth2-middleware-logback.xml"])
 
 scalacopts = []
 
+test_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.OptionPartial"]
+
 da_scala_library(
     name = "oauth2-api",
     srcs = glob(["src/main/scala/com/daml/auth/oauth2/api/**/*.scala"]),
@@ -154,7 +156,7 @@ da_scala_test(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = scalacopts,
+    scalacopts = scalacopts + test_scalacopts,
     deps = [
         ":oauth2-api",
         ":oauth2-test-server",
@@ -193,7 +195,7 @@ da_scala_test(
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_stream_testkit",
     ],
-    scalacopts = scalacopts,
+    scalacopts = scalacopts + test_scalacopts,
     deps = [
         ":middleware-api",
         ":oauth2-api",
