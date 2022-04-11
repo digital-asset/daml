@@ -19,6 +19,7 @@ import com.daml.ledger.api.auth.{
 }
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import org.scalatest.OptionValues
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json._
 
@@ -26,7 +27,11 @@ import java.time.Instant
 import scala.concurrent.Future
 import scala.util.Try
 
-abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
+abstract class Test
+    extends AsyncWordSpec
+    with OptionValues
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
   import Test._
 
@@ -59,13 +64,13 @@ abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceMan
       // Redirect to /authorize on authorization server (No automatic redirect handling in akka-http)
       resp <- {
         assert(resp.status == StatusCodes.Found)
-        val req = HttpRequest(uri = resp.header[Location].get.uri)
+        val req = HttpRequest(uri = resp.header[Location].value.uri)
         Http().singleRequest(req)
       }
       // Redirect to /cb on client.
       resp <- {
         assert(resp.status == StatusCodes.Found)
-        val req = HttpRequest(uri = resp.header[Location].get.uri)
+        val req = HttpRequest(uri = resp.header[Location].value.uri)
         Http().singleRequest(req)
       }
       // Actual token response (proxied from auth server to us via the client)
@@ -182,7 +187,7 @@ class ClaimTokenTest extends Test {
   type Tok = CustomDamlJWTPayload
   override object Tok extends TokenCompat[Tok] {
     override def userId(t: Tok) = t.applicationId
-    override def exp(t: Tok) = t.exp.get
+    override def exp(t: Tok) = t.exp.value
     override def withoutExp(t: Tok) = t copy (exp = None)
   }
 
@@ -250,7 +255,7 @@ class UserTokenTest extends Test {
   type Tok = StandardJWTPayload
   override object Tok extends TokenCompat[Tok] {
     override def userId(t: Tok) = Some(t.userId).filter(_.nonEmpty)
-    override def exp(t: Tok) = t.exp.get
+    override def exp(t: Tok) = t.exp.value
     override def withoutExp(t: Tok) = t copy (exp = None)
   }
 

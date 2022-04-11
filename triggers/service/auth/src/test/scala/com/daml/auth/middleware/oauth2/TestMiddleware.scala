@@ -41,7 +41,8 @@ abstract class TestMiddleware
     extends AsyncWordSpec
     with TestFixture
     with SuiteResourceManagementAroundAll
-    with Matchers {
+    with Matchers
+    with OptionValues {
   protected[this] def makeJwt(
       claims: Request.Claims,
       expiresIn: Option[Duration],
@@ -99,7 +100,7 @@ abstract class TestMiddleware
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       for {
         result <- middlewareClient.requestAuth(claims, List(cookieHeader))
-        auth = result.get
+        auth = result.value
       } yield {
         auth.accessToken should ===(token.accessToken)
         auth.refreshToken should ===(token.refreshToken)
@@ -172,23 +173,23 @@ abstract class TestMiddleware
         // Redirect to /authorize on authorization server
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Redirect to client callback
         resp.status should ===(StatusCodes.Found)
-        assert(resp.header[Location].get.uri == middlewareClientCallbackUri)
+        assert(resp.header[Location].value.uri == middlewareClientCallbackUri)
         // Store token in cookie
-        val cookie = resp.header[`Set-Cookie`].get.cookie
+        val cookie = resp.header[`Set-Cookie`].value.cookie
         cookie.name should ===("daml-ledger-token")
-        val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
+        val token = OAuthResponse.Token.fromCookieValue(cookie.value).value
         token.tokenType should ===("bearer")
       }
     }
@@ -201,22 +202,22 @@ abstract class TestMiddleware
         // Redirect to /authorize on authorization server
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Return OK
         resp.status should ===(StatusCodes.OK)
         // Store token in cookie
-        val cookie = resp.header[`Set-Cookie`].get.cookie
+        val cookie = resp.header[`Set-Cookie`].value.cookie
         cookie.name should ===("daml-ledger-token")
-        val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
+        val token = OAuthResponse.Token.fromCookieValue(cookie.value).value
         token.tokenType should ===("bearer")
       }
     }
@@ -231,20 +232,20 @@ abstract class TestMiddleware
         // Redirect to /authorize on authorization server
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
         // Extract token from cookie
         (token1, refreshToken) = {
-          val cookie = resp.header[`Set-Cookie`].get.cookie
-          val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-          (AccessToken(token.accessToken), RefreshToken(token.refreshToken.get))
+          val cookie = resp.header[`Set-Cookie`].value.cookie
+          val token = OAuthResponse.Token.fromCookieValue(cookie.value).value
+          (AccessToken(token.accessToken), RefreshToken(token.refreshToken.value))
         }
         // Advance time
         _ = clock.fastForward(Duration.ofSeconds(1))
@@ -254,7 +255,7 @@ abstract class TestMiddleware
         // Test that we got a new access token
         assert(authorize.accessToken != token1)
         // Test that we got a new refresh token
-        assert(authorize.refreshToken.get != refreshToken)
+        assert(authorize.refreshToken.value != refreshToken)
       }
     }
     // TEST_EVIDENCE: Semantics: the /refresh endpoint should fail on an invalid refresh token
@@ -353,21 +354,23 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
         // Redirect to /authorize on authorization server
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Redirect to client callback
         resp.status should ===(StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
+        assert(
+          resp.header[Location].value.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri
+        )
         // with error parameter set
-        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
+        assert(resp.header[Location].value.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
         val cookie = resp.header[`Set-Cookie`]
         cookie should ===(None)
@@ -391,6 +394,7 @@ class TestMiddlewareUserToken extends TestMiddleware {
 class TestMiddlewareCallbackUriOverride
     extends AsyncWordSpec
     with Matchers
+    with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
@@ -404,13 +408,15 @@ class TestMiddlewareCallbackUriOverride
         // Redirect to /authorize on authorization server
         resp <- {
           resp.status should ===(StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          val req = HttpRequest(uri = resp.header[Location].value.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Redirect to configured callback URI on middleware
         resp.status should ===(StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareCallbackUri.get)
+        assert(
+          resp.header[Location].value.uri.withQuery(Uri.Query()) == middlewareCallbackUri.value
+        )
       }
     }
   }
@@ -419,6 +425,7 @@ class TestMiddlewareCallbackUriOverride
 class TestMiddlewareLimitedCallbackStore
     extends AsyncWordSpec
     with Matchers
+    with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val maxMiddlewareLogins = 2
@@ -434,7 +441,7 @@ class TestMiddlewareLimitedCallbackStore
 
       def followRedirect(resp: HttpResponse) = {
         resp.status should ===(StatusCodes.Found)
-        val uri = resp.header[Location].get.uri
+        val uri = resp.header[Location].value.uri
         val req = HttpRequest(uri = uri)
         Http().singleRequest(req)
       }
@@ -468,6 +475,7 @@ class TestMiddlewareLimitedCallbackStore
 class TestMiddlewareClientLimitedCallbackStore
     extends AsyncWordSpec
     with Matchers
+    with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val maxClientAuthCallbacks = 2
@@ -488,7 +496,7 @@ class TestMiddlewareClientLimitedCallbackStore
 
       def followRedirect(resp: HttpResponse) = {
         resp.status should ===(StatusCodes.Found)
-        val uri = resp.header[Location].get.uri
+        val uri = resp.header[Location].value.uri
         val req = HttpRequest(uri = uri)
         Http().singleRequest(req)
       }
