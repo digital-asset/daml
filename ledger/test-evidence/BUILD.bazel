@@ -42,3 +42,35 @@ da_scala_binary(
         "//libs-scala/test-evidence/tag:test-evidence-tag",
     ],
 )
+
+genrule(
+    name = "generate-security-test-evidence-files",
+    srcs = [],
+    outs = [
+        "daml-security-test-evidence.csv",
+        "daml-security-test-evidence.json",
+    ],
+    cmd = "$(location //ledger/test-evidence:generator) $(location daml-security-test-evidence.csv) $(location daml-security-test-evidence.json)",
+    tools = ["//ledger/test-evidence:generator"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "test-evidence-tarball",
+    srcs = [
+        ":generate-security-test-evidence-files",
+    ],
+    outs = ["daml-test-evidence.tar.gz"],
+    cmd = """
+        set -eou pipefail
+        DIR=$$(mktemp -d)
+        trap "rm -rf $$DIR" EXIT
+        mkdir $$DIR/daml-test-evidence
+        cp $(locations :generate-security-test-evidence-files) $$DIR/daml-test-evidence/
+        MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+        OUT=$$PWD/$(location daml-test-evidence.tar.gz)
+        cd $$DIR
+        $$MKTGZ $$OUT daml-test-evidence
+        """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
