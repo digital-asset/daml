@@ -318,6 +318,8 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
         interface.fixedChoices.get(chName) match {
           case Some(choice) => Right(ChoiceInfo.Interface(choice))
           case None => {
+            // TODO(drsk) improve the performance of this lookup. Tracked in issue
+            // https://github.com/digital-asset/daml/issues/11345.
             interface.requires.view
               .map((iface) =>
                 lookupInterfaceChoice(iface, chName, context).map((choice) => (choice, iface))
