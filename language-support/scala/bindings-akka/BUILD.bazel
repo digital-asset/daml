@@ -17,8 +17,6 @@ da_scala_library(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_github_pureconfig_pureconfig_core",
-        "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -26,7 +24,6 @@ da_scala_library(
     ],
     scala_exports = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
