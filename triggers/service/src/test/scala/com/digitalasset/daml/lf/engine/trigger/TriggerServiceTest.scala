@@ -434,10 +434,10 @@ trait AbstractTriggerServiceTest
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Check the log for an initialization failure.
-      _ <- assertTriggerStatus(aliceTrigger, _.contains("stopped: initialization failure"))
+      _ <- assertTriggerStatus(aliceTrigger, _ should contain("stopped: initialization failure"))
       // Finally establish the connection and check that the trigger eventually starts.
       _ <- Future(toxiSandboxProxy.enable())
-      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last should ===("running"))
     } yield succeed
   }
 
@@ -453,13 +453,13 @@ trait AbstractTriggerServiceTest
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Proceed when it's confirmed to be running.
-      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last should ===("running"))
       // Simulate brief network connectivity loss and observe the trigger fail.
       _ <- Future(toxiSandboxProxy.disable())
-      _ <- assertTriggerStatus(aliceTrigger, _.contains("stopped: runtime failure"))
+      _ <- assertTriggerStatus(aliceTrigger, _ should contain("stopped: runtime failure"))
       // Finally check the trigger is restarted after the connection returns.
       _ <- Future(toxiSandboxProxy.enable())
-      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last should ===("running"))
     } yield succeed
   }
 
@@ -474,8 +474,11 @@ trait AbstractTriggerServiceTest
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
         // failure.
-        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") > 2)
-        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "stopped: initialization failure") > 2)
+        _ <- assertTriggerStatus(aliceTrigger, stats => atLeast(3, stats) should ===("starting"))
+        _ <- assertTriggerStatus(
+          aliceTrigger,
+          stats => atLeast(3, stats) should ===("stopped: initialization failure"),
+        )
       } yield succeed
   }
 
@@ -542,6 +545,7 @@ object AbstractTriggerServiceTest {
       override def apply(a: A) = f(a)
     }
     implicit val id: CompatAssertion[Assertion] = mk(a => a)
+    @deprecated("use scalatest assertions instead", since = "2.1.0")
     implicit def bool(implicit pretty: Prettifier, pos: Position): CompatAssertion[Boolean] =
       mk(assert(_)(pretty, pos))
   }
