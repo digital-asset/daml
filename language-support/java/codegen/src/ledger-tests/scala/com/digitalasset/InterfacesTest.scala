@@ -56,7 +56,7 @@ class Interfaces
                 client,
                 alice,
                 interfaces.Child.ContractId
-                  .unsafeFromTIf(child.id.toTIf)
+                  .unsafeFromTIf(child.id.toTIf: TIf.ContractId)
                   .exerciseHam(new interfaces.Ham()),
               )
             )
