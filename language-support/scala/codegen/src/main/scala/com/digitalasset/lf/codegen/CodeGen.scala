@@ -131,13 +131,17 @@ object CodeGen {
     }
 
   private def packageInterfaceToScalaCode(util: LFUtil): Unit = {
-    val typeDeclarationsToGenerate = DependencyGraph.transitiveClosure(util.iface.typeDecls)
+    val typeDeclarationsToGenerate =
+      DependencyGraph.transitiveClosure(
+        serializableTypes = util.iface.typeDecls,
+        interfaces = Map.empty, // TODO(#13349)
+      )
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
     writeTemplatesAndTypes(util)(WriteParams(typeDeclarationsToGenerate))
 
     val totalTemplates = templateCount(util.iface.typeDecls)
-    val generated = templateCount(typeDeclarationsToGenerate.interfaceTypes)
+    val generated = templateCount(typeDeclarationsToGenerate.serializableTypes) // TODO(#13349)
     val notGenerated = totalTemplates - generated
 
     val errorMessages = typeDeclarationsToGenerate.errors.map(_.msg).mkString("\n")
