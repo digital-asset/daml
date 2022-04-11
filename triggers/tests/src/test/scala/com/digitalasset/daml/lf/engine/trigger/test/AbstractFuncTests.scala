@@ -85,7 +85,7 @@ abstract class AbstractFuncTests
           assert(result.activeAssets == Seq(contractId).toSet)
           result.successfulCompletions should ===(2)
           result.failedCompletions should ===(0)
-          assert(acs(assetMirrorId).size == 1)
+          acs(assetMirrorId) should have size 1
         }
       }
 
@@ -112,7 +112,7 @@ abstract class AbstractFuncTests
           assert(result.activeAssets == Seq(contractId1, contractId2).toSet)
           result.successfulCompletions should ===(4)
           result.failedCompletions should ===(0)
-          assert(acs(assetMirrorId).size == 2)
+          acs(assetMirrorId) should have size 2
         }
       }
 
@@ -142,7 +142,7 @@ abstract class AbstractFuncTests
           assert(result.activeAssets == Seq().toSet)
           result.successfulCompletions should ===(4)
           result.failedCompletions should ===(0)
-          assert(acs(assetMirrorId).size == 2)
+          acs(assetMirrorId) should have size 2
         }
       }
     }
@@ -193,7 +193,7 @@ abstract class AbstractFuncTests
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 1)
+          acs(originalId) should have length 1
           assert(!acs.contains(subscriberId))
           assert(!acs.contains(copyId))
         }
@@ -215,9 +215,9 @@ abstract class AbstractFuncTests
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 1)
-          assert(acs(subscriberId).length == 1)
-          assert(acs(copyId).length == 1)
+          acs(originalId) should have length 1
+          acs(subscriberId) should have length 1
+          acs(copyId) should have length 1
         }
       }
       "2 original, 1 subscriber" in {
@@ -237,9 +237,9 @@ abstract class AbstractFuncTests
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 2)
-          assert(acs(subscriberId).length == 1)
-          assert(acs(copyId).length == 2)
+          acs(originalId) should have length 2
+          acs(subscriberId) should have length 1
+          acs(copyId) should have length 2
         }
       }
     }
@@ -262,8 +262,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(7))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(doneId).length == 1)
+          acs(tId) should have length 1
+          acs(doneId) should have length 1
         }
       }
     }
@@ -285,8 +285,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(tPrimeId).length == 1)
+          acs(tId) should have length 1
+          acs(tPrimeId) should have length 1
         }
       }
     }
@@ -306,8 +306,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(uId).length == 1)
+          acs(tId) should have length 1
+          acs(uId) should have length 1
         }
       }
     }
@@ -401,9 +401,9 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(doneId).length == 1)
+          acs(doneId) should have length 1
           assert(!acs.contains(fooId))
-          assert(acs(booId).length == 1)
+          acs(booId) should have length 1
         }
       }
     }
@@ -451,7 +451,7 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(doneOneId).length == 1)
+          acs(doneOneId) should have length 1
           assert(!acs.contains(doneTwoId))
         }
       }
@@ -473,7 +473,7 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           assert(!acs.contains(doneOneId))
-          assert(acs(doneTwoId).length == 1)
+          acs(doneTwoId) should have length 1
         }
       }
     }

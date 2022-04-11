@@ -38,7 +38,7 @@ class DevOnly
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
+          acs(tId) should have length 1
         }
       }
     }
