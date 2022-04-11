@@ -546,6 +546,8 @@ Moreover to allow converting the ContractId of a template to an interface Contra
 
       public TIf.ContractId toTIf() { /* ... */ }
 
+      public static Child.ContractId unsafeFromTIf(interfaces.TIf.ContractId interfaceContractId)  { /* ... */ }
+
     }
 
     /* ... */
