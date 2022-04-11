@@ -3,8 +3,6 @@
 
 package com.daml.lf.codegen.dependencygraph
 
-import com.daml.lf.codegen.Util
-import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.iface.InterfaceType
 import scalaz.std.list._
@@ -12,34 +10,34 @@ import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
+
+  private def toNode(namedInterfaceType: (Identifier, InterfaceType)) = {
+    import com.daml.lf.codegen.Util.genTypeTopLevelDeclNames
+    namedInterfaceType match {
+      case id -> (normal: InterfaceType.Normal) =>
+        Left(
+          id -> Node(
+            normal,
+            normal.`type`.bifoldMap(genTypeTopLevelDeclNames)(genTypeTopLevelDeclNames),
+          )
+        )
+      case id -> (template: InterfaceType.Template) =>
+        val recDeps = template.rec.foldMap(genTypeTopLevelDeclNames)
+        val choiceAndKeyDeps = template.template.foldMap(genTypeTopLevelDeclNames)
+        Right(
+          id -> Node(
+            template,
+            recDeps ++ choiceAndKeyDeps,
+          )
+        )
+    }
+  }
+
   def orderedDependencies(
       decls: Map[Identifier, InterfaceType]
   ): OrderedDependencies[Identifier, InterfaceType] = {
     // invariant: no type decl name equals any template alias
-    val typeDeclNodes =
-      decls.to(ImmArraySeq).collect { case (qualName, normal: InterfaceType.Normal) =>
-        (
-          qualName,
-          Node(
-            normal,
-            normal.`type`.bifoldMap(Util.genTypeTopLevelDeclNames)(Util.genTypeTopLevelDeclNames),
-            collectDepError = false,
-          ),
-        )
-      }
-    val templateNodes =
-      decls.to(ImmArraySeq).collect { case (qualName, template: InterfaceType.Template) =>
-        val recDeps = template.rec.foldMap(Util.genTypeTopLevelDeclNames)
-        val choiceAndKeyDeps = template.template.foldMap(Util.genTypeTopLevelDeclNames)
-        (
-          qualName,
-          Node(
-            template,
-            recDeps ++ choiceAndKeyDeps,
-            collectDepError = true,
-          ),
-        )
-      }
+    val (typeDeclNodes, templateNodes) = decls.view.partitionMap(toNode)
     Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)
   }
 
@@ -52,7 +50,7 @@ private[codegen] object DependencyGraph {
   def transitiveClosure(decls: Map[Identifier, InterfaceType]): TransitiveClosure = {
     val dependencies = orderedDependencies(decls)
     TransitiveClosure(
-      interfaceTypes = dependencies.deps.map { case (id, Node(t, _, _)) => id -> t },
+      interfaceTypes = dependencies.deps.map { case (id, Node(t, _)) => id -> t },
       errors = dependencies.errors,
     )
   }
