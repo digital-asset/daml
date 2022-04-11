@@ -194,8 +194,8 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           acs(originalId) should have length 1
-          assert(!acs.contains(subscriberId))
-          assert(!acs.contains(copyId))
+          acs shouldNot contain key subscriberId
+          acs shouldNot contain key copyId
         }
       }
       "1 original, 1 subscriber" in {
@@ -402,7 +402,7 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           acs(doneId) should have length 1
-          assert(!acs.contains(fooId))
+          acs shouldNot contain key fooId
           acs(booId) should have length 1
         }
       }
@@ -452,7 +452,7 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           acs(doneOneId) should have length 1
-          assert(!acs.contains(doneTwoId))
+          acs shouldNot contain key doneTwoId
         }
       }
       "filter to Two" in {
@@ -472,7 +472,7 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(!acs.contains(doneOneId))
+          acs shouldNot contain key doneOneId
           acs(doneTwoId) should have length 1
         }
       }
