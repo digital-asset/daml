@@ -34,6 +34,7 @@ object ContractIdClass {
   )
 
   case class Builder private (
+      templateClassName: ClassName,
       idClassBuilder: TypeSpec.Builder,
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       packagePrefixes: Map[PackageId, String],
@@ -50,6 +51,18 @@ object ContractIdClass {
             .addModifiers(Modifier.PUBLIC)
             .addStatement(s"return new $name.ContractId(this.contractId)")
             .returns(ClassName.bestGuess(s"$name.ContractId"))
+            .build()
+        )
+        val tplContractIdClassName = templateClassName.nestedClass("ContractId")
+        idClassBuilder.addMethod(
+          MethodSpec
+            .methodBuilder(s"unsafeFrom$simpleName")
+            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+            .addParameter(ClassName.bestGuess(s"$name.ContractId"), "interfaceContractId")
+            .addStatement(
+              s"return new ContractId(interfaceContractId.contractId)"
+            )
+            .returns(tplContractIdClassName)
             .build()
         )
       }
@@ -168,7 +181,7 @@ object ContractIdClass {
           generateExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
         idClassBuilder.addMethod(exerciseChoiceMethod)
       }
-      Builder(idClassBuilder, choices, packagePrefixes)
+      Builder(templateClassName, idClassBuilder, choices, packagePrefixes)
     }
   }
 }
