@@ -79,7 +79,7 @@ abstract class TestMiddleware
           source.close()
         }
       }
-      assert(bindingPort == filePort)
+      bindingPort should ===(filePort)
     }
   }
   "the /auth endpoint" should {
@@ -89,7 +89,7 @@ abstract class TestMiddleware
       for {
         result <- middlewareClient.requestAuth(claims, Nil)
       } yield {
-        assert(result == None)
+        result should ===(None)
       }
     }
     // TEST_EVIDENCE: Authorization: return the token from a cookie
@@ -101,8 +101,8 @@ abstract class TestMiddleware
         result <- middlewareClient.requestAuth(claims, List(cookieHeader))
         auth = result.get
       } yield {
-        assert(auth.accessToken == token.accessToken)
-        assert(auth.refreshToken == token.refreshToken)
+        auth.accessToken should ===(token.accessToken)
+        auth.refreshToken should ===(token.refreshToken)
       }
     }
     // TEST_EVIDENCE: Authorization: return unauthorized on insufficient app id claims
@@ -121,7 +121,7 @@ abstract class TestMiddleware
       for {
         result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(result == None)
+        result should ===(None)
       }
     }
     // TEST_EVIDENCE: Authorization: return unauthorized on an invalid token
@@ -132,7 +132,7 @@ abstract class TestMiddleware
       for {
         result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(result == None)
+        result should ===(None)
       }
     }
     // TEST_EVIDENCE: Authorization: return unauthorized on an expired token
@@ -144,7 +144,7 @@ abstract class TestMiddleware
       for {
         result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(result == None)
+        result should ===(None)
       }
     }
 
@@ -171,25 +171,25 @@ abstract class TestMiddleware
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Redirect to client callback
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
         assert(resp.header[Location].get.uri == middlewareClientCallbackUri)
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].get.cookie
-        assert(cookie.name == "daml-ledger-token")
+        cookie.name should ===("daml-ledger-token")
         val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-        assert(token.tokenType == "bearer")
+        token.tokenType should ===("bearer")
       }
     }
     // TEST_EVIDENCE: Semantics: the /login endpoint should return OK and set cookie without redirectUri
@@ -200,24 +200,24 @@ abstract class TestMiddleware
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Return OK
-        assert(resp.status == StatusCodes.OK)
+        resp.status should ===(StatusCodes.OK)
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].get.cookie
-        assert(cookie.name == "daml-ledger-token")
+        cookie.name should ===("daml-ledger-token")
         val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-        assert(token.tokenType == "bearer")
+        token.tokenType should ===("bearer")
       }
     }
   }
@@ -230,13 +230,13 @@ abstract class TestMiddleware
         resp <- Http().singleRequest(loginReq)
         // Redirect to /authorize on authorization server
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
@@ -352,25 +352,25 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
         // Redirect to /cb on middleware
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Redirect to client callback
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
         assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
         val cookie = resp.header[`Set-Cookie`]
-        assert(cookie == None)
+        cookie should ===(None)
       }
     }
   }
@@ -390,6 +390,7 @@ class TestMiddlewareUserToken extends TestMiddleware {
 
 class TestMiddlewareCallbackUriOverride
     extends AsyncWordSpec
+    with Matchers
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
@@ -402,13 +403,13 @@ class TestMiddlewareCallbackUriOverride
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
         resp <- {
-          assert(resp.status == StatusCodes.Found)
+          resp.status should ===(StatusCodes.Found)
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
       } yield {
         // Redirect to configured callback URI on middleware
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
         assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareCallbackUri.get)
       }
     }
@@ -417,6 +418,7 @@ class TestMiddlewareCallbackUriOverride
 
 class TestMiddlewareLimitedCallbackStore
     extends AsyncWordSpec
+    with Matchers
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val maxMiddlewareLogins = 2
@@ -431,7 +433,7 @@ class TestMiddlewareLimitedCallbackStore
       }
 
       def followRedirect(resp: HttpResponse) = {
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
         val uri = resp.header[Location].get.uri
         val req = HttpRequest(uri = uri)
         Http().singleRequest(req)
@@ -445,10 +447,10 @@ class TestMiddlewareLimitedCallbackStore
           .flatMap(followRedirect)
         // The store should be full
         refusedCarol <- login(Party("Carol"))
-        _ = assert(refusedCarol.status == StatusCodes.ServiceUnavailable)
+        _ = refusedCarol.status should ===(StatusCodes.ServiceUnavailable)
         // Follow first redirect to middleware callback.
         resultAlice <- followRedirect(redirectAlice)
-        _ = assert(resultAlice.status == StatusCodes.Found)
+        _ = resultAlice.status should ===(StatusCodes.Found)
         // The store should have space again
         redirectCarol <- login(Party("Carol"))
           .flatMap(followRedirect)
@@ -456,8 +458,8 @@ class TestMiddlewareLimitedCallbackStore
         resultBob <- followRedirect(redirectBob)
         resultCarol <- followRedirect(redirectCarol)
       } yield {
-        assert(resultBob.status == StatusCodes.Found)
-        assert(resultCarol.status == StatusCodes.Found)
+        resultBob.status should ===(StatusCodes.Found)
+        resultCarol.status should ===(StatusCodes.Found)
       }
     }
   }
@@ -465,6 +467,7 @@ class TestMiddlewareLimitedCallbackStore
 
 class TestMiddlewareClientLimitedCallbackStore
     extends AsyncWordSpec
+    with Matchers
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val maxClientAuthCallbacks = 2
@@ -484,7 +487,7 @@ class TestMiddlewareClientLimitedCallbackStore
       }
 
       def followRedirect(resp: HttpResponse) = {
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
         val uri = resp.header[Location].get.uri
         val req = HttpRequest(uri = uri)
         Http().singleRequest(req)
@@ -502,10 +505,10 @@ class TestMiddlewareClientLimitedCallbackStore
           .flatMap(followRedirect)
         // The store should be full
         refusedCarol <- login(Party("Carol"))
-        _ = assert(refusedCarol.status == StatusCodes.ServiceUnavailable)
+        _ = refusedCarol.status should ===(StatusCodes.ServiceUnavailable)
         // Follow first redirect to middleware client.
         resultAlice <- followRedirect(redirectAlice)
-        _ = assert(resultAlice.status == StatusCodes.OK)
+        _ = resultAlice.status should ===(StatusCodes.OK)
         // The store should have space again
         redirectCarol <- login(Party("Carol"))
           .flatMap(followRedirect)
@@ -514,8 +517,8 @@ class TestMiddlewareClientLimitedCallbackStore
         resultBob <- followRedirect(redirectBob)
         resultCarol <- followRedirect(redirectCarol)
       } yield {
-        assert(resultBob.status == StatusCodes.OK)
-        assert(resultCarol.status == StatusCodes.OK)
+        resultBob.status should ===(StatusCodes.OK)
+        resultCarol.status should ===(StatusCodes.OK)
       }
     }
   }
@@ -544,7 +547,7 @@ class TestMiddlewareClientNoRedirectToLogin
       for {
         resp <- Http().singleRequest(req)
         // Unauthorized with WWW-Authenticate header
-        _ = assert(resp.status == StatusCodes.Unauthorized)
+        _ = resp.status should ===(StatusCodes.Unauthorized)
         wwwAuthenticate = resp.header[headers.`WWW-Authenticate`].value
         challenge = wwwAuthenticate.challenges
           .find(_.scheme == Response.authenticateChallengeName)
@@ -560,14 +563,14 @@ class TestMiddlewareClientNoRedirectToLogin
         // The body should include the same challenge
         bodyChallenge <- Unmarshal(resp).to[Response.AuthenticateChallenge]
       } yield {
-        assert(headerChallenge.auth == middlewareClient.authUri(claims))
+        headerChallenge.auth should ===(middlewareClient.authUri(claims))
         assert(
           headerChallenge.login.withQuery(Uri.Query.Empty) == middlewareClientRoutes
             .loginUri(claims)
             .withQuery(Uri.Query.Empty)
         )
         assert(headerChallenge.login.query().get("claims").value == claims.toQueryString())
-        assert(bodyChallenge == headerChallenge)
+        bodyChallenge should ===(headerChallenge)
       }
     }
   }
@@ -575,6 +578,7 @@ class TestMiddlewareClientNoRedirectToLogin
 
 class TestMiddlewareClientYesRedirectToLogin
     extends AsyncWordSpec
+    with Matchers
     with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
@@ -594,7 +598,7 @@ class TestMiddlewareClientYesRedirectToLogin
         resp <- Http().singleRequest(req)
       } yield {
         // Redirect to /login on middleware
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
         val loginUri = resp.header[headers.Location].value.uri
         assert(
           loginUri.withQuery(Uri.Query.Empty) == middlewareClientRoutes
@@ -609,6 +613,7 @@ class TestMiddlewareClientYesRedirectToLogin
 
 class TestMiddlewareClientAutoRedirectToLogin
     extends AsyncWordSpec
+    with Matchers
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Auto
@@ -628,7 +633,7 @@ class TestMiddlewareClientAutoRedirectToLogin
         resp <- Http().singleRequest(req)
       } yield {
         // Redirect to /login on middleware
-        assert(resp.status == StatusCodes.Found)
+        resp.status should ===(StatusCodes.Found)
       }
     }
     // TEST_EVIDENCE: Semantics: the TestMiddlewareClientAutoRedirectToLogin client should not redirect to /login for JSON request
@@ -646,7 +651,7 @@ class TestMiddlewareClientAutoRedirectToLogin
         resp <- Http().singleRequest(req)
       } yield {
         // Unauthorized with WWW-Authenticate header
-        assert(resp.status == StatusCodes.Unauthorized)
+        resp.status should ===(StatusCodes.Unauthorized)
       }
     }
   }
