@@ -44,6 +44,7 @@ final class EventsBuffer[E](
   private val pushTimer = bufferMetrics.push
   private val sliceTimer = bufferMetrics.slice
   private val pruneTimer = bufferMetrics.prune
+  private val sliceSize = bufferMetrics.sliceSize
 
   /** Appends a new event to the buffer.
     *
@@ -114,6 +115,8 @@ final class EventsBuffer[E](
 
           val vectorSlice =
             bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+
+          sliceSize.update(vectorSlice.size)
 
           if (bufferStartInclusiveIdx == 0) Prefix(vectorSlice)
           else Inclusive(vectorSlice)

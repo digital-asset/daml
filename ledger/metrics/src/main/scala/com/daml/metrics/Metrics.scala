@@ -649,6 +649,8 @@ final class Metrics(val registry: MetricRegistry) {
           val push: Timer = registry.timer(Prefix :+ "push")
           val slice: Timer = registry.timer(Prefix :+ "slice")
           val prune: Timer = registry.timer(Prefix :+ "prune")
+
+          val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
         }
         case class BufferReader(streamName: String) {
           private val Prefix: MetricName = index.Prefix :+ s"${streamName}_buffer_reader"
