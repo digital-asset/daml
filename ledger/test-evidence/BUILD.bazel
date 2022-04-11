@@ -28,7 +28,6 @@ da_scala_library(
 
 da_scala_binary(
     name = "generator",
-    testonly = True,
     main_class = "com.daml.test.evidence.generator.Main",
     runtime_deps = [
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
