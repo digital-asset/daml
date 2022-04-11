@@ -225,7 +225,7 @@ trait AbstractTriggerServiceTest
     for {
       resp <- listTriggers(uri, party)
       result <- parseTriggerIds(resp)
-    } yield assert(result == expected)
+    } yield result should ===(expected)
 
   def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(implicit
       A: CompatAssertion[A]
