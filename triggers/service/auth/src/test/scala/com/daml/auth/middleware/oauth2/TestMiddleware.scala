@@ -185,7 +185,7 @@ abstract class TestMiddleware
       } yield {
         // Redirect to client callback
         resp.status should ===(StatusCodes.Found)
-        assert(resp.header[Location].value.uri == middlewareClientCallbackUri)
+        resp.header[Location].value.uri should ===(middlewareClientCallbackUri)
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].value.cookie
         cookie.name should ===("daml-ledger-token")
@@ -253,9 +253,9 @@ abstract class TestMiddleware
         authorize <- middlewareClient.requestRefresh(refreshToken)
       } yield {
         // Test that we got a new access token
-        assert(authorize.accessToken != token1)
+        authorize.accessToken should !==(token1)
         // Test that we got a new refresh token
-        assert(authorize.refreshToken.value != refreshToken)
+        authorize.refreshToken.value should !==(refreshToken)
       }
     }
     // TEST_EVIDENCE: Semantics: the /refresh endpoint should fail on an invalid refresh token
@@ -266,7 +266,7 @@ abstract class TestMiddleware
           case value => fail(s"Expected failure with RefreshException but got $value")
         }
       } yield {
-        assert(exception.status.isInstanceOf[StatusCodes.ClientError])
+        exception.status shouldBe a[StatusCodes.ClientError]
       }
     }
   }
@@ -366,11 +366,11 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
       } yield {
         // Redirect to client callback
         resp.status should ===(StatusCodes.Found)
-        assert(
-          resp.header[Location].value.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri
+        resp.header[Location].value.uri.withQuery(Uri.Query()) should ===(
+          middlewareClientCallbackUri
         )
         // with error parameter set
-        assert(resp.header[Location].value.uri.query().toMap.get("error") == Some("access_denied"))
+        resp.header[Location].value.uri.query().toMap.get("error") should ===(Some("access_denied"))
         // Without token in cookie
         val cookie = resp.header[`Set-Cookie`]
         cookie should ===(None)
@@ -414,8 +414,8 @@ class TestMiddlewareCallbackUriOverride
       } yield {
         // Redirect to configured callback URI on middleware
         resp.status should ===(StatusCodes.Found)
-        assert(
-          resp.header[Location].value.uri.withQuery(Uri.Query()) == middlewareCallbackUri.value
+        resp.header[Location].value.uri.withQuery(Uri.Query()) should ===(
+          middlewareCallbackUri.value
         )
       }
     }
@@ -572,12 +572,10 @@ class TestMiddlewareClientNoRedirectToLogin
         bodyChallenge <- Unmarshal(resp).to[Response.AuthenticateChallenge]
       } yield {
         headerChallenge.auth should ===(middlewareClient.authUri(claims))
-        assert(
-          headerChallenge.login.withQuery(Uri.Query.Empty) == middlewareClientRoutes
-            .loginUri(claims)
-            .withQuery(Uri.Query.Empty)
+        headerChallenge.login.withQuery(Uri.Query.Empty) should ===(
+          middlewareClientRoutes.loginUri(claims).withQuery(Uri.Query.Empty)
         )
-        assert(headerChallenge.login.query().get("claims").value == claims.toQueryString())
+        headerChallenge.login.query().get("claims").value should ===(claims.toQueryString())
         bodyChallenge should ===(headerChallenge)
       }
     }
@@ -608,12 +606,12 @@ class TestMiddlewareClientYesRedirectToLogin
         // Redirect to /login on middleware
         resp.status should ===(StatusCodes.Found)
         val loginUri = resp.header[headers.Location].value.uri
-        assert(
-          loginUri.withQuery(Uri.Query.Empty) == middlewareClientRoutes
+        loginUri.withQuery(Uri.Query.Empty) should ===(
+          middlewareClientRoutes
             .loginUri(claims)
             .withQuery(Uri.Query.Empty)
         )
-        assert(loginUri.query().get("claims").value == claims.toQueryString())
+        loginUri.query().get("claims").value should ===(claims.toQueryString())
       }
     }
   }
