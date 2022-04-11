@@ -1,4 +1,4 @@
--- @ERROR range=1:1-2:1; expected key type without ContractId
+-- @ERROR range=1:1-2:1; contract key type should not contain ContractId
 module ContractIdInContractKey where
 
 template Contract with

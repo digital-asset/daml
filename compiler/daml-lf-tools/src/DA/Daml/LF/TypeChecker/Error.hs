@@ -344,7 +344,7 @@ instance Pretty Error where
       ]
     EExpectedKeyTypeWithoutContractId foundType ->
       vcat
-      [ "expected key type without ContractId:"
+      [ "contract key type should not contain ContractId:"
       , "* found:" <-> pretty foundType
       ]
     EExpectedAnyType foundType ->
