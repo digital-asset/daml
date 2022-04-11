@@ -82,7 +82,7 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq(contractId).toSet)
+          result.activeAssets should ===(Set(contractId))
           result.successfulCompletions should ===(2)
           result.failedCompletions should ===(0)
           acs(assetMirrorId) should have size 1
@@ -109,7 +109,7 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq(contractId1, contractId2).toSet)
+          result.activeAssets should ===(Set(contractId1, contractId2))
           result.successfulCompletions should ===(4)
           result.failedCompletions should ===(0)
           acs(assetMirrorId) should have size 2
@@ -139,7 +139,7 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq().toSet)
+          result.activeAssets shouldBe empty
           result.successfulCompletions should ===(4)
           result.failedCompletions should ===(0)
           acs(assetMirrorId) should have size 2
@@ -353,7 +353,7 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           val vals = acs(tId).map(_.fields(1).getValue.getNumeric).toSet
-          assert(vals == Set("1.06000000000", "2.06000000000"))
+          vals should ===(Set("1.06000000000", "2.06000000000"))
         }
       }
     }
@@ -513,7 +513,7 @@ abstract class AbstractFuncTests
                     case None => fail("No time provider type specified")
                     case Some(TimeProviderType.WallClock) =>
                       // Given the limited resolution it can happen that t0 == t1
-                      assert(t0 >= t1)
+                      t0 should be >= t1
                     case Some(TimeProviderType.Static) =>
                       t0 should ===(t1)
                   }
