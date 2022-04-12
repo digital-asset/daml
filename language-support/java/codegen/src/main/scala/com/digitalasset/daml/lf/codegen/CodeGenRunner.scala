@@ -41,15 +41,9 @@ private final class CodeGenRunner(
 
   private def generateDecoder()(implicit ec: ExecutionContext): Future[Unit] =
     decoderPackageAndClass.fold(Future.unit) { case (decoderPackage, decoderClassName) =>
-      val templateNames = extractTemplateNames()
-      val decoderClass = DecoderClass.generateCode(decoderClassName, templateNames)
+      val decoderClass = DecoderClass.generateCode(decoderClassName, scope.templateClassNames)
       val decoderFile = JavaFile.builder(decoderPackage, decoderClass).build()
       Future(decoderFile.writeTo(outputDirectory))
-    }
-
-  private def extractTemplateNames(): Seq[ClassName] =
-    scope.serializableTypes.collect { case id -> (_: InterfaceType.Template) =>
-      ClassName.bestGuess(fullyQualifiedName(id, scope.packagePrefixes))
     }
 
   private def processInterfaceTree(
@@ -83,23 +77,35 @@ private final class CodeGenRunner(
     MDC.put("packageId", module.packageId)
     MDC.put("packageIdShort", module.packageId.take(7))
     MDC.put("moduleName", module.name)
-    val relevant = scope.serializableTypes.view.map(_._1).toSet
-    val typeSpecs = module.typesLineages.flatMap(ClassForType(_, scope.packagePrefixes, relevant))
+    val javaFiles =
+      for {
+        typeWithContext <- module.typesLineages
+        javaFile <- ClassForType(typeWithContext, scope.packagePrefixes, scope.toBeGenerated)
+      } yield javaFile
     MDC.remove("packageId")
     MDC.remove("packageIdShort")
     MDC.remove("moduleName")
-    typeSpecs
+    javaFiles
   }
 
 }
 
 object CodeGenRunner extends StrictLogging {
 
-  private[codegen] final case class Scope(
-      signatures: Seq[Interface],
-      packagePrefixes: Map[PackageId, String],
+  private[codegen] final class Scope(
+      val signatures: Seq[Interface],
+      val packagePrefixes: Map[PackageId, String],
       serializableTypes: Vector[(Identifier, InterfaceType)],
-  )
+  ) {
+
+    val toBeGenerated: Set[Identifier] = serializableTypes.view.map(_._1).toSet
+
+    val templateClassNames: Vector[ClassName] = serializableTypes.collect {
+      case id -> (_: InterfaceType.Template) =>
+        ClassName.bestGuess(fullyQualifiedName(id, packagePrefixes))
+    }
+
+  }
 
   def run(conf: Conf): Unit = {
 
@@ -163,7 +169,7 @@ object CodeGenRunner extends StrictLogging {
     val resolvedPrefixes =
       resolvePackagePrefixes(packagePrefixes, modulePrefixes, resolvedSignatures)
 
-    CodeGenRunner.Scope(
+    new CodeGenRunner.Scope(
       resolvedSignatures,
       resolvedPrefixes,
       transitiveClosure.serializableTypes,

@@ -15,12 +15,12 @@ object ClassForType extends StrictLogging {
   def apply(
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
-      relevant: Identifier => Boolean,
+      toBeGenerated: Identifier => Boolean,
   ): List[JavaFile] = {
 
     def recurOnTypeLineages: List[JavaFile] =
       typeWithContext.typesLineages
-        .flatMap(ClassForType(_, packagePrefixes, relevant))
+        .flatMap(ClassForType(_, packagePrefixes, toBeGenerated))
         .toList
 
     def generateForType(lfInterfaceType: InterfaceType): List[JavaFile] = {
@@ -31,7 +31,7 @@ object ClassForType extends StrictLogging {
     }
 
     Option
-      .when(relevant(typeWithContext.identifier))(typeWithContext.`type`.typ)
+      .when(toBeGenerated(typeWithContext.identifier))(typeWithContext.`type`.typ)
       .flatten
       .fold(recurOnTypeLineages)(generateForType)
 
