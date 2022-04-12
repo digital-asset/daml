@@ -24,17 +24,19 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
-    assert(scope.signatures.length == 25)
-    assert(scope.packagePrefixes == Map.empty)
+    assert(scope.signatures.length === 25)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
   }
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
 
-    assert(scope.signatures.map(_.packageId).length == dar.all.length)
-    assert(scope.packagePrefixes.size == dar.all.length)
-    assert(scope.packagePrefixes.values.forall(_ == "PREFIX"))
+    assert(scope.signatures.map(_.packageId).length === dar.all.length)
+    assert(scope.packagePrefixes.size === dar.all.length)
+    assert(scope.packagePrefixes.values.forall(_ === "PREFIX"))
+    assert(scope.toBeGenerated === Set.empty)
   }
 
   behavior of "detectModuleCollisions"
