@@ -4,9 +4,9 @@
 package com.daml.lf.codegen.backend.java.inner
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface.InterfaceType.{Normal, Template}
-import com.daml.lf.iface.{Enum, DefDataType, InterfaceType, Record, Variant}
+import com.daml.lf.data.Ref.{PackageId, Identifier}
+import com.daml.lf.iface.InterfaceType.{Template, Normal}
+import com.daml.lf.iface.{InterfaceType, Enum, Variant, Record, DefDataType}
 import com.squareup.javapoet.{ClassName, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 
@@ -15,21 +15,27 @@ object ClassForType extends StrictLogging {
   def apply(
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
+      relevant: Identifier => Boolean,
   ): List[JavaFile] = {
-
-    val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
-    val className = ClassName.bestGuess(classNameString)
-
-    def generate(lfInterfaceType: InterfaceType): List[JavaFile] =
-      generateInterfaceTypes(typeWithContext, packagePrefixes) ++
-        generateConcreteTypes(typeWithContext, className, packagePrefixes, lfInterfaceType)
 
     def recurOnTypeLineages: List[JavaFile] =
       typeWithContext.typesLineages
-        .flatMap(ClassForType(_, packagePrefixes))
+        .flatMap(ClassForType(_, packagePrefixes, relevant))
         .toList
 
-    typeWithContext.`type`.typ.fold(recurOnTypeLineages)(generate)
+    def generateForType(lfInterfaceType: InterfaceType): List[JavaFile] = {
+      val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
+      val className = ClassName.bestGuess(classNameString)
+      generateInterfaceTypes(typeWithContext, packagePrefixes) ++
+        generateSerializableTypes(typeWithContext, className, packagePrefixes, lfInterfaceType)
+    }
+
+    if (relevant(typeWithContext.identifier)) {
+      typeWithContext.`type`.typ.fold(recurOnTypeLineages)(generateForType)
+    } else {
+      recurOnTypeLineages
+    }
+
   }
 
   private def generateInterfaceTypes(
@@ -51,7 +57,7 @@ object ClassForType extends StrictLogging {
           )
     } yield javaFile(packageName, interfaceClass)
 
-  private def generateConcreteTypes(
+  private def generateSerializableTypes(
       typeWithContext: TypeWithContext,
       className: ClassName,
       packagePrefixes: Map[PackageId, String],
