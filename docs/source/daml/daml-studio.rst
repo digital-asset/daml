@@ -24,7 +24,7 @@ Creating your first Daml file
    2. Click on the Daml Studio extension that should be listed on the pane.
 
    .. image:: daml-studio/images/daml_studio_extension_view.png
-   :alt: The Daml Studio extension page in Visual Studio Code, as shown when you click on Daml Studio in the extension.
+      :alt: The Daml Studio extension page in Visual Studio Code, as shown when you click on Daml Studio in the extension.
 
 3. Open a new file (``⌘N``) and save it (``⌘S``) as ``Test.daml``.
 4. Copy the following code into your file:
@@ -35,13 +35,13 @@ Creating your first Daml file
 Your screen should now look like the image below.
 
    .. image:: daml-studio/images/daml_studio_extension_double_correct.png
-   :alt: Visual Studio Code displays Test.daml, with the code snippet you copied above.
+      :alt: Visual Studio Code displays Test.daml, with the code snippet you copied above.
 
 5. Introduce a parse error by deleting the ``=`` sign and then clicking the
    Ⓧ symbol on the lower-left corner. Your screen should now look like the image below.
 
    .. image:: daml-studio/images/daml_studio_extension_double_wrong.png
-   :alt: The line with the error is underlined with a wavy red line. A second pane below the original is open to the Problems tab, which describes the Parse error.
+      :alt: The line with the error is underlined with a wavy red line. A second pane below the original is open to the Problems tab, which describes the Parse error.
 
 6. Remove the parse error by restoring the ``=`` sign.
 

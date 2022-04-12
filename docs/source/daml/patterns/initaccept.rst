@@ -49,7 +49,7 @@ Result contract
 .. figure:: images/initiateaccept.png
    :alt: The Intiate and Accept Pattern, showing how the CoinIssueProposal contract (an initiate contract), when accepted, returns the resulting CoinIssueAgreement contract.
 
-  Initiate and Accept pattern diagram
+   Initiate and Accept pattern diagram
 
 Trade-offs
 **********

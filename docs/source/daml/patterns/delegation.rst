@@ -56,5 +56,5 @@ Delegation Contract
 .. figure:: images/delegation.png
    :alt: A diagram of the Delegation pattern, in which the CoinPoA contract allows a party who is not the coin's owner to exercise a choice on the TransferProposal contract.
 
-  Delegation pattern diagram
+   Delegation pattern diagram
 

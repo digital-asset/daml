@@ -51,5 +51,5 @@ TransferProposal contract
 .. figure:: images/authorization.png
    :alt: A diagram of the Authorization pattern, in which the CoinOwnerAuthorization contract ensures that owner is authorized to transfer the coin.
 
-  Authorization Diagram
+   Authorization Diagram
 
