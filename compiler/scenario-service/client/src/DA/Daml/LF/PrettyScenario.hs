@@ -446,6 +446,22 @@ prettyScenarioErrorError (Just err) =  do
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementInterfaceInterfaceId
         ]
+    ScenarioErrorErrorContractDoesNotImplementRequiringInterface ScenarioError_ContractDoesNotImplementRequiringInterface {..} ->
+      pure $ vcat
+        [ "Attempt to use a contract via a required interface, but the contract does not implement the requiring interface"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef world)
+              scenarioError_ContractDoesNotImplementRequiringInterfaceContractRef
+        , label_ "Required interface: " $
+            prettyMay "<missing interface>"
+              (prettyDefName world)
+              scenarioError_ContractDoesNotImplementRequiringInterfaceRequiredInterfaceId
+        , label_ "Requiring interface: " $
+            prettyMay "<missing interface>"
+              (prettyDefName world)
+              scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

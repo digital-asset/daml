@@ -59,6 +59,12 @@ private[lf] final class CommandPreprocessor(
         command(choice, speedy.Command.ExerciseInterface(identifier, cid, choiceId, _))
       case ChoiceInfo.Inherited(ifaceId, choice) =>
         command(choice, speedy.Command.ExerciseByInterface(ifaceId, identifier, cid, choiceId, _))
+      case ChoiceInfo.InterfaceInherited(ifaceId, choice) =>
+        command(
+          choice,
+          speedy.Command
+            .ExerciseByInheritedInterface(ifaceId, identifier, cid, choiceId, _),
+        )
     }
   }
 

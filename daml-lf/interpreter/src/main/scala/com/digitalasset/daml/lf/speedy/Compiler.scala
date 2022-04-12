@@ -859,6 +859,26 @@ private[lf] final class Compiler(
       )
     }
 
+  private[this] def compileExerciseByInheritedInterface(
+      env: Env,
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      contractId: SValue,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ): s.SExpr =
+    unaryFunction(env) { (tokenPos, env) =>
+      t.GuardedChoiceDefRef(requiredIfaceId, choiceId)(
+        s.SEValue(contractId),
+        s.SEValue(argument),
+        s.SEApp(
+          s.SEBuiltin(SBGuardRequiredInterfaceId(requiredIfaceId, requiringIfaceId)),
+          List(s.SEValue(contractId)),
+        ),
+        env.toSEVar(tokenPos),
+      )
+    }
+
   private[this] def compileFetchByInterface(
       env: Env,
       interfaceId: TypeConName,
@@ -880,6 +900,21 @@ private[lf] final class Compiler(
       compileExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseByInheritedInterface(
+          requiredIfaceId,
+          requiringIfaceId,
+          contractId,
+          choiceId,
+          argument,
+        ) =>
+      compileExerciseByInheritedInterface(
+        env,
+        requiredIfaceId,
+        requiringIfaceId,
+        contractId,
+        choiceId,
+        argument,
+      )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.Fetch(templateId, coid) =>

@@ -1136,6 +1136,32 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBGuardRequiredInterfaceId(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ) = {
+      val contractId = getSContractId(args, 0)
+      val (actualTmplId, record @ _) = getSAnyContract(args, 1)
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(actualTmplId) match {
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIfaceId) =>
+          SBool(true)
+        case _ =>
+          throw SErrorDamlException(
+            IE.ContractDoesNotImplementRequiringInterface(
+              requiringIfaceId,
+              requiredIfaceId,
+              contractId,
+              actualTmplId,
+            )
+          )
+      }
+    }
+  }
+
   final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,
@@ -1243,7 +1269,8 @@ private[lf] object SBuiltin {
   // Convert an interface `requiredIface` to another interface `requiringIface`, if
   // the `requiringIface` implements `requiredIface`.
   final case class SBUnsafeFromRequiredInterface(
-      requiringIface: TypeConName
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
   ) extends SBuiltin(2) {
 
     override private[speedy] def execute(
@@ -1256,10 +1283,17 @@ private[lf] object SBuiltin {
       // TODO https://github.com/digital-asset/daml/issues/11345
       //  The lookup is probably slow. We may want to investigate way to make the feature faster.
       machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIfaceId) =>
           SAnyContract(tyCon, record)
         case _ =>
-          throw SErrorDamlException(IE.WronglyTypedContract(coid, requiringIface, tyCon))
+          throw SErrorDamlException(
+            IE.ContractDoesNotImplementRequiringInterface(
+              requiringIfaceId,
+              requiredIfaceId,
+              coid,
+              tyCon,
+            )
+          )
       }
     }
   }

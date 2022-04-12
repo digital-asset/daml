@@ -229,6 +229,12 @@ message ScenarioError {
     Identifier interface_id = 2;
   }
 
+  message ContractDoesNotImplementRequiringInterface {
+    ContractRef contract_ref = 1;
+    Identifier requiring_interface_id = 2;
+    Identifier required_interface_id = 3;
+  }
+
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -297,6 +303,8 @@ message ScenarioError {
     PartiesNotAllocated scenario_parties_not_allocated = 33;
     ChoiceGuardFailed choice_guard_failed = 34;
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
+    ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
+    = 36;
   }
 }
 

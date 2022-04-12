@@ -45,6 +45,14 @@ class ApiCommandPreprocessorSpec
                 controllers Mod:Record {owners} this,
                 observers Nil @Party
               to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this } ;
+            implements Mod:Iface{
+              method getCtrls = Mod:Record {owners} this;
+              choice IfaceChoice;
+              };
+            implements Mod:Iface3{
+              method getCtrls = Mod:Record {owners} this;
+              choice IfaceChoice3;
+              };
             key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
           };
 
@@ -61,6 +69,31 @@ class ApiCommandPreprocessorSpec
               to create @Mod:RecordRef Mod:RecordRef { owners = Mod:RecordRef {owners} this, cid = newCid };
             key @(List Party) (Mod:RecordRef {owners} this) (\ (parties: List Party) -> parties);
           };
+
+          interface (this: Iface) = {
+            requires Mod:Iface3;
+            precondition True;
+            method getCtrls: List Party;
+            choice IfaceChoice (self) (u:Unit) : Unit
+              , controllers (call_method @Mod:Iface getCtrls this)
+              to upure @Unit ();
+          } ;
+
+          interface (this: Iface2) = {
+            precondition True;
+            method getCtrls: List Party;
+            choice IfaceChoice2 (self) (u:Unit) : Unit
+              , controllers (call_method @Mod:Iface2 getCtrls this)
+              to upure @Unit ();
+          } ;
+
+          interface (this: Iface3) = {
+            precondition True;
+            method getCtrls: List Party;
+            choice IfaceChoice3 (self) (u:Unit) : Unit
+              , controllers (call_method @Mod:Iface3 getCtrls this)
+              to upure @Unit ();
+          } ;
 
         }
     """
@@ -96,6 +129,21 @@ class ApiCommandPreprocessorSpec
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
+      // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface command is accepted
+      val validExeByInterface = ApiCommand.Exercise(
+        "Mod:Iface",
+        newCid,
+        "IfaceChoice",
+        ValueUnit,
+      )
+
+      // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface via required interface command is accepted
+      val validExeByRequiredInterface = ApiCommand.Exercise(
+        "Mod:Iface",
+        newCid,
+        "IfaceChoice3",
+        ValueUnit,
+      )
       // TEST_EVIDENCE: Input Validation: well formed create-and-exercise API command is accepted
       val validCreateAndExe = ApiCommand.CreateAndExercise(
         "Mod:Record",
@@ -108,6 +156,8 @@ class ApiCommandPreprocessorSpec
         validCreate,
         validExe,
         validExeByKey,
+        validExeByInterface,
+        validExeByRequiredInterface,
         validCreateAndExe,
       )
 
@@ -125,6 +175,10 @@ class ApiCommandPreprocessorSpec
           a[Error.Preprocessing.Lookup],
         validExe.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
+        // TEST_EVIDENCE: Input Validation: exercise-by-interface command is rejected for a
+        // choice of another interface.
+        validExeByInterface.copy(choiceId = "IfaceChoice2") ->
+          a[Error.Preprocessing.Lookup],
         // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key API command is rejected
         validExeByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],

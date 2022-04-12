@@ -349,10 +349,12 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBFromRequiredInterface(requiringIfaceId)(exp))
         }
-      case EUnsafeFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, cidExp, ifaceExp) =>
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cidExp, ifaceExp) =>
         compileExp(env, cidExp) { cidExp =>
           compileExp(env, ifaceExp) { ifaceExp =>
-            Return(SBUnsafeFromRequiredInterface(requiringIfaceId)(cidExp, ifaceExp))
+            Return(
+              SBUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId)(cidExp, ifaceExp)
+            )
           }
         }
       case EInterfaceTemplateTypeRep(ifaceId, exp) =>

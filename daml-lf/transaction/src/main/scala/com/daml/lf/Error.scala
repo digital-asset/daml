@@ -98,6 +98,16 @@ object Error {
       templateId: TypeConName,
   ) extends Error
 
+  /** We tried to exercise a contract by required interface, but
+    * the contract does not implement the requiring interface.
+    */
+  final case class ContractDoesNotImplementRequiringInterface(
+      requiringInterfaceId: TypeConName,
+      requiredInterfaceId: TypeConName,
+      coid: ContractId,
+      templateId: TypeConName,
+  ) extends Error
+
   /** There was an authorization failure during execution. */
   final case class FailedAuthorization(
       nid: NodeId,
