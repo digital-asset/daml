@@ -30,11 +30,10 @@ object ClassForType extends StrictLogging {
         generateSerializableTypes(typeWithContext, className, packagePrefixes, lfInterfaceType)
     }
 
-    if (relevant(typeWithContext.identifier)) {
-      typeWithContext.`type`.typ.fold(recurOnTypeLineages)(generateForType)
-    } else {
-      recurOnTypeLineages
-    }
+    Option
+      .when(relevant(typeWithContext.identifier))(typeWithContext.`type`.typ)
+      .flatten
+      .fold(recurOnTypeLineages)(generateForType)
 
   }
 
