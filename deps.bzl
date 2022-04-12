@@ -370,9 +370,9 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "5600674ed851994bebd79a715bf1a4a879e7b1e15fe497f71e57805b54a54a07",
-            strip_prefix = "canton-open-source-2.1.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-open-source-20220328.tar.gz"],
+            sha256 = "733e948bfa9641d66d1e635cd99ec185841933c15b963cc18109f4ebc4c642d6",
+            strip_prefix = "canton-open-source-2.2.0-SNAPSHOT",
+            urls = ["https://www.canton.io/releases/canton-open-source-20220411.tar.gz"],
         )
 
     if "freefont" not in native.existing_rules():
