@@ -871,7 +871,7 @@ private[lf] final class Compiler(
       t.GuardedChoiceDefRef(requiredIfaceId, choiceId)(
         s.SEValue(contractId),
         s.SEValue(argument),
-        s.SEBuiltin(SBGuardRequiredInterfaceId(requiredIfaceId, requiringIfaceId)),
+        s.SEApp(s.SEBuiltin(SBGuardRequiredInterfaceId(requiredIfaceId, requiringIfaceId)), List(s.SEValue(contractId))),
         env.toSEVar(tokenPos),
       )
     }
