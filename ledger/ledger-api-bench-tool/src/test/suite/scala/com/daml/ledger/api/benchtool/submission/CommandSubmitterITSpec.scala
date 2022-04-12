@@ -38,19 +38,19 @@ object EventsObserver {
   )
 
   case class ObservedExerciseEvent(
-                                    templateName: String,
-                                    choiceName: String,
-                                    choiceArgumentsSerializedSize: Int,
-                                    consuming: Boolean,
-                                  )
+      templateName: String,
+      choiceName: String,
+      choiceArgumentsSerializedSize: Int,
+      consuming: Boolean,
+  )
 
   case class ObservedCreateEvent(templateName: String, createArgumentsSerializedSize: Int)
 
   case class ObservedEvents(
-                             expectedTemplateNames: Set[String],
-                             createEvents: Seq[ObservedCreateEvent],
-                             exerciseEvents: Seq[ObservedExerciseEvent],
-                           ) {
+      expectedTemplateNames: Set[String],
+      createEvents: Seq[ObservedCreateEvent],
+      exerciseEvents: Seq[ObservedExerciseEvent],
+  ) {
     private val _actualTemplateNames =
       (createEvents.map(_.templateName) ++ exerciseEvents.map(_.templateName)).toSet
     require(
@@ -61,12 +61,12 @@ object EventsObserver {
     val consumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filter(_.consuming)
     val nonconsumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filterNot(_.consuming)
 
-    val avgConsumingExerciseSize: Int = {
+    val avgSizeOfConsumingExercise: Int = {
       if (consumingExercises.isEmpty) 0
       else consumingExercises.map(_.choiceArgumentsSerializedSize).sum / consumingExercises.size
     }
 
-    val avgNonconsumingExerciseSize: Int = {
+    val avgSizeOfNonconsumingExercise: Int = {
       if (nonconsumingExercises.isEmpty) 0
       else
         nonconsumingExercises.map(_.choiceArgumentsSerializedSize).sum / nonconsumingExercises.size
@@ -77,7 +77,7 @@ object EventsObserver {
       expectedTemplateNames.map(name => name -> groups.get(name).fold(0)(_.size)).toMap
     }
 
-    val avgCreateSizePerTemplateName: Map[String, Int] = {
+    val avgSizeOfCreateEventPerTemplateName: Map[String, Int] = {
       val groups = createEvents.groupBy(_.templateName)
       expectedTemplateNames.map { name =>
         val avgSize = groups
@@ -94,9 +94,9 @@ object EventsObserver {
 }
 
 /** Collects information about create and exercise events.
- */
+  */
 class EventsObserver(expectedTemplateNames: Set[String], logger: Logger)
-  extends ObserverWithResult[GetTransactionTreesResponse, ObservedEvents](logger) {
+    extends ObserverWithResult[GetTransactionTreesResponse, ObservedEvents](logger) {
 
   private val createEvents = collection.mutable.ArrayBuffer[ObservedCreateEvent]()
   private val exerciseEvents = collection.mutable.ArrayBuffer[ObservedExerciseEvent]()
@@ -147,7 +147,7 @@ class EventsObserver(expectedTemplateNames: Set[String], logger: Logger)
 }
 
 class CommandSubmitterITSpec
-  extends AsyncFlatSpec
+    extends AsyncFlatSpec
     with SandboxFixture
     with SuiteResourceManagementAroundAll
     with Matchers
@@ -163,18 +163,18 @@ class CommandSubmitterITSpec
     val foo2Config = WorkflowConfig.SubmissionConfig.ContractDescription(
       template = "Foo2",
       weight = 1,
-      payloadSizeBytes = 200,
+      payloadSizeBytes = 100,
     )
     val consumingExercisesConfig = ConsumingExercises(
-      probability = 0.6,
-      payloadSizeBytes = 300,
+      probability = 1.0,
+      payloadSizeBytes = 100,
     )
     val nonconsumingExercisesConfig = NonconsumingExercises(
-      probability = 2.3,
-      payloadSizeBytes = 400,
+      probability = 2.0,
+      payloadSizeBytes = 100,
     )
     val config = WorkflowConfig.SubmissionConfig(
-      numberOfInstances = 1000,
+      numberOfInstances = 10,
       numberOfObservers = 1,
       uniqueParties = false,
       instanceDistribution = List(
@@ -226,45 +226,28 @@ class CommandSubmitterITSpec
     } yield {
       observerResult.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
 
-      observerResult.avgCreateSizePerTemplateName("Foo1") shouldBe roughly(
+      observerResult.avgSizeOfCreateEventPerTemplateName("Foo1") shouldBe roughly(
         foo1Config.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       ) withClue ("payload size of create Foo1")
-      observerResult.avgCreateSizePerTemplateName("Foo2") shouldBe roughly(
+      observerResult.avgSizeOfCreateEventPerTemplateName("Foo2") shouldBe roughly(
         foo2Config.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       ) withClue ("payload size of create Foo2")
-
-      observerResult.consumingExercises.size.toDouble shouldBe roughly(
-        config.numberOfInstances * consumingExercisesConfig.probability,
-        toleranceMul = 0.4,
-      ) withClue ("number of consuming exercises")
-      observerResult.nonconsumingExercises.size.toDouble shouldBe roughly(
-        config.numberOfInstances * nonconsumingExercisesConfig.probability,
-        toleranceMul = 0.4,
-      ) withClue ("number of nonconsuming exercises")
-
-      observerResult.avgConsumingExerciseSize shouldBe roughly(
+      observerResult.avgSizeOfConsumingExercise shouldBe roughly(
         consumingExercisesConfig.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       )
-      observerResult.avgNonconsumingExerciseSize shouldBe roughly(
+      observerResult.avgSizeOfNonconsumingExercise shouldBe roughly(
         nonconsumingExercisesConfig.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       )
 
+      observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
+      observerResult.nonconsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonconsumingExercisesConfig.probability) withClue ("number of nonconsuming exercises")
+
       succeed
     }
-  }
-
-  private def roughly(n: Double, toleranceMul: Double): TripleEqualsSupport.Spread[Double] = {
-    require(toleranceMul > 0.0)
-    val tolerance = toleranceMul * n
-    if (n == 0) {
-      // This is a work around TripleEqualsSupport.Spread requiring positive tolerance
-      n +- 0.00000001
-    } else
-      n +- tolerance
   }
 
   private def roughly(n: Int, toleranceMul: Double): TripleEqualsSupport.Spread[Int] = {
