@@ -270,7 +270,7 @@ PARTICIPANT_BACKPRESSURE
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
     **Resolution**: Wait a bit and retry, preferably with some backoff factor. If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit.
 

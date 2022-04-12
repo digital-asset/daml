@@ -29,7 +29,7 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        prefix=$(head -1 LATEST | awk '{print $2}' | sed -e 's/\([^-]*\).*/\1/')
+        prefix=$(cat NIGHTLY_PREFIX)
         release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
 
         ERR=$(mktemp)

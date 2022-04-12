@@ -32,6 +32,19 @@ module EnumMod {
     right: EnumMod:ColoredTree
   };
 
+  record @serializable NestedEnumTemplate = {
+    optionalColor: EnumMod:OptionalColor,
+    coloredTree: EnumMod:ColoredTree,
+    party: Party
+  };
+
+  template (this : NestedEnumTemplate) =  {
+    precondition True;
+    signatories (PartyMod:one (EnumMod:NestedEnumTemplate {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for EnumMod:NestedEnumTemplate";
+  };
+
   val createContracts: Scenario Unit =
     sbind
       c1 : ContractId EnumMod:Box <- EnumMod:createColoredContract EnumMod:Color:Red ;

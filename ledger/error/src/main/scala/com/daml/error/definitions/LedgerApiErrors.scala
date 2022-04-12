@@ -57,7 +57,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "PARTICIPANT_BACKPRESSURE",
         ErrorCategory.ContentionOnSharedResources,
       ) {
-    override def logLevel: Level = Level.WARN
+    override def logLevel: Level = Level.INFO
 
     case class Rejection(reason: String)(implicit errorLogger: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(

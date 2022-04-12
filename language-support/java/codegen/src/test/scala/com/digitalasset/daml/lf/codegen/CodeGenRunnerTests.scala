@@ -18,24 +18,25 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   import CodeGenRunnerTests._
 
-  behavior of "collectDamlLfInterfaces"
+  behavior of "configureCodeGenScope"
 
   it should "read interfaces from a single DAR file without a prefix" in {
 
-    val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(Map(testDar -> None))
+    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
-    assert(interfaces.length == 25)
-    assert(pkgPrefixes == Map.empty)
+    assert(scope.signatures.length === 25)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
   }
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val (interfaces, pkgPrefixes) =
-      CodeGenRunner.collectDamlLfInterfaces(Map(testDar -> Some("PREFIX")))
+    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
 
-    assert(interfaces.map(_.packageId).length == dar.all.length)
-    assert(pkgPrefixes.size == dar.all.length)
-    assert(pkgPrefixes.values.forall(_ == "PREFIX"))
+    assert(scope.signatures.map(_.packageId).length === dar.all.length)
+    assert(scope.packagePrefixes.size === dar.all.length)
+    assert(scope.packagePrefixes.values.forall(_ === "PREFIX"))
+    assert(scope.toBeGenerated === Set.empty)
   }
 
   behavior of "detectModuleCollisions"
@@ -45,7 +46,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
         Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
-      ) === (())
+      ) === ()
     )
   }
 
@@ -72,7 +73,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
         Seq(interface("pkg1", "A"), interface("pkg2", "A")),
-      ) === (())
+      ) === ()
     )
   }
 
