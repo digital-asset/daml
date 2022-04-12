@@ -164,7 +164,7 @@ Now everything is running, you can try out the quickstart application:
    This takes you to the contracts view:
 
    .. figure:: quickstart/images/contracts.png
-      :alt: The Contracts view in the application, showing one existing contract.
+      :alt: The Contracts view in the Navigator, showing one existing contract.
 
    This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, in our case with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
