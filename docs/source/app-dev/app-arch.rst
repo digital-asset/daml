@@ -10,7 +10,7 @@ This section describes our recommended design of a full-stack Daml application.
 
 .. image:: ./recommended_architecture.svg
 
-The above image shows the recommended architecture. Of course there are many ways that the architecture and technology 
+The above image shows the recommended architecture. Of course there are many ways that the architecture and technology
 stack can be changed to fit your needs which we'll mention in the corresponding sections.
 
 To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
