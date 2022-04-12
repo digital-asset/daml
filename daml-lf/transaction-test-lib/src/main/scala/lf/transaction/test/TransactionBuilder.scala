@@ -95,9 +95,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       key: Option[Value] = None,
-      byInterface: Option[Ref.Identifier] = None,
   ): Node.Create =
-    create(id, templateId, argument, signatories, observers, key, signatories, byInterface)
+    create(id, templateId, argument, signatories, observers, key, signatories)
 
   def create(
       id: ContractId,
@@ -107,7 +106,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       observers: Set[Ref.Party],
       key: Option[Value],
       maintainers: Set[Ref.Party],
-      byInterface: Option[Ref.Identifier],
   ): Node.Create = {
     Node.Create(
       coid = id,
@@ -117,7 +115,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories = signatories,
       stakeholders = signatories | observers,
       key = key.map(Node.KeyWithMaintainers(_, maintainers)),
-      byInterface = byInterface,
       version = pkgTxVersion(templateId.packageId),
     )
   }
@@ -131,7 +128,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       result: Option[Value] = None,
       choiceObservers: Set[Ref.Party] = Set.empty,
       byKey: Boolean = true,
-      byInterface: Option[Ref.Identifier] = None,
   ): Node.Exercise =
     Node.Exercise(
       choiceObservers = choiceObservers,
@@ -147,7 +143,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       exerciseResult = result,
       key = contract.key,
       byKey = byKey,
-      byInterface = byInterface,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
@@ -163,7 +158,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def fetch(
       contract: Node.Create,
       byKey: Boolean = false,
-      byInterface: Option[Ref.Identifier] = None,
   ): Node.Fetch =
     Node.Fetch(
       coid = contract.coid,
@@ -173,14 +167,13 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       stakeholders = contract.stakeholders,
       key = contract.key,
       byKey = byKey,
-      byInterface = byInterface,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
   def fetchByKey(contract: Node.Create): Node.Fetch =
     fetch(contract, byKey = true)
 
-  def lookupByKey(contract: Node.Create, found: Boolean): Node.LookupByKey =
+  def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
     Node.LookupByKey(
       templateId = contract.templateId,
       key = contract.key.get,

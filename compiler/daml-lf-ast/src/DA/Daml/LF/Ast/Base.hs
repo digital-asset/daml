@@ -345,6 +345,9 @@ data BuiltinExpr
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
 
+  -- TypeRep
+  | BETypeRepTyConName           -- :: TypeRep -> Optional Text
+
   -- Experimental Text Primitives
   | BETextToUpper                -- :: Text -> Text
   | BETextToLower                -- :: Text -> Text
@@ -547,6 +550,13 @@ data Expr
     , fromInterfaceTemplate :: !(Qualified TypeConName)
     , fromInterfaceExpr :: !Expr
     }
+  -- | Convert interface type to template payload or raise WronglyTypedContract error if not possible.
+  | EUnsafeFromInterface
+    { unsafeFromInterfaceInterface :: !(Qualified TypeConName)
+    , unsafeFromInterfaceTemplate :: !(Qualified TypeConName)
+    , unsafeFromInterfaceContractId :: !Expr
+    , unsafeFromInterfaceExpr :: !Expr
+    }
   -- | Invoke an interface method
   | ECallInterface
     { callInterfaceType :: !(Qualified TypeConName)
@@ -564,6 +574,13 @@ data Expr
     { friRequiredInterface :: !(Qualified TypeConName)
     , friRequiringInterface :: !(Qualified TypeConName)
     , friExpr :: !Expr
+    }
+  -- | Downcast interface or raise WronglyTypedContract error if not possible.
+  | EUnsafeFromRequiredInterface
+    { unsafeFromRequiredInterfaceInterface :: !(Qualified TypeConName)
+    , unsafeFromRequiredInterfaceTemplate :: !(Qualified TypeConName)
+    , unsafeFromRequiredInterfaceContractId :: !Expr
+    , unsafeFromRequiredInterfaceExpr :: !Expr
     }
   -- | Obtain type representation of contract's template through an interface
   | EInterfaceTemplateTypeRep

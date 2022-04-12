@@ -116,7 +116,7 @@ The so-called *contract ID comparability restriction*, states that the
 comparison of a local contract ID with a global contract ID with the
 same discriminator is forbidden. Any attempt to compare such IDs
 during interpretation, either explicitly (using Generic equality and
-order builtins) or implicitly (though ordering of key in generic
+order builtins) or implicitly (through ordering of key in generic
 maps), must be rejected. Ledger implementations that suffix contract
 IDs should furthermore enforce that all global Contract IDs are
 suffixed.
@@ -172,12 +172,12 @@ where
 
 * ``submissionSeed`` is the submission seed;
 * ``participantId`` is US-ASCII encoding of the participant ID
-  prefixed with is size encoded as a 32 bits big-endian integer;
+  prefixed with its size encoded as a 32 bits big-endian integer;
 * ``submissionTime`` is the submission time in micro second encoded as
   a 64 bytes big-endian integer;
 
 
-Derivation of seeds for root nodes the transaction
+Derivation of seeds for root nodes of the transaction
 --------------------------------------------------
 
 For each root node of the transaction, a root seed `rootSeedᵢ` is

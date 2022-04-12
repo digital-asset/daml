@@ -22,6 +22,8 @@ interface Token where
         assert (byHowMuch > 0)
         create $ setAmount this (getAmount this + byHowMuch)
 
+interface SubToken requires Token
+
 template Asset
   with
     issuer : Party
@@ -34,6 +36,18 @@ template Asset
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
+
+template AnotherAsset
+  with
+    owner: Party
+    amount: Int
+  where
+    signatory owner
+    implements Token where
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+    implements SubToken
 
 exception GuardException
     with
@@ -87,6 +101,16 @@ main = scenario do
     catch
       GuardException {} ->
         pure $ toInterfaceContractId @Token asset
+
+  p `submitMustFail` do
+    -- Fail if predicate doesn't match underlying template type
+    anotherAsset <- coerceContractId @_ @AnotherAsset <$> create assetTpl
+    exerciseGuarded (const True) anotherAsset getRich
+
+  p `submitMustFail` do
+    -- Fail if predicate doesn't match underlying template's interfaces
+    subToken <- coerceContractId @_ @SubToken <$> create assetTpl
+    exerciseGuarded (const True) subToken getRich
 
   pure ()
 

@@ -6,16 +6,20 @@ package com.daml.platform.store.backend.h2
 import com.daml.platform.store.backend.common.{
   CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
+  ConfigurationStorageBackendTemplate,
   IngestionStorageBackendTemplate,
+  PackageStorageBackendTemplate,
   PartyStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
+  ConfigurationStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
+  PackageStorageBackend,
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
@@ -26,7 +30,15 @@ import com.daml.platform.store.interning.StringInterning
 object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
-    new IngestionStorageBackendTemplate(H2Schema.schema)
+    new IngestionStorageBackendTemplate(H2QueryStrategy, H2Schema.schema)
+
+  override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
+    new PackageStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
+
+  override def createConfigurationStorageBackend(
+      ledgerEndCache: LedgerEndCache
+  ): ConfigurationStorageBackend =
+    new ConfigurationStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
@@ -46,7 +58,10 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
   ): EventStorageBackend =
-    new H2EventStorageBackend(ledgerEndCache, stringInterning)
+    new H2EventStorageBackend(
+      ledgerEndCache = ledgerEndCache,
+      stringInterning = stringInterning,
+    )
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     H2DataSourceStorageBackend

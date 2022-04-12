@@ -327,11 +327,17 @@ private[lf] final class PhaseOne(
         }
       case EToInterface(iface @ _, tpl @ _, exp) =>
         compileExp(env, exp) { exp =>
-          Return(SBToInterface(tpl)(exp))
+          Return(SBToAnyContract(tpl)(exp))
         }
       case EFromInterface(iface @ _, tpl, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBFromInterface(tpl)(exp))
+        }
+      case EUnsafeFromInterface(iface @ _, tpl, cidExp, ifaceExp) =>
+        compileExp(env, cidExp) { cidExp =>
+          compileExp(env, ifaceExp) { ifaceExp =>
+            Return(SBUnsafeFromInterface(tpl)(cidExp, ifaceExp))
+          }
         }
       case ECallInterface(iface, methodName, exp) =>
         compileExp(env, exp) { exp =>
@@ -342,6 +348,14 @@ private[lf] final class PhaseOne(
       case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBFromRequiredInterface(requiringIfaceId)(exp))
+        }
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cidExp, ifaceExp) =>
+        compileExp(env, cidExp) { cidExp =>
+          compileExp(env, ifaceExp) { ifaceExp =>
+            Return(
+              SBUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId)(cidExp, ifaceExp)
+            )
+          }
         }
       case EInterfaceTemplateTypeRep(ifaceId, exp) =>
         compileExp(env, exp) { exp =>
@@ -480,6 +494,9 @@ private[lf] final class PhaseOne(
           case BNumericToBigNumeric => SBNumericToBigNumeric
           case BBigNumericToNumeric => SBBigNumericToNumeric
           case BBigNumericToText => SBToText
+
+          // TypeRep
+          case BTypeRepTyConName => SBTypeRepTyConName
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -693,9 +710,9 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(iface, arg) =>
+      case UpdateCreateInterface(_, arg) =>
         compileExp(env, arg) { arg =>
-          Return(t.CreateDefRef(iface)(arg))
+          Return(SBResolveCreate(arg))
         }
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
@@ -711,9 +728,6 @@ private[lf] final class PhaseOne(
                 t.GuardedChoiceDefRef(ifaceId, chId)(
                   cid,
                   arg,
-                  SEValue(
-                    SOptional(None)
-                  ), // TODO https://github.com/digital-asset/daml/issues/13277
                   guard,
                 )
               )

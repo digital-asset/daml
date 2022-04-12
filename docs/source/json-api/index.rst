@@ -46,8 +46,8 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
 
 .. code-block:: shell
 
-    daml new my_project --template quickstart-java
-    cd my_project
+    daml new my-project --template quickstart-java
+    cd my-project
     daml build
     daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
 
@@ -259,12 +259,13 @@ you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an exa
 Access Tokens
 =============
 
-The JSON API essentially performs two separate tasks:
+Each request to the HTTP JSON API Service *must* come with an access token, regardless of whether the underlying ledger
+requires it or not. This also includes development setups using an unsecured sandbox. The HTTP JSON API Service *does not*
+hold on to the access token, which will be only used to fulfill the request it came along with. The same token will be used
+to issue the request to the Ledger API.
 
-1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
-2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
-
-.. note:: By default, the Daml Sandbox does not does not require access tokens. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+The HTTP JSON API Service does not validate the token but may need to decode it to extract information that can be used
+to fill in request fields for party-specific request. How this happens depends partially on the token format you are using.
 
 Party-specific Requests
 -----------------------
@@ -315,9 +316,9 @@ For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
 
-The value for ``actAs`` is specified as a list and you provide it with the party that you want to use.
-Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
-For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
+The value for ``actAs`` is specified as a list and you provide it with the party that you want to use,
+such as in the example above which uses ``Alice`` for a party. ``actAs`` may include more than just one party
+as the JSON API supports multi-party submissions.
 
 The party should reference an already allocated party.
 
@@ -640,7 +641,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``templateId`` -- contract template or interface identifier, same as in :ref:`create request <create-request>`,
 - ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
@@ -925,6 +926,12 @@ Contract Found HTTP Response
 Fetch Contract by Key
 *********************
 
+Show the currently active contract that matches a given key.
+
+The websocket endpoint `/v1/stream/fetch <#fetch-by-key-contracts-stream>`__ can
+be used to search multiple keys in the same request, or in place of iteratively
+invoking this endpoint to respond to changes on the ledger.
+
 HTTP Request
 ============
 
@@ -1017,6 +1024,10 @@ Get all Active Contracts Matching a Given Query
 ***********************************************
 
 List currently active contracts that match a given query.
+
+The websocket endpoint `/v1/stream/query <#contracts-query-stream>`__ can be
+used in place of iteratively invoking this endpoint to respond to changes on the
+ledger.
 
 HTTP Request
 ============
@@ -1882,6 +1893,10 @@ Contracts Query Stream
 List currently active contracts that match a given query, with
 continuous updates.
 
+Simpler use-cases that do not require continuous updates should use the simpler
+`/v1/query <#get-all-active-contracts-matching-a-given-query>`__ endpoint
+instead.
+
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
@@ -2084,6 +2099,10 @@ Fetch by Key Contracts Stream
 - Protocol: ``WebSocket``
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
+
+Simpler use-cases that search for only a single key and do not require
+continuous updates should use the simpler
+`/v1/fetch <#fetch-contract-by-key>`__ endpoint instead.
 
 ``application/json`` body must be sent first, formatted according to the following rule:
 

@@ -286,6 +286,70 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           validate $ projc </> "projc.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
+    [ testCaseSteps ("Cross Daml-LF version with double data-dependency from old SDK: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer) $
+        -- Given a dar "Old" built with an older SDK, this tests that a project
+        -- which depends on "Old" through different paths on its dependency graph
+        -- will not end up with multiple copies of daml-prim and daml-stdlib
+        -- from the older SDK, which would prevent it from compiling.
+        \step -> withTempDir $ \tmpDir -> do
+            let proja = tmpDir </> "proja"
+            let projb = tmpDir </> "projb"
+
+            step "Build proja"
+            createDirectoryIfMissing True (proja </> "src")
+            writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+                [ "module A where"
+                , "import Old ()"
+                , "template T"
+                , "  with"
+                , "    party : Party"
+                , "  where"
+                , "    signatory party"
+                ]
+            writeFileUTF8 (proja </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: proja"
+                , "version: 0.0.1"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies:"
+                , " - " <> show oldProjDar
+                ]
+            callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+
+            step "Build projb"
+            createDirectoryIfMissing True (projb </> "src")
+            writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+                [ "module B where"
+                , "import Old ()"
+                , "import A ()"
+                ]
+            writeFileUTF8 (projb </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: projb"
+                , "version: 0.0.1"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies: "
+                , " - " <> show oldProjDar
+                , " - " <> show (proja </> "proja.dar")
+                ]
+            callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", projb
+                , "--target", LF.renderVersion targetLfVer
+                , "-o", projb </> "projb.dar"
+                ]
+
+            step "Validating DAR"
+            validate $ projb </> "projb.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")
@@ -1760,6 +1824,332 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "    pure ()"
             ]
         ]
+
+    , dataDependenciesTestOptions "require interface from data-dependency"
+        [ "--target=1.dev" ]
+        [   (,) "Lib.daml"
+            [ "module Lib where"
+
+            , "interface Token where"
+            , "  getOwner : Party -- ^ A method comment."
+            , "  getAmount : Int"
+            , "  setAmount : Int -> Token"
+
+            , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
+            , "  transferImpl : Party -> Update (ContractId Token)"
+            , "  noopImpl : () -> Update ()"
+
+            , "  ensure (getAmount this >= 0)"
+
+            , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
+            , "    with"
+            , "      splitAmount : Int -- ^ A choice field comment."
+            , "    controller getOwner this"
+            , "    do"
+            , "      splitImpl this splitAmount"
+
+            , "  choice Transfer : ContractId Token"
+            , "    with"
+            , "      newOwner : Party"
+            , "    controller getOwner this, newOwner"
+            , "    do"
+            , "      transferImpl this newOwner"
+
+            , "  nonconsuming choice Noop : ()"
+            , "    with"
+            , "      nothing : ()"
+            , "    controller getOwner this"
+            , "    do"
+            , "      noopImpl this nothing"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Lib"
+            , "import DA.Assert"
+
+            , "interface FancyToken requires Token where"
+            , "  multiplier : Int"
+            , "  choice GetRich : ContractId Token"
+            , "    with"
+            , "      byHowMuch : Int"
+            , "    controller getOwner this"
+            , "    do"
+            , "        assert (byHowMuch > 0)"
+            , "        create $ setAmount this ((getAmount this + byHowMuch) * multiplier this)"
+
+            , "template Asset"
+            , "  with"
+            , "    issuer : Party"
+            , "    owner : Party"
+            , "    amount : Int"
+            , "  where"
+            , "    signatory issuer, owner"
+            , "    implements Token where"
+            , "      getOwner = owner"
+            , "      getAmount = amount"
+            , "      setAmount x = toInterface @Token (this with amount = x)"
+
+            , "      splitImpl splitAmount = do"
+            , "        assert (splitAmount < amount)"
+            , "        cid1 <- create this with amount = splitAmount"
+            , "        cid2 <- create this with amount = amount - splitAmount"
+            , "        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+
+            , "      transferImpl newOwner = do"
+            , "        cid <- create this with owner = newOwner"
+            , "        pure (toInterfaceContractId @Token cid)"
+
+            , "      noopImpl nothing = do"
+            , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "        pure ()"
+
+            , "    implements FancyToken where"
+            , "      multiplier = 5"
+
+            , "main = scenario do"
+            , "  p <- getParty \"Alice\""
+            , "  p `submitMustFail` do"
+            , "    create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = -1"
+            , "  p `submit` do"
+            , "    cidAsset1 <- create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = 15"
+            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "    _ <- exercise cidToken1 (Noop ())"
+            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
+            , "    token2 <- fetch cidToken2"
+            , "    -- Party is duplicated because p is both observer & issuer"
+            , "    signatory token2 === [p, p]"
+            , "    getAmount token2 === 10"
+            , "    case fromInterface token2 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 10"
+            , "    token3 <- fetch cidToken3"
+            , "    getAmount token3 === 5"
+            , "    case fromInterface token3 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 5"
+
+            , "    cidToken4 <- exercise (fromInterfaceContractId @Asset cidToken3) (GetRich 20)"
+            , "    token4 <- fetch cidToken4"
+            , "    getAmount token4 === 125"
+            , "    case fromInterface token4 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 125"
+
+            , "    pure ()"
+            ]
+        ]
+
+    , testCaseSteps "data-dependency interface hierarchy" $ \step' -> withTempDir $ \tmpDir -> do
+        let
+          tokenProj = "token"
+          fancyTokenProj = "fancy-token"
+          assetProj = "asset"
+          mainProj = "main"
+
+          path proj = tmpDir </> proj
+          damlYaml proj = path proj </> "daml.yaml"
+          damlMod proj mod = path proj </> mod <.> "daml"
+          dar proj = path proj </> proj <.> "dar"
+          step proj = step' ("building '" <> proj <> "' project")
+
+          damlYamlBody name dataDeps = unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: " <> name
+            , "build-options: [--target=1.dev]"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
+            ]
+
+        step tokenProj >> do
+          createDirectoryIfMissing True (path tokenProj)
+          writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj []
+          writeFileUTF8 (damlMod tokenProj "Token") $ unlines
+            [ "module Token where"
+
+            , "interface Token where"
+            , "  getOwner : Party -- ^ A method comment."
+            , "  getAmount : Int"
+            , "  setAmount : Int -> Token"
+
+            , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
+            , "  transferImpl : Party -> Update (ContractId Token)"
+            , "  noopImpl : () -> Update ()"
+
+            , "  ensure (getAmount this >= 0)"
+
+            , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
+            , "    with"
+            , "      splitAmount : Int -- ^ A choice field comment."
+            , "    controller getOwner this"
+            , "    do"
+            , "      splitImpl this splitAmount"
+
+            , "  choice Transfer : ContractId Token"
+            , "    with"
+            , "      newOwner : Party"
+            , "    controller getOwner this, newOwner"
+            , "    do"
+            , "      transferImpl this newOwner"
+
+            , "  nonconsuming choice Noop : ()"
+            , "    with"
+            , "      nothing : ()"
+            , "    controller getOwner this"
+            , "    do"
+            , "      noopImpl this nothing"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path tokenProj
+            , "-o", dar tokenProj
+            ]
+
+        step fancyTokenProj >> do
+          createDirectoryIfMissing True (path fancyTokenProj)
+          writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj
+            [ tokenProj
+            ]
+          writeFileUTF8 (damlMod fancyTokenProj "FancyToken") $ unlines
+            [ "module FancyToken where"
+            , "import Token"
+
+            , "interface FancyToken requires Token where"
+            , "  multiplier : Int"
+            , "  choice GetRich : ContractId Token"
+            , "    with"
+            , "      byHowMuch : Int"
+            , "    controller getOwner this"
+            , "    do"
+            , "        assert (byHowMuch > 0)"
+            , "        create $ setAmount this ((getAmount this + byHowMuch) * multiplier this)"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path fancyTokenProj
+            , "-o", dar fancyTokenProj
+            ]
+
+        step assetProj >> do
+          createDirectoryIfMissing True (path assetProj)
+          writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj
+            [ tokenProj
+            , fancyTokenProj
+            ]
+          writeFileUTF8 (damlMod assetProj "Asset") $ unlines
+            [ "module Asset where"
+            , "import Token"
+            , "import FancyToken"
+
+            , "import DA.Assert"
+
+            , "template Asset"
+            , "  with"
+            , "    issuer : Party"
+            , "    owner : Party"
+            , "    amount : Int"
+            , "  where"
+            , "    signatory issuer, owner"
+            , "    implements Token where"
+            , "      getOwner = owner"
+            , "      getAmount = amount"
+            , "      setAmount x = toInterface @Token (this with amount = x)"
+
+            , "      splitImpl splitAmount = do"
+            , "        assert (splitAmount < amount)"
+            , "        cid1 <- create this with amount = splitAmount"
+            , "        cid2 <- create this with amount = amount - splitAmount"
+            , "        pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+
+            , "      transferImpl newOwner = do"
+            , "        cid <- create this with owner = newOwner"
+            , "        pure (toInterfaceContractId @Token cid)"
+
+            , "      noopImpl nothing = do"
+            , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "        pure ()"
+
+            , "    implements FancyToken where"
+            , "      multiplier = 5"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path assetProj
+            , "-o", dar assetProj
+            ]
+
+        step mainProj >> do
+          createDirectoryIfMissing True (path mainProj)
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj
+            [ tokenProj
+            , fancyTokenProj
+            , assetProj
+            ]
+          writeFileUTF8 (damlMod mainProj "Main") $ unlines
+            [ "module Main where"
+            , "import Token"
+            , "import FancyToken"
+            , "import Asset"
+
+            , "import DA.Assert"
+
+            , "main = scenario do"
+            , "  p <- getParty \"Alice\""
+            , "  p `submitMustFail` do"
+            , "    create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = -1"
+            , "  p `submit` do"
+            , "    cidAsset1 <- create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = 15"
+            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "    _ <- exercise cidToken1 (Noop ())"
+            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
+            , "    token2 <- fetch cidToken2"
+            , "    -- Party is duplicated because p is both observer & issuer"
+            , "    signatory token2 === [p, p]"
+            , "    getAmount token2 === 10"
+            , "    case fromInterface token2 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 10"
+            , "    token3 <- fetch cidToken3"
+            , "    getAmount token3 === 5"
+            , "    case fromInterface token3 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 5"
+
+            , "    cidToken4 <- exercise (fromInterfaceContractId @Asset cidToken3) (GetRich 20)"
+            , "    token4 <- fetch cidToken4"
+            , "    getAmount token4 === 125"
+            , "    case fromInterface token4 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 125"
+
+            , "    pure ()"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root", path mainProj
+            ]
 
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"

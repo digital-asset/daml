@@ -324,10 +324,10 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
                      , "Foo:S"
                      , "choices never executed:"
                      , "Foo:S:Archive"
-                     , "Foo:S:IC"
-                     , "Foo:S:JC"
+                     , "Foo:S:IC (inherited from Foo:I)"
+                     , "Foo:S:JC (inherited from Foo:J)"
                      , "Foo:T:Archive"
-                     , "Foo:T:JC\n"
+                     , "Foo:T:JC (inherited from Foo:J)\n"
                      ] `isSuffixOf`
                  stdout)
     , testCase "Full test coverage report with --all set" $ withTempDir $ \projDir -> do

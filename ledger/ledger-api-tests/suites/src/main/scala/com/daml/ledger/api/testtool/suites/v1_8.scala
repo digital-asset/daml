@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.tls.TlsConfiguration
 
 package object v1_8 {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
@@ -49,9 +50,9 @@ package object v1_8 {
       new WronglyTypedContractIdIT,
     )
 
-  def optional(): Vector[LedgerTestSuite] =
+  def optional(tlsConfiguration: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
     Vector(
-      new TLSOnePointThreeIT,
-      new TLSAtLeastOnePointTwoIT,
+      new TLSOnePointThreeIT(tlsConfiguration),
+      new TLSAtLeastOnePointTwoIT(tlsConfiguration),
     )
 }

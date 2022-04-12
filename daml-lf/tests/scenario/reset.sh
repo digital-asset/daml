@@ -4,6 +4,6 @@
 
 shopt -s nullglob
 set -e
-for actual in */ACTUAL.ledger; do
-  cp -v "$actual" "${actual/ACTUAL/EXPECTED}"
+for actual in $(find . -name '*.new'); do
+  mv -v "$actual" "${actual%.new}"
 done

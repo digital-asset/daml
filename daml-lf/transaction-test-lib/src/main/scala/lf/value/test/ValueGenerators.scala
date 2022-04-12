@@ -294,7 +294,7 @@ object ValueGenerators {
     */
   def malformedCreateNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[Node.Create] = {
+  ): Gen[Node.Create] =
     for {
       coid <- coidGen
       templateId <- idGen
@@ -304,19 +304,15 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
     } yield Node.Create(
-      coid,
-      templateId,
-      arg,
-      agreement,
-      signatories,
-      stakeholders,
-      key,
-      None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
-      version,
+      coid = coid,
+      templateId = templateId,
+      arg = arg,
+      agreementText = agreement,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      key = key,
+      version = version,
     )
-  }
 
   val fetchNodeGen: Gen[Node.Fetch] =
     for {
@@ -324,7 +320,7 @@ object ValueGenerators {
       node <- fetchNodeGenWithVersion(version)
     } yield node
 
-  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] = {
+  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
       templateId <- idGen
@@ -334,19 +330,15 @@ object ValueGenerators {
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield Node.Fetch(
-      coid,
-      templateId,
-      actingParties,
-      signatories,
-      stakeholders,
-      key,
-      byKey,
-      None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
-      version,
+      coid = coid,
+      templateId = templateId,
+      actingParties = actingParties,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      key = key,
+      byKey = byKey,
+      version = version,
     )
-  }
 
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[Node.Rollback] = {
@@ -368,7 +360,7 @@ object ValueGenerators {
   /** Makes exercise nodes with the given version and some random child IDs. */
   def danglingRefExerciseNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[Node.Exercise] = {
+  ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -387,25 +379,21 @@ object ValueGenerators {
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
-      targetCoid,
-      templateId,
-      choiceId,
-      consume,
-      actingParties,
-      chosenValue,
-      stakeholders,
-      signatories,
+      targetCoid = targetCoid,
+      templateId = templateId,
+      choiceId = choiceId,
+      consuming = consume,
+      actingParties = actingParties,
+      chosenValue = chosenValue,
+      stakeholders = stakeholders,
+      signatories = signatories,
       choiceObservers = choiceObservers,
-      children,
-      exerciseResult,
-      key,
-      byKey,
-      None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface (but it requires an interface choice)
-      version,
+      children = children,
+      exerciseResult = exerciseResult,
+      key = key,
+      byKey = byKey,
+      version = version,
     )
-  }
 
   val lookupNodeGen: Gen[Node.LookupByKey] =
     for {

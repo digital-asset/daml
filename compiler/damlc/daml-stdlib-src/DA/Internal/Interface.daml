@@ -14,6 +14,9 @@ module DA.Internal.Interface (
   toInterface,
   toInterfaceContractId,
   fromInterfaceContractId,
+  fetchFromInterface,
+  _exerciseDefault,
+  _exerciseInterfaceGuard
 ) where
 
 import DA.Internal.Prelude
@@ -71,6 +74,11 @@ class HasFromInterface t i where
   -- the interface value `value` into the template type `MyTemplate`.
   fromInterface : i -> Optional t
 
+  -- | HIDE
+  -- Like 'fromInterface', but raises a fatal error (`WronglyTypedContract`) if the
+  -- underlying template type of the interface value doesn't match the desired type.
+  unsafeFromInterface : ContractId i -> i -> t
+
 -- | (1.dev only) Constraint that indicates that a template implements an interface.
 type Implements t i =
   ( HasInterfaceTypeRep i
@@ -84,18 +92,66 @@ toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> Contra
 toInterfaceContractId = coerceContractId
 
 -- | (1.dev only) Convert an interface contract id into a template
--- contract id. In order to verify that the underlying contract has
--- the expected template type, this will perform a fetch. For example:
+-- contract id. For example, `fromInterfaceContractId @MyTemplate cid`.
 --
+-- This function does not verify that the interface contract id
+-- actually points to a template of the given type. This means
+-- that a subsequent `fetch`, `exercise`, or `archive` may fail, if,
+-- for example, the contract id points to a contract that implements
+-- the interface but is of a different template type than expected.
+--
+-- Therefore, you should only use `fromInterfaceContractId` in situations
+-- where you already know that the contract id points to a contract of the
+-- right template type. You can also use it in situations where you will
+-- fetch, exercise, or archive the contract right away, when a transaction
+-- failure is the appropriate response to the contract having the wrong
+-- template type.
+--
+-- In all other cases, consider using `fetchFromInterface` instead.
+fromInterfaceContractId : forall t i. HasFromInterface t i => ContractId i -> ContractId t
+fromInterfaceContractId = coerceContractId
+
+-- | (1.dev only) Fetch an interface and convert it to a specific
+-- template type. If conversion is succesful, this function returns
+-- the converted contract and its converted contract id. Otherwise,
+-- this function returns `None`.
+--
+-- Example:
 -- ```
 -- do
---   templateCidOpt <- fromInterfaceContractId @MyTemplate ifaceCid
---   case templateCidOpt of
---     None -> abort "failed to convert contract id"
---     Some templateCid -> ...
+--   fetchResult <- fetchFromInterface @MyTemplate ifaceCid
+--   case fetchResult of
+--     None -> abort "Failed to convert interface to appropriate template type"
+--     Some (tplCid, tpl) -> do
+--        ... do something with tpl and tplCid ...
 -- ```
-fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
-fromInterfaceContractId cid = do
-  iface <- fetch cid
-  pure $
-    const (coerceContractId cid) <$> fromInterface @t iface
+fetchFromInterface : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t, t))
+fetchFromInterface cid = do
+    iface <- fetch cid
+    case fromInterface @t iface of
+      None -> pure None
+      Some tpl -> pure (Some (fromInterfaceContractId @t cid, tpl))
+
+-- | HIDE Gives a valid implementation of `HasExercise.exercise`
+-- for types that implement `HasExerciseGuarded`. This is used
+-- in interface desugaring.
+_exerciseDefault : HasExerciseGuarded t c r => ContractId t -> c -> Update r
+_exerciseDefault = exerciseGuarded (const True)
+
+-- | HIDE The guard used for UExerciseInterface, during interface
+-- desugaring. This function converts a guard on type t into a
+-- guard on the type i, raising a WronglyTypedContract error if
+-- there is a type mismatch. It has to work uniformly in these
+-- three cases:
+--
+--  1. when t is a template type and i is an interface it implements
+--  2. when t is an interface type and i is an interface it requires
+--  3. when t and i are the same interface type
+--
+-- It supports these three cases uniformly because `unsafeFromInterface`
+-- handles each of them separately.
+_exerciseInterfaceGuard : forall i t.
+  (HasFromInterface t i, HasInterfaceTypeRep i, HasTemplateTypeRep t) =>
+  ContractId t -> (t -> Bool) -> i -> Bool
+_exerciseInterfaceGuard cid tpred ivalue =
+  tpred (unsafeFromInterface (coerceContractId cid) ivalue)

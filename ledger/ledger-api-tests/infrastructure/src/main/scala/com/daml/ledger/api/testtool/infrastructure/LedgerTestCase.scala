@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participants, PartyAllocation}
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.lf.data.Ref
+import com.daml.test.evidence.tag.EvidenceTag
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -25,6 +26,7 @@ sealed class LedgerTestCase(
     val timeoutScale: Double,
     val runConcurrently: Boolean,
     val repeated: Int = 1,
+    val tags: List[EvidenceTag] = List.empty,
     enabled: Features => Boolean,
     disabledReason: String,
     partyAllocation: PartyAllocation,

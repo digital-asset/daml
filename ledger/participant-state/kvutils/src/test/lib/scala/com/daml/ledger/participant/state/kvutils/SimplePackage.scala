@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.test.TestDar
 import com.daml.lf.archive.Decode
-import com.daml.lf.command._
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast
@@ -42,15 +42,15 @@ class SimplePackage(testDar: TestDar) {
       .next()
   }
 
-  def createCmd(templateId: Ref.Identifier, templateArg: Value): CreateCommand =
-    CreateCommand(templateId, templateArg)
+  def createCmd(templateId: Ref.Identifier, templateArg: Value): ApiCommand.Create =
+    ApiCommand.Create(templateId, templateArg)
 
   def exerciseCmd(
       contractId: Value.ContractId,
       templateId: Ref.Identifier,
       choiceName: Ref.ChoiceName,
-  ): ExerciseCommand =
-    ExerciseCommand(
+  ): ApiCommand.Exercise =
+    ApiCommand.Exercise(
       templateId,
       contractId,
       choiceName,
@@ -61,8 +61,8 @@ class SimplePackage(testDar: TestDar) {
       partyKey: Ref.Party,
       templateId: Ref.Identifier,
       choiceName: Ref.ChoiceName,
-  ): ExerciseByKeyCommand =
-    ExerciseByKeyCommand(
+  ): ApiCommand.ExerciseByKey =
+    ApiCommand.ExerciseByKey(
       templateId,
       ValueParty(partyKey),
       choiceName,
@@ -73,8 +73,8 @@ class SimplePackage(testDar: TestDar) {
       templateId: Ref.Identifier,
       templateArg: Value,
       choiceName: Ref.ChoiceName,
-  ): CreateAndExerciseCommand =
-    CreateAndExerciseCommand(
+  ): ApiCommand.CreateAndExercise =
+    ApiCommand.CreateAndExercise(
       templateId,
       templateArg,
       choiceName,
@@ -107,18 +107,18 @@ class SimplePackage(testDar: TestDar) {
   private val simpleReplaceChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Replace")
 
-  def simpleCreateCmd(templateArg: Value): CreateCommand =
+  def simpleCreateCmd(templateArg: Value): ApiCommand.Create =
     createCmd(simpleTemplateId, templateArg)
 
-  def simpleExerciseArchiveCmd(contractId: Value.ContractId): ExerciseCommand =
+  def simpleExerciseArchiveCmd(contractId: Value.ContractId): ApiCommand.Exercise =
     exerciseCmd(contractId, simpleTemplateId, simpleArchiveChoiceName)
 
   def simpleCreateAndExerciseArchiveCmd(
       templateArg: Value
-  ): CreateAndExerciseCommand =
+  ): ApiCommand.CreateAndExercise =
     createAndExerciseCmd(simpleTemplateId, templateArg, simpleArchiveChoiceName)
 
-  def simpleExerciseReplaceByKeyCmd(partyKey: Ref.Party): ExerciseByKeyCommand =
+  def simpleExerciseReplaceByKeyCmd(partyKey: Ref.Party): ApiCommand.ExerciseByKey =
     exerciseByKeyCmd(partyKey, simpleTemplateId, simpleReplaceChoiceName)
 
   def mkSimpleTemplateArg(
@@ -142,10 +142,10 @@ class SimplePackage(testDar: TestDar) {
   private val simpleHolderReplaceHeldByKeyChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("ReplaceHeldByKey")
 
-  def simpleHolderCreateCmd(arg: Value): CreateCommand =
+  def simpleHolderCreateCmd(arg: Value): ApiCommand.Create =
     createCmd(simpleHolderTemplateId, arg)
 
-  def simpleHolderExerciseReplaceHeldByKeyCmd(contractId: Value.ContractId): ExerciseCommand =
+  def simpleHolderExerciseReplaceHeldByKeyCmd(contractId: Value.ContractId): ApiCommand.Exercise =
     exerciseCmd(contractId, simpleHolderTemplateId, simpleHolderReplaceHeldByKeyChoiceName)
 
   def mkSimpleHolderTemplateArg(owner: Ref.Party): Value =

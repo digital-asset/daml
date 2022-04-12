@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
-import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
+import com.daml.lf.command.{ApiCommand => LfCommand, ApiCommands => LfCommands}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
@@ -94,7 +94,7 @@ class SubmitRequestValidatorTest
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       commands = LfCommands(
         ImmArray(
-          LfCreateCommand(
+          LfCommand.Create(
             Ref.Identifier(
               Ref.PackageId.assertFromString("package"),
               Ref.QualifiedName(

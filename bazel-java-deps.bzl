@@ -54,6 +54,11 @@ akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
 
+# observability libs
+dropwizard_version = "4.1.2"
+opentelemetry_version = "1.12.0"
+prometheus_version = "0.8.1"
+
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
@@ -72,6 +77,9 @@ def install_java_deps():
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:{}".format(guava_version),
             "com.h2database:h2:2.1.210",
+            "com.github.pathikrit:better-files_{}:3.8.0".format(scala_major_version),
+            "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
+            "com.lihaoyi:sourcecode_{}:0.2.7".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
@@ -98,21 +106,22 @@ def install_java_deps():
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.3",
             "io.circe:circe-core_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-generic_{}:0.13.0".format(scala_major_version),
+            "io.circe:circe-generic-extras_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-parser_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-yaml_{}:0.13.0".format(scala_major_version),
-            "io.dropwizard.metrics:metrics-core:4.1.2",
-            "io.dropwizard.metrics:metrics-graphite:4.1.2",
-            "io.dropwizard.metrics:metrics-jmx:4.1.2",
-            "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.opentelemetry:opentelemetry-api:1.1.0",
-            "io.opentelemetry:opentelemetry-context:1.1.0",
-            "io.opentelemetry:opentelemetry-sdk-testing:1.1.0",
-            "io.opentelemetry:opentelemetry-sdk-trace:1.1.0",
-            "io.opentelemetry:opentelemetry-semconv:1.1.0-alpha",
-            "io.prometheus:simpleclient:0.8.1",
-            "io.prometheus:simpleclient_dropwizard:0.8.1",
-            "io.prometheus:simpleclient_httpserver:0.8.1",
-            "io.prometheus:simpleclient_servlet:0.8.1",
+            "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
+            "io.dropwizard.metrics:metrics-graphite:{}".format(dropwizard_version),
+            "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
+            "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
+            "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
+            "io.prometheus:simpleclient:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),

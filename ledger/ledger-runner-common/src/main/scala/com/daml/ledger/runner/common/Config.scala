@@ -178,7 +178,6 @@ object Config {
               "management-service-timeout, " +
               "run-mode, " +
               "shard-name, " +
-              "indexer-connection-pool-size, " +
               "indexer-connection-timeout, " +
               "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +

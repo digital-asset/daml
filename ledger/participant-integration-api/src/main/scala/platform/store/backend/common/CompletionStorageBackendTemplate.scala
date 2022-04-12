@@ -35,7 +35,6 @@ class CompletionStorageBackendTemplate(
       applicationId: Ref.ApplicationId,
       parties: Set[Party],
   )(connection: Connection): List[CompletionStreamResponse] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.applicationIdToStatement
     import ComposableQuery._
     val internedParties =
@@ -61,8 +60,11 @@ class CompletionStorageBackendTemplate(
         FROM
           participant_command_completions
         WHERE
-          ($startExclusive is null or completion_offset > $startExclusive) AND
-          completion_offset <= $endInclusive AND
+          ${queryStrategy.offsetIsBetween(
+        nonNullableColumn = "completion_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )} AND
           application_id = $applicationId AND
           ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", internedParties)}
         ORDER BY completion_offset ASC"""

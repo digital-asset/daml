@@ -252,7 +252,9 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "resolve choices internally" in {
-      foundUselessChoice(itp.main.resolveChoices(PartialFunction.empty).typeDecls get Foo)
+      foundUselessChoice(
+        itp.main.resolveChoicesAndIgnoreUnresolvedChoices(PartialFunction.empty).typeDecls get Foo
+      )
     }
   }
 

@@ -8,8 +8,8 @@ import com.daml.ledger.api.domain.User
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
-import com.daml.scalautil.nonempty.NonEmpty
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._

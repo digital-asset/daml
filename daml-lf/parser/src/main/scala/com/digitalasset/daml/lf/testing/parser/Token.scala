@@ -53,6 +53,10 @@ private[parser] object Token {
   case object `catch` extends Token
   case object `to_interface` extends Token
   case object `from_interface` extends Token
+  case object `unsafe_from_interface` extends Token
+  case object `to_required_interface` extends Token
+  case object `from_required_interface` extends Token
+  case object `unsafe_from_required_interface` extends Token
   case object `call_method` extends Token
   case object `interface_template_type_rep` extends Token
   case object `signatory_interface` extends Token

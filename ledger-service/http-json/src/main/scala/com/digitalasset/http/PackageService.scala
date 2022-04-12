@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.ledger.api.v1.value.{Identifier => Lav1Identifier}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
@@ -35,6 +36,7 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
+      contractTypeIdMap: ContractTypeIdMap,
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
@@ -42,21 +44,30 @@ private class PackageService(
   ) {
 
     def append(diff: PackageStore): State = {
-      val newPackageStore = this.packageStore ++ diff
+      val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
+      val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         newPackageStore.keySet,
-        getTemplateIdMap(newPackageStore),
+        tpIdMap ++ ifaceIdMap,
+        tpIdMap,
         getChoiceTypeMap(newPackageStore),
         getKeyTypeMap(newPackageStore),
         newPackageStore,
       )
+    }
+
+    // `diff` but with interface-inherited choices resolved
+    private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
+      def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
+      val findIface = iface.Interface.findAstInterface(Function unlift lookupIf)
+      diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
     }
   }
 
   private class StateCache private () {
     // volatile, reading threads don't need synchronization
     @volatile private var _state: State =
-      State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
+      State(Set.empty, TemplateIdMap.Empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
     private def updateState(diff: PackageStore): Unit = synchronized {
       this._state = this._state.append(diff)
@@ -114,13 +125,21 @@ private class PackageService(
 
   def packageStore: PackageStore = state.packageStore
 
+  def resolveContractTypeId(implicit ec: ExecutionContext): ResolveContractTypeId =
+    resolveContractTypeIdFromState(() => state.contractTypeIdMap)
+
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
-  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId = {
+  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId =
+    resolveContractTypeIdFromState(() => state.templateIdMap)
+
+  private[this] def resolveContractTypeIdFromState(
+      latestMap: () => TemplateIdMap
+  )(implicit ec: ExecutionContext): ResolveContractTypeId = {
     implicit lc: LoggingContextOf[InstanceUUID] => (jwt, ledgerId) => (x: TemplateId.OptionalPkg) =>
       {
         type ResultType = Option[TemplateId.RequiredPkg]
-        def doSearch() = PackageService.resolveTemplateId(state.templateIdMap)(x)
+        def doSearch() = PackageService.resolveTemplateId(latestMap())(x)
         def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
         def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
         for {
@@ -218,6 +237,9 @@ object PackageService {
       PackageService.Error \/ Option[TemplateId.RequiredPkg]
     ]
 
+  // Like ResolveTemplateId but includes interfaces
+  type ResolveContractTypeId = ResolveTemplateId
+
   type ResolveTemplateRecordType =
     TemplateId.RequiredPkg => Error \/ iface.Type
 
@@ -232,10 +254,16 @@ object PackageService {
   type ResolveKeyType =
     TemplateId.RequiredPkg => Error \/ iface.Type
 
+  type ContractTypeIdMap = TemplateIdMap
+
   case class TemplateIdMap(
       all: Set[TemplateId.RequiredPkg],
       unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg],
-  )
+  ) {
+    // forms a monoid with Empty
+    def ++(o: TemplateIdMap): TemplateIdMap =
+      TemplateIdMap(all ++ o.all, (unique -- o.unique.keySet) ++ (o.unique -- unique.keySet))
+  }
 
   object TemplateIdMap {
     val Empty: TemplateIdMap = TemplateIdMap(Set.empty, Map.empty)
@@ -245,13 +273,16 @@ object PackageService {
 
   type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
 
-  def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
-    buildTemplateIdMap(collectTemplateIds(packageStore))
-
-  private def collectTemplateIds(packageStore: PackageStore): Set[TemplateId.RequiredPkg] =
-    TemplateIds
-      .getTemplateIds(packageStore.values.toSet)
-      .map(x => TemplateId(x.packageId, x.moduleName, x.entityName))
+  def getTemplateIdInterfaceMaps(packageStore: PackageStore): (TemplateIdMap, ContractTypeIdMap) = {
+    import TemplateIds.{getTemplateIds, getInterfaceIds}
+    def tpId(x: Lav1Identifier): TemplateId.RequiredPkg =
+      TemplateId(x.packageId, x.moduleName, x.entityName)
+    val interfaces = packageStore.values.toSet
+    (
+      buildTemplateIdMap(getTemplateIds(interfaces) map tpId),
+      buildTemplateIdMap(getInterfaceIds(interfaces) map tpId),
+    )
+  }
 
   def buildTemplateIdMap(ids: Set[TemplateId.RequiredPkg]): TemplateIdMap = {
     val all: Set[TemplateId.RequiredPkg] = ids
@@ -302,27 +333,31 @@ object PackageService {
       )
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
-  // TODO (#12689) each interface must have been resolveChoices'd against the
-  // whole environment (prior environment & whole diff) for all choices to be listed
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
   private def getChoices(
       interface: iface.Interface
-  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
-    interface.typeDecls.flatMap {
-      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
-        val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
-        getChoices(choices).map { case (choice, id) => ((templateId, choice), id) }
-      case _ => Seq.empty
-    }
+  ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
+    val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
+      interface.typeDecls.iterator.collect {
+        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _, _))) =>
+          (qn, choices)
+      } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
+        (qn, defIf.choices)
+      }
+    allChoices.flatMap { case (qn, choices) =>
+      val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
+      getChoices(choices).view.map { case (choice, id) => ((templateId, choice), id) }
+    }.toMap
+  }
 
   private def getChoices(
       choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]
   ): Seq[(Choice, iface.Type)] = {
     import iface._
-    choices.toSeq.collect { case (name, TemplateChoice(choiceType, _, _)) =>
-      (Choice(name.toString), choiceType)
+    choices.toSeq.map { case (name, TemplateChoice(choiceType, _, _)) =>
+      (Choice(name: String), choiceType)
     }
   }
 
@@ -335,7 +370,7 @@ object PackageService {
       case (
             qn,
             iface.InterfaceType
-              .Template(_, iface.DefTemplate(_, _, Some(keyType))),
+              .Template(_, iface.DefTemplate(_, _, Some(keyType), _)),
           ) =>
         val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)

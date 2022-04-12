@@ -145,6 +145,13 @@ Many errors will include more information,
 but there is no guarantee given that additional information will be preserved across versions.
 
 
+Preventing Security Leaks in Error Codes
+=============================================
+
+For any error that could leak information to an attacker, the system will return an error message via the API that 
+will not leak any valuable information. The log file will contain the full error message.
+
+
 
 Working with Error Codes
 *********************************************

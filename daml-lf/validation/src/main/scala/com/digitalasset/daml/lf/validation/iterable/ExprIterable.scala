@@ -68,12 +68,16 @@ private[validation] object ExprIterable {
         Iterator(value)
       case EFromInterface(iface @ _, tpl @ _, value) =>
         Iterator(value)
+      case EUnsafeFromInterface(iface @ _, tpl @ _, cid, value) =>
+        Iterator(cid, value)
       case ECallInterface(iface @ _, method @ _, value) =>
         Iterator(value)
       case EToRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
       case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
+      case EUnsafeFromRequiredInterface(requiredIface @ _, requiringIface @ _, cid, body) =>
+        Iterator(cid, body)
       case EInterfaceTemplateTypeRep(iface @ _, body) =>
         iterator(body)
       case ESignatoryInterface(iface @ _, body) =>

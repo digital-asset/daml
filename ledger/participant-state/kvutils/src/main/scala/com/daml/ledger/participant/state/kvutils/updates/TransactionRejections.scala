@@ -211,17 +211,17 @@ private[kvutils] object TransactionRejections {
     LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
       .RejectEnriched(
         cause = details,
-        ledger_time = Instant
+        ledgerTime = Instant
           .ofEpochSecond(
             ledgerTime.getSeconds,
             ledgerTime.getNanos.toLong,
           ),
-        ledger_time_lower_bound = Instant
+        ledgerTimeLowerBound = Instant
           .ofEpochSecond(
             ledgerTimeLowerBound.getSeconds,
             ledgerTimeLowerBound.getNanos.toLong,
           ),
-        ledger_time_upper_bound = Instant
+        ledgerTimeUpperBound = Instant
           .ofEpochSecond(
             ledgerTimeUpperBound.getSeconds,
             ledgerTimeUpperBound.getNanos.toLong,

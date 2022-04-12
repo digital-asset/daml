@@ -17,11 +17,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "77b30a42047ed8fa9e2412a1099db6da"
-GHC_LIB_SHA256 = "a19af8a380a88d5f9f19755109cb5204d5c0d3a16017d00c5b484ad45d919651"
+GHC_LIB_REV = "ae740babda173db4aec79f7ad603140b"
+GHC_LIB_SHA256 = "521380696848a2ea62ad349e6a71a1a46526085cbbf29b84d2cacdc3a94341da"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "77b30a42047ed8fa9e2412a1099db6da"
-GHC_LIB_PARSER_SHA256 = "2612310eec4590202169297880f0eb6e35ab532a5fb9f3828b70fa3282c44514"
+GHC_LIB_PARSER_REV = "ae740babda173db4aec79f7ad603140b"
+GHC_LIB_PARSER_SHA256 = "b3feb3d0dff54500ad8bb0f3cdc309a9618d74f4e4bbcf161c97e82fb512f10e"
 GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "0572146d4b792c6c67affe461e0bd07d49d9df72"
 GHCIDE_SHA256 = "7de56b15d08eab19d325a93c4f43d0ca3d634bb1a1fdc0d18fe4ab4a021cc697"
@@ -57,6 +57,7 @@ haskell_cabal_library(
     version = packages["lsp-types"].version,
     srcs = glob(["**"]),
     deps = packages["lsp-types"].deps,
+    haddock = False,
     visibility = ["//visibility:public"],
 )""",
         patch_args = ["-p1"],
@@ -579,6 +580,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "pretty-show",
             "process",
             "proto3-wire",
+            "QuickCheck",
             "random",
             "recursion-schemes",
             "regex-tdfa",

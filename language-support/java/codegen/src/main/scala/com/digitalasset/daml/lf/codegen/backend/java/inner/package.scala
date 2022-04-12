@@ -12,6 +12,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
+import javax.lang.model.element.Modifier
 
 import scala.jdk.CollectionConverters._
 
@@ -125,12 +126,20 @@ package object inner {
       case TypeCon(_, _) | TypeVar(_) =>
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
-
   def fullyQualifiedName(
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String],
+  ): String =
+    fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId, packagePrefixes))
+
+  def fullyQualifiedName(qualifiedName: QualifiedName): String =
+    fullyQualifiedName(qualifiedName, None)
+
+  private def fullyQualifiedName(
+      qualifiedName: QualifiedName,
+      packageIdAndPackagePrefixesOpt: Option[(PackageId, Map[PackageId, String])],
   ): String = {
-    val Identifier(_, QualifiedName(module, name)) = identifier
+    val QualifiedName(module, name) = qualifiedName
 
     // consider all but the last name segment to be part of the java package name
     val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)
@@ -138,7 +147,11 @@ package object inner {
     val className = name.segments.toSeq.takeRight(1)
 
     val packageName = packageSegments.map(_.toLowerCase)
-    val packagePrefix = packagePrefixes.getOrElse(identifier.packageId, "")
+    val packagePrefix = packageIdAndPackagePrefixesOpt
+      .flatMap { case (packageId, packagePrefixes) =>
+        packagePrefixes.get(packageId)
+      }
+      .getOrElse("")
 
     (Vector(packagePrefix) ++ packageName ++ className)
       .filter(_.nonEmpty)
@@ -183,6 +196,13 @@ package object inner {
       }
     }
     go(Set.empty, tpe).toVector
+  }
+
+  def createPackageIdField(packageId: PackageId): FieldSpec = {
+    FieldSpec
+      .builder(classOf[String], "_packageId", Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
+      .initializer("$S", packageId)
+      .build()
   }
 
   implicit class TypeNameExtensions(name: TypeName) {

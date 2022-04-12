@@ -10,7 +10,6 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerServices,
   PartyAllocationConfiguration,
 }
-import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
@@ -36,19 +35,18 @@ private[infrastructure] final class ParticipantSession private (
     ledgerId: String,
     ledgerEndpoint: Endpoint,
     val features: Features,
+    timeoutScaleFactor: Double,
 )(implicit val executionContext: ExecutionContext) {
 
   private[testtool] def createInitContext(
       applicationId: String,
       identifierSuffix: String,
-      clientTlsConfiguration: Option[TlsConfiguration],
       features: Features,
   ): Future[ParticipantTestContext] =
     createTestContext(
       "init",
       applicationId,
       identifierSuffix,
-      clientTlsConfiguration = clientTlsConfiguration,
       features = features,
     )
 
@@ -56,22 +54,23 @@ private[infrastructure] final class ParticipantSession private (
       endpointId: String,
       applicationId: String,
       identifierSuffix: String,
-      clientTlsConfiguration: Option[TlsConfiguration],
       features: Features,
   ): Future[ParticipantTestContext] =
     for {
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
-    } yield new ParticipantTestContext(
-      ledgerId = ledgerId,
-      endpointId = endpointId,
-      applicationId = applicationId,
-      identifierSuffix = identifierSuffix,
-      referenceOffset = end,
-      services = services,
-      partyAllocationConfig = partyAllocationConfig,
-      ledgerEndpoint = ledgerEndpoint,
-      clientTlsConfiguration = clientTlsConfiguration,
-      features = features,
+    } yield new TimeoutParticipantTestContext(
+      timeoutScaleFactor,
+      new SingleParticipantTestContext(
+        ledgerId = ledgerId,
+        endpointId = endpointId,
+        applicationId = applicationId,
+        identifierSuffix = identifierSuffix,
+        referenceOffset = end,
+        services = services,
+        partyAllocationConfig = partyAllocationConfig,
+        ledgerEndpoint = ledgerEndpoint,
+        features = features,
+      ),
     )
 }
 
@@ -83,6 +82,7 @@ object ParticipantSession {
       participantChannels: Vector[ChannelEndpoint],
       maxConnectionAttempts: Int,
       commandInterceptors: Seq[ClientInterceptor],
+      timeoutScaleFactor: Double,
   )(implicit
       executionContext: ExecutionContext
   ): Future[Vector[ParticipantSession]] =
@@ -121,6 +121,7 @@ object ParticipantSession {
         ledgerId = ledgerId,
         ledgerEndpoint = participant.endpoint,
         features = features,
+        timeoutScaleFactor = timeoutScaleFactor,
       )
     }
 }

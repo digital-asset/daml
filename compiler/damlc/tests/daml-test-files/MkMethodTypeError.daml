@@ -11,7 +11,10 @@ data T = T
 
 instance HasInterfaceTypeRep T where _interfaceTypeRep = undefined
 instance HasToInterface T T where _toInterface x = x
-instance HasFromInterface T T where fromInterface = Some
+instance HasFromInterface T T where
+    fromInterface = Some
+    unsafeFromInterface _ this = this
+
 instance DA.Internal.Desugar.HasMethod T "foo" T where
 
 main : Int

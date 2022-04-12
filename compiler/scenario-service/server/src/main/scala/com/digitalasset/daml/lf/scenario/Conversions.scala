@@ -164,10 +164,26 @@ final class Conversions(
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
-              case _: ContractDoesNotImplementInterface =>
-                // TODO https://github.com/digital-asset/daml/issues/12051
-                //   Implement this.
-                builder.setCrash(s"ContractDoesNotImplementInterface unhandled in scenario service")
+              case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
+                builder.setContractDoesNotImplementInterface(
+                  proto.ScenarioError.ContractDoesNotImplementInterface.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setInterfaceId(convertIdentifier(interfaceId))
+                    .build
+                )
+              case ContractDoesNotImplementRequiringInterface(
+                    requiredIfaceId,
+                    requiringIfaceId,
+                    coid,
+                    templateId,
+                  ) =>
+                builder.setContractDoesNotImplementRequiringInterface(
+                  proto.ScenarioError.ContractDoesNotImplementRequiringInterface.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setRequiredInterfaceId(convertIdentifier(requiredIfaceId))
+                    .setRequiringInterfaceId(convertIdentifier(requiringIfaceId))
+                    .build
+                )
               case FailedAuthorization(nid, fa) =>
                 builder.setScenarioCommitError(
                   proto.CommitError.newBuilder
@@ -194,10 +210,15 @@ final class Conversions(
                     builder.setCrash(s"A limit was overpass when building the transaction")
                 }
 
-              case _: ChoiceGuardFailed =>
-                // TODO https://github.com/digital-asset/daml/issues/12051
-                //   Implement this.
-                builder.setCrash(s"ChoiceGuardFailed unhandled in scenario service")
+              case ChoiceGuardFailed(coid, templateId, choiceName, byInterface) =>
+                val cgfBuilder =
+                  proto.ScenarioError.ChoiceGuardFailed.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setChoiceId(choiceName)
+                byInterface.foreach(ifaceId =>
+                  cgfBuilder.setByInterface(convertIdentifier(ifaceId))
+                )
+                builder.setChoiceGuardFailed(cgfBuilder.build)
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
@@ -523,14 +544,13 @@ final class Conversions(
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: Node.Fetch =>
-        builder.setFetch(
+        val fetchBuilder =
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build
-        )
+        builder.setFetch(fetchBuilder.build)
       case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
@@ -549,11 +569,9 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
-
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
         }
-
         builder.setExercise(exerciseBuilder.build)
 
       case lbk: Node.LookupByKey =>

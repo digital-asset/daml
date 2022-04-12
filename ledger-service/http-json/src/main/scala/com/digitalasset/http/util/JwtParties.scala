@@ -5,7 +5,7 @@ package com.daml.http
 package util
 
 import domain.{JwtPayload, JwtWritePayload}
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import com.daml.nonempty.NonEmptyReturningOps._
 import scalaz.{\/, \/-, -\/, NonEmptyList}
 import scalaz.syntax.foldable._
 import scalaz.syntax.std.option._

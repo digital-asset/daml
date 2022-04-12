@@ -181,7 +181,7 @@ object InterfaceReader {
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
     } yield name -> (iface.InterfaceType.Template(
       Record(fields),
-      DefTemplate(choices, dfn.inheritedChoices, key),
+      DefTemplate(choices, dfn.inheritedChoices, key, dfn.implements.keys),
     ): T)
 
   private def visitChoice(

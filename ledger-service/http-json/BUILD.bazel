@@ -12,6 +12,7 @@ load(
     "lf_scalacopts",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
 
@@ -73,6 +74,7 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/db-utils",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/logging-entries",
+            "//libs-scala/nonempty",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
@@ -191,6 +193,16 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
+daml_compile(
+    name = "CIou",
+    srcs = [
+        "src/it/daml/CIou.daml",
+        "src/it/daml/IIou.daml",
+    ],
+    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
 [
     da_scala_test(
         name = "tests-{}".format(edition),
@@ -245,6 +257,7 @@ daml_compile(
             "//libs-scala/contextualized-logging",
             "//libs-scala/db-utils",
             "//libs-scala/logging-entries",
+            "//libs-scala/nonempty",
             "//libs-scala/scala-utils",
             "//libs-scala/scalatest-utils",
             "@maven//:io_dropwizard_metrics_metrics_core",
@@ -407,6 +420,7 @@ alias(
         ]),
         data = [
             ":Account.dar",
+            ":CIou.dar",
             ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",
@@ -657,6 +671,7 @@ da_scala_benchmark_jmh(
         "//libs-scala/contextualized-logging",
         "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/nonempty",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",

@@ -73,18 +73,31 @@ class ContractStorageBackendTemplate(
   ): Option[ContractStorageBackend.RawContractState] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
-           SELECT
+           (SELECT
+             event_sequential_id,
              template_id,
              flat_event_witnesses,
              create_argument,
              create_argument_compression,
-             event_kind,
+             10 as event_kind,
              ledger_effective_time
-           FROM participant_events
+           FROM participant_events_create
            WHERE
              contract_id = $contractId
-             AND event_sequential_id <= $before
-             AND (event_kind = 10 OR event_kind = 20)
+             AND event_sequential_id <= $before)
+           UNION ALL
+           (SELECT
+             event_sequential_id,
+             template_id,
+             flat_event_witnesses,
+             NULL as create_argument,
+             NULL as create_argument_compression,
+             20 as event_kind,
+             ledger_effective_time
+           FROM participant_events_consuming_exercise
+           WHERE
+             contract_id = $contractId
+             AND event_sequential_id <= $before)
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
       .as(fullDetailsContractRowParser.singleOpt)(connection)
@@ -122,10 +135,10 @@ class ContractStorageBackendTemplate(
 
   override def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
-  ): Vector[ContractStorageBackend.RawContractStateEvent] =
+  ): Vector[ContractStorageBackend.RawContractStateEvent] = {
     SQL"""
-           SELECT
-               event_kind,
+         (SELECT
+               10 as event_kind,
                contract_id,
                template_id,
                create_key_value,
@@ -137,13 +150,31 @@ class ContractStorageBackendTemplate(
                event_sequential_id,
                event_offset
            FROM
-               participant_events
+               participant_events_create
            WHERE
                event_sequential_id > $startExclusive
-               and event_sequential_id <= $endInclusive
-               and (event_kind = 10 or event_kind = 20)
-           ORDER BY event_sequential_id ASC"""
+               and event_sequential_id <= $endInclusive)
+         UNION ALL
+         (SELECT
+               20 as event_kind,
+               contract_id,
+               template_id,
+               create_key_value,
+               create_key_value_compression,
+               NULL as create_argument,
+               NULL as create_argument_compression,
+               flat_event_witnesses,
+               ledger_effective_time,
+               event_sequential_id,
+               event_offset
+           FROM
+               participant_events_consuming_exercise
+           WHERE
+               event_sequential_id > $startExclusive
+               and event_sequential_id <= $endInclusive)
+         ORDER BY event_sequential_id ASC"""
       .asVectorOf(contractStateRowParser)(connection)
+  }
 
   private val contractRowParser: RowParser[ContractStorageBackend.RawContract] =
     (int("template_id")
@@ -167,19 +198,17 @@ class ContractStorageBackendTemplate(
     val lastEventSequentialId = ledgerEndCache()._2
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (
-               SELECT participant_events.*
-                 FROM participant_events
+               SELECT participant_events_consuming_exercise.*
+                 FROM participant_events_consuming_exercise
                 WHERE contract_id = $contractId
-                  AND event_kind = 20  -- consuming exercise
                   AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause  -- only use visible archivals
                 FETCH NEXT 1 ROW ONLY
              ),
              create_event AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events
+                 FROM participant_events_create
                 WHERE contract_id = $contractId
-                  AND event_kind = 10  -- create
                   AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
@@ -187,9 +216,8 @@ class ContractStorageBackendTemplate(
              -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
              create_event_unrestricted AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events
+                 FROM participant_events_create
                 WHERE contract_id = $contractId
-                  AND event_kind = 10  -- create
                   AND event_sequential_id <= $lastEventSequentialId
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
@@ -201,9 +229,8 @@ class ContractStorageBackendTemplate(
                       -- therefore only communicates the change in visibility to the IndexDB, but
                       -- does not include a full divulgence event.
                       #$coalescedColumns
-                 FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id)
+                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id)
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-                  AND divulgence_events.event_kind = 0 -- divulgence
                   AND divulgence_events.event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 ORDER BY divulgence_events.event_sequential_id
@@ -332,7 +359,7 @@ class ContractStorageBackendTemplate(
       val participantEventsFlatEventWitnessesClause =
         withAndIfNonEmptyReaders(
           queryStrategy.arrayIntersectionNonEmptyClause(
-            columnName = "participant_events.flat_event_witnesses",
+            columnName = "participant_events_consuming_exercise.flat_event_witnesses",
             _,
           )
         )
@@ -340,10 +367,9 @@ class ContractStorageBackendTemplate(
       import com.daml.platform.store.Conversions.HashToStatement
       SQL"""
            WITH last_contract_key_create AS (
-                  SELECT participant_events.*
-                    FROM participant_events
-                   WHERE event_kind = 10 -- create
-                     AND create_key_hash = ${key.hash}
+                  SELECT participant_events_create.*
+                    FROM participant_events_create
+                   WHERE create_key_hash = ${key.hash}
                          -- do NOT check visibility here, as otherwise we do not abort the scan early
                      AND event_sequential_id <= $validAt
                    ORDER BY event_sequential_id DESC
@@ -354,9 +380,8 @@ class ContractStorageBackendTemplate(
            WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
              NOT EXISTS       -- check no archival visible
                   (SELECT 1
-                     FROM participant_events
-                    WHERE event_kind = 20 AND -- consuming exercise
-                      $participantEventsFlatEventWitnessesClause
+                     FROM participant_events_consuming_exercise
+                    WHERE $participantEventsFlatEventWitnessesClause
                       contract_id = last_contract_key_create.contract_id
                       AND event_sequential_id <= $validAt
                   )"""

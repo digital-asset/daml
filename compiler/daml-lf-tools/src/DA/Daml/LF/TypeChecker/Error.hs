@@ -106,6 +106,7 @@ data Error
   | EExpectedUpdateType    !Type
   | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
+  | EExpectedKeyTypeWithoutContractId !Type
   | EExpectedAnyType !Type
   | EExpectedExceptionType !Type
   | EExpectedExceptionTypeHasNoParams !ModuleName !TypeConName
@@ -340,6 +341,11 @@ instance Pretty Error where
       , "* found:" <-> pretty foundType
       , "* problem:"
       , nest 4 (pretty info)
+      ]
+    EExpectedKeyTypeWithoutContractId foundType ->
+      vcat
+      [ "contract key type should not contain ContractId:"
+      , "* found:" <-> pretty foundType
       ]
     EExpectedAnyType foundType ->
       "expected a type containing neither type variables nor quantifiers, but found: " <> pretty foundType

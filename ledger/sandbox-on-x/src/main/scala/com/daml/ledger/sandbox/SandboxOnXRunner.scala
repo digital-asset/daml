@@ -120,7 +120,7 @@ object SandboxOnXRunner {
       materializer: Materializer,
       actorSystem: ActorSystem,
       metrics: Option[Metrics] = None,
-  ): ResourceOwner[(ApiServer, WriteService)] = {
+  ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
     val sharedEngine = new Engine(
@@ -203,9 +203,7 @@ object SandboxOnXRunner {
             timeServiceBackend,
             dbSupport,
           )
-        } yield {
-          apiServer -> writeService
-        }
+        } yield (apiServer, writeService, indexService)
     }
   }
 

@@ -236,6 +236,8 @@ private[validation] object Typing {
       BBigNumericToText -> (TBigNumeric ->: TText),
       // Exception functions
       BAnyExceptionMessage -> (TAnyException ->: TText),
+      // TypeRep functions
+      BTypeRepTyConName -> (TTypeRep ->: TOptional(TText)),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),
@@ -1067,7 +1069,7 @@ private[validation] object Typing {
       case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
-    def typeOf(expr0: Expr): Type = expr0 match {
+    def typeOf(expr: ExprAtomic): Type = expr match {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
@@ -1078,6 +1080,20 @@ private[validation] object Typing {
         typeOfPRimCon(con)
       case EPrimLit(lit) =>
         typeOfPrimLit(lit)
+      case EEnumCon(tyCon, constructor) =>
+        checkEnumCon(tyCon, constructor)
+        TTyCon(tyCon)
+      case ENil(typ) =>
+        checkType(typ, KStar)
+        TList(typ)
+      case ENone(typ) =>
+        checkType(typ, KStar)
+        TOptional(typ)
+    }
+
+    def typeOf(expr0: Expr): Type = expr0 match {
+      case expr: ExprAtomic =>
+        typeOf(expr)
       case ERecCon(tycon, fields) =>
         checkRecCon(tycon, fields)
         typeConAppToType(tycon)
@@ -1088,9 +1104,6 @@ private[validation] object Typing {
       case EVariantCon(tycon, variant, arg) =>
         checkVariantCon(tycon, variant, arg)
         typeConAppToType(tycon)
-      case EEnumCon(tyCon, constructor) =>
-        checkEnumCon(tyCon, constructor)
-        TTyCon(tyCon)
       case EStructCon(fields) =>
         typeOfStructCon(fields)
       case proj: EStructProj =>
@@ -1112,9 +1125,6 @@ private[validation] object Typing {
         typeOfCase(scruct, alts)
       case ELet(binding, body) =>
         typeOfLet(binding, body)
-      case ENil(typ) =>
-        checkType(typ, KStar)
-        TList(typ)
       case ECons(typ, front, tail) =>
         checkCons(typ, front, tail)
         TList(typ)
@@ -1124,9 +1134,6 @@ private[validation] object Typing {
         typeOfScenario(scenario)
       case ELocation(loc, expr) =>
         newLocation(loc).typeOf(expr)
-      case ENone(typ) =>
-        checkType(typ, KStar)
-        TOptional(typ)
       case ESome(typ, body) =>
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
@@ -1163,6 +1170,11 @@ private[validation] object Typing {
         checkImplements(tpl, iface)
         checkExpr(value, TTyCon(iface))
         TOptional(TTyCon(tpl))
+      case EUnsafeFromInterface(iface, tpl, cid, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(cid, TContractId(TTyCon(iface)))
+        checkExpr(value, TTyCon(iface))
+        TTyCon(tpl)
       case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
         val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
         if (!requiringIface.requires.contains(requiredIfaceId))
@@ -1175,6 +1187,13 @@ private[validation] object Typing {
           throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
         checkExpr(body, TTyCon(requiredIfaceId))
         TOptional(TTyCon(requiringIfaceId))
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
+        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(cid, TContractId(TTyCon(requiredIfaceId)))
+        checkExpr(body, TTyCon(requiredIfaceId))
+        TTyCon(requiringIfaceId)
       case ECallInterface(iface, methodName, value) =>
         val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
         checkExpr(value, TTyCon(iface))

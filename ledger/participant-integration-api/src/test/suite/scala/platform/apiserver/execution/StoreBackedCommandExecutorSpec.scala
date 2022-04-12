@@ -10,7 +10,7 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.command.{ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -44,7 +44,7 @@ class StoreBackedCommandExecutorSpec
         mockEngine.submit(
           any[Set[Ref.Party]],
           any[Set[Ref.Party]],
-          any[com.daml.lf.command.Commands],
+          any[com.daml.lf.command.ApiCommands],
           any[ParticipantId],
           any[Hash],
         )(any[LoggingContext])

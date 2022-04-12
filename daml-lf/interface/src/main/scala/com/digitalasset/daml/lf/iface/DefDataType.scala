@@ -177,6 +177,7 @@ final case class DefTemplate[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
     unresolvedInheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
     key: Option[Ty],
+    implementedInterfaces: Seq[Ref.TypeConName],
 ) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
@@ -196,7 +197,7 @@ final case class DefTemplate[+Ty](
         } yield (choiceName, tchoice)
         resolution toRight pair
     }
-    DefTemplate(choices ++ resolved, missing.toMap, key)
+    this.copy(choices = choices ++ resolved, unresolvedInheritedChoices = missing.toMap)
   }
 
   def getKey: j.Optional[_ <: Ty] =
@@ -247,7 +248,15 @@ object TemplateChoice {
 final case class DefInterface[+Ty](choices: Map[Ref.ChoiceName, TemplateChoice[Ty]])
     extends DefTemplate.GetChoices[Ty]
 
-object DefInterface extends FWTLike[DefInterface]
+object DefInterface extends FWTLike[DefInterface] {
+
+  implicit val `InterfaceDecl fold`: Foldable[DefInterface] =
+    new Foldable.FromFoldMap[DefInterface] {
+      override def foldMap[A, B: Monoid](fa: DefInterface[A])(f: A => B): B =
+        fa.choices.foldMap(_ foldMap f)
+    }
+
+}
 
 /** Add aliases to companions. */
 sealed abstract class FWTLike[F[+_]] {

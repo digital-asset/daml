@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v2.{SubmissionResult, WriteService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf
-import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.command.{ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}

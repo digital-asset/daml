@@ -19,7 +19,7 @@ trait ContextualizedErrorLogger {
 object ContextualizedErrorLogger {
 
   /** Formats the context as a string for logging */
-  protected[error] def formatContextAsString(contextMap: Map[String, String]): String = {
+  def formatContextAsString(contextMap: Map[String, String]): String = {
     contextMap
       .filter(_._2.nonEmpty)
       .toSeq

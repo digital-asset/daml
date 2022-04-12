@@ -24,10 +24,10 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
         id = "USER_NOT_FOUND",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-    case class Reject(_operation: String, userId: String)(implicit
+    case class Reject(operation: String, userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${_operation} failed for unknown user \"${userId}\""
+          cause = s"${operation} failed for unknown user \"${userId}\""
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId
@@ -43,10 +43,10 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
         id = "USER_ALREADY_EXISTS",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
-    case class Reject(_operation: String, userId: String)(implicit
+    case class Reject(operation: String, userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${_operation} failed, as user \"${userId}\" already exists"
+          cause = s"${operation} failed, as user \"${userId}\" already exists"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId
@@ -67,10 +67,10 @@ object UserManagementServiceErrors extends AdminServices.UserManagementServiceEr
         id = "TOO_MANY_USER_RIGHTS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    case class Reject(_operation: String, userId: String)(implicit
+    case class Reject(operation: String, userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${_operation} failed, as user \"${userId}\" would have too many rights."
+          cause = s"${operation} failed, as user \"${userId}\" would have too many rights."
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId

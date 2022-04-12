@@ -262,6 +262,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // EFromInterface
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
+        // EUnsafeFromInterface
+        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_interface @Mod:I @Mod:Ti cid i ))" ->
+          T"ContractId Mod:I → Mod:I → Mod:Ti",
+        // EToRequiredInterface
+        E"λ (sub: Mod:SubI) → (( to_required_interface @Mod:I @Mod:SubI sub ))" ->
+          T"Mod:SubI → Mod:I",
+        // EFromRequiredInterface
+        E"λ (i: Mod:I) → (( from_required_interface @Mod:I @Mod:SubI i ))" ->
+          T"Mod:I → Option Mod:SubI",
+        // EUnsafeFromRequiredInterface
+        E"λ (cid: ContractId Mod:I) (i: Mod:I) → (( unsafe_from_required_interface @Mod:I @Mod:SubI cid i ))" ->
+          T"ContractId Mod:I → Mod:I → Mod:SubI",
         // ECallInterface
         E"λ (i: Mod:I) → (( call_method @Mod:I getParties i ))" ->
           T"Mod:I → List Party",
@@ -1339,6 +1351,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       val pkg =
         p"""
           module NegativeTestCase {
+            interface (this : X) = {
+              precondition True;
+              method getX: List Party;
+            };
+
             interface (this : I) =  {
               precondition True;
               method getParties: List Party;
@@ -1401,6 +1418,136 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                 to upure @(List) (/\ (tau : *). Nil @tau);
             } ;
           }
+
+          module PositiveTestCase_UnknownDefinition {
+              interface (this : I) =  {
+              requires NegativeTestCase:J;
+              precondition True;
+            } ;
+          }
+
+          module PositiveTestCase_MissingRequiredInterface {
+            interface (this : Y) =  {
+              requires NegativeTestCase:X;
+              precondition True;
+            } ;
+
+            record @serializable T = { person: Party, name: Text };
+            template (this : T) =  {
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              implements PositiveTestCase_MissingRequiredInterface:Y {
+              };
+           };
+          }
+
+          module PositiveTestCase_WrongInterfaceRequirement1 {
+            interface (this : Y) = {
+              precondition True;
+            };
+            interface (this : Z) = {
+              precondition True;
+            };
+            interface (this : X) =  {
+              requires PositiveTestCase_WrongInterfaceRequirement1:Y;
+              precondition True;
+              choice ToY (self) (arg : Unit) : PositiveTestCase_WrongInterfaceRequirement1:Z,
+                  controllers Nil@Party
+                to upure @PositiveTestCase_WrongInterfaceRequirement1:Z
+                          (to_required_interface @PositiveTestCase_WrongInterfaceRequirement1:Z
+                                                 @PositiveTestCase_WrongInterfaceRequirement1:X
+                                                 this);
+            } ;
+          }
+
+          module PositiveTestCase_WrongInterfaceRequirement2 {
+            interface (this : Y) = {
+              precondition True;
+            };
+            interface (this : Z) = {
+              precondition True;
+            };
+            interface (this : X) =  {
+              requires PositiveTestCase_WrongInterfaceRequirement2:Y;
+              precondition True;
+              choice ToY (self) (arg : PositiveTestCase_WrongInterfaceRequirement2:Z) : Option PositiveTestCase_WrongInterfaceRequirement2:X,
+                  controllers Nil@Party
+                to upure @(Option PositiveTestCase_WrongInterfaceRequirement2:X)
+                          (from_required_interface @PositiveTestCase_WrongInterfaceRequirement2:Z
+                                                   @PositiveTestCase_WrongInterfaceRequirement2:X
+                                                   arg);
+            } ;
+          }
+
+          module NegativeTestCase_WrongInterfaceRequirement3 {
+            interface (this : Y) = {
+              precondition True;
+            };
+            interface (this : Z) = {
+              precondition True;
+            };
+            interface (this : X) =  {
+              requires NegativeTestCase_WrongInterfaceRequirement3:Y;
+              precondition True;
+              choice ToY (self) (arg : Unit) : NegativeTestCase_WrongInterfaceRequirement3:Y,
+                  controllers Nil@Party
+                to upure @NegativeTestCase_WrongInterfaceRequirement3:Y
+                          (to_required_interface @NegativeTestCase_WrongInterfaceRequirement3:Y
+                                                 @NegativeTestCase_WrongInterfaceRequirement3:X
+                                                 this);
+            } ;
+          }
+
+          module NegativeTestCase_WrongInterfaceRequirement4 {
+            interface (this : Y) = {
+              precondition True;
+            };
+            interface (this : Z) = {
+              precondition True;
+            };
+            interface (this : X) =  {
+              requires NegativeTestCase_WrongInterfaceRequirement4:Y;
+              precondition True;
+              choice ToY (self) (arg : NegativeTestCase_WrongInterfaceRequirement4:Y) : Option NegativeTestCase_WrongInterfaceRequirement4:X,
+                  controllers Nil@Party
+                to upure @(Option NegativeTestCase_WrongInterfaceRequirement4:X)
+                          (from_required_interface @NegativeTestCase_WrongInterfaceRequirement4:Y
+                                                   @NegativeTestCase_WrongInterfaceRequirement4:X
+                                                   arg);
+            } ;
+          }
+
+          module PositiveTestCase_CircularInterfaceRequires {
+            interface (this : X) =  {
+              requires PositiveTestCase_CircularInterfaceRequires:Y;
+              requires PositiveTestCase_CircularInterfaceRequires:Z;
+              requires PositiveTestCase_CircularInterfaceRequires:X;
+              precondition True;
+            };
+            interface (this : Y) = {
+              precondition True;
+            };
+            interface (this : Z) = {
+              precondition True;
+            };
+          }
+
+          module PositiveTestCase_NotClosedInterfaceRequires {
+            interface (this : X) =  {
+              requires PositiveTestCase_NotClosedInterfaceRequires:Y;
+              precondition True;
+            };
+            interface (this : Y) = {
+              requires PositiveTestCase_NotClosedInterfaceRequires:Z;
+              precondition True;
+            };
+            interface (this : Z) = {
+              requires PositiveTestCase_NotClosedInterfaceRequires:X;
+              precondition True;
+            };
+          }
       """
 
       val typeMismatchCases = Table(
@@ -1426,6 +1573,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         )
 
       checkModule(pkg, "NegativeTestCase")
+      checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement3")
+      checkModule(pkg, "NegativeTestCase_WrongInterfaceRequirement4")
       "NegativeTestCase" shouldBe "NegativeTestCase"
       forEvery(typeMismatchCases)(module =>
         an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
@@ -1433,7 +1582,24 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       forEvery(kindMismatchCases)(module =>
         an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module))
       )
-
+      an[EUnknownDefinition] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_UnknownDefinition")
+      )
+      an[EMissingRequiredInterface] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_MissingRequiredInterface")
+      )
+      an[EWrongInterfaceRequirement] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_WrongInterfaceRequirement1")
+      )
+      an[EWrongInterfaceRequirement] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_WrongInterfaceRequirement2")
+      )
+      an[ECircularInterfaceRequires] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_CircularInterfaceRequires")
+      )
+      an[ENotClosedInterfaceRequires] shouldBe thrownBy(
+        checkModule(pkg, "PositiveTestCase_NotClosedInterfaceRequires")
+      )
     }
 
   }
@@ -1701,6 +1867,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               choice ChIface (self) (x: Int64) : Decimal,
                   controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
+         };
+
+         interface (this : SubI) = {
+              requires Mod:I;
+              precondition True;
          };
 
           interface (this : J) = {

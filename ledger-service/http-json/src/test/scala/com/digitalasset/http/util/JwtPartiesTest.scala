@@ -8,8 +8,8 @@ import domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.EndpointsCompanion.Unauthorized
 import com.daml.lf.value.test.ValueGenerators.{party => partyGen}
 import com.daml.scalautil.Statement.discard
-import com.daml.scalautil.nonempty.NonEmpty
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary

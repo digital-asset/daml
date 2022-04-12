@@ -273,15 +273,11 @@ convertPrim _ "UExercise"
 convertPrim _ "UExerciseInterface"
     (   TContractId (TCon iface)
     :-> TCon choice
-    :-> TOptional TTypeRep
     :-> (TCon iface2 :-> TBuiltin BTBool)
     :->  TUpdate _returnTy)
     | iface == iface2 =
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
-    -- TODO https://github.com/digital-asset/daml/issues/13275
-    --  Remove typeRep param.
-    ETmLam (mkVar "typeRep", TOptional TTypeRep) $
     ETmLam (mkVar "pred", TCon iface :-> TBuiltin BTBool) $
     EUpdate $ UExerciseInterface
         { exeInterface  = iface
@@ -400,6 +396,12 @@ convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
     ETmLam (mkVar "i", TCon iface) $
         EFromInterface iface tpid (EVar $ mkVar "i")
 
+convertPrim _ "EUnsafeFromInterface" (TContractId (TCon iface) :-> TCon iface1 :-> TCon tpid)
+    | iface == iface1
+        = ETmLam (mkVar "cid", TContractId (TCon iface))
+        $ ETmLam (mkVar "i", TCon iface)
+        $ EUnsafeFromInterface iface tpid (EVar $ mkVar "cid") (EVar $ mkVar "i")
+
 convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
     ETmLam (mkVar "i", TCon subIface) $
         EToRequiredInterface superIface subIface (EVar $ mkVar "i")
@@ -407,6 +409,14 @@ convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
 convertPrim _ "EFromRequiredInterface" (TCon superIface :-> TOptional (TCon subIface)) =
     ETmLam (mkVar "i", TCon superIface) $
         EFromRequiredInterface superIface subIface (EVar $ mkVar "i")
+
+convertPrim _ "EUnsafeFromRequiredInterface" (TContractId (TCon superIface) :-> TCon superIface1 :-> TCon subIface)
+    | superIface == superIface1
+        = ETmLam (mkVar "cid", TContractId (TCon superIface))
+        $ ETmLam (mkVar "i", TCon superIface)
+        $ EUnsafeFromRequiredInterface superIface subIface (EVar $ mkVar "cid") (EVar $ mkVar "i")
+
+convertPrim _ "ETypeRepTyConName" (TTypeRep :-> TOptional TText) = EBuiltin BETypeRepTyConName
 
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ

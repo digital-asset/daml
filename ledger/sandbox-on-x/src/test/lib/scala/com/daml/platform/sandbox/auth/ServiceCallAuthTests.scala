@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandbox.auth
 
-import java.time.Duration
-import java.util.UUID
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -13,12 +11,16 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import io.grpc.Status
 import io.grpc.stub.AbstractStub
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.time.Duration
+import java.util.UUID
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
@@ -28,6 +30,21 @@ trait ServiceCallAuthTests
     with SandboxRequiringAuthorization
     with SuiteResourceManagementAroundAll
     with Matchers {
+
+  val securityAsset: SecurityTest =
+    SecurityTest(property = Authorization, asset = serviceCallName)
+
+  def attack(threat: String): Attack = Attack(
+    actor = s"Ledger API client calling $serviceCallName",
+    threat = threat,
+    mitigation = s"Refuse to connect the user to $serviceCallName",
+  )
+
+  def streamAttack(threat: String): Attack = Attack(
+    actor = s"Ledger API stream client calling $serviceCallName",
+    threat = threat,
+    mitigation = s"Break the stream of $serviceCallName",
+  )
 
   def serviceCallName: String
 

@@ -15,7 +15,6 @@ import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
 }
-import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
@@ -50,7 +49,6 @@ final class LedgerTestCasesRunner(
     uploadDars: Boolean = true,
     identifierSuffix: String = "test",
     commandInterceptors: Seq[ClientInterceptor] = Seq.empty,
-    clientTlsConfiguration: Option[TlsConfiguration],
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
@@ -161,8 +159,7 @@ final class LedgerTestCasesRunner(
   }
 
   private def uploadDarsIfRequired(
-      sessions: Vector[ParticipantSession],
-      clientTlsConfiguration: Option[TlsConfiguration],
+      sessions: Vector[ParticipantSession]
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     if (uploadDars) {
       Future
@@ -171,7 +168,6 @@ final class LedgerTestCasesRunner(
             context <- session.createInitContext(
               applicationId = "upload-dars",
               identifierSuffix = identifierSuffix,
-              clientTlsConfiguration = clientTlsConfiguration,
               features = session.features,
             )
             _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
@@ -195,7 +191,7 @@ final class LedgerTestCasesRunner(
   ): Future[Vector[LedgerTestSummary]] = {
     val testCaseRepetitions = testCases.flatMap(_.repetitions)
     val testCount = testCaseRepetitions.size
-    logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
+    logger.info(s"Running $testCount tests with concurrency of $concurrency.")
     Source(testCaseRepetitions.zipWithIndex)
       .mapAsyncUnordered(concurrency) { case (test, index) =>
         run(test, ledgerSession).map(summarize(test.suite, test.testCase, _) -> index)
@@ -215,6 +211,7 @@ final class LedgerTestCasesRunner(
       participantChannels = participantChannels,
       maxConnectionAttempts = maxConnectionAttempts,
       commandInterceptors = commandInterceptors,
+      timeoutScaleFactor = timeoutScaleFactor,
     )
     sessions
       .flatMap { sessions: Vector[ParticipantSession] =>
@@ -240,11 +237,10 @@ final class LedgerTestCasesRunner(
         val ledgerSession = LedgerSession(
           sessions,
           shuffleParticipants,
-          clientTlsConfiguration = clientTlsConfiguration,
         )
         val testResults =
           for {
-            _ <- uploadDarsIfRequired(sessions, clientTlsConfiguration)
+            _ <- uploadDarsIfRequired(sessions)
             concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,

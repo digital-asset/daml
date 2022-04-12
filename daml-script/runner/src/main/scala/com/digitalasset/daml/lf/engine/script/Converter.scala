@@ -224,7 +224,7 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
-        } yield command.CreateCommand(
+        } yield command.ApiCommand.Create(
           templateId = anyTemplate.ty,
           argument = anyTemplate.arg.toUnnormalizedValue,
         )
@@ -240,7 +240,7 @@ object Converter {
           tplId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ExerciseCommand(
+        } yield command.ApiCommand.Exercise(
           templateId = tplId,
           contractId = cid,
           choiceId = anyChoice.name,
@@ -258,7 +258,7 @@ object Converter {
           tplId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ExerciseByKeyCommand(
+        } yield command.ApiCommand.ExerciseByKey(
           templateId = tplId,
           contractKey = anyKey.key.toUnnormalizedValue,
           choiceId = anyChoice.name,
@@ -268,13 +268,13 @@ object Converter {
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
-  def toCreateAndExerciseCommand(v: SValue): Either[String, command.CreateAndExerciseCommand] =
+  def toCreateAndExerciseCommand(v: SValue): Either[String, command.ApiCommand.CreateAndExercise] =
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
           anyChoice <- toAnyChoice(vals.get(1))
-        } yield command.CreateAndExerciseCommand(
+        } yield command.ApiCommand.CreateAndExercise(
           templateId = anyTemplate.ty,
           createArgument = anyTemplate.arg.toUnnormalizedValue,
           choiceId = anyChoice.name,

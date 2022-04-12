@@ -19,8 +19,10 @@ import com.daml.platform.store.backend.PackageStorageBackend
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.PackageLedgerEntry
 
-private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCache)
-    extends PackageStorageBackend {
+private[backend] class PackageStorageBackendTemplate(
+    queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
+) extends PackageStorageBackend {
 
   private case class ParsedPackageData(
       packageId: String,
@@ -93,11 +95,13 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PackageLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""
       select * from package_entries
-      where ($startExclusive is null or ledger_offset>$startExclusive)
-      and ledger_offset<=$endInclusive
+      where ${queryStrategy.offsetIsBetween(
+      nonNullableColumn = "ledger_offset",
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+    )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

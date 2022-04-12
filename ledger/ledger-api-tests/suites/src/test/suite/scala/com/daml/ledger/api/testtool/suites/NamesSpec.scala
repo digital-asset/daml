@@ -42,7 +42,8 @@ class NamesSpec extends AnyWordSpec with Matchers {
 }
 
 object NamesSpec {
-  private val allTestSuites = v1_dev.default(timeoutScaleFactor = 1) ++ v1_dev.optional()
+  private val allTestSuites =
+    v1_dev.default(timeoutScaleFactor = 1) ++ v1_dev.optional(tlsConfig = None)
   private val allTestSuiteNames = allTestSuites.map(_.name).sorted
 
   private val allTests = allTestSuites.flatMap(_.tests)

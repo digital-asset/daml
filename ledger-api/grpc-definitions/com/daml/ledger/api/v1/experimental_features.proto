@@ -21,6 +21,7 @@ message ExperimentalFeatures {
   CommandDeduplicationFeatures command_deduplication = 3;
   ExperimentalOptionalLedgerId optional_ledger_id = 4;
   ExperimentalContractIds contract_ids = 5;
+  ExperimentalCommitterEventLog committer_event_log = 6;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -85,5 +86,20 @@ message ExperimentalContractIds {
     // This can be useful for shorter contract IDs in centralized committer implementations.
     // Suffixed contract IDs must also be supported.
     NON_SUFFIXED = 1;
+  }
+}
+
+// How the committer stores events.
+message ExperimentalCommitterEventLog {
+
+  CommitterEventLogType event_log_type = 1;
+
+  enum CommitterEventLogType {
+    // Default. There is a single log.
+    CENTRALIZED = 0;
+    // There is more than one event log. Usually, when the committer itself is distributed.
+    // Or there are per-participant event logs.
+    // It may result in transaction IDs being different for the same transaction across participants, for example.
+    DISTRIBUTED = 1;
   }
 }

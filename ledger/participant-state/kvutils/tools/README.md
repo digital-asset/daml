@@ -32,55 +32,30 @@ The following options are supported:
     --expected-updates-output   The output path for expected updates. Useful for debugging. It might be worth sorting the output files and using a diff tool.
     --actual-updates-output     Similarly, the output path for actual updates.
 
-# `benchmark-replay`
+# `submission-entries-extractor`
 
-This benchmarks the LF engine using transactions from a ledger export stored in a file.
+This submission-entries-extractor tool extracts from a ledger export a set of so-called 
+"submission entries" which are readable by LF. Do not delete/change without sync with 
+the language team.
 
 ## Build 
 
 Build the tool with Bazel:
 
-    bazel build //ledger/participant-state/kvutils/tools:benchmark-replay 
+    bazel build //ledger/participant-state/kvutils/tools:submission-entries-extractor
     
 ## Running the tool 
 
 Run the tool using Bazel and pass the benchmark parameters using `-p`
 jmh command line functionality:
 
-    bazel run //ledger/participant-state/kvutils/tools:benchmark-replay -- \
-      -p ledgerFile=<ledger export files>                                  \
-      -p choiceName=<exercise choice names>                                \
-      [-p exerciseIndex=<index of the exercise node>]                      \
-      [-p darFile=<dar files>]                                              
-
+    bazel run //ledger/participant-state/kvutils/tools:submission-entries-extractor -- \
+      <ledger export file>                                                             \
+      -o <submission entries file>
 
 where:
 
-* `<ledger export files>`: is the full path of the ledger export
-  files to be used separated by commas (`,`)
+* `<ledger export file>`: is the full path of the ledger export file
 
-* `<exercise choice names>`: is the full qualified choice name of the
-  root exercise node to be benchmarked separated by commas (`,`). A full
-  qualified choice name should be of the form
-  `ModuleName:TemplateName:ChoiceName`.  Note the package ID is
-  omitted. By default, the tool benchmarks the first choice with 
-  such a name it finds in the ledger export.
-
-* the optional parameter `<position of the exercise node>` is the 
-  index of the exercise among the root exercise nodes that matches
-  choice name specified by the `choiceName` parameter in the order 
-  they appear in the export.
-
-* the optional parameter `<dar files>` specify the full path of 
-  the dar files to be used  separated by commas (`,`). If defined 
-  the program contained in the dar file is used instead of one
-  present in the ledger export, and the export is "adapted" to this 
-  program. The adaptation process attempts to map the identifiers
-  from the export file with the ones of dar file when those latter
-  differ only in their package ID.  This can be used when the original
-  Daml source used to generate the ledger export is only slightly
-  modified or compiled with different options.
-  
-The tool expects the exercised choices to be unique in the ledger
-export.  If two or more transactions in the export exercise the same
-choice (same template name same choice name), both are ignored.
+* `<submission entries file>`: is the full path of the file in which the 
+  resulting submission entries must be written.

@@ -8,7 +8,7 @@ import lf.data.Ref
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.nonempty.NonEmpty
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.string._

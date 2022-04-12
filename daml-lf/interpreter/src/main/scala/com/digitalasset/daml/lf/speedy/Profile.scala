@@ -238,7 +238,6 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
-      implicit val createByInterfaceDefRef: Allowed[CreateByInterfaceDefRef] = allowAll
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
@@ -262,8 +261,6 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
-          case CreateByInterfaceDefRef(tmplRef, iface) =>
-            s"creatByInterface @${tmplRef.qualifiedName} @${iface.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"

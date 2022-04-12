@@ -87,6 +87,18 @@ private[lf] object Pretty {
         ) /
           text("Expected contract to implement interface") & prettyTypeConName(interfaceId) &
           text("but contract has type") & prettyTypeConName(templateId)
+      case ContractDoesNotImplementRequiringInterface(
+            requiringIfaceId,
+            requiredIfaceId,
+            coid,
+            templateId,
+          ) =>
+        text("Update failed due to contract") & prettyContractId(coid) & text(
+          "not implementing the requiring interface"
+        ) /
+          text("Expected contract to implement interface") & prettyTypeConName(requiringIfaceId) &
+          text("requirring the interface") & prettyTypeConName(requiredIfaceId) &
+          text("but contract has type") & prettyTypeConName(templateId)
       case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
@@ -271,7 +283,7 @@ private[lf] object Pretty {
           else
             text("")
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
+          (text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId)) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
@@ -503,11 +515,7 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate(None) =>
-              text("$create")
-            case SBUCreate(Some(iface)) =>
-              text("$createByInterface") + char(',') + text(iface.qualifiedName.toString) +
-                char(']')
+            case SBUCreate => text("$create")
             case SBFetchAny => text("$fetchAny")
             case SBGetTime => text("$getTime")
             case _ => str(x)

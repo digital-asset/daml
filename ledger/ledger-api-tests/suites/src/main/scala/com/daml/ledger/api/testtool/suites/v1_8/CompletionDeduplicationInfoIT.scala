@@ -31,7 +31,7 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](
 
   private val serviceName: String = service.productPrefix
 
-  override private[testtool] def name = super.name + serviceName
+  override def name = super.name + serviceName
 
   test(
     shortIdentifier = s"CCDIIncludeDedupInfo$serviceName",

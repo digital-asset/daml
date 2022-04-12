@@ -211,7 +211,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       signatories = signatories,
       stakeholders = stakeholders,
       key = key,
-      byInterface = None,
       version = txVersion,
     )
 
@@ -233,7 +232,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       exerciseResult = Some(someChoiceResult),
       key = key,
       byKey = false,
-      byInterface = None,
       version = txVersion,
     )
 
@@ -249,7 +247,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       stakeholders = Set(party),
       None,
       byKey = false,
-      byInterface = None,
       version = txVersion,
     )
 
@@ -391,7 +388,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseResult = Some(someChoiceResult),
         key = None,
         byKey = false,
-        byInterface = None,
         version = txVersion,
       )
     )
@@ -404,7 +400,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(alice),
         None,
         byKey = false,
-        byInterface = None,
         version = txVersion,
       ),
       exerciseId,
@@ -726,7 +721,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         signatories = Set(party),
         stakeholders = Set(party),
         key = Some(Node.KeyWithMaintainers(someContractKey(party, key), Set(party))),
-        byInterface = None,
         version = txVersion,
       )
     )
@@ -767,7 +761,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseResult = Some(LfValue.ValueUnit),
         key = maybeKey.map(k => Node.KeyWithMaintainers(someContractKey(party, k), Set(party))),
         byKey = false,
-        byInterface = None,
         version = txVersion,
       )
     )
@@ -828,7 +821,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(party),
         None,
         byKey = false,
-        byInterface = None,
         version = txVersion,
       )
     )

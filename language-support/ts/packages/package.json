@@ -33,6 +33,7 @@
     "**/hosted-git-info": "^4.0.2",
     "**/string-width": "^4.2.3",
     "**/strip-ansi": "^6.0.1",
-    "**/ansi-regex": "^5.0.1"
+    "**/ansi-regex": "^5.0.1",
+    "**/minimist": "^1.2.6"
   }
 }

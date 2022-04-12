@@ -3,8 +3,8 @@
 
 .. _exceptions:
 
-Exceptions
-##########
+Reference: Exceptions
+#####################
 
 Exceptions are a Daml feature which provides a way to handle
 certain errors that arise during interpretation instead of aborting

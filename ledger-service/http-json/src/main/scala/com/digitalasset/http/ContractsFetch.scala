@@ -23,7 +23,7 @@ import com.daml.fetchcontracts.util.{
   LedgerBegin,
 }
 import com.daml.scalautil.ExceptionOps._
-import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.nonempty.NonEmpty
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}

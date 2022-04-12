@@ -61,7 +61,7 @@ case class QueryNonPrunedImpl(
         throw LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
           .Reject(
             cause = error(pruningOffsetUpToInclusive),
-            _earliestOffset = pruningOffsetUpToInclusive.toHexString,
+            earliestOffset = pruningOffsetUpToInclusive.toHexString,
           )(
             new DamlContextualizedErrorLogger(logger, loggingContext, None)
           )

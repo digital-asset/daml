@@ -4,6 +4,8 @@
 Operating Daml
 ==============
 
+The Operating Daml section covers various processes that may be necessary to support Daml applications in a business environment, such as participant pruning and metering, as well as the basic system requirements for Daml applications. Additional operating information for supporting Daml applications using the Canton distributed ledger protocol can be found in the `Platform Operations User Manual <https://docs.daml.com/canton/usermanual/usermanual.html>`_.
+
 .. toctree::
   :maxdepth: 2
 

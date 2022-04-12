@@ -3,9 +3,6 @@
 
 package com.daml.platform.sandbox.auth
 
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
-
 import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.v1.admin.user_management_service.Right
@@ -18,10 +15,13 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.timer.Delayed
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 
@@ -42,7 +42,9 @@ final class OngoingStreamAuthIT
 
   private val testId = UUID.randomUUID().toString
 
-  it should "abort an ongoing stream after user state has changed" in {
+  it should "abort an ongoing stream after user state has changed" taggedAs securityAsset.setAttack(
+    streamAttack(threat = "Continue privileged stream access after revocation of rights")
+  ) in {
     val partyAlice = "alice-party"
     val userIdAlice = testId + "-alice"
     val receivedTransactionsCount = new AtomicInteger(0)
