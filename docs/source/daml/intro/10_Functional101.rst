@@ -60,6 +60,7 @@ In the case of ``increment`` it could have been omitted. Similarly, we could def
 If you do this, and wonder what type the compiler has inferred, you can hover over the function name in the IDE:
 
 .. figure:: images/9_Functional101/signature.png
+   :alt: The user has hovered over the function "add", displaying its type and information on where to find the definition.
 
 What you see here is a slightly more complex signature:
 

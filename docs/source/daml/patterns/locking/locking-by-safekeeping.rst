@@ -42,8 +42,9 @@ There is no need to make a change to the original contract. With two additional 
   :end-before: -- END_LOCKED_COIN_V2_TEMPLATE
 
 .. figure:: ../images/lockingBySafekeeping.png
+   :alt: Locking by Safekeeping diagram, showing the ownership transfer of Coin and the creation of LockedCoin
 
-  Locking By Safekeeping Diagram
+   Locking By Safekeeping Diagram
 
 Trade-offs
 **********
