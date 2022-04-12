@@ -82,9 +82,9 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          result.activeAssets should ===(Set(contractId))
-          result.successfulCompletions should ===(2)
-          result.failedCompletions should ===(0)
+          result.activeAssets shouldBe Set(contractId)
+          result.successfulCompletions shouldBe 2
+          result.failedCompletions shouldBe 0
           acs(assetMirrorId) should have size 1
         }
       }
@@ -109,9 +109,9 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          result.activeAssets should ===(Set(contractId1, contractId2))
-          result.successfulCompletions should ===(4)
-          result.failedCompletions should ===(0)
+          result.activeAssets shouldBe Set(contractId1, contractId2)
+          result.successfulCompletions shouldBe 4
+          result.failedCompletions shouldBe 0
           acs(assetMirrorId) should have size 2
         }
       }
@@ -140,8 +140,8 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           result.activeAssets shouldBe empty
-          result.successfulCompletions should ===(4)
-          result.failedCompletions should ===(0)
+          result.successfulCompletions shouldBe 4
+          result.failedCompletions shouldBe 0
           acs(assetMirrorId) should have size 2
         }
       }
@@ -353,7 +353,7 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           val vals = acs(tId).map(_.fields(1).getValue.getNumeric).toSet
-          vals should ===(Set("1.06000000000", "2.06000000000"))
+          vals shouldBe Set("1.06000000000", "2.06000000000")
         }
       }
     }
@@ -489,7 +489,7 @@ abstract class AbstractFuncTests
           // 2 heartbeats
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
         } yield {
-          finalState should ===(SInt64(2))
+          finalState shouldBe SInt64(2)
         }
       }
     }
@@ -515,7 +515,7 @@ abstract class AbstractFuncTests
                       // Given the limited resolution it can happen that t0 == t1
                       t0 should be >= t1
                     case Some(TimeProviderType.Static) =>
-                      t0 should ===(t1)
+                      t0 shouldBe t1
                   }
                 case v => fail(s"Expected list with 2 elements but got $v")
               }
