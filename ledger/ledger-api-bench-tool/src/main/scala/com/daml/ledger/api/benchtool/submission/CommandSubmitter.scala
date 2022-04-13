@@ -16,7 +16,6 @@ import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient.CreateResult
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -120,12 +119,10 @@ case class CommandSubmitter(
   private def submitAndWait(
       id: String,
       party: Primitive.Party,
-      createCmdAndContinuations: Seq[CreateCmdAndContinuations],
+      commands: Seq[Command],
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    val commands = createCmdAndContinuations.map(_.createCommand)
-
     def makeCommands(commands: Seq[Command]) = new Commands(
       ledgerId = benchtoolUserServices.ledgerId,
       applicationId = names.benchtoolApplicationId,
@@ -136,22 +133,9 @@ case class CommandSubmitter(
     )
 
     for {
-      createCmdResult <- benchtoolUserServices.commandService
+      _ <- benchtoolUserServices.commandService
         .submitAndWaitForTransactionTree(makeCommands(commands))
-      continuations: Seq[Command] = createCmdResult
-        .zip(createCmdAndContinuations)
-        .collect { case (cr: CreateResult, commandAndCont) =>
-          commandAndCont.continuationF(cr.contractId)
-        }
-        .flatten
-      _ <-
-        if (continuations.nonEmpty) {
-          val commands1 = makeCommands(continuations).copy(commandId = id + "-cont")
-          benchtoolUserServices.commandService
-            .submitAndWaitForTransactionTree(commands1)
-            .map(_ => ())
-        } else
-          Future.successful(())
+      _ <- Future.successful(())
     } yield ()
   }
 
@@ -210,7 +194,7 @@ case class CommandSubmitter(
                 submitAndWait(
                   id = names.commandId(index),
                   party = signatory,
-                  createCmdAndContinuations = commands,
+                  commands = commands.flatten,
                 )
               )
                 .map(_ => index + commands.length - 1)

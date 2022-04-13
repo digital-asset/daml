@@ -4,20 +4,16 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
-import com.daml.ledger.api.v1.commands.{Command, ExerciseCommand}
+import com.daml.ledger.api.v1.commands.Command
+import com.daml.ledger.api.v1.commands.ExerciseByKeyCommand
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Foo._
-
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicLong
+
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
-
-case class CreateCmdAndContinuations(
-    createCommand: Command,
-    continuationF: ContractId => Seq[Command] = _ => Seq.empty,
-)
 
 case class TemplateDescriptor(
     templateId: Identifier,
@@ -28,8 +24,6 @@ case class TemplateDescriptor(
 /** NOTE: Keep me in sync with `Foo.daml`
   */
 object TemplateDescriptor {
-
-  val ArchiveChoiceName = "Archive"
 
   val Foo1: TemplateDescriptor = TemplateDescriptor(
     templateId = com.daml.ledger.test.model.Foo.Foo1.id.asInstanceOf[Identifier],
@@ -60,8 +54,9 @@ final class CommandGenerator(
       .map(_.swap)
       .toMap
   private val observersWithIndices: List[(Primitive.Party, Int)] = observers.zipWithIndex
+  private val nextCommandId = new AtomicLong(0)
 
-  def next(): Try[CreateCmdAndContinuations] =
+  def next(): Try[Seq[Command]] =
     (for {
       (description, observers) <- Try((pickDescription(), pickObservers()))
       createContractPayload <- Try(randomPayload(description.payloadSizeBytes))
@@ -96,7 +91,8 @@ final class CommandGenerator(
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       payload: String,
-  ): CreateCmdAndContinuations = {
+  ): Seq[Command] = {
+    val commandId = nextCommandId.getAndIncrement()
     val consumingExercisePayload: Option[String] = config.consumingExercises
       .flatMap(c =>
         Option.when(randomnessProvider.randomDouble() <= c.probability)(c.payloadSizeBytes)
@@ -111,41 +107,60 @@ final class CommandGenerator(
         Seq.fill[String](f)(randomPayload(c.payloadSizeBytes))
       }
     val (templateDesc, createCmd) = templateName match {
-      case "Foo1" => (TemplateDescriptor.Foo1, Foo1(signatory, observers, payload).create.command)
-      case "Foo2" => (TemplateDescriptor.Foo2, Foo2(signatory, observers, payload).create.command)
-      case "Foo3" => (TemplateDescriptor.Foo3, Foo3(signatory, observers, payload).create.command)
+      case "Foo1" =>
+        (
+          TemplateDescriptor.Foo1,
+          Foo1(signatory, observers, payload, id = commandId).create.command,
+        )
+      case "Foo2" =>
+        (
+          TemplateDescriptor.Foo2,
+          Foo2(signatory, observers, payload, id = commandId).create.command,
+        )
+      case "Foo3" =>
+        (
+          TemplateDescriptor.Foo3,
+          Foo3(signatory, observers, payload, id = commandId).create.command,
+        )
       case invalid => sys.error(s"Invalid template: $invalid")
     }
 
-    CreateCmdAndContinuations(
-      createCommand = createCmd,
-      continuationF = {
-        def createCont(cid: ContractId): Seq[Command] = {
-          val nonconsumingExercises = nonconsumingExercisePayload.map { payload =>
-            createExerciseCmd(
-              templateId = templateDesc.templateId,
-              choiceName = templateDesc.nonconsumingChoiceName,
-              argValue = payload,
-            )(cid)
-          }
-          val consumingExerciseO = consumingExercisePayload.fold[Option[Command]](None)(payload =>
-            Some(
-              createExerciseCmd(
-                templateId = templateDesc.templateId,
-                choiceName = templateDesc.consumingChoiceName,
-                argValue = payload,
-              )(cid)
-            )
-          )
-          nonconsumingExercises ++ consumingExerciseO.toList
-        }
-        createCont
-      },
+    val contractKey = Value(
+      Value.Sum.Record(
+        Record(
+          None,
+          Seq(
+            RecordField(
+              value = Some(Value(Value.Sum.Party(signatory.toString)))
+            ),
+            RecordField(
+              value = Some(Value(Value.Sum.Int64(commandId)))
+            ),
+          ),
+        )
+      )
     )
+    val nonconsumingExercises = nonconsumingExercisePayload.map { payload =>
+      createExerciseByKeyCmd(
+        templateId = templateDesc.templateId,
+        choiceName = templateDesc.nonconsumingChoiceName,
+        argValue = payload,
+      )(contractKey = contractKey)
+    }
+    val consumingExerciseO = consumingExercisePayload.fold[Option[Command]](None)(payload =>
+      Some(
+        createExerciseByKeyCmd(
+          templateId = templateDesc.templateId,
+          choiceName = templateDesc.consumingChoiceName,
+          argValue = payload,
+        )(contractKey = contractKey)
+      )
+    )
+    Seq(createCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
   }
 
-  private def createExerciseCmd(templateId: Identifier, choiceName: String, argValue: String)(
-      cid: ContractId
+  def createExerciseByKeyCmd(templateId: Identifier, choiceName: String, argValue: String)(
+      contractKey: Value
   ): Command = {
     val choiceArgument = Some(
       Value(
@@ -163,10 +178,10 @@ final class CommandGenerator(
       )
     )
     val c: Command = Command(
-      command = Command.Command.Exercise(
-        value = ExerciseCommand(
+      command = Command.Command.ExerciseByKey(
+        ExerciseByKeyCommand(
           templateId = Some(templateId),
-          contractId = cid.coid,
+          contractKey = Some(contractKey),
           choice = choiceName,
           choiceArgument = choiceArgument,
         )
