@@ -104,8 +104,8 @@ object FutureAssertions {
           .foreach(res => logger.error(s"Failed parallel test case for input ${res._1}", res._2))
         throw ParallelTestFailureException(
           s"Failed parallel test case. Failures: ${failures.length}. Success: ${successes.length}\nFailed inputs: ${failures
-            .map(_._1)
-            .mkString("[", ",", "]")}",
+              .map(_._1)
+              .mkString("[", ",", "]")}",
           failures.last._2,
         )
       }

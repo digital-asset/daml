@@ -533,9 +533,9 @@ object Config {
         opt[String]("contract-id-seeding")
           .optional()
           .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys
-            .mkString(
-              ","
-            )}. Default is "strong".""")
+              .mkString(
+                ","
+              )}. Default is "strong".""")
           .validate(v =>
             Either.cond(
               seedingMap.contains(v.toLowerCase),

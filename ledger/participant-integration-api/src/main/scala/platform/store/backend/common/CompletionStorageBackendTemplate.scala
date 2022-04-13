@@ -61,10 +61,10 @@ class CompletionStorageBackendTemplate(
           participant_command_completions
         WHERE
           ${queryStrategy.offsetIsBetween(
-        nonNullableColumn = "completion_offset",
-        startExclusive = startExclusive,
-        endInclusive = endInclusive,
-      )} AND
+          nonNullableColumn = "completion_offset",
+          startExclusive = startExclusive,
+          endInclusive = endInclusive,
+        )} AND
           application_id = $applicationId AND
           ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", internedParties)}
         ORDER BY completion_offset ASC"""

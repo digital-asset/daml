@@ -79,10 +79,10 @@ class PartyStorageBackendTemplate(
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
     SQL"""select * from party_entries
       where ${queryStrategy.offsetIsBetween(
-      nonNullableColumn = "ledger_offset",
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-    )}
+        nonNullableColumn = "ledger_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

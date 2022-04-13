@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
+
 import com.daml.ledger.api.v1.admin.user_management_service.{
   GetUserRequest,
   GetUserResponse,

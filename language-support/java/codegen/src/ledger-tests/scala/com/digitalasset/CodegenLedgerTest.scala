@@ -130,7 +130,7 @@ class CodegenLedgerTest
 
     wolpertinger.agreementText.isPresent shouldBe true
     wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${Numeric
-      .toUnscaledString(Numeric.assertFromUnscaledBigDecimal(wolpertinger.data.age))} years old."
+        .toUnscaledString(Numeric.assertFromUnscaledBigDecimal(wolpertinger.data.age))} years old."
   }
 
   it should "provide the key" in withUniqueParty { (alice, glookofly, _, client) =>

@@ -151,9 +151,9 @@ final case class Transaction(
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case nr1: Node.Rollback => //TODO: can this be Node.Rollback ?
+            case nr1: Node.Rollback => // TODO: can this be Node.Rollback ?
               node2 match {
-                case nr2: Node.Rollback => //TODO: and here
+                case nr2: Node.Rollback => // TODO: and here
                   val blankedNr1: Node.Rollback =
                     nr1.copy(children = ImmArray.Empty)
                   val blankedNr2: Node.Rollback =

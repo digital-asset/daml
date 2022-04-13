@@ -42,7 +42,7 @@ object TimeProviderType {
       unapply(s).getOrElse(
         throw new IllegalArgumentException(
           s"$s is not a valid time provider. The following values are accepted: ${acceptedValues
-            .mkString(", ")}."
+              .mkString(", ")}."
         )
       )
     }

@@ -77,7 +77,7 @@ final class DispatcherImpl[Index: Ordering](
     else {
       val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
-        // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
+          // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
           .map(_ => getHead())
       )
 

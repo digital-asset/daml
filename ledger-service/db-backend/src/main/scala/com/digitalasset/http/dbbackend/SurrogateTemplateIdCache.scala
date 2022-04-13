@@ -44,7 +44,7 @@ class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {
     underlying.put(key, SurrogateTpId.unwrap(tpId))
   }
 
-  //for testing purposes.
+  // for testing purposes.
   import metrics.daml.HttpJsonApi.{surrogateTemplateIdCache => cacheStats}
   private[http] final def getHitCount = cacheStats.hitCount.getCount
   private[http] final def getMissCount = cacheStats.missCount.getCount

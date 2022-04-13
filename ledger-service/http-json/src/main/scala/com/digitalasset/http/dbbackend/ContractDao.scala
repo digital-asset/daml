@@ -106,7 +106,7 @@ object ContractDao {
       sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MaxEntries))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
-      //pool for connections awaiting database access
+      // pool for connections awaiting database access
       val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
       val (ds, conn) =
         ConnectionPool.connect(cfg.baseConfig)(ExecutionContext.fromExecutor(es), cs)

@@ -280,7 +280,7 @@ class ScalaCodeGenIT
   }
 
   "alice creates TemplateWith23Arguments contract and receives corresponding event" in {
-    //noinspection NameBooleanParameters
+    // noinspection NameBooleanParameters
     val contract = MyMain.TemplateWith23Arguments(
       alice,
       true,

@@ -91,7 +91,7 @@ private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorage
     if (duplicateSeqIds.nonEmpty) {
       throw new RuntimeException(
         s"Found ${duplicateSeqIds.length} duplicate event sequential ids. Examples: ${duplicateSeqIds
-          .mkString(", ")}"
+            .mkString(", ")}"
       )
     }
 

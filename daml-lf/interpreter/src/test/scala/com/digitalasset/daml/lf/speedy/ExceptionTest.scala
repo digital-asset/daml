@@ -621,7 +621,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       implicit val defaultParserParameters: ParserParameters[this.type] = {
         ParserParameters(
           defaultPackageId = oldPid,
-          languageVersion = LanguageVersion.v1_11, //version pre-dating exceptions
+          languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
         )
       }
       p"""

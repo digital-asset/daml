@@ -120,8 +120,8 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
         DottedName.fromSegments(List.fill(500)(s1)) shouldBe a[Right[_, _]] // length = 999
         DottedName.fromSegments(List.fill(501)(s1)) shouldBe a[Left[_, _]] // length = 1001
         DottedName.fromSegments(List.fill(5000)(s1)) shouldBe a[Left[_, _]] // length = 5002
-        DottedName.fromSegments(List(s499, s500)) shouldBe a[Right[_, _]] //length = 1000
-        DottedName.fromSegments(List(s500, s500)) shouldBe a[Left[_, _]] //length = 1001
+        DottedName.fromSegments(List(s499, s500)) shouldBe a[Right[_, _]] // length = 1000
+        DottedName.fromSegments(List(s500, s500)) shouldBe a[Left[_, _]] // length = 1001
         DottedName.fromSegments(List(s1000)) shouldBe a[Right[_, _]] // length = 1000
         DottedName.fromSegments(List(s1000, s1)) shouldBe a[Left[_, _]] // length = 1002
         DottedName.fromSegments(List(s1, s1000)) shouldBe a[Left[_, _]] // length = 1002

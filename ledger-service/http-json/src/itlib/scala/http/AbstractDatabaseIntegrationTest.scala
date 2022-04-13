@@ -195,7 +195,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
       val tpId = TemplateId("pkg", "mod", "ent")
       for {
-        storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
+        storedStpId <- getOrElseInsertTemplate(tpId) // insert the template id into the cache
         cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
       } yield {
         storedStpId shouldEqual cachedStpId

@@ -81,8 +81,8 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       assert(
         duplicatePackageIds.isEmpty,
         s"There are duplicate package identifiers: ${duplicatePackageIds
-          .map { case (name, count) => s"$name ($count)" }
-          .mkString(", ")}",
+            .map { case (name, count) => s"$name ($count)" }
+            .mkString(", ")}",
       )
       assert(
         acsBefore.size == 1,

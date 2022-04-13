@@ -101,7 +101,7 @@ object Arguments {
 
       opt[TimeProviderType]('t', "time")
         .text(s"Time provider. Valid values are: ${TimeProviderType.acceptedValues
-          .mkString(", ")}. Default: ${Arguments.default.time.name}")
+            .mkString(", ")}. Default: ${Arguments.default.time.name}")
         .action((t, arguments) => arguments.copy(time = t))
 
       // TODO: the 4 following TLS options can be defined by TlsConfigurationCli instead

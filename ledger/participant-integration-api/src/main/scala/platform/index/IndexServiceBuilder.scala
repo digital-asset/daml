@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
+
 import akka.stream._
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks

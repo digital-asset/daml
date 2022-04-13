@@ -149,7 +149,7 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileModule( //called by scenario-service
+  def unsafeCompileModule( // called by scenario-service
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
@@ -594,7 +594,7 @@ private[lf] final class Compiler(
   @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
   private[this] def compileFetchBody(env: Env, tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
-      mbKey: Option[Position], //defined for byKey operation
+      mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ) =
     let(

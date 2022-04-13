@@ -178,7 +178,7 @@ private[commands] class CommandTracker[Context](
         offsetOut,
         new OutHandler {
           override def onPull(): Unit =
-            () //nothing to do here as the offset stream will be read with constant demand, storing the latest element
+            () // nothing to do here as the offset stream will be read with constant demand, storing the latest element
         },
       )
 
