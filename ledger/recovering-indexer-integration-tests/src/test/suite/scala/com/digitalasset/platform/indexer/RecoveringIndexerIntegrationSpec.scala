@@ -6,27 +6,28 @@ package com.daml.platform.indexer
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
-import java.util.concurrent.Executors
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.atomic.AtomicLong
 
+import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{BroadcastHub, Source}
+import akka.stream.{Materializer, QueueCompletionResult, QueueOfferResult}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.on.memory
-import com.daml.ledger.on.memory.{InMemoryLedgerReader, InMemoryLedgerWriter, InMemoryState}
-import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
-import com.daml.ledger.participant.state.kvutils.api.{
-  KeyValueParticipantStateReader,
-  KeyValueParticipantStateWriter,
+import com.daml.ledger.participant.state.kvutils.api.LedgerReader
+import com.daml.ledger.participant.state.v2.{
+  ReadService,
+  SubmissionResult,
+  Update,
+  WritePartyService,
 }
-import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.ledger.validator.StateKeySerializationStrategy
-import com.daml.lf.data.Ref
-import com.daml.lf.engine.Engine
+import com.daml.lf.data.Ref.{Party, SubmissionId}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -45,9 +46,9 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.jdk.FutureConverters.CompletionStageOps
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.{CompletionStageOps, FutureOps}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec
@@ -70,7 +71,7 @@ class RecoveringIndexerIntegrationSpec
 
   "indexer" should {
     "index the participant state" in newLoggingContext { implicit loggingContext =>
-      participantServer(SimpleParticipantState)
+      participantServer(InMemoryPartyParticipantState)
         .use { case (participantState, materializer) =>
           for {
             _ <- participantState
@@ -187,7 +188,7 @@ class RecoveringIndexerIntegrationSpec
   private def participantServer(
       newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[(WriteService, Materializer)] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[(WritePartyService, Materializer)] = {
     val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
@@ -268,7 +269,7 @@ class RecoveringIndexerIntegrationSpec
 
 object RecoveringIndexerIntegrationSpec {
 
-  private type ParticipantState = (ReadService, WriteService)
+  private type ParticipantState = (ReadService, WritePartyService)
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
@@ -282,39 +283,17 @@ object RecoveringIndexerIntegrationSpec {
     ): ResourceOwner[ParticipantState]
   }
 
-  private object SimpleParticipantState extends ParticipantStateFactory {
+  private object InMemoryPartyParticipantState extends ParticipantStateFactory {
     override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
-      val metrics = new Metrics(new MetricRegistry)
-      for {
-        dispatcher <- memory.dispatcherOwner
-        committerExecutionContext <- ResourceOwner
-          .forExecutorService(() => Executors.newCachedThreadPool())
-          .map(ExecutionContext.fromExecutorService)
-        state = InMemoryState.empty
-        offsetBuilder = new KVOffsetBuilder(version = 0)
-        writer <- new InMemoryLedgerWriter.Owner(
-          participantId = participantId,
-          keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
-          metrics = metrics,
-          dispatcher = dispatcher,
-          state = state,
-          engine = Engine.DevEngine(),
-          committerExecutionContext = committerExecutionContext,
-          offsetBuilder = offsetBuilder,
-        )
-        reader = new InMemoryLedgerReader(ledgerId, dispatcher, offsetBuilder, state, metrics)
-      } yield (
-        KeyValueParticipantStateReader(
-          reader = reader,
-          metrics = metrics,
-        ),
-        new KeyValueParticipantStateWriter(
-          writer = writer,
-          metrics = metrics,
-        ),
+      val readWriteService = new PartyOnlyQueueWriteService(
+        ledgerId,
+        participantId,
+      )
+      ResourceOwner.successful(
+        readWriteService -> readWriteService
       )
     }
   }
@@ -324,7 +303,7 @@ object RecoveringIndexerIntegrationSpec {
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =
-      SimpleParticipantState(ledgerId, participantId)
+      InMemoryPartyParticipantState(ledgerId, participantId)
         .map { case (readingDelegate, writeDelegate) =>
           var lastFailure: Option[Offset] = None
           // This spy inserts a failure after each state update to force the indexer to restart.
@@ -347,5 +326,66 @@ object RecoveringIndexerIntegrationSpec {
         }
 
     private class StateUpdatesFailedException extends RuntimeException("State updates failed.")
+  }
+
+  class PartyOnlyQueueWriteService(
+      ledgerId: String,
+      participantId: Ref.ParticipantId,
+  )(implicit materializer: Materializer)
+      extends WritePartyService
+      with ReadService {
+
+    private val (queue, source) = Source.queue[(Offset, Update)](10).preMaterialize()
+    private val offset = new AtomicLong(0)
+    // required for the indexer to resubscribe to the update source
+    private val broadcastSource = source.runWith(BroadcastHub.sink)
+    private val stateSeenSoFar = scala.collection.mutable.Buffer.empty[(Offset, Update)]
+
+    override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+      Source.repeat(
+        LedgerInitialConditions(
+          ledgerId,
+          LedgerReader.DefaultConfiguration,
+          Time.Timestamp.Epoch,
+        )
+      )
+    override def stateUpdates(beginAfter: Option[Offset])(implicit
+        loggingContext: LoggingContext
+    ): Source[(Offset, Update), NotUsed] =
+      Source
+        .fromIterator(() => stateSeenSoFar.toSeq.iterator)
+        .concat(broadcastSource)
+        .filter(offsetWithUpdate => beginAfter.forall(_ < offsetWithUpdate._1))
+    override def currentHealth(): HealthStatus = HealthStatus.healthy
+    override def allocateParty(
+        hint: Option[Party],
+        displayName: Option[String],
+        submissionId: SubmissionId,
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[SubmissionResult] = {
+      val updateOffset = Offset.fromByteArray(offset.incrementAndGet().toString.getBytes)
+      val update = Update.PartyAddedToParticipant(
+        hint
+          .map(Party.assertFromString)
+          .getOrElse(Party.assertFromString(UUID.randomUUID().toString)),
+        displayName.orElse(hint).getOrElse("Unknown"),
+        participantId,
+        Time.Timestamp.now(),
+        Some(submissionId),
+      )
+      stateSeenSoFar.append(updateOffset -> update)
+      queue.offer(
+        updateOffset -> update
+      ) match {
+        case completionResult: QueueCompletionResult =>
+          Future.failed(new RuntimeException(s"Queue completed $completionResult.")).asJava
+        case QueueOfferResult.Enqueued =>
+          Future.successful[SubmissionResult](SubmissionResult.Acknowledged).asJava
+        case QueueOfferResult.Dropped =>
+          Future.failed(new RuntimeException("Element dropped")).asJava
+      }
+    }
   }
 }
