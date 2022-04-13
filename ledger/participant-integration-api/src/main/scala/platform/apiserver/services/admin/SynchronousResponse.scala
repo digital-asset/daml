@@ -3,14 +3,12 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -18,6 +16,8 @@ import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted,
 import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
@@ -33,55 +33,76 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 
   private val logger = ContextualizedLogger.get(getClass)
 
+  private def errorLogger(loggingContext: LoggingContext, submissionId: Ref.SubmissionId) =
+    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+
+  private def toGrpcError(
+      loggingContext: LoggingContext,
+      submissionId: Ref.SubmissionId,
+  ): PartialFunction[Throwable, Future[Nothing]] = {
+    case _: TimeoutException =>
+      Future.failed(
+        LedgerApiErrors.RequestTimeOut
+          .Reject("Request timed out", definiteAnswer = false)(
+            errorLogger(loggingContext, submissionId)
+          )
+          .asGrpcError
+      )
+    case _: NoSuchElementException =>
+      Future.failed(
+        LedgerApiErrors.ServiceNotRunning
+          .Reject("Party submission")(errorLogger(loggingContext, submissionId))
+          .asGrpcError
+      )
+  }
+
+  private def acknowledged(
+      submissionId: Ref.SubmissionId,
+      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+  )(implicit
+      ec: ExecutionContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ) = {
+    val isAccepted = new Accepted(strategy.accept(submissionId))
+    val isRejected = new Rejected(strategy.reject(submissionId))
+    strategy
+      .entries(ledgerEndBeforeRequest)
+      .collect {
+        case isAccepted(entry) => Future.successful(entry)
+        case isRejected(exception) => Future.failed(exception)
+      }
+      .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
+      .runWith(Sink.head)
+      .recoverWith(toGrpcError(loggingContext, submissionId))
+      .flatten
+  }
+
+  private def toResult(
+      submissionId: Ref.SubmissionId,
+      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+      submissionResult: SubmissionResult,
+  )(implicit
+      ec: ExecutionContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ) = submissionResult match {
+    case SubmissionResult.Acknowledged =>
+      acknowledged(submissionId, ledgerEndBeforeRequest)
+    case synchronousError: SubmissionResult.SynchronousError =>
+      Future.failed(synchronousError.exception)
+  }
+
   def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
       telemetryContext: TelemetryContext,
       executionContext: ExecutionContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): Future[AcceptedEntry] = {
-    import state.SubmissionResult
     for {
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
       submissionResult <- strategy.submit(submissionId, input)
-      entry <- submissionResult match {
-        case SubmissionResult.Acknowledged =>
-          val isAccepted = new Accepted(strategy.accept(submissionId))
-          val isRejected = new Rejected(strategy.reject(submissionId))
-          strategy
-            .entries(ledgerEndBeforeRequest)
-            .collect {
-              case isAccepted(entry) => Future.successful(entry)
-              case isRejected(exception) => Future.failed(exception)
-            }
-            .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
-            .runWith(Sink.head)
-            .recoverWith {
-              case _: TimeoutException =>
-                Future.failed(
-                  LedgerApiErrors.RequestTimeOut
-                    .Reject("Request timed out", definiteAnswer = false)(
-                      new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
-                    )
-                    .asGrpcError
-                )
-              case _: NoSuchElementException =>
-                val errorLogger = new DamlContextualizedErrorLogger(
-                  logger,
-                  loggingContext,
-                  Some(submissionId),
-                )
-                Future.failed(
-                  LedgerApiErrors.ServiceNotRunning
-                    .Reject("Party submission")(
-                      errorLogger
-                    )
-                    .asGrpcError
-                )
-            }
-            .flatten
-        case r: SubmissionResult.SynchronousError =>
-          Future.failed(r.exception)
-      }
+      entry <- toResult(submissionId, ledgerEndBeforeRequest, submissionResult)
     } yield entry
   }
 
