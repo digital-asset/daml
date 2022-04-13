@@ -11,8 +11,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{BroadcastHub, Source}
-import akka.stream.{Materializer, QueueCompletionResult, QueueOfferResult}
+import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
+import akka.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, QueueOfferResult}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.HealthStatus
@@ -46,6 +46,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.jdk.FutureConverters.{CompletionStageOps, FutureOps}
@@ -288,13 +289,23 @@ object RecoveringIndexerIntegrationSpec {
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
-      val readWriteService = new PartyOnlyQueueWriteService(
-        ledgerId,
-        participantId,
-      )
-      ResourceOwner.successful(
-        readWriteService -> readWriteService
-      )
+      ResourceOwner
+        .forReleasable(() =>
+          // required for the indexer to resubscribe to the update source
+          Source.queue[(Offset, Update)](10).toMat(BroadcastHub.sink)(Keep.both).run
+        )({ case (queue, _) =>
+          queue.complete()
+          Future.successful(())
+        })
+        .map { case (queue, source) =>
+          val readWriteService = new PartyOnlyQueueWriteService(
+            ledgerId,
+            participantId,
+            queue,
+            source,
+          )
+          readWriteService -> readWriteService
+        }
     }
   }
 
@@ -331,15 +342,14 @@ object RecoveringIndexerIntegrationSpec {
   class PartyOnlyQueueWriteService(
       ledgerId: String,
       participantId: Ref.ParticipantId,
+      queue: BoundedSourceQueue[(Offset, Update)],
+      source: Source[(Offset, Update), NotUsed],
   )(implicit materializer: Materializer)
       extends WritePartyService
       with ReadService {
 
-    private val (queue, source) = Source.queue[(Offset, Update)](10).preMaterialize()
     private val offset = new AtomicLong(0)
-    // required for the indexer to resubscribe to the update source
-    private val broadcastSource = source.runWith(BroadcastHub.sink)
-    private val writtenUpdates = scala.collection.mutable.Buffer.empty[(Offset, Update)]
+    private val writtenUpdates = mutable.Buffer.empty[(Offset, Update)]
 
     override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       Source.repeat(
@@ -354,7 +364,7 @@ object RecoveringIndexerIntegrationSpec {
     ): Source[(Offset, Update), NotUsed] =
       Source
         .fromIterator(() => writtenUpdates.toSeq.iterator)
-        .concat(broadcastSource)
+        .concat(source)
         .filter(offsetWithUpdate => beginAfter.forall(_ < offsetWithUpdate._1))
     override def currentHealth(): HealthStatus = HealthStatus.healthy
     override def allocateParty(
