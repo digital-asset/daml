@@ -339,7 +339,7 @@ object RecoveringIndexerIntegrationSpec {
     private val offset = new AtomicLong(0)
     // required for the indexer to resubscribe to the update source
     private val broadcastSource = source.runWith(BroadcastHub.sink)
-    private val stateSeenSoFar = scala.collection.mutable.Buffer.empty[(Offset, Update)]
+    private val writtenUpdates = scala.collection.mutable.Buffer.empty[(Offset, Update)]
 
     override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       Source.repeat(
@@ -353,7 +353,7 @@ object RecoveringIndexerIntegrationSpec {
         loggingContext: LoggingContext
     ): Source[(Offset, Update), NotUsed] =
       Source
-        .fromIterator(() => stateSeenSoFar.toSeq.iterator)
+        .fromIterator(() => writtenUpdates.toSeq.iterator)
         .concat(broadcastSource)
         .filter(offsetWithUpdate => beginAfter.forall(_ < offsetWithUpdate._1))
     override def currentHealth(): HealthStatus = HealthStatus.healthy
@@ -375,7 +375,7 @@ object RecoveringIndexerIntegrationSpec {
         Time.Timestamp.now(),
         Some(submissionId),
       )
-      stateSeenSoFar.append(updateOffset -> update)
+      writtenUpdates.append(updateOffset -> update)
       queue.offer(
         updateOffset -> update
       ) match {
