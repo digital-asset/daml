@@ -84,7 +84,6 @@ da_scala_test(
     ],
 )
 
-
 da_scala_binary(
     name = "submission-entries-extractor",
     srcs = glob(["submission-entries-extractor/src/**/*.scala"]),
