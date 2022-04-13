@@ -292,7 +292,7 @@ object RecoveringIndexerIntegrationSpec {
       ResourceOwner
         .forReleasable(() =>
           // required for the indexer to resubscribe to the update source
-          Source.queue[(Offset, Update)](10).toMat(BroadcastHub.sink)(Keep.both).run
+          Source.queue[(Offset, Update)](10).toMat(BroadcastHub.sink)(Keep.both).run()
         )({ case (queue, _) =>
           queue.complete()
           Future.successful(())
@@ -344,8 +344,7 @@ object RecoveringIndexerIntegrationSpec {
       participantId: Ref.ParticipantId,
       queue: BoundedSourceQueue[(Offset, Update)],
       source: Source[(Offset, Update), NotUsed],
-  )(implicit materializer: Materializer)
-      extends WritePartyService
+  ) extends WritePartyService
       with ReadService {
 
     private val offset = new AtomicLong(0)
