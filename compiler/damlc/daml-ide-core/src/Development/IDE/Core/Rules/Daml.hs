@@ -823,8 +823,9 @@ runScenariosRule =
     define $ \RunScenarios file -> do
       m <- moduleForScenario file
       world <- worldForFile file
-      let scenarios = map fst $ scenariosInModule m
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
+      testFilter <- envTestFilter <$> getDamlServiceEnv
+      let scenarios =  [sc | (sc, _scLoc) <- scenariosInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
@@ -842,8 +843,9 @@ runScriptsRule =
     define $ \RunScripts file -> do
       m <- moduleForScenario file
       world <- worldForFile file
-      let scenarios = map fst $ scriptsInModule m
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
+      testFilter <- envTestFilter <$> getDamlServiceEnv
+      let scenarios =  [sc | (sc, _scLoc) <- scriptsInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
