@@ -95,10 +95,10 @@ message ContractMetadata {
   google.protobuf.Timestamp created_at = 1;
   // Hash of the contract key if defined.
   // Optional
-  bytestring contract_key_hash = 2;
+  bytes contract_key_hash = 2;
   // Driver-specific metadata. This is opaque and cannot be decoded.
   // Required
-  bytestring driver_metadata = 3;
+  bytes driver_metadata = 3;
 }
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.
