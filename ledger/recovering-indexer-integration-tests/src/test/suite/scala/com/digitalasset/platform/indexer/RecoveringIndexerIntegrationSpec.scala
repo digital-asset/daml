@@ -292,10 +292,11 @@ object RecoveringIndexerIntegrationSpec {
       ResourceOwner
         .forReleasable(() =>
           // required for the indexer to resubscribe to the update source
-          Source.queue[(Offset, Update)](10).toMat(BroadcastHub.sink)(Keep.both).run()
+          Source.queue[(Offset, Update)](1).toMat(BroadcastHub.sink)(Keep.both).run()
         )({ case (queue, _) =>
-          queue.complete()
-          Future.successful(())
+          Future {
+            queue.complete()
+          }(materializer.executionContext)
         })
         .map { case (queue, source) =>
           val readWriteService = new PartyOnlyQueueWriteService(
@@ -361,11 +362,13 @@ object RecoveringIndexerIntegrationSpec {
 
     override def stateUpdates(beginAfter: Option[Offset])(implicit
         loggingContext: LoggingContext
-    ): Source[(Offset, Update), NotUsed] =
+    ): Source[(Offset, Update), NotUsed] = {
+      val updatesForStream = writtenUpdates.toSeq
       Source
-        .fromIterator(() => writtenUpdates.toSeq.iterator)
-        .concat(source)
+        .fromIterator(() => updatesForStream.iterator)
+        .concat(source.filterNot(updatesForStream.contains))
         .filter(offsetWithUpdate => beginAfter.forall(_ < offsetWithUpdate._1))
+    }
 
     override def currentHealth(): HealthStatus = HealthStatus.healthy
 
