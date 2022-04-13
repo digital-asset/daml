@@ -15,7 +15,7 @@ that a template must implement. This allows decoupling such behavior from its
 implementation, so other developers can write applications in terms of the
 interface instead of the concrete template.
 
-Interface declaration
+Interface Declaration
 *********************
 
 An interface declaration is somewhat similar to a template declaration.
@@ -127,7 +127,7 @@ Required interfaces
      :start-after: -- EMPTY_INTERFACE_REQUIRES_BEGIN
      :end-before: -- EMPTY_INTERFACE_REQUIRES_END
 
-Interface implementation
+Interface Implementation
 ************************
 
 For context, a simple template definition:
@@ -165,7 +165,7 @@ Empty implements clause
 - If the interface being implemented has no methods, the ``where`` keyword
   can be dropped.
 
-Interface functions
+Interface Functions
 *******************
 
 .. list-table::

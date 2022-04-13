@@ -3,8 +3,8 @@
 
 .. _identity-package-management:
 
-Identity and Package Management
-###############################
+Identity and Package Management for Daml Ledgers
+################################################
 
 Since Daml ledgers enable parties to automate the management of their rights and obligations through smart contract code, they also have to provide party and code management functions.
 Hence, this document addresses:
@@ -50,7 +50,7 @@ For example, a party might change its display name from "Bruce" to "Caitlyn" -- 
 
 .. _provisioning-ledger-identifiers:
 
-Provisioning Identifiers
+Provisioning identifiers
 ========================
 
 The set of parties of any Daml ledger is dynamic: new parties may always be added to the system.
@@ -74,7 +74,7 @@ The parties can be local (i.e., hosted by the participant) or not.
 
 .. _identifiers-and-authentication:
 
-Identifiers and Authorization
+Identifiers and authorization
 =============================
 
 To issue commands or receive transactions on behalf of a newly provisioned party, an application must provide a
@@ -87,7 +87,7 @@ To learn more about Ledger API security model, please read the :doc:`Authorizati
 
 .. _identifiers-and-real-world:
 
-Identifiers and the Real World
+Identifiers and the real world
 ==============================
 
 The "substrate" on which Daml workflows are built are the real-world obligations of the parties in the workflow.
@@ -113,7 +113,7 @@ The details of the process are ledger-dependent.
 
 .. _package-formats-and-identifiers:
 
-Package Formats and Identifiers
+Package formats and identifiers
 ===============================
 
 Any code -- i.e., Daml templates -- to be uploaded must compiled down to the :ref:`Daml-LF <daml-lf>` language.
@@ -127,7 +127,7 @@ Internally, the ledger implementation need not (and often will not) store the up
 
 .. _package-management-api:
 
-Package Management API
+Package management API
 ======================
 
 The package management API supports two methods:
@@ -143,7 +143,7 @@ The package management API supports two methods:
 
 .. _package-management-vetting:
 
-Package Vetting
+Package vetting
 ===============
 
 Using a Daml package entails running its Daml code.
@@ -165,7 +165,7 @@ In that case, if Alice is hosted at ``P1``, she can create ``NewTemplate`` insta
 
 .. _package-upgrades:
 
-Package Upgrades
+Package upgrades
 ================
 
 The Ledger API does not have any special support for package upgrades.

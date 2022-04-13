@@ -1,12 +1,12 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: choices
+Reference: Choices
 ##################
 
 This page gives reference information on choices. For information on the high-level structure of a choice, see :doc:`structure`.
 
-``choice`` first or ``controller`` first
+``choice`` First or ``controller`` First
 ****************************************
 
 There are two ways you can start a choice:
@@ -34,7 +34,7 @@ A secondary difference is that starting with ``choice`` allows *choice observers
 
 .. _daml-ref-choice-name:
 
-Choice name
+Choice Name
 ***********
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -84,7 +84,7 @@ Contract consumption
 
 If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body and both the controllers and all contract stakeholders see all consequences of the action.
 
-Preconsuming choices
+Preconsuming Choices
 ********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -106,7 +106,7 @@ Preconsuming choices
 - Only the controllers and signatories of the contract see all consequences of the action. Other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract before anything else happens
 
-Postconsuming choices
+Postconsuming Choices
 *********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -127,7 +127,7 @@ Postconsuming choices
 - Only the controllers and signatories of the contract see all consequences of the action. Other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract after the choice has been exercised
 
-Non-consuming choices
+Non-consuming Choices
 *********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -158,7 +158,7 @@ Return type
 
 .. _daml-ref-choice-arguments:
 
-Choice arguments
+Choice Arguments
 ****************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -173,7 +173,7 @@ Choice arguments
 
 .. _daml-ref-choice-body:
 
-Choice body
+Choice Body
 ***********
 
 - Introduced with ``do``

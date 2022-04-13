@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-11 Intro to the Daml Standard Library
-=====================================
+Introduction to the Daml Standard Library
+=========================================
 
 In chapters :doc:`3_Data` and :doc:`10_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. Daml comes with the Daml Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
@@ -155,7 +155,7 @@ Actions
 
 The really important Actions in Daml are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
 
-Semigroups and Monoids
+Semigroups and monoids
 ......................
 
 :ref:`Semigroups and monoids <class-da-internal-prelude-semigroup-78998>` are about binary operations, but in practice, their important use is for ``Text`` and ``[]``, where they allow concatenation using the ``{<>}`` operator.
@@ -192,7 +192,7 @@ Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index
 
 Daml has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 
-Searching for functions by Name
+Searching for functions by name
 ...............................
 
 Say you come across some functions you haven't seen before, like the ones in the ``ensure`` clause of the ``MultiTrade``.
@@ -214,7 +214,7 @@ You may be able to guess what ``not`` and ``null`` do, but try searching those n
 
 Signature (including type constraints) and description usually give a pretty clear picture of what a function does.
 
-Searching for functions by Signature
+Searching for functions by signature
 ....................................
 
 The other very common use-case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. On the ``MultiTrade`` template we have a list ``baseAssets``, and thanks to your ensure clause we know it's non-empty. In the original ``Trade`` we used ``baseAsset.owner`` as the signatory. How do you get the first element of this list to extract the ``owner`` without going through the motions of a complete pattern match using ``case``?
@@ -237,7 +237,7 @@ The reason is that there is an instance for ``Foldable [a]``.
 
 Let's try another search. Suppose you didn't want the first element, but the one at index ``n``. Remember that ``(!!)`` operator from :doc:`10_Functional101`? There are now two possible signatures we could search for:  ``[a] -> Int -> a`` and ``Int -> [a] -> a``. Try searching for both. You'll see that the search returns ``(!!)`` in both cases. You don't have to worry about the order of arguments.
 
-Next up
+Next Up
 -------
 
 There's little more to learn about writing Daml at this point that isn't best learnt by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, and about the operational semantics of some keywords and common associated failures.

@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-7 Composing choices
+Composing Choices
 ===================
 
 It's time to put everything you've learnt so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
@@ -18,7 +18,7 @@ The model in this section is not a single Daml file, but a Daml project consisti
 
   Remember that you can load all the code for this section into a folder called ``7_Composing`` by running ``daml new 7Composing --template daml-intro-7``
 
-Daml projects
+Daml Projects
 -------------
 
 Daml is organized in projects, packages and modules. A Daml project is specified using a single ``daml.yaml`` file, and compiles into a package in Daml's intermediate language, or bytecode equivalent, Daml-LF. Each Daml file within a project becomes a Daml module, which is a bit like a namespace. Each Daml project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
@@ -34,7 +34,7 @@ You can generally set ``name`` and ``version`` freely to describe your project. 
 
 You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`9_Dependencies`.
 
-Project structure
+Project Structure
 -----------------
 
 This project contains an asset holding model for transferable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
@@ -89,7 +89,7 @@ corresponding functionality:
 
   import Daml.Script
 
-Project overview
+Project Overview
 ----------------
 
 The project both changes and adds to the ``Iou`` model presented in :doc:`6_Parties`:
@@ -100,7 +100,7 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
   With the ``Iou`` model, an ``issuer`` could end up owing cash to anyone as transfers were authorized by just ``owner`` and ``newOwner``. In this project, only parties having an ``AssetHolder`` contract can end up owning assets. This allows the ``issuer`` to determine which parties may own their assets.
 - The ``Trade`` template adds a swap of two assets to the model.
 
-Composed choices and scripts
+Composed Choices and Scripts
 ------------------------------
 
 This project showcases how you can put the ``Update`` and ``Script`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
@@ -206,7 +206,7 @@ Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal,
 
 .. _execution_model:
 
-Daml's execution model
+Daml's Execution Model
 ----------------------
 
 Daml's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
@@ -299,7 +299,7 @@ Note that Principle 2 of the privacy model means that sometimes parties see cont
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing Daml models for privacy sensitive applications.
 
-Next up
+Next Up
 -------
 
 In :doc:`8_Exceptions`, we will learn about how errors in your model can be handled in Daml.

@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Language reference docs
-#######################
+Language Reference Documents
+############################
 
 This section contains a reference to writing templates for Daml contracts. It includes:
 

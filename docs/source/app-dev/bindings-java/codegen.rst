@@ -3,8 +3,10 @@
 
 .. _daml-codegen-java:
 
-Generate Java code from Daml
-############################
+
+
+Generating Java Code from Daml
+##############################
 
 Introduction
 ============
@@ -15,8 +17,8 @@ The :doc:`Daml assistant documentation </tools/codegen>` describes how to run an
 
 The rest of this page describes Java-specific topics.
 
-Understand the generated Java model
-===================================
+Understanding the Generated Java Model
+======================================
 
 The Java codegen generates source files in a directory tree under the output directory specified on the command line.
 

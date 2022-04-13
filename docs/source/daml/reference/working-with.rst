@@ -1,12 +1,12 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: built-in functions
+Reference: Built-in Functions
 #############################
 
-This page gives reference information on functions for.
+This page gives reference information on functions for working with a variety of common concepts.
 
-Working with time
+Working with Time
 *****************
 
 Daml has these built-in functions for working with time:
@@ -17,7 +17,7 @@ Daml has these built-in functions for working with time:
 - ``days``, ``hours``, ``minutes``, ``seconds``: constructs a ``RelTime`` of the specified length.
 - ``pass``: (in :ref:`Daml Script tests <testing-using-script>` only) use ``pass : RelTime -> Script Time`` to advance the ledger time by the argument amount. Returns the new time.
 
-Working with numbers
+Working with Numbers
 ********************
 
 Daml has these built-in functions for working with numbers:
@@ -43,7 +43,7 @@ Daml has these built-in functions for working with numbers:
 The set of numbers expressed by ``Decimal`` is not closed under division as the result may require more than 10 decimal places to represent. For example, ``1.0 / 3.0 == 0.3333...`` is a rational number, but not a ``Decimal``.
 
 
-Working with text
+Working with Text
 *****************
 
 Daml has these built-in functions for working with text:
@@ -73,7 +73,7 @@ To escape text in Daml strings, use ``\``:
 | an example)       | - Hexadecimal code: ``\x21``|
 +-------------------+-----------------------------+
 
-Working with lists
+Working with Lists
 ******************
 
 Daml has these built-in functions for working with lists:

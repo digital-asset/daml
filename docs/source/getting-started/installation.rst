@@ -4,7 +4,7 @@
 Installing the SDK
 ##################
 
-1. Installing the Dependencies
+Installing the Dependencies
 ******************************
 
 The Daml SDK currently runs on Windows, macOS and Linux.
@@ -16,7 +16,7 @@ You need to install:
 
    As part of the installation process you may need to set up the ``JAVA_HOME`` variable. You can find instructions for this process on :doc:`Windows,macOS, and Linux here <path-variables>`.
 
-2. Choosing Daml Enterprise or Daml Open Source
+Choosing Daml Enterprise or Daml Open Source
 ***********************************************
 
 Daml comes in two variants: Daml Enterprise or Daml Open Source. Both include the best in class SDK, Canton and all of the components that you need to write and deploy multi-party 
@@ -71,7 +71,7 @@ applications in production, but they differ in terms of enterprise and non-funct
      - No
 
 
-3. Installing Daml Open Source SDK
+Installing Daml Open Source SDK
 **********************************
 
 Windows 10

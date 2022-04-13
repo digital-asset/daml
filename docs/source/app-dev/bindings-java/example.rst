@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Example project
-###############
+Java Bindings Example Project
+#############################
 
 To try out the Java bindings library, use the `examples on GitHub <https://github.com/digital-asset/ex-java-bindings>`__: ``PingPongReactive``.
 
@@ -18,7 +18,7 @@ The logic of the application goes like this:
 #. ``Bob`` sees this contract and exercises the consuming choice ``RespondPing``  to create a contract of type ``Ping`` for ``Alice``.
 #. Points 2 and 3 are repeated until the maximum number of contracts defined in the Daml is reached.
 
-Setting up the example projects
+Setting Up the Example Projects
 *******************************
 
 To set up the example projects, clone the public GitHub repository at `github.com/digital-asset/ex-java-bindings <https://github.com/digital-asset/ex-java-bindings>`__ and follow the setup instruction in the `README file <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__.

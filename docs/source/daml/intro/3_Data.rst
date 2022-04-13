@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-3 Data types
+Data Types
 ============
 
 In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
@@ -31,7 +31,7 @@ After this section, you should be able to use a Daml ledger as a simple database
 
 .. _native-types:
 
-Native types
+Native Types
 ------------
 
 You have already encountered a few native Daml types: ``Party`` in :doc:`1_Token`, and ``Text`` and ``ContractId`` in :doc:`2_DamlScript`. Here are those native types and more:
@@ -87,7 +87,7 @@ With templates and these native types, it's already possible to write a schema a
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
 
-Assembling types
+Assembling Types
 ----------------
 
 There's quite a lot of information on the ``CashBalance`` above and it would be nice to be able to give that data more structure. Fortunately, Daml's type system has a number of ways to assemble these native types into much more expressive structures.
@@ -194,7 +194,7 @@ To do this, you can use *pattern matching* and either throw errors or return com
   :start-after: -- VARIANT_ACCESS_BEGIN
   :end-before: -- VARIANT_ACCESS_END
 
-Manipulating data
+Manipulating Data
 -----------------
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
@@ -212,7 +212,7 @@ Throughout the script, ``eq_record`` never changes. The expression ``"Zero" :: e
 
 .. _contract_keys:
 
-Contract keys
+Contract Keys
 -------------
 
 Daml's type system lets you store richly structured data on Daml templates, but just like most database schemas have more than one table, Daml contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance contract, but instead store those on separate contracts.
@@ -243,7 +243,7 @@ via ``createAndExerciseCmd``. We will learn more about choices in the :doc:`next
 Since a single type could be used as the key for multiple templates, you need to tell the compiler what type of contract is being fetched by using the ``@Account`` notation.
 
 
-Next up
+Next Up
 -------
 
 You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.

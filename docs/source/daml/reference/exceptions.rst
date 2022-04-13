@@ -34,7 +34,7 @@ Note that other errors cannot be handled via exceptions, e.g., an
 exercise on an inactive contract will still result in a transaction
 abort.
 
-User-Defined Exceptions
+User-defined Exceptions
 .......................
 
 Users can define their own exception types which can be thrown and

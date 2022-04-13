@@ -8,11 +8,11 @@
 :tocdepth: 2
 
 
-Error Codes
-###########
+Understanding Error Codes
+#########################
 
 Overview
-*********
+********
 
 
 .. _gRPC status codes: https://grpc.github.io/grpc/core/md_doc_statuscodes.html

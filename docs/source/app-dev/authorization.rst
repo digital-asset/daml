@@ -37,7 +37,7 @@ whether the request is valid according to the :ref:`Daml Ledger Model <da-ledger
 Whether a participant node *will* serve such a request to a Daml application depends on whether the
 request includes an access token that is valid and sufficient to authorize the request for this participant node.
 
-Acquiring and using access tokens
+Acquiring and Using Access Tokens
 *********************************
 
 How an application should acquire access tokens depends on the participant node it talks to and is ultimately setup by the participant node operator.
@@ -63,7 +63,7 @@ and the :ref:`JSON API <json-api-access-tokens>`.
 
 .. _authorization-claims:
 
-Access tokens and rights
+Access Tokens and Rights
 ************************
 
 Access tokens contain information about the rights granted to the bearer of the token. These rights are specific to the API being accessed.
@@ -128,7 +128,7 @@ The following table summarizes the rights required to access each Ledger API end
 
 .. _access-token-formats:
 
-Access token formats
+Access Token Formats
 ********************
 
 Applications should treat access tokens as opaque blobs.

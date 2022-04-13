@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Daml codegen
+Daml Codegen
 ############
 
 Introduction
@@ -11,7 +11,7 @@ You can use the Daml codegen to generate Java, and JavaScript/TypeScript classes
 These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``,
 ``com.daml.ledger.api.v1.ExerciseCommand``, ``com.daml.ledger.api.v1.ExerciseByKeyCommand``, and ``com.daml.ledger.api.v1.CreateAndExerciseCommand``.
 
-Running the Daml codegen
+Running the Daml Codegen
 ========================
 
 The basic command to run the Daml codegen is::

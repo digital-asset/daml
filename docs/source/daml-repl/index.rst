@@ -125,7 +125,7 @@ Using the ``query`` function we can now verify that there is one
 To exit ``daml repl`` press ``Control-D``.
 
 
-What is in scope at the prompt?
+What is in Scope at the Prompt?
 ===============================
 
 In the prompt, all modules from DALFs specified in ``--import`` are
@@ -173,7 +173,7 @@ Connection to a Ledger with Authorization
 If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.
 
-Using Daml REPL to convert to JSON
+Using Daml REPL to Convert to JSON
 ==================================
 
 Using the ``:json`` command you can encode serializable Daml expressions as

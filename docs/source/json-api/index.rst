@@ -39,7 +39,7 @@ We welcome feedback about the JSON API on
 Running the JSON API
 ********************
 
-Start a Daml Ledger
+Start a Daml ledger
 ===================
 
 You can run the JSON API alongside any ledger exposing the gRPC Ledger API you want. If you don't have an existing ledger, you can start an in-memory sandbox:
@@ -53,7 +53,7 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
 
 .. _start-http-service:
 
-Start the HTTP JSON API Service
+Start the HTTP JSON API service
 ===============================
 
 Basic
@@ -205,7 +205,7 @@ start the standalone JAR, you can use the following command:
 Replace the version number ``2.0.0`` by the version of the SDK you are
 using.
 
-With Query Store
+With query store
 ------------------
 
 In production setups, you should configure the JSON API to use a
@@ -256,7 +256,7 @@ you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an exa
 
 .. _json-api-access-tokens:
 
-Access Tokens
+Access tokens
 =============
 
 Each request to the HTTP JSON API Service *must* come with an access token, regardless of whether the underlying ledger
@@ -267,7 +267,7 @@ to issue the request to the Ledger API.
 The HTTP JSON API Service does not validate the token but may need to decode it to extract information that can be used
 to fill in request fields for party-specific request. How this happens depends partially on the token format you are using.
 
-Party-specific Requests
+Party-specific requests
 -----------------------
 
 Party-specific requests, i.e., command submissions and queries, are subject to additional restrictions. For command
@@ -276,7 +276,7 @@ on behalf of any number of parties). For queries the token must provide a proof 
 read of at least one party. This happens regardless of the used :ref:`access token format<access-token-formats>`. The
 following paragraphs provide guidance as to how different token formats are used by the HTTP JSON API in this regard.
 
-Using User Tokens
+Using user tokens
 ^^^^^^^^^^^^^^^^^
 
 If the underlying ledger supports :ref:`user management <user-management-service>` (this includes Canton and the sandbox), you are
@@ -284,7 +284,7 @@ recommended to use user tokens. For command submissions, the user of the bearer 
 least one party and ``readAs`` rights for any number of parties. Queries require the bearer's user to have at least
 one ``actAs`` or ``readAs`` user right. The application id of the Ledger API request will be the user id.
 
-Using Claim Tokens
+Using claim tokens
 ^^^^^^^^^^^^^^^^^^
 
 These tokens can be used if the underlying ledger does not support :ref:`user management <user-management-service>`. For command
@@ -993,7 +993,7 @@ Contract Found HTTP Response
     }
 
 
-Get all Active Contracts
+Get All Active Contracts
 ************************
 
 List all currently active contracts for all known templates.
@@ -1014,7 +1014,7 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Get all Active Contracts Matching a Given Query
+Get All Active Contracts Matching a Given Query
 ***********************************************
 
 List currently active contracts that match a given query.
@@ -1838,7 +1838,7 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
 
 Please note that Streaming API does not allow multiple requests over the same WebSocket connection. The server returns an error and disconnects if second request received over the same WebSocket connection.
 
-Error and Warning Reporting
+Error and warning reporting
 ===========================
 
 Errors and warnings reported as part of the regular ``on-message`` flow: ``ws.addEventListener("message", ...)``.
@@ -1851,7 +1851,7 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
 
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
-Error and Warning Examples
+Error and warning examples
 --------------------------
 
 .. code-block:: none

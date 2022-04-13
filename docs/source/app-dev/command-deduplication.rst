@@ -3,7 +3,7 @@
 
 .. _command-deduplication:
 
-Command deduplication
+Command Deduplication
 #####################
 
 The interaction of a Daml application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
@@ -23,7 +23,7 @@ This guide covers the following topics:
 
 .. _command-dedup-workings:
 
-How command deduplication works
+How Command Deduplication Works
 *******************************
 
 The following fields in a command submissions are relevant for command deduplication.
@@ -94,7 +94,7 @@ At this time, only `Daml driver for VMware Blockchain <https://www.digitalasset.
 
 .. _command-dedup-usage:
 
-How to use command deduplication
+How to Use Command Deduplication
 ********************************
 
 To effectuate a ledger change exactly once, the application must resubmit a command if an earlier submission was lost.

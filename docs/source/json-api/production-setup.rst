@@ -17,7 +17,7 @@ For this reason for production setups at a minimum we recommend to use a databas
 as a query store, this will allow for more efficient caching of the data to improve
 query performance. Details for enabling a query store are highlighted below.
 
-Query store
+Query Store
 ***********
 
 .. note:: Daml Open Source only supports PostgreSQL backends for the *HTTP JSON API* server, but Daml Enterprise also supports Oracle backends.
@@ -107,7 +107,7 @@ start the server using either ``start-mode=create-only`` and ``start-mode=start-
 or ``start-mode=create-and-start`` as described above, depending on your preferred
 production setup.
 
-Security and privacy
+Security and Privacy
 ********************
 
 For an *HTTP JSON API* server, all data is maintained by the operator of the deployment.

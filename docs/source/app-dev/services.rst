@@ -3,7 +3,7 @@
 
 .. _ledger-api-services:
 
-The Ledger API services
+The Ledger API Services
 #######################
 
 The Ledger API is structured as a set of services. The core services are implemented using `gRPC <https://grpc.io/>`__ and `Protobuf <https://developers.google.com/protocol-buffers/>`__, but most applications access this API through the mediation of the language bindings.
@@ -42,7 +42,7 @@ Glossary
 
 .. _ledger-api-submission-services:
 
-Submitting commands to the ledger
+Submitting Commands to the Ledger
 *********************************
 
 .. _command-submission-service:
@@ -114,7 +114,7 @@ You can use either the command or command submission services to submit commands
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandService>`.
 
-Reading from the ledger
+Reading from the Ledger
 ***********************
 
 .. _transaction-service:
@@ -183,7 +183,7 @@ See :ref:`verbosity` above.
 
 .. _ledger-api-utility-services:
 
-Utility services
+Utility Services
 ****************
 
 .. _party-service:

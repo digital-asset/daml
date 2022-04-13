@@ -3,8 +3,8 @@
 
 .. _recommended-architecture:
 
-Application architecture
-########################
+Understanding Application Architecture
+######################################
 
 This section describes our recommended design of a full-stack Daml application.
 
@@ -101,7 +101,7 @@ with a Daml ledger that validates authorization of incoming requests. Simply ini
 ``DamlLedger`` object with the token obtained by the respective token issuer. How authorization works and the
 form of the required tokens is described in the :ref:`Authorization <authorization>` section.
 
-Developer workflow
+Developer Workflow
 ******************
 
 The SDK enables a local development environment with fast iteration cycles:

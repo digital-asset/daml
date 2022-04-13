@@ -31,14 +31,14 @@ Daml Assistant (``daml``)
 
    Note that you need to update your `project config file <#configuration-files>` to use the new version.
 
-Full help for commands
+Full Help for Commands
 **********************
 
 To see information about any command, run it with ``--help``.
 
 .. _daml-yaml-configuration:
 
-Configuration files
+Configuration Files
 *******************
 
 The Daml assistant and the SDK are configured using two files:
@@ -181,7 +181,7 @@ available warnings.
 
 .. _assistant-manual-building-dars:
 
-Building Daml projects
+Building Daml Projects
 **********************
 
 To compile your Daml source code into a Daml archive (a ``.dar`` file), run::
@@ -205,7 +205,7 @@ The generated ``.dar`` file is created in ``.daml/dist/${name}.dar`` by default.
 
 .. _assistant-manual-managing-releases:
 
-Managing releases
+Managing Releases
 *****************
 
 You can manage SDK versions manually by using ``daml install``.
@@ -252,7 +252,7 @@ passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml instal
 
 .. _daml_project_dir:
 
-Running Commands outside of the Project Directory
+Running Commands Outside of the Project Directory
 *************************************************
 
 In some cases, it can be convenient to run a command in a project

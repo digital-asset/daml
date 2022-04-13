@@ -177,7 +177,7 @@ them away using ``map snd``.
    :start-after: -- TEST_QUERIES_BEGIN
    :end-before: -- TEST_QUERIES_END
 
-Running a Script
+Running a script
 ----------------
 
 To run our script, we first build it with ``daml build`` and then run
@@ -242,7 +242,7 @@ instead of party ids.
    :start-after: -- INITIALIZE_USER_BEGIN
    :end-before: -- INITIALIZE_USER_END
 
-Migrating from Scenarios
+Migrating from scenarios
 ------------------------
 
 Existing scenarios that you used for ledger initialization can be

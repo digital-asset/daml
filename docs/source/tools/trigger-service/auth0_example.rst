@@ -200,7 +200,7 @@ similarly the ``--auth-callback`` flag defines the trigger service's callback UR
     --auth http://localhost:5000/auth \
     --auth-callback http://localhost:5000/trigger/cb
 
-Configure Web Server
+Configure web server
 ~~~~~~~~~~~~~~~~~~~~
 
 This guide uses `Nginx <nginx_>`_ as a reverse proxy and web server.
@@ -263,7 +263,7 @@ This guide uses `Nginx <nginx_>`_ as a reverse proxy and web server.
 
 .. _nginx: https://www.nginx.com
 
-Test the Setup
+Test the setup
 ~~~~~~~~~~~~~~
 
 Use the following commands to determine if the OAuth 2.0 middleware and trigger service are running and available through the reverse proxy.

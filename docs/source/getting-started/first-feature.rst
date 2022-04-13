@@ -87,7 +87,7 @@ This new panel has two parts:
 We implement each part as a React component, named ``MessageList`` and ``MessageEdit`` respectively.
 Let's start with the simpler ``MessageList``.
 
-MessageList Component
+MessageList component
 ---------------------
 
 The goal of the ``MessageList`` component is to query all ``Message`` contracts where the ``receiver`` is the current user, and display their contents and senders in a list.
@@ -110,7 +110,7 @@ An important point about privacy: no matter how we write our ``Message`` query i
 That is, it is impossible to see a ``Message`` contract of which you are not the ``sender`` or the ``receiver`` (the only parties that can observe the contract).
 This is a major benefit of writing apps on Daml: the burden of ensuring privacy and authorization is confined to the Daml model.
 
-MessageEdit Component
+MessageEdit component
 ---------------------
 
 Next we need the ``MessageEdit`` component to compose and send messages to our followers.
@@ -143,7 +143,7 @@ Note how *authorization* is enforced here.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).
 The assertion that ``elem sender following`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
 
-MainView Component
+MainView component
 ------------------
 
 Finally we can see these components come together in the ``MainView`` component.

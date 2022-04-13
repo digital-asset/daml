@@ -30,7 +30,7 @@ The auth middleware assumes that the OAuth 2.0 provider issues JWT access tokens
 The ``/auth`` endpoint will validate the token, if available, and ensure that it grants the requested claims.
 The auth middleware accepts the same command-line flags as the :ref:`Daml Sandbox <sandbox-authorization>` to define the public key for token validation.
 
-Request Templates
+Request templates
 *****************
 
 The exact format of OAuth 2.0 requests may vary between providers.
@@ -38,7 +38,7 @@ Furthermore, the mapping from Daml ledger claims to OAuth 2.0 scopes is defined 
 For that reason OAuth 2.0 requests made by auth middleware can be configured using user defined `Jsonnet <https://jsonnet.org/>`_ templates.
 Templates are parameterized configurations expressed as top-level functions.
 
-Authorization Request
+Authorization request
 =====================
 
 This template defines the format of the `Authorization request <https://tools.ietf.org/html/rfc6749#section-4.1.1>`_.
@@ -89,7 +89,7 @@ Example
       "state": request.state,
     }
 
-Token Request
+Token request
 =============
 
 This template defines the format of the `Token request <https://tools.ietf.org/html/rfc6749#section-4.1.3>`_.
@@ -127,7 +127,7 @@ Example
       "redirect_uri": request.redirectUri,
     }
 
-Refresh Request
+Refresh request
 ===============
 
 This template defines the format of the `Refresh request <https://tools.ietf.org/html/rfc6749#section-6>`_.
@@ -165,7 +165,7 @@ Example
 
 .. _oauth2-middleware-deployment:
 
-Deployment Notes
+Deployment notes
 ~~~~~~~~~~~~~~~~
 
 The auth middleware API relies on sharing cookies between the auth middleware and the Daml application.

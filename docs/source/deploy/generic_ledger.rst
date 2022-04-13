@@ -3,7 +3,7 @@
 
 .. _deploy-generic-ledger:
 
-Deploying to a generic Daml ledger
+Deploying to a Generic Daml Ledger
 ==================================
 
 Daml ledgers expose a unified administration API. This means that deploying to a Daml ledger is no

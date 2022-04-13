@@ -378,7 +378,7 @@ and there is no further action needed.
 Running Your App
 ----------------
 
-Preparing Your Application
+Preparing your application
 **************************
 
 You may have an application already. In that case, use that. For the purposes
@@ -669,7 +669,7 @@ domain on which your server is exposed. And voilà! Your application is up and
 running. You should be able to log in with Auth0, exchange messages, and set up
 an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
 
-Manually Setting Up the Daml Components
+Manually setting up the Daml components
 ***************************************
 
 For simplicity, we assume that all of the Daml components will run on a single

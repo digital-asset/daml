@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Authorization
-#############
+The Authorization Pattern
+#########################
 
 The Authorization pattern demonstrates how to make sure a controlling party is authorized before they take certain actions.
 

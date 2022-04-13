@@ -2,12 +2,12 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 
-Reference: Daml packages
+Reference: Daml Packages
 ########################
 
 This page gives reference information on Daml package dependencies.
 
-Building Daml archives
+Building Daml Archives
 **********************
 
 When a Daml project is compiled, the compiler produces a `Daml archive`. These are platform-independent packages of compiled Daml code that can be uploaded to a Daml ledger or imported in other Daml projects.
@@ -103,7 +103,7 @@ robust to changes across SDK versions:
 
 Note that ``name`` and ``version`` will be ``null`` for packages in Daml-LF < 1.8.
 
-Importing Daml packages
+Importing Daml Packages
 ***********************
 
 There are two ways to import a Daml package in a project: via ``dependencies``, and via ``data-dependencies``. They each have certain advantages and disadvantages. To summarize:
@@ -219,7 +219,7 @@ package ID. To recreate or update your ``daml.lock`` file, delete it and run ``d
 
 .. _module_collisions:
 
-Handling module name collisions
+Handling Module Name Collisions
 *******************************
 
 Sometimes you will have multiple packages with the same module name. In that case, a simple import will fail, since the compiler doesn't know which version of the module to load. Fortunately, there are a few tools you can use to approach this problem.

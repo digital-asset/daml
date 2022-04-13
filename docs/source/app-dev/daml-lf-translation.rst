@@ -1,14 +1,14 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-How Daml types are translated to Daml-LF
+How Daml Types are Translated to Daml-LF
 ########################################
 
 This page shows how types in Daml are translated into Daml-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a Daml-based application that uses the Ledger API or client bindings in other languages.
 
 For an introduction to Daml-LF, see :ref:`daml-lf-intro`.
 
-Primitive types
+Primitive Types
 ***************
 
 :ref:`Built-in data types <daml-ref-built-in-types>` in Daml have straightforward mappings to Daml-LF.
@@ -46,7 +46,7 @@ Most built-in types have the same name in Daml-LF as in Daml. These are the exac
 
 Be aware that only the Daml primitive types exported by the :ref:`Prelude <module-prelude-72703>` module map to the Daml-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the Daml-LF primitive ``Party``.
 
-Tuple types
+Tuple Types
 ***********
 
 Daml tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the Daml surface language through the :ref:`Prelude <module-prelude-72703>` module.
@@ -55,7 +55,7 @@ The equivalent Daml-LF type constructors are ``daml-prim:DA.Types:TupleN``, for 
 
 For example: the Daml pair type ``(Int, Text)`` is translated to ``daml-prim:DA.Types:Tuple2 Int64 Text``.
 
-Data types
+Data Types
 **********
 
 Daml-LF has three kinds of data declarations:
@@ -170,7 +170,7 @@ The second gotcha is that a constructor in a data type declaration can have at m
    * - ``data Foo = Bar | Baz Int Text``
      - Name arguments to the Baz constructor, for example ``data Foo = Bar | Baz { x: Int; y: Text }``
 
-Type synonyms
+Type Synonyms
 *************
 
 :ref:`Type synonyms <daml-ref-type-synonyms>` (starting with the ``type`` keyword) are eliminated during conversion to Daml-LF. The body of the type synonym is inlined for all occurrences of the type synonym name.
@@ -188,7 +188,7 @@ The ``Username`` type is eliminated in the Daml-LF translation, as follows:
 
 	 record User ↦ { name: Text }
 
-Template types
+Template Types
 **************
 
 A :ref:`template declaration <daml-ref-template-name>` in Daml results in one or more data type declarations behind the scenes. These data types, detailed in this section, are not written explicitly in the Daml program but are created by the compiler.
@@ -246,7 +246,7 @@ These translate to the Daml-LF record declarations:
 	record DoNothing ↦ {}
 	record Transfer ↦ { newOwner: Party }
 
-Names with special characters
+Names with Special Characters
 *****************************
 
 All names in Daml—of types, templates, choices, fields, and variant data constructors—are translated to the more restrictive rules of Daml-LF.  ASCII letters, digits, and ``_`` underscore are unchanged in Daml-LF; all other characters must be mangled in some way, as follows:

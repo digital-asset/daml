@@ -16,7 +16,7 @@ You can generate visual graphs for the contracts in your Daml project. To do thi
 
 You can of course choose different names for the files, as long as you're consistent between file creation and point of use.
 
-Example: Visualizing the Quickstart project
+Example: Visualizing the Quickstart Project
 ===========================================
 
 Here's an example visualization based on the :doc:`quickstart </app-dev/bindings-java/quickstart>`. You'll need to `install Graphviz <http://www.graphviz.org/download/>`_ to try this out.

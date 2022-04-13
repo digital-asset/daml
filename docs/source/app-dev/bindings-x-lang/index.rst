@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Creating your own bindings
+Creating Your Own Bindings
 ##########################
 
 This page gets you started with creating custom bindings for a Daml Ledger.
@@ -27,7 +27,7 @@ Building Ledger Commands
 
 No matter what approach you take, either manually building commands or writing a codegen to do this, you need to understand how ledger commands are structured. This section demonstrates how to build create and exercise commands manually and how it can be done using contract classes.
 
-Create Command
+Create command
 --------------
 
 Let's recall an **IOU** example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`, where `Iou` template is defined like this:
@@ -39,7 +39,7 @@ Let's recall an **IOU** example from the :doc:`Quickstart guide </app-dev/bindin
 
 If you do not specify any of the above fields or type their names or values incorrectly, or do not order them exactly as they are in the Daml template, the above code will compile but fail at run-time because you did not structure your create command correctly.
 
-Exercise Command
+Exercise command
 ----------------
 
 To build :ref:`com.daml.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:

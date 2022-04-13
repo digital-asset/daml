@@ -181,7 +181,7 @@ projections.
 
 .. _da-model-privacy-authorization:
 
-Privacy through authorization
+Privacy through Authorization
 *****************************
 
 Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures

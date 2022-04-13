@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Query language
+Query Language
 ##############
 
 The body of ``POST /v1/query`` looks like so:
@@ -15,7 +15,7 @@ The body of ``POST /v1/query`` looks like so:
 
 The elements of that query are defined here.
 
-Fallback rule
+Fallback Rule
 *************
 
 Unless otherwise required by one of the other rules below or to follow,
@@ -28,7 +28,7 @@ All types are supported by this simple equality comparison except:
 - textmaps
 - genmaps
 
-Simple equality
+Simple Equality
 ***************
 
 Match records having at least all the (potentially nested) keys
@@ -47,7 +47,7 @@ A JSON object, when considered with a record type, is always interpreted
 as a field equality query. Its type context is thus mutually exclusive
 with comparison queries.
 
-Comparison query
+Comparison Query
 ****************
 
 Match values on comparison operators for int64, numeric, text, date, and
@@ -72,7 +72,7 @@ These operators cannot occur in objects interpreted in a record context,
 nor may other keys than these four operators occur where they are legal,
 so there is no ambiguity with field equality.
 
-Appendix: Type-aware queries
+Appendix: Type-aware Queries
 ****************************
 
 **This section is non-normative.**
@@ -127,7 +127,7 @@ The above "Typecheck failure" happens because there is no LF type to
 which both ``"Bob"`` and ``["Bob", "Sue"]`` conform; this would be
 caught when interpreting the query, before considering any contracts.
 
-Appendix: Known issues
+Appendix: Known Issues
 **********************
 
 When using Oracle, queries fail if a token is too large

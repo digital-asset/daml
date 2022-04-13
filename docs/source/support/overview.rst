@@ -28,7 +28,7 @@ The stack is segmented into two parts. Daml drivers encompass those components w
 Daml Networks
 *************
 
-Daml Drivers
+Daml drivers
 ============
 
 At the bottom of every Daml Application is a Daml network, a distributed, or possibly centralized persistence infrastructure together with Daml drivers. Daml drivers enable the persistence infrastructure to act as a consensus, messaging, and in some cases persistence layer for Daml Applications. Most Daml drivers will have a public API, but there are no *uniform* public APIs on Daml drivers. This does not harm application portability since applications only interact with Daml networks through the Participant Node. A good example of a public API of a Daml driver is the deployment interface of `Daml for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain>`_. It's a public interface, but specific to the WMware driver.
@@ -47,7 +47,7 @@ The Ledger API is the primary interface that offers forward and backward compati
 Daml Components
 ***************
 
-Runtime Components
+Runtime components
 ==================
 
 Runtime components are standalone components that run alongside Participant Nodes or Applications and expose additional services like query endpoints, automations, or integrations. Each Runtime Component has public APIs, which are covered in :doc:`component-statuses`. Typically there is a command line interface, and one or more "Runtime APIs" as indicated in the above diagram.
@@ -57,12 +57,12 @@ Libraries
 
 Libraries naturally provide public APIs in their target language, be it Daml, or secondary languages like JavaScript or Java. For details on available libraries and their interfaces, see :doc:`component-statuses`.
 
-Generated Code
+Generated code
 ==============
 
 The SDK allows the generation of code for some languages from a Daml Model. This generated code has public APIs, which are not independently versioned, but depend on the Daml version and source of the generated code, like a Daml package. In this case, the version of the Daml SDK used covers changes to the public API of the generated code.
 
-Developer Tools / SDK
+Developer tools / SDK
 =====================
 
 The Daml SDK consists of the developer tools used to develop user code, both Daml and in secondary languages, to generate code, and to interact with running applications via Runtime, and Ledger API. The SDK has a broad public API covering the Daml Language, CLIs, IDE, and Developer tools, but few of those APIs are intended for runtime use in a production environment. Exceptions to that are called out on :doc:`component-statuses`.

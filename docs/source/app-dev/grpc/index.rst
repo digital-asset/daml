@@ -3,25 +3,25 @@
 
 .. _grpc:
 
-gRPC
-####
+Using gRPC with the Ledger API
+##############################
 
 
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
 If you're not familiar with gRPC and protobuf, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. This documentation is written assuming you already have an understanding of gRPC.
 
-Getting started
+Getting Started
 ***************
 
 You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`__.
 
-Protobuf reference documentation
+Protobuf Reference Documentation
 ********************************
 
 For full details of all of the Ledger API services and their RPC methods, see  :doc:`/app-dev/grpc/proto-docs`.
 
-Example project
+Example Project
 ***************
 
 We have an example project demonstrating the use of the Ledger API with gRPC. To get the example project, ``PingPongGrpc``:
@@ -59,12 +59,12 @@ The first line shows:
 
 This example subscribes to transactions for a single party, as different parties typically live on different participant nodes. However, if you have multiple parties registered on the same node, or are running an application against the Sandbox, you can subscribe to transactions for multiple parties in a single subscription by putting multiple entries into the ``filters_by_party`` field of the ``TransactionFilter`` message. Subscribing to transactions for an unknown party will result in an error.
 
-Daml types and protobuf
+Daml Types and Protobuf
 ***********************
 
 For information on how Daml types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
 
-Error handling
+Error Handling
 **************
 
 The Ledger API generally uses the gRPC standard status codes for signaling response failures to client applications.

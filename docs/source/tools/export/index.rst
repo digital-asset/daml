@@ -55,7 +55,7 @@ this behavior.
 Output
 ******
 
-Daml Script
+Daml script
 ===========
 
 The generated Daml code in ``Export.daml`` contains the following top-level definitions:
@@ -208,7 +208,7 @@ script. However, this is not supported by all ledgers.
 Caveats
 *******
 
-Contracts Created and Referenced in Same Transaction
+Contracts created and referenced in same transaction
 ====================================================
 
 Daml ledger export may fail in certain cases when it attempts to reproduce a

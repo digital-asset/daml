@@ -15,24 +15,24 @@ Daml is a platform for building and running sophisticated, multi-party applicati
 that defines the schema, semantics, and execution of transactions between parties. Daml includes `Canton <#canton-ledger>`__, a privacy-enabled distributed ledger that is enhanced when deployed 
 with complementary blockchains.
 
-Daml Language
+Daml language
 =============
 
 The Daml language is a purpose-built language for rapid development of composable multi-party applications. It is a modern, ergonomically designed functional language that carefully avoids many 
 of the pitfalls that hinder multi-party application development in other languages.
 
-Daml Ledger
+Daml ledger
 ===========
 
 A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :doc:`Daml ledger model </concepts/ledger-model/index>` and exposes the Daml Ledger APIs.
 All current implementations of Daml ledgers consists of a Daml driver that utilises and underlying Synchronization Technology to either implement the Daml ledger directly, or run the Canton protocol.
 
-Canton Ledger
+Canton ledger
 -------------
 
 A Canton ledger is a privacy-enabled Daml ledger implemented using the Canton application, nodes, and protocol.
 
-Canton Protocol
+Canton protocol
 ===============
 
 The Canton protocol is the technology which synchronizes `participant nodes <#participant-node>`__ across any Daml-enabled blockchain or database.  The Canton protocol not only makes Daml 
@@ -40,13 +40,13 @@ applications portable between different underlying `synchronization technologies
 
 .. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
 
-Synchronization Technology
+Synchronization technology
 ==========================
 
 The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
 databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
 
-Daml Drivers
+Daml drivers
 ============
 
 Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology. 
@@ -298,7 +298,7 @@ A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of 
 
 .. TODO ask Robin
 
-Developer tools
+Developer Tools
 ***************
 
 Assistant
@@ -336,7 +336,7 @@ This is the version of Navigator that runs as a web app.
 
 See :doc:`/tools/navigator/index`.
 
-Building applications
+Building Applications
 *********************
 
 Application, ledger client, integration
@@ -430,13 +430,13 @@ A **command** is an instruction to add a transaction to the `ledger <#daml-ledge
 
 .. _daml-lf:
 
-Participant Node
+Participant node
 ================
 
 The participant node is a server that provides users a consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handles transaction signing and 
 validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
 
-Sub-Transaction Privacy
+Sub-transaction privacy
 =======================
 
 Sub-transaction privacy is where participants to a transaction only `learn about the subset of the transaction <https://docs.daml.com/concepts/ledger-model/ledger-privacy.html>`__ they are 
@@ -483,12 +483,12 @@ The `sequencer service <#sequencer>`__ of the domain orders these messages witho
 
 The other services of the domain are the `mediator <#mediator>`__ and the `domain identity manager <#domain-identity-manager>`__.
 
-Private Contract Store
+Private contract store
 ======================
 
 Every participant node manages its own private contract store (PCS) which contains only contracts the participant is privy to. There is no global state or global contract store.
 
-Virtual Global Ledger
+Virtual global ledger
 =====================
 
 While every participant has their own private contract store (PCS), the `Canton protocol <#canton-protocol>`__ guarantees that the contracts which are stored in the PCS are well-authorized 

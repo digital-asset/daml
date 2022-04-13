@@ -347,7 +347,7 @@ and imposed on the contract's *signatories*.
 
 .. _da-signatories-agreements-maintainers:
 
-Signatories, Agreements, and Maintainers
+Signatories, agreements, and maintainers
 ========================================
 
 To capture these elements of real-world contracts, the **contract model**
@@ -402,7 +402,7 @@ signatories yields the image below.
 
 .. _da-ledgers-authorization-rules:
 
-Authorization Rules
+Authorization rules
 ===================
 
 Signatories allow one to precisely state that the painter has an obligation.

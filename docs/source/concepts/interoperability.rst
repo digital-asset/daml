@@ -3,8 +3,8 @@
    
 .. _interoperable-ledgers:
 
-Ledger Interoperability
-#######################
+Daml Ledger Interoperability
+############################
 
 Certain Daml ledgers can interoperate with other Daml ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
@@ -32,7 +32,7 @@ The presentation assumes that you are familiar with the following concepts:
 
 .. _interop-limitation-examples:
    
-Interoperability examples
+Interoperability Examples
 *************************
    
 .. _interoperable-topology:
@@ -156,7 +156,7 @@ Accordingly, it does not report the contract as active nor can Alice use the con
 
 .. _interop-causality-graph:
 
-Multi-ledger causality graphs
+Multi-ledger Causality Graphs
 *****************************
 
 This section generalizes :ref:`causality graphs <causality-graph>` to the interoperability setting.
@@ -361,7 +361,7 @@ Conversely, a consistent ledger does not talk about the incoming and outgoing le
 
 .. _ledger-aware-projection:
 
-Ledger-aware projection
+Ledger-aware Projection
 ***********************
 
 A Participant Node maintains a local ledger for each party it hosts and the Transaction Service outputs a topological sort of this local ledger.
@@ -450,7 +450,7 @@ That is, a **Leave** action is white on the right hand side and an **Enter** act
 
 .. _interop-ordering-guarantees:
 
-Ledger API ordering guarantees
+Ledger API Ordering Guarantees
 ******************************
 
 The Transaction Service and the Active Contract Service are derived from the local ledger that the Participant Node maintains for the party.

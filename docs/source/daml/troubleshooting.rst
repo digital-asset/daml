@@ -33,7 +33,7 @@ Hovering over the compilation error displays:
 
   [Type checker] Argument expands to non-serializable type Party -> Party.
 
-Modeling questions
+Modeling Questions
 ******************
 
 .. _faqs-proposal:
@@ -153,7 +153,7 @@ If ``optionalValue`` is ``Some 5``, the value of ``t`` would be ``"The number is
 
 There are many other functions in "Optional.daml" that let you perform familiar functional operations on structures that contain ``Optional`` values – such as ``map``, ``filter``, etc. on ``Lists`` of ``Optional`` values.
 
-Testing questions
+Testing Questions
 *****************
 
 .. _faqs-test-visibility:

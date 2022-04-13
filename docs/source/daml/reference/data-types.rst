@@ -1,14 +1,14 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: data types
+Reference: Data Types
 #####################
 
 This page gives reference information on Daml's data types.
 
 .. _daml-ref-built-in-types:
 
-Built-in types
+Built-in Types
 **************
 
 Table of built-in primitive types
@@ -96,7 +96,7 @@ To sum a list, use a *fold* (because there are no loops in Daml). See :ref:`daml
 
 .. _daml-ref-record-types:
 
-Records and record types
+Records and Record Types
 ************************
 
 You declare a new record type using the ``data`` and ``with`` keyword:
@@ -230,7 +230,7 @@ An example of a type that can be constructed with ``Coordinate`` is ``Coordinate
 
 .. _daml-ref-type-synonyms:
 
-Type synonyms
+Type Synonyms
 *************
 
 To declare a synonym for a type, use the ``type`` keyword.
@@ -252,7 +252,7 @@ A function's type includes its parameter and result types. A function ``foo`` wi
 
 Note that this can be treated as any other type. You could for instance give it a synonym using ``type FooType = ParamType1 -> ParamType2 -> ReturnType``.
 
-Algebraic data types
+Algebraic Data Types
 ********************
 
 An algebraic data type is a composite type: a type formed by a combination of other types. The enumeration data type is an example. This section introduces more powerful algebraic data types.

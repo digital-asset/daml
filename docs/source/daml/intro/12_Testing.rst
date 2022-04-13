@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-12 Testing Daml Contracts
+Testing Daml Contracts
 =========================
 
 This chapter is all about testing and debugging the Daml contracts you've built using the tools from chapters 1-10. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
@@ -74,7 +74,7 @@ If we look back at :ref:`execution_model` we'll see there are three places where
 
 Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a Daml contract developer, you need to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid collisions by designing contracts appropriately.
 
-Common Errors
+Common errors
 ~~~~~~~~~~~~~
 
 The most common error messages you'll see are listed below. All of them can be due to one of three reasons.
@@ -120,7 +120,7 @@ lookupByKey Dispute During Validation
 
   Disputed: recreated and original transaction mismatch VersionedTransaction(...) expected, but VersionedTransaction(...) is recreated.
 
-Avoiding Race Conditions and Stale References
+Avoiding race conditions and stale references
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The first thing to avoid is write-write or write-read contention on contracts. In other words, one requester submitting a transaction with a consuming exercise on a contract while another requester submits another exercise or fetch on the same contract. This type of contention cannot be eliminated entirely, for there will always be some latency between a client submitting a command to a participant, and other clients learning of the committed transaction.
@@ -136,7 +136,7 @@ Here are a few scenarios and measures you can take to reduce this type of collis
 3. Avoid workflows that encourage multiple parties to simultaneously try to exercise a consuming choice on the same contract. For example, imagine an ``Auction`` contract containing a field ``highestBid : (Party, Decimal)``. If Alice tries to bid $100 at the same time that Bob tries to bid $90, it doesn't matter that Alice's bid is higher. The second transaction to be sequenced will be rejected as it has a write collision with the first. It's better to record the bids in separate ``Bid`` contracts, which can be written to independently. Again, think about how you would structure this data in a relational database to avoid data loss due to race conditions.
 4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in Daml. If you need to be able to make this link inside Daml, Contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in Daml at all.
 
-Collisions due to Ignorance
+Collisions due to ignorance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :doc:`Daml Ledger Model </concepts/ledger-model/index>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
@@ -158,7 +158,7 @@ Let's illustrate how collisions and operational semantics and interleave:
 
 As you can see, the behavior of ``fetch``, ``fetchByKey`` and ``lookupByKey`` at interpretation time depend on what information is available to the requester at that time. That's something to keep in mind when writing Daml contracts, and something to think about when encountering frequent "Disputed" errors.
 
-Next up
+Next Up
 -------
 
 You've reached the end of the Introduction to Daml. Congratulations. If you think you understand all this material, you could test yourself by getting Daml certified at `https://academy.daml.com <https://academy.daml.com>`__. Or put your skills to good use by developing a Daml application. There are plenty of examples to inspire you on the `Examples <https://daml.com/examples>`_ page.

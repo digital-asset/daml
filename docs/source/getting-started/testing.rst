@@ -24,7 +24,7 @@ Because these things are easier to describe with concrete examples, this
 section will show how to set up end-to-end tests for the application you would
 end with at the end of the :doc:`/getting-started/first-feature` section.
 
-Setting up our tests
+Setting up Our Tests
 ====================
 
 Let's see how to use these tools to write some tests for our social network app.
@@ -83,7 +83,7 @@ You will likely use ``test``, ``getParty()``, ``newUiPage()`` and ``Browser.clos
 In this case we use the ``@daml/ledger`` library to inspect the state of the ledger, but usually we just check the contents of the web page match our expectations.
 
 
-Accessing UI elements
+Accessing UI Elements
 =====================
 
 We showed how to write a simple test at a high level, but haven't shown how to make individual actions in the app using Puppeteer.

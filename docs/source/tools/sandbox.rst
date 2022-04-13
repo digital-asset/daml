@@ -34,7 +34,7 @@ the resulting configuration files will be merged.
 
 .. _sandbox-authorization:
 
-Running with authorization
+Running with Authorization
 **************************
 
 By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
@@ -187,7 +187,7 @@ Below, you can see an example config. For more details on TLS, refer to
      }
    }
 
-Command-line reference
+Command-line Reference
 **********************
 
 To start Sandbox, run: ``daml sandbox [options] [-c canton.config]``.
@@ -284,7 +284,7 @@ the histogram records the time necessary to execute a given operation (unless
 otherwise specified, the precision is nanoseconds and the unit of measurement
 is milliseconds).
 
-Database Metrics
+Database metrics
 ----------------
 
 A "database metric" is a collection of simpler metrics that keep track of

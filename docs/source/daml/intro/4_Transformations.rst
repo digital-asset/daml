@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-4 Transforming data using choices
+Transforming Data using Choices
 =================================
 
 In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
@@ -14,7 +14,7 @@ In this section you will learn about how to define simple data transformations u
 
   Remember that you can load all the code for this section into a folder called ``4_Transformations`` by running ``daml new 4_Transformations --template daml-intro-4``
 
-Choices as methods
+Choices as Methods
 ------------------
 
 If you think of templates as classes and contracts as objects, where are the methods?
@@ -77,7 +77,7 @@ contract with the given arguments and immediately exercise a choice on
 it. For a consuming choice, this archives the contract so the contract
 is created and archived within the same transaction.
 
-Choices as delegation
+Choices as Delegation
 ---------------------
 
 Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``.
@@ -182,7 +182,7 @@ You may have noticed that there is no archive action. That's because ``archive c
 
 .. _simple_iou:
 
-A simple cash model
+A simple Cash Model
 -------------------
 
 With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities:
@@ -192,7 +192,7 @@ With the power of choices, you can build your first interesting model: issuance 
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
 
-Next up
+Next Up
 -------
 
 You can now store and transform data on the ledger, even giving other parties specific write access through choices.

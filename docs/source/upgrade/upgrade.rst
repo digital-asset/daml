@@ -3,7 +3,7 @@
 
 .. _upgrade-overview:
 
-Upgrading Daml applications
+Upgrading Daml Applications
 ###########################
 
 .. toctree::
@@ -53,7 +53,7 @@ In contrast, Daml templates always have at least one signatory. The
 consequence is that the upgrade process for a Daml application needs
 to be different.
 
-Daml upgrade overview
+Daml Upgrade Overview
 =====================
 
 In a Daml application running on a distributed ledger, the signatories
@@ -77,7 +77,7 @@ However, the application is extended with new templates. Then if all
 signatories of a contract agree, a choice can archive the old version
 of a contract and create a new contract instead.
 
-Structuring upgrade contracts
+Structuring Upgrade Contracts
 =============================
 
 Upgrade contracts are specific to the templates that are being
@@ -135,7 +135,7 @@ template has one *nonconsuming* choice that takes the contract ID of a
   :end-before: -- UPGRADE_AGREEMENT_END
 
 
-Building and deploying carbon-1.0.0
+Building and Deploying carbon-1.0.0
 ===================================
 
 Let's see everything in action by first building and deploying
@@ -170,7 +170,7 @@ Now we can build and deploy ``carbon-1.0.0``.
    $ daml ledger upload-dar --port 6865
 
 
-Create some carbon-1.0.0 certificates
+Creating carbon-1.0.0 Certificates
 =====================================
 
 Let's create some certificates!
@@ -215,7 +215,7 @@ We point a browser to http://localhost:4000, and follow the steps:
     #. Exercise the *CarbonCertProposal_Accept* choice on both proposal contracts.
 
 
-Building and deploying carbon-2.0.0
+Building and Deploying carbon-2.0.0
 ===================================
 
 Now we setup the project for the improved certificates containing the *carbon_offset_method* field. This project contains only the ``CarbonCertWithMethod`` template. The upgrade templates are in a third ``carbon-upgrade`` package. While it would be possible to include the upgrade templates in the same package, this means that the package containing the new ``CarbonCertWithMethod`` template depends on the previous version. With the approach taken here of keeping the upgrade templates in a separate package, the ``carbon-1.0.0`` package is no longer needed once we have upgraded all certificates.
@@ -237,7 +237,7 @@ Now we can build and deploy ``carbon-2.0.0``.
    $ daml build
    $ daml ledger upload-dar --port 6865
 
-Building and deploying carbon-upgrade
+Building and Deploying carbon-upgrade
 =====================================
 
 Having built and deployed ``carbon-1.0.0`` and ``carbon-2.0.0`` we are
@@ -279,8 +279,8 @@ deployed as part of deploying ``carbon-upgrade``.
    $ daml build
    $ daml ledger upload-dar --port 6865
 
-Upgrade existing certificates from carbon-1.0.0 to carbon-2.0.0
-===============================================================
+Upgrading Existing Certificates from carbon-1.0.0 to carbon-2.0.0
+=================================================================
 
 We start the navigator again.
 

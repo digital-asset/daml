@@ -11,7 +11,7 @@ Installing
 
 Daml Studio is included in :doc:`the Daml SDK </getting-started/installation>`.
 
-Creating your first Daml file
+Creating Your First Daml File
 *****************************
 
 1. Start Daml Studio by running ``daml studio`` in the current project.
@@ -47,7 +47,7 @@ We recommend reviewing the
 to learn more about how to use it.
 To learn more about Daml, see :doc:`reference/index`.
 
-Supported features
+Supported Features
 ******************
 
 Visual Studio Code provides many helpful features for editing Daml files and we recommend reviewing
@@ -202,7 +202,7 @@ snippet file.
 .. _Creating your own Snippets: https://code.visualstudio.com/docs/editor/userdefinedsnippets
 
 
-Common script errors
+Common Script Errors
 **********************
 
 During Daml execution, errors can occur due to exceptions (e.g. use of "abort", or division by zero), or
@@ -366,7 +366,7 @@ To fix this issue the party 'Bob' should be made a controlling party in one of t
 
 .. _daml-studio-packages:
 
-Working with multiple packages
+Working with Multiple Packages
 ******************************
 
 Often a Daml project consists of multiple packages, e.g., one

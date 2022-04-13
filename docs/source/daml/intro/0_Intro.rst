@@ -3,7 +3,7 @@
 
 .. _intro-to-daml:
 
-An introduction to Daml
+An Introduction to Daml
 =======================
 
 Daml is a smart contract language designed to build composable applications on an abstract :ref:`da-ledgers`.

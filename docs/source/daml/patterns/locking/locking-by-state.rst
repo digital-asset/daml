@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Locking by state
+Locking by State
 ################
 
 The original *Coin* template is shown below. This is the basis on which to implement locking by state
