@@ -24,8 +24,15 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
-
 import java.util.concurrent._
+
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
+  ActiveContractsStreamConfig,
+  CompletionsStreamConfig,
+  TransactionTreesStreamConfig,
+}
+
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -98,15 +105,37 @@ object LedgerApiBenchTool {
       if (streamConfigs.isEmpty) {
         logger.info(s"No streams defined. Skipping the benchmark step.")
         Future.successful(Right(()))
-      } else
+      } else {
+        // warm-up
         Benchmark
           .run(
-            streamConfigs = streamConfigs,
+            streamConfigs = streamConfigs.map {
+              case x: CompletionsStreamConfig =>
+                x.copy(name = "warmup-" + x.name, objectives = None)
+              case x: ActiveContractsStreamConfig =>
+                x.copy(name = "warmup-" + x.name, objectives = None)
+              case x: TransactionTreesStreamConfig =>
+                x.copy(name = "warmup-" + x.name, objectives = None)
+              case x: StreamConfig.TransactionsStreamConfig =>
+                x.copy(name = "warmup-" + x.name, objectives = None)
+            },
             reportingPeriod = config.reportingPeriod,
             apiServices = regularUserServices,
             metricRegistry = metricRegistry,
             system = actorSystem,
           )
+          .flatMap(_ =>
+            Benchmark
+              .run(
+                streamConfigs = streamConfigs,
+                reportingPeriod = config.reportingPeriod,
+                apiServices = regularUserServices,
+                metricRegistry = metricRegistry,
+                system = actorSystem,
+              )
+          )
+
+      }
 
     def benchmarkLatency(
         regularUserServices: LedgerApiServices,
