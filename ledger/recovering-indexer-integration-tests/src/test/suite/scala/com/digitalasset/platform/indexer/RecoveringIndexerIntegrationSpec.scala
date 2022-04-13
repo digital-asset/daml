@@ -359,6 +359,7 @@ object RecoveringIndexerIntegrationSpec {
           Time.Timestamp.Epoch,
         )
       )
+
     override def stateUpdates(beginAfter: Option[Offset])(implicit
         loggingContext: LoggingContext
     ): Source[(Offset, Update), NotUsed] =
@@ -366,7 +367,9 @@ object RecoveringIndexerIntegrationSpec {
         .fromIterator(() => writtenUpdates.toSeq.iterator)
         .concat(source)
         .filter(offsetWithUpdate => beginAfter.forall(_ < offsetWithUpdate._1))
+
     override def currentHealth(): HealthStatus = HealthStatus.healthy
+
     override def allocateParty(
         hint: Option[Party],
         displayName: Option[String],
