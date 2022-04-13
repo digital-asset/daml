@@ -134,8 +134,7 @@ case class CommandSubmitter(
 
     for {
       _ <- benchtoolUserServices.commandService
-        .submitAndWaitForTransactionTree(makeCommands(commands))
-      _ <- Future.successful(())
+        .submitAndWait(makeCommands(commands))
     } yield ()
   }
 
