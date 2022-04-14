@@ -77,9 +77,9 @@ jobs:
         # SPDX-License-Identifier: Apache-2.0
 
         canton = {
-            "sha" : "$canton_sha",
-            "prefix" : "$canton_prefix",
-            "url" : "https://www.canton.io/releases/canton-open-source-$canton_version.tar.gz",
+            "sha": "$canton_sha",
+            "prefix": "$canton_prefix",
+            "url": "https://www.canton.io/releases/canton-open-source-$canton_version.tar.gz",
         }
         EOF
 
