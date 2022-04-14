@@ -51,8 +51,8 @@ genrule(
         "daml-security-test-evidence.csv",
         "daml-security-test-evidence.json",
     ],
-    cmd = "$(location //ledger/test-evidence:generator) $(location daml-security-test-evidence.csv) $(location daml-security-test-evidence.json)",
-    tools = ["//ledger/test-evidence:generator"],
+    cmd = "$(location //test-evidence:generator) $(location daml-security-test-evidence.csv) $(location daml-security-test-evidence.json)",
+    tools = ["//test-evidence:generator"],
     visibility = ["//visibility:public"],
 )
 
