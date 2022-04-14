@@ -32,6 +32,7 @@ jobs:
       demands: assignment -equals default
     steps:
     - checkout: self
+      persistCredentials: true
     - template: ../bash-lib.yml
       parameters:
         var_name: bash_lib
@@ -41,26 +42,23 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 
-        https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton
-        https://digitalasset.jfrog.io/artifactory/assembly/canton/20220413/canton-open-source-20220413.tar.gz
-
-        latest_canton=$(curl -u $AUTH \
-                             --fail \
-                             --location \
-                             --silent \
-                             https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
-                        | jq -r '.children[].uri' \
-                        | sed -e 's/^\///'
-                        | grep '^[0-9]\{8\}$'
-                        | sort
-                        | tail -1)
+        canton_version=$(curl -u $AUTH \
+                              --fail \
+                              --location \
+                              --silent \
+                              https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
+                         | jq -r '.children[].uri' \
+                         | sed -e 's/^\///' \
+                         | grep '^[0-9]\{8\}$' \
+                         | sort \
+                         | tail -1)
         dir=$(pwd)
         cd $(mktemp -d)
         curl -u $AUTH \
              --fail \
              --location \
              --silent \
-             https://digitalasset.jfrog.io/artifactory/assembly/canton/$latest_canton/canton-open-source-$latest_canton.tar.gz \
+             https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz \
              > tarball.tar.gz
         canton_sha=$(sha256sum tarball.tar.gz | awk '{print $1}')
         tar xzf tarball.tar.gz
@@ -70,8 +68,9 @@ jobs:
         canton_local_path=external/$(ls canton/lib/*.jar)
         cd $dir
 
-        sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' \
-               daml-script/test/src/test-utils/com/daml/lf/engine/script/test/MultiParticipantFixture.scala
+        bad_file=daml-script/test/src/test-utils/com/daml/lf/engine/script/test/MultiParticipantFixture.scala
+
+        sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
         cat <<EOF > canton_dep.bzl
         # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
         # SPDX-License-Identifier: Apache-2.0
@@ -85,11 +84,11 @@ jobs:
 
         branch="canton-update-$(Build.BuildId)"
 
-        if git diff --exit-code -- candon_dep.bzl; then
+        if git diff --exit-code -- canton_dep.bzl $bad_file; then
             echo "Already up-to-date with latest Canton snapshot."
             setvar need_to_build false
         else
-            git add NOTICES
+            git add canton_dep.bzl $bad_file
             open_pr "$branch" "update NOTICES file"
             setvar need_to_build true
         fi
