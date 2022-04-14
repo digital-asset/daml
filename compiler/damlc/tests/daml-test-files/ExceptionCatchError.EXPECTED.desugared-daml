@@ -13,7 +13,7 @@ test1
            do DA.Internal.Desugar._tryCatch
                 \ _ -> do error "hello"
                 \case
-                  DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg)
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg))
                     -> DA.Internal.Desugar.Some msg === "hello"
                   _ -> DA.Internal.Desugar.None
 test2
@@ -24,7 +24,7 @@ test2
            do DA.Internal.Desugar._tryCatch
                 \ _ -> do abort "foo"
                 \case
-                  DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg)
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg))
                     -> DA.Internal.Desugar.Some msg === "foo"
                   _ -> DA.Internal.Desugar.None
 test3
@@ -35,6 +35,6 @@ test3
            do DA.Internal.Desugar._tryCatch
                 \ _ -> do fail "bar"
                 \case
-                  DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg)
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg))
                     -> DA.Internal.Desugar.Some msg === "bar"
                   _ -> DA.Internal.Desugar.None

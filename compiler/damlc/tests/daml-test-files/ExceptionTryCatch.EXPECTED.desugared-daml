@@ -9,7 +9,7 @@ test1
   = DA.Internal.Desugar._tryCatch
       \ _ -> pure (10 / 0)
       \case
-        DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError)
+        (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError))
           -> DA.Internal.Desugar.Some pure 0
         _ -> DA.Internal.Desugar.None
 test2 : ActionCatch m => m Int
@@ -17,7 +17,7 @@ test2
   = do DA.Internal.Desugar._tryCatch
          \ _ -> pure (10 / 0)
          \case
-           DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError)
+           (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError))
              -> DA.Internal.Desugar.Some pure 0
            _ -> DA.Internal.Desugar.None
 test3 : ActionCatch m => m Int
@@ -25,7 +25,7 @@ test3
   = do x <- DA.Internal.Desugar._tryCatch
               \ _ -> pure (10 / 0)
               \case
-                DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError)
+                (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError))
                   -> DA.Internal.Desugar.Some pure 0
                 _ -> DA.Internal.Desugar.None
        pure (x + 1)
@@ -34,7 +34,7 @@ test4
   = do x <- DA.Internal.Desugar._tryCatch
               \ _ -> pure (10 / 0)
               \case
-                DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError)
+                (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError))
                   -> DA.Internal.Desugar.Some pure 0
                 _ -> DA.Internal.Desugar.None
        pure (x + 1)
@@ -43,9 +43,9 @@ test5
   = DA.Internal.Desugar._tryCatch
       \ _ -> pure (10 / 0)
       \case
-        DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : GeneralError)
+        (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : GeneralError))
           -> DA.Internal.Desugar.Some pure 1
-        DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError)
+        (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (_ : ArithmeticError))
           | 1 == 2 -> DA.Internal.Desugar.Some pure 2
           | otherwise -> DA.Internal.Desugar.Some pure 3
         _ -> DA.Internal.Desugar.None
