@@ -23,7 +23,6 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
-  DamlLogEntry,
   DamlStateValue,
   PreExecutionDeduplicationBounds,
 }
@@ -71,8 +70,6 @@ private[transaction] object CommandDeduplication {
           StepContinue(transactionEntry)
         } else {
           if (commitContext.preExecute) {
-            // The out of time bounds entry is required in the committer, so we set it to the default value as we stop the steps here with the duplicate rejection
-            commitContext.outOfTimeBoundsLogEntry = Some(DamlLogEntry.getDefaultInstance)
             preExecutionDuplicateRejection(
               commitContext,
               transactionEntry,

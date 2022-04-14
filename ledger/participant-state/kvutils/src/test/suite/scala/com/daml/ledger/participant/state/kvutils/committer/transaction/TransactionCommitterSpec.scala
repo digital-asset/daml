@@ -14,11 +14,15 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionRejectionEntry,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
+  DamlCommandDedupValue,
+  DamlLogEntry,
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
+  PreExecutionDeduplicationBounds,
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, KeyValueCommitting, committer}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
@@ -286,6 +290,76 @@ class TransactionCommitterSpec
 
         case StepStop(_) => fail()
       }
+    }
+  }
+
+  "setting out of time bounds entry" should {
+
+    "be set" when {
+
+      "a submitting party is not known" in {
+        val context = createCommitContext(
+          recordTime = None,
+          inputs = createInputs(
+            Alice -> Some(hostedParty(Alice)),
+            Bob -> None,
+          ) + (Conversions.configurationStateKey -> None),
+          participantId = ParticipantId,
+        )
+        val transactionEntry = createEmptyTransactionEntry(List(Alice, Bob))
+        val result = transactionCommitter.preExecute(
+          DamlSubmission.newBuilder().setTransactionEntry(transactionEntry).build(),
+          context,
+        )
+        resultIsRejectedWithPayload(
+          result,
+          DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER,
+        )
+      }
+
+      "the command is a duplicate" in {
+        val transactionEntry = createEmptyTransactionEntry(List(Alice))
+        val context = createCommitContext(
+          recordTime = None,
+          inputs = createInputs(
+            Alice -> Some(hostedParty(Alice))
+          ) + (Conversions.configurationStateKey -> None) + (Conversions.commandDedupKey(
+            transactionEntry.getSubmitterInfo
+          ) -> Some(
+            DamlStateValue.newBuilder
+              .setCommandDedup(
+                DamlCommandDedupValue.newBuilder
+                  .setRecordTimeBounds(
+                    PreExecutionDeduplicationBounds
+                      .newBuilder()
+                      .setMaxRecordTime(transactionEntry.getSubmissionTime)
+                      .setMinRecordTime(transactionEntry.getSubmissionTime)
+                  )
+              )
+              .build
+          )),
+          participantId = ParticipantId,
+        )
+        val result = transactionCommitter.preExecute(
+          DamlSubmission.newBuilder().setTransactionEntry(transactionEntry).build(),
+          context,
+        )
+        resultIsRejectedWithPayload(
+          result,
+          DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND,
+        )
+      }
+    }
+
+    def resultIsRejectedWithPayload(
+        result: KeyValueCommitting.PreExecutionResult,
+        transactionRejectionReason: DamlTransactionRejectionEntry.ReasonCase,
+    ) = {
+      result.outOfTimeBoundsLogEntry.getPayloadCase shouldBe DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY
+      result.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry.getPayloadCase shouldBe DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+      result.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE
+      result.successfulLogEntry.getPayloadCase shouldBe DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+      result.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldBe transactionRejectionReason
     }
   }
 

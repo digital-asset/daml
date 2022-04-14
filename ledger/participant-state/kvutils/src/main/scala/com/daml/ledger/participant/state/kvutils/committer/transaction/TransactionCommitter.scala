@@ -69,12 +69,14 @@ private[kvutils] class TransactionCommitter(
   private val committerModelConformanceValidator =
     new CommitterModelConformanceValidator(engine, metrics)
 
+  /** The order of the steps matters
+    */
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
+    "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
+    "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
-    "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
     "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
-    "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_committer_model_conformance" -> committerModelConformanceValidator
       .createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
