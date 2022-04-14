@@ -27,6 +27,7 @@ import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest
+import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Validate (validateDar)
@@ -102,6 +103,7 @@ data CommandName =
   | Clean
   | Compile
   | DamlDoc
+  | Desugar
   | DocTest
   | GenerateSrc
   | GenerateGenerics
@@ -159,6 +161,16 @@ cmdCompile numProcessors =
         help "Produce interface files. This is used for building the package db for daml-prim and daml-stdib" <>
         long "write-iface"
 
+cmdDesugar :: Int -> Mod CommandFields Command
+cmdDesugar numProcessors =
+  command "desugar" $ info (helper <*> cmd) $
+      progDesc "Show the desugared Daml program"
+    <> fullDesc
+  where
+    cmd = execDesugar
+      <$> inputFileOpt
+      <*> outputFileOpt
+      <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
 
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
@@ -541,6 +553,18 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
 
+execDesugar :: FilePath -> FilePath -> Options -> Command
+execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effect
+  where
+    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    effect = withProjectRoot' projectOpts $ \relativize ->
+      liftIO . write =<< desugar opts =<< relativize inputFile
+    write s
+      | outputFile == "-" = putStrLn s
+      | otherwise = do
+        createDirectoryIfMissing True $ takeDirectory outputFile
+        writeFile outputFile s
+
 execLint :: [FilePath] -> Options -> Command
 execLint inputFiles opts =
   Command Lint (Just projectOpts) effect
@@ -902,6 +926,7 @@ options numProcessors =
         <> cmdMergeDars
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
+        <> cmdDesugar numProcessors
         <> cmdClean
       )
 
@@ -944,7 +969,7 @@ main = do
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
     damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Ide, Test, DamlDoc]
+    let args = if cmd `elem` [Build, Compile, Desugar, Ide, Test, DamlDoc]
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args
