@@ -205,11 +205,14 @@ This testing procedure starts once the release is listed on the [releases page].
    easily.
 
     1. For these steps you will need the documentation for the
-       release you are about to make. Documentation is published at
-       every hour so if you wait for a bit you can go to
+       release you are about to make. Documentation for stable releases
+       is published at every hour so if you wait for a bit you can go to
        https://docs.daml.com/$VERSION/getting-started/index.html.
-       Otherwise, check out the commit that you are referencing in the `LATEST` file
-       and build documentation locally via `./docs/scripts/preview.sh`.
+       Otherwise (e.g. for snapshot releases), check out the commit that
+       you are referencing in the `LATEST` file and build documentation
+       locally via `./docs/scripts/preview.sh`. Alternatively, if you are
+       sure that the Getting Started Guide didn't change since the last
+       stable version, you can simply go to https://docs.daml.com/getting-started/index.html
 
     1. `daml new create-daml-app --template create-daml-app`
 
@@ -241,7 +244,7 @@ This testing procedure starts once the release is listed on the [releases page].
        browser window that `Bob` shows up in `Alice`’s network.
 
     1. Open the your first feature section of the GSG, e.g., from
-       https://docs.daml.com/$VERSION/getting-started/first-feature.html
+       https://docs.daml.com/getting-started/first-feature.html
        if you did not build docs locally.
 
     1. Run `daml studio --replace=always` from the project root

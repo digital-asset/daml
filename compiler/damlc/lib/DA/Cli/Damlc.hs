@@ -137,7 +137,7 @@ cmdLicense :: Mod CommandFields Command
 cmdLicense =
     command "license" $ info (helper <*> pure execLicense) $
        progDesc
-        "License information for open-source projects included in Daml Connect."
+        "License information for open-source projects included in Daml."
     <> fullDesc
 
 cmdCompile :: Int -> Mod CommandFields Command
