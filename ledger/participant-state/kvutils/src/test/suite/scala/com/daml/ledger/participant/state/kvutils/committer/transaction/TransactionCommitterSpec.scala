@@ -293,7 +293,7 @@ class TransactionCommitterSpec
     }
   }
 
-  "setting out of time bounds entry" should {
+  "out of time bounds entry" should {
 
     "be set" when {
 
@@ -319,25 +319,27 @@ class TransactionCommitterSpec
 
       "the command is a duplicate" in {
         val transactionEntry = createEmptyTransactionEntry(List(Alice))
+        val configurationInput = Conversions.configurationStateKey -> None
+        val commandDeduplicationInput = Conversions.commandDedupKey(
+          transactionEntry.getSubmitterInfo
+        ) -> Some(
+          DamlStateValue.newBuilder
+            .setCommandDedup(
+              DamlCommandDedupValue.newBuilder
+                .setRecordTimeBounds(
+                  PreExecutionDeduplicationBounds
+                    .newBuilder()
+                    .setMaxRecordTime(transactionEntry.getSubmissionTime)
+                    .setMinRecordTime(transactionEntry.getSubmissionTime)
+                )
+            )
+            .build
+        )
         val context = createCommitContext(
           recordTime = None,
           inputs = createInputs(
             Alice -> Some(hostedParty(Alice))
-          ) + (Conversions.configurationStateKey -> None) + (Conversions.commandDedupKey(
-            transactionEntry.getSubmitterInfo
-          ) -> Some(
-            DamlStateValue.newBuilder
-              .setCommandDedup(
-                DamlCommandDedupValue.newBuilder
-                  .setRecordTimeBounds(
-                    PreExecutionDeduplicationBounds
-                      .newBuilder()
-                      .setMaxRecordTime(transactionEntry.getSubmissionTime)
-                      .setMinRecordTime(transactionEntry.getSubmissionTime)
-                  )
-              )
-              .build
-          )),
+          ) + configurationInput + commandDeduplicationInput,
           participantId = ParticipantId,
         )
         val result = transactionCommitter.preExecute(

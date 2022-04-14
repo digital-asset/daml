@@ -72,8 +72,10 @@ private[kvutils] class TransactionCommitter(
   /** The order of the steps matters
     */
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
-    "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
-    "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
+    "set_context_min_max_record_time" -> TimeBoundBindingStep.setTimeBoundsInContextStep(
+      defaultConfig
+    ),
+    "set_context_out_of_time_bounds_entry" -> ledgerTimeValidator.createValidationStep(rejections),
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
