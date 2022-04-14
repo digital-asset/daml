@@ -31,4 +31,9 @@ desugar opts inputFile = do
     runActionSync ide $ do
       dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
       parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
-      pure . T.pack . GHC.showSDoc dflags . GHC.ppr $ parsed
+      pure . ensureNewlineAtEof . T.pack . GHC.showSDoc dflags . GHC.ppr $ parsed
+
+ensureNewlineAtEof :: Text -> Text
+ensureNewlineAtEof t
+  | Just (_, '\n') <- T.unsnoc t = t
+  | otherwise                    = t <> "\n"
