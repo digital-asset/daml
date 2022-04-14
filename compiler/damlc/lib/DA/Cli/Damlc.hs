@@ -61,6 +61,7 @@ import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Text.Extended as T
+import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.IdeState.Daml
@@ -560,10 +561,10 @@ execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effec
     effect = withProjectRoot' projectOpts $ \relativize ->
       liftIO . write =<< desugar opts =<< relativize inputFile
     write s
-      | outputFile == "-" = putStrLn s
+      | outputFile == "-" = T.putStrLn s
       | otherwise = do
         createDirectoryIfMissing True $ takeDirectory outputFile
-        writeFile outputFile s
+        T.writeFile outputFile s
 
 execLint :: [FilePath] -> Options -> Command
 execLint inputFiles opts =

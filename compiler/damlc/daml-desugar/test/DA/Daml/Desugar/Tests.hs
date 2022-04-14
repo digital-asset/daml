@@ -10,11 +10,13 @@ import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.Ast.Version (versionDev)
 import DA.Daml.Options.Types (EnableScenarioService(..), Options(..), defaultOptions)
 import Data.List.Extra (nubOrd)
+import Data.Text (Text)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
 import System.FilePath (dropExtension, replaceExtensions, takeExtensions, (<.>), (</>))
 import Test.Tasty.Golden (goldenVsStringDiff)
 
-import qualified Data.ByteString.Lazy.UTF8 as BSL8
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text.Encoding as TE
 import qualified Test.Tasty.Extended as Tasty
 
 mkTestTree :: FilePath -> IO Tasty.TestTree
@@ -28,7 +30,7 @@ mkTestTree testDir = do
 
   pure $ Tasty.testGroup "DA.Daml.Desugar" $ concat goldenTests
 
-runDamlDesugar :: FilePath -> IO String
+runDamlDesugar :: FilePath -> IO Text
 runDamlDesugar input = desugar opts input
   where
     opts = (defaultOptions Nothing)
@@ -54,6 +56,6 @@ fileTest damlFile = do
 
       pure $ flip map expectations $ \expectation ->
         goldenVsStringDiff ("File: " <> expectation) diff expectation $
-          pure $ BSL8.fromString desugared
+          pure $ BSL.fromStrict $ TE.encodeUtf8 desugared
   where
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]

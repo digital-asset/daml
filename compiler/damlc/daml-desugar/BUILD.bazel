@@ -11,6 +11,7 @@ da_haskell_library(
         "ghcide",
         "ghc-lib",
         "ghc-lib-parser",
+        "text",
         "unordered-containers",
     ],
     src_strip_prefix = "src",
@@ -30,11 +31,12 @@ da_haskell_library(
     ],
     hackage_deps = [
         "base",
+        "bytestring",
         "directory",
         "extra",
         "filepath",
         "tasty-golden",
-        "utf8-string",
+        "text",
     ],
     src_strip_prefix = "test",
     toolchains = [

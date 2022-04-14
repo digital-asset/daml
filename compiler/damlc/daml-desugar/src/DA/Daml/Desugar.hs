@@ -5,6 +5,7 @@ module DA.Daml.Desugar (desugar) where
 
 import DA.Daml.Compiler.Output (diagnosticsLogger)
 import DA.Daml.Options.Types (Options, getLogger)
+import Data.Text (Text)
 import Development.IDE.Core.API (runActionSync, setFilesOfInterest)
 import Development.IDE.Core.IdeState.Daml (withDamlIdeState)
 import Development.IDE.Core.Rules (GetParsedModule (..))
@@ -14,13 +15,14 @@ import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location (toNormalizedFilePath')
 
 import qualified Data.HashSet as HashSet
+import qualified Data.Text as T
 
 import "ghc-lib" GHC (pm_parsed_source)
 import "ghc-lib-parser" HscTypes (hsc_dflags)
 
 import qualified "ghc-lib-parser" Outputable as GHC
 
-desugar :: Options -> FilePath -> IO String
+desugar :: Options -> FilePath -> IO Text
 desugar opts inputFile = do
   loggerH <- getLogger opts "daml-desugar"
   inputFile <- pure $ toNormalizedFilePath' inputFile
@@ -29,4 +31,4 @@ desugar opts inputFile = do
     runActionSync ide $ do
       dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
       parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
-      pure . GHC.showSDoc dflags . GHC.ppr $ parsed
+      pure . T.pack . GHC.showSDoc dflags . GHC.ppr $ parsed
