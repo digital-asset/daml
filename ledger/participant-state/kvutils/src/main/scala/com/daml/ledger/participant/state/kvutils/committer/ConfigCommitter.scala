@@ -184,9 +184,10 @@ private[kvutils] class ConfigCommitter(
           .build,
       )
 
-      val successLogEntry = buildLogEntryWithOptionalRecordTime(
-        _.setConfigurationEntry(configurationEntry)
-      )
+      val successLogEntry = DamlLogEntry
+        .newBuilder()
+        .setConfigurationEntry(configurationEntry)
+        .build()
       StepStop(successLogEntry)
     }
   }
@@ -212,8 +213,9 @@ private[kvutils] class ConfigCommitter(
       submission: DamlConfigurationSubmission,
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
   ): DamlLogEntry = {
-    buildLogEntryWithOptionalRecordTime(
-      _.setConfigurationRejectionEntry(
+    DamlLogEntry
+      .newBuilder()
+      .setConfigurationRejectionEntry(
         addErrorDetails(
           DamlConfigurationRejectionEntry.newBuilder
             .setSubmissionId(submission.getSubmissionId)
@@ -221,7 +223,7 @@ private[kvutils] class ConfigCommitter(
             .setConfiguration(submission.getConfiguration)
         )
       )
-    )
+      .build()
   }
 
   override protected val steps: Steps[Result] = Iterable(

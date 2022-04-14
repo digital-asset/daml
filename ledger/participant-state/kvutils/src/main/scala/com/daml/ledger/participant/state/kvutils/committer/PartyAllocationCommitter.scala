@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedupKey
-import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.store.events.{
   AlreadyExists,
   DamlPartyAllocationEntry,
@@ -158,9 +157,10 @@ private[kvutils] class PartyAllocationCommitter(
           .build,
       )
 
-      val successLogEntry = buildLogEntryWithOptionalRecordTime(
-        _.setPartyAllocationEntry(result)
-      )
+      val successLogEntry = DamlLogEntry
+        .newBuilder()
+        .setPartyAllocationEntry(result)
+        .build()
       setOutOfTimeBoundsLogEntry(result, ctx)
       StepStop(successLogEntry)
     }
@@ -178,15 +178,16 @@ private[kvutils] class PartyAllocationCommitter(
       result: Result,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): DamlLogEntry = {
-    buildLogEntryWithOptionalRecordTime(
-      _.setPartyAllocationRejectionEntry(
+    DamlLogEntry
+      .newBuilder()
+      .setPartyAllocationRejectionEntry(
         addErrorDetails(
           DamlPartyAllocationRejectionEntry.newBuilder
             .setSubmissionId(result.getSubmissionId)
             .setParticipantId(result.getParticipantId)
         )
       )
-    )
+      .build()
   }
 
   private def setOutOfTimeBoundsLogEntry(result: Result, commitContext: CommitContext): Unit = {

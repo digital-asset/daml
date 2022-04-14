@@ -110,10 +110,11 @@ object KVTest {
       simplePackage: SimplePackage
   )(implicit loggingContext: LoggingContext): KVTest[Unit] =
     for {
-      archiveLogEntry <- submitArchives(
+      result <- preExecuteArchives(
         "simple-archive-submission",
         simplePackage.archives.values.toSeq: _*
       ).map(_._2)
+      archiveLogEntry = result.successfulLogEntry
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
       _ <- modify[KVTestState](state =>
         state.copy(uploadedPackages = state.uploadedPackages ++ simplePackage.packages)
@@ -165,16 +166,6 @@ object KVTest {
 
   def getDamlState(key: DamlStateKey): KVTest[Option[DamlStateValue]] =
     gets(s => s.damlState.get(key))
-
-  def submitArchives(
-      submissionId: String,
-      archives: DamlLf.Archive*
-  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
-    get.flatMap { testState =>
-      submit(
-        createArchiveSubmission(submissionId, testState, archives: _*)
-      )
-    }
 
   def preExecuteArchives(
       submissionId: String,
@@ -229,23 +220,6 @@ object KVTest {
   )(implicit loggingContext: LoggingContext): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, command)
 
-  def submitTransaction(
-      submitter: Ref.Party,
-      transaction: (SubmittedTransaction, Transaction.Metadata),
-      submissionSeed: crypto.Hash,
-      letDelta: Duration = Duration.ZERO,
-      commandId: Ref.CommandId = randomLedgerString,
-      deduplicationDuration: Duration = Duration.ofDays(1),
-  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
-    prepareTransactionSubmission(
-      submitter,
-      transaction,
-      submissionSeed,
-      letDelta,
-      commandId,
-      deduplicationDuration,
-    ).flatMap(submit)
-
   def preExecuteTransaction(
       submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
@@ -292,25 +266,6 @@ object KVTest {
     )
   }
 
-  def submitConfig(
-      configModify: Configuration => Configuration,
-      submissionId: Ref.SubmissionId = randomLedgerString,
-      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
-  )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
-    for {
-      testState <- get[KVTestState]
-      oldConf <- getConfiguration
-      result <- submit(
-        createConfigurationSubmission(
-          configModify,
-          submissionId,
-          minMaxRecordTimeDelta,
-          testState,
-          oldConf,
-        )
-      )
-    } yield result._2
-
   def preExecuteConfig(
       configModify: Configuration => Configuration,
       submissionId: Ref.SubmissionId = randomLedgerString,
@@ -330,15 +285,6 @@ object KVTest {
       )
     } yield result._2
 
-  def submitPartyAllocation(
-      subId: String,
-      hint: String,
-      participantId: Ref.ParticipantId,
-  )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
-    get[KVTestState]
-      .flatMap(testState => submit(createPartySubmission(subId, hint, participantId, testState)))
-      .map(_._2)
-
   def preExecutePartyAllocation(
       subId: String,
       hint: String,
@@ -356,40 +302,12 @@ object KVTest {
   )(implicit loggingContext: LoggingContext): KVTest[Ref.Party] =
     for {
       testState <- get[KVTestState]
-      result <- submitPartyAllocation(subId, hint, testState.participantId).map { logEntry =>
+      result <- preExecutePartyAllocation(subId, hint, testState.participantId).map { result =>
+        val logEntry = result.successfulLogEntry
         assert(logEntry.getPayloadCase == DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY)
         Ref.Party.assertFromString(logEntry.getPartyAllocationEntry.getParty)
       }
     } yield result
-
-  private def submit(
-      submission: DamlSubmission
-  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
-    for {
-      testState <- get[KVTestState]
-      entryId <- freshEntryId
-      output = testState.keyValueCommitting.preExecuteSubmission(
-        defaultConfig = testState.defaultConfig,
-        submission = submission,
-        participantId = testState.participantId,
-        inputState = submission.getInputDamlStateList.asScala.map { key =>
-          key -> testState.damlState.get(key)
-        }.toMap,
-      )
-      _ <- addDamlState(output.stateUpdates)
-    } yield {
-      // Verify that all state touched matches with "submissionOutputs".
-      assert(
-        output.stateUpdates.keySet subsetOf KeyValueCommitting.submissionOutputs(submission)
-      )
-      // Verify that we can always process the log entry.
-      val _ = KeyValueConsumption.logEntryToUpdate(
-        entryId,
-        output.successfulLogEntry,
-      )(loggingContext)
-
-      entryId -> output.successfulLogEntry
-    }
 
   def preExecute(
       damlSubmission: DamlSubmission

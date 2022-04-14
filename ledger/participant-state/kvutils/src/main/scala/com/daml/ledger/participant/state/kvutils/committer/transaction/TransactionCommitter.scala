@@ -8,7 +8,6 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
   CommitterModelConformanceValidator,
@@ -332,9 +331,10 @@ private[kvutils] object TransactionCommitter {
       )
       .build
     commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
-    buildLogEntryWithOptionalRecordTime(
-      _.setTransactionEntry(transactionEntry.submission)
-    )
+    DamlLogEntry
+      .newBuilder()
+      .setTransactionEntry(transactionEntry.submission)
+      .build()
   }
 
   // Helper to read the _current_ contract state.

@@ -163,16 +163,6 @@ class CommitterSpec
     }
   }
 
-  "buildLogEntryWithOptionalRecordTime" should {
-
-    "skip setting record time in log entry when it is not available" in {
-      val actualLogEntry =
-        Committer.buildLogEntryWithOptionalRecordTime(identity)
-
-      actualLogEntry.hasRecordTime shouldBe false
-    }
-  }
-
   "run" should {
     "run init" in {
       val initialized = new AtomicBoolean(false)

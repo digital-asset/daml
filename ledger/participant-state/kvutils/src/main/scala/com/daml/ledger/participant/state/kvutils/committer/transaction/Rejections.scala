@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.committer.{StepResult, StepStop}
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
   DamlTransactionRejectionEntry,
@@ -35,9 +35,7 @@ private[transaction] class Rejections(metrics: Metrics) {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
     logger.trace(s"Transaction rejected, $rejectionDescription.")
     StepStop(
-      buildLogEntryWithOptionalRecordTime(
-        _.setTransactionRejectionEntry(rejectionEntry)
-      )
+      DamlLogEntry.newBuilder().setTransactionRejectionEntry(rejectionEntry).build()
     )
   }
 

@@ -24,14 +24,6 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "be able to submit a party allocation" in KVTest.runTest {
-      withParticipantId(p0) {
-        submitPartyAllocation("ok", "alice", p0).map { logEntry =>
-          logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
-        }
-      }
-    }
-
     "be able to pre-execute a party allocation" in KVTest.runTest {
       withParticipantId(p0) {
         preExecutePartyAllocation("ok", "alice", p0).map { preExecutionResult =>
@@ -42,17 +34,19 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
 
     "reject when participant id does not match" in KVTest.runTest {
       withParticipantId(p0) {
-        submitPartyAllocation("mismatch", "alice", p1)
+        preExecutePartyAllocation("mismatch", "alice", p1)
       }.map { logEntry =>
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
       }
     }
 
     "reject on bad party string" in KVTest.runTest {
       for {
-        logEntry1 <- submitPartyAllocation("empty party", "", p0)
-        logEntry2 <- submitPartyAllocation("bad party", "%", p0)
+        result1 <- preExecutePartyAllocation("empty party", "", p0)
+        result2 <- preExecutePartyAllocation("bad party", "%", p0)
       } yield {
+        val logEntry1 = result1.successfulLogEntry
+        val logEntry2 = result2.successfulLogEntry
         logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
@@ -63,9 +57,11 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
 
     "reject on duplicate party" in KVTest.runTest {
       for {
-        logEntry1 <- submitPartyAllocation("alice", "alice", p0)
-        logEntry2 <- submitPartyAllocation("alice again", "alice", p0)
+        result1 <- preExecutePartyAllocation("alice", "alice", p0)
+        result2 <- preExecutePartyAllocation("alice again", "alice", p0)
       } yield {
+        val logEntry1 = result1.successfulLogEntry
+        val logEntry2 = result2.successfulLogEntry
         logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry2.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS
@@ -74,9 +70,11 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
 
     "reject duplicate submission" in KVTest.runTest {
       for {
-        logEntry0 <- submitPartyAllocation("submission-1", "alice", p0)
-        logEntry1 <- submitPartyAllocation("submission-1", "bob", p0)
+        result0 <- preExecutePartyAllocation("submission-1", "alice", p0)
+        result1 <- preExecutePartyAllocation("submission-1", "bob", p0)
       } yield {
+        val logEntry0 = result0.successfulLogEntry
+        val logEntry1 = result1.successfulLogEntry
         logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         logEntry1.getPayloadCase shouldEqual
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
@@ -88,8 +86,8 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
     "update metrics" in KVTest.runTest {
       for {
         //Submit party twice to force one acceptance and one rejection on duplicate
-        _ <- submitPartyAllocation("submission-1", "alice", p0)
-        _ <- submitPartyAllocation("submission-1", "bob", p0)
+        _ <- preExecutePartyAllocation("submission-1", "alice", p0)
+        _ <- preExecutePartyAllocation("submission-1", "bob", p0)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.partyAllocation.accepts.getCount should be >= 1L

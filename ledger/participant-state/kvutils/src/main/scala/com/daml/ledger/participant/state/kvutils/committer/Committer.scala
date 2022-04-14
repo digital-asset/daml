@@ -167,12 +167,4 @@ object Committer {
       }
       .getOrElse(None -> defaultConfig)
 
-  def buildLogEntryWithOptionalRecordTime(
-      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder
-  ): DamlLogEntry = {
-    val logEntryBuilder = DamlLogEntry.newBuilder
-    addSubmissionSpecificEntry(logEntryBuilder)
-    logEntryBuilder.build
-  }
-
 }

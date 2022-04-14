@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.util.concurrent.Executors
 
 import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupKey
-import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
   DamlPackageUploadEntry,
   DamlPackageUploadRejectionEntry,
@@ -88,15 +87,16 @@ final private[kvutils] class PackageCommitter(
       participantId: String,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
   ): DamlLogEntry =
-    buildLogEntryWithOptionalRecordTime(
-      _.setPackageUploadRejectionEntry(
+    DamlLogEntry
+      .newBuilder()
+      .setPackageUploadRejectionEntry(
         addErrorDetails(
           DamlPackageUploadRejectionEntry.newBuilder
             .setSubmissionId(submissionId)
             .setParticipantId(participantId)
         )
       )
-    )
+      .build()
 
   private def setOutOfTimeBoundsLogEntry(
       uploadEntry: DamlPackageUploadEntry.Builder,
@@ -435,7 +435,7 @@ final private[kvutils] class PackageCommitter(
           .build,
       )
       val successLogEntry =
-        buildLogEntryWithOptionalRecordTime(_.setPackageUploadEntry(uploadEntry))
+        DamlLogEntry.newBuilder().setPackageUploadEntry(uploadEntry).build()
       setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
       StepStop(successLogEntry)
     }
