@@ -37,8 +37,44 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private def errorLogger(loggingContext: LoggingContext, submissionId: Ref.SubmissionId) =
-    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+  def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
+      telemetryContext: TelemetryContext
+  ): Future[AcceptedEntry] = {
+    for {
+      ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
+      submissionResult <- strategy.submit(submissionId, input)
+      entry <- toResult(submissionId, ledgerEndBeforeRequest, submissionResult)
+    } yield entry
+  }
+
+  private def toResult(
+      submissionId: Ref.SubmissionId,
+      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+      submissionResult: SubmissionResult,
+  ) = submissionResult match {
+    case SubmissionResult.Acknowledged =>
+      acknowledged(submissionId, ledgerEndBeforeRequest)
+    case synchronousError: SubmissionResult.SynchronousError =>
+      Future.failed(synchronousError.exception)
+  }
+
+  private def acknowledged(
+      submissionId: Ref.SubmissionId,
+      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+  ) = {
+    val isAccepted = new Accepted(strategy.accept(submissionId))
+    val isRejected = new Rejected(strategy.reject(submissionId))
+    strategy
+      .entries(ledgerEndBeforeRequest)
+      .collect {
+        case isAccepted(entry) => Future.successful(entry)
+        case isRejected(exception) => Future.failed(exception)
+      }
+      .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
+      .runWith(Sink.head)
+      .recoverWith(toGrpcError(loggingContext, submissionId))
+      .flatten
+  }
 
   private def toGrpcError(
       loggingContext: LoggingContext,
@@ -60,44 +96,8 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
       )
   }
 
-  private def acknowledged(
-      submissionId: Ref.SubmissionId,
-      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
-  ) = {
-    val isAccepted = new Accepted(strategy.accept(submissionId))
-    val isRejected = new Rejected(strategy.reject(submissionId))
-    strategy
-      .entries(ledgerEndBeforeRequest)
-      .collect {
-        case isAccepted(entry) => Future.successful(entry)
-        case isRejected(exception) => Future.failed(exception)
-      }
-      .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
-      .runWith(Sink.head)
-      .recoverWith(toGrpcError(loggingContext, submissionId))
-      .flatten
-  }
-
-  private def toResult(
-      submissionId: Ref.SubmissionId,
-      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
-      submissionResult: SubmissionResult,
-  ) = submissionResult match {
-    case SubmissionResult.Acknowledged =>
-      acknowledged(submissionId, ledgerEndBeforeRequest)
-    case synchronousError: SubmissionResult.SynchronousError =>
-      Future.failed(synchronousError.exception)
-  }
-
-  def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
-      telemetryContext: TelemetryContext
-  ): Future[AcceptedEntry] = {
-    for {
-      ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
-      submissionResult <- strategy.submit(submissionId, input)
-      entry <- toResult(submissionId, ledgerEndBeforeRequest, submissionResult)
-    } yield entry
-  }
+  private def errorLogger(loggingContext: LoggingContext, submissionId: Ref.SubmissionId) =
+    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
 
 }
 
