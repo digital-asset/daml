@@ -1,0 +1,34 @@
+module InterfaceNotSupported where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlInterface => A = A GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep A where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch A where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface A A where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface A A where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasToAnyTemplate A where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate A where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep A where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory A where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver A where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate A where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasEnsure A where
+  ensure this = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.HasIsInterfaceType A where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq A where
+  (==) = GHC.Types.primitive @"BEEqual"

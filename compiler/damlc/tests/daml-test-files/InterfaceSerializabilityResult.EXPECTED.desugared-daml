@@ -1,0 +1,85 @@
+module InterfaceSerializabilityResult where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data NonSerializable = NonSerializable (() -> ())
+instance Eq NonSerializable where
+  (==) = error "undefined"
+instance Show NonSerializable where
+  show = error "undefined"
+data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep I where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch I where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface I I where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface I I where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod I "p" (Party)
+p : DA.Internal.Desugar.Implements t I => t -> Party
+p t
+  = GHC.Types.primitiveInterface
+      @"p" (DA.Internal.Desugar._toInterface @_ @I t)
+instance DA.Internal.Desugar.HasToAnyTemplate I where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate I where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep I where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory I where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver I where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate I where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasEnsure I where
+  ensure this = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.HasIsInterfaceType I where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq I where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance (DA.Internal.Desugar.Implements t I) =>
+         DA.Internal.Desugar.HasToAnyChoice t NonSerializableResult (NonSerializable) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance (DA.Internal.Desugar.Implements t I) =>
+         DA.Internal.Desugar.HasFromAnyChoice t NonSerializableResult (NonSerializable) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t I)) =>
+         DA.Internal.Desugar.HasExerciseGuarded t NonSerializableResult (NonSerializable) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t I)) =>
+         DA.Internal.Desugar.HasExercise t NonSerializableResult (NonSerializable) where
+  exercise = DA.Internal.Desugar._exerciseDefault
+data NonSerializableResult
+  = NonSerializableResult {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_INonSerializableResult :
+  (I -> NonSerializableResult -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId I
+   -> I
+      -> NonSerializableResult
+         -> DA.Internal.Desugar.Update (NonSerializable),
+   DA.Internal.Desugar.Consuming I,
+   DA.Internal.Desugar.Optional (I
+                                 -> NonSerializableResult -> [DA.Internal.Desugar.Party]))
+_choice_INonSerializableResult
+  = (\ this arg@NonSerializableResult
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p this), 
+     \ self this arg@NonSerializableResult
+       -> let _ = self in
+          let _ = this in let _ = arg in do pure (NonSerializable identity), 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)

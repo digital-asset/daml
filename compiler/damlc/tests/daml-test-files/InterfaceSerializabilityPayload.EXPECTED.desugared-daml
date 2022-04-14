@@ -1,0 +1,76 @@
+module InterfaceSerializabilityPayload where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlInterface => Gettable
+  = Gettable GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Gettable where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Gettable where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Gettable Gettable where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Gettable Gettable where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasToAnyTemplate Gettable where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Gettable where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Gettable where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Gettable where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Gettable where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Gettable where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasEnsure Gettable where
+  ensure this = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.HasIsInterfaceType Gettable where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Gettable where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance (DA.Internal.Desugar.Implements t Gettable) =>
+         DA.Internal.Desugar.HasToAnyChoice t Get (Gettable) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance (DA.Internal.Desugar.Implements t Gettable) =>
+         DA.Internal.Desugar.HasFromAnyChoice t Get (Gettable) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Gettable)) =>
+         DA.Internal.Desugar.HasExerciseGuarded t Get (Gettable) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Gettable cid pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Gettable)) =>
+         DA.Internal.Desugar.HasExercise t Get (Gettable) where
+  exercise = DA.Internal.Desugar._exerciseDefault
+data Get
+  = Get {anyActor : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "anyActor" Get Party where
+  getField = DA.Internal.Record.getFieldPrim @"anyActor" @Get @Party
+  setField = DA.Internal.Record.setFieldPrim @"anyActor" @Get @Party
+_choice_GettableGet :
+  (Gettable -> Get -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Gettable
+   -> Gettable -> Get -> DA.Internal.Desugar.Update (Gettable),
+   DA.Internal.Desugar.NonConsuming Gettable,
+   DA.Internal.Desugar.Optional (Gettable
+                                 -> Get -> [DA.Internal.Desugar.Party]))
+_choice_GettableGet
+  = (\ this arg@Get {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (anyActor), 
+     \ self this arg@Get {..}
+       -> let _ = self in let _ = this in let _ = arg in do return this, 
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
