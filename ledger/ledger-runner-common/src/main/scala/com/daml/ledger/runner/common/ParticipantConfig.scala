@@ -28,7 +28,9 @@ final case class ParticipantConfig(
     maxContractKeyStateCacheSize: Long = ParticipantConfig.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
       ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
-)
+) {
+  def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
+}
 
 object ParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =

@@ -3,10 +3,8 @@
 
 package com.daml.ledger.runner.common
 
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
-import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -28,15 +26,12 @@ trait ConfigProvider[ExtraConfig] {
     config
 
   def indexerConfig(
-      participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig],
+      participantConfig: ParticipantConfig
   ): IndexerConfig =
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
-      eventsPageSize = config.eventsPageSize,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
       inputMappingParallelism = participantConfig.indexerConfig.inputMappingParallelism,
@@ -115,15 +110,6 @@ trait ConfigProvider[ExtraConfig] {
   def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
     List.empty
 
-  def createMetrics(
-      participantConfig: ParticipantConfig,
-      @unused config: Config[ExtraConfig],
-  ): Metrics = {
-    val registryName = participantConfig.participantId + participantConfig.shardName
-      .map("-" + _)
-      .getOrElse("")
-    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
-  }
 }
 
 object ConfigProvider {

@@ -4,7 +4,6 @@
 package com.daml.platform.indexer
 
 import com.daml.lf.data.Ref
-import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.store.DbType
@@ -17,9 +16,6 @@ case class IndexerConfig(
     startupMode: IndexerStartupMode,
     databaseConnectionTimeout: FiniteDuration = DefaultDatabaseConnectionTimeout,
     restartDelay: FiniteDuration = DefaultRestartDelay,
-    eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
-    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
-    updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
@@ -30,8 +26,6 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
-    schemaMigrationAttempts: Int = DefaultSchemaMigrationAttempts,
-    schemaMigrationAttemptBackoff: FiniteDuration = DefaultSchemaMigrationAttemptBackoff,
     haConfig: HaConfig = HaConfig(),
     // PostgresSQL specific configurations
     // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
@@ -57,6 +51,4 @@ object IndexerConfig {
   val DefaultBatchWithinMillis: Long = 50L
   val DefaultEnableCompression: Boolean = false
 
-  val DefaultSchemaMigrationAttempts: Int = 30
-  val DefaultSchemaMigrationAttemptBackoff: FiniteDuration = 1.second
 }
