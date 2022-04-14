@@ -29,6 +29,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:canton_dep.bzl", "canton")
 
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
@@ -370,9 +371,9 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "733e948bfa9641d66d1e635cd99ec185841933c15b963cc18109f4ebc4c642d6",
-            strip_prefix = "canton-open-source-2.2.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-open-source-20220411.tar.gz"],
+            sha256 = canton["sha"],
+            strip_prefix = canton["prefix"],
+            urls = [canton["url"]],
         )
 
     if "freefont" not in native.existing_rules():
