@@ -1,0 +1,23 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library(
+    name = "daml-desugar",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "ghcide",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+    ],
+)
