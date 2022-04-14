@@ -1,0 +1,142 @@
+module ExceptionDataType where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data DA.Internal.Desugar.DamlException => NoFieldsNoWhere
+  = NoFieldsNoWhere {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasMessage NoFieldsNoWhere where
+  message = show
+instance DA.Internal.Desugar.HasThrow NoFieldsNoWhere where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException NoFieldsNoWhere where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException NoFieldsNoWhere where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkNoFieldsNoWhere : NoFieldsNoWhere
+mkNoFieldsNoWhere = NoFieldsNoWhere
+showNoFieldsNoWhere : NoFieldsNoWhere -> Text
+showNoFieldsNoWhere = show
+eqNoFieldsNoWhere : NoFieldsNoWhere -> NoFieldsNoWhere -> Bool
+eqNoFieldsNoWhere = (==)
+data DA.Internal.Desugar.DamlException => NoFieldsWhereBlank
+  = NoFieldsWhereBlank {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasMessage NoFieldsWhereBlank where
+  message = show
+instance DA.Internal.Desugar.HasThrow NoFieldsWhereBlank where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException NoFieldsWhereBlank where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException NoFieldsWhereBlank where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkNoFieldsWhereBlank : NoFieldsWhereBlank
+mkNoFieldsWhereBlank = NoFieldsWhereBlank
+data DA.Internal.Desugar.DamlException => NoFieldsWhereMessage
+  = NoFieldsWhereMessage {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasMessage NoFieldsWhereMessage where
+  message this@NoFieldsWhereMessage
+    = "NoFieldsWhereMessage exception"
+instance DA.Internal.Desugar.HasThrow NoFieldsWhereMessage where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException NoFieldsWhereMessage where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException NoFieldsWhereMessage where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkNoFieldsWhereMessage : NoFieldsWhereMessage
+mkNoFieldsWhereMessage = NoFieldsWhereMessage
+data DA.Internal.Desugar.DamlException => WithFieldNoWhere
+  = WithFieldNoWhere {f1 : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "f1" WithFieldNoWhere Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"f1" @WithFieldNoWhere @Int
+  setField
+    = DA.Internal.Record.setFieldPrim @"f1" @WithFieldNoWhere @Int
+instance DA.Internal.Desugar.HasMessage WithFieldNoWhere where
+  message = show
+instance DA.Internal.Desugar.HasThrow WithFieldNoWhere where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException WithFieldNoWhere where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException WithFieldNoWhere where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkWithFieldNoWhere : WithFieldNoWhere
+mkWithFieldNoWhere = WithFieldNoWhere {f1 = 10}
+data DA.Internal.Desugar.DamlException => WithFieldWhereBlank
+  = WithFieldWhereBlank {f2 : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "f2" WithFieldWhereBlank Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"f2" @WithFieldWhereBlank @Int
+  setField
+    = DA.Internal.Record.setFieldPrim @"f2" @WithFieldWhereBlank @Int
+instance DA.Internal.Desugar.HasMessage WithFieldWhereBlank where
+  message = show
+instance DA.Internal.Desugar.HasThrow WithFieldWhereBlank where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException WithFieldWhereBlank where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException WithFieldWhereBlank where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkWithFieldWhereBlank : WithFieldWhereBlank
+mkWithFieldWhereBlank = WithFieldWhereBlank {f2 = 10}
+data DA.Internal.Desugar.DamlException => WithFieldWhereMessage
+  = WithFieldWhereMessage {f3 : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "f3" WithFieldWhereMessage Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"f3" @WithFieldWhereMessage @Int
+  setField
+    = DA.Internal.Record.setFieldPrim @"f3" @WithFieldWhereMessage @Int
+instance DA.Internal.Desugar.HasMessage WithFieldWhereMessage where
+  message this@WithFieldWhereMessage {..}
+    = "WithFieldWhereMessage exception"
+instance DA.Internal.Desugar.HasThrow WithFieldWhereMessage where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException WithFieldWhereMessage where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException WithFieldWhereMessage where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkWithFieldWhereMessage : WithFieldWhereMessage
+mkWithFieldWhereMessage = WithFieldWhereMessage {f3 = 10}
+data DA.Internal.Desugar.DamlException => WithBracketsNoWhere
+  = WithBracketsNoWhere {f4 : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "f4" WithBracketsNoWhere Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"f4" @WithBracketsNoWhere @Int
+  setField
+    = DA.Internal.Record.setFieldPrim @"f4" @WithBracketsNoWhere @Int
+instance DA.Internal.Desugar.HasMessage WithBracketsNoWhere where
+  message = show
+instance DA.Internal.Desugar.HasThrow WithBracketsNoWhere where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException WithBracketsNoWhere where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException WithBracketsNoWhere where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkWithBracketsNoWhere : WithBracketsNoWhere
+mkWithBracketsNoWhere = WithBracketsNoWhere {f4 = 10}
+data DA.Internal.Desugar.DamlException => WithBracketsWhereMessage
+  = WithBracketsWhereMessage {f5 : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "f5" WithBracketsWhereMessage Int where
+  getField
+    = DA.Internal.Record.getFieldPrim
+        @"f5" @WithBracketsWhereMessage @Int
+  setField
+    = DA.Internal.Record.setFieldPrim
+        @"f5" @WithBracketsWhereMessage @Int
+instance DA.Internal.Desugar.HasMessage WithBracketsWhereMessage where
+  message this@WithBracketsWhereMessage {..} = "Hello"
+instance DA.Internal.Desugar.HasThrow WithBracketsWhereMessage where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException WithBracketsWhereMessage where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException WithBracketsWhereMessage where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+mkWithBracketsWhereMessage : WithBracketsWhereMessage
+mkWithBracketsWhereMessage = WithBracketsWhereMessage {f5 = 10}
