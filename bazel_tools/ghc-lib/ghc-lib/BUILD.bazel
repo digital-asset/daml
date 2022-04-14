@@ -34,7 +34,7 @@ sh_inline_test(
 EXPECTED=$$(canonicalize_rlocation $(rootpath @da-ghc//:ghc-lib.cabal))
 ACTUAL=$$(canonicalize_rlocation $(rootpath ghc-lib.cabal))
 $(POSIX_DIFF) -Naur $$EXPECTED $$ACTUAL || {
-  echo "The checked in ghc-lib-parser.cabal file is out of sync" >&2
+  echo "The checked in ghc-lib.cabal file is out of sync" >&2
   exit 1
 }
 """,
