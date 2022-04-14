@@ -23,7 +23,5 @@ object H2QueryStrategy extends QueryStrategy {
 
   override def isTrue(booleanColumnName: String): String = booleanColumnName
 
-  override def constBooleanSelect(value: Boolean): String = if (value) "true" else "false"
-
-  override def constBooleanWhere(value: Boolean): String = if (value) "true" else "false"
+  override def constBoolean(value: Boolean): String = if (value) "true" else "false"
 }

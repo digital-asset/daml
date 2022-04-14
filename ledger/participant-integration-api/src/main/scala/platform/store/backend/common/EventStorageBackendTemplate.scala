@@ -4,7 +4,8 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import anorm.SqlParser.{array, bool, byteArray, get, int, long, str}
+
+import anorm.SqlParser.{array, bool, byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -35,7 +36,7 @@ abstract class EventStorageBackendTemplate(
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val baseColumnsForFlatTransactionsCreate =
+  private val baseColumnsForFlatTransactions =
     Seq(
       "event_offset",
       "transaction_id",
@@ -56,35 +57,11 @@ abstract class EventStorageBackendTemplate(
       "submitters",
     )
 
-  private val baseColumnsForFlatTransactionsExercise =
-    Seq(
-      "event_offset",
-      "transaction_id",
-      "node_index",
-      "event_sequential_id",
-      "ledger_effective_time",
-      "workflow_id",
-      "event_id",
-      "contract_id",
-      "template_id",
-      "NULL as create_argument",
-      "NULL as create_argument_compression",
-      "NULL as create_signatories",
-      "NULL as create_observers",
-      "NULL as create_agreement_text",
-      "create_key_value",
-      "create_key_value_compression",
-      "submitters",
-    )
-
-  private val selectColumnsForFlatTransactionsCreate =
-    baseColumnsForFlatTransactionsCreate.mkString(", ")
-
-  private val selectColumnsForFlatTransactionsExercise =
-    baseColumnsForFlatTransactionsExercise.mkString(", ")
+  private val selectColumnsForFlatTransactions =
+    baseColumnsForFlatTransactions.mkString(", ")
 
   private val selectColumnsForACSEvents =
-    baseColumnsForFlatTransactionsCreate.map(c => s"create_evs.$c").mkString(", ")
+    baseColumnsForFlatTransactions.map(c => s"create_evs.$c").mkString(", ")
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
@@ -315,12 +292,12 @@ abstract class EventStorageBackendTemplate(
   ): RowParser[EventsTable.Entry[Raw.TreeEvent]] =
     createdTreeEventParser(allQueryingParties) | exercisedTreeEventParser(allQueryingParties)
 
-  private val selectColumnsForTransactionTreeCreate = Seq(
+  private val selectColumnsForTransactionTree = Seq(
     "event_offset",
     "transaction_id",
     "node_index",
     "event_sequential_id",
-    "event_id",
+    "participant_events.event_id",
     "contract_id",
     "ledger_effective_time",
     "template_id",
@@ -330,33 +307,6 @@ abstract class EventStorageBackendTemplate(
     "create_signatories",
     "create_observers",
     "create_agreement_text",
-    "create_key_value",
-    "create_key_value_compression",
-    "NULL as exercise_choice",
-    "NULL as exercise_argument",
-    "NULL as exercise_argument_compression",
-    "NULL as exercise_result",
-    "NULL as exercise_result_compression",
-    "NULL as exercise_actors",
-    "NULL as exercise_child_event_ids",
-    "submitters",
-  ).mkString(", ")
-
-  private val selectColumnsForTransactionTreeExercise = Seq(
-    "event_offset",
-    "transaction_id",
-    "node_index",
-    "event_sequential_id",
-    "event_id",
-    "contract_id",
-    "ledger_effective_time",
-    "template_id",
-    "workflow_id",
-    "NULL as create_argument",
-    "NULL as create_argument_compression",
-    "NULL as create_signatories",
-    "NULL as create_observers",
-    "NULL as create_agreement_text",
     "create_key_value",
     "create_key_value_compression",
     "exercise_choice",
@@ -370,11 +320,12 @@ abstract class EventStorageBackendTemplate(
   ).mkString(", ")
 
   private def events[T](
+      columnPrefix: String,
       joinClause: CompositeSql,
       additionalAndClause: CompositeSql,
       rowParser: Set[Int] => RowParser[T],
+      selectColumns: String,
       witnessesColumn: String,
-      partitions: List[(String, String)],
   )(
       limit: Option[Int],
       fetchSizeHint: Option[Int],
@@ -418,22 +369,14 @@ abstract class EventStorageBackendTemplate(
       val witnessesWhereClause =
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
-      def selectFrom(table: String, selectColumns: String) = cSQL"""
+      SQL"""
         SELECT
           #$selectColumns, #$witnessesColumn as event_witnesses, command_id
         FROM
-          #$table $joinClause
+          participant_events #$columnPrefix $joinClause
         WHERE
           $additionalAndClause
           $witnessesWhereClause
-      """
-
-      val selectClause = partitions
-        .map(p => selectFrom(p._1, p._2))
-        .mkComposite("", " UNION ALL", "")
-
-      SQL"""
-        $selectClause
         ORDER BY event_sequential_id
         ${QueryStrategy.limitClause(limit)}"""
         .withFetchSize(fetchSizeHint)
@@ -446,19 +389,14 @@ abstract class EventStorageBackendTemplate(
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     events(
+      columnPrefix = "",
       joinClause = cSQL"",
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
       rowParser = rawFlatEventParser,
+      selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
-      partitions = List(
-        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
-        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
-        //"participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
-      ),
     )(
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
@@ -548,19 +486,16 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     events(
+      columnPrefix = "",
       joinClause = cSQL"""JOIN parameters ON
             (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
             AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
-            transaction_id = $transactionId AND""",
+            transaction_id = $transactionId AND
+            event_kind != 0 AND -- we do not want to fetch divulgence events""",
       rowParser = rawFlatEventParser,
+      selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
-      partitions = List(
-        // we do not want to fetch divulgence events
-        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
-        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-      ),
     )(
       limit = None,
       fetchSizeHint = None,
@@ -573,21 +508,16 @@ abstract class EventStorageBackendTemplate(
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     events(
+      columnPrefix = "",
       joinClause = cSQL"",
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
-            event_sequential_id <= ${rangeParams.endInclusive} AND""",
+            event_sequential_id <= ${rangeParams.endInclusive} AND
+            event_kind != 0 AND -- we do not want to fetch divulgence events""",
       rowParser = rawTreeEventParser,
+      selectColumns =
+        s"$selectColumnsForTransactionTree, ${queryStrategy.columnEqualityBoolean("event_kind", "20")} as exercise_consuming",
       witnessesColumn = "tree_event_witnesses",
-      partitions = List(
-        // we do not want to fetch divulgence events
-        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
-        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(true)} as exercise_consuming",
-        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
-      ),
     )(
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
@@ -603,22 +533,17 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     events(
+      columnPrefix = "",
       joinClause = cSQL"""JOIN parameters ON
             (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
             AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
-            transaction_id = $transactionId AND""",
+            transaction_id = $transactionId AND
+            event_kind != 0 AND -- we do not want to fetch divulgence events""",
       rowParser = rawTreeEventParser,
+      selectColumns =
+        s"$selectColumnsForTransactionTree, ${queryStrategy.columnEqualityBoolean("event_kind", "20")} as exercise_consuming",
       witnessesColumn = "tree_event_witnesses",
-      partitions = List(
-        // we do not want to fetch divulgence events
-        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
-        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(true)} as exercise_consuming",
-        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
-      ),
     )(
       limit = None,
       fetchSizeHint = None,
@@ -804,10 +729,10 @@ abstract class EventStorageBackendTemplate(
 
   override def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
-  ): Vector[RawTransactionEvent] = {
+  ): Vector[RawTransactionEvent] =
     SQL"""
-       (SELECT
-           10 as event_kind,
+       SELECT
+           event_kind,
            transaction_id,
            node_index,
            command_id,
@@ -826,41 +751,6 @@ abstract class EventStorageBackendTemplate(
            tree_event_witnesses,
            flat_event_witnesses,
            submitters,
-           NULL as exercise_choice,
-           NULL as exercise_argument,
-           NULL as exercise_argument_compression,
-           NULL as exercise_result,
-           NULL as exercise_result_compression,
-           NULL as exercise_actors,
-           NULL as exercise_child_event_ids,
-           event_sequential_id,
-           event_offset
-       FROM
-           participant_events_create
-       WHERE
-           event_sequential_id > $startExclusive
-           and event_sequential_id <= $endInclusive)
-       UNION ALL
-       (SELECT
-           20 as event_kind,
-           transaction_id,
-           node_index,
-           command_id,
-           workflow_id,
-           event_id,
-           contract_id,
-           template_id,
-           ledger_effective_time,
-           NULL as create_signatories,
-           NULL as create_observers,
-           NULL as create_agreement_text,
-           create_key_value,
-           create_key_value_compression,
-           NULL as create_argument,
-           NULL as create_argument_compression,
-           tree_event_witnesses,
-           flat_event_witnesses,
-           submitters,
            exercise_choice,
            exercise_argument,
            exercise_argument_compression,
@@ -871,66 +761,13 @@ abstract class EventStorageBackendTemplate(
            event_sequential_id,
            event_offset
        FROM
-           participant_events_consuming_exercise
+           participant_events
        WHERE
            event_sequential_id > $startExclusive
-           and event_sequential_id <= $endInclusive)
-       UNION ALL
-       (SELECT
-           25 as event_kind,
-           transaction_id,
-           node_index,
-           command_id,
-           workflow_id,
-           event_id,
-           contract_id,
-           template_id,
-           ledger_effective_time,
-           NULL as create_signatories,
-           NULL as create_observers,
-           NULL as create_agreement_text,
-           create_key_value,
-           create_key_value_compression,
-           NULL as create_argument,
-           NULL as create_argument_compression,
-           tree_event_witnesses,
-           flat_event_witnesses,
-           submitters,
-           exercise_choice,
-           exercise_argument,
-           exercise_argument_compression,
-           exercise_result,
-           exercise_result_compression,
-           exercise_actors,
-           exercise_child_event_ids,
-           event_sequential_id,
-           event_offset
-       FROM
-           participant_events_non_consuming_exercise
-       WHERE
-           event_sequential_id > $startExclusive
-           and event_sequential_id <= $endInclusive)
+           and event_sequential_id <= $endInclusive
+           and event_kind != 0
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
-  }
-
-  override def maxEventSequentialIdOfAnObservableEvent(
-      offset: Offset
-  )(connection: Connection): Option[Long] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    def selectFrom(table: String) = cSQL"""
-      SELECT max(event_sequential_id) AS max_esi FROM #$table
-      WHERE event_offset = (select max(event_offset) from #$table where event_offset <= $offset)
-    """
-    SQL"""SELECT max(max_esi) FROM (
-      (${selectFrom("participant_events_consuming_exercise")})
-      UNION ALL
-      (${selectFrom("participant_events_create")})
-      UNION ALL
-      (${selectFrom("participant_events_non_consuming_exercise")})
-    ) participant_events"""
-      .as(get[Long](1).?.single)(connection)
-  }
 }
 
 /** This encapsulates the moving part as composing various Events queries.

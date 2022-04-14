@@ -61,10 +61,7 @@ trait QueryStrategy {
   def isTrue(booleanColumnName: String): String
 
   /** Constant boolean to be used in a SELECT clause */
-  def constBooleanSelect(value: Boolean): String
-
-  /** Constant boolean to be used in a WHERE clause */
-  def constBooleanWhere(value: Boolean): String
+  def constBoolean(value: Boolean): String
 
   /** ANY SQL clause generation for a number of Long values
     */
@@ -84,7 +81,7 @@ trait QueryStrategy {
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
     if (endInclusive == Offset.beforeBegin) {
-      cSQL"#${constBooleanWhere(false)}"
+      cSQL"#${constBoolean(false)}"
     } else {
       cSQL"#$nonNullableColumn <= $endInclusive"
     }
@@ -100,7 +97,7 @@ trait QueryStrategy {
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
     if (startExclusive == Offset.beforeBegin) {
-      cSQL"#${constBooleanWhere(true)}"
+      cSQL"#${constBoolean(true)}"
     } else {
       cSQL"#$nonNullableColumn > $startExclusive"
     }
@@ -120,7 +117,7 @@ trait QueryStrategy {
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
     if (endInclusive == Offset.beforeBegin) {
-      cSQL"#${constBooleanWhere(false)}"
+      cSQL"#${constBoolean(false)}"
     } else if (startExclusive == Offset.beforeBegin) {
       cSQL"#$nonNullableColumn <= $endInclusive"
     } else {
