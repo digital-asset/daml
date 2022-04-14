@@ -11,7 +11,7 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
+import com.daml.ledger.participant.state.kv.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
