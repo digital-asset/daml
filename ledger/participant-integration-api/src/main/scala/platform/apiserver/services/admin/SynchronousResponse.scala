@@ -29,6 +29,10 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,
+)(implicit
+    executionContext: ExecutionContext,
+    materializer: Materializer,
+    loggingContext: LoggingContext,
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -59,10 +63,6 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   private def acknowledged(
       submissionId: Ref.SubmissionId,
       ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
-  )(implicit
-      ec: ExecutionContext,
-      materializer: Materializer,
-      loggingContext: LoggingContext,
   ) = {
     val isAccepted = new Accepted(strategy.accept(submissionId))
     val isRejected = new Rejected(strategy.reject(submissionId))
@@ -82,10 +82,6 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
       submissionId: Ref.SubmissionId,
       ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
       submissionResult: SubmissionResult,
-  )(implicit
-      ec: ExecutionContext,
-      materializer: Materializer,
-      loggingContext: LoggingContext,
   ) = submissionResult match {
     case SubmissionResult.Acknowledged =>
       acknowledged(submissionId, ledgerEndBeforeRequest)
@@ -94,10 +90,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   }
 
   def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
-      telemetryContext: TelemetryContext,
-      executionContext: ExecutionContext,
-      materializer: Materializer,
-      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext
   ): Future[AcceptedEntry] = {
     for {
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
