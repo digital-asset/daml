@@ -21,3 +21,31 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
     ],
 )
+
+da_haskell_library(
+    name = "daml-desugar-testing",
+    srcs = glob(["test/**/*.hs"]),
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
+    hackage_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "tasty-golden",
+        "utf8-string",
+    ],
+    src_strip_prefix = "test",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-desugar",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
