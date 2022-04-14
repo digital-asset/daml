@@ -65,7 +65,7 @@ private[kvutils] class TransactionCommitter(
     DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   private val rejections = new Rejections(metrics)
-  private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
+  private val ledgerTimeValidator = new LedgerTimeValidator
   private val committerModelConformanceValidator =
     new CommitterModelConformanceValidator(engine, metrics)
 
@@ -129,7 +129,6 @@ private[kvutils] class TransactionCommitter(
         rejections.reject(
           transactionEntry,
           reason,
-          commitContext.recordTime,
         )
 
       authorizeAll(transactionEntry.submitters)
@@ -213,7 +212,6 @@ private[kvutils] class TransactionCommitter(
         rejections.reject(
           transactionEntry,
           Rejection.PartiesNotKnownOnLedger(missingParties),
-          commitContext.recordTime,
         )
     }
   }
@@ -326,19 +324,16 @@ private[kvutils] object TransactionCommitter {
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
   ): DamlLogEntry = {
-    if (commitContext.preExecute) {
-      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
-        .setTransactionRejectionEntry(
-          DamlTransactionRejectionEntry.newBuilder
-            .setDefiniteAnswer(false)
-            .setSubmitterInfo(transactionEntry.submitterInfo)
-        )
-        .build
-      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
-    }
+    val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+      .setTransactionRejectionEntry(
+        DamlTransactionRejectionEntry.newBuilder
+          .setDefiniteAnswer(false)
+          .setSubmitterInfo(transactionEntry.submitterInfo)
+      )
+      .build
+    commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
     buildLogEntryWithOptionalRecordTime(
-      commitContext.recordTime,
-      _.setTransactionEntry(transactionEntry.submission),
+      _.setTransactionEntry(transactionEntry.submission)
     )
   }
 

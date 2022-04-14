@@ -18,7 +18,6 @@ import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepC
 import com.daml.ledger.participant.state.kvutils.store.{DamlContractState, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, Result}
 import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
@@ -95,7 +94,7 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
     try {
       val stepResult = for {
         contractKeyInputs <- transactionEntry.transaction.contractKeyInputs.left
-          .map(rejectionForKeyInputError(transactionEntry, commitContext.recordTime, rejections))
+          .map(rejectionForKeyInputError(transactionEntry, rejections))
         _ <- validationResult
           .consume(
             lookupContract(commitContext),
@@ -107,7 +106,6 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
             rejections.reject(
               transactionEntry,
               Rejection.ValidationFailure(error),
-              commitContext.recordTime,
             )
           )
       } yield ()
@@ -122,7 +120,6 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
         rejections.reject(
           transactionEntry,
           Rejection.MissingInputState(key),
-          commitContext.recordTime,
         )
 
       // Archive decoding error or other bug
@@ -134,7 +131,6 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
         rejections.reject(
           transactionEntry,
           Rejection.InvalidParticipantState(err),
-          commitContext.recordTime,
         )
     }
   }
@@ -238,7 +234,6 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
       rejections.reject(
         transactionEntry,
         Rejection.CausalMonotonicityViolated,
-        commitContext.recordTime,
       )
   }
 }
@@ -247,7 +242,6 @@ private[transaction] object CommitterModelConformanceValidator {
 
   private def rejectionForKeyInputError(
       transactionEntry: DamlTransactionEntrySummary,
-      recordTime: Option[Timestamp],
       rejections: Rejections,
   )(
       error: KeyInputError
@@ -258,6 +252,6 @@ private[transaction] object CommitterModelConformanceValidator {
       case InconsistentKeys(_) =>
         Rejection.InternallyInconsistentTransaction.InconsistentKeys
     }
-    rejections.reject(transactionEntry, rejection, recordTime)
+    rejections.reject(transactionEntry, rejection)
   }
 }

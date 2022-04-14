@@ -10,7 +10,6 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
-import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -146,18 +145,6 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
       context.getOutputs should have size 0
     }
   }
-
-  "preExecute" should {
-    "return false in case record time is set" in {
-      val context = newInstance(recordTime = Some(Time.Timestamp.now()))
-      context.preExecute shouldBe false
-    }
-
-    "return true in case record time is not set" in {
-      val context = newInstance(recordTime = None)
-      context.preExecute shouldBe true
-    }
-  }
 }
 
 object CommitContextSpec {
@@ -174,10 +161,9 @@ object CommitContextSpec {
     .build
 
   private def newInstance(
-      recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
-      inputs: DamlStateMap = Map.empty,
+      inputs: DamlStateMap = Map.empty
   ) =
-    CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
+    CommitContext(inputs, TestHelpers.mkParticipantId(1))
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =
     (for ((key, value) <- keyAndValues)

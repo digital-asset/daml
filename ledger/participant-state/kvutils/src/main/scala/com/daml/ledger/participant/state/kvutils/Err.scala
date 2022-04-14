@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref
 /** Errors thrown by kvutils.
   *
   * Validation and consistency errors are turned into command rejections.
-  * Note that [[KeyValueCommitting.processSubmission]] can also fail with a protobuf exception,
   * e.g. https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/InvalidProtocolBufferException.
   */
 sealed abstract class Err extends RuntimeException with Product with Serializable {

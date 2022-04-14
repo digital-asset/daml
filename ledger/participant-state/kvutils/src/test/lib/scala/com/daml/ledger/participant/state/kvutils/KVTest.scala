@@ -368,9 +368,7 @@ object KVTest {
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId
-      (logEntry, newState) = testState.keyValueCommitting.processSubmission(
-        entryId = entryId,
-        recordTime = testState.recordTime,
+      output = testState.keyValueCommitting.preExecuteSubmission(
         defaultConfig = testState.defaultConfig,
         submission = submission,
         participantId = testState.participantId,
@@ -378,19 +376,19 @@ object KVTest {
           key -> testState.damlState.get(key)
         }.toMap,
       )
-      _ <- addDamlState(newState)
+      _ <- addDamlState(output.stateUpdates)
     } yield {
       // Verify that all state touched matches with "submissionOutputs".
       assert(
-        newState.keySet subsetOf KeyValueCommitting.submissionOutputs(submission)
+        output.stateUpdates.keySet subsetOf KeyValueCommitting.submissionOutputs(submission)
       )
       // Verify that we can always process the log entry.
       val _ = KeyValueConsumption.logEntryToUpdate(
         entryId,
-        logEntry,
+        output.successfulLogEntry,
       )(loggingContext)
 
-      entryId -> logEntry
+      entryId -> output.successfulLogEntry
     }
 
   def preExecute(

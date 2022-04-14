@@ -50,9 +50,6 @@ package com.daml.ledger.participant.state.kvutils
   *   contract instance is now stored within DamlContractStatus.
   * - Configuration extended with "Open World" flag that defines whether
   *   submissions from unallocated parties are accepted.
-  * - Support for authenticating submissions based on participant id. The
-  *   [[KeyValueCommitting.processSubmission]] method now takes the participant id as
-  *   argument.
   * - Support for submitting authenticated configuration changes.
   * - Bug in command deduplication fixed: rejected commands are now deduplicated correctly.
   */

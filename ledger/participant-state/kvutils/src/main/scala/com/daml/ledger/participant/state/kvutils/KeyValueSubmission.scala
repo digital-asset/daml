@@ -25,8 +25,6 @@ import scala.jdk.CollectionConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
   *
-  * [[DamlSubmission]] is processed for committing with [[KeyValueCommitting.processSubmission]].
-  *
   * These methods are the only acceptable way of producing the submission messages.
   * The protocol buffer messages must not be embedded in other protocol buffer messages,
   * and embedding should happen through conversion into a byte string (via

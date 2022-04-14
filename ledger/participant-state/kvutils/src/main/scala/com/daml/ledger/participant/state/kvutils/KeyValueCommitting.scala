@@ -14,12 +14,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   SubmissionExecutor,
 }
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionEntry
-import com.daml.ledger.participant.state.kvutils.store.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.archive
 import com.daml.lf.data.Ref
@@ -27,7 +22,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.kv.transactions.{ContractIdOrKey, RawTransaction, TransactionConversions}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
@@ -43,72 +38,6 @@ class KeyValueCommitting private[daml] (
     engine: Engine,
     metrics: Metrics,
 ) {
-  import KeyValueCommitting.submissionOutputs
-
-  private val logger = ContextualizedLogger.get(getClass)
-
-  /** Processes a Daml submission, given the allocated log entry id, the submission and its resolved inputs.
-    * Produces the log entry to be committed, and Daml state updates.
-    *
-    * The caller is expected to resolve the inputs declared in [[DamlSubmission]] prior
-    * to calling this method, e.g. by reading [[DamlSubmission!.getInputEntriesList]] and
-    * [[DamlSubmission!.getInputStateList]]
-    *
-    * The caller is expected to store the produced [[DamlLogEntry]] in key-value store at a location
-    * that can be accessed through `entryId`. The Daml state updates may create new entries or update
-    * existing entries in the key-value store.
-    *
-    * @param entryId: Log entry id to which this submission is committed.
-    * @param recordTime: Record time at which this log entry is committed.
-    * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
-    * @param submission: Submission to commit to the ledger.
-    * @param participantId: The participant from which the submission originates. Expected to be authenticated.
-    * @param inputState:
-    *   Resolved input state specified in submission. Optional to mark that input state was resolved
-    *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
-    *   expect to be present.
-    *   We also do not trust the submitter to provide the correct list of input keys and we need
-    *   to verify that an input actually does not exist and was not just included in inputs.
-    *   For example when committing a configuration we need the current configuration to authorize
-    *   the submission.
-    * @return Log entry to be committed and the Daml state updates to be applied.
-    */
-  @throws(classOf[Err])
-  def processSubmission(
-      entryId: DamlLogEntryId,
-      recordTime: Timestamp,
-      defaultConfig: Configuration,
-      submission: DamlSubmission,
-      participantId: Ref.ParticipantId,
-      inputState: DamlStateMap,
-  )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
-    metrics.daml.kvutils.committer.processing.inc()
-    metrics.daml.kvutils.committer.last.lastRecordTimeGauge.updateValue(recordTime.toString)
-    metrics.daml.kvutils.committer.last.lastEntryIdGauge.updateValue(Pretty.prettyEntryId(entryId))
-    metrics.daml.kvutils.committer.last.lastParticipantIdGauge.updateValue(participantId)
-    val ctx = metrics.daml.kvutils.committer.runTimer.time()
-    try {
-      val committer = createCommitter(engine, defaultConfig, submission)
-      val (logEntry, outputState) = committer.run(
-        Some(recordTime),
-        submission,
-        participantId,
-        inputState,
-      )
-      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, submission)
-      (logEntry, outputState)
-    } catch {
-      case scala.util.control.NonFatal(exception) =>
-        logger.warn("Exception while processing submission.", exception)
-        metrics.daml.kvutils.committer.last.lastExceptionGauge.updateValue(
-          s"${Pretty.prettyEntryId(entryId)}[${submission.getPayloadCase}]: $exception"
-        )
-        throw exception
-    } finally {
-      val _ = ctx.stop()
-      metrics.daml.kvutils.committer.processing.dec()
-    }
-  }
 
   @throws(classOf[Err])
   def preExecuteSubmission(
@@ -148,18 +77,6 @@ class KeyValueCommitting private[daml] (
         throw Err.InvalidSubmission("DamlSubmission payload not set")
     }
 
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      submission: DamlSubmission,
-  ): Unit = {
-    val expectedStateUpdates = submissionOutputs(submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!"
-      )
-    }
-  }
 }
 
 object KeyValueCommitting {

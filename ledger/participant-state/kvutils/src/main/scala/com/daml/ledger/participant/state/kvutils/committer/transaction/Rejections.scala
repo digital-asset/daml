@@ -22,25 +22,21 @@ private[transaction] class Rejections(metrics: Metrics) {
   def reject[A](
       transactionEntry: DamlTransactionEntrySummary,
       rejection: Rejection,
-      recordTime: Option[Timestamp],
   )(implicit loggingContext: LoggingContext): StepResult[A] =
     reject(
       Conversions.encodeTransactionRejectionEntry(transactionEntry.submitterInfo, rejection),
       rejection.description,
-      recordTime,
     )
 
   def reject[A](
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
       rejectionDescription: String,
-      recordTime: Option[Timestamp],
   )(implicit loggingContext: LoggingContext): StepResult[A] = {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
     logger.trace(s"Transaction rejected, $rejectionDescription.")
     StepStop(
       buildLogEntryWithOptionalRecordTime(
-        recordTime,
-        _.setTransactionRejectionEntry(rejectionEntry),
+        _.setTransactionRejectionEntry(rejectionEntry)
       )
     )
   }

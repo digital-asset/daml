@@ -164,17 +164,10 @@ class CommitterSpec
   }
 
   "buildLogEntryWithOptionalRecordTime" should {
-    "set record time in log entry if record time is available" in {
-      val actualLogEntry =
-        Committer.buildLogEntryWithOptionalRecordTime(recordTime = Some(aRecordTime), identity)
-
-      actualLogEntry.hasRecordTime shouldBe true
-      actualLogEntry.getRecordTime shouldBe buildTimestamp(aRecordTime)
-    }
 
     "skip setting record time in log entry when it is not available" in {
       val actualLogEntry =
-        Committer.buildLogEntryWithOptionalRecordTime(recordTime = None, identity)
+        Committer.buildLogEntryWithOptionalRecordTime(identity)
 
       actualLogEntry.hasRecordTime shouldBe false
     }
@@ -192,7 +185,11 @@ class CommitterSpec
         }
       }
 
-      committer.run(None, aDamlSubmission, Ref.ParticipantId.assertFromString("test"), Map.empty)
+      committer.runWithPreExecution(
+        aDamlSubmission,
+        Ref.ParticipantId.assertFromString("test"),
+        Map.empty,
+      )
 
       initialized.get() shouldBe true
     }
@@ -229,7 +226,7 @@ class CommitterSpec
   "getCurrentConfiguration" should {
     "return configuration in case there is one available on the ledger" in {
       val inputState = Map(configurationStateKey -> Some(aConfigurationStateValue))
-      val commitContext = createCommitContext(recordTime = None, inputState)
+      val commitContext = createCommitContext(inputState)
 
       val (Some(actualConfigurationEntry), actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
@@ -240,7 +237,7 @@ class CommitterSpec
 
     "return default configuration in case there is no configuration on the ledger" in {
       val inputState = Map(configurationStateKey -> None)
-      val commitContext = createCommitContext(recordTime = None, inputState)
+      val commitContext = createCommitContext(inputState)
 
       val (actualConfigurationEntry, actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
@@ -250,7 +247,7 @@ class CommitterSpec
     }
 
     "throw in case configuration key is not declared in the input" in {
-      val commitContext = createCommitContext(recordTime = None, Map.empty)
+      val commitContext = createCommitContext(Map.empty)
 
       assertThrows[Err.MissingInputState] {
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
@@ -266,8 +263,7 @@ class CommitterSpec
         )
         .build
       val commitContext = createCommitContext(
-        recordTime = None,
-        Map(configurationStateKey -> Some(invalidConfigurationEntry)),
+        Map(configurationStateKey -> Some(invalidConfigurationEntry))
       )
 
       val (actualConfigurationEntry, actualConfiguration) =
@@ -280,7 +276,6 @@ class CommitterSpec
 }
 
 object CommitterSpec {
-  private val aRecordTime = Timestamp(100)
   private val aDamlSubmission = DamlSubmission.getDefaultInstance
   private val aLogEntry = DamlLogEntry.newBuilder
     .setPartyAllocationEntry(
