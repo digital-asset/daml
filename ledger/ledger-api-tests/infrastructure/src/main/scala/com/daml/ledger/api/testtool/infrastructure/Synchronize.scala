@@ -41,7 +41,7 @@ object Synchronize {
       party: Party,
       contractId: Primitive.ContractId[T],
   )(implicit ec: ExecutionContext): Future[Unit] = {
-    Eventually.eventually {
+    Eventually.eventually("Wait for contract") {
       participant.activeContracts(party).map { events =>
         assert(
           events.exists(_.contractId == contractId.toString),
