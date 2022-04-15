@@ -10,8 +10,8 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.error.definitions.kv.KvErrors
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kv.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
@@ -79,7 +79,7 @@ class KeyValueParticipantStateWriter(
       case Left(_) =>
         CompletableFuture.completedFuture(
           SubmissionResult.SynchronousError(
-            KVErrors.Internal.SubmissionFailed
+            KvErrors.Internal.SubmissionFailed
               .Reject("Could not parse a package ID")(
                 new DamlContextualizedErrorLogger(logger, loggingContext, None)
               )

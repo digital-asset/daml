@@ -7,9 +7,9 @@ load(
 )
 
 da_scala_library(
-    name = "participant-state-errors",
+    name = "participant-state-kv-errors",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:participant-state-errors:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state-kv-errors:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

@@ -55,7 +55,7 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
-        "//ledger/participant-state-errors",
+        "//ledger/participant-state-kv-errors",
         "//ledger/participant-state-index",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
