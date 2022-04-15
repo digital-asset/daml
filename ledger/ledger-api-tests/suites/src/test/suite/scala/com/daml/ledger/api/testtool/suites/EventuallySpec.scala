@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import com.daml.ledger.api.testtool.infrastructure.Eventually
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.timer.RetryStrategy.TooManyAttemptsException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -16,7 +16,7 @@ class EventuallySpec extends AsyncWordSpec with Matchers {
   "eventually" should {
     "enhance the exception message with the assertion name" in {
       recoverToExceptionIf[TooManyAttemptsException] {
-        Eventually.eventually("test", 1, 0.millis) {
+        eventually(assertionName = "test", attempts = 1, firstWaitTime = 0.millis) {
           Future.failed(new RuntimeException())
         }
       }.map(_.message should startWith("test: "))
