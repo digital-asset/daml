@@ -44,14 +44,13 @@ import scala.util.{Failure, Success, Try}
 import scala.util.chaining._
 
 final class SandboxServer(
-    config: SandboxConfig,
-    metrics: Metrics,
+    config: SandboxConfig
 )(implicit materializer: Materializer)
     extends ResourceOwner[Port] {
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(config, new Metrics(new MetricRegistry))(materializer)
+    this(config)(materializer)
 
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
@@ -59,20 +58,14 @@ final class SandboxServer(
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      (apiServer, writeService, indexService) <-
-        SandboxOnXRunner
-          .buildLedger(
-            genericConfig,
-            participantConfig,
-            materializer,
-            materializer.system,
-            Some(metrics),
-          )
-          .acquire()
-      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceContext.executionContext))
+      participant <-
+        SandboxOnXRunner.buildParticipant(genericConfig, participantConfig).acquire()
+      _ <- Resource.fromFuture(
+        writePortFile(participant.apiServer.port)(resourceContext.executionContext)
+      )
       _ <- newLoggingContextWith(logging.participantId(config.participantId)) {
         implicit loggingContext =>
-          loadPackages(writeService, indexService)(
+          loadPackages(participant.writeService, participant.indexService)(
             resourceContext.executionContext,
             materializer.system,
             loggingContext,
@@ -80,8 +73,8 @@ final class SandboxServer(
             .acquire()
       }
     } yield {
-      initializationLoggingHeader(genericConfig, apiServer)
-      apiServer.port
+      initializationLoggingHeader(genericConfig, participant.apiServer)
+      participant.apiServer.port
     }
   }
 
@@ -220,14 +213,9 @@ object SandboxServer {
 
   def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[Port] =
     for {
-      metrics <- new MetricsReporting(
-        classOf[SandboxServer].getName,
-        config.metricsReporter,
-        config.metricsReportingInterval,
-      )
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      server <- new SandboxServer(config, metrics)(materializer)
+      server <- new SandboxServer(config)(materializer)
     } yield server
 
   // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
