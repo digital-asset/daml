@@ -6,7 +6,11 @@ package com.daml.ledger.runner.common
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
@@ -30,7 +34,6 @@ trait ConfigProvider[ExtraConfig] {
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
-      archiveFiles = Nil,
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
@@ -43,21 +46,24 @@ trait ConfigProvider[ExtraConfig] {
       maxInboundMessageSize = config.maxInboundMessageSize,
       initialLedgerConfiguration = Some(initialLedgerConfig(config)),
       configurationLoadTimeout = config.configurationLoadTimeout,
-      eventsPageSize = config.eventsPageSize,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
-      acsIdPageSize = config.acsIdPageSize,
-      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-      acsGlobalParallelism = config.acsGlobalParallelism,
-      acsIdQueueLimit = config.acsIdQueueLimit,
+      indexConfiguration = IndexConfiguration(
+        eventsPageSize = config.eventsPageSize,
+        eventsProcessingParallelism = config.eventsProcessingParallelism,
+        acsIdPageSize = config.acsIdPageSize,
+        acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+        acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+        acsGlobalParallelism = config.acsGlobalParallelism,
+        acsIdQueueLimit = config.acsIdQueueLimit,
+        maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
+        maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
+        maxTransactionsInMemoryFanOutBufferSize =
+          participantConfig.maxTransactionsInMemoryFanOutBufferSize,
+        enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+        archiveFiles = Nil,
+      ),
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
-      maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
-      maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-      maxTransactionsInMemoryFanOutBufferSize =
-        participantConfig.maxTransactionsInMemoryFanOutBufferSize,
-      enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       userManagementConfig = config.userManagementConfig,
     )
 

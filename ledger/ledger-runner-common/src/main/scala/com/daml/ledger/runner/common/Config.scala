@@ -263,15 +263,15 @@ object Config {
             val maxContractStateCacheSize = kv
               .get("contract-state-cache-max-size")
               .map(_.toLong)
-              .getOrElse(ParticipantConfig.DefaultMaxContractStateCacheSize)
+              .getOrElse(IndexConfiguration.DefaultMaxContractStateCacheSize)
             val maxContractKeyStateCacheSize = kv
               .get("contract-key-state-cache-max-size")
               .map(_.toLong)
-              .getOrElse(ParticipantConfig.DefaultMaxContractKeyStateCacheSize)
+              .getOrElse(IndexConfiguration.DefaultMaxContractKeyStateCacheSize)
             val maxTransactionsInMemoryFanOutBufferSize = kv
               .get("ledger-api-transactions-buffer-max-size")
               .map(_.toLong)
-              .getOrElse(ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
+              .getOrElse(IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = ParticipantConfig(
               mode = runMode,
               participantId = participantId,

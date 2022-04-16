@@ -169,12 +169,13 @@ object SandboxOnXRunner {
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
-            config = apiServerConfig,
+            config = apiServerConfig.indexConfiguration,
             metrics = metrics,
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
+            participantId = apiServerConfig.participantId,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)

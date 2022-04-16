@@ -201,7 +201,8 @@ final class Runner[T <: ReadWriteService, Extra](
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
-                  config = apiServerConfig,
+                  config = apiServerConfig.indexConfiguration,
+                  participantId = apiServerConfig.participantId,
                   metrics = metrics,
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
