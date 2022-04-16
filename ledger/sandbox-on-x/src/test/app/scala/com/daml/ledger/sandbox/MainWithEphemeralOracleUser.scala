@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.sandbox.SandboxOnXRunner
 import com.daml.resources.ProgramResource
 import com.daml.testing.oracle.OracleAround
 
@@ -24,7 +23,8 @@ object MainWithEphemeralOracleUser {
                   haConfig = participantConfig.indexerConfig.haConfig.copy(
                     indexerLockId = user.lockIdSeed,
                     indexerWorkerLockId = user.lockIdSeed + 1,
-                  )
+                  ),
+                  jdbcUrl = user.jdbcUrl,
                 ),
               )
             )

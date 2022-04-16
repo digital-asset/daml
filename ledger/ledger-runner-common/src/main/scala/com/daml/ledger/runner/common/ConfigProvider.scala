@@ -7,7 +7,6 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
@@ -24,24 +23,6 @@ trait ConfigProvider[ExtraConfig] {
 
   def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config
-
-  def indexerConfig(
-      participantConfig: ParticipantConfig
-  ): IndexerConfig =
-    IndexerConfig(
-      participantConfig.participantId,
-      jdbcUrl = participantConfig.serverJdbcUrl,
-      startupMode =
-        IndexerStartupMode.MigrateAndStart(participantConfig.indexerConfig.allowExistingSchema),
-      maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
-      inputMappingParallelism = participantConfig.indexerConfig.inputMappingParallelism,
-      ingestionParallelism = participantConfig.indexerConfig.ingestionParallelism,
-      batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
-      submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
-      tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
-      batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
-      enableCompression = participantConfig.indexerConfig.enableCompression,
-    )
 
   def apiServerConfig(
       participantConfig: ParticipantConfig,

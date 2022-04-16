@@ -16,6 +16,7 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
@@ -224,35 +225,35 @@ object Config {
             val indexerInputMappingParallelism = kv
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultInputMappingParallelism)
+              .getOrElse(IndexerConfig.DefaultInputMappingParallelism)
             val indexerMaxInputBufferSize = kv
               .get("indexer-max-input-buffer-size")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultMaxInputBufferSize)
+              .getOrElse(IndexerConfig.DefaultMaxInputBufferSize)
             val indexerBatchingParallelism = kv
               .get("indexer-batching-parallelism")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultBatchingParallelism)
+              .getOrElse(IndexerConfig.DefaultBatchingParallelism)
             val indexerIngestionParallelism = kv
               .get("indexer-ingestion-parallelism")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultIngestionParallelism)
+              .getOrElse(IndexerConfig.DefaultIngestionParallelism)
             val indexerSubmissionBatchSize = kv
               .get("indexer-submission-batch-size")
               .map(_.toLong)
-              .getOrElse(ParticipantIndexerConfig.DefaultSubmissionBatchSize)
+              .getOrElse(IndexerConfig.DefaultSubmissionBatchSize)
             val indexerTailingRateLimitPerSecond = kv
               .get("indexer-tailing-rate-limit-per-second")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond)
+              .getOrElse(IndexerConfig.DefaultTailingRateLimitPerSecond)
             val indexerBatchWithinMillis = kv
               .get("indexer-batch-within-millis")
               .map(_.toLong)
-              .getOrElse(ParticipantIndexerConfig.DefaultBatchWithinMillis)
+              .getOrElse(IndexerConfig.DefaultBatchWithinMillis)
             val indexerEnableCompression = kv
               .get("indexer-enable-compression")
               .map(_.toBoolean)
-              .getOrElse(ParticipantIndexerConfig.DefaultEnableCompression)
+              .getOrElse(IndexerConfig.DefaultEnableCompression)
 
             val managementServiceTimeout = kv
               .get("management-service-timeout")
@@ -272,15 +273,17 @@ object Config {
               .map(_.toLong)
               .getOrElse(ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = ParticipantConfig(
-              runMode,
-              participantId,
-              shardName,
-              address,
-              port,
-              portFile,
-              jdbcUrl,
-              indexerConfig = ParticipantIndexerConfig(
-                allowExistingSchema = false,
+              mode = runMode,
+              participantId = participantId,
+              shardName = shardName,
+              address = address,
+              port = port,
+              portFile = portFile,
+              serverJdbcUrl = jdbcUrl,
+              indexerConfig = IndexerConfig(
+                participantId = participantId,
+                jdbcUrl = jdbcUrl,
+                startupMode = IndexerStartupMode.MigrateAndStart(false),
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,
                 batchingParallelism = indexerBatchingParallelism,

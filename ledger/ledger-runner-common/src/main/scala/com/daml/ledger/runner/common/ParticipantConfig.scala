@@ -3,12 +3,13 @@
 
 package com.daml.ledger.runner.common
 
-import java.nio.file.Path
-import java.time.Duration
-
 import com.daml.ledger.runner.common.ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout
 import com.daml.lf.data.Ref
+import com.daml.platform.indexer.IndexerConfig
 import com.daml.ports.Port
+
+import java.nio.file.Path
+import java.time.Duration
 
 final case class ParticipantConfig(
     mode: ParticipantRunMode,
@@ -20,7 +21,7 @@ final case class ParticipantConfig(
     portFile: Option[Path],
     serverJdbcUrl: String,
     managementServiceTimeout: Duration = ParticipantConfig.DefaultManagementServiceTimeout,
-    indexerConfig: ParticipantIndexerConfig,
+    indexerConfig: IndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
       ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout: Duration = DefaultApiServerDatabaseConnectionTimeout,

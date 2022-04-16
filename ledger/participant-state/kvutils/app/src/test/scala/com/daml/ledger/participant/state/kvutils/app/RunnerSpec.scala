@@ -40,6 +40,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.LedgerFeatures
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.status.{Status => StatusProto}
@@ -164,7 +165,11 @@ object RunnerSpec {
       port = Port.Dynamic,
       portFile = None,
       serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-      indexerConfig = ParticipantIndexerConfig(allowExistingSchema = false),
+      indexerConfig = IndexerConfig(
+        participantId = participantId,
+        jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+        startupMode = IndexerStartupMode.MigrateAndStart(false),
+      ),
     )
   }
 

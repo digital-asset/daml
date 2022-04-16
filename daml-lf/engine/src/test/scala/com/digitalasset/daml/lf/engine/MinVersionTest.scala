@@ -3,10 +3,6 @@
 
 package com.daml.lf.engine.MinVersionTest
 
-import java.io.{File, FileInputStream}
-import java.nio.file.{Files, Path}
-import java.util.UUID
-import java.util.stream.Collectors
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -23,24 +19,25 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.runner.common.{
-  Config,
-  ParticipantConfig,
-  ParticipantIndexerConfig,
-  ParticipantRunMode,
-}
 import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.runner.common.{Config, ParticipantConfig, ParticipantRunMode}
 import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion.v1_14
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 import scalaz.syntax.tag._
+
+import java.io.{File, FileInputStream}
+import java.nio.file.{Files, Path}
+import java.util.UUID
+import java.util.stream.Collectors
 
 final class MinVersionTest
     extends AsyncFreeSpec
@@ -135,8 +132,10 @@ final class MinVersionTest
     port = Port.Dynamic,
     portFile = Some(portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-    indexerConfig = ParticipantIndexerConfig(
-      allowExistingSchema = false
+    indexerConfig = IndexerConfig(
+      participantId = participantId,
+      jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+      startupMode = IndexerStartupMode.MigrateAndStart(false),
     ),
   )
 

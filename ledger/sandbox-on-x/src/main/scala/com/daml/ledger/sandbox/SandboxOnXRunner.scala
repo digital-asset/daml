@@ -276,7 +276,7 @@ object SandboxOnXRunner {
     for {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
-        config = BridgeConfigProvider.indexerConfig(participantConfig),
+        config = participantConfig.indexerConfig,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )

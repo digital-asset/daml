@@ -170,7 +170,7 @@ final class Runner[T <: ReadWriteService, Extra](
               for {
                 indexerHealth <- new StandaloneIndexerServer(
                   readService = readService,
-                  config = configProvider.indexerConfig(participantConfig),
+                  config = participantConfig.indexerConfig,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
