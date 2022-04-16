@@ -6,8 +6,6 @@ package com.daml.ledger.runner.common
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.platform.indexer.ha.HaConfig
 
-import scala.concurrent.duration.FiniteDuration
-
 /** Indexer-specific configuration of a participant.
   *
   * Parameters that are shared between the indexer and the ledger API server are stored in the parent [[ParticipantConfig]].
@@ -15,8 +13,6 @@ import scala.concurrent.duration.FiniteDuration
   */
 final case class ParticipantIndexerConfig(
     allowExistingSchema: Boolean,
-    databaseConnectionTimeout: FiniteDuration =
-      ParticipantIndexerConfig.DefaultDatabaseConnectionTimeout,
     maxInputBufferSize: Int = ParticipantIndexerConfig.DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = ParticipantIndexerConfig.DefaultInputMappingParallelism,
     batchingParallelism: Int = ParticipantIndexerConfig.DefaultBatchingParallelism,
@@ -29,8 +25,6 @@ final case class ParticipantIndexerConfig(
 )
 
 object ParticipantIndexerConfig {
-  val DefaultDatabaseConnectionTimeout: FiniteDuration =
-    IndexerConfig.DefaultDatabaseConnectionTimeout
   val DefaultMaxInputBufferSize: Int = IndexerConfig.DefaultMaxInputBufferSize
   val DefaultInputMappingParallelism: Int = IndexerConfig.DefaultInputMappingParallelism
   val DefaultBatchingParallelism: Int = IndexerConfig.DefaultBatchingParallelism

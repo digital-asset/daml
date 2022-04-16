@@ -56,9 +56,9 @@ final class StandaloneIndexerServer(
         }
 
     config.startupMode match {
-      case IndexerStartupMode.MigrateAndStart =>
+      case IndexerStartupMode.MigrateAndStart(allowExistingSchema) =>
         startIndexer(
-          migration = flywayMigrations.migrate(config.allowExistingSchema)
+          migration = flywayMigrations.migrate(allowExistingSchema)
         )
 
       case IndexerStartupMode.ValidateAndStart =>

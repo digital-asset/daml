@@ -14,9 +14,7 @@ case class IndexerConfig(
     participantId: Ref.ParticipantId,
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
-    databaseConnectionTimeout: FiniteDuration = DefaultDatabaseConnectionTimeout,
     restartDelay: FiniteDuration = DefaultRestartDelay,
-    allowExistingSchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
@@ -39,7 +37,6 @@ object IndexerConfig {
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-  val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
   val DefaultMaxInputBufferSize: Int = 50

@@ -39,7 +39,6 @@ object ConfigConverter {
         allowExistingSchema = true,
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
-        databaseConnectionTimeout = sandboxConfig.databaseConnectionTimeout,
       ),
       apiServerDatabaseConnectionPoolSize = sandboxConfig.databaseConnectionPoolSize,
     )

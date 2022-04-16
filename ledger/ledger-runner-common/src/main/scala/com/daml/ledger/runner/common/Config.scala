@@ -26,8 +26,6 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
     allowedLanguageVersions: VersionRange[LanguageVersion],
@@ -223,10 +221,6 @@ object Config {
               .get("api-server-connection-timeout")
               .map(Duration.parse)
               .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
-            val indexerConnectionTimeout = kv
-              .get("indexer-connection-timeout")
-              .map(Duration.parse)
-              .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
             val indexerInputMappingParallelism = kv
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
@@ -286,8 +280,6 @@ object Config {
               portFile,
               jdbcUrl,
               indexerConfig = ParticipantIndexerConfig(
-                databaseConnectionTimeout =
-                  FiniteDuration(indexerConnectionTimeout.toMillis, TimeUnit.MILLISECONDS),
                 allowExistingSchema = false,
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,

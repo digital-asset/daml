@@ -31,8 +31,8 @@ trait ConfigProvider[ExtraConfig] {
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
-      startupMode = IndexerStartupMode.MigrateAndStart,
-      allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
+      startupMode =
+        IndexerStartupMode.MigrateAndStart(participantConfig.indexerConfig.allowExistingSchema),
       maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
       inputMappingParallelism = participantConfig.indexerConfig.inputMappingParallelism,
       ingestionParallelism = participantConfig.indexerConfig.ingestionParallelism,
