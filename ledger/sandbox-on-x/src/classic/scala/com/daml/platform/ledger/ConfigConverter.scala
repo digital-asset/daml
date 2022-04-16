@@ -6,6 +6,7 @@ package com.daml.ledger.sandbox
 import com.daml.caching
 import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.runner.common._
+import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -60,7 +61,12 @@ object ConfigConverter {
     }
 
     Config[BridgeConfig](
-      allowedLanguageVersions = allowedLanguageVersions,
+      engineConfig = EngineConfig(
+        allowedLanguageVersions = allowedLanguageVersions,
+        profileDir = sandboxConfig.profileDir,
+        stackTraceMode = sandboxConfig.stackTraces,
+        forbidV0ContractId = true,
+      ),
       authService = sandboxConfig.authService.getOrElse(AuthServiceWildcard),
       acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
@@ -88,9 +94,7 @@ object ConfigConverter {
       participants = Seq(
         singleCombinedParticipant
       ),
-      profileDir = sandboxConfig.profileDir,
       seeding = sandboxConfig.seeding,
-      stackTraces = sandboxConfig.stackTraces,
       stateValueCache = caching.WeightedCache.Configuration.none,
       timeProviderType = sandboxConfig.timeProviderType.getOrElse(DefaultTimeProviderType),
       tlsConfig = sandboxConfig.tlsConfig,

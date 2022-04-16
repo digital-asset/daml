@@ -9,8 +9,8 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcar
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -24,12 +24,11 @@ import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
 import java.io.File
-import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 
 final case class Config[Extra](
-    allowedLanguageVersions: VersionRange[LanguageVersion],
+    engineConfig: EngineConfig,
     authService: AuthService,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
@@ -51,9 +50,7 @@ final case class Config[Extra](
     metricsReportingInterval: Duration,
     mode: Mode,
     participants: Seq[ParticipantConfig],
-    profileDir: Option[Path],
     seeding: Seeding,
-    stackTraces: Boolean,
     stateValueCache: caching.WeightedCache.Configuration,
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
@@ -75,7 +72,12 @@ object Config {
 
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
-      allowedLanguageVersions = LanguageVersion.StableVersions,
+      engineConfig = EngineConfig(
+        allowedLanguageVersions = LanguageVersion.StableVersions,
+        profileDir = None,
+        stackTraceMode = false,
+        forbidV0ContractId = true,
+      ),
       authService = AuthServiceWildcard,
       acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
@@ -97,9 +99,7 @@ object Config {
       metricsReportingInterval = Duration.ofSeconds(10),
       mode = Mode.Run,
       participants = Vector.empty,
-      profileDir = None,
       seeding = Seeding.Strong,
-      stackTraces = false,
       stateValueCache = caching.WeightedCache.Configuration.none,
       timeProviderType = TimeProviderType.WallClock,
       tlsConfig = None,
@@ -586,7 +586,11 @@ object Config {
 
         opt[Unit]("early-access")
           .optional()
-          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
+          .action((_, c) =>
+            c.copy(engineConfig =
+              c.engineConfig.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions)
+            )
+          )
           .text(
             "Enable preview version of the next Daml-LF language. Should not be used in production."
           )
@@ -594,7 +598,11 @@ object Config {
         opt[Unit]("daml-lf-dev-mode-unsafe")
           .optional()
           .hidden()
-          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.DevVersions))
+          .action((_, c) =>
+            c.copy(engineConfig =
+              c.engineConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
+            )
+          )
           .text(
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
@@ -678,13 +686,17 @@ object Config {
 
         opt[File]("profile-dir")
           .optional()
-          .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
+          .action((dir, c) =>
+            c.copy(engineConfig = c.engineConfig.copy(profileDir = Some(dir.toPath)))
+          )
           .text("Enable profiling and write the profiles into the given directory.")
 
         opt[Boolean]("stack-traces")
           .hidden()
           .optional()
-          .action((enabled, config) => config.copy(stackTraces = enabled))
+          .action((enabled, config) =>
+            config.copy(engineConfig = config.engineConfig.copy(stackTraceMode = enabled))
+          )
           .text(
             "Enable/disable stack traces. Default is to disable them. " +
               "Enabling stack traces may have a significant performance impact."

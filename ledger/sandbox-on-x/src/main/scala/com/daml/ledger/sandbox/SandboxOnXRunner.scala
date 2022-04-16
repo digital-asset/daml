@@ -30,7 +30,7 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
@@ -123,13 +123,7 @@ object SandboxOnXRunner {
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
-    val sharedEngine = new Engine(
-      EngineConfig(
-        allowedLanguageVersions = config.allowedLanguageVersions,
-        profileDir = config.profileDir,
-        stackTraceMode = config.stackTraces,
-      )
-    )
+    val sharedEngine = new Engine(config.engineConfig)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
@@ -372,7 +366,7 @@ object SandboxOnXRunner {
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.port.toString,
         "time mode" -> config.timeProviderType.description,
-        "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+        "allowed language versions" -> s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
         "contract ids seeding" -> config.seeding.toString,
       ).map { case (key, value) =>

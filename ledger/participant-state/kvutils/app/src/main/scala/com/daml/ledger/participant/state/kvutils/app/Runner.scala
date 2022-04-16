@@ -18,7 +18,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
@@ -73,14 +73,7 @@ final class Runner[T <: ReadWriteService, Extra](
         _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
         _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
-        sharedEngine = new Engine(
-          EngineConfig(
-            allowedLanguageVersions = config.allowedLanguageVersions,
-            forbidV0ContractId = true,
-            profileDir = config.profileDir,
-            stackTraceMode = config.stackTraces,
-          )
-        )
+        sharedEngine = new Engine(config.engineConfig)
 
         // initialize all configured participants
         _ <- Resource.sequenceIgnoringValues(
@@ -111,7 +104,7 @@ final class Runner[T <: ReadWriteService, Extra](
       BuildInfo.Version,
       config.ledgerId,
       factory.ledgerName,
-      s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+      s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
       authentication,
       config.seeding,
       participantsInitializationText,
