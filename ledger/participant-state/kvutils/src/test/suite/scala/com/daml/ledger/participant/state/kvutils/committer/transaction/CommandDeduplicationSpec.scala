@@ -206,18 +206,6 @@ class CommandDeduplicationSpec
         deduplicateStepHasTransactionRejectionEntry(commitContext)
       }
 
-      "set the out of time bounds log entry during rejections" in {
-        val dedupValue = newDedupValue(
-          _.setRecordTimeBounds(buildPreExecutionDeduplicationBounds(timestamp, timestamp))
-        )
-        val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
-        commitContext.minimumRecordTime = Some(timestamp)
-        commitContext.maximumRecordTime = Some(timestamp)
-
-        deduplicateStepHasTransactionRejectionEntry(commitContext)
-        commitContext.outOfTimeBoundsLogEntry shouldBe 'defined
-      }
-
       "return the command deduplication duration as deduplication duration when this exceeds the max delta between record times" in {
         val dedupValue = newDedupValue(
           _.setRecordTimeBounds(buildPreExecutionDeduplicationBounds(timestamp, timestamp))
