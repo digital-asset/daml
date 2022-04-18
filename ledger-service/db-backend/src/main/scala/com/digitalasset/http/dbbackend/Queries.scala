@@ -366,14 +366,13 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
         },
         fr" OR ",
       )
-    // we effectively shadow Mark because Scala 2.12 doesn't quite get
-    // that it should use the GADT type equality otherwise
-    def goQuery[Mark0: Read](
+    @nowarn("cat=unused&msg=MarkR in method goQuery.*is never used") // false negative
+    def goQuery(
         tpid: Fragment
-    ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
+    )(implicit MarkR: Read[Mark]): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
       val q = query(tpid, queriesCondition)
       q.query[
-        (String, Mark0, Key, Option[String], JsValue, SigsObs, SigsObs, Agreement)
+        (String, Mark, Key, Option[String], JsValue, SigsObs, SigsObs, Agreement)
       ].map { case (cid, tpid, rawKey, keyHash, payload, signatories, observers, rawAgreement) =>
         DBContract(
           contractId = cid,
@@ -391,9 +390,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt =>
         val tpid = projectedIndex(queries.zipWithIndex, tpidSelector = tpidSelector)
-        goQuery[MatchedQueries](tpid)
+        goQuery(tpid)
       case MatchedQueryMarker.Unused =>
-        goQuery[SurrogateTpId](tpidSelector)
+        goQuery(tpidSelector)
     }
   }
 
