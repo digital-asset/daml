@@ -73,6 +73,7 @@ object TestHelpers {
         DamlSubmitterInfo.newBuilder
           .setCommandId("commandId")
           .addAllSubmitters(submitters.asJava)
+          .setDeduplicationDuration(Conversions.buildDuration(Duration.ofSeconds(30)))
       )
       .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
       .build
