@@ -7,13 +7,15 @@ import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config.{ProjectConfig, ConfigParseError, ConfigMissing}
-import com.daml.lf.codegen.conf.CodegenConfigReader.{Java, Result, CodegenDest}
+import com.daml.lf.codegen.conf.{CodegenConfigReader => CCR}
+import CCR.{Java, Result, CodegenDest}
 import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
+  import CodegenConfigReaderSpec._
 
   behavior of "CodegenConfigReader.splitNameAndVersion"
 
@@ -31,14 +33,9 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
     CodegenConfigReader.splitNameAndVersion(s"$name$separator", separator) shouldBe None
   }
 
-  it should "reject empty versions" in forAll { (separator: Char, version: String) =>
-    CodegenConfigReader.splitNameAndVersion(s"$separator$version", separator) shouldBe None
-  }
-
-  it should "reject empty versions: verified regression" in {
-    val separator = '-'
-    val version = "1-2"
-    CodegenConfigReader.splitNameAndVersion(s"$separator$version", separator) shouldBe None
+  it should "reject empty versions" in forAll { version: PackageVersion =>
+    val separator = CCR.PackageReferenceSeparator
+    CCR.splitNameAndVersion(s"$separator$version", separator) shouldBe None
   }
 
   it should "reject any string where only the separator appears" in forAll { (separator: Char) =>
