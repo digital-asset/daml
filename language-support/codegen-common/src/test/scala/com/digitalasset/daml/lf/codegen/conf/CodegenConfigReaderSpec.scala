@@ -35,6 +35,12 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
     CodegenConfigReader.splitNameAndVersion(s"$separator$version", separator) shouldBe None
   }
 
+  it should "reject empty versions: verified regression" in {
+    val separator = '-'
+    val version = "1-2"
+    CodegenConfigReader.splitNameAndVersion(s"$separator$version", separator) shouldBe None
+  }
+
   it should "reject any string where only the separator appears" in forAll { (separator: Char) =>
     CodegenConfigReader.splitNameAndVersion(separator.toString, separator) shouldBe None
   }
