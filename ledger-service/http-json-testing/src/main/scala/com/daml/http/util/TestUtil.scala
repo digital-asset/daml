@@ -11,7 +11,6 @@ import akka.util.ByteString
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.io.Source
 import scala.util.{Failure, Success, Try, Using}
 
 object TestUtil extends LazyLogging {
@@ -28,14 +27,6 @@ object TestUtil extends LazyLogging {
       bw.write(text)
       file
     }
-
-  @deprecated("TODO SC #13618 unused?", since = "2.2.0")
-  def readFile(resourcePath: String): String = {
-    val source = Source.fromResource(resourcePath)
-    val content = source.getLines().mkString
-    source.close
-    content
-  }
 
   def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)(implicit
       mat: Materializer,
