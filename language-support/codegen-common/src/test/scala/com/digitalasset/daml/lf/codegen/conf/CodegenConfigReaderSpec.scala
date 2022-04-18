@@ -29,11 +29,11 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       }
   }
 
-  it should "reject empty names" in forAll { (name: String, separator: Char) =>
+  it should "reject empty versions" in forAll { (name: String, separator: Char) =>
     CodegenConfigReader.splitNameAndVersion(s"$name$separator", separator) shouldBe None
   }
 
-  it should "reject empty versions" in forAll { version: PackageVersion =>
+  it should "reject empty names" in forAll { version: PackageVersion =>
     val separator = CCR.PackageReferenceSeparator
     CCR.splitNameAndVersion(s"$separator$version", separator) shouldBe None
   }
