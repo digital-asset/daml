@@ -58,9 +58,8 @@ object TypedValueGenerators {
     type Aux[Inj0] = ValueAddend {
       type Inj = Inj0
     }
-    type NoCid[Inj0] = ValueAddend {
-      type Inj = Inj0
-    }
+    @deprecated("use Aux instead", since = "2.2.0")
+    type NoCid[Inj0] = Aux[Inj0]
 
     private sealed abstract class NoCid0[Inj0](implicit
         ord: Order[Inj0],
@@ -75,7 +74,7 @@ object TypedValueGenerators {
 
     def noCid[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value)(
         prj0: Value PartialFunction Inj0
-    ): NoCid[Inj0] = new NoCid0[Inj0] {
+    ): Aux[Inj0] = new NoCid0[Inj0] {
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj(v: Inj0) = inj0(v)
       override def prj = prj0.lift
@@ -92,7 +91,7 @@ object TypedValueGenerators {
     val bool = noCid(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
-    def numeric(scale: Numeric.Scale): NoCid[Numeric] = {
+    def numeric(scale: Numeric.Scale): Aux[Numeric] = {
       implicit val arb: Arbitrary[Numeric] = Arbitrary(ValueGenerators.numGen(scale))
       new NoCid0[Numeric] {
         override def t: Type = TypeNumeric(scale)
