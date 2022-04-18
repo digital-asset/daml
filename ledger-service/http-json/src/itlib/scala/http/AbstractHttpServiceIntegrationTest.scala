@@ -88,6 +88,15 @@ object AbstractHttpServiceIntegrationTestFuns {
 
     BaseEncoding.base16().lowerCase().encode(md.digest())
   }
+
+  // ValueAddend eXtensions
+  private[http] object VAx {
+    def seq(elem: VA): VA.Aux[Seq[elem.Inj]] =
+      VA.list(elem).xmap { xs: Seq[elem.Inj] => xs }(_.toVector)
+
+    // nest assertFromString into arbitrary VA structures
+    val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -433,7 +442,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def multiPartyCreateCommand(ps: List[String], value: String) = {
-    val psv = lfToApi(VA.list(VA.party).inj(ps.toVector map Ref.Party.assertFromString)).sum
+    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
     val payload = recordFromFields(
       ShRecord(
         parties = psv,
@@ -448,7 +457,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
-    val psv = lfToApi(VA.list(VA.party).inj(ps.toVector map Ref.Party.assertFromString)).sum
+    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
     val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
@@ -468,8 +477,7 @@ trait AbstractHttpServiceIntegrationTestFuns
         recordFromFields(
           ShRecord(
             cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
-            actors =
-              lfToApi(VA.list(VA.party).inj(actors.toVector map Ref.Party.assertFromString)).sum,
+            actors = lfToApi(VAx.seq(VAx.partyStr).inj(actors)).sum,
           )
         )
       )
@@ -893,7 +901,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, VAx}
   import HttpServiceTestFixture._
   import json.JsonProtocol._
 
@@ -2155,8 +2163,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             recordFromFields(
               ShRecord(cids =
                 lfToApi(
-                  VA.list(VA.contractId)
-                    .inj(cids.toVector map lfv.Value.ContractId.assertFromString)
+                  VAx
+                    .seq(VA.contractId)
+                    .inj(cids map lfv.Value.ContractId.assertFromString)
                 ).sum
               )
             )
@@ -2223,8 +2232,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           following: Seq[domain.Party] = Seq.empty,
       ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
         val followingList = lfToApi(
-          VA.list(VA.party)
-            .inj(domain.Party unsubst following.toVector map Ref.Party.assertFromString)
+          VAx.seq(VAx.partyStr).inj(domain.Party unsubst following)
         ).sum
         val arg = recordFromFields(
           ShRecord(
