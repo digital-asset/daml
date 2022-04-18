@@ -297,20 +297,12 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
 object CodegenConfigReaderSpec {
   import org.scalacheck.{Arbitrary, Gen}
 
-  implicit def `package Ref Arb`: Arbitrary[PackageReference] =
+  implicit def `package Version Arb`: Arbitrary[PackageVersion] =
     Arbitrary(
       Gen
-        .zip(
-          Gen.stringOf(Gen.oneOf(('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z') ++ "_-".toSeq)),
-          Gen.posNum[Int],
-          Gen.option(Gen.posNum[Int]),
-        )
-        .map { case (name, wholeVersion, decVersion) =>
-          PackageReference.NameVersion(
-            PackageName assertFromString name,
-            PackageVersion assertFromString s"$wholeVersion${decVersion.fold("")(n => s".$n")}",
-          )
+        .zip(Gen.posNum[Int], Gen.option(Gen.posNum[Int]))
+        .map { case (wholeVersion, decVersion) =>
+          PackageVersion assertFromString s"$wholeVersion${decVersion.fold("")(n => s".$n")}"
         }
     )
-
 }
