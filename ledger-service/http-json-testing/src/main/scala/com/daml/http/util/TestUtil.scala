@@ -29,19 +29,13 @@ object TestUtil extends LazyLogging {
       file
     }
 
-  def readFile(resourcePath: String): String =
-    Try {
-      val source = Source.fromResource(resourcePath)
-      val content = source.getLines().mkString
-      source.close
-      content
-    } match {
-      case Success(value) => value
-      // only needed for Scala 2.12; 2.13 does this itself
-      case Failure(_: NullPointerException) =>
-        throw new java.io.FileNotFoundException(s"resource '$resourcePath' not found in classpath")
-      case Failure(ex) => throw ex
-    }
+  @deprecated("TODO SC #13618 unused?", since = "2.2.0")
+  def readFile(resourcePath: String): String = {
+    val source = Source.fromResource(resourcePath)
+    val content = source.getLines().mkString
+    source.close
+    content
+  }
 
   def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)(implicit
       mat: Materializer,
