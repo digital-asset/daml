@@ -8,7 +8,6 @@ import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
 import com.daml.ports.Port
-import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
@@ -18,7 +17,6 @@ import scala.concurrent.duration.FiniteDuration
 
 case class ApiServerConfig(
     participantId: Ref.ParticipantId,
-    archiveFiles: List[File],
     port: Port,
     address: Option[String], // This defaults to "localhost" when set to `None`.
     jdbcUrl: String,
@@ -28,19 +26,9 @@ case class ApiServerConfig(
     maxInboundMessageSize: Int,
     initialLedgerConfiguration: Option[InitialLedgerConfiguration],
     configurationLoadTimeout: Duration,
-    eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
-    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
-    acsIdPageSize: Int = IndexConfiguration.DefaultAcsIdPageSize,
-    acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
-    acsContractFetchingParallelism: Int = IndexConfiguration.DefaultAcsContractFetchingParallelism,
-    acsGlobalParallelism: Int = IndexConfiguration.DefaultAcsGlobalParallelism,
-    acsIdQueueLimit: Int = IndexConfiguration.DefaultAcsIdQueueLimit,
+    indexConfiguration: IndexConfiguration,
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,
-    maxContractStateCacheSize: Long,
-    maxContractKeyStateCacheSize: Long,
-    maxTransactionsInMemoryFanOutBufferSize: Long,
-    enableInMemoryFanOutForLedgerApi: Boolean,
     userManagementConfig: UserManagementConfig,
 )
