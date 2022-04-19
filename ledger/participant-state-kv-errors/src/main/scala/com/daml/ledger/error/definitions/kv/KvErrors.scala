@@ -1,11 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.errors
+package com.daml.ledger.error.definitions.kv
 
 import com.daml.error.definitions.ErrorGroups
-
-import java.time.Instant
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
@@ -15,10 +13,12 @@ import com.daml.error.{
   Resolution,
 }
 
+import java.time.Instant
+
 @Explanation(
   "Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC."
 )
-object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
+object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
 
   @Explanation("Errors that highlight transaction consistency issues in the committer context.")
   object Consistency extends ErrorGroup() {

@@ -3,16 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils.updates
 
-import com.daml.error.definitions.LedgerApiErrors
-
 import java.time.Instant
+
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.ledger.error.definitions.kv.KvErrors
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
   InternallyInconsistentTransaction,
 }
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.store.events._
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -38,7 +38,7 @@ private[kvutils] object TransactionRejections {
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
-        KVErrors.Time.InvalidRecordTime
+        KvErrors.Time.InvalidRecordTime
           .Reject(
             rejectionEntry.getDefiniteAnswer,
             invalidRecordTimeReason(recordTime, tooEarlyUntil, tooLateFrom),
@@ -70,7 +70,7 @@ private[kvutils] object TransactionRejections {
   }
 
   def rejectionReasonNotSetStatus()(implicit loggingContext: ContextualizedErrorLogger): Status =
-    KVErrors.Internal.RejectionReasonNotSet
+    KvErrors.Internal.RejectionReasonNotSet
       .Reject()
       .asStatus
 
@@ -79,7 +79,7 @@ private[kvutils] object TransactionRejections {
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
     val metadata = rejection.getMetadataMap.asScala.toMap
-    KVErrors.Internal.InvalidParticipantState
+    KvErrors.Internal.InvalidParticipantState
       .Reject(details, metadata)
       .asStatus
   }
@@ -105,7 +105,7 @@ private[kvutils] object TransactionRejections {
   def causalMonotonicityViolatedStatus()(implicit
       loggingContext: ContextualizedErrorLogger
   ): Status =
-    KVErrors.Time.CausalMonotonicityViolated
+    KvErrors.Time.CausalMonotonicityViolated
       .Reject()
       .asStatus
 
@@ -122,7 +122,7 @@ private[kvutils] object TransactionRejections {
         rejection.getMaximumRecordTime.getSeconds,
         rejection.getMaximumRecordTime.getNanos.toLong,
       )
-    KVErrors.Time.RecordTimeOutOfRange
+    KvErrors.Time.RecordTimeOutOfRange
       .Reject(minRecordTime, maxRecordTime)
       .asStatus
   }
@@ -150,7 +150,7 @@ private[kvutils] object TransactionRejections {
       rejection: MissingInputState
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val key = rejection.getKey.toString
-    KVErrors.Internal.MissingInputState
+    KvErrors.Internal.MissingInputState
       .Reject(key)
       .asStatus
   }
@@ -171,7 +171,7 @@ private[kvutils] object TransactionRejections {
       rejection: ValidationFailure
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    KVErrors.Consistency.ValidationFailure
+    KvErrors.Consistency.ValidationFailure
       .Reject(details)
       .asStatus
   }
@@ -234,7 +234,7 @@ private[kvutils] object TransactionRejections {
       rejection: ResourcesExhausted
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
-    KVErrors.Resources.ResourceExhausted
+    KvErrors.Resources.ResourceExhausted
       .Reject(details)
       .asStatus
   }
