@@ -5,7 +5,12 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
+import akka.http.scaladsl.model.ws.{
+  Message,
+  PeerClosedConnectionException,
+  TextMessage,
+  WebSocketRequest,
+}
 import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -975,7 +980,16 @@ abstract class AbstractWebsocketServiceIntegrationTest
       streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
         .runWith(Sink.seq)
         .failed
-    } yield fail(s"TODO SC #13633 $streamError: ${streamError.getClass}")
+    } yield inside(streamError) { case t: PeerClosedConnectionException =>
+      // TODO #13506 descriptive/structured error.  The logs when running this
+      // test include
+      //     Websocket handler failed with FAILED_PRECONDITION: PARTICIPANT_PRUNED_DATA_ACCESSED(9,0):
+      //     Transactions request from 0000000000000006 to 0000000000000008
+      //     precedes pruned offset 0000000000000007
+      // but this doesn't propagate to the client
+      t.closeCode should ===(1011) // see RFC 6455
+      t.closeReason should ===("internal error")
+    }
   }
 
   private[this] def offsetBeforeAfterArchival(
@@ -985,15 +999,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
       headers: List[HttpHeader],
   ): Future[(domain.Offset, domain.Offset)] = {
     import json.JsonProtocol._
-    type In = JsValue
+    type In = JsValue // JsValue might not be the most convenient choice
     val syntax = Consume.syntax[In]
     import syntax._
-    def readMidwayOffset(kill: UniqueKillSwitch) = for {
-      // wait for the ACS
-      _ <- readUntil[In] {
-        case ContractDelta(_, _, offset) => offset
-        case _ => None
-      }
+
+    def offsetAfterCreate(): Consume.FCC[In, (domain.ContractId, domain.Offset)] = for {
       // make a contract
       create <- liftF(
         postCreateCommand(
@@ -1009,11 +1019,21 @@ abstract class AbstractWebsocketServiceIntegrationTest
         contract.contractId
       }
       // wait for the creation's offset
-      betweenOffset <- readUntil[In] {
+      offsetAfter <- readUntil[In] {
         case ContractDelta(creates, _, off @ Some(_)) =>
           if (creates.exists(_._1 == cid.unwrap)) off else None
         case _ => None
       }
+    } yield (cid, offsetAfter)
+
+    def readMidwayOffset(kill: UniqueKillSwitch) = for {
+      // wait for the ACS
+      _ <- readUntil[In] {
+        case ContractDelta(_, _, offset) => offset
+        case _ => None
+      }
+      // make a contract and fetch the offset after it
+      (cid, betweenOffset) <- offsetAfterCreate()
       // archive it
       archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, headers))
       _ = archive._1 should ===(StatusCodes.OK)
@@ -1023,6 +1043,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
           if (archived.exists(_.contractId == cid)) offset else None
         case _ => None
       }
+      // if you try to prune afterOffset, pruning fails with
+      // OFFSET_OUT_OF_RANGE(9,db14ee96): prune_up_to needs to be before ledger end 0000000000000007
+      // create another dummy contract and ignore it
+      _ <- offsetAfterCreate()
       _ = kill.shutdown()
     } yield (betweenOffset, afterOffset)
 
