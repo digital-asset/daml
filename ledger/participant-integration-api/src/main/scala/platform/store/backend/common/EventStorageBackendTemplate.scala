@@ -419,14 +419,16 @@ abstract class EventStorageBackendTemplate(
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
       def selectFrom(table: String, selectColumns: String) = cSQL"""
-        (SELECT
+        (SELECT #$selectColumns, event_witnesses, command_id FROM ( SELECT
           #$selectColumns, #$witnessesColumn as event_witnesses, command_id
         FROM
           #$table $joinClause
+
         WHERE
           $additionalAndClause
           $witnessesWhereClause
-        ORDER BY event_sequential_id)
+         ORDER BY event_sequential_id
+         ) x)
       """
 
       val selectClause = partitions
