@@ -40,29 +40,29 @@ class KeyValueCommitting private[daml] (
 ) {
 
   /** Processes a Daml submission, given the allocated log entry id, the submission and its resolved inputs.
-   * Produces the log entry to be committed, and Daml state updates.
-   *
-   * The caller is expected to resolve the inputs declared in [[DamlSubmission]] prior
-   * to calling this method, e.g. by reading [[DamlSubmission!.getInputEntriesList]] and
-   * [[DamlSubmission!.getInputStateList]]
-   *
-   * The caller is expected to store the produced [[DamlLogEntry]] in key-value store at a location
-   * that can be accessed through `entryId`. The Daml state updates may create new entries or update
-   * existing entries in the key-value store.
-   *
-   * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
-   * @param submission: Submission to commit to the ledger.
-   * @param participantId: The participant from which the submission originates. Expected to be authenticated.
-   * @param inputState:
-   *   Resolved input state specified in submission. Optional to mark that input state was resolved
-   *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
-   *   expect to be present.
-   *   We also do not trust the submitter to provide the correct list of input keys and we need
-   *   to verify that an input actually does not exist and was not just included in inputs.
-   *   For example when committing a configuration we need the current configuration to authorize
-   *   the submission.
-   * @return Log entry to be committed and the Daml state updates to be applied.
-   */
+    * Produces the log entry to be committed, and Daml state updates.
+    *
+    * The caller is expected to resolve the inputs declared in [[DamlSubmission]] prior
+    * to calling this method, e.g. by reading [[DamlSubmission!.getInputEntriesList]] and
+    * [[DamlSubmission!.getInputStateList]]
+    *
+    * The caller is expected to store the produced [[DamlLogEntry]] in key-value store at a location
+    * that can be accessed through `entryId`. The Daml state updates may create new entries or update
+    * existing entries in the key-value store.
+    *
+    * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
+    * @param submission: Submission to commit to the ledger.
+    * @param participantId: The participant from which the submission originates. Expected to be authenticated.
+    * @param inputState:
+    *   Resolved input state specified in submission. Optional to mark that input state was resolved
+    *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
+    *   expect to be present.
+    *   We also do not trust the submitter to provide the correct list of input keys and we need
+    *   to verify that an input actually does not exist and was not just included in inputs.
+    *   For example when committing a configuration we need the current configuration to authorize
+    *   the submission.
+    * @return Log entry to be committed and the Daml state updates to be applied.
+    */
   @throws(classOf[Err])
   def preExecuteSubmission(
       defaultConfig: Configuration,
