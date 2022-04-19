@@ -12,7 +12,7 @@ import Data.Text (Text)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
-import System.FilePath (dropExtension, replaceExtensions, takeExtensions, takeFileName, (<.>), (</>))
+import System.FilePath (dropExtension, replaceExtensions, takeExtensions, (<.>), (</>))
 import System.Process (readProcessWithExitCode)
 import Test.Tasty.Golden (goldenVsStringDiff)
 
@@ -79,16 +79,21 @@ runDamlRename damlc damlFile = do
     ]
     ""
   case exitCode of
-    ExitSuccess -> pure $
-      -- This replaces the damlFile path in the output with just the name of the
-      -- file, since the former will vary across systems.
-      T.replace
-        (T.pack damlFile)
-        (T.pack (takeFileName damlFile))
-        (T.pack stderr)
+    ExitSuccess -> pure $ extract stderr
     _ -> error $ unlines
       [ "The following command failed: "
       , "\tdamlc compile --ghc-option=-ddump-rn " <> damlFile
       , "stderr:"
       , "\t" <> stderr
       ]
+
+  where
+    -- This extracts the actual renamed code from the output,
+    -- dropping the shake warning header and terminal color formatting
+    extract
+      = T.unlines
+      . fmap (T.drop 2) -- the part we're interested in is indented with two spaces.
+      . T.lines
+      . fst . T.breakOn "\n  \ESC"
+      . snd . T.breakOnEnd "==================== Renamer ====================\n"
+      . T.pack
