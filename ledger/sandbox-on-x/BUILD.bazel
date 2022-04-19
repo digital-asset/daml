@@ -83,7 +83,9 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
@@ -360,6 +362,7 @@ da_scala_library(
     deps = [
         ":sandbox-on-x",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",

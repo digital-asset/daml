@@ -25,12 +25,12 @@ import com.daml.ledger.api.v1.experimental_features.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
@@ -123,13 +123,7 @@ object SandboxOnXRunner {
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
-    val sharedEngine = new Engine(
-      EngineConfig(
-        allowedLanguageVersions = config.allowedLanguageVersions,
-        profileDir = config.profileDir,
-        stackTraceMode = config.stackTraces,
-      )
-    )
+    val sharedEngine = new Engine(config.engineConfig)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
@@ -161,6 +155,7 @@ object SandboxOnXRunner {
             metrics,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
+            participantConfig,
           )
 
           dbSupport <- DbSupport
@@ -174,12 +169,13 @@ object SandboxOnXRunner {
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
-            config = apiServerConfig,
+            config = apiServerConfig.indexConfiguration,
             metrics = metrics,
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
+            participantId = apiServerConfig.participantId,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -267,16 +263,15 @@ object SandboxOnXRunner {
       metrics: Metrics,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
+      participantConfig: ParticipantConfig,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
-      participantConfig: ParticipantConfig,
-      config: Config[BridgeConfig],
   ): ResourceOwner[HealthChecks] =
     for {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
-        config = BridgeConfigProvider.indexerConfig(participantConfig, config),
+        config = participantConfig.indexerConfig,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )
@@ -303,8 +298,8 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       config: Config[BridgeConfig],
   ): ResourceOwner[Metrics] =
-    BridgeConfigProvider
-      .createMetrics(participantConfig, config)
+    Metrics
+      .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
         config.metricsReporter
@@ -372,7 +367,7 @@ object SandboxOnXRunner {
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.port.toString,
         "time mode" -> config.timeProviderType.description,
-        "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+        "allowed language versions" -> s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
         "contract ids seeding" -> config.seeding.toString,
       ).map { case (key, value) =>

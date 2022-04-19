@@ -77,7 +77,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
     for {
       agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-      _ <- eventually {
+      _ <- eventually("exerciseCreateAgreement") {
         alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
       }
       _ <- synchronize(alpha, beta)

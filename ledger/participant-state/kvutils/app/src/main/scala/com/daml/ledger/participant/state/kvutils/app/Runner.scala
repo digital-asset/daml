@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -19,18 +17,11 @@ import com.daml.ledger.api.auth.{
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.{
-  Config,
-  ConfigProvider,
-  DumpIndexMetadata,
-  Mode,
-  ParticipantConfig,
-  ParticipantRunMode,
-}
-import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.ledger.runner.common._
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -38,6 +29,7 @@ import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
 
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.ExecutionContext
 
 final class Runner[T <: ReadWriteService, Extra](
@@ -81,14 +73,7 @@ final class Runner[T <: ReadWriteService, Extra](
         _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
         _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
-        sharedEngine = new Engine(
-          EngineConfig(
-            allowedLanguageVersions = config.allowedLanguageVersions,
-            forbidV0ContractId = true,
-            profileDir = config.profileDir,
-            stackTraceMode = config.stackTraces,
-          )
-        )
+        sharedEngine = new Engine(config.engineConfig)
 
         // initialize all configured participants
         _ <- Resource.sequenceIgnoringValues(
@@ -119,7 +104,7 @@ final class Runner[T <: ReadWriteService, Extra](
       BuildInfo.Version,
       config.ledgerId,
       factory.ledgerName,
-      s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+      s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
       authentication,
       config.seeding,
       participantsInitializationText,
@@ -139,7 +124,8 @@ final class Runner[T <: ReadWriteService, Extra](
   ): Resource[Option[Port]] =
     withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
-        val metrics = configProvider.createMetrics(participantConfig, config)
+        val metrics = Metrics
+          .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
         metrics.registry.registerAll(new JvmMetricSet)
         val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
           eventConfiguration = config.lfValueTranslationEventCache,
@@ -177,7 +163,7 @@ final class Runner[T <: ReadWriteService, Extra](
               for {
                 indexerHealth <- new StandaloneIndexerServer(
                   readService = readService,
-                  config = configProvider.indexerConfig(participantConfig, config),
+                  config = participantConfig.indexerConfig,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
@@ -215,7 +201,8 @@ final class Runner[T <: ReadWriteService, Extra](
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
-                  config = apiServerConfig,
+                  config = apiServerConfig.indexConfiguration,
+                  participantId = apiServerConfig.participantId,
                   metrics = metrics,
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,

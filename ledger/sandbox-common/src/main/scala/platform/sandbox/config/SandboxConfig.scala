@@ -15,13 +15,13 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
-
 import com.daml.platform.usermanagement.UserManagementConfig
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration._
 
 /** Defines the basic configuration for running sandbox
   */
@@ -44,7 +44,6 @@ final case class SandboxConfig(
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     databaseConnectionPoolSize: Int,
-    databaseConnectionTimeout: FiniteDuration,
     logLevel: Option[Level],
     authService: Option[AuthService],
     seeding: Seeding,
@@ -95,7 +94,6 @@ object SandboxConfig {
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
   val DefaultDatabaseConnectionPoolSize: Int = 16
-  val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
@@ -143,7 +141,6 @@ object SandboxConfig {
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       databaseConnectionPoolSize = DefaultDatabaseConnectionPoolSize,
-      databaseConnectionTimeout = DefaultDatabaseConnectionTimeout,
       logLevel = None, // the default is in logback.xml
       authService = None,
       seeding = Seeding.Strong,

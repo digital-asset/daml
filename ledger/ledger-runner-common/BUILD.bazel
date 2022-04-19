@@ -26,7 +26,9 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-service/jwt",
         "//ledger/caching",
@@ -43,7 +45,6 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
     ],
 )
