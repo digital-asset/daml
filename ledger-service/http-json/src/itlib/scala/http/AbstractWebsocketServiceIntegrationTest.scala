@@ -953,36 +953,88 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
-    import json.JsonProtocol._
     for {
       aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
       (alice, aliceHeaders) = aliceH
+      offsets <- offsetBeforeAfterArchival(alice, uri, encoder, aliceHeaders)
+      (offsetBeforeArchive, offsetAfterArchive) = offsets
+
+      pruned <- PruneGrpc.ParticipantPruningServiceGrpc
+        .stub(client.channel)
+        .prune(
+          PruneGrpc.PruneRequest(
+            pruneUpTo = domain.Offset unwrap offsetAfterArchive,
+            pruneAllDivulgedContracts = true,
+          )
+        )
+      _ = pruned should ===(PruneGrpc.PruneResponse())
+
+      // now query again with a pruned offset
+      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      query = s"""[{"templateIds": ["Iou:Iou"]}]"""
+      streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
+        .runWith(Sink.seq)
+        .failed
+    } yield fail(s"TODO SC #13633 $streamError: ${streamError.getClass}")
+  }
+
+  private[this] def offsetBeforeAfterArchival(
+      party: domain.Party,
+      uri: Uri,
+      encoder: json.DomainJsonEncoder,
+      headers: List[HttpHeader],
+  ): Future[(domain.Offset, domain.Offset)] = {
+    import json.JsonProtocol._
+    type In = JsValue
+    val syntax = Consume.syntax[In]
+    import syntax._
+    def readMidwayOffset(kill: UniqueKillSwitch) = for {
+      // wait for the ACS
+      _ <- readUntil[In] {
+        case ContractDelta(_, _, offset) => offset
+        case _ => None
+      }
       // make a contract
-      create <- postCreateCommand(
-        iouCreateCommand(domain.Party unwrap alice),
-        encoder,
-        uri,
-        aliceHeaders,
+      create <- liftF(
+        postCreateCommand(
+          iouCreateCommand(domain.Party unwrap party),
+          encoder,
+          uri,
+          headers,
+        )
       )
       cid = inside(
         create map (_.convertTo[domain.SyncResponse[domain.ActiveContract[JsValue]]])
       ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
         contract.contractId
       }
-      // archive it and fetch the offset afterwards
-      archive <- postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, aliceHeaders)
+      // wait for the creation's offset
+      betweenOffset <- readUntil[In] {
+        case ContractDelta(creates, _, off @ Some(_)) =>
+          if (creates.exists(_._1 == cid.unwrap)) off else None
+        case _ => None
+      }
+      // archive it
+      archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, headers))
       _ = archive._1 should ===(StatusCodes.OK)
-      /*
-      query = """[{"templateIds": ["Iou:Iou"]}]"""
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
-      offset <- singleClientQueryStream(jwt, uri, query).via(parseResp)
-       */
+      // wait for the archival offset
+      afterOffset <- readUntil[In] {
+        case ContractDelta(_, archived, offset) =>
+          if (archived.exists(_.contractId == cid)) offset else None
+        case _ => None
+      }
+      _ = kill.shutdown()
+    } yield (betweenOffset, afterOffset)
 
-      pruned <- PruneGrpc.ParticipantPruningServiceGrpc
-        .stub(client.channel)
-        .prune(PruneGrpc.PruneRequest(pruneUpTo = "TODO SC", pruneAllDivulgedContracts = true))
-      _ = pruned should ===(PruneGrpc.PruneResponse())
-    } yield succeed
+    val query = """[{"templateIds": ["Iou:Iou"]}]"""
+    for {
+      jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+      (kill, source) =
+        singleClientQueryStream(jwt, uri, query)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+      offsets <- source.via(parseResp).runWith(Consume.interpret(readMidwayOffset(kill)))
+    } yield offsets
   }
 
   "query on a bunch of random splits should yield consistent results" in withHttpService {
