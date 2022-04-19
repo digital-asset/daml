@@ -382,7 +382,7 @@ data TemplateDef = TemplateDef
   -- ^ Nothing if we do not have a key.
   , tplKeyEncode :: Encode
   , tplChoices' :: [ChoiceDef]
-  , tplImplements' :: [T.Text]
+  , tplImplements' :: [(T.Text, T.Text)] -- ^ same as genTypeCon
   }
 
 renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
@@ -391,7 +391,7 @@ renderTemplateDef TemplateDef {..} =
         T.unlines $
         concat
           [ ["exports." <> tplName <> " = Object.assign("]
-          , ["exports." <> impl <> "," | impl <- tplImplements']
+          , [impl <> "," | (_, impl) <- tplImplements']
           -- we spread in the interface choices, the templateId field of the interface will be overwritten by the template object.
           , [ T.unlines $
               concat
@@ -422,7 +422,7 @@ renderTemplateDef TemplateDef {..} =
           , [");"]
           ]
       tsDecl = T.unlines $ concat
-        [ ifaceDefTempl tplName (Just keyTy) tplImplements' tplChoices'
+        [ ifaceDefTempl tplName (Just keyTy) (fst <$> tplImplements') tplChoices'
         , [ "export declare const " <> tplName <> ":"
           , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
           ]
@@ -813,7 +813,7 @@ genDefDataType curPkgId conName mod tpls def =
                                 ( Just $ DecoderRef typeRef
                                 , EncodeRef typeRef
                                 , Set.setOf typeModuleRef keyType)
-                        impls = [tycon | impl <- NM.names $ tplImplements tpl, let (tycon, _) = genTypeCon (moduleName mod) impl]
+                        impls = [tycon | impl <- NM.names $ tplImplements tpl, let tycon = genTypeCon (moduleName mod) impl]
                         dict = TemplateDef
                             { tplName = conName
                             , tplPkgId = curPkgId
