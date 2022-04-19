@@ -450,11 +450,9 @@ abstract class EventStorageBackendTemplate(
         .withFetchSize(fetchSizeHint)
         .asVectorOf(partition.parser(internedAllParties))(connection)
 
-      // TODO: we are merging multiple sorted Vectors and then only taking a few elements, this could be done more efficiently.
       partitions
         .flatMap(selectFrom)
         .sorted(ordering)
-        .take(limit.getOrElse(Int.MaxValue))
     }
   }
 
