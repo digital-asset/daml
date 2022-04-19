@@ -15,6 +15,7 @@ azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 /release/           @garyverhaegen-da
 /release.sh         @garyverhaegen-da
+/canton_dep.bzl     @garyverhaegen-da
 
 # Blackduck
 NOTICES     @garyverhaegen-da @dasormeter
@@ -30,7 +31,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @S11001001 
+/daml-lf/data-scalacheck/src/main/ @S11001001
 /daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
 /daml-lf/transaction-test-lib/src/main/ @S11001001
