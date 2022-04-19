@@ -3,12 +3,13 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.lf.data.Ref
+import com.daml.platform.configuration.IndexConfiguration
+import com.daml.platform.indexer.IndexerConfig
+import com.daml.ports.Port
+
 import java.nio.file.Path
 import java.time.Duration
-
-import com.daml.ledger.runner.common.ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout
-import com.daml.lf.data.Ref
-import com.daml.ports.Port
 
 final case class ParticipantConfig(
     mode: ParticipantRunMode,
@@ -20,15 +21,18 @@ final case class ParticipantConfig(
     portFile: Option[Path],
     serverJdbcUrl: String,
     managementServiceTimeout: Duration = ParticipantConfig.DefaultManagementServiceTimeout,
-    indexerConfig: ParticipantIndexerConfig,
+    indexerConfig: IndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
       ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
-    apiServerDatabaseConnectionTimeout: Duration = DefaultApiServerDatabaseConnectionTimeout,
-    maxContractStateCacheSize: Long = ParticipantConfig.DefaultMaxContractStateCacheSize,
-    maxContractKeyStateCacheSize: Long = ParticipantConfig.DefaultMaxContractKeyStateCacheSize,
+    apiServerDatabaseConnectionTimeout: Duration =
+      ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
+    maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
+    maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
-      ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
-)
+      IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
+) {
+  def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
+}
 
 object ParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
@@ -40,8 +44,4 @@ object ParticipantConfig {
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16
 
-  val DefaultMaxContractStateCacheSize: Long = 100000L
-  val DefaultMaxContractKeyStateCacheSize: Long = 100000L
-
-  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L
 }
