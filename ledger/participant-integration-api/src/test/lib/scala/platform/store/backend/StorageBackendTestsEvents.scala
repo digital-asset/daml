@@ -4,6 +4,8 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
+import com.daml.platform.store.appendonlydao.events.Raw
+import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -323,5 +325,67 @@ private[backend] trait StorageBackendTestsEvents
     result12L2 should contain theSameElementsAs Vector(2L)
     result02L1 should contain theSameElementsAs Vector(1L)
     result02L2 should contain theSameElementsAs Vector(1L, 2L)
+  }
+
+  it should "return a flat transaction" in {
+    val partySignatory = Ref.Party.assertFromString("signatory")
+    val partyObserver = Ref.Party.assertFromString("observer")
+
+    // One transaction with the following events:
+    // 1. create
+    // 2. non-consuming exercise on (1)
+    // 3. consuming exercise on (1)
+    val create = dtoCreate(
+      offset = offset(1),
+      eventSequentialId = 1L,
+      contractId = hashCid("#1"),
+      signatory = partySignatory,
+      observer = partyObserver,
+    )
+    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, partySignatory)
+    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, partyObserver)
+    val transactionId = dtoTransactionId(create)
+    val exercise = dtoExercise(
+      offset = offset(1),
+      eventSequentialId = 2L,
+      consuming = false,
+      contractId = hashCid("#1"),
+      signatory = partySignatory,
+      actor = partySignatory,
+    )
+    val archive = dtoExercise(
+      offset = offset(1),
+      eventSequentialId = 3L,
+      consuming = true,
+      contractId = hashCid("#1"),
+      signatory = partySignatory,
+      actor = partySignatory,
+    )
+    val filter = FilterParams(Set(partySignatory), Set.empty)
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(Vector(create, createFilter1, createFilter2, exercise, archive), _))
+    executeSql(updateLedgerEnd(offset(1), 3L))
+
+    val result = executeSql(
+      backend.event.flatTransaction(
+        transactionId = transactionId,
+        filterParams = filter,
+      )
+    )
+
+    result should have length 2
+
+    inside(result(0)) { case entry =>
+      entry.event shouldBe a[Raw.FlatEvent.Created]
+      entry.eventSequentialId shouldBe 1L
+      entry.transactionId shouldBe transactionId
+    }
+
+    inside(result(1)) { case entry =>
+      entry.event shouldBe a[Raw.FlatEvent.Archived]
+      entry.eventSequentialId shouldBe 3L
+      entry.transactionId shouldBe transactionId
+    }
   }
 }
