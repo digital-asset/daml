@@ -16,6 +16,8 @@ import com.daml.scalautil.Statement.discard
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
+import scalaz.syntax.bifunctor._
+import scalaz.std.tuple._
 import shapeless.record.{Record => ShRecord}
 import spray.json.JsValue
 
@@ -193,6 +195,28 @@ abstract class HttpServiceIntegrationTest
       v.Value(v.Value.Sum.Record(payload)),
       None,
     )
+  }
+
+  "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
+    import json.JsonProtocol._
+    for {
+      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      (alice, aliceHeaders) = aliceH
+      create <- postCreateCommand(
+        iouCreateCommand(domain.Party unwrap alice),
+        encoder,
+        uri,
+        aliceHeaders,
+      )
+      cid = inside(
+        create rightMap (_.convertTo[domain.SyncResponse[domain.ActiveContract[JsValue]]])
+      ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
+        contract.contractId
+      }
+      archive <- postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, aliceHeaders)
+      _ = archive._1 should ===(StatusCodes.OK)
+      _ <- Future(client) // TODO SC #13590
+    } yield succeed
   }
 }
 
