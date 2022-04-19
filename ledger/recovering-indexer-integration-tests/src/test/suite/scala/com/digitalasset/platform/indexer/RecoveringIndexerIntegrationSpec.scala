@@ -203,7 +203,7 @@ class RecoveringIndexerIntegrationSpec
         config = IndexerConfig(
           participantId = participantId,
           jdbcUrl = jdbcUrl,
-          startupMode = IndexerStartupMode.MigrateAndStart,
+          startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
         ),
         metrics = new Metrics(new MetricRegistry),

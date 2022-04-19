@@ -6,12 +6,10 @@ package com.daml.ledger.participant.state.kvutils.app
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{Materializer, QueueOfferResult}
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -42,6 +40,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.LedgerFeatures
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.status.{Status => StatusProto}
@@ -51,6 +50,7 @@ import io.grpc.{Channel, ManagedChannelBuilder, Status}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -160,12 +160,16 @@ object RunnerSpec {
     ParticipantConfig(
       mode = ParticipantRunMode.Combined,
       participantId = participantId,
-      shardName = None,
+      shardName = Some(UUID.randomUUID().toString),
       address = None,
       port = Port.Dynamic,
       portFile = None,
       serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-      indexerConfig = ParticipantIndexerConfig(allowExistingSchema = false),
+      indexerConfig = IndexerConfig(
+        participantId = participantId,
+        jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
+      ),
     )
   }
 
@@ -197,13 +201,7 @@ object RunnerSpec {
         )
     } yield channel
 
-  object TestConfigProvider extends ConfigProvider.ForUnit {
-    override def createMetrics(
-        participantConfig: ParticipantConfig,
-        config: Config[Unit],
-    ): Metrics =
-      new Metrics(new MetricRegistry)
-  }
+  object TestConfigProvider extends ConfigProvider.ForUnit
 
   class TestLedgerFactory(
       readServiceHealth: HealthStatus = Healthy,

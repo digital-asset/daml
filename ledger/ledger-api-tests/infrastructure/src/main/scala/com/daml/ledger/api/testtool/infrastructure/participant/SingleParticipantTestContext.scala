@@ -242,7 +242,7 @@ final class SingleParticipantTestContext private[participant] (
       expectedParties: Set[Party],
   ): Future[Unit] =
     if (partyAllocationConfig.waitForAllParticipants) {
-      eventually {
+      eventually("Wait for parties") {
         val participants = otherParticipants.toSet + this
         Future
           .sequence(participants.map(participant => {
@@ -725,18 +725,15 @@ final class SingleParticipantTestContext private[participant] (
       pruneAllDivulgedContracts: Boolean = false,
   ): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
-    eventually(
-      attempts = attempts,
-      runAssertion = {
-        services.participantPruning
-          .prune(
-            PruneRequest(pruneUpTo.getAbsolute, nextSubmissionId(), pruneAllDivulgedContracts)
-          )
-          .andThen { case Failure(exception) =>
-            logger.warn("Failed to prune", exception)(LoggingContext.ForTesting)
-          }
-      },
-    )
+    eventually(assertionName = "Prune", attempts = attempts) {
+      services.participantPruning
+        .prune(
+          PruneRequest(pruneUpTo.getAbsolute, nextSubmissionId(), pruneAllDivulgedContracts)
+        )
+        .andThen { case Failure(exception) =>
+          logger.warn("Failed to prune", exception)(LoggingContext.ForTesting)
+        }
+    }
 
   private[infrastructure] override def preallocateParties(
       n: Int,

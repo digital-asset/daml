@@ -131,7 +131,7 @@ object StandaloneApiServer {
       _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
     } yield {
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}"
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.indexConfiguration.archiveFiles}"
       )
       apiServer
     }
