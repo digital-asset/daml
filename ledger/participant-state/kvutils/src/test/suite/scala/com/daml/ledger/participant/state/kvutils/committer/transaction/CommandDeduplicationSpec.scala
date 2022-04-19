@@ -57,6 +57,7 @@ class CommandDeduplicationSpec
   private val timestamp: Timestamp = Timestamp.now()
 
   "deduplicating command" when {
+
     "having no deduplication entry" should {
       "continue if no deduplication entry could be found" in {
         val (_, context) = contextBuilder(_ => None)
