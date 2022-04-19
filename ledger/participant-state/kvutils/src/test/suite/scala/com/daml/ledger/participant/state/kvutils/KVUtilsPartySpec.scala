@@ -10,10 +10,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class KVUtilsPartySpec extends AnyWordSpec with Matchers {
-  // TESTS:
-  // - party allocation rejected if participant id does not match
-  // - party allocation rejected with bad party string
-  // - party allocation succeeds
 
   import KVTest._
   import TestHelpers._
@@ -92,7 +88,9 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.partyAllocation.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.partyAllocation.rejections.getCount should be >= 1L
-        metrics.daml.kvutils.committer.runTimer("party_allocation").getCount should be >= 1L
+        metrics.daml.kvutils.committer
+          .preExecutionRunTimer("party_allocation")
+          .getCount should be >= 1L
       }
     }
   }

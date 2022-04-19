@@ -90,9 +90,9 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
           submissionId = Ref.LedgerString.assertFromString("some-submission-id"),
         )
       } yield {
-        val logEntry = result.outOfTimeBoundsLogEntry
+        val logEntry = result.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
-        logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT
+        logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET
       }
     }
 

@@ -263,7 +263,6 @@ class TransactionCommitterSpec
 
       "a submitting party is not known" in {
         val context = createCommitContext(
-          recordTime = None,
           inputs = createInputs(
             Alice -> Some(hostedParty(Alice)),
             Bob -> None,
@@ -300,7 +299,6 @@ class TransactionCommitterSpec
             .build
         )
         val context = createCommitContext(
-          recordTime = None,
           inputs = createInputs(
             Alice -> Some(hostedParty(Alice))
           ) + configurationInput + commandDeduplicationInput,

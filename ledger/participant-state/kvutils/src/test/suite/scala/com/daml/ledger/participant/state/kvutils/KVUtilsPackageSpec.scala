@@ -96,7 +96,9 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.packageUpload.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.packageUpload.rejections.getCount should be >= 1L
-        metrics.daml.kvutils.committer.runTimer("package_upload").getCount should be >= 1L
+        metrics.daml.kvutils.committer
+          .preExecutionRunTimer("package_upload")
+          .getCount should be >= 1L
       }
     }
   }

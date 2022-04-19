@@ -173,7 +173,9 @@ object KVTest {
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     get.flatMap { testState =>
       preExecute(
-        createArchiveSubmission(submissionId, testState, archives: _*)
+        damlSubmission = createArchiveSubmission(submissionId, testState, archives: _*),
+        validateOutOfTimeBoundsWriteSet =
+          false, // no record time bounds are set, therefore the out of time bounds write set is meaningless
       )
     }
 
@@ -235,7 +237,7 @@ object KVTest {
       letDelta,
       commandId,
       deduplicationDuration,
-    ).flatMap(preExecute)
+    ).flatMap(preExecute(_, validateOutOfTimeBoundsWriteSet = true))
 
   def prepareTransactionSubmission(
       submitter: Ref.Party,
@@ -275,13 +277,14 @@ object KVTest {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
       result <- preExecute(
-        createConfigurationSubmission(
+        damlSubmission = createConfigurationSubmission(
           configModify,
           submissionId,
           minMaxRecordTimeDelta,
           testState,
           oldConf,
-        )
+        ),
+        validateOutOfTimeBoundsWriteSet = true,
       )
     } yield result._2
 
@@ -292,7 +295,11 @@ object KVTest {
   )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     get[KVTestState]
       .flatMap(testState =>
-        preExecute(createPartySubmission(subId, hint, participantId, testState))
+        preExecute(
+          damlSubmission = createPartySubmission(subId, hint, participantId, testState),
+          validateOutOfTimeBoundsWriteSet =
+            false, // no record time bounds are set, therefore the out of time bounds write set is meaningless
+        )
       )
       .map(_._2)
 
@@ -310,7 +317,8 @@ object KVTest {
     } yield result
 
   def preExecute(
-      damlSubmission: DamlSubmission
+      damlSubmission: DamlSubmission,
+      validateOutOfTimeBoundsWriteSet: Boolean = true,
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     for {
       testState <- get[KVTestState]
@@ -336,11 +344,12 @@ object KVTest {
         successfulLogEntry,
         recordTimeFromTimeUpdateLogEntry,
       )(loggingContext)
-      KeyValueConsumption.logEntryToUpdate(
-        entryId,
-        outOfTimeBoundsLogEntry,
-        recordTimeFromTimeUpdateLogEntry,
-      )(loggingContext)
+      if (validateOutOfTimeBoundsWriteSet)
+        KeyValueConsumption.logEntryToUpdate(
+          entryId,
+          outOfTimeBoundsLogEntry,
+          recordTimeFromTimeUpdateLogEntry,
+        )(loggingContext)
 
       entryId -> preExecutionResult
     }

@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
+
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
@@ -27,6 +28,7 @@ import com.daml.lf.value.Value.{
   ValueVariant,
 }
 import com.daml.logging.LoggingContext
+import com.google.protobuf.Timestamp
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -95,7 +97,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         contractId = contractIdOfCreateTransaction(
           KeyValueConsumption.logEntryToUpdate(
             entryId,
-            logEntry.successfulLogEntry,
+            logEntryWithRecordTime(logEntry.successfulLogEntry),
           )(loggingContext)
         )
 
@@ -248,7 +250,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         }
       }
 
-    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(
+    "populate out of time bounds write set" in KVTest.runTestWithSimplePackage(
       alice,
       bob,
       eve,
@@ -265,9 +267,13 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         )
           .map(_._2)
       } yield {
-        val logEntry = result.successfulLogEntry
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME
+        val logEntry = result.outOfTimeBoundsLogEntry
+        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY
+        val outOfTimeBoundsEntry = logEntry.getOutOfTimeBoundsEntry
+        outOfTimeBoundsEntry.hasEntry shouldBe true
+        outOfTimeBoundsEntry.getEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+        // FIXME KVL-1413
+        outOfTimeBoundsEntry.getEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET
       }
     }
 
@@ -291,7 +297,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         contractId = contractIdOfCreateTransaction(
           KeyValueConsumption.logEntryToUpdate(
             entryId,
-            logEntry.successfulLogEntry,
+            logEntryWithRecordTime(logEntry.successfulLogEntry),
           )(loggingContext)
         )
 
@@ -457,9 +463,8 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L
-        metrics.daml.kvutils.committer.runTimer("transaction").getCount should be >= 1L
+        metrics.daml.kvutils.committer.preExecutionRunTimer("transaction").getCount should be >= 1L
         metrics.daml.kvutils.committer.transaction.interpretTimer.getCount should be >= 1L
-        metrics.daml.kvutils.committer.transaction.runTimer.getCount should be >= 1L
       }
     }
 
@@ -530,7 +535,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         val updates =
           KeyValueConsumption.logEntryToUpdate(
             entryId,
-            strippedEntry.build,
+            logEntryWithRecordTime(strippedEntry.build),
           )(loggingContext)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
@@ -568,6 +573,13 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
     }
   }
 
+  private def logEntryWithRecordTime(
+      entry: DamlLogEntry
+  ) = {
+    entry.toBuilder
+      .setRecordTime(Timestamp.getDefaultInstance)
+      .build()
+  }
   private def preExecuteCreateSimpleContract(
       submitter: Ref.Party,
       seed: Hash,

@@ -308,6 +308,8 @@ class CommandDeduplicationSpec
           _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration))
             .setSubmissionId(submissionId),
         )
+      context.minimumRecordTime = Some(timestamp)
+      context.maximumRecordTime = Some(timestamp)
       setDeduplicationEntryStep(context, transactionEntrySummary)
       deduplicateValueStoredInContext(context, transactionEntrySummary)
         .map(
