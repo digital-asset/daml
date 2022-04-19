@@ -56,14 +56,6 @@ class CommandDeduplicationSpec
     CommandDeduplication.setDeduplicationEntryStep(theDefaultConfig)
   private val timestamp: Timestamp = Timestamp.now()
 
-  val contextBuilder: (Timestamp => Option[DamlStateValue]) => (Timestamp, CommitContext) =
-    dedupValueBuilder => {
-      val dedupValue = dedupValueBuilder(timestamp)
-      val commitContext = createCommitContext(Map(aDedupKey -> dedupValue))
-      commitContext.minimumRecordTime = Some(timestamp)
-      commitContext.maximumRecordTime = Some(Timestamp.Epoch)
-      timestamp -> commitContext
-    }
   "deduplicating command" when {
     "having no deduplication entry" should {
       "continue if no deduplication entry could be found" in {
@@ -226,6 +218,16 @@ class CommandDeduplicationSpec
       rejectionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe buildDuration(
         deltaBetweenRecords
       )
+    }
+
+    def contextBuilder(
+        dedupValueBuilder: Timestamp => Option[DamlStateValue]
+    ): (Timestamp, CommitContext) = {
+      val dedupValue = dedupValueBuilder(timestamp)
+      val commitContext = createCommitContext(Map(aDedupKey -> dedupValue))
+      commitContext.minimumRecordTime = Some(timestamp)
+      commitContext.maximumRecordTime = Some(Timestamp.Epoch)
+      timestamp -> commitContext
     }
   }
 
