@@ -9,6 +9,7 @@ import java.nio.file.Files
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.daml.http.dbbackend.JdbcConfig
+import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
@@ -202,6 +203,7 @@ abstract class HttpServiceIntegrationTest
     for {
       aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
       (alice, aliceHeaders) = aliceH
+      // make a contract
       create <- postCreateCommand(
         iouCreateCommand(domain.Party unwrap alice),
         encoder,
@@ -213,9 +215,14 @@ abstract class HttpServiceIntegrationTest
       ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
         contract.contractId
       }
+      // archive it and fetch the offset afterwards
       archive <- postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, aliceHeaders)
       _ = archive._1 should ===(StatusCodes.OK)
-      _ <- Future(client) // TODO SC #13590
+
+      pruned <- PruneGrpc.ParticipantPruningServiceGrpc
+        .stub(client.channel)
+        .prune(PruneGrpc.PruneRequest(pruneUpTo = "TODO SC", pruneAllDivulgedContracts = true))
+      _ = pruned should ===(PruneGrpc.PruneResponse())
     } yield succeed
   }
 }
