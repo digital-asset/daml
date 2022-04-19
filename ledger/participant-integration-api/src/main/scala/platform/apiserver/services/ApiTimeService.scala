@@ -25,11 +25,15 @@ import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import com.daml.timer.Timeout._
+
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
+    apiStreamShutdownTimeout: Duration,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -138,7 +142,16 @@ private[apiserver] final class ApiTimeService private (
 
   override def close(): Unit = {
     super.close()
-    dispatcher.close()
+    Await.result(
+      dispatcher
+        .shutdown()
+        .withTimeout(apiStreamShutdownTimeout)(
+          logger.warn(
+            s"Shutdown of TimeService API streams did not finish in ${apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
+          )
+        ),
+      apiStreamShutdownTimeout.plus(FiniteDuration(2, "seconds")),
+    )
   }
 }
 
@@ -146,11 +159,12 @@ private[apiserver] object ApiTimeService {
   def create(
       ledgerId: LedgerId,
       backend: TimeServiceBackend,
+      apiStreamShutdownTimeout: Duration,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): TimeService with GrpcApiService =
-    new ApiTimeService(ledgerId, backend)
+    new ApiTimeService(ledgerId, backend, apiStreamShutdownTimeout)
 }
