@@ -1,0 +1,14 @@
+File:    
+  SetFieldParens.daml
+Hidden:   no
+Range:    1:1-2:1
+Source:   typecheck
+Severity: DsWarning
+Message: 
+  [0;93m<no location info>: warning:
+
+  ==================== Renamer ====================
+  SetFieldParens.foo : (Int, Bool) -> (Int, Bool)
+  SetFieldParens.foo tup
+  = (setField @"_2" not (getField @"_2" tup) tup)
+  [0m
