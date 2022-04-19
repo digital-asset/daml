@@ -28,6 +28,7 @@ import Data.Either
 import Data.Tuple.Extra
 import Data.List.Extra
 import Data.Maybe
+import Debug.Trace
 import Options.Applicative
 import System.Directory
 import System.Environment
@@ -915,7 +916,10 @@ genType (TypeRef curModName t) mbSubst = go t
 -- differently.
 genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
-    case unTypeConName conParts of
+    if ("Other" `T.isSuffixOf` ty) || ("Other" `T.isSuffixOf` ser)
+    then (curModName, (pkgRef, modName, conParts), (ty, ser)) `traceShow` result else result
+     where
+       result@(ty, ser) = case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
         [c1 ,c2]
@@ -926,7 +930,6 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
           | modRef == (PRSelf, curModName) ->
             (conName, "exports" <.> conName)
           | otherwise -> dupe $ genModuleRef modRef <.> conName
-     where
        modRef = (pkgRef, modName)
 
 pkgVar :: PackageId -> T.Text
