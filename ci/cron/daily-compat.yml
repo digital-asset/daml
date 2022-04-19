@@ -529,6 +529,9 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash_lib)
 
+        git fetch
+        git checkout origin/main
+
         canton_version=$(curl -u $AUTH \
                               --fail \
                               --location \
