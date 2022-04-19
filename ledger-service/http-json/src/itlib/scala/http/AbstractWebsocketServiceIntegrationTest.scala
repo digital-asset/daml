@@ -17,11 +17,13 @@ import com.daml.http.HttpServiceTestFixture.{
   sharedAccountCreateCommand,
 }
 import com.daml.http.json.SprayJson
+import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.option._
+import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
@@ -948,6 +950,39 @@ abstract class AbstractWebsocketServiceIntegrationTest
             }
           }
         }: Future[Assertion]
+  }
+
+  "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
+    import json.JsonProtocol._
+    for {
+      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      (alice, aliceHeaders) = aliceH
+      // make a contract
+      create <- postCreateCommand(
+        iouCreateCommand(domain.Party unwrap alice),
+        encoder,
+        uri,
+        aliceHeaders,
+      )
+      cid = inside(
+        create map (_.convertTo[domain.SyncResponse[domain.ActiveContract[JsValue]]])
+      ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
+        contract.contractId
+      }
+      // archive it and fetch the offset afterwards
+      archive <- postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, aliceHeaders)
+      _ = archive._1 should ===(StatusCodes.OK)
+      /*
+      query = """[{"templateIds": ["Iou:Iou"]}]"""
+      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      offset <- singleClientQueryStream(jwt, uri, query).via(parseResp)
+       */
+
+      pruned <- PruneGrpc.ParticipantPruningServiceGrpc
+        .stub(client.channel)
+        .prune(PruneGrpc.PruneRequest(pruneUpTo = "TODO SC", pruneAllDivulgedContracts = true))
+      _ = pruned should ===(PruneGrpc.PruneResponse())
+    } yield succeed
   }
 
   "query on a bunch of random splits should yield consistent results" in withHttpService {

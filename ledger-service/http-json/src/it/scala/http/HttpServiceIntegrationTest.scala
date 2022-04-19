@@ -9,7 +9,6 @@ import java.nio.file.Files
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.daml.http.dbbackend.JdbcConfig
-import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
@@ -17,8 +16,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
-import scalaz.syntax.bifunctor._
-import scalaz.std.tuple._
 import shapeless.record.{Record => ShRecord}
 import spray.json.JsValue
 
@@ -196,34 +193,6 @@ abstract class HttpServiceIntegrationTest
       v.Value(v.Value.Sum.Record(payload)),
       None,
     )
-  }
-
-  "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
-    import json.JsonProtocol._
-    for {
-      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
-      (alice, aliceHeaders) = aliceH
-      // make a contract
-      create <- postCreateCommand(
-        iouCreateCommand(domain.Party unwrap alice),
-        encoder,
-        uri,
-        aliceHeaders,
-      )
-      cid = inside(
-        create rightMap (_.convertTo[domain.SyncResponse[domain.ActiveContract[JsValue]]])
-      ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
-        contract.contractId
-      }
-      // archive it and fetch the offset afterwards
-      archive <- postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, aliceHeaders)
-      _ = archive._1 should ===(StatusCodes.OK)
-
-      pruned <- PruneGrpc.ParticipantPruningServiceGrpc
-        .stub(client.channel)
-        .prune(PruneGrpc.PruneRequest(pruneUpTo = "TODO SC", pruneAllDivulgedContracts = true))
-      _ = pruned should ===(PruneGrpc.PruneResponse())
-    } yield succeed
   }
 }
 
