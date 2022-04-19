@@ -43,12 +43,14 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
           ),
         )
       )
-      encodeValue(Map.empty, Map.empty, r).render(80) shouldBe
-        """M.R1 with
-        |  a = 1
-        |  b = M.R2 with
-        |    c = 42
-        |  c = M.R3""".stripMargin.replace("\r\n", "\n")
+      encodeValue(Map.empty, Map.empty, r).render(
+        80
+      ) shouldBe "(M.R1 {a = 1, b = (M.R2 {c = 42}), c = M.R3})"
+      encodeValue(Map.empty, Map.empty, r).render(30) shouldBe
+        """(M.R1 {a = 1,
+          |    b = (M.R2 {c = 42}),
+          |    c = M.R3})""".stripMargin.replace("\r\n", "\n")
+
     }
     "tuple" in {
       def tupleId(n: Int): v.Identifier = v
