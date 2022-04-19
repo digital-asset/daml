@@ -41,7 +41,7 @@ object ConfigConverter {
       indexerConfig = IndexerConfig(
         participantId = sandboxConfig.participantId,
         jdbcUrl = serverJdbcUrl,
-        startupMode = IndexerStartupMode.MigrateAndStart(false),
+        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
       ),

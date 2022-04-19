@@ -168,7 +168,7 @@ object RunnerSpec {
       indexerConfig = IndexerConfig(
         participantId = participantId,
         jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-        startupMode = IndexerStartupMode.MigrateAndStart(false),
+        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       ),
     )
   }

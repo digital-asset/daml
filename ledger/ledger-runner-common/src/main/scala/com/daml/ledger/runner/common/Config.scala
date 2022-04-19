@@ -283,7 +283,7 @@ object Config {
               indexerConfig = IndexerConfig(
                 participantId = participantId,
                 jdbcUrl = jdbcUrl,
-                startupMode = IndexerStartupMode.MigrateAndStart(false),
+                startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,
                 batchingParallelism = indexerBatchingParallelism,
