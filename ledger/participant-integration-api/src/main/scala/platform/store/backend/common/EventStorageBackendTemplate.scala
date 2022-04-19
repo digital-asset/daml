@@ -356,11 +356,6 @@ abstract class EventStorageBackendTemplate(
     selectColumns = selectColumnsForFlatTransactionsExercise,
     parser = archivedFlatEventParser _,
   )
-  private val partitionFlatNonConsumingExercise = EventPartition[EventsTable.Entry[Raw.FlatEvent]](
-    tableName = "participant_events_non_consuming_exercise",
-    selectColumns = selectColumnsForFlatTransactionsExercise,
-    parser = archivedFlatEventParser _,
-  )
   private val partitionTreeCreate = EventPartition[EventsTable.Entry[Raw.TreeEvent]](
     tableName = "participant_events_create",
     selectColumns = selectColumnsForTransactionTreeCreate,
@@ -469,7 +464,6 @@ abstract class EventStorageBackendTemplate(
       partitions = Vector(
         partitionFlatCreate,
         partitionFlatConsumingExercise,
-        partitionFlatNonConsumingExercise,
       ),
       ordering = OrderFlatEventByEventSequentialId,
     )(
@@ -568,10 +562,8 @@ abstract class EventStorageBackendTemplate(
             transaction_id = $transactionId AND""",
       witnessesColumn = "flat_event_witnesses",
       partitions = Vector(
-        // we do not want to fetch divulgence events
         partitionFlatCreate,
         partitionFlatConsumingExercise,
-        partitionFlatNonConsumingExercise,
       ),
       ordering = OrderFlatEventByEventSequentialId,
     )(
