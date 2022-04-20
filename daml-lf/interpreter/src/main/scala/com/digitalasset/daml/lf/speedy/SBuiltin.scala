@@ -1148,7 +1148,7 @@ private[lf] object SBuiltin {
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
       if (
         machine.compiledPackages
-          .getDefinition(ImplementsDefRef(actualTmplId, requiringIface))
+          .getDefinition(ImplementsDefRef(actualTmplId, requiringIfaceId))
           .isEmpty
       )
         throw SErrorDamlException(
@@ -1244,10 +1244,10 @@ private[lf] object SBuiltin {
     }
   }
 
-  // Convert an interface `requiredIface` to another interface `requiringIface`, if
-  // the `requiringIface` implements `requiredIface`.
+  // Convert an interface value to another interface `requiringIfaceId`, if
+  // the underlying template implements `requiringIfaceId`. Else return `None`.
   final case class SBFromRequiredInterface(
-      requiringIface: TypeConName
+      requiringIfaceId: TypeConName
   ) extends SBuiltin(1) {
 
     override private[speedy] def execute(
@@ -1256,15 +1256,16 @@ private[lf] object SBuiltin {
     ) = {
       val (tyCon, record) = getSAnyContract(args, 0)
       machine.returnValue =
-        if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIface)).isEmpty)
+        if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
           SOptional(None)
         else
           SOptional(Some(SAnyContract(tyCon, record)))
     }
   }
 
-  // Convert an interface `requiredIface` to another interface `requiringIface`, if
-  // the `requiringIface` implements `requiredIface`.
+  // Convert an interface `requiredIfaceId`  to another interface `requiringIfaceId`, if
+  // the underlying template implements `requiringIfaceId`. Else throw a fatal
+  // `ContractDoesNotImplementRequiringInterface` exception.
   final case class SBUnsafeFromRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
@@ -1276,7 +1277,7 @@ private[lf] object SBuiltin {
     ) = {
       val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
-      if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIface)).isEmpty)
+      if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
