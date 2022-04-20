@@ -13,7 +13,6 @@ final case class IndexConfiguration(
     acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
     acsContractFetchingParallelism: Int = IndexConfiguration.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexConfiguration.DefaultAcsGlobalParallelism,
-    acsIdQueueLimit: Int = IndexConfiguration.DefaultAcsIdQueueLimit,
     maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
@@ -29,7 +28,6 @@ object IndexConfiguration {
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
-  val DefaultAcsIdQueueLimit: Int = 10000000
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L

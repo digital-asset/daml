@@ -53,7 +53,6 @@ trait ConfigProvider[ExtraConfig] {
         acsIdFetchingParallelism = config.acsIdFetchingParallelism,
         acsContractFetchingParallelism = config.acsContractFetchingParallelism,
         acsGlobalParallelism = config.acsGlobalParallelism,
-        acsIdQueueLimit = config.acsIdQueueLimit,
         maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
         maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
         maxTransactionsInMemoryFanOutBufferSize =
