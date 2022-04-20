@@ -109,7 +109,6 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
         rejections.reject(
           transactionEntry,
           rejection,
-          commitContext.recordTime,
         )
     }
   }
@@ -135,7 +134,6 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
       rejections.reject(
         transactionEntry,
         Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
-        commitContext.recordTime,
       )
   }
 

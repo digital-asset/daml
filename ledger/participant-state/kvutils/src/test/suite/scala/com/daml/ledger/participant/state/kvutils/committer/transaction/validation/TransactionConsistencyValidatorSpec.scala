@@ -131,11 +131,10 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val globalCid = freshContractId
       val globalCreate = newCreateNodeWithFixedKey(globalCid)
       val context = createCommitContext(
-        recordTime = None,
         inputs = Map(
           makeContractIdStateKey(globalCid.coid) -> Some(makeContractIdStateValue()),
           contractStateKey(conflictingKey) -> Some(contractKeyStateValue(globalCid.coid)),
-        ),
+        )
       )
       val builder = TransactionBuilder()
       builder.add(archive(globalCreate, Set("Alice")))
@@ -243,7 +242,6 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val globalCid = freshContractId
       val globalCreate = newCreateNodeWithFixedKey(globalCid)
       val context = createCommitContext(
-        recordTime = None,
         inputs = Map(
           makeContractIdStateKey(globalCid.coid) -> Some(
             makeContractIdStateValue().toBuilder
@@ -252,7 +250,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
               )
               .build()
           )
-        ),
+        )
       )
       val builder = TransactionBuilder()
       builder.add(archive(globalCreate, Set("Alice")))
@@ -334,10 +332,9 @@ object TransactionConsistencyValidatorSpec {
       contractKeyIdPairs: (DamlContractKey, Option[String])*
   ): CommitContext =
     createCommitContext(
-      recordTime = None,
       inputs = contractKeyIdPairs.map { case (key, id) =>
         contractStateKey(key) -> id.map(contractKeyStateValue)
-      }.toMap,
+      }.toMap
     )
 
   private def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
