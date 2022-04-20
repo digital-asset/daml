@@ -199,13 +199,13 @@ Notice that each new message appears in the UI as soon as it is sent (due to the
       :scale: 50 %
       :alt: The sent message is now visible below the Send button.
 
-.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://digitalasset.com/developers/interactive-tutorials/getting-started/deploy-to-dabl/>`_
 
 Next Steps
 ==========
 
 We've gone through the process of setting up a full-stack Daml app and implementing a useful feature end to end.
 As the next step we encourage you to really dig into the fundamentals of Daml and understand its core concepts such as parties, signatories, observers, and controllers.
-You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/interactive-tutorials/fundamental-concepts>`_.
+You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://digitalasset.com/developers/interactive-tutorials/fundamental-concepts>`.
 
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.
