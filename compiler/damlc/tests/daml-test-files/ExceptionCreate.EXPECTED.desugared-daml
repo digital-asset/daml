@@ -77,7 +77,7 @@ test
                        -> do create (MyTemplate p)
                              pure ""
                      \case
-                       DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (PreconditionFailed msg)
+                       (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (PreconditionFailed msg))
                          -> DA.Internal.Desugar.Some pure msg
                        _ -> DA.Internal.Desugar.None
          m === "Template precondition violated: MyTemplate {p = 'Alice'}"

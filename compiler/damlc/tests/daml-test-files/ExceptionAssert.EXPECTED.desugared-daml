@@ -12,7 +12,7 @@ testAssert
            do DA.Internal.Desugar._tryCatch
                 \ _ -> do assert False
                 \case
-                  DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (AssertionFailed m)
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (AssertionFailed m))
                     -> DA.Internal.Desugar.Some m === "Assertion failed"
                   _ -> DA.Internal.Desugar.None
 testAssertMsg
@@ -23,7 +23,7 @@ testAssertMsg
            do DA.Internal.Desugar._tryCatch
                 \ _ -> do assertMsg "My message" False
                 \case
-                  DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (AssertionFailed m)
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (AssertionFailed m))
                     -> DA.Internal.Desugar.Some m === "My message"
                   _ -> DA.Internal.Desugar.None
 testAssertEq
@@ -34,6 +34,6 @@ testAssertEq
            do DA.Internal.Desugar._tryCatch
                 \ _ -> do 10 === 20
                 \case
-                  DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (AssertionFailed m)
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (AssertionFailed m))
                     -> DA.Internal.Desugar.Some m === "Failure, expected 10 == 20"
                   _ -> DA.Internal.Desugar.None
