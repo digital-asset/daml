@@ -15,3 +15,11 @@ template NonTopLevel with
     party: Party
   where
     signatory party
+
+interface Other where
+  getOtherOwner : Party
+  somethingImpl : Update ()
+  choice Something : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this

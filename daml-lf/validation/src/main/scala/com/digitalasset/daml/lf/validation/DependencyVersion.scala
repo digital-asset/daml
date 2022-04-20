@@ -15,7 +15,7 @@ private[validation] object DependencyVersion {
   def checkPackage(interface: language.PackageInterface, pkgId: PackageId, pkg: Package): Unit =
     for {
       depPkgId <- pkg.directDeps
-      depPkg = Util.handleLookup(NoContext, interface.lookupPackage(depPkgId))
+      depPkg = Util.handleLookup(Context.None, interface.lookupPackage(depPkgId))
       if pkg.languageVersion < depPkg.languageVersion
     } throw EModuleVersionDependencies(
       pkgId,
