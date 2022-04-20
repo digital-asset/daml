@@ -6,8 +6,7 @@ package com.daml.ledger.sandbox
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Sink}
-import com.codahale.metrics.InstrumentedExecutorService
+import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{
@@ -16,42 +15,19 @@ import com.daml.ledger.api.auth.{
   AuthServiceStatic,
   AuthServiceWildcard,
 }
-import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common._
+import com.daml.ledger.runner.common.{_}
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.lf.engine.{Engine, EngineConfig, ValueEnricher}
-import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.Participant
-import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
-import com.daml.platform.index.{LedgerBuffersUpdater, ParticipantInMemoryState}
-import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.cache.MutableLedgerEndCache
-import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
-import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
-import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.TimeServiceBackend
+import com.daml.platform.store.DbType
 
-import java.util.concurrent.{Executors, TimeUnit}
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
-import scala.util.chaining._
+import scala.concurrent.ExecutionContext
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
@@ -88,12 +64,86 @@ object SandboxOnXRunner {
 
   private def run(
       config: Config[BridgeConfig]
-  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
+  )(implicit resourceContext: ResourceContext): Resource[Unit] = newLoggingContext {
+    implicit loggingContext =>
+      implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
+      implicit val materializer: Materializer = Materializer(actorSystem)
+      for {
+        // Take ownership of the actor system and materializer so they're cleaned up properly.
+        // This is necessary because we can't declare them as implicits in a `for` comprehension.
+        _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
+        _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+
+        participantConfig <- validateCombinedParticipantMode(config)
+        // Start the ledger
+        timeServiceBackendO = BridgeConfigProvider.timeServiceBackend(config)
+        (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge().acquire()
+
+        readServiceWithSubscriber: ReadService = new BridgeReadService(
+          ledgerId = config.ledgerId,
+          maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+            BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+          ),
+          stateUpdatesSource,
+        )
+
+        _ <- Participant
+          .owner(
+            config,
+            participantConfig,
+            BridgeConfigProvider.apiServerConfig(participantConfig, config),
+            BridgeConfigProvider.indexerConfig(participantConfig, config),
+            timeServiceBackendO,
+            readServiceWithSubscriber,
+            buildWriteService(_, _, _, _, stateUpdatesFeedSink, timeServiceBackendO)(
+              materializer,
+              config,
+              participantConfig,
+              loggingContext,
+            ),
+            actorSystem,
+            materializer,
+            config.extra.implicitPartyAllocation,
+            BridgeConfigProvider.interceptors(config),
+          )
+          .acquire()
+      } yield logInitializationHeader(config, participantConfig)
+  }
+
+  // Builds the write service and uploads the initialization DARs
+  private def buildWriteService(
+      metrics: Metrics,
+      servicesExecutionContext: ExecutionContext,
+      servicesThreadPoolSize: Int,
+      indexService: IndexService,
+      feedSink: Sink[(Offset, Update), NotUsed],
+      timeServiceBackend: Option[TimeServiceBackend],
+  )(implicit
+      materializer: Materializer,
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[WriteService] = {
+    implicit val ec: ExecutionContext = servicesExecutionContext
+    val bridgeMetrics = new BridgeMetrics(metrics)
     for {
-      participantConfig <- validateCombinedParticipantMode(config)
-      // Start the ledger
-      _ <- Participant.owner(config, participantConfig, RunnerName).acquire()
-    } yield logInitializationHeader(config, participantConfig)
+      ledgerBridge <- LedgerBridge.owner(
+        config,
+        participantConfig,
+        indexService,
+        bridgeMetrics,
+        servicesThreadPoolSize,
+        timeServiceBackend.getOrElse(TimeProvider.UTC),
+      )
+      writeService <- ResourceOwner.forCloseable(() =>
+        new BridgeWriteService(
+          feedSink = feedSink,
+          submissionBufferSize = config.extra.submissionBufferSize,
+          ledgerBridge = ledgerBridge,
+          bridgeMetrics = bridgeMetrics,
+        )
+      )
+    } yield writeService
   }
 
   def validateCombinedParticipantMode(

@@ -114,19 +114,16 @@ trait ConfigProvider[ExtraConfig] {
 
   def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
     List.empty
+}
 
-  def createMetrics(
-      participantConfig: ParticipantConfig,
-      @unused config: Config[ExtraConfig],
-  ): Metrics = {
+object ConfigProvider {
+  def createMetrics(participantConfig: ParticipantConfig): Metrics = {
     val registryName = participantConfig.participantId + participantConfig.shardName
       .map("-" + _)
       .getOrElse("")
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
   }
-}
 
-object ConfigProvider {
   class ForUnit extends ConfigProvider[Unit] {
     override val defaultExtraConfig: Unit = ()
 

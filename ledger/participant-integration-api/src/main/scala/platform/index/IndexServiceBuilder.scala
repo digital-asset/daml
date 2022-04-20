@@ -11,7 +11,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.LedgerReadDao
@@ -20,12 +19,7 @@ import com.daml.platform.store.appendonlydao.events.{
   BufferedTransactionsReader,
   LfValueTranslation,
 }
-import com.daml.platform.store.cache.{
-  EventsBuffer,
-  MutableCacheBackedContractStore,
-  MutableContractStateCaches,
-}
-import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.cache.MutableCacheBackedContractStore
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -39,11 +33,8 @@ private[platform] case class IndexServiceBuilder(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
     participantId: Ref.ParticipantId,
-    generalDispatcher: Dispatcher[Offset],
     ledgerDao: LedgerReadDao,
-    mutableContractStateCaches: MutableContractStateCaches,
-    completionsBuffer: EventsBuffer[TransactionLogUpdate],
-    transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+    participantInMemoryState: ParticipantInMemoryState,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
@@ -54,21 +45,27 @@ private[platform] case class IndexServiceBuilder(
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
 
+      ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
+      _ = participantInMemoryState.updateLedgerApiLedgerEnd(
+        ledgerEnd.lastOffset,
+        ledgerEnd.lastEventSeqId,
+      )
+
       contractStore = new MutableCacheBackedContractStore(
         metrics,
         ledgerDao.contractsReader,
-        mutableContractStateCaches,
+        participantInMemoryState.mutableContractStateCaches,
       )(servicesExecutionContext, loggingContext)
 
       completionsReader = new BufferedCommandCompletionsReader(
-        completionsBuffer = completionsBuffer,
+        completionsBuffer = participantInMemoryState.completionsBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
       )
 
       transactionsReader = BufferedTransactionsReader(
         delegate = ledgerDao.transactionsReader,
-        transactionsBuffer = transactionsBuffer,
+        transactionsBuffer = participantInMemoryState.transactionsBuffer,
         lfValueTranslation = new LfValueTranslation(
           cache = lfValueTranslationCache,
           metrics = metrics,
@@ -86,10 +83,10 @@ private[platform] case class IndexServiceBuilder(
       completionsReader,
       contractStore,
       (offset: Offset) => {
-        transactionsBuffer.prune(offset)
-        completionsBuffer.prune(offset)
+        participantInMemoryState.transactionsBuffer.prune(offset)
+        participantInMemoryState.completionsBuffer.prune(offset)
       },
-      generalDispatcher,
+      participantInMemoryState.dispatcher,
     )
   }
 

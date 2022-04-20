@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import akka.{Done, NotUsed}
-import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -19,7 +18,6 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.ApiServer
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
@@ -39,9 +37,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Failure, Success, Try}
-
 import scala.util.chaining._
+import scala.util.{Failure, Success, Try}
 
 final class SandboxServer(
     config: SandboxConfig
@@ -58,8 +55,9 @@ final class SandboxServer(
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      participant <-
-        SandboxOnXRunner.buildParticipant(genericConfig, participantConfig).acquire()
+      participant <- Participant
+        .owner(genericConfig, participantConfig, DefaultName.toString)
+        .acquire()
       _ <- Resource.fromFuture(
         writePortFile(participant.apiServer.port)(resourceContext.executionContext)
       )

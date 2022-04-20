@@ -139,7 +139,7 @@ final class Runner[T <: ReadWriteService, Extra](
   ): Resource[Option[Port]] =
     withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
-        val metrics = configProvider.createMetrics(participantConfig, config)
+        val metrics = ConfigProvider.createMetrics(participantConfig)
         metrics.registry.registerAll(new JvmMetricSet)
         val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
           eventConfiguration = config.lfValueTranslationEventCache,
@@ -215,14 +215,13 @@ final class Runner[T <: ReadWriteService, Extra](
                   timeProvider = TimeProvider.UTC,
                 )(servicesExecutionContext, loggingContext)
                 indexService <- StandaloneIndexService(
+                  dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
                   metrics = metrics,
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
-                  generalDispatcher = null, // TODO LLP
-                  ledgerReadDao = null, // TODO LLP
                   participantInMemoryState = null,
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(

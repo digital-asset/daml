@@ -3,9 +3,9 @@
 
 package com.daml.platform.apiserver
 
+import akka.stream.Materializer
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -13,11 +13,10 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.index.{IndexServiceBuilder, ParticipantInMemoryState}
 import com.daml.platform.packages.InMemoryPackageStore
-import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.appendonlydao.LedgerReadDao
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import java.io.File
 import scala.concurrent.ExecutionContextExecutor
@@ -30,11 +29,11 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      generalDispatcher: Dispatcher[Offset],
-      ledgerReadDao: LedgerReadDao,
       participantInMemoryState: ParticipantInMemoryState,
+      dbSupport: DbSupport,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      materializer: Materializer,
   ): ResourceOwner[IndexService] = {
     val participantId: Ref.ParticipantId = config.participantId
     val valueEnricher = new ValueEnricher(engine)
@@ -73,6 +72,25 @@ object StandaloneIndexService {
         val packageStore = loadDamlPackages()
         preloadPackages(packageStore)
       })
+      ledgerDao = JdbcLedgerDao.read(
+        dbSupport = dbSupport,
+        eventsPageSize = config.eventsPageSize,
+        eventsProcessingParallelism = config.eventsProcessingParallelism,
+        acsIdPageSize = config.acsIdPageSize,
+        acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+        acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+        acsGlobalParallelism = config.acsGlobalParallelism,
+        acsIdQueueLimit = config.acsIdQueueLimit,
+        servicesExecutionContext = servicesExecutionContext,
+        metrics = metrics,
+        lfValueTranslationCache = lfValueTranslationCache,
+        enricher = Some(new ValueEnricher(engine)),
+        participantId = participantId,
+        ledgerEndCache = participantInMemoryState.ledgerEndCache,
+        stringInterning = participantInMemoryState.stringInterningView,
+        materializer = materializer,
+      )
+
       indexService <- IndexServiceBuilder(
         initialLedgerId = domain.LedgerId(ledgerId),
         participantId = participantId,
@@ -80,11 +98,8 @@ object StandaloneIndexService {
         metrics = metrics,
         lfValueTranslationCache = lfValueTranslationCache,
         enricher = valueEnricher,
-        generalDispatcher = generalDispatcher,
-        ledgerDao = ledgerReadDao,
-        mutableContractStateCaches = participantInMemoryState.mutableContractStateCaches,
-        completionsBuffer = participantInMemoryState.completionsBuffer,
-        transactionsBuffer = participantInMemoryState.transactionsBuffer,
+        ledgerDao = ledgerDao,
+        participantInMemoryState = participantInMemoryState,
       )(loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

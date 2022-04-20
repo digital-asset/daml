@@ -1,12 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform
+package com.daml.ledger.sandbox
 
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.Flow
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.health.HealthChecks
@@ -21,48 +22,56 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.runner.common.{Config, ParticipantConfig}
-import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.ledger.sandbox._
-import com.daml.lf.engine.{Engine, EngineConfig, ValueEnricher}
+import com.daml.ledger.runner.common.{Config, ConfigProvider, ParticipantConfig}
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
+import com.daml.platform.apiserver.{
+  ApiServer,
+  ApiServerConfig,
+  LedgerFeatures,
+  StandaloneApiServer,
+  StandaloneIndexService,
+  TimeServiceBackend,
+}
 import com.daml.platform.index.{LedgerBuffersUpdater, ParticipantInMemoryState}
-import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
-
-import scala.util.chaining._
-
-import scala.util.control
+import io.grpc.ServerInterceptor
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+import scala.util.chaining._
 
-trait Participant {
-  def apiServer: ApiServer
-  def writeService: WriteService
-  def indexService: IndexService
-}
+class Participant(
+    val apiServer: ApiServer,
+    val writeService: WriteService,
+    val indexService: IndexService,
+)
 
 object Participant {
   def owner(implicit
-      config: Config[BridgeConfig],
+      config: Config[_],
       participantConfig: ParticipantConfig,
-      ledgerName: String,
+      apiServerConfig: ApiServerConfig,
+      indexerConfig: IndexerConfig,
+      timeServiceBackendO: Option[TimeServiceBackend],
+      readService: ReadService,
+      buildWriteService: (
+          Metrics,
+          ExecutionContext,
+          Int,
+          IndexService,
+      ) => ResourceOwner[WriteService],
+      actorSystem: ActorSystem,
+      materializer: Materializer,
+      implicitPartyAllocation: Boolean,
+      interceptors: List[ServerInterceptor],
   ): ResourceOwner[Participant] = {
-    implicit val apiServerConfig: ApiServerConfig =
-      BridgeConfigProvider.apiServerConfig(participantConfig, config)
 
     val sharedEngine = new Engine(
       EngineConfig(
@@ -74,15 +83,7 @@ object Participant {
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
-        implicit val actorSystem: ActorSystem = ActorSystem(ledgerName)
-        implicit val materializer: Materializer = Materializer(actorSystem)
-
         for {
-          // Take ownership of the actor system and materializer so they're cleaned up properly.
-          // This is necessary because we can't declare them as implicits in a `for` comprehension.
-          _ <- ResourceOwner.forActorSystem(() => actorSystem)
-          _ <- ResourceOwner.forMaterializer(() => materializer)
-
           metrics <- buildMetrics
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
             eventConfiguration = config.lfValueTranslationEventCache,
@@ -90,20 +91,10 @@ object Participant {
             metrics = metrics,
           )
 
-          (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
-
           servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
           servicesExecutionContext <- buildServicesExecutionContext(
             metrics,
             servicesThreadPoolSize,
-          )
-
-          readServiceWithSubscriber = new BridgeReadService(
-            ledgerId = config.ledgerId,
-            maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
-              BridgeConfigProvider.DefaultMaximumDeduplicationDuration
-            ),
-            stateUpdatesSource,
           )
 
           dbSupport <- DbSupport
@@ -115,124 +106,57 @@ object Participant {
               metrics = metrics,
             )
 
-          stringInterningView = createStringInterningView(apiServerConfig.jdbcUrl, metrics)
-          ledgerEndCache = MutableLedgerEndCache()
-
-          generalDispatcher <-
-            Dispatcher.owner[Offset](
-              name = "sql-ledger",
-              zeroIndex = Offset.beforeBegin,
-              headAtInitialization = Offset.beforeBegin,
-            )
-
-          updateLedgerApiLedgerEnd = (ledgerEnd: LedgerEnd) => {
-            ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
-            // the order here is very important: first we need to make data available for point-wise lookups
-            // and SQL queries, and only then we can make it available on the streams.
-            // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-            generalDispatcher.signalNewHead(ledgerEnd.lastOffset)
-          }
-
-          participantInMemoryState = ParticipantInMemoryState.build(
+          participantInMemoryState <- ParticipantInMemoryState.owner(
             apiServerConfig = apiServerConfig,
             metrics = metrics,
             servicesExecutionContext = servicesExecutionContext,
-            updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
+            jdbcUrl = apiServerConfig.jdbcUrl,
           )
-
-          ledgerApiBuffersUpdateFlow = LedgerBuffersUpdater.flow
-            .mapAsync(1) { batch =>
-              participantInMemoryState.updateBatch(batch)
-            }
 
           indexerHealthChecks <- buildIndexerServer(
+            indexerConfig,
             metrics,
-            new TimedReadService(readServiceWithSubscriber, metrics),
+            new TimedReadService(readService, metrics),
             translationCache,
-            stringInterningView,
-            ledgerApiBuffersUpdateFlow,
+            participantInMemoryState.stringInterningView,
+            LedgerBuffersUpdater.flow
+              .mapAsync(1) { batch =>
+                participantInMemoryState.updateBatch(batch)
+              },
           )
 
-          ledgerDao = JdbcLedgerDao.read(
+          indexService <- StandaloneIndexService(
             dbSupport = dbSupport,
-            eventsPageSize = config.eventsPageSize,
-            eventsProcessingParallelism = config.eventsProcessingParallelism,
-            acsIdPageSize = config.acsIdPageSize,
-            acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-            acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-            acsGlobalParallelism = config.acsGlobalParallelism,
-            acsIdQueueLimit = config.acsIdQueueLimit,
-            servicesExecutionContext = servicesExecutionContext,
-            metrics = metrics,
-            lfValueTranslationCache = translationCache,
-            enricher = Some(new ValueEnricher(sharedEngine)),
-            participantId = participantConfig.participantId,
-            ledgerEndCache = ledgerEndCache,
-            stringInterning = stringInterningView,
-            materializer = materializer,
-          )
-
-          ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
-          _ = updateLedgerApiLedgerEnd(ledgerEnd)
-
-          indexServiceR <- StandaloneIndexService(
             ledgerId = config.ledgerId,
             config = apiServerConfig,
             metrics = metrics,
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
-            generalDispatcher = generalDispatcher,
-            ledgerReadDao = ledgerDao,
             participantInMemoryState = participantInMemoryState,
           )
 
-          timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
-
-          writeServiceR <- buildWriteService(
-            stateUpdatesFeedSink,
-            indexServiceR,
+          writeService <- buildWriteService(
             metrics,
             servicesExecutionContext,
             servicesThreadPoolSize,
-            timeServiceBackend,
+            indexService,
           )
 
-          apiServerR <- buildStandaloneApiServer(
+          apiServer <- buildStandaloneApiServer(
             sharedEngine,
-            indexServiceR,
+            indexService,
             metrics,
             servicesExecutionContext,
-            new TimedWriteService(writeServiceR, metrics),
+            new TimedWriteService(writeService, metrics),
             indexerHealthChecks,
-            timeServiceBackend,
+            timeServiceBackendO,
             dbSupport,
+            implicitPartyAllocation,
+            interceptors,
           )
-        } yield new Participant {
-          override def apiServer: ApiServer = apiServerR
-
-          override def writeService: WriteService = writeServiceR
-
-          override def indexService: IndexService = indexServiceR
-        }
+        } yield new Participant(apiServer, writeService, indexService)
     }
-  }
-
-  private def createStringInterningView(jdbcUrl: String, metrics: Metrics) = {
-    val dbType = DbType.jdbcType(jdbcUrl)
-    val storageBackendFactory = StorageBackendFactory.of(dbType)
-    val stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
-
-    new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive, dbDispatcher) =>
-        implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-            stringInterningStorageBackend.loadStringInterningEntries(
-              fromExclusive,
-              toInclusive,
-            )
-          }
-    )
   }
 
   private def buildStandaloneApiServer(
@@ -244,10 +168,12 @@ object Participant {
       healthChecksWithIndexer: HealthChecks,
       timeServiceBackend: Option[TimeServiceBackend],
       dbSupport: DbSupport,
+      implicitPartyAllocation: Boolean,
+      interceptors: List[ServerInterceptor],
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-      config: Config[BridgeConfig],
+      config: Config[_],
       apiServerConfig: ApiServerConfig,
   ): ResourceOwner[ApiServer] =
     StandaloneApiServer(
@@ -255,13 +181,13 @@ object Participant {
       ledgerId = config.ledgerId,
       config = apiServerConfig,
       commandConfig = config.commandConfig,
-      partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
+      partyConfig = PartyConfiguration(implicitPartyAllocation),
       optWriteService = Some(writeService),
       authService = config.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
-      otherInterceptors = BridgeConfigProvider.interceptors(config),
+      otherInterceptors = interceptors,
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(
@@ -292,6 +218,7 @@ object Participant {
     )
 
   private def buildIndexerServer(
+      indexerConfig: IndexerConfig,
       metrics: Metrics,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
@@ -300,13 +227,11 @@ object Participant {
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
-      participantConfig: ParticipantConfig,
-      config: Config[BridgeConfig],
   ): ResourceOwner[HealthChecks] =
     for {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
-        config = BridgeConfigProvider.indexerConfig(participantConfig, config),
+        config = indexerConfig,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
         stringInterningView = stringInterningView,
@@ -333,10 +258,10 @@ object Participant {
 
   private def buildMetrics(implicit
       participantConfig: ParticipantConfig,
-      config: Config[BridgeConfig],
+      config: Config[_],
   ): ResourceOwner[Metrics] =
-    BridgeConfigProvider
-      .createMetrics(participantConfig, config)
+    ConfigProvider
+      .createMetrics(participantConfig)
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
         config.metricsReporter
@@ -347,40 +272,4 @@ object Participant {
           )
           .map(_ => metrics)
       }
-
-  // Builds the write service and uploads the initialization DARs
-  private def buildWriteService(
-      feedSink: Sink[(Offset, Update), NotUsed],
-      indexService: IndexService,
-      metrics: Metrics,
-      servicesExecutionContext: ExecutionContext,
-      servicesThreadPoolSize: Int,
-      timeServiceBackend: Option[TimeServiceBackend],
-  )(implicit
-      materializer: Materializer,
-      config: Config[BridgeConfig],
-      participantConfig: ParticipantConfig,
-      loggingContext: LoggingContext,
-  ): ResourceOwner[WriteService] = {
-    implicit val ec: ExecutionContext = servicesExecutionContext
-    val bridgeMetrics = new BridgeMetrics(metrics)
-    for {
-      ledgerBridge <- LedgerBridge.owner(
-        config,
-        participantConfig,
-        indexService,
-        bridgeMetrics,
-        servicesThreadPoolSize,
-        timeServiceBackend.getOrElse(TimeProvider.UTC),
-      )
-      writeService <- ResourceOwner.forCloseable(() =>
-        new BridgeWriteService(
-          feedSink = feedSink,
-          submissionBufferSize = config.extra.submissionBufferSize,
-          ledgerBridge = ledgerBridge,
-          bridgeMetrics = bridgeMetrics,
-        )
-      )
-    } yield writeService
-  }
 }

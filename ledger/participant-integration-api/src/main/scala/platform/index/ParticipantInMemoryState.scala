@@ -3,25 +3,35 @@
 
 package com.daml.platform.index
 
+import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.index.ParticipantInMemoryState.toContractStateEvents
+import com.daml.platform.store.DbType
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.cache.{EventsBuffer, MutableContractStateCaches}
+import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  MutableContractStateCaches,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.LedgerEndMarker
+import com.daml.platform.store.interning.StringInterningView
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO LLP consider pulling in the ledger end cache and string interning view
 class ParticipantInMemoryState(
+    val ledgerEndCache: MutableLedgerEndCache,
+    val dispatcher: Dispatcher[Offset],
     val mutableContractStateCaches: MutableContractStateCaches,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     val completionsBuffer: EventsBuffer[TransactionLogUpdate],
-    updateLedgerApiLedgerEnd: LedgerEnd => Unit,
+    val stringInterningView: StringInterningView,
     metrics: Metrics,
 ) {
   private val logger = ContextualizedLogger.get(getClass)
@@ -50,47 +60,83 @@ class ParticipantInMemoryState(
         // Update the Ledger API ledger end trigger the general dispatcher
         update match {
           case marker: LedgerEndMarker =>
-            val lastEvtSeqIdInBatch = marker.lastEventSeqId
             // We can update the ledger api ledger end only at intervals corresponding to
             // indexer-forwarded batches border, since only there we have the eventSequentialId
-            updateLedgerApiLedgerEnd(LedgerEnd(offset, lastEvtSeqIdInBatch, -1))
-            logger.debug(s"Updated ledger end at offset $offset - $lastEvtSeqIdInBatch")
+            updateLedgerApiLedgerEnd(marker.offset, marker.lastEventSeqId)
           case _ =>
             logger.debug(s"Updated caches at offset $offset")
         }
       }(buffersUpdaterExecutionContext),
     )
+
+  def updateLedgerApiLedgerEnd(lastOffset: Offset, lastEventSequentialId: Long)(implicit
+      loggingContext: LoggingContext
+  ): Unit = {
+    ledgerEndCache.set((lastOffset, lastEventSequentialId))
+    // the order here is very important: first we need to make data available for point-wise lookups
+    // and SQL queries, and only then we can make it available on the streams.
+    // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+    dispatcher.signalNewHead(lastOffset)
+    logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
+  }
 }
 
 object ParticipantInMemoryState {
-  def build(
+  def owner(
       apiServerConfig: ApiServerConfig,
       metrics: Metrics,
       servicesExecutionContext: ExecutionContext,
-      updateLedgerApiLedgerEnd: LedgerEnd => Unit,
-  ) = new ParticipantInMemoryState(
-    mutableContractStateCaches = MutableContractStateCaches.build(
-      maxKeyCacheSize = apiServerConfig.maxContractKeyStateCacheSize,
-      maxContractsCacheSize = apiServerConfig.maxContractStateCacheSize,
-      metrics = metrics,
-    )(servicesExecutionContext),
-    // TODO LLP Use specialized types of event buffer entries for completions/transactions
-    completionsBuffer = new EventsBuffer[TransactionLogUpdate](
-      maxBufferSize = apiServerConfig.maxTransactionsInMemoryFanOutBufferSize,
-      metrics = metrics,
-      bufferQualifier = "completions",
-      ignoreMarker = _.isInstanceOf[LedgerEndMarker],
-    ),
-    transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
-      // TODO LLP differentiate to completions config
-      maxBufferSize = apiServerConfig.maxTransactionsInMemoryFanOutBufferSize,
-      metrics = metrics,
-      bufferQualifier = "transactions",
-      ignoreMarker = !_.isInstanceOf[TransactionLogUpdate.TransactionAccepted],
-    ),
-    updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
-    metrics = metrics,
-  )
+      jdbcUrl: String,
+  ) =
+    Dispatcher
+      .owner[Offset](
+        name = "sql-ledger",
+        zeroIndex = Offset.beforeBegin,
+        headAtInitialization = Offset.beforeBegin,
+      )
+      .map(dispatcher =>
+        new ParticipantInMemoryState(
+          mutableContractStateCaches = MutableContractStateCaches.build(
+            maxKeyCacheSize = apiServerConfig.maxContractKeyStateCacheSize,
+            maxContractsCacheSize = apiServerConfig.maxContractStateCacheSize,
+            metrics = metrics,
+          )(servicesExecutionContext),
+          // TODO LLP Use specialized types of event buffer entries for completions/transactions
+          completionsBuffer = new EventsBuffer[TransactionLogUpdate](
+            maxBufferSize = apiServerConfig.maxTransactionsInMemoryFanOutBufferSize,
+            metrics = metrics,
+            bufferQualifier = "completions",
+            ignoreMarker = _.isInstanceOf[LedgerEndMarker],
+          ),
+          transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
+            // TODO LLP differentiate to completions config
+            maxBufferSize = apiServerConfig.maxTransactionsInMemoryFanOutBufferSize,
+            metrics = metrics,
+            bufferQualifier = "transactions",
+            ignoreMarker = !_.isInstanceOf[TransactionLogUpdate.TransactionAccepted],
+          ),
+          stringInterningView = {
+            val dbType = DbType.jdbcType(jdbcUrl)
+            val storageBackendFactory = StorageBackendFactory.of(dbType)
+            val stringInterningStorageBackend =
+              storageBackendFactory.createStringInterningStorageBackend
+
+            new StringInterningView(
+              loadPrefixedEntries = (fromExclusive, toInclusive, dbDispatcher) =>
+                implicit loggingContext =>
+                  dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                    stringInterningStorageBackend.loadStringInterningEntries(
+                      fromExclusive,
+                      toInclusive,
+                    )
+                  }
+            )
+          },
+          metrics = metrics,
+          dispatcher = dispatcher,
+          ledgerEndCache = MutableLedgerEndCache(),
+        )
+      )
 
   private val toContractStateEvents: TransactionLogUpdate => Vector[ContractStateEvent] = {
     case tx: TransactionLogUpdate.TransactionAccepted =>
