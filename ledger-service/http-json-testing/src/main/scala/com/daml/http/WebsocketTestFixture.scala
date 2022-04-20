@@ -308,6 +308,16 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
     }
   }
 
+  def readUntil[A]: ReadUntil[A] = new ReadUntil(Consume.syntax[A])
+
+  final class ReadUntil[A](private val syntax: Consume.Syntax[A]) extends AnyVal {
+    def apply[B](f: A => Option[B]): Consume.FCC[A, B] = {
+      def go: Consume.FCC[A, B] =
+        syntax.readOne flatMap { a => f(a).fold(go)(syntax.point) }
+      go
+    }
+  }
+
   def parseResp(implicit
       ec: ExecutionContext,
       fm: Materializer,

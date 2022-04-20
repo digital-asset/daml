@@ -129,11 +129,10 @@ class CommitterModelConformanceValidatorSpec
 
       validator.createValidationStep(rejections)(
         createCommitContext(
-          None,
           Map(
             inputContractIdStateKey -> Some(makeContractIdStateValue()),
             contractIdStateKey1 -> Some(makeContractIdStateValue()),
-          ),
+          )
         ),
         aTransactionEntry,
       ) shouldBe StepContinue(aTransactionEntry)
@@ -163,11 +162,10 @@ class CommitterModelConformanceValidatorSpec
       val step = validator
         .createValidationStep(rejections)(
           createCommitContext(
-            None,
             Map(
               inputContractIdStateKey -> Some(makeContractIdStateValue()),
               contractIdStateKey1 -> Some(makeContractIdStateValue()),
-            ),
+            )
           ),
           aTransactionEntry,
         )
@@ -181,7 +179,7 @@ class CommitterModelConformanceValidatorSpec
 
       val step = validator
         .createValidationStep(rejections)(
-          createCommitContext(None),
+          createCommitContext(),
           aTransactionEntry,
         )
       inside(step) { case StepStop(logEntry) =>
@@ -195,7 +193,7 @@ class CommitterModelConformanceValidatorSpec
 
       val step = validator
         .createValidationStep(rejections)(
-          createCommitContext(None),
+          createCommitContext(),
           aTransactionEntry,
         )
       inside(step) { case StepStop(logEntry) =>
@@ -238,12 +236,11 @@ class CommitterModelConformanceValidatorSpec
   "lookupContract" should {
     "return Some when a contract is present in the current state" in {
       val commitContext = createCommitContext(
-        None,
         Map(
           inputContractIdStateKey -> Some(
             aContractIdStateValue
           )
-        ),
+        )
       )
 
       val contractInstance = defaultValidator.lookupContract(commitContext)(
@@ -256,8 +253,7 @@ class CommitterModelConformanceValidatorSpec
     "throw if a contract does not exist in the current state" in {
       an[Err.MissingInputState] should be thrownBy defaultValidator.lookupContract(
         createCommitContext(
-          None,
-          Map.empty,
+          Map.empty
         )
       )(Conversions.decodeContractId(inputContractId.coid))
     }
@@ -290,8 +286,7 @@ class CommitterModelConformanceValidatorSpec
         .setArchive(anArchive.byteString)
         .build()
       val commitContext = createCommitContext(
-        None,
-        Map(stateKey -> Some(stateValue)),
+        Map(stateKey -> Some(stateValue))
       )
 
       val maybePackage = defaultValidator.lookupPackage(commitContext)(aPackageId)
@@ -302,8 +297,7 @@ class CommitterModelConformanceValidatorSpec
     "fail when the package is missing" in {
       an[Err.MissingInputState] should be thrownBy defaultValidator.lookupPackage(
         createCommitContext(
-          None,
-          Map.empty,
+          Map.empty
         )
       )(Ref.PackageId.assertFromString("nonexistentPackageId"))
     }
@@ -320,8 +314,7 @@ class CommitterModelConformanceValidatorSpec
       forAll(stateValues) { stateValue =>
         an[Err.ArchiveDecodingFailed] should be thrownBy defaultValidator.lookupPackage(
           createCommitContext(
-            None,
-            Map(stateKey -> Some(stateValue)),
+            Map(stateKey -> Some(stateValue))
           )
         )(Ref.PackageId.assertFromString("invalidPackage"))
       }
@@ -334,11 +327,10 @@ class CommitterModelConformanceValidatorSpec
         .validateCausalMonotonicity(
           aTransactionEntry,
           createCommitContext(
-            None,
             Map(
               inputContractIdStateKey -> Some(makeContractIdStateValue()),
               contractIdStateKey1 -> Some(aStateValueActiveAt(ledgerEffectiveTime.minusSeconds(1))),
-            ),
+            )
           ),
           rejections,
         ) shouldBe StepContinue(aTransactionEntry)
@@ -349,11 +341,10 @@ class CommitterModelConformanceValidatorSpec
         .validateCausalMonotonicity(
           aTransactionEntry,
           createCommitContext(
-            None,
             Map(
               inputContractIdStateKey -> Some(makeContractIdStateValue()),
               contractIdStateKey1 -> Some(aStateValueActiveAt(ledgerEffectiveTime.plusSeconds(1))),
-            ),
+            )
           ),
           rejections,
         )
@@ -373,7 +364,7 @@ class CommitterModelConformanceValidatorSpec
     "accept a transaction in case an input contract is non-existent (possibly because it has been pruned)" in {
       val step = defaultValidator.validateCausalMonotonicity(
         aTransactionEntry,
-        createCommitContext(None, Map.empty), // No contract is present in the commit context.
+        createCommitContext(Map.empty), // No contract is present in the commit context.
         rejections,
       )
 

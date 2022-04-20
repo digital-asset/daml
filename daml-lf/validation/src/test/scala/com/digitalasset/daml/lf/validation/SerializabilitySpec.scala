@@ -37,7 +37,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
+          .Env(LanguageVersion.default, defaultInterface, Context.None, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -66,7 +66,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
+            .Env(LanguageVersion.default, defaultInterface, Context.None, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }

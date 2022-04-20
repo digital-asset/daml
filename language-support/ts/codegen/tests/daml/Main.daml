@@ -181,14 +181,6 @@ interface Token where
     do
       transferImpl this newOwner
 
-interface Other where
-  getOtherOwner : Party
-  somethingImpl : Update ()
-  choice Something : ()
-    controller getOtherOwner this
-    do
-      somethingImpl this
-
 template Asset with
     issuer: Party
     owner: Party
