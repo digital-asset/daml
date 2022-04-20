@@ -64,6 +64,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         Node.Exercise(
           targetCoid = create1,
           templateId = someTemplateId,
+          interfaceId = None,
           choiceId = someChoiceName,
           consuming = true,
           actingParties = Set(bob),
@@ -97,6 +98,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         Node.Exercise(
           targetCoid = create2,
           templateId = someTemplateId,
+          interfaceId = None,
           choiceId = someChoiceName,
           consuming = true,
           actingParties = Set(bob),

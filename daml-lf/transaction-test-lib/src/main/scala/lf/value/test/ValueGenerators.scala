@@ -28,6 +28,7 @@ import scalaz.scalacheck.ScalaCheckBinding._
 object ValueGenerators {
 
   import TransactionVersion.minExceptions
+  import TransactionVersion.minInterfaces
 
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
@@ -364,6 +365,7 @@ object ValueGenerators {
     for {
       targetCoid <- coidGen
       templateId <- idGen
+      interfaceId <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
@@ -379,20 +381,21 @@ object ValueGenerators {
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
-      targetCoid = targetCoid,
-      templateId = templateId,
-      choiceId = choiceId,
-      consuming = consume,
-      actingParties = actingParties,
-      chosenValue = chosenValue,
-      stakeholders = stakeholders,
-      signatories = signatories,
+      targetCoid,
+      templateId,
+      interfaceId,
+      choiceId,
+      consume,
+      actingParties,
+      chosenValue,
+      stakeholders,
+      signatories,
       choiceObservers = choiceObservers,
-      children = children,
-      exerciseResult = exerciseResult,
-      key = key,
-      byKey = byKey,
-      version = version,
+      children,
+      exerciseResult,
+      key,
+      byKey,
+      version,
     )
 
   val lookupNodeGen: Gen[Node.LookupByKey] =

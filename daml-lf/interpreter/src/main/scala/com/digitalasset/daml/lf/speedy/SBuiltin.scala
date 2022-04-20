@@ -974,6 +974,7 @@ private[lf] object SBuiltin {
     */
   final case class SBUBeginExercise(
       templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
@@ -1005,6 +1006,7 @@ private[lf] object SBuiltin {
           auth = auth,
           targetId = coid,
           templateId = templateId,
+          interfaceId = interfaceId,
           choiceId = choiceId,
           optLocation = machine.lastLocation,
           consuming = consuming,
@@ -1164,15 +1166,18 @@ private[lf] object SBuiltin {
   }
 
   final case class SBResolveSBUBeginExercise(
+      interfaceId: TypeConName,
       choiceName: ChoiceName,
       consuming: Boolean,
+      byKey: Boolean,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
         SBUBeginExercise(
-          getSAnyContract(args, 0)._1,
-          choiceName,
-          consuming,
+          templateId = getSAnyContract(args, 0)._1,
+          interfaceId = Some(interfaceId),
+          choiceId = choiceName,
+          consuming = consuming,
           byKey = false,
         )
       )

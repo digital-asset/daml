@@ -38,6 +38,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
         PackageId.assertFromString("some-package"),
         QualifiedName.assertFromString("Foo:Bar"),
       ),
+      interfaceId = None,
       choiceId = Name.assertFromString("someChoice"),
       consuming = true,
       actingParties = actingParties,

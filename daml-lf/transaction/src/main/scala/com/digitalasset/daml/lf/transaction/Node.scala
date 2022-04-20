@@ -143,6 +143,7 @@ object Node {
   final case class Exercise(
       targetCoid: ContractId,
       override val templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -158,6 +159,9 @@ object Node {
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
+
+    // identified where the choic is defined, in a template if left or in an interface if right
+    def typeId: Either[TypeConName, TypeConName] = interfaceId.toRight(templateId)
 
     override private[lf] def updateVersion(
         version: TransactionVersion
