@@ -3,6 +3,6 @@
 
 module SetFieldParens where
 
-foo : (Int, Bool) -> (Int, Bool)
-foo tup = tup with
-  _2 = not tup._2
+foo : (Text -> (Int, Bool)) -> (Int, Bool)
+foo mkTup = (mkTup "bar") with
+  _2 = not (mkTup "baz")._2
