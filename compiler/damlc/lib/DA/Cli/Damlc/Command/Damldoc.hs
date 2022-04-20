@@ -253,7 +253,7 @@ data CmdArgs = Damldoc
     , cAnchorPath :: Maybe FilePath
     , cExternalAnchorPath :: Maybe FilePath
     , cMainFiles :: [FilePath]
-    } deriving (Show)
+    }
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
