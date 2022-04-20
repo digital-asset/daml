@@ -4,6 +4,7 @@
 package com.daml
 package platform.store.cache
 
+import com.daml.ledger.offset.Offset
 import lf.transaction.GlobalKey
 import logging.{ContextualizedLogger, LoggingContext}
 import metrics.Metrics
@@ -19,6 +20,11 @@ class MutableContractStateCaches(
     val contractState: StateCache[ContractId, ContractStateValue],
 ) {
   private val logger = ContextualizedLogger.get(getClass)
+
+  def init(lastOffset: Offset) = {
+    keyState.cacheIndex = lastOffset
+    contractState.cacheIndex = lastOffset
+  }
 
   def pushBatch(events: Seq[ContractStateEvent])(implicit loggingContext: LoggingContext): Unit = {
     events.foreach(debugEvents)

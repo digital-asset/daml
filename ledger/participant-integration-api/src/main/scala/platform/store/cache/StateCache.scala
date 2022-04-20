@@ -6,7 +6,6 @@ package com.daml.platform.store.cache
 import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
@@ -31,7 +30,7 @@ private[platform] case class StateCache[K, V](
 )(implicit ec: ExecutionContext) {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
-  @volatile private[cache] var cacheIndex = Option.empty[Offset]
+  @volatile var cacheIndex: Offset = _
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -62,7 +61,7 @@ private[platform] case class StateCache[K, V](
           // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
           // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
           // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
-          if (validAt >= cacheIndex.getOrElse(Offset.beforeBegin)) {
+          if (cacheIndex == null || validAt >= cacheIndex) {
             batch.foreach { case (key, value) =>
               pendingUpdates
                 .get(key)
@@ -70,7 +69,7 @@ private[platform] case class StateCache[K, V](
               putInternal(key, value, validAt)
             }
 
-            cacheIndex = Some(validAt)
+            cacheIndex = validAt
           } else
             logger.warn(
               s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
@@ -94,8 +93,8 @@ private[platform] case class StateCache[K, V](
   ): Future[V] = Timed.value(
     registerUpdateTimer,
     pendingUpdates.synchronized {
-      // TODO LLP: Revisit sanity of this condition
-      val validAt = cacheIndex.getOrElse(Offset.fromHexString(Ref.HexString.assertFromString("FF")))
+      if (cacheIndex == null) throw new RuntimeException("Unitialized cache index")
+      val validAt = cacheIndex
       val eventualValue = Future.delegate(fetchAsync(validAt))
       val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
       if (pendingUpdatesForKey.latestValidAt < validAt) {

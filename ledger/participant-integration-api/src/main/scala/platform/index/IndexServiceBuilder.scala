@@ -57,6 +57,8 @@ private[platform] case class IndexServiceBuilder(
         participantInMemoryState.mutableContractStateCaches,
       )(servicesExecutionContext, loggingContext)
 
+      _ = participantInMemoryState.mutableContractStateCaches.init(ledgerEnd.lastOffset)
+
       completionsReader = new BufferedCommandCompletionsReader(
         completionsBuffer = participantInMemoryState.completionsBuffer,
         delegate = ledgerDao.completions,
