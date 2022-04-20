@@ -54,7 +54,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
 
     "check generation" in KVTest.runTest {
       for {
-        result <- preExecuteConfig(
+        result1 <- preExecuteConfig(
           configModify = c => c.copy(generation = c.generation + 1),
           submissionId = Ref.LedgerString.assertFromString("submission0"),
         )
@@ -68,10 +68,10 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
         newConfig2 <- getConfiguration
 
       } yield {
-        val logEntry = result.successfulLogEntry
+        val logEntry1 = result1.successfulLogEntry
         val logEntry2 = result2.successfulLogEntry
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
-        logEntry.getConfigurationEntry.getSubmissionId shouldEqual "submission0"
+        logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
+        logEntry1.getConfigurationEntry.getSubmissionId shouldEqual "submission0"
         newConfig.generation shouldEqual 1
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
