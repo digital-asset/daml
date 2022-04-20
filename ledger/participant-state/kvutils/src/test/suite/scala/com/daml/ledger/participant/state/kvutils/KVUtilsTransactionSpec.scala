@@ -575,11 +575,11 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private def logEntryWithRecordTime(
       entry: DamlLogEntry
-  ) = {
+  ): DamlLogEntry =
     entry.toBuilder
       .setRecordTime(Timestamp.getDefaultInstance)
       .build()
-  }
+
   private def preExecuteCreateSimpleContract(
       submitter: Ref.Party,
       seed: Hash,
