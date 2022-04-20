@@ -35,7 +35,10 @@ object JdbcIndexer {
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
-      val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
+      val dbType = DbType.jdbcType(config.jdbcUrl)
+      val ingestionParallelism =
+        if (dbType.supportsParallelWrites) config.ingestionParallelism else 1
+      val factory = StorageBackendFactory.of(dbType)
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val meteringStoreBackend = factory.createMeteringStorageWriteBackend
@@ -47,7 +50,7 @@ object JdbcIndexer {
         jdbcUrl = config.jdbcUrl,
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        ingestionParallelism = config.ingestionParallelism,
+        ingestionParallelism = ingestionParallelism,
         dataSourceConfig = DataSourceConfig(
           postgresConfig = PostgresDataSourceConfig(
             synchronousCommit = Some(config.asyncCommitMode match {

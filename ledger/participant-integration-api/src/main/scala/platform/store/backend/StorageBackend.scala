@@ -441,6 +441,7 @@ trait UserManagementStorageBackend {
 
   def countUserRights(internalId: Int)(connection: Connection): Int
 
+  def userManagementStorageBackendSupported: Boolean
 }
 
 object UserManagementStorageBackend {

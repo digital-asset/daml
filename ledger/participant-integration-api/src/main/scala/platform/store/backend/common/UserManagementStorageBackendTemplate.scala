@@ -217,4 +217,5 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     )
   }
 
+  override def userManagementStorageBackendSupported: Boolean = true
 }

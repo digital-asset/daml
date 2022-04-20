@@ -7,6 +7,7 @@ import java.sql.Connection
 
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
@@ -66,17 +67,21 @@ object PersistentUserManagementStore {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): UserManagementStore = {
-    new CachedUserManagementStore(
-      delegate = new PersistentUserManagementStore(
-        dbSupport = dbSupport,
-        metrics = metrics,
-        maxRightsPerUser = maxRightsPerUser,
-        timeProvider = timeProvider,
-      ),
-      expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
-      maximumCacheSize = maxCacheSize,
-      metrics = metrics,
+    if (
+      dbSupport.storageBackendFactory.createUserManagementStorageBackend.userManagementStorageBackendSupported
     )
+      new CachedUserManagementStore(
+        delegate = new PersistentUserManagementStore(
+          dbSupport = dbSupport,
+          metrics = metrics,
+          maxRightsPerUser = maxRightsPerUser,
+          timeProvider = timeProvider,
+        ),
+        expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
+        maximumCacheSize = maxCacheSize,
+        metrics = metrics,
+      )
+    else new InMemoryUserManagementStore(maxRightsPerUser = maxRightsPerUser)
   }
 }
 
