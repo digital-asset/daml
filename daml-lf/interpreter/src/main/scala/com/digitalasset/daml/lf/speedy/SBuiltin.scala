@@ -1146,7 +1146,11 @@ private[lf] object SBuiltin {
     ) = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTmplId, requiringIface)).isEmpty)
+      if (
+        machine.compiledPackages
+          .getDefinition(ImplementsDefRef(actualTmplId, requiringIface))
+          .isEmpty
+      )
         throw SErrorDamlException(
           IE.ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
