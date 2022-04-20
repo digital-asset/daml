@@ -1256,7 +1256,9 @@ private[lf] object SBuiltin {
     ) = {
       val (tyCon, record) = getSAnyContract(args, 0)
       machine.returnValue =
-        if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
+        if (
+          machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty
+        )
           SOptional(None)
         else
           SOptional(Some(SAnyContract(tyCon, record)))
