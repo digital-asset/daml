@@ -5,13 +5,16 @@ package com.daml.nonempty
 package catsinstances.impl
 
 import com.daml.scalautil.ImplicitPreference
-import cats.{Eval, Foldable, Reducible}
+import cats.{Eval, Foldable, Monoid, Reducible, Semigroup}
 
 abstract class CatsInstancesLow extends CatsInstancesLow1 {
   implicit def `cats nonempty foldable`[F[_]](implicit
       F: Foldable[F]
   ): Foldable[NonEmptyF[F, *]] with ImplicitPreference[Nothing] =
     ImplicitPreference[Foldable[NonEmptyF[F, *]], Nothing](NonEmptyColl.Instance substF F)
+
+  implicit def `cats nonempty semigroup`[A](implicit A: Monoid[A]): Semigroup[NonEmpty[A]] =
+    NonEmptyColl.Instance.subst[Lambda[k[_] => Semigroup[k[A]]]](A)
 }
 
 abstract class CatsInstancesLow1 {

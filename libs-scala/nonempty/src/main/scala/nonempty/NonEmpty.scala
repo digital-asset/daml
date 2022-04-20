@@ -185,6 +185,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
       (self: ESelf) to factory
     )
     def zipWithIndex: NonEmpty[CC[(A, Int)]] = un((self: ESelf).zipWithIndex)
+    def ++[B >: A](suffix: imm.Iterable[B]): NonEmpty[CC[B]] = un((self: ESelf) ++ suffix)
+
     // (not so valuable unless also using wartremover to disable partial Seq ops)
     @`inline` def head1: A = self.head
     @`inline` def tail1: C = self.tail
@@ -207,6 +209,8 @@ object NonEmptyColl extends NonEmptyCollInstances {
     @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
 
     def distinct: NonEmpty[C] = un((self: ESelf).distinct)
+    def sortBy[B](f: A => B)(implicit ord: Ordering[B]): NonEmpty[C] =
+      un((self: ESelf).sorted(ord on f))
   }
 
   implicit final class `Seq Ops`[A, CC[_], C](
