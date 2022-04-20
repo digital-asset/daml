@@ -12,19 +12,19 @@ module DA.Cli.Damlc.Test (
 
 import Control.Monad.Except
 import Control.Monad.Extra
+import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
-import DA.Daml.Compiler.Output
 import DA.Daml.Options.Types
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import Data.Either
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
+import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -37,12 +37,13 @@ import Development.IDE.Core.Service.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified Development.Shake as Shake
+import Safe
 import qualified ScenarioService as SS
+import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
 import qualified Text.XML.Light as XML
-import Safe
 
 
 newtype UseColor = UseColor {getUseColor :: Bool}
@@ -88,7 +89,6 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                 , mod <- modules
                 ]
 
-    let printResults res = liftIO $ printScenarioResults [(v, r) | (v, Right r) <- res] color
 
     results <- runActionSync h $ do
         Shake.forP files $ \file -> do
@@ -96,7 +96,6 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
             mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
             let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
-            forM_ mbResults printResults
             return (file, mod, mbResults)
 
     extResults <-
@@ -105,11 +104,13 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                  Nothing -> pure [] -- nothing to test
                  Just file ->
                      runActionSync h $
-                     forM extPkgs $ \pkg -> do
-                         mbResults <- snd <$> runScenariosScriptsPkg file pkg extPkgs
-                         forM_ mbResults printResults
-                         return mbResults
+                     forM extPkgs $ \pkg -> snd <$> runScenariosScriptsPkg file pkg extPkgs
         else pure []
+
+    let allResults = concat $ [result | (_file, _mod, Just result) <- results] ++ catMaybes extResults
+
+    -- print test summary after all tests have run
+    printSummary color allResults
 
     -- print total test coverage
     printTestCoverage
@@ -118,9 +119,7 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
         ([(Nothing, mod) | (_file, mod, _result) <- results] ++
          [extModule | runAllTests, extModule <- extModules]
         )
-        (concat $
-         [result | (_file, _mod, Just result) <- results] ++ catMaybes extResults
-        )
+        allResults
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -144,6 +143,16 @@ failedTestOutput h file = do
     let errMsg = showDiagnostics diagnostics
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
+
+printSummary :: UseColor -> [(VirtualResource, Either SSC.Error SSC.ScenarioResult)] -> IO ()
+printSummary color res =
+  liftIO $ do
+    putStrLn $
+      unlines
+        [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
+        , "Test Summary" <> setSGRCode []
+        ]
+    printScenarioResults color res
 
 printTestCoverage ::
     ShowCoverage
@@ -255,13 +264,15 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
                  SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
         , TL.toStrict identifierName)
 
-printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO ()
-printScenarioResults results color = do
-    liftIO $ forM_ results $ \(VRScenario vrFile vrName, result) -> do
-        let doc = prettyResult result
-        let name = DA.Pretty.string (fromNormalizedFilePath vrFile) <> ":" <> DA.Pretty.pretty vrName
-        let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
-        putStrLn $ stringStyleToRender (name <> ": " <> doc)
+printScenarioResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
+printScenarioResults color results = do
+    liftIO $ forM_ results $ \(VRScenario vrFile vrName, resultOrErr) -> do
+      let name = DA.Pretty.string (fromNormalizedFilePath vrFile) <> ":" <> DA.Pretty.pretty vrName
+      let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
+      putStrLn $ stringStyleToRender $
+        case resultOrErr of
+          Left _err -> name <> ": " <> DA.Pretty.error_ "failed"
+          Right result -> name <> ": " <> prettyResult result
 
 
 prettyErr :: LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
