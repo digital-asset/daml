@@ -54,11 +54,10 @@ object TestHelpers {
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
   def createCommitContext(
-      recordTime: Option[Timestamp],
       inputs: DamlStateMap = Map.empty,
       participantId: Int = 0,
   ): CommitContext =
-    CommitContext(inputs, recordTime, mkParticipantId(participantId))
+    CommitContext(inputs, mkParticipantId(participantId))
 
   def createEmptyTransactionEntry(submitters: List[String]): DamlTransactionEntry =
     createTransactionEntry(submitters, TransactionBuilder.EmptySubmitted)

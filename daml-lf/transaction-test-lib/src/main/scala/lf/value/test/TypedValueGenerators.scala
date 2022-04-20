@@ -52,15 +52,17 @@ object TypedValueGenerators {
     implicit def injarb(implicit cid: Arbitrary[Value.ContractId]): Arbitrary[Inj]
     implicit def injshrink(implicit shr: Shrink[Value.ContractId]): Shrink[Inj]
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
+
+    final def xmap[B](f: Inj => B)(g: B => Inj): ValueAddend.Aux[B] =
+      new ValueAddend.XMapped[Inj, B](this, f, g)
   }
 
   object ValueAddend extends PrimInstances[Lambda[a => ValueAddend { type Inj = a }]] {
     type Aux[Inj0] = ValueAddend {
       type Inj = Inj0
     }
-    type NoCid[Inj0] = ValueAddend {
-      type Inj = Inj0
-    }
+    @deprecated("use Aux instead", since = "2.2.0")
+    type NoCid[Inj0] = Aux[Inj0]
 
     private sealed abstract class NoCid0[Inj0](implicit
         ord: Order[Inj0],
@@ -75,7 +77,7 @@ object TypedValueGenerators {
 
     def noCid[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value)(
         prj0: Value PartialFunction Inj0
-    ): NoCid[Inj0] = new NoCid0[Inj0] {
+    ): Aux[Inj0] = new NoCid0[Inj0] {
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj(v: Inj0) = inj0(v)
       override def prj = prj0.lift
@@ -92,7 +94,7 @@ object TypedValueGenerators {
     val bool = noCid(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
-    def numeric(scale: Numeric.Scale): NoCid[Numeric] = {
+    def numeric(scale: Numeric.Scale): Aux[Numeric] = {
       implicit val arb: Arbitrary[Numeric] = Arbitrary(ValueGenerators.numGen(scale))
       new NoCid0[Numeric] {
         override def t: Type = TypeNumeric(scale)
@@ -310,6 +312,20 @@ object TypedValueGenerators {
       type Member <: Ref.Name
       val values: Values with Seq[Member]
       def get(m: Ref.Name): Option[Member] = values collectFirst { case v if m == v => v }
+    }
+
+    private final class XMapped[Under, Inj0](under: Aux[Under], f: Under => Inj0, g: Inj0 => Under)
+        extends ValueAddend {
+      type Inj = Inj0
+      override def t = under.t
+      override def inj(v: Inj) = under.inj(g(v))
+      override def prj = under.prj andThen (_ map f)
+
+      override def injord = under.injord contramap g
+      override def injarb(implicit cid: Arbitrary[Value.ContractId]) =
+        Arbitrary(under.injarb.arbitrary map f)
+      override def injshrink(implicit shr: Shrink[Value.ContractId]) =
+        Shrink.xmap(f, g)(under.injshrink)
     }
   }
 

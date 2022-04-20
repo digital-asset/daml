@@ -5,7 +5,12 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
+import akka.http.scaladsl.model.ws.{
+  Message,
+  PeerClosedConnectionException,
+  TextMessage,
+  WebSocketRequest,
+}
 import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -17,11 +22,13 @@ import com.daml.http.HttpServiceTestFixture.{
   sharedAccountCreateCommand,
 }
 import com.daml.http.json.SprayJson
+import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.option._
+import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
@@ -948,6 +955,110 @@ abstract class AbstractWebsocketServiceIntegrationTest
             }
           }
         }: Future[Assertion]
+  }
+
+  "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
+    for {
+      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      (alice, aliceHeaders) = aliceH
+      offsets <- offsetBeforeAfterArchival(alice, uri, encoder, aliceHeaders)
+      (offsetBeforeArchive, offsetAfterArchive) = offsets
+
+      pruned <- PruneGrpc.ParticipantPruningServiceGrpc
+        .stub(client.channel)
+        .prune(
+          PruneGrpc.PruneRequest(
+            pruneUpTo = domain.Offset unwrap offsetAfterArchive,
+            pruneAllDivulgedContracts = true,
+          )
+        )
+      _ = pruned should ===(PruneGrpc.PruneResponse())
+
+      // now query again with a pruned offset
+      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      query = s"""[{"templateIds": ["Iou:Iou"]}]"""
+      streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
+        .runWith(Sink.seq)
+        .failed
+    } yield inside(streamError) { case t: PeerClosedConnectionException =>
+      // TODO #13506 descriptive/structured error.  The logs when running this
+      // test include
+      //     Websocket handler failed with FAILED_PRECONDITION: PARTICIPANT_PRUNED_DATA_ACCESSED(9,0):
+      //     Transactions request from 0000000000000006 to 0000000000000008
+      //     precedes pruned offset 0000000000000007
+      // but this doesn't propagate to the client
+      t.closeCode should ===(1011) // see RFC 6455
+      t.closeReason should ===("internal error")
+    }
+  }
+
+  private[this] def offsetBeforeAfterArchival(
+      party: domain.Party,
+      uri: Uri,
+      encoder: json.DomainJsonEncoder,
+      headers: List[HttpHeader],
+  ): Future[(domain.Offset, domain.Offset)] = {
+    import json.JsonProtocol._
+    type In = JsValue // JsValue might not be the most convenient choice
+    val syntax = Consume.syntax[In]
+    import syntax._
+
+    def offsetAfterCreate(): Consume.FCC[In, (domain.ContractId, domain.Offset)] = for {
+      // make a contract
+      create <- liftF(
+        postCreateCommand(
+          iouCreateCommand(domain.Party unwrap party),
+          encoder,
+          uri,
+          headers,
+        )
+      )
+      cid = inside(
+        create map (_.convertTo[domain.SyncResponse[domain.ActiveContract[JsValue]]])
+      ) { case (StatusCodes.OK, domain.OkResponse(contract, _, StatusCodes.OK)) =>
+        contract.contractId
+      }
+      // wait for the creation's offset
+      offsetAfter <- readUntil[In] {
+        case ContractDelta(creates, _, off @ Some(_)) =>
+          if (creates.exists(_._1 == cid.unwrap)) off else None
+        case _ => None
+      }
+    } yield (cid, offsetAfter)
+
+    def readMidwayOffset(kill: UniqueKillSwitch) = for {
+      // wait for the ACS
+      _ <- readUntil[In] {
+        case ContractDelta(_, _, offset) => offset
+        case _ => None
+      }
+      // make a contract and fetch the offset after it
+      (cid, betweenOffset) <- offsetAfterCreate()
+      // archive it
+      archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, headers))
+      _ = archive._1 should ===(StatusCodes.OK)
+      // wait for the archival offset
+      afterOffset <- readUntil[In] {
+        case ContractDelta(_, archived, offset) =>
+          if (archived.exists(_.contractId == cid)) offset else None
+        case _ => None
+      }
+      // if you try to prune afterOffset, pruning fails with
+      // OFFSET_OUT_OF_RANGE(9,db14ee96): prune_up_to needs to be before ledger end 0000000000000007
+      // create another dummy contract and ignore it
+      _ <- offsetAfterCreate()
+      _ = kill.shutdown()
+    } yield (betweenOffset, afterOffset)
+
+    val query = """[{"templateIds": ["Iou:Iou"]}]"""
+    for {
+      jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+      (kill, source) =
+        singleClientQueryStream(jwt, uri, query)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+      offsets <- source.via(parseResp).runWith(Consume.interpret(readMidwayOffset(kill)))
+    } yield offsets
   }
 
   "query on a bunch of random splits should yield consistent results" in withHttpService {

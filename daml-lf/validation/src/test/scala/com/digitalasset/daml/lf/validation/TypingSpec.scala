@@ -959,7 +959,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
-      val expectedContext = ContextLocation(expectedLocation)
+      val expectedContext = Context.Location(expectedLocation)
 
       forEvery(testCases) { (exp, checkError) =>
         import scala.util.{Failure, Try}
@@ -1899,7 +1899,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
        }
      """
-    Typing.Env(LV.default, PackageInterface(Map(defaultPackageId -> pkg)), NoContext)
+    Typing.Env(LV.default, PackageInterface(Map(defaultPackageId -> pkg)), Context.None)
   }
 
 }

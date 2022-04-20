@@ -69,16 +69,12 @@ private[transaction] object CommandDeduplication {
         if (isNotADuplicate) {
           StepContinue(transactionEntry)
         } else {
-          if (commitContext.preExecute) {
-            preExecutionDuplicateRejection(
-              commitContext,
-              transactionEntry,
-              commandDeduplicationDuration,
-              maybeDedupValue,
-            )
-          } else {
-            duplicateRejection(commitContext, transactionEntry.submitterInfo, maybeDedupValue)
-          }
+          preExecutionDuplicateRejection(
+            commitContext,
+            transactionEntry,
+            commandDeduplicationDuration,
+            maybeDedupValue,
+          )
         }
       }
 
@@ -87,22 +83,16 @@ private[transaction] object CommandDeduplication {
           commandDeduplicationDuration: Duration,
           maybeDedupValue: Option[DamlCommandDedupValue],
       ): Boolean = {
-        val minimumRecordTime = commitContext.recordTime match {
-          case Some(recordTime) =>
-            // During the normal execution, in the deduplication state value we stored the record time
-            // This allows us to compare the record times directly
-            recordTime.toInstant
-          case None =>
-            // We select minimum record time for pre-execution
-            // During pre-execution in the deduplication state value we stored the maximum record time
-            // To guarantee the deduplication duration, we basically compare the maximum record time of the previous transaction
-            // with the minimum record time of the current transaction. This gives us the smallest possible interval between two transactions.
-            commitContext.minimumRecordTime
-              .getOrElse(
-                throw Err.InternalError("Minimum record time is not set for pre-execution")
-              )
-              .toInstant
-        }
+
+        // We select minimum record time for pre-execution
+        // During pre-execution in the deduplication state value we stored the maximum record time
+        // To guarantee the deduplication duration, we basically compare the maximum record time of the previous transaction
+        // with the minimum record time of the current transaction. This gives us the smallest possible interval between two transactions.
+        val minimumRecordTime = commitContext.minimumRecordTime
+          .getOrElse(
+            throw Err.InternalError("Minimum record time is not set for pre-execution")
+          )
+          .toInstant
         val maybeDeduplicatedUntil = maybeDedupValue.flatMap(commandDeduplication =>
           commandDeduplication.getTimeCase match {
             // Backward-compatibility, will not be set for new entries
@@ -152,7 +142,6 @@ private[transaction] object CommandDeduplication {
             val rejectionDeduplicationDuration =
               Seq(maxDurationBetweenRecords, commandDeduplicationDuration).max
             duplicateRejection(
-              commitContext,
               transactionEntry.submitterInfo.toBuilder
                 .setDeduplicationDuration(
                   buildDuration(rejectionDeduplicationDuration)
@@ -161,12 +150,11 @@ private[transaction] object CommandDeduplication {
               maybeDedupValue,
             )
           case None =>
-            duplicateRejection(commitContext, transactionEntry.submitterInfo, maybeDedupValue)
+            duplicateRejection(transactionEntry.submitterInfo, maybeDedupValue)
         }
       }
 
       private def duplicateRejection(
-          commitContext: CommitContext,
           submitterInfo: DamlSubmitterInfo,
           dedupValue: Option[DamlCommandDedupValue],
       )(implicit loggingContext: LoggingContext) = {
@@ -181,7 +169,6 @@ private[transaction] object CommandDeduplication {
                 .setSubmissionId(dedupValue.map(_.getSubmissionId).getOrElse(""))
             ),
           "the command is a duplicate",
-          commitContext.recordTime,
         )
       }
     }
@@ -204,28 +191,20 @@ private[transaction] object CommandDeduplication {
           config.maxDeduplicationDuration
             .plus(config.timeModel.maxSkew)
             .plus(config.timeModel.minSkew)
-        commitContext.recordTime match {
-          case Some(recordTime) =>
-            val prunableFrom = recordTime.add(pruningInterval)
-            commandDedupBuilder
-              .setRecordTime(Conversions.buildTimestamp(recordTime))
-              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
-          case None =>
-            val maxRecordTime = commitContext.maximumRecordTime.getOrElse(
-              throw Err.InternalError("Maximum record time is not set for pre-execution")
-            )
-            val minRecordTime = commitContext.minimumRecordTime.getOrElse(
-              throw Err.InternalError("Minimum record time is not set for pre-execution")
-            )
-            val prunableFrom = maxRecordTime.add(pruningInterval)
-            commandDedupBuilder
-              .setRecordTimeBounds(
-                PreExecutionDeduplicationBounds.newBuilder
-                  .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
-                  .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
-              )
-              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
-        }
+        val maxRecordTime = commitContext.maximumRecordTime.getOrElse(
+          throw Err.InternalError("Maximum record time is not set for pre-execution")
+        )
+        val minRecordTime = commitContext.minimumRecordTime.getOrElse(
+          throw Err.InternalError("Minimum record time is not set for pre-execution")
+        )
+        val prunableFrom = maxRecordTime.add(pruningInterval)
+        commandDedupBuilder
+          .setRecordTimeBounds(
+            PreExecutionDeduplicationBounds.newBuilder
+              .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
+              .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
+          )
+          .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
 
         // Set a deduplication entry.
         commitContext.set(

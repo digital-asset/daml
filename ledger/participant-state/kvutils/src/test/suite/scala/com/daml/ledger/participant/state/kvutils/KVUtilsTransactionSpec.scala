@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
+
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
@@ -27,6 +28,7 @@ import com.daml.lf.value.Value.{
   ValueVariant,
 }
 import com.daml.logging.LoggingContext
+import com.google.protobuf.Timestamp
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -86,7 +88,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       val seed1 = seed(1)
       for {
         transaction1 <- runSimpleCommand(alice, seed0, simpleCreateCmd(simplePackage))
-        result <- submitTransaction(
+        result <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction1,
           submissionSeed = seed0,
@@ -95,7 +97,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         contractId = contractIdOfCreateTransaction(
           KeyValueConsumption.logEntryToUpdate(
             entryId,
-            logEntry,
+            logEntryWithRecordTime(logEntry.successfulLogEntry),
           )(loggingContext)
         )
 
@@ -112,22 +114,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       } yield {
         submission.getInputDamlStateList.asScala.filter(_.hasContractKey) should not be empty
       }
-    }
-
-    "be able to submit a transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
-      simplePackage =>
-        val seed = hash(this.getClass.getName)
-        for {
-          transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
-          logEntry <- submitTransaction(
-            submitter = alice,
-            transaction = transaction,
-            submissionSeed = seed,
-          ).map(_._2)
-        } yield {
-          logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
-          logEntry.getTransactionEntry.hasBlindingInfo shouldBe true
-        }
     }
 
     "be able to pre-execute a transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
@@ -264,7 +250,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         }
       }
 
-    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(
+    "populate out of time bounds write set" in KVTest.runTestWithSimplePackage(
       alice,
       bob,
       eve,
@@ -273,7 +259,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       for {
         transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
         conf <- getDefaultConfiguration
-        logEntry <- submitTransaction(
+        result <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
@@ -281,8 +267,13 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         )
           .map(_._2)
       } yield {
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME
+        val logEntry = result.outOfTimeBoundsLogEntry
+        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY
+        val outOfTimeBoundsEntry = logEntry.getOutOfTimeBoundsEntry
+        outOfTimeBoundsEntry.hasEntry shouldBe true
+        outOfTimeBoundsEntry.getEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+        // FIXME KVL-1413
+        outOfTimeBoundsEntry.getEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET
       }
     }
 
@@ -297,7 +288,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .map(i => seed(i))
       for {
         transaction1 <- runSimpleCommand(alice, seeds.head, simpleCreateCmd(simplePackage))
-        result <- submitTransaction(
+        result <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction1,
           submissionSeed = seeds.head,
@@ -306,7 +297,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         contractId = contractIdOfCreateTransaction(
           KeyValueConsumption.logEntryToUpdate(
             entryId,
-            logEntry,
+            logEntryWithRecordTime(logEntry.successfulLogEntry),
           )(loggingContext)
         )
 
@@ -315,20 +306,22 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           seeds(1),
           simplePackage.simpleExerciseArchiveCmd(contractId),
         )
-        logEntry2 <- submitTransaction(
+        result2 <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction2,
           submissionSeed = seeds(1),
         ).map(_._2)
 
         // Try to double consume.
-        logEntry3 <- submitTransaction(
+        result3 <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction2,
           submissionSeed = seeds(1),
         ).map(_._2)
 
       } yield {
+        val logEntry2 = result2.successfulLogEntry
+        val logEntry3 = result3.successfulLogEntry
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
         logEntry3.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
         logEntry3.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
@@ -339,16 +332,18 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       simplePackage =>
         val seed = hash(this.getClass.getName)
         for {
-          configEntry <- submitConfig { c =>
+          configResult <- preExecuteConfig { c =>
             c.copy(generation = c.generation + 1)
           }
           transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
-          txEntry <- submitTransaction(
+          txResult <- preExecuteTransaction(
             submitter = alice,
             transaction = transaction,
             submissionSeed = seed,
           ).map(_._2)
         } yield {
+          val configEntry = configResult.successfulLogEntry
+          val txEntry = txResult.successfulLogEntry
           configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
           txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
@@ -365,13 +360,13 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           val seed = hash(this.getClass.getName)
           for {
             transaction <- runCommand(alice, seed, command)
-            txEntry <- submitTransaction(
+            txEntry <- preExecuteTransaction(
               submitter = alice,
               transaction = transaction,
               submissionSeed = seed,
             ).map(_._2)
           } yield {
-            txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+            txEntry.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
           }
         }
       }
@@ -382,13 +377,14 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         val seed = hash(this.getClass.getName)
         for {
           transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
-          txEntry1 <- submitTransaction(
+          txResult <- preExecuteTransaction(
             submitter = alice,
             transaction = transaction,
             submissionSeed = seed,
           )
             .map(_._2)
         } yield {
+          val txEntry1 = txResult.successfulLogEntry
           txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER
         }
@@ -399,7 +395,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       simplePackage =>
         val seed = hash(this.getClass.getName)
         for {
-          configEntry <- submitConfig { c =>
+          configResult <- preExecuteConfig { c =>
             c.copy(generation = c.generation + 1)
           }
           createTx <- withParticipantId(p1)(
@@ -407,15 +403,22 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           )
 
           newParty <- withParticipantId(p1)(allocateParty("unhosted", alice))
-          txEntry1 <- withParticipantId(p0)(
-            submitTransaction(submitter = newParty, createTx, seed).map(_._2)
+          txResult1 <- withParticipantId(p0)(
+            preExecuteTransaction(submitter = newParty, createTx, seed).map(_._2)
           )
-          txEntry2 <- withParticipantId(p1)(
-            submitTransaction(submitter = newParty, transaction = createTx, submissionSeed = seed)
+          txResult2 <- withParticipantId(p1)(
+            preExecuteTransaction(
+              submitter = newParty,
+              transaction = createTx,
+              submissionSeed = seed,
+            )
               .map(_._2)
           )
 
         } yield {
+          val configEntry = configResult.successfulLogEntry
+          val txEntry1 = txResult1.successfulLogEntry
+          val txEntry2 = txResult2.successfulLogEntry
           configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
           txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT
@@ -430,13 +433,14 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
           transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
           bob <- allocateParty("bob", bob)
-          txEntry <- submitTransaction(
+          txResult <- preExecuteTransaction(
             submitter = bob,
             transaction = transaction,
             submissionSeed = seed,
           )
             .map(_._2)
         } yield {
+          val txEntry = txResult.successfulLogEntry
           txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
           txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE
         }
@@ -448,16 +452,19 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
         transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
         bob <- allocateParty("bob", bob)
-        _ <- submitTransaction(submitter = bob, transaction = transaction, submissionSeed = seed)
+        _ <- preExecuteTransaction(
+          submitter = bob,
+          transaction = transaction,
+          submissionSeed = seed,
+        )
           .map(_._2)
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L
-        metrics.daml.kvutils.committer.runTimer("transaction").getCount should be >= 1L
+        metrics.daml.kvutils.committer.preExecutionRunTimer("transaction").getCount should be >= 1L
         metrics.daml.kvutils.committer.transaction.interpretTimer.getCount should be >= 1L
-        metrics.daml.kvutils.committer.transaction.runTimer.getCount should be >= 1L
       }
     }
 
@@ -476,13 +483,15 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
       for {
         tx1 <- runSimpleCommand(alice, seeds.head, simpleCreateAndExerciseCmd)
-        createAndExerciseTx1 <- submitTransaction(alice, tx1, seeds.head).map(_._2)
+        createAndExerciseTx1Result <- preExecuteTransaction(alice, tx1, seeds.head).map(_._2)
 
         tx2 <- runSimpleCommand(alice, seeds(1), simpleCreateAndExerciseCmd)
-        createAndExerciseTx2 <- submitTransaction(alice, tx2, seeds(1)).map(_._2)
+        createAndExerciseTx2Result <- preExecuteTransaction(alice, tx2, seeds(1)).map(_._2)
 
         finalState <- scalaz.State.get[KVTestState]
       } yield {
+        val createAndExerciseTx1 = createAndExerciseTx1Result.successfulLogEntry
+        val createAndExerciseTx2 = createAndExerciseTx2Result.successfulLogEntry
         createAndExerciseTx1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
         createAndExerciseTx2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
@@ -511,22 +520,22 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       val seed = hash(this.getClass.getName)
       for {
         transaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
-        result <- submitTransaction(
+        result <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
         )
       } yield {
-        val (entryId, entry) = result
+        val (entryId, output) = result
         // Clear the submitter info from the log entry
-        val strippedEntry = entry.toBuilder
+        val strippedEntry = output.successfulLogEntry.toBuilder
         strippedEntry.getTransactionEntryBuilder.clearSubmitterInfo
 
         // Process into updates and verify
         val updates =
           KeyValueConsumption.logEntryToUpdate(
             entryId,
-            strippedEntry.build,
+            logEntryWithRecordTime(strippedEntry.build),
           )(loggingContext)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
@@ -563,6 +572,13 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
   }
+
+  private def logEntryWithRecordTime(
+      entry: DamlLogEntry
+  ): DamlLogEntry =
+    entry.toBuilder
+      .setRecordTime(Timestamp.getDefaultInstance)
+      .build()
 
   private def preExecuteCreateSimpleContract(
       submitter: Ref.Party,
