@@ -257,11 +257,11 @@ private[validation] object Typing {
   }
 
   def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = {
-    val langVersion = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
+    val langVersion = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(langVersion, interface, ContextDefDataType(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, interface, Context.DefDataType(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
@@ -276,17 +276,17 @@ private[validation] object Typing {
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
-        Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(langVersion, interface, Context.DefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(langVersion, interface, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, interface, Context.Template(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
     mod.templates.foreach { case (dfnName, template) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-      val env = Env(langVersion, interface, ContextTemplate(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.Template(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkTemplate(tyConName, template)
@@ -296,7 +296,7 @@ private[validation] object Typing {
     }
     mod.exceptions.foreach { case (exnName, message) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-      val env = Env(langVersion, interface, ContextDefException(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.DefException(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkDefException(tyConName, message)
@@ -307,7 +307,7 @@ private[validation] object Typing {
     mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
-      val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.DefInterface(tyConName), Map.empty)
       env.checkDefIface(tyConName, iface)
     }
   }
@@ -332,7 +332,7 @@ private[validation] object Typing {
       xOpt.fold(this)(introExprVar(_, t))
 
     private def newLocation(loc: Location): Env =
-      copy(ctx = ContextLocation(loc))
+      copy(ctx = Context.Location(loc))
 
     private def lookupExpVar(name: ExprVarName): Type =
       eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
