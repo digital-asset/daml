@@ -165,31 +165,6 @@ object NonEmptyColl extends NonEmptyCollInstances {
     import NonEmptyColl.Instance.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
     def incl(elem: A): NonEmpty[C] = un((self: ESelf) + elem)
-    def ++(that: IterableOnce[A]): NonEmpty[C] = un((self: ESelf) ++ that)
-  }
-
-  implicit final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
-      private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
-  ) extends AnyVal {
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
-    private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
-    def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
-      NonEmptyColl.Instance.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
-    def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
-    def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
-    def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
-    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
-    def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
-    def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
-    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]): NonEmpty[C1] = un(
-      (self: ESelf) to factory
-    )
-    def zipWithIndex: NonEmpty[CC[(A, Int)]] = un((self: ESelf).zipWithIndex)
-    // (not so valuable unless also using wartremover to disable partial Seq ops)
-    @`inline` def head1: A = self.head
-    @`inline` def tail1: C = self.tail
-    def reduceLeft[B >: A](op: (B, A) => B): B = (self: ESelf).reduceLeft(op)
-    @`inline` def last1: A = self.last
   }
 
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
@@ -207,6 +182,10 @@ object NonEmptyColl extends NonEmptyCollInstances {
     @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
 
     def distinct: NonEmpty[C] = un((self: ESelf).distinct)
+    def sortBy[B](f: A => B)(implicit ord: Ordering[B]): NonEmpty[C] =
+      un((self: ESelf).sortBy(f))
+    def sorted[B >: A](implicit ord: Ordering[B]): C =
+      un((self: ESelf).sorted[B])
   }
 
   implicit final class `Seq Ops`[A, CC[_], C](
@@ -241,8 +220,47 @@ object NonEmptyColl extends NonEmptyCollInstances {
 }
 
 sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
+
   implicit def foldable[F[_]](implicit F: Foldable[F]): Foldable[NonEmptyF[F, *]] =
     NonEmptyColl.Instance.substF(F)
+
+  // Manually expand the implicit class into an implicit conversion
+  // so that it gets a lower priority during implicit resolution than `Map Ops`,
+  // which also defines `++`.
+  import scala.language.implicitConversions
+  implicit def NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
+      self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
+  ): NonEmptyCollInstances.NEPreservingOps[A, CC, C] =
+    new NonEmptyCollInstances.NEPreservingOps[A, CC, C](self)
+
+}
+
+object NonEmptyCollInstances {
+  final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
+      private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
+  ) extends AnyVal {
+    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
+    def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
+      NonEmptyColl.Instance.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
+    def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
+    def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
+    def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
+    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
+    def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
+    def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
+    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]): NonEmpty[C1] = un(
+      (self: ESelf) to factory
+    )
+    def zipWithIndex: NonEmpty[CC[(A, Int)]] = un((self: ESelf).zipWithIndex)
+    def ++[B >: A](suffix: IterableOnce[B]): NonEmpty[CC[B]] = un((self: ESelf) ++ suffix)
+
+    // (not so valuable unless also using wartremover to disable partial Seq ops)
+    @`inline` def head1: A = self.head
+    @`inline` def tail1: C = self.tail
+    def reduceLeft[B >: A](op: (B, A) => B): B = (self: ESelf).reduceLeft(op)
+    @`inline` def last1: A = self.last
+  }
 }
 
 sealed abstract class NonEmptyCollInstances0 {
