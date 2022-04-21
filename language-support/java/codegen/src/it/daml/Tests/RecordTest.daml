@@ -61,13 +61,11 @@ data FixedContractId = FixedContractId
   deriving (Eq, Show)
 
 data ClaimF t a x
-  = OneF a
-  | ScaleF with k: (Observation t Decimal), claim: x
+  = ClaimF with k: (Observation t Decimal), claim: x
   deriving (Eq, Show)
 
 data Observation t a
-  = DecimalLte (Observation t Decimal, Observation t Decimal)
-  | DateLte (Observation t t, Observation t t)
+  = Observation with obs: (Observation t t, Observation t t)
   deriving (Eq, Show)
 
 -- Not part of the test but the codegen filters out
