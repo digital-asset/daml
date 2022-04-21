@@ -48,7 +48,8 @@ let shared = rec {
       ] ++ (
         if stdenv.isDarwin
         # ghc-lib needs `ar`, but Bazel provides `libtool`. See https://github.com/bazelbuild/bazel/issues/5127.
-        then [(runCommand "bazel-ar" { buildInputs = []; } "mkdir -p $out/bin; ln -s ${binutils.bintools}/bin/ar $out/bin/ar")]
+        # ghc-lib needs `ranlib`.
+        then [(runCommand "bazel-bintools" { buildInputs = []; } "mkdir -p $out/bin; ln -s ${binutils.bintools}/bin/ar $out/bin/ar; ln -s ${binutils.bintools}/bin/ranlib $out/bin/ranlib")]
         else []
       );
     };
