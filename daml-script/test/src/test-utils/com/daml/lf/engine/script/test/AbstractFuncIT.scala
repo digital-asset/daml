@@ -314,7 +314,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-
     "Exceptions:test" should {
       "succeed" in {
         for {
@@ -329,7 +328,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-
     "Interface:test" should {
       "succeed" in {
         for {
@@ -344,7 +342,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-
     "testMultiPartyQuery" should {
       "should return contracts for all listed parties" in {
         for {

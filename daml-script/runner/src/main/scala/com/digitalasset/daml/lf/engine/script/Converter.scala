@@ -65,7 +65,7 @@ object ScriptIds {
 }
 
 final case class AnyTemplate(ty: Identifier, arg: SValue)
-final case class AnyChoice(name: ChoiceName, arg: SValue)
+final case class AnyChoice(typeId: Identifier, name: ChoiceName, arg: SValue)
 final case class AnyContractKey(key: SValue)
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
@@ -160,15 +160,20 @@ object Converter {
   }
 
   private def fromAnyChoice(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       argument: Value,
   ): Either[String, SValue] = {
     val contractIdTy = daInternalAny("AnyChoice")
     for {
-      choice <- lookupChoice(templateId, choiceName)
+      choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
         .translateValue(choice.argBinder._2, argument)
         .left
@@ -180,12 +185,16 @@ object Converter {
     )
   }
 
-  def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
+  def toAnyChoice(
+      v: SValue,
+      lookupChoiceByArgType: Identifier => Either[String, Identifier],
+  ): Either[String, AnyChoice] = {
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(tyCon), choiceVal), _)) =>
-        // This exploits the fact that in Daml, choice argument type names
-        // and choice names match up.
-        ChoiceName.fromString(tyCon.qualifiedName.name.toString).map(AnyChoice(_, choiceVal))
+        for {
+          choiceTypeId <- lookupChoiceByArgType(tyCon)
+          chName <- ChoiceName.fromString(tyCon.qualifiedName.name.toString)
+        } yield AnyChoice(choiceTypeId, chName, choiceVal)
       case _ => Left(s"Expected AnyChoice but got $v")
     }
   }
@@ -228,16 +237,19 @@ object Converter {
       case _ => Left(s"Expected Create but got $v")
     }
 
-  def toExerciseCommand(v: SValue): Either[String, command.ApiCommand] =
+  def toExerciseCommand(
+      v: SValue,
+      lookupChoiceByArgType: (Identifier, Identifier) => Either[String, Identifier],
+  ): Either[String, command.ApiCommand] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
         for {
           tplId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
-          anyChoice <- toAnyChoice(vals.get(2))
+          anyChoice <- toAnyChoice(vals.get(2), lookupChoiceByArgType(tplId, _))
         } yield command.ApiCommand.Exercise(
-          templateId = tplId,
+          typeId = anyChoice.typeId,
           contractId = cid,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,
@@ -253,7 +265,7 @@ object Converter {
         for {
           tplId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
-          anyChoice <- toAnyChoice(vals.get(2))
+          anyChoice <- toAnyChoice(vals.get(2), _ => Right(tplId))
         } yield command.ApiCommand.ExerciseByKey(
           templateId = tplId,
           contractKey = anyKey.key.toUnnormalizedValue,
@@ -264,12 +276,15 @@ object Converter {
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
-  def toCreateAndExerciseCommand(v: SValue): Either[String, command.ApiCommand.CreateAndExercise] =
+  def toCreateAndExerciseCommand(
+      v: SValue,
+      lookupChoiceByArgType: (Identifier, Identifier) => Either[String, Identifier],
+  ): Either[String, command.ApiCommand.CreateAndExercise] =
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
-          anyChoice <- toAnyChoice(vals.get(1))
+          anyChoice <- toAnyChoice(vals.get(1), lookupChoiceByArgType(anyTemplate.ty, _))
         } yield command.ApiCommand.CreateAndExercise(
           templateId = anyTemplate.ty,
           createArgument = anyTemplate.arg.toUnnormalizedValue,
@@ -318,6 +333,7 @@ object Converter {
   def toCommands(
       compiledPackages: CompiledPackages,
       freeAp: SValue,
+      lookupChoiceByArgType: (Identifier, Identifier) => Either[String, Identifier],
   ): Either[String, List[command.ApiCommand]] = {
     @tailrec
     def iter(
@@ -336,7 +352,7 @@ object Converter {
               }
             case Right((SVariant(_, "Exercise", _, exercise), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
-              toExerciseCommand(exercise) match {
+              toExerciseCommand(exercise, lookupChoiceByArgType) match {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, r :: commands)
               }
@@ -346,7 +362,7 @@ object Converter {
                 case Right(r) => iter(v, r :: commands)
               }
             case Right((SVariant(_, "CreateAndExercise", _, createAndExercise), v)) =>
-              toCreateAndExerciseCommand(createAndExercise) match {
+              toCreateAndExerciseCommand(createAndExercise, lookupChoiceByArgType) match {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, r :: commands)
               }
@@ -361,13 +377,17 @@ object Converter {
   }
 
   def translateExerciseResult(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult,
   ) = {
     for {
       choice <- Name.fromString(result.choice)
-      c <- lookupChoice(result.templateId, choice)
+      c <- lookupChoice(result.templateId, result.interfaceId, choice)
       translated <- translator
         .translateValue(c.returnType, result.result)
         .left
@@ -376,7 +396,11 @@ object Converter {
   }
 
   def translateTransactionTree(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
@@ -395,10 +419,17 @@ object Converter {
             ("argument", anyTemplate),
           ),
         )
-      case ScriptLedgerClient.Exercised(tplId, contractId, choiceName, arg, childEvents) =>
+      case ScriptLedgerClient.Exercised(
+            tplId,
+            ifaceId,
+            contractId,
+            choiceName,
+            arg,
+            childEvents,
+          ) =>
         for {
           evs <- childEvents.traverse(translateTreeEvent(_))
-          anyChoice <- fromAnyChoice(lookupChoice, translator, tplId, choiceName, arg)
+          anyChoice <- fromAnyChoice(lookupChoice, translator, tplId, ifaceId, choiceName, arg)
         } yield SVariant(
           scriptIds.damlScript("TreeEvent"),
           Name.assertFromString("ExercisedEvent"),
@@ -424,7 +455,11 @@ object Converter {
   // fill in the values for the continuation.
   def fillCommandResults(
       compiledPackages: CompiledPackages,
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       initialFreeAp: SValue,
       allEventResults: Seq[ScriptLedgerClient.CommandResult],
@@ -445,7 +480,7 @@ object Converter {
           for {
             contractId <- eventResults.head match {
               case ScriptLedgerClient.CreateResult(cid) => Right(SContractId(cid))
-              case ScriptLedgerClient.ExerciseResult(_, _, _) =>
+              case ScriptLedgerClient.ExerciseResult(_, _, _, _) =>
                 Left("Expected CreateResult but got ExerciseResult")
             }
           } yield (SEApp(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
@@ -788,6 +823,7 @@ object Converter {
           case TreeEvent.Kind.Exercised(exercised) =>
             for {
               tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
+              ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
               cid <- ContractId.fromString(exercised.contractId)
               choice <- ChoiceName.fromString(exercised.choice)
               choiceArg <- NoLoggingValueValidator
@@ -797,6 +833,7 @@ object Converter {
               childEvents <- exercised.childEventIds.toList.traverse(convEvent(_))
             } yield ScriptLedgerClient.Exercised(
               tplId,
+              ifaceId,
               cid,
               choice,
               choiceArg,

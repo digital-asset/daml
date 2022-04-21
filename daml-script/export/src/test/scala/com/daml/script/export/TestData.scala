@@ -95,6 +95,7 @@ object TestData {
                 ExercisedEvent(
                   eventId = eventId,
                   templateId = Some(defaultTemplateId),
+                  interfaceId = None,
                   contractId = ContractId.unwrap(contractId),
                   actingParties = Party.unsubst(actingParties),
                   choice = "Choice",

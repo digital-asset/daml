@@ -151,7 +151,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.Exercise(
-          templateId = validatedTemplateId,
+          typeId = validatedTemplateId,
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,

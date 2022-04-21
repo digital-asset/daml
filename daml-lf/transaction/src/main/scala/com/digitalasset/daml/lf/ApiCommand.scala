@@ -10,27 +10,29 @@ import com.daml.lf.data.{ImmArray, Time}
 
 /** Accepted commands coming from API */
 sealed abstract class ApiCommand extends Product with Serializable {
-  val templateId: Identifier
+  def typeId: TypeConName
 }
 
 object ApiCommand {
 
   /** Command for creating a contract
     *
-    * @param templateId identifier of the template that the contract is instantiating
+    * @param templateId TypeConName of the template that the contract is instantiating
     * @param argument   value passed to the template
     */
-  final case class Create(templateId: Identifier, argument: Value) extends ApiCommand
+  final case class Create(templateId: TypeConName, argument: Value) extends ApiCommand {
+    def typeId: TypeConName = templateId
+  }
 
   /** Command for exercising a choice on an existing contract
     *
-    * @param templateId identifier of the original contract
+    * @param typeId templateId or interfaceId where the choice is defined
     * @param contractId contract on which the choice is exercised
-    * @param choiceId   identifier choice
+    * @param choiceId   TypeConName choice
     * @param argument   value passed for the choice
     */
   final case class Exercise(
-      templateId: Identifier,
+      typeId: TypeConName,
       contractId: Value.ContractId,
       choiceId: ChoiceName,
       argument: Value,
@@ -38,32 +40,36 @@ object ApiCommand {
 
   /** Command for exercising a choice on an existing contract specified by its key
     *
-    * @param templateId  identifier of the original contract
+    * @param templateId  TypeConName of the original contract
     * @param contractKey key of the contract on which the choice is exercised
-    * @param choiceId    identifier choice
+    * @param choiceId    TypeConName choice
     * @param argument    value passed for the choice
     */
   final case class ExerciseByKey(
-      templateId: Identifier,
+      templateId: TypeConName,
       contractKey: Value,
       choiceId: ChoiceName,
       argument: Value,
-  ) extends ApiCommand
+  ) extends ApiCommand {
+    def typeId: TypeConName = templateId
+  }
 
   /** Command for creating a contract and exercising a choice
     * on that existing contract within the same transaction
     *
-    * @param templateId     identifier of the original contract
+    * @param templateId     TypeConName of the original contract
     * @param createArgument value passed to the template
-    * @param choiceId       identifier choice
+    * @param choiceId       TypeConName choice
     * @param choiceArgument value passed for the choice
     */
   final case class CreateAndExercise(
-      templateId: Identifier,
+      templateId: TypeConName,
       createArgument: Value,
       choiceId: ChoiceName,
       choiceArgument: Value,
-  ) extends ApiCommand
+  ) extends ApiCommand {
+    def typeId: TypeConName = templateId
+  }
 }
 
 /** Commands input adapted from ledger-api

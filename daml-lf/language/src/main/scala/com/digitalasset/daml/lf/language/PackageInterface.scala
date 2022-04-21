@@ -293,46 +293,39 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       }
     )
 
-  import PackageInterface.ChoiceInfo
-
-  private[lf] def lookupChoice(
-      identifier: TypeConName,
+  // TODO: https://github.com/digital-asset/daml/issues/12051
+  //  Drop this, once Canton support ambiguous choices properly
+  @deprecated
+  private[lf] def lookupLenientChoice(
+      templateId: TypeConName,
       chName: ChoiceName,
-  ): Either[LookupError, ChoiceInfo] = {
-    lazy val context = Reference.Choice(identifier, chName)
-    lookupTemplateOrInterface(identifier, context).flatMap {
-      case Left(template) =>
-        template.choices.get(chName) match {
-          case Some(choice) => Right(ChoiceInfo.Template(choice))
-          case None =>
-            template.inheritedChoices.get(chName) match {
-              case Some(ifaceId) =>
-                lookupInterfaceChoice(ifaceId, chName, context).map(
-                  ChoiceInfo.Inherited(ifaceId, _)
-                )
-              case None =>
-                Left(LookupError(context, context))
-            }
-        }
-      case Right(interface) =>
-        interface.fixedChoices.get(chName) match {
-          case Some(choice) => Right(ChoiceInfo.Interface(choice))
-          case None => {
-            // TODO(drsk) improve the performance of this lookup. Tracked in issue
-            // https://github.com/digital-asset/daml/issues/13630.
-            interface.requires.view
-              .map((iface) =>
-                lookupInterfaceChoice(iface, chName, context).map((choice) => (choice, iface))
-              )
-              .collectFirst({ case Right((choice, iface)) => (choice, iface) }) match {
-              case Some((choice, iface)) =>
-                Right(ChoiceInfo.InterfaceInherited(iface, choice))
-              case None => Left(LookupError(context, context))
-            }
+  ): Either[LookupError, PackageInterface.ChoiceInfo] = {
+    lazy val context = Reference.Choice(templateId, chName)
+    lookupTemplate(templateId, context).flatMap { template =>
+      template.choices.get(chName) match {
+        case Some(choice) =>
+          Right(PackageInterface.ChoiceInfo.Template(choice))
+        case None =>
+          template.inheritedChoices.get(chName) match {
+            case Some(ifaceId) =>
+              lookupInterfaceChoice(ifaceId, chName, context)
+                .map(PackageInterface.ChoiceInfo.Inherited(ifaceId, _))
+            case None =>
+              Left(LookupError(context, context))
           }
-        }
+      }
     }
   }
+
+  private[lf] def lookupChoice(
+      templateId: TypeConName,
+      mbInterfaceId: Option[TypeConName],
+      chName: ChoiceName,
+  ): Either[LookupError, TemplateChoiceSignature] =
+    mbInterfaceId match {
+      case None => lookupTemplateChoice(templateId, chName)
+      case Some(ifaceId) => lookupInterfaceChoice(ifaceId, chName)
+    }
 
   def lookupTemplateOrInterface(
       name: TypeConName
@@ -454,18 +447,10 @@ object PackageInterface {
 
   object ChoiceInfo {
 
-    final case class Interface(choice: TemplateChoiceSignature) extends ChoiceInfo
-
     final case class Template(choice: TemplateChoiceSignature) extends ChoiceInfo
 
-    final case class Inherited(ifaceId: Identifier, choice: TemplateChoiceSignature)
+    final case class Inherited(ifaceId: TypeConName, choice: TemplateChoiceSignature)
         extends ChoiceInfo
 
-    final case class InterfaceInherited(
-        ifaceId: Identifier,
-        choice: TemplateChoiceSignature,
-    ) extends ChoiceInfo
-
   }
-
 }

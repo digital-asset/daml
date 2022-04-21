@@ -16,6 +16,8 @@ public class ExercisedEvent implements TreeEvent {
 
   private final Identifier templateId;
 
+  private final Identifier interfaceId;
+
   private final String contractId;
 
   private final String choice;
@@ -34,6 +36,7 @@ public class ExercisedEvent implements TreeEvent {
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
+      Identifier interfaceId,
       @NonNull String contractId,
       @NonNull String choice,
       @NonNull Value choiceArgument,
@@ -44,6 +47,7 @@ public class ExercisedEvent implements TreeEvent {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
     this.templateId = templateId;
+    this.interfaceId = interfaceId;
     this.contractId = contractId;
     this.choice = choice;
     this.choiceArgument = choiceArgument;
@@ -69,6 +73,14 @@ public class ExercisedEvent implements TreeEvent {
   @Override
   public Identifier getTemplateId() {
     return templateId;
+  }
+
+  public boolean hasInterfaceId() {
+    return interfaceId == null;
+  }
+
+  public Identifier getInterfaceId() {
+    return interfaceId;
   }
 
   @NonNull
@@ -166,18 +178,19 @@ public class ExercisedEvent implements TreeEvent {
   }
 
   public EventOuterClass.@NonNull ExercisedEvent toProto() {
-    return EventOuterClass.ExercisedEvent.newBuilder()
-        .setEventId(getEventId())
-        .setChoice(getChoice())
-        .setChoiceArgument(getChoiceArgument().toProto())
-        .setConsuming(isConsuming())
-        .setContractId(getContractId())
-        .setTemplateId(getTemplateId().toProto())
-        .addAllActingParties(getActingParties())
-        .addAllWitnessParties(getWitnessParties())
-        .addAllChildEventIds(getChildEventIds())
-        .setExerciseResult(getExerciseResult().toProto())
-        .build();
+    EventOuterClass.ExercisedEvent.Builder builder = EventOuterClass.ExercisedEvent.newBuilder();
+    builder.setEventId(getEventId());
+    builder.setChoice(getChoice());
+    builder.setChoiceArgument(getChoiceArgument().toProto());
+    builder.setConsuming(isConsuming());
+    builder.setContractId(getContractId());
+    builder.setTemplateId(getTemplateId().toProto());
+    if (hasInterfaceId()) builder.setInterfaceId(getInterfaceId().toProto());
+    builder.addAllActingParties(getActingParties());
+    builder.addAllWitnessParties(getWitnessParties());
+    builder.addAllChildEventIds(getChildEventIds());
+    builder.setExerciseResult(getExerciseResult().toProto());
+    return builder.build();
   }
 
   public static ExercisedEvent fromProto(EventOuterClass.ExercisedEvent exercisedEvent) {
@@ -185,6 +198,9 @@ public class ExercisedEvent implements TreeEvent {
         exercisedEvent.getWitnessPartiesList(),
         exercisedEvent.getEventId(),
         Identifier.fromProto(exercisedEvent.getTemplateId()),
+        (exercisedEvent.hasInterfaceId()
+            ? null
+            : Identifier.fromProto(exercisedEvent.getInterfaceId())),
         exercisedEvent.getContractId(),
         exercisedEvent.getChoice(),
         Value.fromProto(exercisedEvent.getChoiceArgument()),

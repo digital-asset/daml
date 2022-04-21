@@ -15,8 +15,11 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.{Create, Exercise, Key, Node, NodeId}
 import com.daml.platform.index.index.StatusDetails
+import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._
+
+import scala.annotation.nowarn
 
 object UpdateToDbDto {
 
@@ -209,7 +212,9 @@ object UpdateToDbDto {
                     blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  exercise_choice = Some(exercise.choiceId),
+                  exercise_choice = Some(
+                    ChoiceCoder.encode(exercise.interfaceId, exercise.choiceId)
+                  ): @nowarn("msg=deprecated"),
                   exercise_argument = Some(exerciseArgument)
                     .map(compressionStrategy.exerciseArgumentCompression.compress),
                   exercise_result = exerciseResult

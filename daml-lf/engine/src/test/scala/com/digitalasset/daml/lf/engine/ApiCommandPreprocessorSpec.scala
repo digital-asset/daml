@@ -116,7 +116,7 @@ class ApiCommandPreprocessorSpec
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise API command is accepted
-      val validExe = ApiCommand.Exercise(
+      val validExeTemplate = ApiCommand.Exercise(
         "Mod:Record",
         newCid,
         "Transfer",
@@ -130,18 +130,10 @@ class ApiCommandPreprocessorSpec
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
       // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface command is accepted
-      val validExeByInterface = ApiCommand.Exercise(
+      val validExeInterface = ApiCommand.Exercise(
         "Mod:Iface",
         newCid,
         "IfaceChoice",
-        ValueUnit,
-      )
-
-      // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface via required interface command is accepted
-      val validExeByRequiredInterface = ApiCommand.Exercise(
-        "Mod:Iface",
-        newCid,
-        "IfaceChoice3",
         ValueUnit,
       )
       // TEST_EVIDENCE: Input Validation: well formed create-and-exercise API command is accepted
@@ -154,10 +146,9 @@ class ApiCommandPreprocessorSpec
       val noErrorTestCases = Table[ApiCommand](
         "command",
         validCreate,
-        validExe,
+        validExeTemplate,
+        validExeInterface,
         validExeByKey,
-        validExeByInterface,
-        validExeByRequiredInterface,
         validCreateAndExe,
       )
 
@@ -169,15 +160,15 @@ class ApiCommandPreprocessorSpec
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Input Validation: ill-formed exercise API command is rejected
-        validExe.copy(templateId = "Mod:Undefined") ->
+        validExeTemplate.copy(typeId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
-        validExe.copy(choiceId = "Undefined") ->
+        validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
-        validExe.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
+        validExeTemplate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Input Validation: exercise-by-interface command is rejected for a
         // choice of another interface.
-        validExeByInterface.copy(choiceId = "IfaceChoice2") ->
+        validExeInterface.copy(choiceId = "IfaceChoice2") ->
           a[Error.Preprocessing.Lookup],
         // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key API command is rejected
         validExeByKey.copy(templateId = "Mod:Undefined") ->

@@ -343,7 +343,9 @@ final class LfValueTranslation(
         )
         .assertExercise()
 
-    lazy val templateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
+    lazy val temlateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
+    lazy val interfaceId: Option[LfIdentifier] =
+      raw.partial.interfaceId.map(apiIdentifierToDamlLfIdentifier)
     lazy val choiceName: LfChoiceName = LfChoiceName.assertFromString(raw.partial.choice)
 
     // Convert Daml-LF values to ledger API values.
@@ -353,7 +355,8 @@ final class LfValueTranslation(
         value = exercise.argument,
         verbose = verbose,
         attribute = "exercise argument",
-        enrich = value => enricher.enrichChoiceArgument(templateId, choiceName, value.unversioned),
+        enrich = value =>
+          enricher.enrichChoiceArgument(temlateId, interfaceId, choiceName, value.unversioned),
       )
       exerciseResult <- exercise.result match {
         case Some(result) =>
@@ -361,7 +364,8 @@ final class LfValueTranslation(
             value = result,
             verbose = verbose,
             attribute = "exercise result",
-            enrich = value => enricher.enrichChoiceResult(templateId, choiceName, value.unversioned),
+            enrich = value =>
+              enricher.enrichChoiceResult(temlateId, interfaceId, choiceName, value.unversioned),
           ).map(Some(_))
         case None => Future.successful(None)
       }

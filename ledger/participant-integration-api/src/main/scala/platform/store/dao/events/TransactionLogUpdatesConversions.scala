@@ -280,6 +280,7 @@ private[events] object TransactionLogUpdatesConversions {
         lfValueTranslation.enricher
           .enrichChoiceArgument(
             exercisedEvent.templateId,
+            exercisedEvent.interfaceId,
             Ref.Name.assertFromString(exercisedEvent.choice),
             value.unversioned,
           )
@@ -296,6 +297,7 @@ private[events] object TransactionLogUpdatesConversions {
           val choiceResultEnricher = (value: Value) =>
             lfValueTranslation.enricher.enrichChoiceResult(
               exercisedEvent.templateId,
+              exercisedEvent.interfaceId,
               Ref.Name.assertFromString(exercisedEvent.choice),
               value.unversioned,
             )
