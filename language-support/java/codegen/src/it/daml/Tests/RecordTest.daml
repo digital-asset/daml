@@ -60,12 +60,12 @@ data FixedContractId = FixedContractId
         fixedContractId: ParametrizedContractId Foo
   deriving (Eq, Show)
 
-data ClaimF t a x
-  = ClaimF with k: (Observation t Decimal), claim: x
+data UsesNumType t x
+  = UsesNumType with k: (Const t Decimal), x: x
   deriving (Eq, Show)
 
-data Observation t a
-  = Observation with obs: t
+data Const t a
+  = Const with runConst: t
   deriving (Eq, Show)
 
 -- Not part of the test but the codegen filters out
@@ -79,6 +79,6 @@ template RecordTestTemplate
         nestedRecord : NestedRecord
         parametrizedContractId : ParametrizedContractId Int
         fixedContractId : FixedContractId
-        claimF : ClaimF Int Int Int
+        usesNumType : UsesNumType Int Int
     where
         signatory owner
