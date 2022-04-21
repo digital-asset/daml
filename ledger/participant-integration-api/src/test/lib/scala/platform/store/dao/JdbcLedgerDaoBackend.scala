@@ -113,9 +113,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     resource = newLoggingContext { implicit loggingContext =>
       for {
         dao <- daoOwner(
-          eventsPageSize = 100,
+          eventsPageSize = 4,
           eventsProcessingParallelism = 4,
-          acsIdPageSize = 2000,
+          acsIdPageSize = 4,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
