@@ -3,16 +3,11 @@
 
 package com.daml.nonempty
 
-import scala.collection.{Factory, IterableOnce, immutable => imm}
-import imm.Iterable
-import imm.Map
-import imm.Set
+import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
-import scalaz.Leibniz
-import Leibniz.===
-import scalaz.Liskov
-import Liskov.<~<
+import scalaz.Leibniz, Leibniz.===
+import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
 import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
