@@ -1,6 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_darwin")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary", "haskell_cabal_library")
 load(":version.bzl", "GHC_FLAVOR", "GHC_LIB_VERSION")
 
@@ -112,7 +113,7 @@ SEP="$$(path_list_separtor)"
 export LIBRARY_PATH="$$(make_all_absolute "$(LIBS_LIBRARY_PATH)")"
 export PATH="$$(make_all_absolute "$(TOOLS_PATH)")$$SEP$$PATH"
 export PATH="$$(abs_dirname "$(execpath :hadrian)")$$SEP$$PATH"
-export LANG=C.UTF-8
+export LANG={lang}
 
 GHC="$$(abs_dirname $(execpath :README.md))"
 TMP=$$(mktemp -d)
@@ -134,6 +135,7 @@ cp $$TMP/ghc-lib{component}.cabal $(execpath ghc-lib{component}.cabal)
                 component = component,
                 ghc_flavor = GHC_FLAVOR,
                 ghc_lib_version = GHC_LIB_VERSION,
+                lang = "en_US.UTF-8" if is_darwin else "C.UTF-8",
             ),
             visibility = ["//visibility:public"],
         )
