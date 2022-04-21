@@ -44,6 +44,10 @@ private[platform] object SimpleSqlAsVectorOf {
         .fold(es => throw es.head, _.fold(throw _, identity))
     }
 
+    def queryText(): String = {
+      anorm.AnormQueryText.queryText(sql).getOrElse("<failed-to-build-query-text>")
+    }
+
   }
 
 }

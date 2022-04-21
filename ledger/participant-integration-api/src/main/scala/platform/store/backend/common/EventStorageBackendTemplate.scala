@@ -369,6 +369,53 @@ abstract class EventStorageBackendTemplate(
     "submitters",
   ).mkString(", ")
 
+  def eventsSql[T](
+      joinClause: CompositeSql,
+      additionalAndClause: CompositeSql,
+      witnessesColumn: String,
+      partitions: List[(String, String)],
+      internedWildcardParties: Set[Int],
+      internedPartiesAndTemplates: List[(Set[Int], Set[Int])],
+  )(
+      limit: Option[Int],
+      fetchSizeHint: Option[Int],
+  ): SimpleSql[Row] = {
+
+    val wildcardPartiesClause = if (internedWildcardParties.isEmpty) {
+      Nil
+    } else {
+      eventStrategy.wildcardPartiesClause(witnessesColumn, internedWildcardParties) :: Nil
+    }
+    val filterPartiesClauses = internedPartiesAndTemplates.map { case (parties, templates) =>
+      eventStrategy.partiesAndTemplatesClause(witnessesColumn, parties, templates)
+    }
+
+    val witnessesWhereClause =
+      (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
+
+    def selectFrom(table: String, selectColumns: String) =
+      cSQL"""
+        SELECT
+          #$selectColumns, #$witnessesColumn as event_witnesses, command_id
+        FROM
+          #$table $joinClause
+        WHERE
+          $additionalAndClause
+          $witnessesWhereClause
+      """
+
+    val selectClause = partitions
+      .map(p => selectFrom(p._1, p._2))
+      .mkComposite("", " UNION ALL", "")
+
+    val x: SimpleSql[Row] =
+      SQL"""
+        $selectClause
+        ORDER BY event_sequential_id
+        ${QueryStrategy.limitClause(limit)}""".withFetchSize(fetchSizeHint)
+    x
+  }
+
   private def events[T](
       joinClause: CompositeSql,
       additionalAndClause: CompositeSql,
@@ -406,51 +453,32 @@ abstract class EventStorageBackendTemplate(
     if (internedWildcardParties.isEmpty && internedPartiesAndTemplates.isEmpty) {
       Vector.empty
     } else {
-      val wildcardPartiesClause = if (internedWildcardParties.isEmpty) {
-        Nil
-      } else {
-        eventStrategy.wildcardPartiesClause(witnessesColumn, internedWildcardParties) :: Nil
-      }
-      val filterPartiesClauses = internedPartiesAndTemplates.map { case (parties, templates) =>
-        eventStrategy.partiesAndTemplatesClause(witnessesColumn, parties, templates)
-      }
-
-      val witnessesWhereClause =
-        (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
-
-      def selectFrom(table: String, selectColumns: String) = cSQL"""
-        SELECT
-          #$selectColumns, #$witnessesColumn as event_witnesses, command_id
-        FROM
-          #$table $joinClause
-        WHERE
-          $additionalAndClause
-          $witnessesWhereClause
-      """
-
-      val selectClause = partitions
-        .map(p => selectFrom(p._1, p._2))
-        .mkComposite("", " UNION ALL", "")
-
-      SQL"""
-        $selectClause
-        ORDER BY event_sequential_id
-        ${QueryStrategy.limitClause(limit)}"""
-        .withFetchSize(fetchSizeHint)
-        .asVectorOf(rowParser(internedAllParties))(connection)
+      val sql: SimpleSql[Row] = eventsSql(
+        joinClause = joinClause,
+        additionalAndClause = additionalAndClause,
+        witnessesColumn = witnessesColumn,
+        partitions = partitions,
+        internedWildcardParties = internedWildcardParties,
+        internedPartiesAndTemplates = internedPartiesAndTemplates,
+      )(
+        limit = limit,
+        fetchSizeHint = fetchSizeHint,
+      )
+      sql.queryText()
+      sql.asVectorOf(rowParser(internedAllParties))(connection)
     }
   }
 
-  override def transactionEvents(
+  def transactionEventsSql(
       rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
-    events(
+      internedWildcardParties: Set[Int],
+      internedPartiesAndTemplates: List[(Set[Int], Set[Int])],
+  ): SimpleSql[Row] = {
+    eventsSql(
       joinClause = cSQL"",
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawFlatEventParser,
       witnessesColumn = "flat_event_witnesses",
       partitions = List(
         "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
@@ -459,11 +487,51 @@ abstract class EventStorageBackendTemplate(
         // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
         //"participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
       ),
+      internedWildcardParties = internedWildcardParties,
+      internedPartiesAndTemplates = internedPartiesAndTemplates,
     )(
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
-      filterParams,
-    )(connection)
+    )
+  }
+
+  override def transactionEvents(
+      rangeParams: RangeParams,
+      filterParams: FilterParams,
+  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+    val internedAllParties: Set[Int] =
+      filterParams.wildCardParties.iterator
+        .++(filterParams.partiesAndTemplates.iterator.flatMap(_._1.iterator))
+        .map(stringInterning.party.tryInternalize)
+        .flatMap(_.iterator)
+        .toSet
+
+    val internedWildcardParties: Set[Int] = filterParams.wildCardParties.view
+      .flatMap(party => stringInterning.party.tryInternalize(party).toList)
+      .toSet
+
+    val internedPartiesAndTemplates: List[(Set[Int], Set[Int])] =
+      filterParams.partiesAndTemplates.iterator
+        .map { case (parties, templateIds) =>
+          (
+            parties.flatMap(s => stringInterning.party.tryInternalize(s).toList),
+            templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s).toList),
+          )
+        }
+        .filterNot(_._1.isEmpty)
+        .filterNot(_._2.isEmpty)
+        .toList
+
+    if (internedWildcardParties.isEmpty && internedPartiesAndTemplates.isEmpty) {
+      Vector.empty
+    } else {
+      val sql: SimpleSql[Row] = transactionEventsSql(
+        rangeParams = rangeParams,
+        internedWildcardParties = internedWildcardParties,
+        internedPartiesAndTemplates = internedPartiesAndTemplates,
+      )
+      sql.asVectorOf(rawFlatEventParser(internedAllParties))(connection)
+    }
   }
 
   override def activeContractEventIds(

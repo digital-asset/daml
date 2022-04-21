@@ -420,3 +420,16 @@ da_scala_benchmark_jmh(
         "//libs-scala/contextualized-logging",
     ],
 )
+
+da_scala_binary(
+    name = "generate-events-queries-text-app",
+    srcs = glob(["app/src/main/scala/**/*.scala"]),
+    main_class = "com.daml.platform.app.EventsQueryTextGenApp",
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":participant-integration-api",
+    ],
+)
