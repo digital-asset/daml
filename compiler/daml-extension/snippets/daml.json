@@ -106,14 +106,6 @@
     "prefix": "\\",
     "body": "\\${1:var} -> $0"
   },
-  "test": {
-    "prefix": "test",
-    "body": [
-      "${1:main} = test do",
-      "  ${2:${3:p} <- getParty \"${4:party}\"}",
-      "  $0"
-    ]
-  },
   "script": {
     "prefix": "script",
     "body": [
