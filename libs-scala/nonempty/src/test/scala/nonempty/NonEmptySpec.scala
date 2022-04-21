@@ -185,6 +185,23 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
     }
   }
 
+  "++" should {
+    "preserve non-emptiness for Sets" in {
+      val set = NonEmpty(Set, 1, 2)
+      (set ++ Iterable.empty) should ===(NonEmpty(Set, 1, 2))
+    }
+
+    "preserve non-emptiness for Seqs" in {
+      val seq = NonEmpty(Seq, 1, 2)
+      (seq ++ Iterable(1, 3)) should ===(NonEmpty(Seq, 1, 2, 1, 3))
+    }
+
+    "preserve non-emptiness for Maps" in {
+      val map = NonEmpty(Map, 1 -> "a")
+      (map ++ Iterable.empty) should ===(NonEmpty(Map, 1 -> "a"))
+    }
+  }
+
   "map" should {
     "'work' on sets, so to speak" in {
       val r = NonEmpty(Set, 1, 2) map (_ + 2)
