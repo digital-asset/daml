@@ -1,0 +1,71 @@
+diff --git a/hadrian/hadrian.cabal b/hadrian/hadrian.cabal
+index 89f28d4e33..0436705b55 100644
+--- a/hadrian/hadrian.cabal
++++ b/hadrian/hadrian.cabal
+@@ -115,19 +115,19 @@ executable hadrian
+                        , TupleSections
+     other-extensions:    MultiParamTypeClasses
+                        , TypeFamilies
+-    build-depends:       base                 >= 4.8     && < 5
+-                       , Cabal                >= 3.0     && < 3.1
+-                       , containers           >= 0.5     && < 0.7
+-                       , directory            >= 1.2     && < 1.4
+-                       , extra                >= 1.4.7
+-                       , mtl                  == 2.2.*
+-                       , parsec               >= 3.1     && < 3.2
+-                       , QuickCheck           >= 2.6     && < 2.14
+-                       , shake                >= 0.16.4
+-                       , transformers         >= 0.4     && < 0.6
+-                       , unordered-containers >= 0.2.1   && < 0.3
+-    build-tools:         alex  >= 3.1
+-                       , happy >= 1.19.4
++    build-depends:       base
++                       , Cabal
++                       , containers
++                       , directory
++                       , extra
++                       , mtl
++                       , parsec
++                       , QuickCheck
++                       , shake
++                       , transformers
++                       , unordered-containers
++    build-tools:         alex
++                       , happy
+     ghc-options:       -Wall
+                        -Wincomplete-record-updates
+                        -Wredundant-constraints
+diff --git a/hadrian/src/Hadrian/Haskell/Cabal/Parse.hs b/hadrian/src/Hadrian/Haskell/Cabal/Parse.hs
+index e527482e9c..cb76214c44 100644
+--- a/hadrian/src/Hadrian/Haskell/Cabal/Parse.hs
++++ b/hadrian/src/Hadrian/Haskell/Cabal/Parse.hs
+@@ -38,6 +38,7 @@ import qualified Distribution.Text                             as C
+ import qualified Distribution.Types.LocalBuildInfo             as C
+ import qualified Distribution.Types.CondTree                   as C
+ import qualified Distribution.Types.MungedPackageId            as C
++import qualified Distribution.Utils.ShortText                  as C
+ import qualified Distribution.Verbosity                        as C
+ import Hadrian.Expression
+ import Hadrian.Haskell.Cabal
+@@ -67,7 +68,7 @@ parsePackageData pkg = do
+         sorted  = sort [ C.unPackageName p | C.Dependency p _ _ <- allDeps ]
+         deps    = nubOrd sorted \\ [name]
+         depPkgs = catMaybes $ map findPackageByName deps
+-    return $ PackageData name version (C.synopsis pd) (C.description pd) depPkgs gpd
++    return $ PackageData name version (C.fromShortText $ C.synopsis pd) (C.fromShortText $ C.description pd) depPkgs gpd
+   where
+     -- Collect an overapproximation of dependencies by ignoring conditionals
+     collectDeps :: Maybe (C.CondTree v [C.Dependency] a) -> [C.Dependency]
+diff --git a/hadrian/src/Hadrian/Haskell/Cabal/Type.hs b/hadrian/src/Hadrian/Haskell/Cabal/Type.hs
+index b2a7002d6c..10a05e488e 100644
+--- a/hadrian/src/Hadrian/Haskell/Cabal/Type.hs
++++ b/hadrian/src/Hadrian/Haskell/Cabal/Type.hs
+@@ -12,7 +12,7 @@
+ module Hadrian.Haskell.Cabal.Type where
+ 
+ import Development.Shake.Classes
+-import Distribution.PackageDescription
++import Distribution.PackageDescription hiding (PackageName)
+ import GHC.Generics
+ 
+ import Hadrian.Package

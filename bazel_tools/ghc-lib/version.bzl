@@ -10,6 +10,7 @@ GHC_REV = "d222347e5f29f6fa540ca695fa64a92ef89fe789"
 GHC_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"
 GHC_PATCHES = [
     "@//bazel_tools/ghc-lib:ghc-daml-prim.patch",
+    "@//bazel_tools/ghc-lib:ghc-hadrian.patch",
 ]
 
 GHC_FLAVOR = "da-ghc-8.8.1"

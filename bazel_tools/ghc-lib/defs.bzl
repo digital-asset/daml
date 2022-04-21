@@ -49,6 +49,36 @@ def ghc_lib_gen():
 
 def ghc():
     native.filegroup(
+        name = "hadrian-srcs",
+        srcs = native.glob(["hadrian/**"]),
+        visibility = ["//visibility:public"],
+    )
+    haskell_cabal_binary(
+        name = "hadrian",
+        srcs = [":hadrian-srcs"],
+        deps = [
+            "@stackage//:base",
+            "@stackage//:Cabal",
+            "@stackage//:containers",
+            "@stackage//:directory",
+            "@stackage//:extra",
+            "@stackage//:mtl",
+            "@stackage//:parsec",
+            "@stackage//:QuickCheck",
+            "@stackage//:shake",
+            "@stackage//:transformers",
+            "@stackage//:unordered-containers",
+        ],
+        tools = [
+            "@stackage-exe//alex",
+            "@stackage-exe//happy",
+        ],
+        cabalopts = [
+            "--ghc-option=-Wno-dodgy-imports",
+            "--ghc-option=-Wno-unused-imports",
+        ],
+    )
+    native.filegroup(
         name = "srcs",
         srcs = native.glob(["**"]),
         visibility = ["//visibility:public"],
