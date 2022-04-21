@@ -61,36 +61,11 @@ data FixedContractId = FixedContractId
   deriving (Eq, Show)
 
 data ClaimF t a x
-  = ZeroF
-  | OneF a
-  | GiveF x
-  | AndF with claims: [x]
-  | OrF with lhs: x, rhs: x
-  | CondF with predicate: (Observation t Bool), success: x, failure: x
-  | ScaleF with k: (Observation t Decimal), claim: x
-  | WhenF with predicate: (Observation t Bool), claim: x
-  | AnytimeF with predicate: (Observation t Bool), zlabel: Text, claim: x
-  | UntilF with predicate: (Observation t Bool), zlabel: Text, repeatable: Bool, claim: x
-  | LabelF with label: Text, claim: x
+  = ClaimF with k: (Observation t Decimal), claim: x
   deriving (Eq, Show)
 
 data Observation t a
-  = DecimalConst Decimal
-  | DecimalObs Text
-  | DecimalLte (Observation t Decimal, Observation t Decimal)
-  | DecimalEqu (Observation t Decimal, Observation t Decimal)
-  | DecimalAdd (Observation t Decimal, Observation t Decimal)
-  | DecimalNeg (Observation t Decimal)
-  | DecimalMul (Observation t Decimal, Observation t Decimal)
-  | DecimalDiv (Observation t Decimal, Observation t Decimal)
-  | BoolConst Bool
-  | BoolNot (Observation t Bool)
-  | BoolAnd (Observation t Bool, Observation t Bool)
-  | BoolOr (Observation t Bool, Observation t Bool)
-  | DateIdentity
-  | DateConst t
-  | DateLte (Observation t t, Observation t t)
-  | DateEqu (Observation t t, Observation t t)
+  = Observation with obs: t
   deriving (Eq, Show)
 
 -- Not part of the test but the codegen filters out
