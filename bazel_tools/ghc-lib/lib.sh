@@ -23,7 +23,7 @@ path_list_separtor() {
   fi
 }
 
-make_absolue() {
+make_absolute() {
   local P="$1"
   case "$P" in
     /*|[a-zA-Z]:/*|[a-zA-Z]:\\*) echo "$P";;
@@ -36,12 +36,12 @@ make_all_absolute() {
   local SEP="$(path_list_separtor)"
   IFS="$SEP" read -ra ARR <<<"$IN"
   for P in "${ARR[@]}"; do
-    OUT="$OUT$(make_absolue "$P")$SEP"
+    OUT="$OUT$(make_absolute "$P")$SEP"
   done
   echo "${OUT%$SEP}"
 }
 
 abs_dirname() {
   local IN="$1"
-  echo "$(make_absolue "$(dirname "$IN")")"
+  echo "$(make_absolute "$(dirname "$IN")")"
 }
