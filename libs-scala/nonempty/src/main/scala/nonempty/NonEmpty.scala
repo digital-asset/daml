@@ -9,6 +9,7 @@ import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
+
 import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
 import NonEmptyCollCompat._
