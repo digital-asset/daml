@@ -195,7 +195,12 @@ package object inner {
         case TypeNumeric(_) => Set.empty
       }
     }
-    go(Set.empty, tpe).toVector
+    val res = go(Set.empty, tpe).toVector
+    // TODO s11 tparams Vector() of tpe
+    //  TypeCon(TypeConName(9f33dc55c00991bc2612fc9f1ae3f2581b5e1da3de90b2e8a7353c1d36b3f27e:Tests.RecordTest:Observation),
+    //          IndexedSeq(TypeVar(t), TypeNumeric(10)))
+    println(s"s11 tparams $res of tpe $tpe")
+    res
   }
 
   def createPackageIdField(packageId: PackageId): FieldSpec = {
