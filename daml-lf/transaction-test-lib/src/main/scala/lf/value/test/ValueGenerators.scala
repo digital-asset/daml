@@ -381,21 +381,21 @@ object ValueGenerators {
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
-      targetCoid,
-      templateId,
-      interfaceId,
-      choiceId,
-      consume,
-      actingParties,
-      chosenValue,
-      stakeholders,
-      signatories,
+      targetCoid = targetCoid,
+      templateId = templateId,
+      interfaceId = interfaceId,
+      choiceId = choiceId,
+      consuming = consume,
+      actingParties = actingParties,
+      chosenValue = chosenValue,
+      stakeholders = stakeholders,
+      signatories = signatories,
       choiceObservers = choiceObservers,
-      children,
-      exerciseResult,
-      key,
-      byKey,
-      version,
+      children = children,
+      exerciseResult = exerciseResult,
+      key = key,
+      byKey = byKey,
+      version = version,
     )
 
   val lookupNodeGen: Gen[Node.LookupByKey] =
