@@ -97,6 +97,7 @@ def ghc():
                 ":hadrian",
             ],
             toolchains = [
+                "@rules_cc//cc:current_cc_toolchain",
                 "@//bazel_tools/ghc-lib:libs",
                 "@//bazel_tools/ghc-lib:tools",
             ],
@@ -114,6 +115,8 @@ export LIBRARY_PATH="$$(make_all_absolute "$(LIBS_LIBRARY_PATH)")"
 export PATH="$$(make_all_absolute "$(TOOLS_PATH)")$$SEP$$PATH"
 export PATH="$$(abs_dirname "$(execpath :hadrian)")$$SEP$$PATH"
 export LANG={lang}
+export CC="$$(make_absolute $(CC))"
+export LD="$$(make_absolute $(LD))"
 
 GHC="$$(abs_dirname $(execpath :README.md))"
 TMP=$$(mktemp -d)
