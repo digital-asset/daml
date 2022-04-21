@@ -114,11 +114,11 @@
       "  $0"
     ]
   },
-  "scenario": {
-    "prefix": "scenario",
+  "script": {
+    "prefix": "script",
     "body": [
-      "${1:name} = scenario do",
-      "  ${2:${3:p} <- getParty \"${4:party}\"}",
+      "${1:name} = script do",
+      "  ${2:${3:p} <- allocateParty \"${4:party}\"}",
       "  $0"
     ]
   },
