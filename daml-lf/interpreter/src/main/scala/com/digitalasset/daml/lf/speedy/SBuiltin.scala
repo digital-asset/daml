@@ -1146,19 +1146,20 @@ private[lf] object SBuiltin {
     ) = {
       val contractId = getSContractId(args, 0)
       val (actualTmplId, record @ _) = getSAnyContract(args, 1)
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(actualTmplId) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIfaceId) =>
-          SBool(true)
-        case _ =>
-          throw SErrorDamlException(
-            IE.ContractDoesNotImplementRequiringInterface(
-              requiringIfaceId,
-              requiredIfaceId,
-              contractId,
-              actualTmplId,
-            )
+      if (
+        machine.compiledPackages
+          .getDefinition(ImplementsDefRef(actualTmplId, requiringIfaceId))
+          .isEmpty
+      )
+        throw SErrorDamlException(
+          IE.ContractDoesNotImplementRequiringInterface(
+            requiringIfaceId,
+            requiredIfaceId,
+            contractId,
+            actualTmplId,
           )
-      }
+        )
+      machine.returnValue = SBool(true)
     }
   }
 
@@ -1243,10 +1244,10 @@ private[lf] object SBuiltin {
     }
   }
 
-  // Convert an interface `requiredIface` to another interface `requiringIface`, if
-  // the `requiringIface` implements `requiredIface`.
+  // Convert an interface value to another interface `requiringIfaceId`, if
+  // the underlying template implements `requiringIfaceId`. Else return `None`.
   final case class SBFromRequiredInterface(
-      requiringIface: TypeConName
+      requiringIfaceId: TypeConName
   ) extends SBuiltin(1) {
 
     override private[speedy] def execute(
@@ -1254,20 +1255,19 @@ private[lf] object SBuiltin {
         machine: Machine,
     ) = {
       val (tyCon, record) = getSAnyContract(args, 0)
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      // TODO https://github.com/digital-asset/daml/issues/11345
-      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
-          SOptional(Some(SAnyContract(tyCon, record)))
-        case _ =>
+      machine.returnValue =
+        if (
+          machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty
+        )
           SOptional(None)
-      }
+        else
+          SOptional(Some(SAnyContract(tyCon, record)))
     }
   }
 
-  // Convert an interface `requiredIface` to another interface `requiringIface`, if
-  // the `requiringIface` implements `requiredIface`.
+  // Convert an interface `requiredIfaceId`  to another interface `requiringIfaceId`, if
+  // the underlying template implements `requiringIfaceId`. Else throw a fatal
+  // `ContractDoesNotImplementRequiringInterface` exception.
   final case class SBUnsafeFromRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
@@ -1279,22 +1279,16 @@ private[lf] object SBuiltin {
     ) = {
       val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      // TODO https://github.com/digital-asset/daml/issues/11345
-      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIfaceId) =>
-          SAnyContract(tyCon, record)
-        case _ =>
-          throw SErrorDamlException(
-            IE.ContractDoesNotImplementRequiringInterface(
-              requiringIfaceId,
-              requiredIfaceId,
-              coid,
-              tyCon,
-            )
+      if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
+        throw SErrorDamlException(
+          IE.ContractDoesNotImplementRequiringInterface(
+            requiringIfaceId,
+            requiredIfaceId,
+            coid,
+            tyCon,
           )
-      }
+        )
+      machine.returnValue = SAnyContract(tyCon, record)
     }
   }
 
