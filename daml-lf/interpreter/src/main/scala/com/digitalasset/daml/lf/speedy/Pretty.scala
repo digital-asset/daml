@@ -281,9 +281,12 @@ private[lf] object Pretty {
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
           else
-            text("")
+            Doc.empty
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          (text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId)) &
+          text("exercises") &
+          text(ex.choiceId) + char(':') + prettyIdentifier(
+            ex.interfaceId.getOrElse(ex.templateId)
+          ) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
@@ -314,7 +317,7 @@ private[lf] object Pretty {
             )
         )
       else
-        text("")
+        Doc.empty
     val ppReferencedBy =
       if (ni.referencedBy.nonEmpty)
         meta(
@@ -322,10 +325,10 @@ private[lf] object Pretty {
             intercalate(comma + space, ni.referencedBy.toSeq.map(prettyEventId))
         )
       else
-        text("")
+        Doc.empty
     val ppArchivedBy =
       ni.consumedBy match {
-        case None => text("")
+        case None => Doc.empty
         case Some(nid) => meta("archived by" &: prettyEventId(nid))
       }
     prettyEventId(eventId) & prettyOptVersion(ni.node.optVersion) / stack(
@@ -381,8 +384,8 @@ private[lf] object Pretty {
       case ValueNumeric(d) => text(data.Numeric.toString(d))
       case ValueRecord(mbId, fs) =>
         (mbId match {
-          case None => text("")
-          case Some(id) => if (verbose) prettyIdentifier(id) else text("")
+          case Some(id) if verbose => prettyIdentifier(id)
+          case _ => Doc.empty
         }) +
           char('{') &
           fill(
@@ -396,28 +399,15 @@ private[lf] object Pretty {
           char('}')
       case ValueVariant(mbId, variant, value) =>
         (mbId match {
-          case None => text("")
-          case Some(id) =>
-            if (verbose)
-              prettyIdentifier(id) + char(':')
-            else
-              text("")
+          case Some(id) if verbose => prettyIdentifier(id) + char(':')
+          case _ => Doc.empty
         }) +
-          (value match {
-            case ValueUnit => text(variant)
-            case _ =>
-              text(variant) + char('(') + prettyValue(true)(value) + char(')')
-          })
+          text(variant) + char('(') + prettyValue(true)(value) + char(')')
       case ValueEnum(mbId, constructor) =>
         (mbId match {
-          case None => text("")
-          case Some(id) =>
-            if (verbose)
-              prettyIdentifier(id) + char(':')
-            else
-              text("")
-        }) +
-          text(constructor)
+          case Some(id) if verbose => prettyIdentifier(id) + char(':')
+          case _ => Doc.empty
+        }) + text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")

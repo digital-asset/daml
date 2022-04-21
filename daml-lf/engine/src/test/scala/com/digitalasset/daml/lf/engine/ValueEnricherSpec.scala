@@ -152,12 +152,12 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       builder.add(builder.fetch(create))
       builder.lookupByKey(create, true)
       builder.exercise(
-        create,
-        "Noop",
-        false,
-        Set("Alice"),
-        record,
-        Some(record),
+        contract = create,
+        choice = "Noop",
+        consuming = false,
+        actingParties = Set("Alice"),
+        argument = record,
+        result = Some(record),
       )
       builder.buildCommitted()
     }
