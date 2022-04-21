@@ -6,6 +6,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 load(
     ":version.bzl",
+    "GHC_LIB_PATCHES",
     "GHC_LIB_REPO_URL",
     "GHC_LIB_REV",
     "GHC_LIB_SHA256",
@@ -22,6 +23,8 @@ def ghc_lib():
         sha256 = GHC_LIB_SHA256,
         strip_prefix = "ghc-lib-{}".format(GHC_LIB_REV),
         build_file = "@//bazel_tools/ghc-lib:BUILD.ghc-lib-gen",
+        patches = GHC_LIB_PATCHES,
+        patch_args = ["-p1"],
     )
     new_git_repository(
         name = "da-ghc",
