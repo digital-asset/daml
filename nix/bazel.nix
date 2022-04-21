@@ -47,11 +47,10 @@ let shared = rec {
         xz
       ] ++ (
         if stdenv.isDarwin
-        # ghc-lib needs `ar`, but Bazel provides `libtool`. See https://github.com/bazelbuild/bazel/issues/5127.
-        # ghc-lib needs `ranlib`.
-        then [(runCommand "bazel-bintools" { buildInputs = []; } "mkdir -p $out/bin; ln -s ${binutils.bintools}/bin/ar $out/bin/ar; ln -s ${binutils.bintools}/bin/ranlib $out/bin/ranlib")]
+        then [stdenv.cc.bintools.bintools xcodebuild]
         else []
       );
+      ignoreCollisions = pkgs.stdenv.isDarwin;
     };
 
     postgresql_10 = if pkgs.buildPlatform.libc == "glibc"
