@@ -235,7 +235,7 @@ sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
 }
 
 object NonEmptyCollInstances {
-  implicit final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
+  final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
       private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
   ) extends AnyVal {
     import NonEmptyColl.Instance.{unsafeNarrow => un}
