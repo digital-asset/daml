@@ -227,13 +227,19 @@ object Runner {
     )
   }
 
+  val BLANK_APPLICATION_ID: ApplicationId = ApplicationId("")
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
   private def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int,
   )(implicit ec: ExecutionContext, seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
-    val applicationId = params.application_id.getOrElse(Runner.DEFAULT_APPLICATION_ID)
+    val applicationId = params.application_id.getOrElse(
+      // If an application id was not supplied, but an access token was,
+      // we leave the application id empty so that the ledger will
+      // determine it from the access token.
+      if (params.access_token.nonEmpty) BLANK_APPLICATION_ID else DEFAULT_APPLICATION_ID
+    )
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
