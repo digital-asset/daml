@@ -192,7 +192,7 @@ package object inner {
         case TypeVar(x) => typeParams + JavaEscaper.escapeString(x)
         case TypePrim(_, args) => args.foldLeft(typeParams)(go)
         case TypeCon(_, args) => args.foldLeft(typeParams)(go)
-        case TypeNumeric(_) => Set.empty
+        case TypeNumeric(_) => typeParams
       }
     }
     val res = go(Set.empty, tpe).toVector
