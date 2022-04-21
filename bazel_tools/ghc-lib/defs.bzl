@@ -93,6 +93,7 @@ def ghc():
             tools = [
                 "@ghc-lib-gen",
                 "@//bazel_tools/ghc-lib:sh-lib",
+                ":hadrian",
             ],
             toolchains = [
                 "@//bazel_tools/ghc-lib:libs",
@@ -110,6 +111,7 @@ EXECROOT=$$PWD
 SEP="$$(path_list_separtor)"
 export LIBRARY_PATH="$$(make_all_absolute "$(LIBS_LIBRARY_PATH)")"
 export PATH="$$(make_all_absolute "$(TOOLS_PATH)")$$SEP$$PATH"
+export PATH="$$(abs_dirname "$(execpath :hadrian)")$$SEP$$PATH"
 export LANG=C.UTF-8
 
 GHC="$$(abs_dirname $(execpath :README.md))"
