@@ -19,9 +19,7 @@ private[inner] object RecordMethods {
 
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
-    val dtv = distinctTypeVars(fields, typeParameters)
-    println(s"s11 params $dtv for class $className")
-    val conversionMethods = dtv.flatMap { params =>
+    val conversionMethods = distinctTypeVars(fields, typeParameters).flatMap { params =>
       val fromValue = FromValueGenerator.generateFromValueForRecordLike(
         fields,
         className.parameterized(typeParameters),
