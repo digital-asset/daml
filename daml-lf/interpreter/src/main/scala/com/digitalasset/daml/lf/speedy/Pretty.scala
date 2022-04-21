@@ -284,7 +284,9 @@ private[lf] object Pretty {
             Doc.empty
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") &
-          text(ex.choiceId) + char(':') + prettyIdentifier(ex.typeId.merge) &
+          text(ex.choiceId) + char(':') + prettyIdentifier(
+            ex.interfaceId.getOrElse(ex.templateId)
+          ) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
