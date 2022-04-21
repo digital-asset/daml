@@ -38,6 +38,12 @@ class ParticipantInMemoryState(
   private val buffersUpdaterExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
 
+  def flushBuffers(): Unit = {
+    mutableContractStateCaches.flush(ledgerEndCache()._1)
+    transactionsBuffer.flush()
+    completionsBuffer.flush()
+  }
+
   def updateBatch(update: TransactionLogUpdate)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =

@@ -66,48 +66,56 @@ object SandboxOnXRunner {
       config: Config[BridgeConfig]
   )(implicit resourceContext: ResourceContext): Resource[Unit] = newLoggingContext {
     implicit loggingContext =>
-      implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
-      implicit val materializer: Materializer = Materializer(actorSystem)
       for {
-        // Take ownership of the actor system and materializer so they're cleaned up properly.
-        // This is necessary because we can't declare them as implicits in a `for` comprehension.
-        _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
-        _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
-
         participantConfig <- validateCombinedParticipantMode(config)
         // Start the ledger
-        timeServiceBackendO = BridgeConfigProvider.timeServiceBackend(config)
-        (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge().acquire()
+        _ <- participantR(config, participantConfig)
+      } yield logInitializationHeader(config, participantConfig)
+  }
 
-        readServiceWithSubscriber: ReadService = new BridgeReadService(
-          ledgerId = config.ledgerId,
-          maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
-            BridgeConfigProvider.DefaultMaximumDeduplicationDuration
-          ),
-          stateUpdatesSource,
-        )
+  def participantR(config: Config[BridgeConfig], participantConfig: ParticipantConfig)(implicit
+      loggingContext: LoggingContext,
+      resourceContext: ResourceContext,
+  ): Resource[Participant] = {
+    implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
+    implicit val materializer: Materializer = Materializer(actorSystem)
+    for {
+      // Take ownership of the actor system and materializer so they're cleaned up properly.
+      // This is necessary because we can't declare them as implicits in a `for` comprehension.
+      _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
+      _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
-        _ <- Participant
-          .owner(
+      (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge().acquire()
+
+      readServiceWithSubscriber: ReadService = new BridgeReadService(
+        ledgerId = config.ledgerId,
+        maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+          BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+        ),
+        stateUpdatesSource,
+      )
+      timeServiceBackendO = BridgeConfigProvider.timeServiceBackend(config)
+      participant <- Participant
+        .owner(
+          config,
+          participantConfig,
+          BridgeConfigProvider.apiServerConfig(participantConfig, config),
+          BridgeConfigProvider.indexerConfig(participantConfig, config),
+          timeServiceBackendO,
+          readServiceWithSubscriber,
+          buildWriteService(_, _, _, _, stateUpdatesFeedSink, timeServiceBackendO)(
+            materializer,
             config,
             participantConfig,
-            BridgeConfigProvider.apiServerConfig(participantConfig, config),
-            BridgeConfigProvider.indexerConfig(participantConfig, config),
-            timeServiceBackendO,
-            readServiceWithSubscriber,
-            buildWriteService(_, _, _, _, stateUpdatesFeedSink, timeServiceBackendO)(
-              materializer,
-              config,
-              participantConfig,
-              loggingContext,
-            ),
-            actorSystem,
-            materializer,
-            config.extra.implicitPartyAllocation,
-            BridgeConfigProvider.interceptors(config),
-          )
-          .acquire()
-      } yield logInitializationHeader(config, participantConfig)
+            loggingContext,
+          ),
+          actorSystem,
+          materializer,
+          config.extra.implicitPartyAllocation,
+          BridgeConfigProvider.interceptors(config),
+        )
+        .acquire()
+    } yield participant
   }
 
   // Builds the write service and uploads the initialization DARs

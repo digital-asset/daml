@@ -32,6 +32,12 @@ private[platform] case class StateCache[K, V](
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
   @volatile var cacheIndex: Offset = _
 
+  def flush(latestPersistedLedgerEnd: Offset): Unit = {
+    cacheIndex = latestPersistedLedgerEnd
+    pendingUpdates.clear()
+    cache.invalidateAll()
+  }
+
   /** Fetch the corresponding value for an input key, if present.
     *
     * @param key the key to query for
@@ -133,6 +139,7 @@ private[platform] case class StateCache[K, V](
               }
               removeFromPending(key)
             }
+            // TODO LLP: Not an error anymore since it can happen on flush
             .getOrElse(logger.error(s"Pending updates tracker for $key not registered "))
         }
       }

@@ -21,7 +21,12 @@ class MutableContractStateCaches(
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  def init(lastOffset: Offset) = {
+  def flush(restartFrom: Offset): Unit = {
+    keyState.flush(restartFrom)
+    contractState.flush(restartFrom)
+  }
+
+  def init(lastOffset: Offset): Unit = {
     keyState.cacheIndex = lastOffset
     contractState.cacheIndex = lastOffset
   }

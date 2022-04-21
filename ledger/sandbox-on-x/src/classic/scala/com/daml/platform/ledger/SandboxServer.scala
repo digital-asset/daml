@@ -45,19 +45,14 @@ final class SandboxServer(
 )(implicit materializer: Materializer)
     extends ResourceOwner[Port] {
 
-  // Only used for testing.
-  def this(config: SandboxConfig, materializer: Materializer) =
-    this(config)(materializer)
-
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
     val genericConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+    implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      participant <- Participant
-        .owner(genericConfig, participantConfig, DefaultName.toString)
-        .acquire()
+      participant <- SandboxOnXRunner.participantR(genericConfig, participantConfig)
       _ <- Resource.fromFuture(
         writePortFile(participant.apiServer.port)(resourceContext.executionContext)
       )

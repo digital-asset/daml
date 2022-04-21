@@ -20,8 +20,8 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.index.{LedgerBuffersUpdater, ParticipantInMemoryState}
 import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
-import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.{
   EventsBuffer,
   MutableContractStateCaches,
@@ -78,7 +78,11 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
-        ledgerApiBuffersUpdateFlow <- ledgerApiUpdateFlow(metrics, indexerExecutionContext)
+        ledgerApiBuffersUpdateFlow <- ledgerApiUpdateFlow(
+          metrics,
+          indexerExecutionContext,
+          jdbcUrl = config.indexerConfig.jdbcUrl,
+        )
 
         indexerFactory = new JdbcIndexer.Factory(
           config = config.indexerConfig,
@@ -120,7 +124,11 @@ class IndexerBenchmark() {
     }
   }
 
-  private def ledgerApiUpdateFlow(metrics: Metrics, executionContext: ExecutionContext)(implicit
+  private def ledgerApiUpdateFlow(
+      metrics: Metrics,
+      executionContext: ExecutionContext,
+      jdbcUrl: String,
+  )(implicit
       resourceContext: ResourceContext,
       loggingContext: LoggingContext,
   ) = for {
@@ -132,15 +140,6 @@ class IndexerBenchmark() {
           headAtInitialization = Offset.beforeBegin,
         )
         .acquire()
-    ledgerEndCache = MutableLedgerEndCache()
-
-    updateLedgerApiLedgerEnd = (ledgerEnd: LedgerEnd) => {
-      ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
-      // the order here is very important: first we need to make data available for point-wise lookups
-      // and SQL queries, and only then we can make it available on the streams.
-      // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-      generalDispatcher.signalNewHead(ledgerEnd.lastOffset)
-    }
 
     participantInMemoryState = new ParticipantInMemoryState(
       mutableContractStateCaches = MutableContractStateCaches.build(
@@ -161,12 +160,34 @@ class IndexerBenchmark() {
         bufferQualifier = "transactions",
         ignoreMarker = !_.isInstanceOf[TransactionLogUpdate.TransactionAccepted],
       ),
-      updateLedgerApiLedgerEnd = updateLedgerApiLedgerEnd,
       metrics = metrics,
+      ledgerEndCache = MutableLedgerEndCache(),
+      dispatcher = generalDispatcher,
+      stringInterningView = {
+        val dbType = DbType.jdbcType(jdbcUrl)
+        val storageBackendFactory = StorageBackendFactory.of(dbType)
+        val stringInterningStorageBackend =
+          storageBackendFactory.createStringInterningStorageBackend
+
+        new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive, dbDispatcher) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(
+                  fromExclusive,
+                  toInclusive,
+                )
+              }
+        )
+      },
     )
   } yield LedgerBuffersUpdater.flow
     .mapAsync(1) { batch =>
       participantInMemoryState.updateBatch(batch)
+    }
+    .mapError { case t =>
+      participantInMemoryState.flushBuffers()
+      t
     }
 
   private def indexer(

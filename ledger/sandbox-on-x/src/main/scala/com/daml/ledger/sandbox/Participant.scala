@@ -122,6 +122,11 @@ object Participant {
             LedgerBuffersUpdater.flow
               .mapAsync(1) { batch =>
                 participantInMemoryState.updateBatch(batch)
+              }
+              .mapError { case err =>
+                // On an upstream error coming from the participant, we must flush the buffers
+                participantInMemoryState.flushBuffers()
+                err
               },
           )
 

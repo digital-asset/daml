@@ -49,7 +49,6 @@ object BatchingParallelIngestionPipe {
       .conflate(tailer)
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
-      // TODO LLP: The persisted ledger end update must come after ingestion to the Ledger API caches/buffers
       .via(updateInMemoryBuffersFlow)
   }
 

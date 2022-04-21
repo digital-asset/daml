@@ -33,6 +33,8 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
+
+    override def invalidateAll(): Unit = cache.invalidateAll()
   }
 
   final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
@@ -62,6 +64,8 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       delegate.getOrAcquire(key, acquire)
+
+    override def invalidateAll(): Unit = cache.invalidateAll()
   }
 
   private def installMetrics[Key <: AnyRef, Value <: AnyRef](

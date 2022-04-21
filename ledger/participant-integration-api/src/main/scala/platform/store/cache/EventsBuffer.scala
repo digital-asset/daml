@@ -54,6 +54,8 @@ final class EventsBuffer[E](
   private val pruneTimer = bufferMetrics.prune
   private val sliceSize = bufferMetrics.sliceSize
 
+  def flush(): Unit = _bufferStateRef = BufferStateRef[Offset, E]()
+
   /** Appends a new event to the buffer.
     *
     * Starts evicting from the tail when `maxBufferSize` is reached.
