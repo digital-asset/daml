@@ -47,6 +47,7 @@ Here are the changes we made to the original *Coin* contract to make it lockable
 Locking By State Diagram
 
 .. figure:: ../images/lockingByStateChange.png
+   :alt: Locking by State diagram showing that the transfer choice is actionable only if the LockableCoin is unlocked.
 
 
 Trade-offs

@@ -31,7 +31,7 @@ import com.daml.platform.store.interning.StringInterning
 object OracleStorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
-    new IngestionStorageBackendTemplate(OracleSchema.schema)
+    new IngestionStorageBackendTemplate(OracleQueryStrategy, OracleSchema.schema)
 
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)

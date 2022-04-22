@@ -52,7 +52,7 @@ object EnvironmentInterface {
   def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     fromReaderInterfaces(dar.main, dar.dependencies: _*)
 
-  def fromReaderInterfaces(all: Seq[Interface]): EnvironmentInterface = {
+  def fromReaderInterfaces(all: Iterable[Interface]): EnvironmentInterface = {
     val typeDecls = all.iterator.flatMap { case Interface(packageId, _, typeDecls, _) =>
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap

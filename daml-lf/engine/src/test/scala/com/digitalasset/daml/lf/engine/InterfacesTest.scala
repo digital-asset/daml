@@ -58,6 +58,8 @@ class InterfacesTest
     val lookupPackage = allInterfacesPkgs.get(_)
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
+    val idI3 = Identifier(interfacesPkgId, "Interfaces:I3")
+    val idI4 = Identifier(interfacesPkgId, "Interfaces:I4")
     val idT1 = Identifier(interfacesPkgId, "Interfaces:T1")
     val idT2 = Identifier(interfacesPkgId, "Interfaces:T2")
     val let = Time.Timestamp.now()
@@ -125,6 +127,14 @@ class InterfacesTest
       inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Error.Interpretation.DamlException(
           IE.ContractDoesNotImplementInterface(idI2, cid1, idT1)
+        )
+      }
+    }
+    "be unable to exercise an interface I4 choice via I3 on a T1 contract" in {
+      val command = ApiCommand.Exercise(idI3, cid2, "C4", ValueRecord(None, ImmArray.empty))
+      inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(
+          IE.ContractDoesNotImplementRequiringInterface(idI3, idI4, cid2, idT2)
         )
       }
     }

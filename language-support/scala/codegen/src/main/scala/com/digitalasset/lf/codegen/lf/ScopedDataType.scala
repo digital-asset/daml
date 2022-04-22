@@ -6,7 +6,7 @@ package lf
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.iface.{DataType, DefDataType}
+import com.daml.lf.iface.DataType
 
 import scalaz.{Apply, Comonad, Traverse1}
 import scalaz.syntax.functor._
@@ -21,14 +21,6 @@ object ScopedDataType {
   type Name = Ref.Identifier
   type FWT = ScopedDataType[DataType.FWT]
   type DT[+RF, +VF] = ScopedDataType[DataType[RF, VF]]
-
-  def fromDefDataType(
-      nameAndDdt: (Ref.Identifier, DefDataType.FWT)
-  ): ScopedDataType.FWT = {
-    val (name, ddt) = nameAndDdt
-    val DefDataType(typeVars, dataType) = ddt
-    apply(name, typeVars, dataType)
-  }
 
   implicit val `SDT covariant`: Traverse1[ScopedDataType] with Comonad[ScopedDataType] =
     new Traverse1[ScopedDataType] with Comonad[ScopedDataType] {

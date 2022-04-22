@@ -17,6 +17,9 @@ We generate TypeScript code to bridge the two.
 Overall, the social networking app is following the :ref:`recommended architecture of a fullstack Daml application <recommended-architecture>`. Below you can see a simplified version of the architecture represented in the app.
 
 .. image:: ./images/gsg_architecture.svg
+   :alt: An architectural diagram of the app from this guide. A full text explanation is found in the paragraph immediately below. 
+
+There are three types of building blocks that go into our application: user code, Daml components, and generated code from Daml. The Daml model determines the DAR files that underpin both the front end and back end. The front-end includes React application code, Daml react libraries, and Typescript generated code, while the back-end consists of a JSON API server and a participant node.
 
 Let's start by looking at the Daml model, which defines the core logic of the application. Have `the Daml cheat-sheet <https://docs.daml.com/cheat-sheet/>`_ open in a separate tab for a quick overview of the most common Daml concepts.
 

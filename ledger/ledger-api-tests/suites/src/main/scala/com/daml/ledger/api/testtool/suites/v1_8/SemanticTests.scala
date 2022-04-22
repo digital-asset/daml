@@ -175,7 +175,9 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-        tree <- eventually { alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou)) }
+        tree <- eventually("Exercise paint offer") {
+          alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
+        }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
@@ -204,13 +206,15 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
-        counter <- eventually {
+        counter <- eventually("exerciseAndGetContract") {
           alpha.exerciseAndGetContract[PaintCounterOffer](
             houseOwner,
             offer.exercisePaintOffer_Counter(_, iou),
           )
         }
-        tree <- eventually { beta.exercise(painter, counter.exercisePaintCounterOffer_Accept) }
+        tree <- eventually("exercisePaintCounterOffer") {
+          beta.exercise(painter, counter.exercisePaintCounterOffer_Accept)
+        }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintCounterOffer",
@@ -408,7 +412,7 @@ final class SemanticTests extends LedgerTestSuite {
           // Successful divulgence and delegation
           divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
           _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
-          _ <- eventually {
+          _ <- eventually("exerciseDelegation_Token_Consume") {
             beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
           }
         } yield {

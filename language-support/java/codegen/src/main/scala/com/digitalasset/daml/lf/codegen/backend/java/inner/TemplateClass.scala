@@ -24,8 +24,8 @@ private[inner] object TemplateClass extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ): TypeSpec =
     TrackLineage.of("template", typeWithContext.name) {
-      val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       logger.info("Start")
+      val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
       val templateType = TypeSpec

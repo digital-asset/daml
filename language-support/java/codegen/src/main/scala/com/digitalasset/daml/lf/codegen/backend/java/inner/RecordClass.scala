@@ -13,6 +13,7 @@ import scala.jdk.CollectionConverters._
 private[inner] object RecordClass extends StrictLogging {
 
   def generate(
+      packageId: PackageId,
       className: ClassName,
       typeParameters: IndexedSeq[String],
       record: Record.FWT,
@@ -26,6 +27,7 @@ private[inner] object RecordClass extends StrictLogging {
         .addModifiers(Modifier.PUBLIC)
         .addTypeVariables(typeParameters.map(TypeVariableName.get).asJava)
         .addFields(RecordFields(fields).asJava)
+        .addField(createPackageIdField(packageId))
         .addMethods(RecordMethods(fields, className, typeParameters, packagePrefixes).asJava)
         .build()
       logger.debug("End")

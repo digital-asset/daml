@@ -85,7 +85,9 @@ object Ref {
       definition: String,
       start: (Int, Int),
       end: (Int, Int),
-  )
+  ) {
+    def pretty: String = s"definition $packageId:$module:$definition (start: $start, end: $end)"
+  }
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`

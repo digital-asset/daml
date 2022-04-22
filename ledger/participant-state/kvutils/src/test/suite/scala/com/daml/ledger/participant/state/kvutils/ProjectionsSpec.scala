@@ -23,7 +23,6 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       signatories = signatories,
       stakeholders = stakeholders,
       key = None,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -39,6 +38,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
         PackageId.assertFromString("some-package"),
         QualifiedName.assertFromString("Foo:Bar"),
       ),
+      interfaceId = None,
       choiceId = Name.assertFromString("someChoice"),
       consuming = true,
       actingParties = actingParties,
@@ -50,7 +50,6 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       exerciseResult = None,
       key = None,
       byKey = false,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 

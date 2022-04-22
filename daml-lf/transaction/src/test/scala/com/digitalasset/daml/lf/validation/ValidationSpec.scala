@@ -96,9 +96,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       signatories = samParties1,
       stakeholders = samParties2,
       key = key,
-      byInterface = None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
       version = version,
     )
 
@@ -115,9 +112,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       stakeholders = samParties3,
       key = key,
       byKey = samBool1,
-      byInterface = None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
       version = version,
     )
 
@@ -140,6 +134,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.Exercise(
       targetCoid = samContractId2,
       templateId = samTemplateId2,
+      // TODO https://github.com/digital-asset/daml/issues/13653
+      //   also vary interfaceId (but this requires an interface choice)
+      interfaceId = None,
       choiceId = samChoiceName1,
       consuming = samBool1,
       actingParties = samParties1,
@@ -151,9 +148,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       exerciseResult = exerciseResult,
       key = key,
       byKey = samBool2,
-      byInterface = None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface (but this requires an interface choice)
       version = version,
     )
 

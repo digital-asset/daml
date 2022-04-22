@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{NoParties, allocate}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{Endpoint, LedgerTestSuite}
-import com.daml.ledger.api.tls.TlsVersion
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityServiceBlockingStub
 import com.daml.ledger.api.v1.ledger_identity_service.{
@@ -26,8 +26,12 @@ import scala.util.{Failure, Success, Try}
   * - accepts TLSv1.3 connections,
   * - rejects TLSv1.2 (or lower) connections.
   */
-final class TLSOnePointThreeIT
-    extends TlsIT(shortIdentifierPrefix = "ServerOnTLSv13ConnectionFromClientOn") {
+final class TLSOnePointThreeIT(
+    clientTlsConfiguration: Option[TlsConfiguration]
+) extends TlsIT(
+      shortIdentifierPrefix = "ServerOnTLSv13ConnectionFromClientOn",
+      clientTlsConfiguration,
+    ) {
   testTlsConnection(
     clientTlsVersions = Seq[TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3),
     assertConnectionOk = true,
@@ -42,8 +46,12 @@ final class TLSOnePointThreeIT
   * - accepts either TLSv1.2 or TLSv1.3 connections,
   * - rejects TLSv1.1 (or lower) connections.
   */
-final class TLSAtLeastOnePointTwoIT
-    extends TlsIT(shortIdentifierPrefix = "ServerOnTLSConnectionFromClientOn") {
+final class TLSAtLeastOnePointTwoIT(
+    clientTlsConfiguration: Option[TlsConfiguration]
+) extends TlsIT(
+      shortIdentifierPrefix = "ServerOnTLSConnectionFromClientOn",
+      clientTlsConfiguration,
+    ) {
   testTlsConnection(
     clientTlsVersions = Seq[TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3),
     assertConnectionOk = true,
@@ -58,7 +66,10 @@ final class TLSAtLeastOnePointTwoIT
   *
   * It works by creating and exercising a series of client service stubs, each over different TLS version.
   */
-abstract class TlsIT(shortIdentifierPrefix: String) extends LedgerTestSuite {
+abstract class TlsIT(
+    shortIdentifierPrefix: String,
+    clientTlsConfiguration: Option[TlsConfiguration],
+) extends LedgerTestSuite {
 
   def testTlsConnection(clientTlsVersion: TlsVersion, assertConnectionOk: Boolean): Unit = {
     testTlsConnection(
@@ -89,10 +100,10 @@ abstract class TlsIT(shortIdentifierPrefix: String) extends LedgerTestSuite {
         assume(testContexts.nonEmpty, "Missing an expected participant test context!")
         val firstTextContext = testContexts.head
         assume(
-          firstTextContext.clientTlsConfiguration.isDefined,
+          clientTlsConfiguration.isDefined,
           "Missing required TLS configuration!",
         )
-        val tlsConfiguration = firstTextContext.clientTlsConfiguration.get
+        val tlsConfiguration = clientTlsConfiguration.get
         assume(
           tlsConfiguration.enabled,
           "TLS configuration is disabled but expected to be enabled!",

@@ -18,11 +18,9 @@ import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicati
   assertDeduplicationDuration,
   assertDeduplicationOffset,
 }
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  CompletionResponse,
-  ParticipantTestContext,
-}
-import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
+import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -52,7 +50,8 @@ final class CommandDeduplicationIT(
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val deduplicationDuration: FiniteDuration = scaledDuration(2.seconds)
+  private val deduplicationDuration: FiniteDuration =
+    Durations.scaleDuration(2.seconds, timeoutScaleFactor)
 
   test(
     s"SimpleDeduplicationBasic",
@@ -874,16 +873,6 @@ final class CommandDeduplicationIT(
     ledgerEnd
   }
 
-  protected def scaledDuration(duration: FiniteDuration): FiniteDuration = asFiniteDuration(
-    duration * timeoutScaleFactor
-  )
-
-  protected def asFiniteDuration(duration: Duration): FiniteDuration = duration match {
-    case duration: FiniteDuration => duration
-    case _ =>
-      throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
-  }
-
   private def absoluteLedgerOffset(value: String) =
     LedgerOffset(LedgerOffset.Value.Absolute(value))
 
@@ -912,13 +901,13 @@ final class CommandDeduplicationIT(
   )(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is adjusted by min skew and max skew when running using pre-execution
     // to account for this we adjust the time model
-    val skew = scaledDuration(3.second).asProtobuf
+    val skew = Durations.scaleDuration(3.second, timeoutScaleFactor).asProtobuf
     runWithUpdatedTimeModel(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),
     ) { timeModel =>
       val minMaxSkewSum =
-        asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
+        Durations.asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
       testWithDelayMechanism(minMaxSkewSum)
     }
   }

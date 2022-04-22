@@ -55,7 +55,7 @@ final class ContractKeysIT extends LedgerTestSuite {
       _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
 
       // fetch delegated
-      _ <- eventually {
+      _ <- eventually("exerciseFetchDelegated") {
         beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
       }
 

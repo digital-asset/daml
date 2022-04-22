@@ -8,7 +8,6 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
   CommitterModelConformanceValidator,
@@ -65,16 +64,20 @@ private[kvutils] class TransactionCommitter(
     DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   private val rejections = new Rejections(metrics)
-  private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
+  private val ledgerTimeValidator = new LedgerTimeValidator
   private val committerModelConformanceValidator =
     new CommitterModelConformanceValidator(engine, metrics)
 
+  /** The order of the steps matters
+    */
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
+    "set_context_min_max_record_time" -> TimeBoundBindingStep.setTimeBoundsInContextStep(
+      defaultConfig
+    ),
+    "set_context_out_of_time_bounds_entry" -> ledgerTimeValidator.createValidationStep(rejections),
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
-    "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
     "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
-    "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_committer_model_conformance" -> committerModelConformanceValidator
       .createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
@@ -125,7 +128,6 @@ private[kvutils] class TransactionCommitter(
         rejections.reject(
           transactionEntry,
           reason,
-          commitContext.recordTime,
         )
 
       authorizeAll(transactionEntry.submitters)
@@ -209,7 +211,6 @@ private[kvutils] class TransactionCommitter(
         rejections.reject(
           transactionEntry,
           Rejection.PartiesNotKnownOnLedger(missingParties),
-          commitContext.recordTime,
         )
     }
   }
@@ -322,20 +323,18 @@ private[kvutils] object TransactionCommitter {
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
   ): DamlLogEntry = {
-    if (commitContext.preExecute) {
-      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
-        .setTransactionRejectionEntry(
-          DamlTransactionRejectionEntry.newBuilder
-            .setDefiniteAnswer(false)
-            .setSubmitterInfo(transactionEntry.submitterInfo)
-        )
-        .build
-      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
-    }
-    buildLogEntryWithOptionalRecordTime(
-      commitContext.recordTime,
-      _.setTransactionEntry(transactionEntry.submission),
-    )
+    val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+      .setTransactionRejectionEntry(
+        DamlTransactionRejectionEntry.newBuilder
+          .setDefiniteAnswer(false)
+          .setSubmitterInfo(transactionEntry.submitterInfo)
+      )
+      .build
+    commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
+    DamlLogEntry
+      .newBuilder()
+      .setTransactionEntry(transactionEntry.submission)
+      .build()
   }
 
   // Helper to read the _current_ contract state.

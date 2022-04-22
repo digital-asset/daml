@@ -56,9 +56,9 @@ final class StandaloneIndexerServer(
         }
 
     config.startupMode match {
-      case IndexerStartupMode.MigrateAndStart =>
+      case IndexerStartupMode.MigrateAndStart(allowExistingSchema) =>
         startIndexer(
-          migration = flywayMigrations.migrate(config.allowExistingSchema)
+          migration = flywayMigrations.migrate(allowExistingSchema)
         )
 
       case IndexerStartupMode.ValidateAndStart =>
@@ -66,13 +66,14 @@ final class StandaloneIndexerServer(
           migration = flywayMigrations.validate()
         )
 
-      case IndexerStartupMode.ValidateAndWaitOnly =>
+      case IndexerStartupMode.ValidateAndWaitOnly(
+            schemaMigrationAttempts,
+            schemaMigrationAttemptBackoff,
+          ) =>
         Resource
           .fromFuture(
-            flywayMigrations.validateAndWaitOnly(
-              config.schemaMigrationAttempts,
-              config.schemaMigrationAttemptBackoff,
-            )
+            flywayMigrations
+              .validateAndWaitOnly(schemaMigrationAttempts, schemaMigrationAttemptBackoff)
           )
           .map[ReportsHealth] { _ =>
             logger.debug("Waiting for the indexer to validate the schema migrations.")

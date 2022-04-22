@@ -29,3 +29,13 @@ template Child
     implements TIf where
       getOwner = party
       dup = toInterfaceContractId <$> create this
+
+template ChildClone
+    with
+    party: Party
+  where
+    signatory party
+
+    implements TIf where
+      getOwner = party
+      dup = toInterfaceContractId <$> create this

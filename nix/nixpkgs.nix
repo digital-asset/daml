@@ -10,7 +10,8 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
-    nodejs = pkgs.nodejs-14_x;
+    nodejs = pkgs.nodejs-16_x;
+    nodejs14 = pkgs.nodejs-14_x;
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out
@@ -37,6 +38,18 @@ let
         ./bazel-retry-cache.patch
       ];
     });
+    haskell = pkgs.haskell // {
+      compiler = pkgs.haskell.compiler // {
+        ghc902 =
+          if system == "aarch64-darwin" then
+            pkgs.haskell.compiler.ghc902.override(oldAttrs: {
+              buildTargetLlvmPackages = pkgs.llvmPackages_12;
+              llvmPackages = pkgs.llvmPackages_12;
+            })
+          else
+            pkgs.haskell.compiler.ghc902;
+      };
+    };
   };
 
   nixpkgs = import src {

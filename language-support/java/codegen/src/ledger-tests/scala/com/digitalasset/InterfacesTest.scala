@@ -4,6 +4,7 @@
 package com.daml
 
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.javaapi.data.{CreatedEvent, Identifier}
 import com.daml.ledger.resources.TestResourceContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -21,18 +22,45 @@ class Interfaces
 
   it should "contain all choices of an interface in templates implementing it" in withClient {
     client =>
+      def checkTemplateId[T](
+          shouldBeId: Identifier,
+          fn: CreatedEvent => T,
+      ): PartialFunction[CreatedEvent, T] = {
+        case event: CreatedEvent if event.getTemplateId == shouldBeId => fn(event)
+      }
+      val safeChildFromCreatedEvent =
+        checkTemplateId(interfaces.Child.TEMPLATE_ID, interfaces.Child.Contract.fromCreatedEvent)
+      val safeChildCloneFromCreatedEvent =
+        checkTemplateId(
+          interfaces.ChildClone.TEMPLATE_ID,
+          interfaces.ChildClone.Contract.fromCreatedEvent,
+        )
       for {
         alice <- allocateParty
       } yield {
         sendCmd(client, alice, interfaces.Child.create(alice))
-        readActiveContracts(interfaces.Child.Contract.fromCreatedEvent)(client, alice).foreach {
-          child =>
-            sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
+        sendCmd(client, alice, interfaces.ChildClone.create(alice))
+        readActiveContractsSafe[interfaces.Child.Contract](safeChildFromCreatedEvent)(
+          client,
+          alice,
+        ).foreach { child =>
+          sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
         }
-        readActiveContracts(interfaces.Child.Contract.fromCreatedEvent)(client, alice).foreach {
-          child =>
-            sendCmd(client, alice, child.id.toTIf.exerciseHam(new interfaces.Ham()))
+        readActiveContractsSafe(safeChildFromCreatedEvent)(client, alice).foreach { child =>
+          sendCmd(client, alice, child.id.toTIf.exerciseHam(new interfaces.Ham()))
         }
+        readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
+          .foreach { child =>
+            assertThrows[Exception](
+              sendCmd(
+                client,
+                alice,
+                interfaces.Child.ContractId
+                  .unsafeFromTIf(child.id.toTIf: interfaces.TIf.ContractId)
+                  .exerciseHam(new interfaces.Ham()),
+              )
+            )
+          }
         succeed
       }
   }

@@ -21,12 +21,12 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "allow calls with explicitly non-expired read-only token" taggedAs securityAsset
-    .setHappyCase("Ledger API client can connect with token expiring tomorrow") in {
+    .setHappyCase("Ledger API client can make a call with token expiring tomorrow") in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyExpiresTomorrow))
   }
 
   it should "allow calls with read-only token without expiration" taggedAs securityAsset
-    .setHappyCase("Ledger API client can connect with token without expiration") in {
+    .setHappyCase("Ledger API client can make a call with token without expiration") in {
     expectSuccess(serviceCallWithToken(canReadAsRandomParty))
   }
 
@@ -38,7 +38,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   it should "allow calls with non-expired 'participant_admin' user token" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with non-expired `participant_admin` user token"
+      "Ledger API client can make a call with non-expired `participant_admin` user token"
     ) in {
     val payload = standardToken("participant_admin", Some(Duration.ofDays(1)))
     expectSuccess(serviceCallWithPayload(payload))
@@ -55,7 +55,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   it should "allow calls with 'participant_admin' user token for this participant node" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with 'participant_admin' user token for this participant node"
+      "Ledger API client can make a call with 'participant_admin' user token for this participant node"
     ) in {
     val payload =
       standardToken(userId = "participant_admin", participantId = Some("sandbox-participant"))
@@ -93,13 +93,13 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
   it should "allow calls with explicitly non-expired read/write token" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with explicitly non-expired read/write token"
+      "Ledger API client can make a call with explicitly non-expired read/write token"
     ) in {
     expectSuccess(serviceCallWithToken(canActAsRandomPartyExpiresTomorrow))
   }
   it should "allow calls with read/write token without expiration" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with read/write token without expiration"
+      "Ledger API client can make a call with read/write token without expiration"
     ) in {
     expectSuccess(serviceCallWithToken(canActAsRandomParty))
   }
@@ -111,19 +111,19 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
   it should "allow calls with explicitly non-expired admin token" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can connect with explicitly non-expired admin token"
+      "Ledger API client can make a call with explicitly non-expired admin token"
     ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))
   }
 
   it should "allow calls with admin token without expiration" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with admin token without expiration"
+    "Ledger API client can make a call with admin token without expiration"
   ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
 
   it should "allow calls with the correct ledger ID" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with the correct ledger ID"
+    "Ledger API client can make a call with the correct ledger ID"
   ) in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyActualLedgerId))
   }
@@ -135,7 +135,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "allow calls with the correct participant ID" taggedAs securityAsset.setHappyCase(
-    "Ledger API client can connect with the correct participant ID"
+    "Ledger API client can make a call with the correct participant ID"
   ) in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyActualParticipantId))
   }

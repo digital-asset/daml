@@ -1,0 +1,53 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library(
+    name = "daml-desugar",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "ghcide",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "text",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+    ],
+)
+
+da_haskell_library(
+    name = "daml-desugar-testing",
+    srcs = glob(["test/**/*.hs"]),
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "tasty-golden",
+        "text",
+    ],
+    src_strip_prefix = "test",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-desugar",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)

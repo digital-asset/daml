@@ -48,7 +48,7 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
         (retryCount, result, duration) <- succeedAfter(tries = 11, retry)
       } yield {
         result should matchPattern {
-          case Failure(RetryStrategy.TooManyAttemptsException(10, _, _: FailureDuringRetry)) =>
+          case Failure(RetryStrategy.TooManyAttemptsException(10, _, _, _: FailureDuringRetry)) =>
         }
         retryCount should be(10)
         duration should beAround(100.milliseconds)
@@ -94,7 +94,7 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
         (retryCount, result, duration) <- succeedAfter(tries = 6, retry)
       } yield {
         result should matchPattern {
-          case Failure(RetryStrategy.TooManyAttemptsException(5, _, _: FailureDuringRetry)) =>
+          case Failure(RetryStrategy.TooManyAttemptsException(5, _, _, _: FailureDuringRetry)) =>
         }
         retryCount should be(5)
         duration should beAround(150.milliseconds)

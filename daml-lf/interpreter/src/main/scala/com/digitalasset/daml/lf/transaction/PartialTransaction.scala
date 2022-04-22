@@ -122,6 +122,7 @@ private[lf] object PartialTransaction {
     *                  which we are exercising a choice.
     *  @param templateId Template-id referencing the template of the
     *                    contract on which we are exercising a choice.
+    *  @param interfaceId The interface where the choice is defined if inherited.
     *  @param contractKey Optional contract key, if defined for the
     *                     contract on which we are exercising a choice.
     *  @param choiceId Label of the choice that we are exercising.
@@ -135,12 +136,11 @@ private[lf] object PartialTransaction {
     *  @param parent The context in which the exercises is
     *                       happening.
     *  @param byKey True if the exercise is done "by key"
-    *  @param byInterface The interface through which this exercise
-    *                         was invoked, if any.
     */
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       contractKey: Option[Node.KeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
@@ -152,7 +152,6 @@ private[lf] object PartialTransaction {
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
-      byInterface: Option[TypeConName],
       version: TxVersion,
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
@@ -398,7 +397,6 @@ private[speedy] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
-      byInterface: Option[TypeConName],
       version: TxVersion,
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
@@ -413,7 +411,6 @@ private[speedy] case class PartialTransaction(
       signatories,
       stakeholders,
       key,
-      byInterface,
       version,
     )
     val nid = NodeId(nextNodeIdx)
@@ -492,7 +489,6 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
-      byInterface: Option[TypeConName],
       version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -504,7 +500,6 @@ private[speedy] case class PartialTransaction(
       stakeholders,
       key,
       normByKey(version, byKey),
-      byInterface,
       version,
     )
     mustBeActive(
@@ -540,6 +535,7 @@ private[speedy] case class PartialTransaction(
       auth: Authorize,
       targetId: Value.ContractId,
       templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
@@ -550,7 +546,6 @@ private[speedy] case class PartialTransaction(
       mbKey: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       chosenValue: Value,
-      byInterface: Option[TypeConName],
       version: TxVersion,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -558,6 +553,7 @@ private[speedy] case class PartialTransaction(
       ExercisesContextInfo(
         targetId = targetId,
         templateId = templateId,
+        interfaceId = interfaceId,
         contractKey = mbKey,
         choiceId = choiceId,
         consuming = consuming,
@@ -569,7 +565,6 @@ private[speedy] case class PartialTransaction(
         nodeId = nid,
         parent = context,
         byKey = byKey,
-        byInterface = byInterface,
         version = version,
       )
 
@@ -653,6 +648,7 @@ private[speedy] case class PartialTransaction(
     Node.Exercise(
       targetCoid = ec.targetId,
       templateId = ec.templateId,
+      interfaceId = ec.interfaceId,
       choiceId = ec.choiceId,
       consuming = ec.consuming,
       actingParties = ec.actingParties,
@@ -664,7 +660,6 @@ private[speedy] case class PartialTransaction(
       exerciseResult = None,
       key = ec.contractKey,
       byKey = normByKey(ec.version, ec.byKey),
-      byInterface = ec.byInterface,
       version = ec.version,
     )
   }

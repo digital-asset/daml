@@ -11,12 +11,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.collection.{Factory, mutable}
 
-/** Commit context provides access to state inputs, commit parameters (e.g. record time) and
+/** Commit context provides access to state inputs, commit parameters and
   * allows committer to set state outputs.
   */
 private[kvutils] case class CommitContext(
     private val inputs: DamlStateMap,
-    recordTime: Option[Timestamp],
     participantId: Ref.ParticipantId,
 ) {
   private[this] val logger = ContextualizedLogger.get(getClass)
@@ -35,8 +34,6 @@ private[kvutils] case class CommitContext(
   // Rejection log entry used for generating an out-of-time-bounds log entry in case of
   // pre-execution.
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
-
-  def preExecute: Boolean = recordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state.
     * Throws an exception if the key is not found in either.

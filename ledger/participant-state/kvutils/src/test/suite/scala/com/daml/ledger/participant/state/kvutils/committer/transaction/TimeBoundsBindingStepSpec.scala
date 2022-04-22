@@ -85,7 +85,7 @@ class TimeBoundsBindingStepSpec extends AnyWordSpec with Matchers {
 
     "mark config as accessed in context" in {
       val commitContext =
-        createCommitContext(recordTime = None, inputWithConfiguration)
+        createCommitContext(inputWithConfiguration)
 
       step.apply(commitContext, aTransactionEntrySummary)
 
@@ -94,7 +94,7 @@ class TimeBoundsBindingStepSpec extends AnyWordSpec with Matchers {
   }
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
-    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
+    createCommitContext(inputs = inputWithTimeModelAndEmptyCommandDeduplication)
 
   private def createProtobufTimestamp(seconds: Long): timestamp.Timestamp = {
     timestamp.Timestamp(seconds)

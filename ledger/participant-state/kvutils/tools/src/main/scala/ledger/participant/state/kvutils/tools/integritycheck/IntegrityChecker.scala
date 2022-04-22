@@ -326,7 +326,7 @@ object IntegrityChecker {
     IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl(config),
-      startupMode = IndexerStartupMode.MigrateAndStart,
+      startupMode = IndexerStartupMode.MigrateAndStart(),
     )
 
   private[integritycheck] def jdbcUrl(config: Config): String =

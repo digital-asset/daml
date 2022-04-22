@@ -18,7 +18,7 @@ private[validation] object Recursion {
       name -> (modRefs(pkgId, mod).toSet - name)
     }
 
-    Graphs.topoSort(g).left.foreach(cycle => throw EImportCycle(NoContext, cycle.vertices))
+    Graphs.topoSort(g).left.foreach(cycle => throw EImportCycle(Context.None, cycle.vertices))
 
     pkg.modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
   }
@@ -67,7 +67,7 @@ private[validation] object Recursion {
         val name = Identifier(pkgId, QualifiedName(modName, dottedName))
         (name, synRefsOfType(Set.empty, replacementTyp))
       }
-    Graphs.topoSort(g).left.foreach(cycle => throw ETypeSynCycle(NoContext, cycle.vertices))
+    Graphs.topoSort(g).left.foreach(cycle => throw ETypeSynCycle(Context.None, cycle.vertices))
   }
 
   private def synRefsOfType(acc: Set[TypeSynName], typ: Type): Set[TypeSynName] = typ match {

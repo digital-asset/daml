@@ -3,13 +3,14 @@
 
 package com.daml.ledger.runner.common
 
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
-import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.configuration.{
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
@@ -27,34 +28,12 @@ trait ConfigProvider[ExtraConfig] {
   def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config
 
-  def indexerConfig(
-      participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig],
-  ): IndexerConfig =
-    IndexerConfig(
-      participantConfig.participantId,
-      jdbcUrl = participantConfig.serverJdbcUrl,
-      startupMode = IndexerStartupMode.MigrateAndStart,
-      eventsPageSize = config.eventsPageSize,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
-      allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
-      maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
-      inputMappingParallelism = participantConfig.indexerConfig.inputMappingParallelism,
-      ingestionParallelism = participantConfig.indexerConfig.ingestionParallelism,
-      batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
-      submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
-      tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
-      batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
-      enableCompression = participantConfig.indexerConfig.enableCompression,
-    )
-
   def apiServerConfig(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
-      archiveFiles = Nil,
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
@@ -67,21 +46,23 @@ trait ConfigProvider[ExtraConfig] {
       maxInboundMessageSize = config.maxInboundMessageSize,
       initialLedgerConfiguration = Some(initialLedgerConfig(config)),
       configurationLoadTimeout = config.configurationLoadTimeout,
-      eventsPageSize = config.eventsPageSize,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
-      acsIdPageSize = config.acsIdPageSize,
-      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-      acsGlobalParallelism = config.acsGlobalParallelism,
-      acsIdQueueLimit = config.acsIdQueueLimit,
+      indexConfiguration = IndexConfiguration(
+        eventsPageSize = config.eventsPageSize,
+        eventsProcessingParallelism = config.eventsProcessingParallelism,
+        acsIdPageSize = config.acsIdPageSize,
+        acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+        acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+        acsGlobalParallelism = config.acsGlobalParallelism,
+        maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
+        maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
+        maxTransactionsInMemoryFanOutBufferSize =
+          participantConfig.maxTransactionsInMemoryFanOutBufferSize,
+        enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+        archiveFiles = Nil,
+      ),
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
-      maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
-      maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-      maxTransactionsInMemoryFanOutBufferSize =
-        participantConfig.maxTransactionsInMemoryFanOutBufferSize,
-      enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       userManagementConfig = config.userManagementConfig,
     )
 
@@ -115,15 +96,6 @@ trait ConfigProvider[ExtraConfig] {
   def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
     List.empty
 
-  def createMetrics(
-      participantConfig: ParticipantConfig,
-      @unused config: Config[ExtraConfig],
-  ): Metrics = {
-    val registryName = participantConfig.participantId + participantConfig.shardName
-      .map("-" + _)
-      .getOrElse("")
-    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
-  }
 }
 
 object ConfigProvider {

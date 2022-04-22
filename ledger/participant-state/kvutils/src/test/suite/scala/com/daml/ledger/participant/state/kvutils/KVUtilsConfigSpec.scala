@@ -54,22 +54,24 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
 
     "check generation" in KVTest.runTest {
       for {
-        logEntry <- submitConfig(
+        result1 <- preExecuteConfig(
           configModify = c => c.copy(generation = c.generation + 1),
           submissionId = Ref.LedgerString.assertFromString("submission0"),
         )
         newConfig <- getConfiguration
 
         // Change again, but without bumping generation.
-        logEntry2 <- submitConfig(
+        result2 <- preExecuteConfig(
           configModify = c => c.copy(generation = c.generation),
           submissionId = Ref.LedgerString.assertFromString("submission1"),
         )
         newConfig2 <- getConfiguration
 
       } yield {
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
-        logEntry.getConfigurationEntry.getSubmissionId shouldEqual "submission0"
+        val logEntry1 = result1.successfulLogEntry
+        val logEntry2 = result2.successfulLogEntry
+        logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
+        logEntry1.getConfigurationEntry.getSubmissionId shouldEqual "submission0"
         newConfig.generation shouldEqual 1
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
@@ -80,7 +82,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
 
     "reject expired submissions" in KVTest.runTest {
       for {
-        logEntry <- submitConfig(
+        result <- preExecuteConfig(
           minMaxRecordTimeDelta = Duration.ofMinutes(-1),
           configModify = { c =>
             c.copy(generation = c.generation + 1)
@@ -88,8 +90,9 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
           submissionId = Ref.LedgerString.assertFromString("some-submission-id"),
         )
       } yield {
+        val logEntry = result.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
-        logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT
+        logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET
       }
     }
 
@@ -99,7 +102,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
 
       for {
         // Set a configuration with an authorized participant id
-        logEntry0 <- submitConfig(
+        result0 <- preExecuteConfig(
           { c =>
             c.copy(
               generation = c.generation + 1
@@ -112,8 +115,8 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
         // A well authorized submission
         //
 
-        logEntry1 <- withParticipantId(p0) {
-          submitConfig(
+        result1 <- withParticipantId(p0) {
+          preExecuteConfig(
             { c =>
               c.copy(
                 generation = c.generation + 1
@@ -127,8 +130,8 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
         // A badly authorized submission
         //
 
-        logEntry2 <- withParticipantId(p1) {
-          submitConfig(
+        result2 <- withParticipantId(p1) {
+          preExecuteConfig(
             { c =>
               c.copy(
                 generation = c.generation + 1
@@ -139,6 +142,9 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
         }
 
       } yield {
+        val logEntry0 = result0.successfulLogEntry
+        val logEntry1 = result1.successfulLogEntry
+        val logEntry2 = result2.successfulLogEntry
         logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
         logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
 
@@ -152,7 +158,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
 
     "reject duplicate" in KVTest.runTest {
       for {
-        logEntry0 <- submitConfig(
+        result0 <- preExecuteConfig(
           { c =>
             c.copy(
               generation = c.generation + 1
@@ -161,7 +167,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
           submissionId = Ref.LedgerString.assertFromString("submission-id-1"),
         )
 
-        logEntry1 <- submitConfig(
+        result1 <- preExecuteConfig(
           { c =>
             c.copy(
               generation = c.generation + 1
@@ -171,6 +177,8 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
         )
 
       } yield {
+        val logEntry0 = result0.successfulLogEntry
+        val logEntry1 = result1.successfulLogEntry
         logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
         logEntry1.getPayloadCase shouldEqual
           DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
@@ -183,7 +191,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
     "update metrics" in KVTest.runTest {
       for {
         //Submit config twice to force one acceptance and one rejection on duplicate
-        _ <- submitConfig(
+        _ <- preExecuteConfig(
           { c =>
             c.copy(
               generation = c.generation + 1
@@ -192,7 +200,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
           submissionId = Ref.LedgerString.assertFromString("submission-id-1"),
         )
 
-        _ <- submitConfig(
+        _ <- preExecuteConfig(
           { c =>
             c.copy(
               generation = c.generation + 1
@@ -204,7 +212,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.config.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.config.rejections.getCount should be >= 1L
-        metrics.daml.kvutils.committer.runTimer("config").getCount should be >= 1L
+        metrics.daml.kvutils.committer.preExecutionRunTimer("config").getCount should be >= 1L
       }
     }
   }

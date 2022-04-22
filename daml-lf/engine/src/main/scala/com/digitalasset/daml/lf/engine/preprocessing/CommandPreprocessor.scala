@@ -35,17 +35,6 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.Create(templateId, arg)
   }
 
-  @throws[Error.Preprocessing.Error]
-  def unsafePreprocessCreateByInterface(
-      interfaceId: Ref.Identifier,
-      templateId: Ref.Identifier,
-      argument: Value,
-  ): speedy.Command.CreateByInterface = {
-    discard(handleLookup(interface.lookupTemplateImplements(templateId, interfaceId)))
-    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
-    speedy.Command.CreateByInterface(interfaceId, templateId, arg)
-  }
-
   def unsafePreprocessExercise(
       identifier: Ref.Identifier,
       contractId: Value.ContractId,
@@ -70,6 +59,12 @@ private[lf] final class CommandPreprocessor(
         command(choice, speedy.Command.ExerciseInterface(identifier, cid, choiceId, _))
       case ChoiceInfo.Inherited(ifaceId, choice) =>
         command(choice, speedy.Command.ExerciseByInterface(ifaceId, identifier, cid, choiceId, _))
+      case ChoiceInfo.InterfaceInherited(ifaceId, choice) =>
+        command(
+          choice,
+          speedy.Command
+            .ExerciseByInheritedInterface(ifaceId, identifier, cid, choiceId, _),
+        )
     }
   }
 
@@ -87,23 +82,6 @@ private[lf] final class CommandPreprocessor(
     ).argBinder._2
     val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     speedy.Command.Exercise(templateId, cid, choiceId, arg)
-  }
-
-  /* Like unsafePreprocessExercise, but expects the choice to be inherited from the given interface. */
-  @throws[Error.Preprocessing.Error]
-  def unsafePreprocessExerciseByInterface(
-      interfaceId: Ref.Identifier,
-      templateId: Ref.Identifier,
-      contractId: Value.ContractId,
-      choiceId: Ref.ChoiceName,
-      argument: Value,
-  ): speedy.Command.ExerciseByInterface = {
-    val cid = valueTranslator.unsafeTranslateCid(contractId)
-    val choiceArgType = handleLookup(
-      interface.lookupInheritedChoice(interfaceId, templateId, choiceId)
-    ).argBinder._2
-    val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    speedy.Command.ExerciseByInterface(interfaceId, templateId, cid, choiceId, arg)
   }
 
   @throws[Error.Preprocessing.Error]

@@ -35,7 +35,7 @@ object Config {
     indexerConfig = IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       jdbcUrl = "",
-      startupMode = IndexerStartupMode.MigrateAndStart,
+      startupMode = IndexerStartupMode.MigrateAndStart(),
     ),
     waitForUserInput = false,
     minUpdateRate = None,

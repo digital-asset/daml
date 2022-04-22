@@ -87,6 +87,18 @@ private[lf] object Pretty {
         ) /
           text("Expected contract to implement interface") & prettyTypeConName(interfaceId) &
           text("but contract has type") & prettyTypeConName(templateId)
+      case ContractDoesNotImplementRequiringInterface(
+            requiringIfaceId,
+            requiredIfaceId,
+            coid,
+            templateId,
+          ) =>
+        text("Update failed due to contract") & prettyContractId(coid) & text(
+          "not implementing the requiring interface"
+        ) /
+          text("Expected contract to implement interface") & prettyTypeConName(requiringIfaceId) &
+          text("requirring the interface") & prettyTypeConName(requiredIfaceId) &
+          text("but contract has type") & prettyTypeConName(templateId)
       case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
@@ -257,37 +269,24 @@ private[lf] object Pretty {
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
-        val d =
-          create.byInterface match {
-            case None => "create" &: prettyContractInst(create.coinst)
-            case Some(ifaceId) =>
-              ("create" &: prettyContractInst(create.coinst)) & text(
-                "as interface"
-              ) & prettyIdentifier(ifaceId)
-          }
+        val d = "create" &: prettyContractInst(create.coinst)
         create.versionedKey match {
           case None => d
           case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
-        val d = "ensure active" &: prettyContractId(ea.coid)
-        (ea.byInterface match {
-          case None => d
-          case Some(ifaceId) => d & text("as interface") & prettyIdentifier(ifaceId)
-        })
+        "ensure active" &: prettyContractId(ea.coid)
       case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
           else
-            text("")
-        val exercises =
-          text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId)
+            Doc.empty
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          (ex.byInterface match {
-            case None => exercises
-            case Some(ifaceId) => exercises & text("as interface") & prettyIdentifier(ifaceId)
-          }) &
+          text("exercises") &
+          text(ex.choiceId) + char(':') + prettyIdentifier(
+            ex.interfaceId.getOrElse(ex.templateId)
+          ) &
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
@@ -318,7 +317,7 @@ private[lf] object Pretty {
             )
         )
       else
-        text("")
+        Doc.empty
     val ppReferencedBy =
       if (ni.referencedBy.nonEmpty)
         meta(
@@ -326,10 +325,10 @@ private[lf] object Pretty {
             intercalate(comma + space, ni.referencedBy.toSeq.map(prettyEventId))
         )
       else
-        text("")
+        Doc.empty
     val ppArchivedBy =
       ni.consumedBy match {
-        case None => text("")
+        case None => Doc.empty
         case Some(nid) => meta("archived by" &: prettyEventId(nid))
       }
     prettyEventId(eventId) & prettyOptVersion(ni.node.optVersion) / stack(
@@ -385,8 +384,8 @@ private[lf] object Pretty {
       case ValueNumeric(d) => text(data.Numeric.toString(d))
       case ValueRecord(mbId, fs) =>
         (mbId match {
-          case None => text("")
-          case Some(id) => if (verbose) prettyIdentifier(id) else text("")
+          case Some(id) if verbose => prettyIdentifier(id)
+          case _ => Doc.empty
         }) +
           char('{') &
           fill(
@@ -400,28 +399,15 @@ private[lf] object Pretty {
           char('}')
       case ValueVariant(mbId, variant, value) =>
         (mbId match {
-          case None => text("")
-          case Some(id) =>
-            if (verbose)
-              prettyIdentifier(id) + char(':')
-            else
-              text("")
+          case Some(id) if verbose => prettyIdentifier(id) + char(':')
+          case _ => Doc.empty
         }) +
-          (value match {
-            case ValueUnit => text(variant)
-            case _ =>
-              text(variant) + char('(') + prettyValue(true)(value) + char(')')
-          })
+          text(variant) + char('(') + prettyValue(true)(value) + char(')')
       case ValueEnum(mbId, constructor) =>
         (mbId match {
-          case None => text("")
-          case Some(id) =>
-            if (verbose)
-              prettyIdentifier(id) + char(':')
-            else
-              text("")
-        }) +
-          text(constructor)
+          case Some(id) if verbose => prettyIdentifier(id) + char(':')
+          case _ => Doc.empty
+        }) + text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")
@@ -519,11 +505,7 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate(None) =>
-              text("$create")
-            case SBUCreate(Some(iface)) =>
-              text("$createByInterface") + char(',') + text(iface.qualifiedName.toString) +
-                char(']')
+            case SBUCreate => text("$create")
             case SBFetchAny => text("$fetchAny")
             case SBGetTime => text("$getTime")
             case _ => str(x)

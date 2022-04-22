@@ -13,7 +13,7 @@ object PostgresStorageBackendFactory
     with CommonStorageBackendFactory {
 
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
-    new IngestionStorageBackendTemplate(PGSchema.schema)
+    new IngestionStorageBackendTemplate(PostgresQueryStrategy, PGSchema.schema)
 
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)

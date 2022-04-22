@@ -32,6 +32,7 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
 .. image:: ./ledger-model/images/divulgence-for-disclosure-counteroffer.svg
    :align: center
    :width: 100%
+   :alt: The time sequences for individual parties in the paint counteroffer workflow, with disclosures, as described in the Privacy section linked above.
 
 
 .. _causality-example-create-archive:
@@ -75,6 +76,7 @@ In the ledger shown below, the Bank's commit comes before Alice's commit.
 .. image:: ./images/counteroffer-double-fetch.svg
    :align: center
    :width: 100%
+   :alt: The shared ledger view of the time sequence for the paint counteroffer workflow.
 
 The Bank's projection contains the nonconsuming **Exercise** and the **Fetch** action on the `Iou`.
 Yet, the **Fetch** may come before the non-consuming **Exercise** in the Bank's transaction tree stream.
@@ -93,6 +95,7 @@ The following examples assume that Alice splits up her commit into two as follow
 .. figure:: ./images/counteroffer-split-commit.svg
    :align: center
    :width: 100%
+   :alt: A time sequence for a counteroffer workflow with multiple commits: The first from the bank, the second and third by Alice, and the final one by the painter.
 
    Counteroffer workflow with four commits.
    
@@ -190,6 +193,7 @@ In contrast, the **Create** actions of the `CounterOffer` and Alice's `Iou` are 
 .. figure:: ./images/counteroffer-split-action-order.svg
    :align: center
    :width: 100%
+   :alt: A causality graph for the counteroffer ledger, as described in the paragraph above.
 
    Causality graph for the :ref:`counteroffer workflow with four commits <split-counteroffer-ledger>`.
 
@@ -265,6 +269,7 @@ The `X`\ -minimal consistent causality graph looks as follows, where the actions
 .. figure:: ./images/causality-counteroffer-Iou-minimal.svg
    :align: center
    :width: 100%
+   :alt: The causality graph for the counteroffer workflow, with the following highlighted in red: Iou $Bank A, Fetch A (Iou $Bank A), Exe A (Iou $Bank A) and Iou $Bank P.
 
    Minimal consistent causality graph for the highlighted actions.
 
@@ -278,6 +283,7 @@ Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painte
 .. image:: ./images/causality-consistency-examples.svg
    :align: center
    :width: 100%
+   :alt: A minimal causality graph for a workflow in which the painter receives an Iou from Alice and has an Account contract to hold the Iou created automatically, as described above.
 
 Unlike in a linearly ordered ledger, the causality graph relates the transactions of the `Iou` transfer workflow with the `Account` creation workflow only at the end, when the `Iou` is deposited into the account.
 As will be formalized below, the Bank, Alice, and the painter therefore need not observe the transactions `tx1` to `tx7` in the same order.
@@ -377,6 +383,7 @@ For the :ref:`split counteroffer causality graph <causality-graph-counteroffer-s
 .. figure:: ./images/counteroffer-causality-projection.svg
    :align: center
    :width: 100%
+   :alt: The split counteroffer causality graph divided according to the viewpoints of different parties, as described in the paragraph below.
 
    Projections of the :ref:`split counteroffer causality graph <causality-graph-counteroffer-split>`.
 

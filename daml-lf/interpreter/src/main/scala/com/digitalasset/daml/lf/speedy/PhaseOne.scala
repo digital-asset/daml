@@ -327,7 +327,7 @@ private[lf] final class PhaseOne(
         }
       case EToInterface(iface @ _, tpl @ _, exp) =>
         compileExp(env, exp) { exp =>
-          Return(SBToInterface(tpl)(exp))
+          Return(SBToAnyContract(tpl)(exp))
         }
       case EFromInterface(iface @ _, tpl, exp) =>
         compileExp(env, exp) { exp =>
@@ -349,10 +349,12 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBFromRequiredInterface(requiringIfaceId)(exp))
         }
-      case EUnsafeFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, cidExp, ifaceExp) =>
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cidExp, ifaceExp) =>
         compileExp(env, cidExp) { cidExp =>
           compileExp(env, ifaceExp) { ifaceExp =>
-            Return(SBUnsafeFromRequiredInterface(requiringIfaceId)(cidExp, ifaceExp))
+            Return(
+              SBUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId)(cidExp, ifaceExp)
+            )
           }
         }
       case EInterfaceTemplateTypeRep(ifaceId, exp) =>
@@ -708,9 +710,9 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(iface, arg) =>
+      case UpdateCreateInterface(_, arg) =>
         compileExp(env, arg) { arg =>
-          Return(t.CreateDefRef(iface)(arg))
+          Return(SBResolveCreate(arg))
         }
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>

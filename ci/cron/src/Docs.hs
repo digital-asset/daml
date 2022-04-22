@@ -247,9 +247,11 @@ docs opts@DocOptions{includedVersion} = do
     else do
         -- We may have added versions. We need to build and push them.
         let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
+        -- post-2.0 versions are built and pushed by the docs.daml.com repo
+        let to_build = filter (version "2.0.0" >) added
         IO.withTempDir $ \temp_dir -> do
             putStrLn $ "Versions to build: " <> show added
-            build_and_push opts temp_dir added
+            build_and_push opts temp_dir to_build
             -- If there is no version on GH, we don’t have to do anything.
             Control.Monad.Extra.whenJust (top gh_versions) $ \gh_top ->
               Control.when (Just gh_top /= top s3_versions) $ do

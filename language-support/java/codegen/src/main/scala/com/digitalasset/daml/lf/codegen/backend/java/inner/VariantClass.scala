@@ -36,8 +36,8 @@ private[inner] object VariantClass extends StrictLogging {
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
         .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName, subPackage))
+        .addField(createPackageIdField(typeWithContext.interface.packageId))
         .build()
-      logger.debug("End")
       val constructors = generateConstructorClasses(
         typeArguments,
         variant,
@@ -45,6 +45,7 @@ private[inner] object VariantClass extends StrictLogging {
         packagePrefixes,
         variantClassName,
       )
+      logger.debug("End")
       (variantType, constructors)
     }
 
@@ -185,16 +186,12 @@ private[inner] object VariantClass extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
       variantClassName: ClassName,
   ): List[TypeSpec] = {
-    logger.debug(s"Generating inner classes")
+    logger.debug("Generating inner classes")
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
-    for (
-      FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
-        variant.fields,
-        packagePrefixes,
-      )
-    ) {
+    for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
+      val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
       damlType match {
         case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
           // Variant records will be dealt with in a subsequent phase
@@ -202,6 +199,7 @@ private[inner] object VariantClass extends StrictLogging {
         case _ =>
           logger.debug(s"$damlName is trivial")
           innerClasses += VariantConstructorClass.generate(
+            typeWithContext.interface.packageId,
             fullVariantClassName,
             typeArgs,
             damlName,
@@ -221,17 +219,17 @@ private[inner] object VariantClass extends StrictLogging {
           case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
             innerClasses += VariantRecordClass
               .generate(
+                typeWithContext.interface.packageId,
                 typeVars.map(JavaEscaper.escapeString),
                 getFieldsWithTypes(record.fields, packagePrefixes),
                 child.name,
                 fullVariantClassName,
                 packagePrefixes,
               )
-              .build()
-          case _ =>
+          case t =>
             val c = s"${typeWithContext.name}.${child.name}"
             throw new IllegalArgumentException(
-              s"Underlying type of constructor $c is not Record (found: ${child.`type`.typ})"
+              s"Underlying type of constructor $c is not Record (found: $t)"
             )
         }
       } else {

@@ -12,9 +12,6 @@ import javax.lang.model.element.Modifier
 
 object InterfaceClass extends StrictLogging {
 
-  def classNameForInterface(qualifiedName: QualifiedName) =
-    ClassName.bestGuess { fullyQualifiedName(qualifiedName, None) }
-
   def generate(
       interfaceName: ClassName,
       interface: DefInterface.FWT,
@@ -24,8 +21,7 @@ object InterfaceClass extends StrictLogging {
   ): TypeSpec =
     TrackLineage.of("interface", interfaceName.simpleName()) {
       logger.info("Start")
-
-      val templateType = TypeSpec
+      val interfaceType = TypeSpec
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addField(generateTemplateIdField(packageId, interfaceId))
@@ -40,7 +36,7 @@ object InterfaceClass extends StrictLogging {
         )
         .build()
       logger.debug("End")
-      templateType
+      interfaceType
     }
 
   private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =

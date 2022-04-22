@@ -44,16 +44,15 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def insertCreate_ : PartialTransaction =
       ptx
         .insertCreate(
-          Authorize(Set(party)),
-          templateId,
-          Value.ValueUnit,
-          "agreement",
-          None,
-          Set(party),
-          Set.empty,
-          None,
-          None,
-          TransactionVersion.maxVersion,
+          auth = Authorize(Set(party)),
+          templateId = templateId,
+          arg = Value.ValueUnit,
+          agreementText = "agreement",
+          optLocation = None,
+          signatories = Set(party),
+          stakeholders = Set.empty,
+          key = None,
+          version = TransactionVersion.maxVersion,
         )
         ._2
 
@@ -62,6 +61,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         auth = Authorize(Set(party)),
         targetId = cid,
         templateId = templateId,
+        interfaceId = None,
         choiceId = choiceId,
         optLocation = None,
         consuming = false,
@@ -71,7 +71,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         choiceObservers = Set.empty,
         mbKey = None,
         byKey = false,
-        byInterface = None,
         chosenValue = Value.ValueUnit,
         version = TransactionVersion.maxVersion,
       )

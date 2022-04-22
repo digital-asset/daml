@@ -28,6 +28,7 @@ import scalaz.scalacheck.ScalaCheckBinding._
 object ValueGenerators {
 
   import TransactionVersion.minExceptions
+  import TransactionVersion.minInterfaces
 
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
@@ -294,7 +295,7 @@ object ValueGenerators {
     */
   def malformedCreateNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[Node.Create] = {
+  ): Gen[Node.Create] =
     for {
       coid <- coidGen
       templateId <- idGen
@@ -311,10 +312,8 @@ object ValueGenerators {
       signatories = signatories,
       stakeholders = stakeholders,
       key = key,
-      byInterface = None,
       version = version,
     )
-  }
 
   val fetchNodeGen: Gen[Node.Fetch] =
     for {
@@ -322,7 +321,7 @@ object ValueGenerators {
       node <- fetchNodeGenWithVersion(version)
     } yield node
 
-  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] = {
+  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
       templateId <- idGen
@@ -339,10 +338,8 @@ object ValueGenerators {
       stakeholders = stakeholders,
       key = key,
       byKey = byKey,
-      byInterface = None,
       version = version,
     )
-  }
 
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[Node.Rollback] = {
@@ -364,10 +361,11 @@ object ValueGenerators {
   /** Makes exercise nodes with the given version and some random child IDs. */
   def danglingRefExerciseNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[Node.Exercise] = {
+  ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
       templateId <- idGen
+      interfaceId <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
@@ -385,6 +383,7 @@ object ValueGenerators {
     } yield Node.Exercise(
       targetCoid = targetCoid,
       templateId = templateId,
+      interfaceId = interfaceId,
       choiceId = choiceId,
       consuming = consume,
       actingParties = actingParties,
@@ -396,10 +395,8 @@ object ValueGenerators {
       exerciseResult = exerciseResult,
       key = key,
       byKey = byKey,
-      byInterface = None,
       version = version,
     )
-  }
 
   val lookupNodeGen: Gen[Node.LookupByKey] =
     for {

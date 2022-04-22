@@ -130,10 +130,12 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     deps = [
+        ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

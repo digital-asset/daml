@@ -4,81 +4,112 @@
 package com.daml.lf.codegen.backend.java.inner
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{PackageId, Identifier}
 import com.daml.lf.iface.InterfaceType.{Normal, Template}
-import com.daml.lf.iface.{Enum, DefDataType, Record, Variant}
-import com.squareup.javapoet.{ClassName, FieldSpec, JavaFile, TypeSpec}
+import com.daml.lf.iface.{Enum, DefDataType, InterfaceType, Record, Variant}
+import com.squareup.javapoet.{ClassName, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
 object ClassForType extends StrictLogging {
 
   def apply(
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
+      toBeGenerated: Identifier => Boolean,
   ): List[JavaFile] = {
 
-    val className =
-      ClassName.bestGuess(fullyQualifiedName(typeWithContext.identifier, packagePrefixes))
-    val javaPackage = className.packageName()
+    def recurOnTypeLineages: List[JavaFile] =
+      typeWithContext.typesLineages
+        .flatMap(ClassForType(_, packagePrefixes, toBeGenerated))
+        .toList
 
-    typeWithContext.`type`.typ match {
+    def generateForType(lfInterfaceType: InterfaceType): List[JavaFile] = {
+      val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
+      val className = ClassName.bestGuess(classNameString)
+      generateInterfaceTypes(typeWithContext, packagePrefixes) ++
+        generateSerializableTypes(typeWithContext, className, packagePrefixes, lfInterfaceType)
+    }
 
-      case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
-        val typeSpec =
+    Option
+      .when(toBeGenerated(typeWithContext.identifier))(typeWithContext.`type`.typ)
+      .flatten
+      .fold(recurOnTypeLineages)(generateForType)
+
+  }
+
+  private def generateInterfaceTypes(
+      typeWithContext: TypeWithContext,
+      packagePrefixes: Map[PackageId, String],
+  ): List[JavaFile] =
+    for {
+      (interfaceName, interface) <- typeWithContext.interface.astInterfaces.toList
+      className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
+      packageName = className.packageName()
+      interfaceClass =
+        InterfaceClass
+          .generate(
+            className,
+            interface,
+            packagePrefixes,
+            typeWithContext.interface.packageId,
+            interfaceName,
+          )
+    } yield javaFile(packageName, interfaceClass)
+
+  private def generateSerializableTypes(
+      typeWithContext: TypeWithContext,
+      className: ClassName,
+      packagePrefixes: Map[PackageId, String],
+      lfInterfaceType: InterfaceType,
+  ): List[JavaFile] = {
+    val packageName = className.packageName()
+    lfInterfaceType match {
+      case Normal(DefDataType(typeVars, record: Record.FWT)) =>
+        val recordClass =
           RecordClass.generate(
+            typeWithContext.interface.packageId,
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,
             packagePrefixes,
           )
-        List(javaFile(typeWithContext, javaPackage, typeSpec))
-
-      case Some(Normal(DefDataType(typeVars, variant: Variant.FWT))) =>
-        val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
-          className.simpleName().toLowerCase
-        )
-        val (tpe, constructors) =
+        javaFiles(packageName, recordClass)
+      case Normal(DefDataType(typeVars, variant: Variant.FWT)) =>
+        val simpleLowerCaseName = JavaEscaper.escapeString(className.simpleName().toLowerCase)
+        val subPackage = s"$packageName.$simpleLowerCaseName"
+        val escapedTypeVars = typeVars.map(JavaEscaper.escapeString)
+        val (variantSpec, constructorSpecs) =
           VariantClass.generate(
             className,
             subPackage,
-            typeVars.map(JavaEscaper.escapeString),
+            escapedTypeVars,
             variant,
             typeWithContext,
             packagePrefixes,
           )
-        javaFile(typeWithContext, javaPackage, tpe) ::
-          constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
-
-      case Some(Normal(DefDataType(_, enum: Enum))) =>
-        List(
-          JavaFile
-            .builder(javaPackage, EnumClass.generate(className, enum))
-            .build()
-        )
-
-      case Some(Template(record, template)) =>
+        javaFile(packageName, variantSpec) :: javaFiles(subPackage, constructorSpecs)
+      case Normal(DefDataType(_, enum: Enum)) =>
+        javaFiles(packageName, EnumClass.generate(className, enum))
+      case Template(record, template) =>
         val typeSpec =
-          TemplateClass.generate(className, record, template, typeWithContext, packagePrefixes)
-        List(JavaFile.builder(javaPackage, typeSpec).build())
-
-      case None =>
-        // This typeWithContext didn't contain a type itself, but has children nodes
-        // which we treat as any other TypeWithContext
-        typeWithContext.typesLineages.flatMap(ClassForType(_, packagePrefixes)).toList
+          TemplateClass.generate(
+            className,
+            record,
+            template,
+            typeWithContext,
+            packagePrefixes,
+          )
+        javaFiles(packageName, typeSpec)
     }
   }
 
-  def javaFile(typeWithContext: TypeWithContext, javaPackage: String, typeSpec: TypeSpec) = {
-    val withField =
-      typeSpec.toBuilder.addField(createPackageIdField(typeWithContext.interface.packageId)).build()
-    JavaFile.builder(javaPackage, withField).build()
-  }
+  private def javaFile(packageName: String, typeSpec: TypeSpec): JavaFile =
+    JavaFile.builder(packageName, typeSpec).build()
 
-  private def createPackageIdField(packageId: PackageId): FieldSpec = {
-    FieldSpec
-      .builder(classOf[String], "_packageId", Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-      .initializer("$S", packageId)
-      .build()
-  }
+  private def javaFiles(packageName: String, typeSpec: TypeSpec): List[JavaFile] =
+    List(javaFile(packageName, typeSpec))
+
+  private def javaFiles(packageName: String, typeSpecs: List[TypeSpec]): List[JavaFile] =
+    typeSpecs.map(javaFile(packageName, _))
+
 }

@@ -681,6 +681,7 @@ object TransactionSpec {
     Node.Exercise(
       targetCoid = cid,
       templateId = "DummyModule:dummyName",
+      interfaceId = None,
       choiceId = "dummyChoice",
       consuming = true,
       actingParties = Set.empty,
@@ -692,7 +693,6 @@ object TransactionSpec {
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
       byKey = false,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -705,7 +705,6 @@ object TransactionSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 

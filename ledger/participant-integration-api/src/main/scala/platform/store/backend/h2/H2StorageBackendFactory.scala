@@ -30,7 +30,7 @@ import com.daml.platform.store.interning.StringInterning
 object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
-    new IngestionStorageBackendTemplate(H2Schema.schema)
+    new IngestionStorageBackendTemplate(H2QueryStrategy, H2Schema.schema)
 
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
