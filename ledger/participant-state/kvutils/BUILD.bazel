@@ -11,10 +11,6 @@ load(
     "//bazel_tools/client_server:client_server_build.bzl",
     "client_server_build",
 )
-load(
-    "//ledger/participant-state/kvutils/tools:integrity_test.bzl",
-    "integrity_test",
-)
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
