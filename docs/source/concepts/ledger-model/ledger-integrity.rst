@@ -64,7 +64,7 @@ Then, `act'` happens after `act`.
 
 .. _da-model-contract-consistency:
 
-Contract consistency
+Contract Consistency
 ====================
 
 Contract consistency ensures that contracts are used after they have been created and before they are consumed.
@@ -131,7 +131,7 @@ of contracts `Iou Bank P` and `PaintAgree P A`.
 
 .. _da-model-key-consistency:
 
-Key consistency
+Key Consistency
 ===============
 
 Contract keys introduce a key uniqueness constraint for the ledger.
@@ -196,14 +196,14 @@ Key consistency extends to actions, transactions and lists of transactions just 
 
 .. _da-model-ledger-consistency:
 
-Ledger consistency
+Ledger Consistency
 ==================
 
 Definition »ledger consistency«
   A ledger is **consistent** if it is consistent for all contracts and for all keys.
 
 
-Internal consistency
+Internal Consistency
 ====================
 The above consistency requirement is too strong for actions and transactions
 in isolation.
@@ -347,7 +347,7 @@ and imposed on the contract's *signatories*.
 
 .. _da-signatories-agreements-maintainers:
 
-Signatories, agreements, and maintainers
+Signatories, Agreements, and Maintainers
 ========================================
 
 To capture these elements of real-world contracts, the **contract model**
@@ -402,7 +402,7 @@ signatories yields the image below.
 
 .. _da-ledgers-authorization-rules:
 
-Authorization rules
+Authorization Rules
 ===================
 
 Signatories allow one to precisely state that the painter has an obligation.

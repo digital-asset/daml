@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Parties and Authority
-=======================
+=====================
 
 Daml is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
 

@@ -50,8 +50,8 @@ In addition to the record fields, exceptions also need to define a
    :start-after: -- BEGIN_EXCEPTION
    :end-before: -- END_EXCEPTION
 
-Throwing Exceptions
-...................
+Throw Exceptions
+................
 
 There are two ways to throw exceptions:
 
@@ -64,8 +64,8 @@ If both are an option, it is generally preferable to use ``throw``
 since it is easier to reason about when exactly the exception will get
 thrown.
 
-Catching Exceptions
-...................
+Catch Exceptions
+................
 
 Exceptions are caught in try-catch blocks similar to those found in
 languages like Java. The ``try`` block defines the scope within which

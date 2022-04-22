@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Transforming Data using Choices
-=================================
+Transform Data Using Choices
+============================
 
 In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
 
@@ -98,7 +98,7 @@ If you open the script view in the IDE, you will notice that Bob sees the ``Cont
 
 .. _choices:
 
-Choices in the Ledger Model
+Choices In the Ledger Model
 ---------------------------
 
 In :doc:`1_Token` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
@@ -175,14 +175,14 @@ There are four commits corresponding to the four ``submit`` statements in the sc
 
 So commits ``#2`` and ``#4`` contain ``exercise`` actions with IDs ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
-The Archive choice
+The Archive Choice
 ~~~~~~~~~~~~~~~~~~
 
 You may have noticed that there is no archive action. That's because ``archive cid`` is just shorthand for ``exercise cid Archive``, where ``Archive`` is a choice implicitly added to every template, with the signatories as controllers.
 
 .. _simple_iou:
 
-A simple Cash Model
+A Simple Cash Model
 -------------------
 
 With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities:

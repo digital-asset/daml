@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Functional Programming 101
-=============================
+==========================
 
 In this chapter, you will learn more about expressing complex logic in a functional language like Daml. Specifically, you'll learn about
 
@@ -73,7 +73,7 @@ There are two interesting things going on here:
 1. We have more than one ``->``.
 2. We have a type parameter ``a`` with a constraint ``Additive a``.
 
-Function application
+Function Application
 ....................
 
 Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->`` we get "a maps to a function that maps a to a".
@@ -89,7 +89,7 @@ If you try this out in your IDE, you'll see that the compiler infers type ``Int 
 
 So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we get ``f valA : b -> c -> d``, ie we can apply the function argument by argument. If we also had ``valB : b``, we would have ``f valA valB : c -> d``. What this tells you is that function *application* is left associative: ``f valA valB == (f valA) valB``.
 
-Infix functions
+Infix Functions
 ...............
 
 Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function, and wrap a normal function in backticks to make it infix:
@@ -117,7 +117,7 @@ If we want to partially apply an infix operation we can also do that as follows:
 
   While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3, and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. 
 
-Type constraints
+Type Constraints
 ................
 
 The ``Additive a =>`` part of the signature of ``add`` is a type constraint on the type parameter ``a``. ``Additive`` here is a typeclass. You already met typeclasses like ``Eq`` and ``Show`` in :doc:`3_Data`. The ``Additive`` typeclass says that you can add a thing. Ie there is a function ``(+) : a -> a -> a``. Now the way to read the full signature of ``add`` is "Given that a has an instance for the Additive typeclass, a maps to a function which maps a to a".
@@ -134,7 +134,7 @@ Let's turn this into prose: Given that ``t`` is the type of a template, and that
 
 That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
 
-Pattern matching in arguments
+Pattern Matching In Arguments
 .............................
 
 You met pattern matching in :doc:`3_Data`, using ``case`` statements which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
@@ -179,7 +179,7 @@ The ``..`` in the pattern match here means bind all fields from the given record
 
 The ``..`` in the second to last line means fill all fields of the new record using local variables of the matching name. So the function succinctly transfers all fields except for ``owner``, which is set explicitly, from the V1 Asset to the V2 Asset.
 
-Functions everywhere
+Functions Everywhere
 ....................
 
 You have probably already guessed it: Anywhere you can put a value in Daml you can also put a function. Even inside data types:
@@ -254,7 +254,7 @@ The linter knows the equivalence and suggests a better implementation:
 
 In short: ``if..else`` statements are equivalent to a ``case`` statement, but are easier to read.
 
-Control flow as expressions
+Control Flow as Expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``case`` statements and ``if..else`` really are control flow in the sense that they short circuit:
@@ -289,7 +289,7 @@ If we need functions that can return two (or more) types of things we need to en
   :start-after: -- INT_OR_TEXT_BEGIN
   :end-before: -- INT_OR_TEXT_END
 
-Branching in actions
+Branching In Actions
 ~~~~~~~~~~~~~~~~~~~~
 
 The most common case where this becomes important is inside ``do`` blocks. Say we want to create a contract of one type in one case, and of another type in another case. Let's say we have two template types and want to write a function that creates an ``S`` if a condition is met, and a ``T`` otherwise.
@@ -459,7 +459,7 @@ If there is no explicit iterator, you can use recursion. Let's try to write a fu
 
 You may be tempted to make ``reverseWorker`` a local definition inside ``reverse``, but Daml only supports recursion for top-level functions so the recursive part ``recurseWorker`` has to be its own top-level function.
 
-Folds and maps in action contexts
+Folds and Maps In Action Contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. In day-to-day Daml that's the exception rather than the rule. If you have looked at the chapter 8 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA`` all over the place. A good example are the ``mapA`` in the ``testMultiTrade`` script:

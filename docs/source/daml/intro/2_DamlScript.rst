@@ -3,8 +3,8 @@
 
 .. _testing-using-script:
 
-Testing Templates using Daml Script
-===================================
+Test Templates using Daml Script
+================================
 
 In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <script-results>`. You'll learn about the basic features of :
 
@@ -55,7 +55,7 @@ You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
 You could write this as ``submit alice (createCmd Token with owner = alice)``, but just like scripts, you can assemble commands using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the commands above gives the same result, whilst being easier to read. Note however, that the commands submitted as part of a transaction are not allowed to depend on each other.
 
-Running Scripts
+Run the Scripts
 ---------------
 
 There are a few ways to run Daml Scripts:
@@ -89,8 +89,8 @@ To run the same test from the command line, save your module in a file ``Token_T
 
 .. _intro_2_failure:
 
-Testing for Failure
--------------------
+Test for Failure
+----------------
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
 
@@ -116,8 +116,8 @@ To test for failing submits and keep the script running thereafter, or fail if t
 
 .. _archiving:
 
-Archiving Contracts
--------------------
+Archive Contracts
+-----------------
 
 Archiving contracts works just like creating them, but using ``archiveCmd`` instead of ``createCmd``. Where ``createCmd`` takes an instance of a template, ``archiveCmd`` takes a reference to a contract.
 
@@ -132,8 +132,8 @@ This script first checks that Bob cannot archive Alice's Token and then Alice su
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
 
-Exploring the Ledger
---------------------
+Explore the Ledger
+------------------
 
 The resulting script view is empty, because there are no contracts left on the ledger. However, if you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
@@ -170,6 +170,6 @@ To get a better understanding of script, try the following exercises:
     Remember that in :ref:`intro_2_failure` we saw a proper error message for a failing submit.
 
 Next Up
-----------
+-------
 
 In :doc:`3_Data` you will learn about Daml's type system, and how you can think of templates as tables and contracts as database rows.

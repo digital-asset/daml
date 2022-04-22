@@ -4,10 +4,10 @@
 Reference: Built-in Functions
 #############################
 
-This page gives reference information on functions for working with a variety of common concepts.
+This page gives reference information on built-in functions for working with a variety of common concepts.
 
-Working with Time
-*****************
+Work with Time
+**************
 
 Daml has these built-in functions for working with time:
 
@@ -17,8 +17,8 @@ Daml has these built-in functions for working with time:
 - ``days``, ``hours``, ``minutes``, ``seconds``: constructs a ``RelTime`` of the specified length.
 - ``pass``: (in :ref:`Daml Script tests <testing-using-script>` only) use ``pass : RelTime -> Script Time`` to advance the ledger time by the argument amount. Returns the new time.
 
-Working with Numbers
-********************
+Work with Numbers
+*****************
 
 Daml has these built-in functions for working with numbers:
 
@@ -43,8 +43,8 @@ Daml has these built-in functions for working with numbers:
 The set of numbers expressed by ``Decimal`` is not closed under division as the result may require more than 10 decimal places to represent. For example, ``1.0 / 3.0 == 0.3333...`` is a rational number, but not a ``Decimal``.
 
 
-Working with Text
-*****************
+Work with Text
+**************
 
 Daml has these built-in functions for working with text:
 
@@ -73,8 +73,8 @@ To escape text in Daml strings, use ``\``:
 | an example)       | - Hexadecimal code: ``\x21``|
 +-------------------+-----------------------------+
 
-Working with Lists
-******************
+Work with Lists
+***************
 
 Daml has these built-in functions for working with lists:
 
@@ -82,8 +82,8 @@ Daml has these built-in functions for working with lists:
 
 .. _daml-ref-folding:
 
-Folding
-=======
+Fold
+====
 
 A *fold* takes:
 

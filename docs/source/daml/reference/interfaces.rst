@@ -20,7 +20,7 @@ Interface Declaration
 
 An interface declaration is somewhat similar to a template declaration.
 
-Interface name
+Interface Name
 --------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -32,7 +32,7 @@ Interface name
 - It's preceded by the keyword ``interface`` and followed by the keyword ``where``.
 - It must begin with a capital letter, like any other type name.
 
-Interface methods
+Interface Methods
 -----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -53,7 +53,7 @@ Interface methods
 - Methods are also in scope in interface choices
   (see :ref:`interface-choices` below).
 
-Interface precondition
+Interface Precondition
 ----------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -73,7 +73,7 @@ Interface precondition
 
 .. _interface-choices:
 
-Interface choices
+Interface Choices
 -----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -94,7 +94,7 @@ Interface choices
 - See :doc:`choices` for full reference information, but note that
   controller-first syntax is not supported for interface choices.
 
-Empty interfaces
+Empty Interfaces
 ----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -106,7 +106,7 @@ Empty interfaces
   methods, precondition or choices. In such a case, the ``where`` keyword
   can be dropped.
 
-Required interfaces
+Required Interfaces
 -------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -137,7 +137,7 @@ For context, a simple template definition:
    :start-after: -- TEMPLATE_HEADER_BEGIN
    :end-before: -- TEMPLATE_HEADER_END
 
-Implements clause
+Implements Clause
 -----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -154,7 +154,7 @@ Implements clause
 - Methods can be defined using the same syntax as for top level functions,
   including pattern matches and guards (e.g. ``method3``).
 
-Empty implements clause
+Empty Implements Clause
 -----------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml

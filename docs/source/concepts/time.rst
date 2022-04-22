@@ -82,8 +82,8 @@ The ledger time model is part of the ledger configuration and can be changed by 
 
 .. _assigning-ledger-time:
 
-Assigning Ledger Time
-*********************
+Assign Ledger Time
+******************
 
 The ledger time is assigned automatically by the participant.
 In most cases, Daml applications will not need to worry about ledger time and record time at all.

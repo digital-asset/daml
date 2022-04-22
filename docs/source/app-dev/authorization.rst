@@ -37,8 +37,8 @@ whether the request is valid according to the :ref:`Daml Ledger Model <da-ledger
 Whether a participant node *will* serve such a request to a Daml application depends on whether the
 request includes an access token that is valid and sufficient to authorize the request for this participant node.
 
-Acquiring and Using Access Tokens
-*********************************
+Acquire and Use Access Tokens
+*****************************
 
 How an application should acquire access tokens depends on the participant node it talks to and is ultimately setup by the participant node operator.
 Many setups use a flow in the style of `OAuth 2.0 <https://oauth.net/2/>`_:
@@ -140,7 +140,7 @@ and there are two formats of the JSON payload in use by Daml ledgers.
 .. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
 
 
-User access tokens
+User Access Tokens
 ==================
 
 Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
@@ -176,7 +176,7 @@ The above notations are explained below:
   that must contain the ``"daml_ledger_api"`` scope
 
 
-Custom Daml claims access tokens
+Custom Daml Claims Access Tokens
 ================================
 
 This format represents the :ref:`rights <authorization-claims>` granted by the access token as custom claims in the JWT's payload, like so:

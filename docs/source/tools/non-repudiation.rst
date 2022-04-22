@@ -29,8 +29,8 @@ The non-repudiation system consists of three components:
 - the non-repudiation API is a web server used by the operator to upload new certificates and verify repudiation claims
 - the non-repudiation client is a gRPC interceptor that can be used alongside any gRPC client on the JVM, including the official Java bindings, that will ensure that commands are signed with a given private key
 
-Running the Server-side Components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Run the Server-side Components
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The server-side components are the middleware and the API. Both can be run as a single process by running the non-repudiation fat JAR provided as part of Daml Enterprise.
 
@@ -44,8 +44,8 @@ The following example shows how to run the non-repudiation server components by 
 
 For details on how to run them, please run the fat JAR with the ``--help`` command line option.
 
-Using the Client
-~~~~~~~~~~~~~~~~
+Use the Client
+~~~~~~~~~~~~~~
 
 The client is a gRPC interceptor which is available to Daml Enterprise users (hence, it's not available on Maven Central).
 

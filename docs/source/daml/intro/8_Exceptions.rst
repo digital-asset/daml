@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Exception Handling
-====================
+==================
 
 The default behavior in Daml is to abort the transaction on any error
 and roll back all changes that have happened until then. However, this

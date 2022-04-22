@@ -6,13 +6,13 @@ Daml Studio
 
 Daml Studio is an integrated development environment (IDE) for Daml. It is an extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS Code), a cross-platform, open-source editor providing a `rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
 
-Installing
-**********
+Install
+*******
 
 Daml Studio is included in :doc:`the Daml SDK </getting-started/installation>`.
 
-Creating Your First Daml File
-*****************************
+Create Your First Daml File
+***************************
 
 1. Start Daml Studio by running ``daml studio`` in the current project.
 
@@ -54,7 +54,7 @@ Visual Studio Code provides many helpful features for editing Daml files and we 
 `Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
 The Daml Studio extension for Visual Studio Code provides the following Daml-specific features:
 
-Symbols and problem reporting
+Symbols and Problem Reporting
 =============================
 
 Use the commands listed below to navigate between symbols, rename them, and inspect any problems detected in your Daml files. Symbols are identifiers such as template names,
@@ -90,7 +90,7 @@ Command                      Shortcut (OS X)
 .. _Go to Symbol in Workspace: https://code.visualstudio.com/docs/editor/editingevolved#_open-symbol-by-name
 .. _Problems Panel: https://code.visualstudio.com/docs/editor/editingevolved#_errors-warnings
 
-Hover tooltips
+Hover Tooltips
 ==============
 
 You can `hover`_ over most symbols in the code to display additional information such as its type.
@@ -99,8 +99,8 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _script-results:
 
-Daml Script results
-================================
+Daml Script Results
+===================
 
 Top-level declarations of type ``Script`` are decorated with
 a ``Script results`` code lens.
@@ -174,7 +174,7 @@ You can navigate to the corresponding source code by clicking on the location
 shown in parenthesis (e.g. ``Iou:25:12``, which means the ``Iou`` module, line 25 and column 1).
 You can also navigate between transactions by clicking on the transaction and contract ids (e.g. ``#1:0``).
 
-Daml snippets
+Daml Snippets
 =============
 
 You can automatically complete a number of "snippets" when editing a Daml
@@ -203,7 +203,7 @@ snippet file.
 
 
 Common Script Errors
-**********************
+********************
 
 During Daml execution, errors can occur due to exceptions (e.g. use of "abort", or division by zero), or
 due to authorization failures. You can expect to run into the following errors when writing Daml.
@@ -226,7 +226,7 @@ Committed transaction
 Trace
    Any messages produced by calls to ``trace`` and ``debug``.
 
-Abort, assert, and debug
+Abort, Assert, and Debug
 ========================
 
 The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates and scripts. All three can be used to output messages, but ``abort`` and ``assert`` can additionally halt the execution:
@@ -248,7 +248,7 @@ The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates
       "hello, world!"
 
 
-Missing authorization on create
+Missing Authorization on Create
 ===============================
 
 If a contract is being created without approval from all authorizing
@@ -282,7 +282,7 @@ authorize the creation via a choice, for example 'Alice' could create a contract
 giving 'Bob' the choice to create the 'Example' contract.
 
 
-Missing authorization on exercise
+Missing Authorization on Exercise
 =================================
 
 Similarly to creates, exercises can also fail due to missing authorizations when a
@@ -325,7 +325,7 @@ choice 'Consume' of which he is not a controller
 From the error we can see that the parties authorizing the exercise ('Bob')
 is not a subset of the required controlling parties.
 
-Contract not visible
+Contract Not Visible
 ====================
 
 Contract not being visible is another common error that can occur when a contract
@@ -366,8 +366,8 @@ To fix this issue the party 'Bob' should be made a controlling party in one of t
 
 .. _daml-studio-packages:
 
-Working with Multiple Packages
-******************************
+Work with Multiple Packages
+***************************
 
 Often a Daml project consists of multiple packages, e.g., one
 containing your templates and one containing a Daml trigger so that

@@ -15,24 +15,24 @@ Daml is a platform for building and running sophisticated, multi-party applicati
 that defines the schema, semantics, and execution of transactions between parties. Daml includes `Canton <#canton-ledger>`__, a privacy-enabled distributed ledger that is enhanced when deployed 
 with complementary blockchains.
 
-Daml language
+Daml Language
 =============
 
 The Daml language is a purpose-built language for rapid development of composable multi-party applications. It is a modern, ergonomically designed functional language that carefully avoids many 
 of the pitfalls that hinder multi-party application development in other languages.
 
-Daml ledger
+Daml Ledger
 ===========
 
 A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :doc:`Daml ledger model </concepts/ledger-model/index>` and exposes the Daml Ledger APIs.
 All current implementations of Daml ledgers consists of a Daml driver that utilises and underlying Synchronization Technology to either implement the Daml ledger directly, or run the Canton protocol.
 
-Canton ledger
+Canton Ledger
 -------------
 
 A Canton ledger is a privacy-enabled Daml ledger implemented using the Canton application, nodes, and protocol.
 
-Canton protocol
+Canton Protocol
 ===============
 
 The Canton protocol is the technology which synchronizes `participant nodes <#participant-node>`__ across any Daml-enabled blockchain or database.  The Canton protocol not only makes Daml 
@@ -40,13 +40,13 @@ applications portable between different underlying `synchronization technologies
 
 .. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
 
-Synchronization technology
+Synchronization Technology
 ==========================
 
 The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
 databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
 
-Daml drivers
+Daml Drivers
 ============
 
 Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology. 
@@ -65,7 +65,7 @@ A **contract** is an item on a `ledger <#daml-ledger>`__. They are created from 
 
 Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to it is that the contract can be `archived <#active-contract-archived-contract>`__.
 
-Active contract, archived contract
+Active Contract, Archived Contract
 ----------------------------------
 
 When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
@@ -93,29 +93,29 @@ A choice can only be exercised by its `controller <#controller>`__. Within the c
 
 For full documentation on choices, see :doc:`/daml/reference/choices`.
 
-Consuming choice
+Consuming Choice
 ----------------
 
 A **consuming choice** means that, when the choices is exercised, the `contract <#contract>`__ it is on will be `archived <#active-contract-archived-contract>`__. The alternative is a `nonconsuming choice <#nonconsuming-choice>`__.
 
 Consuming choices can be `preconsuming <#preconsuming-choice>`__ or `postconsuming <#postconsuming-choice>`__.
 
-Preconsuming choice
+Preconsuming Choice
 ~~~~~~~~~~~~~~~~~~~
 
 A `choice <#choice>`__ marked **preconsuming** will be `archived <#active-contract-archived-contract>`__ at the start of that `exercise <#exercise>`__.
 
-Postconsuming choice
+Postconsuming Choice
 ~~~~~~~~~~~~~~~~~~~~
 
 A `choice <#choice>`__ marked **postconsuming** will not be `archived <#active-contract-archived-contract>`__ until the end of the `exercise <#exercise>`__ choice body.
 
-Nonconsuming choice
+Nonconsuming Choice
 --------------------
 
 A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract>`__.
 
-Disjunction choice, flexible controllers
+Disjunction Choice, Flexible Controllers
 ----------------------------------------
 
 A **disjunction choice** has more than one `controller <#controller>`__.
@@ -177,7 +177,7 @@ It's not possible for keys to be globally unique, because there is no party that
 
 For documentation on contract keys, see :doc:`/daml/reference/contract-keys`.
 
-Authorization, signing
+Authorization, Signing
 ======================
 
 The Daml runtime checks that every submitted transaction is **well-authorized**, according to the :doc:`authorization rules of the ledger model </concepts/ledger-model/ledger-integrity>`, which guarantee the integrity of the underlying ledger.
@@ -215,7 +215,7 @@ Only if all required parties have given their authorization to an update action,
 
 It is noteworthy, that authorizing parties are always determined only from the local context of a choice in question, that is, its controllers and the contract's signatories. Authorization is never inherited from earlier execution contexts.
 
-Standard library
+Standard Library
 ================
 
 The **Daml standard library** is a set of `Daml` functions, classes and more that make developing with Daml easier.
@@ -273,7 +273,7 @@ See :ref:`testing-using-script`.
 
 .. The **Daml runtime** (sometimes also called the Daml execution engine or Damle)...
 
-Contract key
+Contract Key
 ============
 
 A **contract key** allows you to uniquely identify a `contract <#contract>`__ of a particular `template <#template>`__, similarly to a primary key in a database table.
@@ -284,7 +284,7 @@ See :doc:`/daml/reference/contract-keys`.
 
 .. _dar-file-dalf-file:
 
-DAR file, DALF file
+DAR File, DALF File
 ===================
 
 A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ which can be interpreted using a Daml interpreter.
@@ -339,7 +339,7 @@ See :doc:`/tools/navigator/index`.
 Building Applications
 *********************
 
-Application, ledger client, integration
+Application, Ledger Client, Integration
 =======================================
 
 **Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
@@ -354,62 +354,62 @@ An alternative name for the Ledger API is the **gRPC Ledger API** if disambiguat
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
-Command submission service
+Command Submission Service
 --------------------------
 
 Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
 
-Command completion service
+Command Completion Service
 --------------------------
 
 Use the **command completion service** to find out whether or not `commands you have submitted <#submitting-commands-writing-to-the-ledger>`__ have completed, and what their status was. See :ref:`command-completion-service`.
 
-Command service
+Command Service
 ---------------
 
 Use the **command service** when you want to `submit a command <#submitting-commands-writing-to-the-ledger>`__ and wait for it to be executed. See :ref:`command-service`.
 
-Transaction service
+Transaction Service
 -------------------
 
 Use the **transaction service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
 
-Active contract service
+Active Contract Service
 -----------------------
 
 Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`active-contract-service`.
 
-Package service
+Package Service
 ---------------
 
 Use the **package service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
-Ledger identity service
+Ledger Identity Service
 -----------------------
 
 Use the **ledger identity service** to get the identity string of the `ledger <#daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
 
-Ledger configuration service
+Ledger Configuration Service
 ----------------------------
 
 Use the **ledger configuration service** to subscribe to changes in `ledger <#daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
 
-Ledger API libraries
+Ledger API Libraries
 ====================
 
 The following libraries wrap the `ledger API <#ledger-api>`__ for more native experience applications development.
 
-Java bindings
+Java Bindings
 -------------
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
 
-Reading from the ledger
+Reading From the Ledger
 =======================
 
 `Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
 
-Submitting commands, writing to the ledger
+Submitting Commands, Writing To the Ledger
 ==========================================
 
 `Applications <#application-ledger-client-integration>`__ make changes to the `ledger <#daml-ledger>`__ by **submitting commands**. You can't change it directly: an application submits a command of `transactions <#transactions>`__. The command gets evaluated by the runtime, and will only be accepted if it's valid.
@@ -430,13 +430,13 @@ A **command** is an instruction to add a transaction to the `ledger <#daml-ledge
 
 .. _daml-lf:
 
-Participant node
+Participant Node
 ================
 
 The participant node is a server that provides users a consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handles transaction signing and 
 validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
 
-Sub-transaction privacy
+Sub-transaction Privacy
 =======================
 
 Sub-transaction privacy is where participants to a transaction only `learn about the subset of the transaction <https://docs.daml.com/concepts/ledger-model/ledger-privacy.html>`__ they are 
@@ -461,7 +461,7 @@ directly involved participants who wish to be part of the new application functi
 
 .. _trust-domain:
 
-Trust domain
+Trust Domain
 ============
 
 A trust domain encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
@@ -483,12 +483,12 @@ The `sequencer service <#sequencer>`__ of the domain orders these messages witho
 
 The other services of the domain are the `mediator <#mediator>`__ and the `domain identity manager <#domain-identity-manager>`__.
 
-Private contract store
+Private Contract Store
 ======================
 
 Every participant node manages its own private contract store (PCS) which contains only contracts the participant is privy to. There is no global state or global contract store.
 
-Virtual global ledger
+Virtual Global Ledger
 =====================
 
 While every participant has their own private contract store (PCS), the `Canton protocol <#canton-protocol>`__ guarantees that the contracts which are stored in the PCS are well-authorized 

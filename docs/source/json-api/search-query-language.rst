@@ -130,7 +130,7 @@ caught when interpreting the query, before considering any contracts.
 Appendix: Known Issues
 **********************
 
-When using Oracle, queries fail if a token is too large
+When Using Oracle, Queries Fail if a Token Is Too Large
 =======================================================
 
 This limitation is exclusive to users of the HTTP JSON API using Daml Enterprise support for Oracle. Due to a known limitation in Oracle, the full-test JSON search index on the contract payloads rejects query tokens larger than 256 bytes. This limitations shouldn't impact most workloads, but if this needs to be worked around, the HTTP JSON API server can be started passing the additional ``disableContractPayloadIndexing=true`` (after wiping an existing query store database, if necessary).

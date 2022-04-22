@@ -157,8 +157,8 @@ not be using heartbeats in this example.
 
 .. _running-a-no-op-trigger:
 
-Running a No-Op Trigger
-=======================
+Run a No-Op Trigger
+===================
 
 To implement a no-op trigger, one could write the following in a separate
 ``daml/ChatBot.daml`` file:

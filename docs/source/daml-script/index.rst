@@ -124,7 +124,7 @@ the type ``Script ()``.
    :start-after: -- INITIALIZE_PURE_BEGIN
    :end-before: -- INITIALIZE_PURE_END
 
-Party management
+Party Management
 ----------------
 
 We have now defined a way to initialize the ledger so we can write a
@@ -177,8 +177,8 @@ them away using ``map snd``.
    :start-after: -- TEST_QUERIES_BEGIN
    :end-before: -- TEST_QUERIES_END
 
-Running a script
-----------------
+Run a Script
+------------
 
 To run our script, we first build it with ``daml build`` and then run
 it by pointing to the DAR, the name of our script, and the host and
@@ -225,8 +225,8 @@ initialize our ledger as follows:
 
 .. _script-ledger-initialization:
 
-Using Daml Script for Ledger Initialization
-===========================================
+Use Daml Script for Ledger Initialization
+=========================================
 
 You can use Daml script to initialize a ledger on startup. To do so,
 specify an ``init-script: ScriptExample:initializeUser`` field in your
@@ -242,8 +242,8 @@ instead of party ids.
    :start-after: -- INITIALIZE_USER_BEGIN
    :end-before: -- INITIALIZE_USER_END
 
-Migrating from scenarios
-------------------------
+Migrate From Scenarios
+----------------------
 
 Existing scenarios that you used for ledger initialization can be
 translated to Daml script but there are a few things to keep in mind:
@@ -298,8 +298,8 @@ translated to Daml script but there are a few things to keep in mind:
 
 .. _daml-script-distributed:
 
-Using Daml Script in Distributed Topologies
-===========================================
+Use Daml Script in Distributed Topologies
+=========================================
 
 So far, we have run Daml script against a single participant node. It
 is also more possible to run it in a setting where different parties
@@ -324,8 +324,8 @@ argument.
 
 .. _daml-script-auth:
 
-Running Daml Script against Ledgers with Authorization
-======================================================
+Run Daml Script Against Ledgers with Authorization
+==================================================
 
 To run Daml Script against a ledger that verifies authorization,
 you need to specify an access token. There are two ways of doing that:
@@ -348,8 +348,8 @@ have a token specified in the config.
 
 .. _daml-script-json-api:
 
-Running Daml Script against the HTTP JSON API
-=============================================
+Run Daml Script Against the HTTP JSON API
+=========================================
 
 In some cases, you only have access to the
 :doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on

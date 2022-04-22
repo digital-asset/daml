@@ -24,8 +24,8 @@ The key can be an arbitrary serializable expression that does **not** contain co
 
 It's best to use simple types for your keys like ``Text`` or ``Int``, rather than a list or more complex type.
 
-Specifying Maintainers
-**********************
+Specify Maintainers
+*******************
 
 If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers. The maintainers "own" the key in the same way the signatories "own" a contract. Just like signatories of contracts prevent double spends or use of false contract data, maintainers of keys prevent double allocation or incorrect lookups. Since the key is part of the contract, the maintainers **must** be signatories of the contract. However, maintainers are computed from the ``key`` instead of the template arguments. In the example above, the ``bank`` is ultimately the maintainer of the key.
 

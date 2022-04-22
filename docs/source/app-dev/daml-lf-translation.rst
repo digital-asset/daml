@@ -68,7 +68,7 @@ Daml-LF has three kinds of data declarations:
 
 .. In the tables below, the left column uses Daml 1.2 syntax and the right column uses the notation from the `Daml-LF specification <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_.
 
-Record declarations
+Record Declarations
 ===================
 
 This section uses the syntax for Daml :ref:`records <daml-ref-record-types>` with curly braces.
@@ -92,7 +92,7 @@ This section uses the syntax for Daml :ref:`records <daml-ref-record-types>` wit
    * - ``data Foo = Bar {}``
      - ``record Foo ↦ {}``
 
-Variant declarations
+Variant Declarations
 ====================
 
 .. list-table::
@@ -128,7 +128,7 @@ Variant declarations
    * - ``data Foo = Bar { bar1: Int; bar2: Decimal } | Baz { baz1: Text; baz2: Date }``
      - ``data Foo ↦ Bar Foo.Bar | Baz Foo.Baz``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``, ``record Foo.Baz ↦ { baz1: Text; baz2: Date }``
 
-Enum declarations
+Enum Declarations
 =================
 
 .. list-table::
@@ -142,7 +142,7 @@ Enum declarations
    * - ``data Color = Red | Green | Blue``
      - ``enum Color ↦ Red | Green | Blue``
 
-Banned declarations
+Banned Declarations
 ===================
 
 There are two gotchas to be aware of: things you might expect to be able to do in Daml that you can't because of Daml-LF.
@@ -197,7 +197,7 @@ They are translated to Daml-LF using the same rules as for record declarations a
 
 These declarations are all at the top level of the module in which the template is defined.
 
-Template data types
+Template Data Types
 ===================
 
 Every contract template defines a record type for the parameters of the contract. For example, the template declaration:
@@ -220,7 +220,7 @@ This translates to the Daml-LF record declaration:
 
 	record Iou ↦ { issuer: Party; owner: Party; currency: Text; amount: Decimal }
 
-Choice data types
+Choice Data Types
 =================
 
 Every choice within a contract template results in a record type for the parameters of that choice. For example, let’s suppose the earlier ``Iou`` template has the following choices:

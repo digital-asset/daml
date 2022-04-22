@@ -79,7 +79,7 @@ Controllers
 
 .. _daml-ref-consumability:
 
-Contract consumption
+Contract Consumption
 ====================
 
 If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body and both the controllers and all contract stakeholders see all consequences of the action.
@@ -149,7 +149,7 @@ Non-consuming Choices
 
 .. _daml-ref-return-type:
 
-Return type
+Return Type
 ===========
 
 - Return type is written immediately after choice name.

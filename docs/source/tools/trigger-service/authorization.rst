@@ -77,7 +77,7 @@ Note that login with the IAM may require entering credentials into a web-form,
 i.e. the login URL should be opened in a web browser.
 
 Example
-*************
+*******
 
 This section describes how a web frontend can interact with the trigger service when authorization is required.
 Note, to avoid cross-origin requests and to enable sharing of cookies

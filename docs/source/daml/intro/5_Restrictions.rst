@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Adding Constraints to a Contract
-==================================
+Add Constraints to a Contract
+=============================
 
 You will often want to constrain the data stored or the allowed data transformations in your contract models. In this section, you will learn about the two main mechanisms provided in Daml:
 
@@ -105,7 +105,7 @@ For tests, you can set time using the following functions:
 - ``setTime``, which sets the ledger time to the given time.
 - ``passTime``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much.
 
-Time on ledgers
+Time on Ledgers
 ~~~~~~~~~~~~~~~~~
 
 On a distributed Daml ledger, there are no guarantees that ledger time or record time are strictly increasing. The only guarantee is that ledger time is increasing with causality. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LT of ``TX2`` is greater than or equal to that of ``TX1``:
@@ -122,7 +122,7 @@ You have come across ``do`` blocks and ``<-`` notations in two contexts by now: 
 
 Understanding ``Actions`` and ``do`` blocks is therefore crucial to being able to construct correct contract models and test them, so this section will explain them in some detail.
 
-Pure expressions compared to Actions
+Pure Expressions Compared to Actions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Expressions in Daml are pure in the sense that they have no side-effects: they neither read nor modify any external state. If you know the value of all variables in scope and write an expression, you can work out the value of that expression on pen and paper.
@@ -137,7 +137,7 @@ You cannot work out the value of ``now`` based on any variable in scope. To put 
 
 Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract ID up on.
 
-Actions and impurity
+Actions and Impurity
 ~~~~~~~~~~~~~~~~~~~~~
 
 Actions are a way to handle such "impure" expressions. ``Action a`` is a type class with a single parameter ``a``, and ``Update`` and ``Script`` are instances of ``Action``. A value of such a type ``m a`` where ``m`` is an instance of ``Action`` can be interpreted as "a recipe for an action of type ``m``, which, when executed, returns a value ``a``".
@@ -174,8 +174,8 @@ same transaction, you can make multiple calls to ``submit``.
   :start-after: -- BEGIN_EXT
   :end-before: -- END_EXT
 
-Chaining up actions with do blocks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Chain Actions With ``do`` Blocks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An action followed by another action, possibly depending on the result of the first action, is just another action. Specifically:
 
@@ -191,8 +191,8 @@ This is where ``do`` blocks come in. ``do`` blocks allow you to build complex ac
 
 Above, we see ``do`` blocks in action for both ``Script`` and ``Update``.
 
-Wrapping values in actions
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Wrap Values in Actions
+~~~~~~~~~~~~~~~~~~~~~~
 
 You may already have noticed the use of ``return`` in the redeem choice. ``return x`` is a no-op action which returns value ``x`` so ``return 42 : Update Int``. Since ``do`` blocks always return the value of their last action, ``sub_script2 : Script Int``.
 

@@ -3,16 +3,16 @@
 
 .. _grpc:
 
-Using gRPC with the Ledger API
-##############################
+Use the Ledger API With gRPC
+############################
 
 
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
 If you're not familiar with gRPC and protobuf, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. This documentation is written assuming you already have an understanding of gRPC.
 
-Getting Started
-***************
+Get Started
+***********
 
 You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`__.
 
@@ -30,7 +30,7 @@ We have an example project demonstrating the use of the Ledger API with gRPC. To
 #. Clone the `repository from GitHub <https://github.com/digital-asset/ex-java-bindings>`__.
 #. Follow the `setup instructions in the README <https://github.com/digital-asset/ex-java-bindings/blob/master/README.rst#setting-up-the-example-projects>`__. Use ``examples.pingpong.grpc.PingPongGrpcMain`` as the main class.
 
-About the example project
+About the Example Project
 =========================
 
 The example shows very simply how two parties can interact via a ledger, using two Daml contract templates, ``Ping`` and ``Pong``.

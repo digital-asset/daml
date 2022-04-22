@@ -55,7 +55,7 @@ this behavior.
 Output
 ******
 
-Daml script
+Daml Script
 ===========
 
 The generated Daml code in ``Export.daml`` contains the following top-level definitions:
@@ -134,8 +134,8 @@ state and to map unknown contract ids to themselves. For example:
 
 .. TODO[AH] Add a full example project and example export.
 
-Executing the Export
-********************
+Execute the Export
+******************
 
 The generated Daml project is configured such that ``daml start`` will execute
 the Daml export with the default arguments defined in ``args.json``.
@@ -208,8 +208,8 @@ script. However, this is not supported by all ledgers.
 Caveats
 *******
 
-Contracts created and referenced in same transaction
-====================================================
+Contracts Created and Referenced In the Same Transaction
+========================================================
 
 Daml ledger export may fail in certain cases when it attempts to reproduce a
 transaction that creates a contract and then references that contract within

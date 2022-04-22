@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Using the JavaScript Code Generator with a Daml Ledger
-######################################################
+Use the JavaScript Code Generator
+#################################
 
 The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries <../index>`_ for interacting with a Daml ledger via the `HTTP JSON API <../json-api/index.html>`_.
 
@@ -10,8 +10,8 @@ Inputs to the command are DAR files. Outputs are JavaScript packages with TypeSc
 
 The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-types>`_.
 
-Generating and Using Code
-*************************
+Generate and Use Code
+*********************
 
 In outline, the command to generate JavaScript and TypeScript typings from Daml is ``daml codegen js -o OUTDIR DAR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the artifacts to be written.
 
@@ -202,7 +202,7 @@ the generated TypeScript will consist of a type declaration and the definition o
      keys: ['Red','Blue','Yellow'],
    } as const;
 
-Templates and choices
+Templates and Choices
 =====================
 
 Here is a Daml template of a basic 'IOU' contract.

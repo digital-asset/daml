@@ -36,10 +36,10 @@ We welcome feedback about the JSON API on
    search-query-language
    production-setup
 
-Running the JSON API
-********************
+Run the JSON API
+****************
 
-Start a Daml ledger
+Start a Daml Ledger
 ===================
 
 You can run the JSON API alongside any ledger exposing the gRPC Ledger API you want. If you don't have an existing ledger, you can start an in-memory sandbox:
@@ -53,7 +53,7 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
 
 .. _start-http-service:
 
-Start the HTTP JSON API service
+Start the HTTP JSON API Service
 ===============================
 
 Basic
@@ -205,8 +205,8 @@ start the standalone JAR, you can use the following command:
 Replace the version number ``2.0.0`` by the version of the SDK you are
 using.
 
-With query store
-------------------
+With Query Store
+----------------
 
 In production setups, you should configure the JSON API to use a
 PostgreSQL backend as a cache. The in-memory backend will call the
@@ -256,7 +256,7 @@ you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an exa
 
 .. _json-api-access-tokens:
 
-Access tokens
+Access Tokens
 =============
 
 Each request to the HTTP JSON API Service *must* come with an access token, regardless of whether the underlying ledger
@@ -267,7 +267,7 @@ to issue the request to the Ledger API.
 The HTTP JSON API Service does not validate the token but may need to decode it to extract information that can be used
 to fill in request fields for party-specific request. How this happens depends partially on the token format you are using.
 
-Party-specific requests
+Party-specific Requests
 -----------------------
 
 Party-specific requests, i.e., command submissions and queries, are subject to additional restrictions. For command
@@ -276,7 +276,7 @@ on behalf of any number of parties). For queries the token must provide a proof 
 read of at least one party. This happens regardless of the used :ref:`access token format<access-token-formats>`. The
 following paragraphs provide guidance as to how different token formats are used by the HTTP JSON API in this regard.
 
-Using user tokens
+Using User Tokens
 ^^^^^^^^^^^^^^^^^
 
 If the underlying ledger supports :ref:`user management <user-management-service>` (this includes Canton and the sandbox), you are
@@ -284,7 +284,7 @@ recommended to use user tokens. For command submissions, the user of the bearer 
 least one party and ``readAs`` rights for any number of parties. Queries require the bearer's user to have at least
 one ``actAs`` or ``readAs`` user right. The application id of the Ledger API request will be the user id.
 
-Using claim tokens
+Using Claim Tokens
 ^^^^^^^^^^^^^^^^^^
 
 These tokens can be used if the underlying ledger does not support :ref:`user management <user-management-service>`. For command
@@ -415,7 +415,7 @@ Where:
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
-Successful response, HTTP status: 200 OK
+Successful Response, HTTP Status: 200 OK
 ========================================
 
 - Content-Type: ``application/json``
@@ -428,7 +428,7 @@ Successful response, HTTP status: 200 OK
         "result": <JSON object>
     }
 
-Successful response with a warning, HTTP status: 200 OK
+Successful Response with a Warning, HTTP Status: 200 OK
 =======================================================
 
 - Content-Type: ``application/json``
@@ -444,7 +444,7 @@ Successful response with a warning, HTTP status: 200 OK
 
 .. _error-format:
 
-Failure, HTTP status: 400 | 401 | 404 | 500
+Failure, HTTP Status: 400 | 401 | 404 | 500
 ===========================================
 
 - Content-Type: ``application/json``
@@ -502,7 +502,7 @@ Examples
 
     {"status": 500, "errors": ["Cannot initialize Ledger API"]}
 
-Create a new Contract
+Create a New Contract
 *********************
 
 To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
@@ -581,8 +581,8 @@ Where:
 
 .. _create-request-with-meta:
 
-Creating a Contract with a Command ID
-*************************************
+Create a Contract with a Command ID
+***********************************
 
 When creating a new contract you may specify an optional ``meta`` field. This allows you to control the ``commandId``, ``actAs``, and ``readAs`` used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
 
@@ -1091,7 +1091,7 @@ Where
 - ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
 - ``status`` matches the HTTP status code returned in the HTTP header.
 
-Nonempty HTTP Response with Unknown Template IDs Warning
+Nonempty HTTP Response With Unknown Template IDs Warning
 ========================================================
 
 - Content-Type: ``application/json``
@@ -1183,7 +1183,7 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-Response with Unknown Parties Warning
+Response With Unknown Parties Warning
 =====================================
 
 - Content-Type: ``application/json``
@@ -1262,8 +1262,8 @@ HTTP Response
     }
 
 
-Creating a New User
-********************
+Create a New User
+*****************
 
 This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>`.
 
@@ -1705,7 +1705,7 @@ HTTP Response, status: 200 OK
 
 The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
 
-HTTP Response with Error, any status different from 200 OK
+HTTP Response With Error, Any Status Different from 200 OK
 ==========================================================
 
 Any status different from ``200 OK`` will be in the format specified below.
@@ -1735,7 +1735,7 @@ HTTP Request
 
 The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
 
-HTTP Response, status: 200 OK
+HTTP Response, Status: 200 OK
 =============================
 
 - Content-Type: ``application/json``
@@ -1748,7 +1748,7 @@ HTTP Response, status: 200 OK
         "status": 200
     }
 
-HTTP Response with Error
+HTTP Response With Error
 ========================
 
 - Content-Type: ``application/json``
@@ -1838,7 +1838,7 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
 
 Please note that Streaming API does not allow multiple requests over the same WebSocket connection. The server returns an error and disconnects if second request received over the same WebSocket connection.
 
-Error and warning reporting
+Error and Warning Reporting
 ===========================
 
 Errors and warnings reported as part of the regular ``on-message`` flow: ``ws.addEventListener("message", ...)``.
@@ -1851,7 +1851,7 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
 
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
-Error and warning examples
+Error and Warning Examples
 --------------------------
 
 .. code-block:: none
@@ -2148,7 +2148,7 @@ The HTTP JSON API provides two healthcheck endpoints for integration
 with schedulers like
 `Kubernetes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 
-Liveness check
+Liveness Check
 ==============
 
 - URL: ``/livez``
@@ -2159,7 +2159,7 @@ A status code of ``200`` indicates a successful liveness check.
 This is an unauthenticated endpoint intended to be used as a liveness
 probe.
 
-Readiness check
+Readiness Check
 ===============
 
 - URL: ``/readyz``

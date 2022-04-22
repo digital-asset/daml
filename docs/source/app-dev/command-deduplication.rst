@@ -110,7 +110,7 @@ Similarly, an :ref:`Exercise command <com.daml.ledger.api.v1.ExerciseCommand>` o
 With command deduplication, applications can ensure such intended ledger changes are executed only once within the deduplication period, even if the application resubmits, say because it considers the earlier submissions to be lost or forgot during a crash that it had already submitted the command.
 
 
-Known processing time bounds
+Known Processing Time Bounds
 ============================
 
 For this strategy, you must estimate a bound ``B`` on the processing time and forward clock drifts in the Daml ledger with respect to the application’s clock.
@@ -183,7 +183,7 @@ Under this caveat, the following strategy works for applications that use the :r
 
 .. _dedup-bounded-error-handling:
 
-Error handling
+Error Handling
 --------------
 
 Error handling is needed when the status code of the command submission RPC call or in the :ref:`completion event <com.daml.ledger.api.v1.Completion.status>` is not ``OK``.
@@ -273,7 +273,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        In particular, you must not draw any conclusions from not having received a :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>` error, because the outstanding submission may be queued somewhere and will reach the relevant processing point only later.
 
 
-Failure scenarios
+Failure Scenarios
 -----------------
 
 The above strategy can fail in the following scenarios:
@@ -298,7 +298,7 @@ The above strategy can fail in the following scenarios:
    Of course, you can always stop retrying and accept that you do not know the outcome for sure.
 
 
-Unknown processing time bounds
+Unknown Processing Time Bounds
 ==============================
 
 Finding a good bound ``B`` on the processing time is hard, and there may still be unforeseen circumstances that delay processing beyond the chosen bound ``B``.
@@ -360,13 +360,13 @@ We recommend the following strategy for using deduplication offsets:
 
 .. _dedup-unbounded-error-handling:
 
-Error handling
+Error Handling
 --------------
 
 The same as :ref:`for known bounds <dedup-bounded-error-handling>`, except that the former retry from :ref:`Step 2 <dedup-bounded-step-offset>` becomes retry from :ref:`Step 3 <dedup-unbounded-step-offset>`.
 
 
-Failure scenarios
+Failure Scenarios
 -----------------
 
 The above strategy can fail in the following scenarios:

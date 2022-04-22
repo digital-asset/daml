@@ -36,7 +36,7 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
 
 .. _causality-example-create-archive:
 
-Stakeholders of a contract see creation and archival in the same order
+Stakeholders of a Contract See Creation and Archival in the Same Order
 ======================================================================
 
 Every Daml Ledger orders the creation of the `CounterOffer A P Bank` before the painter exercising the consuming choice on the `CounterOffer`.
@@ -46,7 +46,7 @@ This does not depend on whether they are hosted on the same Participant Node.
 
 .. _causality-example-create-use-archive:
 
-Signatories of a contract and stakeholder actors see usages after the creation and before the archival
+Signatories of a Contract and Stakeholder Actors See Usages After the Creation and Before the Archival
 ======================================================================================================
 
 The `Fetch A (Iou Bank A)` action comes after the creation of the `Iou Bank A` and before its archival,
@@ -55,7 +55,7 @@ because the Bank is a signatory of the `Iou Bank A` contract and Alice is a stak
 
 .. _causality-example-commit-atomic:
 
-Commits are atomic
+Commits Are Atomic
 ==================
 
 Alice sees the **Create** of her `Iou` before the creation of the `CounterOffer`,
@@ -64,7 +64,7 @@ and the **Fetch** commit comes after the **Create** of the `Iou`.
 
 .. _causality-example-non-consuming:
 
-Non-consuming usages in different commits may appear in different orders
+Non-Consuming Usages in Different Commits May Appear in Different Orders
 ========================================================================
 
 Suppose that the Bank exercises a non-consuming choice on the `Iou Bank A` without consequences while Alice creates the `CounterOffer`.
@@ -81,7 +81,7 @@ Yet, the **Fetch** may come before the non-consuming **Exercise** in the Bank's 
 
 .. _causality-example-out-of-band:
 
-Out-of-band causality is not respected
+Out-of-Band Causality Is Not Respected
 ======================================
 
 The following examples assume that Alice splits up her commit into two as follows:
@@ -111,7 +111,7 @@ Daml ledgers therefore do not capture data flow through applications.
 
 .. _causality-divulgence-example:
 
-Divulged actions do not induce order
+Divulged Actions Do Not Induce Order
 ====================================
 
 The painter witnesses the fetching of Alice's `Iou` when the `ShowIou` contract is consumed.
@@ -136,7 +136,7 @@ Analogously, choice observers of an **Exercise** action benefit from the orderin
 
 .. _causality-example-depend-on-party:
 
-The ordering guarantees depend on the party
+The Ordering Guarantees Depend on the Party
 ===========================================
 
 By the previous example, for the painter, fetching the `Iou` is not ordered before transferring the `Iou`.
@@ -293,7 +293,7 @@ For this set of transactions, consistency allows only one such order: `tx5` come
 
 .. _causality-consistency-ledger-model:
 
-From causality graphs to ledgers
+From Causality Graphs to Ledgers
 ================================
 
 Since causality graphs are acyclic, their vertices can be sorted topologically and the resulting list is again a causality graph, where every vertex has an outgoing edge to all later vertices.
@@ -391,7 +391,7 @@ This difference explains the :ref:`divulgence causality example <causality-divul
 
 .. _ordering-guarantees:
 
-Ledger API ordering guarantees
+Ledger API Ordering Guarantees
 ==============================
 
 The :ref:`Transaction Service <transaction-service>` provides the updates as a stream of Daml transactions
@@ -425,7 +425,7 @@ These guarantees are subject to the deployed Daml ledger's trust assumptions.
    That is, all the local ledgers can in theory be combined into a consistent single causality graph of which they are projections.
 
 
-Explaining the causality examples
+Explaining the Causality Examples
 =================================
 
 The :ref:`causality examples <causality-examples>` can be explained in terms of causality graphs and local ledgers as follows:

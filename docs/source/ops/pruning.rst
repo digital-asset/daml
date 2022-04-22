@@ -70,8 +70,8 @@ Backing up and vacuuming, in addition to pruning itself, are also long-running a
 
 Professional advice on database administration is strongly recommended that would take into account the DB specifics as well as all of the above aspects.
 
-Determining a Suitable Pruning Offset
--------------------------------------
+Determine a Suitable Pruning Offset
+-----------------------------------
 
 The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end of the Transactions, and of Active Contracts snapshots respectively. Such offsets can be passed unchanged to `prune` calls, as long as they are lexicographically lower than the current ledger end.
 

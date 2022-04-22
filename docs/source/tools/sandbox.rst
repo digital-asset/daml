@@ -34,8 +34,8 @@ the resulting configuration files will be merged.
 
 .. _sandbox-authorization:
 
-Running with Authorization
-**************************
+Run With Authorization
+**********************
 
 By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
 
@@ -103,14 +103,14 @@ with SHA-256) with the public key loaded from the given JWKS URL.
           TLS with server authentication as described in :ref:`sandbox-tls` for
           any request sent to the Ledger API in production.
 
-Generating JSON Web Tokens (JWT)
-================================
+Generate JSON Web Tokens (JWT)
+==============================
 
 To generate access tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
 
 
-Generating RSA keys
-===================
+Generate RSA keys
+=================
 
 To generate RSA keys for testing purposes, use the following command
 
@@ -123,8 +123,8 @@ which generates the following files:
 - ``sandbox.key``: the private key in PEM/DER/PKCS#1 format
 - ``sandbox.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
-Generating EC keys
-==================
+Generate EC keys
+================
 
 To generate keys to be used with ES256 for testing purposes, use the following command
 
@@ -145,8 +145,8 @@ Similarly, you can use the following command for ES512 keys:
 
 .. _sandbox-tls:
 
-Running with TLS
-****************
+Run With TLS
+************
 
 To enable TLS, you need to specify the private key for your server and
 the certificate chain. This enables TLS for both the Ledger API and
@@ -200,7 +200,7 @@ Canton. To see options of the underlying Canton runner, use
 Metrics
 *******
 
-Enable and configure reporting
+Enable and Configure Reporting
 ==============================
 
 You can enable metrics reporting via Prometheus using the following configuration file.
@@ -216,7 +216,7 @@ You can enable metrics reporting via Prometheus using the following configuratio
 
 For other options and more details refer to the :ref:`Canton documentation <canton-metrics>`.
 
-Types of metrics
+Types of Metrics
 ================
 
 This is a list of type of metrics with all data points recorded for each.
@@ -284,7 +284,7 @@ the histogram records the time necessary to execute a given operation (unless
 otherwise specified, the precision is nanoseconds and the unit of measurement
 is milliseconds).
 
-Database metrics
+Database Metrics
 ----------------
 
 A "database metric" is a collection of simpler metrics that keep track of
@@ -298,7 +298,7 @@ These metrics are:
 - ``<metric.qualified.name>.commit`` (timer): time to perform the commit
 - ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized Daml-LF values into in-memory objects
 
-List of metrics
+List of Metrics
 ===============
 
 The following is a non-exhaustive list of selected metrics

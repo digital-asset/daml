@@ -64,7 +64,7 @@ Table of built-in primitive types
      - ``RelTime`` values have microsecond precision with allowed range from `-9,223,372,036,854,775,808ms` to `9,223,372,036,854,775,807ms`
        There are no literals for ``RelTime``. Instead they are created using one of ``days``, ``hours``, ``minutes``, ``seconds``, ``miliseconds`` and ``microseconds``  (to get these functions, import ``DA.Time``).
 
-Escaping characters
+Escaping Characters
 ===================
 
 ``Text`` literals support backslash escapes to include their delimiter (``\"``) and a backslash itself (``\\``).
@@ -87,8 +87,8 @@ list) and ``::`` (which is an operator that appends an element to the front of a
    :start-after: -- BEGIN_LISTS_EXAMPLE
    :end-before: -- END_LISTS_EXAMPLE
 
-Summing a list
-==============
+Sum a List
+==========
 
 To sum a list, use a *fold* (because there are no loops in Daml). See :ref:`daml-ref-folding` for details.
 
@@ -146,7 +146,7 @@ For example:
 
 .. _daml-ref-data-constructors:
 
-Data constructors
+Data Constructors
 =================
 
 You can use ``data`` keyword to define a new data type, for example ``data Floor a = Floor a`` for some type ``a``.
@@ -162,8 +162,8 @@ An example of a data constructor with zero arguments is ``data Empty = Empty {}`
   In ``data Confusing = Int``, the ``Int`` is a data constructor with no arguments. It has nothing to do with the built-in ``Int`` type.
 
 
-Accessing record fields
-=======================
+Access Record Fields
+====================
 
 To access the fields of a record type, use dot notation. For example:
 
@@ -175,8 +175,8 @@ To access the fields of a record type, use dot notation. For example:
   -- Access the value of the field `second`
   val.second
 
-Updating record fields
-======================
+Update Record Fields
+====================
 
 You can also use the ``with`` keyword to create a new record on the basis of an existing replacing select fields.
 
@@ -213,7 +213,7 @@ If you have a variable with the same name as the label, Daml lets you use this w
 
 .. _daml-ref-parameterized-types:
 
-Parameterized data types
+Parameterized Data Types
 ========================
 
 Daml supports parameterized data types.
@@ -245,7 +245,7 @@ This makes ``IntegerTuple`` and ``(Int, Int)``  synonyms: they have the same typ
 
 You can use the ``type`` keyword for any type, including :ref:`daml-ref-built-in-types`.
 
-Function types
+Function Types
 ==============
 
 A function's type includes its parameter and result types. A function ``foo`` with two parameters has type ``ParamType1 -> ParamType2 -> ReturnType``.
@@ -257,7 +257,7 @@ Algebraic Data Types
 
 An algebraic data type is a composite type: a type formed by a combination of other types. The enumeration data type is an example. This section introduces more powerful algebraic data types.
 
-Product types
+Product Types
 =============
 
 The following data constructor is not valid in Daml: ``data AlternativeCoordinate a b = AlternativeCoordinate a b``. This is because data constructors can only have one argument.
@@ -271,7 +271,7 @@ A way of thinking about this is that the ``Coordinate Int Int`` type has a first
 
 .. _daml-ref-sum-types:
 
-Sum types
+Sum Types
 =========
 
 Sum types capture the notion of being of one kind or another.
@@ -289,7 +289,7 @@ the :doc:`Daml standard library </daml/stdlib/index>`.
 
 The ``Some`` data constructor takes one argument, and it expects a value of type ``a`` as a parameter.
 
-Pattern matching
+Pattern Matching
 ================
 
 You can match a value to a specific pattern using the ``case`` keyword.

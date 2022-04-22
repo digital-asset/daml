@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Composing Choices
-===================
+=================
 
 It's time to put everything you've learnt so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
 
@@ -101,7 +101,7 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
 - The ``Trade`` template adds a swap of two assets to the model.
 
 Composed Choices and Scripts
-------------------------------
+----------------------------
 
 This project showcases how you can put the ``Update`` and ``Script`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
 

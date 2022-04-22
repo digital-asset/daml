@@ -85,22 +85,22 @@ This first example template below contains only the signatory party and a simple
   :start-after: -- BEGIN_SIMPLE_TEMPLATE
   :end-before: -- END_SIMPLE_TEMPLATE
 
-Creating a Contract
-===================
+Create a Contract
+=================
 
 Creating contracts is done by sending a :ref:`com.daml.ledger.api.v1.createcommand` to the :ref:`com.daml.ledger.api.v1.commandsubmissionservice` or the :ref:`com.daml.ledger.api.v1.commandservice`. The message to create a `MySimpleTemplate` contract with *Alice* being the owner is shown below:
 
 .. literalinclude:: ../code-snippets/CreateMySimpleTemplate.payload
 
-Receiving a Contract
-====================
+Receive a Contract
+==================
 
 Contracts are received from the :ref:`com.daml.ledger.api.v1.transactionservice` in the form of a :ref:`com.daml.ledger.api.v1.createdevent`. The data contained in the event corresponds to the data that was used to create the contract.
 
 .. literalinclude:: ../code-snippets/CreatedEventMySimpleTemplate.payload
 
-Exercising a Choice
-===================
+Exercise a Choice
+=================
 
 A choice is exercised by sending an :ref:`com.daml.ledger.api.v1.exercisecommand`. Taking the same contract template again, exercising the choice ``MyChoice`` would result in a command similar to the following:
 

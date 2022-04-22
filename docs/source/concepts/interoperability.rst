@@ -69,7 +69,7 @@ The components in this diagram are the following:
 
 .. _interoperable-aggregation:
 
-Aggregation at the participant
+Aggregation at the Participant
 ==============================
 
 The Participant Node assembles the updates from these ledgers and outputs them via the party's Transaction Service and Active Contract Service.
@@ -82,7 +82,7 @@ then `P1`\ 's transaction stream for Alice will emit this transaction and report
 
 .. _enter-leave-event:
 
-Enter and Leave events
+Enter and Leave Events
 ======================
 
 With interoperability, a transaction can use a contract whose creation was recorded on a different ledger.
@@ -127,7 +127,7 @@ In contrast, `P1` need not output the **Enter** and **Leave** actions at all in 
 
 .. _cross-ledger-transaction:
 
-Cross-ledger transactions
+Cross-ledger Transactions
 =========================
 
 With interoperability, a cross-ledger transaction can be committed on several interoperable Daml ledgers simultaneously.
@@ -320,7 +320,7 @@ In particular all maximal chains of actions on a contract are ledger traces:
 | `PaintAgree P A`        | **Create**                              |
 +-------------------------+-----------------------------------------+
    
-Minimality and reduction
+Minimality and Reduction
 ========================
 
 When edges are added to an `X`-multi-ledger consistent causality graph such that it remains acyclic and transitively closed,
@@ -340,7 +340,7 @@ Since multi-ledger causality graphs are acyclic, their vertices can be sorted to
 If the original causality graph is `X`\ -consistent, then so is the topological sort, as topological sorting merely adds edges.
 
 
-From multi-ledger causality graphs to ledgers
+From Multi-ledger Causality Graphs to Ledgers
 =============================================
 
 Multi-Ledger causality graphs `G` are linked to ledgers `L` in the Daml Ledger Model via topological sort and reduction.

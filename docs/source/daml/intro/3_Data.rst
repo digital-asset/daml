@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Data Types
-============
+==========
 
 In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
 
@@ -87,8 +87,8 @@ With templates and these native types, it's already possible to write a schema a
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
 
-Assembling Types
-----------------
+Assemble Types
+--------------
 
 There's quite a lot of information on the ``CashBalance`` above and it would be nice to be able to give that data more structure. Fortunately, Daml's type system has a number of ways to assemble these native types into much more expressive structures.
 
@@ -159,7 +159,7 @@ Records can give the data on ``CashBalance`` a bit more structure:
 
 If you look at the resulting script view, you'll see that this still gives rise to one table. The records are expanded out into columns using dot notation.
 
-Variants and pattern matching
+Variants and Pattern Matching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. Daml doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank.
@@ -194,8 +194,8 @@ To do this, you can use *pattern matching* and either throw errors or return com
   :start-after: -- VARIANT_ACCESS_BEGIN
   :end-before: -- VARIANT_ACCESS_END
 
-Manipulating Data
------------------
+Manipulate Data
+---------------
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
 
