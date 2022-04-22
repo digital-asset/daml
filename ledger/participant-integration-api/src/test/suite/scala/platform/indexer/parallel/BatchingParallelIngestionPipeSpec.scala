@@ -9,8 +9,10 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.FiniteDuration
+import scala.util.chaining._
 
 class BatchingParallelIngestionPipeSpec
     extends AsyncFlatSpec
@@ -21,6 +23,7 @@ class BatchingParallelIngestionPipeSpec
   private implicit val ec: ExecutionContext = system.dispatcher
 
   private val input = Iterator.continually(util.Random.nextInt()).take(100).toList
+  private val MaxBatchSize = 5
 
   it should "end the stream successfully in a happy path case" in {
     runPipe().map { case (ingested, ingestedTail, err) =>
@@ -62,7 +65,11 @@ class BatchingParallelIngestionPipeSpec
   }
 
   it should "terminate the stream upon error in tailer" in {
-    runPipe(tailerHook = () => throw new Exception("tailer failed")).map { case (_, _, err) =>
+    runPipe(
+      tailerHook = () => throw new Exception("tailer failed"),
+      // Exert backpressure in order to ensure triggerring of the tailer
+      ingestTailHook = () => Thread.sleep(1L),
+    ).map { case (_, _, err) =>
       err should not be empty
       err.get.getMessage shouldBe "tailer failed"
     }
@@ -90,6 +97,31 @@ class BatchingParallelIngestionPipeSpec
     }
   }
 
+  it should "form max-sized batches under load" in {
+    runPipe(
+      ingesterHook = batch => {
+        batch.size shouldBe MaxBatchSize
+        ()
+      }
+    ).map { case (_, _, err) =>
+      err shouldBe empty
+    }
+  }
+
+  it should "form small batch sizes under no load" in {
+    val batchSizes = ArrayBuffer.empty[Int]
+    runPipe(
+      ingesterHook = batch => {
+        batchSizes.addOne(batch.size)
+        ()
+      },
+      inputSource = Source(input).map(_.tap(_ => Thread.sleep(1L))).async,
+    ).map { case (_, _, err) =>
+      batchSizes.sum.toDouble / batchSizes.size should be < 2.0
+      err shouldBe empty
+    }
+  }
+
   def runPipe(
       inputMapperHook: () => Unit = () => (),
       seqMapperHook: () => Unit = () => (),
@@ -98,14 +130,14 @@ class BatchingParallelIngestionPipeSpec
       tailerHook: () => Unit = () => (),
       ingestTailHook: () => Unit = () => (),
       timeout: FiniteDuration = FiniteDuration(10, "seconds"),
+      inputSource: Source[Int, NotUsed] = Source(input),
   ): Future[(Vector[(Int, String)], Vector[Int], Option[Throwable])] = {
     val semaphore = new Object
     var ingested: Vector[(Int, String)] = Vector.empty
     var ingestedTail: Vector[Int] = Vector.empty
     val indexingSource: Source[Int, NotUsed] => Source[Unit, NotUsed] =
       BatchingParallelIngestionPipe[Int, List[(Int, Int)], List[(Int, String)]](
-        submissionBatchSize = 5,
-        batchWithinMillis = 10,
+        submissionBatchSize = MaxBatchSize.toLong,
         inputMappingParallelism = 2,
         inputMapper = ins =>
           Future {
@@ -141,7 +173,6 @@ class BatchingParallelIngestionPipeSpec
           tailerHook()
           List((current.lastOption.orElse(prev.lastOption).get._1, ""))
         },
-        tailingRateLimitPerSecond = 100,
         ingestTail = dbBatch =>
           Future {
             ingestTailHook()
@@ -151,7 +182,6 @@ class BatchingParallelIngestionPipeSpec
             dbBatch
           },
       )
-    val inputSource = Source(input)
     val p = Promise[(Vector[(Int, String)], Vector[Int], Option[Throwable])]()
     val timeoutF = akka.pattern.after(timeout, system.scheduler) {
       Future.failed(new Exception("timed out"))
