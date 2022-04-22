@@ -221,6 +221,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     Node.Exercise(
       targetCoid = targetCid,
       templateId = someTemplateId,
+      interfaceId = None,
       choiceId = someChoiceName,
       consuming = true,
       actingParties = Set(alice),
@@ -377,6 +378,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       Node.Exercise(
         targetCoid = id,
         templateId = someTemplateId,
+        interfaceId = None,
         choiceId = someChoiceName,
         consuming = false,
         actingParties = Set(alice),
@@ -750,6 +752,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       Node.Exercise(
         targetCoid = contractId,
         templateId = someTemplateId,
+        interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
         consuming = true,
         actingParties = Set(party),

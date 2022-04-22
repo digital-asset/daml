@@ -19,6 +19,7 @@ import DA.Daml.Project.Types
 import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
+import qualified Data.Text as T
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -302,6 +303,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
     optEnableScenarios <- enableScenariosOpt
+    optTestFilter <- compilePatternExpr <$> optTestPattern
 
     return Options{..}
   where
@@ -378,6 +380,18 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
         help "Tell the compiler that the source was generated." <>
         long "generated-src" <>
         internal
+
+    optTestPattern :: Parser (Maybe String)
+    optTestPattern = optional . option str
+        $ metavar "PATTERN"
+        <> long "test-pattern"
+        <> short 'p'
+        <> help "Only scripts with names containing the given pattern will be executed."
+
+    compilePatternExpr :: Maybe String -> (T.Text -> Bool)
+    compilePatternExpr = \case
+      Nothing -> const True
+      Just needle ->  T.isInfixOf (T.pack needle)
 
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see

@@ -134,6 +134,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.Exercise(
       targetCoid = samContractId2,
       templateId = samTemplateId2,
+      // TODO https://github.com/digital-asset/daml/issues/13653
+      //   also vary interfaceId (but this requires an interface choice)
+      interfaceId = None,
       choiceId = samChoiceName1,
       consuming = samBool1,
       actingParties = samParties1,

@@ -432,9 +432,10 @@ private[lf] final class Compiler(
       let(
         env,
         SBUBeginExercise(
-          tmplId,
-          choice.name,
-          choice.consuming,
+          templateId = tmplId,
+          interfaceId = None,
+          choiceId = choice.name,
+          consuming = choice.consuming,
           byKey = mbKey.isDefined,
         )(
           env.toSEVar(choiceArgPos),
@@ -485,8 +486,10 @@ private[lf] final class Compiler(
         let(
           env,
           SBResolveSBUBeginExercise(
+            interfaceId = ifaceId,
             choiceName = choice.name,
             consuming = choice.consuming,
+            byKey = false,
           )(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),

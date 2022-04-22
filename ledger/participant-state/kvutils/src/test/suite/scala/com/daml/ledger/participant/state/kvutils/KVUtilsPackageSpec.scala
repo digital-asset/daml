@@ -29,16 +29,18 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
     "be able to submit simple package" in KVTest.runTest {
       for {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
-        logEntry <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        result <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
         archiveState <- getDamlState(
           Conversions.packageStateKey(simplePackage.mainPackageId)
         )
 
         // Submit again and verify that the uploaded archive didn't appear again.
-        logEntry2 <- submitArchives("simple-archive-submission-2", simpleArchive)
+        result2 <- preExecuteArchives("simple-archive-submission-2", simpleArchive)
           .map(_._2)
 
       } yield {
+        val logEntry = result.successfulLogEntry
+        val logEntry2 = result2.successfulLogEntry
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 1
 
@@ -53,40 +55,30 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
     "be able to submit model-test.dar" in KVTest.runTest {
       for {
-        logEntry <- submitArchives("model-test-submission", testStablePackages.all: _*).map(_._2)
+        result <- preExecuteArchives("model-test-submission", testStablePackages.all: _*).map(_._2)
       } yield {
+        val logEntry = result.successfulLogEntry
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry.getPackageUploadEntry.getArchivesCount shouldEqual testStablePackages.all.length
       }
     }
 
-    "be able to pre-execute model-test.dar" in KVTest.runTest {
-      for {
-        preExecutionResult <- preExecuteArchives(
-          "model-test-submission",
-          testStablePackages.all: _*
-        )
-          .map(_._2)
-        actualLogEntry = preExecutionResult.successfulLogEntry
-      } yield {
-        actualLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
-        actualLogEntry.getPackageUploadEntry.getArchivesCount shouldEqual testStablePackages.all.length
-      }
-    }
-
     "reject invalid packages" in KVTest.runTest {
       for {
-        logEntry <- submitArchives("bad-archive-submission", badArchive).map(_._2)
+        result <- preExecuteArchives("bad-archive-submission", badArchive).map(_._2)
       } yield {
+        val logEntry = result.successfulLogEntry
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
       }
     }
 
     "reject duplicate" in KVTest.runTest {
       for {
-        logEntry0 <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
-        logEntry1 <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        result0 <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        result1 <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
       } yield {
+        val logEntry0 = result0.successfulLogEntry
+        val logEntry1 = result1.successfulLogEntry
         logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry1.getPayloadCase shouldEqual
           DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
@@ -98,13 +90,15 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
     "update metrics" in KVTest.runTest {
       for {
         //Submit archive twice to force one acceptance and one rejection on duplicate
-        _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
-        _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        _ <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        _ <- preExecuteArchives("simple-archive-submission-1", simpleArchive).map(_._2)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.packageUpload.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.packageUpload.rejections.getCount should be >= 1L
-        metrics.daml.kvutils.committer.runTimer("package_upload").getCount should be >= 1L
+        metrics.daml.kvutils.committer
+          .preExecutionRunTimer("package_upload")
+          .getCount should be >= 1L
       }
     }
   }

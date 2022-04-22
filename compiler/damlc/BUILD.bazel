@@ -154,6 +154,7 @@ da_haskell_library(
         "aeson",
         "aeson-pretty",
         "ansi-wl-pprint",
+        "ansi-terminal",
         "base",
         "base64",
         "base64-bytestring",

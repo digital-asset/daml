@@ -54,7 +54,7 @@ The process is similar to the weekly snapshot, except that both the [daml] and
    $ ./release.sh snapshot origin/release/2.0.x 2.0.1
    ```
    The output will be a line that starts with a commit sha, followed by a
-   snapshot release number. You need to take that line and add it to the [ LATEST`]
+   snapshot release number. You need to take that line and add it to the [ `LATEST`]
    file, adding ` SPLIT_RELEASE` at the end of that line. You should put that line
    in the file so as to preserve semver ordering, and overwrite any existing
    snapshot with the same prefix.

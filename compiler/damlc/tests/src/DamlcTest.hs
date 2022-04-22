@@ -4,7 +4,7 @@ module DamlcTest
    ( main
    ) where
 
-import Data.List.Extra (isInfixOf, isSuffixOf)
+import Data.List.Extra (isInfixOf, isSuffixOf, isPrefixOf)
 import System.Directory
 import System.Environment.Blank
 import System.Exit
@@ -181,7 +181,7 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
             stdout @?= ""
             assertInfixOf "Parse error" stderr
             exitCode @?= ExitFailure 1
-    , testCase "Test coverage report" $ do
+    , testCase "Test coverage report and summary" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -213,8 +213,13 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
                 , dir ]
                 ""
             exitCode @?= ExitSuccess
-            assertBool ("test coverage is reported correctly: " <> stdout)
-                       ("test coverage: templates 50%, choices 33%\n" `isSuffixOf` stdout)
+            let out = lines stdout
+            assertBool ("test coverage is reported correctly: " <> out!!4)
+                       ("test coverage: templates 50%, choices 33%" == (out!!4))
+            assertBool ("test summary is reported correctly: " <> out!!1)
+                       ("Test Summary" `isPrefixOf` (out!!1))
+            assertBool ("test summary is reported correctly: " <> out!!3)
+                       ("./Foo.daml:x: ok, 0 active contracts, 2 transactions." == (out!!3))
     , testCase "Full test coverage report" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
@@ -408,6 +413,63 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
                  ] `isSuffixOf`
              stdout)
           exitCode @?= ExitSuccess
+    , testCase "Filter tests with --test-pattern" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "a")
+          writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            ]
+          writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
+            [ "module A where"
+            , "import Daml.Script"
+            , "test_needleHaystack = script $ pure ()"
+            ]
+          callProcessSilent
+            damlc
+            [ "build"
+            , "--project-root"
+            , projDir </> "a"
+            ]
+          createDirectoryIfMissing True (projDir </> "b")
+          writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            ]
+          let bFilePath = projDir </> "b" </> "B.daml"
+          writeFileUTF8 bFilePath $ unlines
+            [ "module B where"
+            , "import Daml.Script"
+            , "import qualified A"
+            , "test = script $ pure ()"
+            , "needleHaystack = script $ pure ()"
+            , "test1 = A.test_needleHaystack"
+            ]
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--test-pattern"
+                , "needle"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b"
+                , "--files"
+                , bFilePath ]
+                ""
+          stderr @?= ""
+          assertBool ("Test coverage is reported correctly: " <> stdout)
+            (unlines
+              ["B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
+              , "a:test_needleHaystack: ok, 0 active contracts, 0 transactions."
+              , "test coverage: templates 100%, choices 100%"
+              ] `isSuffixOf` stdout)
+          exitCode @?= ExitSuccess
     , testCase "Full test coverage report without --all set (but imports)" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
@@ -496,6 +558,7 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
               [ "module Foo where"
               , "import Daml.Script"
               , "x = script $ assert False"
+              , "y = script $ assert True"
               ]
             (exitCode, stdout, stderr) <-
               readProcessWithExitCode
@@ -506,9 +569,13 @@ testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
                 , "--files"
                 , file ]
                 ""
-            stdout @?= ""
             assertInfixOf "Script execution failed" stderr
             exitCode @?= ExitFailure 1
+
+            let out = lines stdout
+            assertInfixOf "Test Summary" (out!!1)
+            assertInfixOf "Foo.daml:y: ok" (out!!3)
+            assertInfixOf "Foo.daml:x: failed" (out!!4)
     , testCase "damlc test --files outside of project" $
         -- TODO: does this test make sense with a daml.yaml file?
         withTempDir $ \projDir -> do

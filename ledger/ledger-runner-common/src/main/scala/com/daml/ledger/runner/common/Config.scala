@@ -34,7 +34,6 @@ final case class Config[Extra](
     acsGlobalParallelism: Int,
     acsIdFetchingParallelism: Int,
     acsIdPageSize: Int,
-    acsIdQueueLimit: Int,
     configurationLoadTimeout: Duration,
     commandConfig: CommandConfiguration,
     enableInMemoryFanOutForLedgerApi: Boolean,
@@ -83,7 +82,6 @@ object Config {
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
       acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
-      acsIdQueueLimit = IndexConfiguration.DefaultAcsIdQueueLimit,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.default,
       enableInMemoryFanOutForLedgerApi = false,
@@ -503,13 +501,6 @@ object Config {
           .action((acsGlobalParallelism, config) =>
             config.copy(acsGlobalParallelism = acsGlobalParallelism)
           )
-
-        opt[Int]("acs-id-queue-limit")
-          .optional()
-          .text(
-            s"Maximum number of contract ids queued for fetching. Default is ${IndexConfiguration.DefaultAcsIdQueueLimit}."
-          )
-          .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
 
         opt[Long]("max-state-value-cache-size")
           .optional()

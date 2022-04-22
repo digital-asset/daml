@@ -1937,6 +1937,9 @@ For example, if this message preceded the above 3-query example, it
 would be as if ``"4307"`` had been specified for the first two queries,
 while ``"5609"`` would be used for the third query.
 
+If any offset has been pruned, the websocket will immediately fail with
+code 1011 and message ``internal error``.
+
 The output is a series of JSON documents, each ``payload`` formatted
 according to :doc:`lf-value-specification`::
 

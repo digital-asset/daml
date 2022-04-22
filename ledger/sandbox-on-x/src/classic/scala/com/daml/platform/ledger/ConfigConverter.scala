@@ -72,7 +72,6 @@ object ConfigConverter {
       acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,
       acsIdPageSize = sandboxConfig.acsIdPageSize,
-      acsIdQueueLimit = sandboxConfig.acsIdQueueLimit,
       configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
       commandConfig = sandboxConfig.commandConfig,
       enableInMemoryFanOutForLedgerApi = false,

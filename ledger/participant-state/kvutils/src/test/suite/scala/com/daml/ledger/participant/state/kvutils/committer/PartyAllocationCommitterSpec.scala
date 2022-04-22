@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theRecordTime}
+import com.daml.ledger.participant.state.kvutils.TestHelpers.createCommitContext
 import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -20,13 +20,12 @@ class PartyAllocationCommitterSpec extends AnyWordSpec with Matchers {
     .setParticipantId("a participant")
 
   "buildLogEntry" should {
-    "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
+    "produce an out-of-time-bounds rejection log entry" in {
       val instance = new PartyAllocationCommitter(metrics)
-      val context = createCommitContext(recordTime = None)
+      val context = createCommitContext()
 
       instance.buildLogEntry(context, aPartyAllocationEntry)
 
-      context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
@@ -36,14 +35,5 @@ class PartyAllocationCommitterSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val instance = new PartyAllocationCommitter(metrics)
-      val context = createCommitContext(recordTime = Some(theRecordTime))
-
-      instance.buildLogEntry(context, aPartyAllocationEntry)
-
-      context.preExecute shouldBe false
-      context.outOfTimeBoundsLogEntry shouldBe empty
-    }
   }
 }

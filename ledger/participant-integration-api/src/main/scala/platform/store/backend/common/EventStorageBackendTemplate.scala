@@ -418,14 +418,21 @@ abstract class EventStorageBackendTemplate(
       val witnessesWhereClause =
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
+      // NOTE:
+      // 1. We use `order by event_sequential_id` to hint Postgres to use an index scan rather than a sequential scan.
+      // 2. We also need to wrap this subquery in another subquery because
+      // on Oracle subqueries used with `union all` cannot contain an `order by` clause.
       def selectFrom(table: String, selectColumns: String) = cSQL"""
-        SELECT
+        (SELECT #$selectColumns, event_witnesses, command_id FROM ( SELECT
           #$selectColumns, #$witnessesColumn as event_witnesses, command_id
         FROM
           #$table $joinClause
+
         WHERE
           $additionalAndClause
           $witnessesWhereClause
+         ORDER BY event_sequential_id
+         ) x)
       """
 
       val selectClause = partitions

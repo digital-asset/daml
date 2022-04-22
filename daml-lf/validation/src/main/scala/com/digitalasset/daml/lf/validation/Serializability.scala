@@ -121,7 +121,7 @@ private[validation] object Serializability {
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons,
   ): Unit = {
-    val context = ContextDefDataType(tyCon.tycon)
+    val context = Context.DefDataType(tyCon.tycon)
     val env =
       (params.iterator foldLeft Env(version, interface, context, SRDataType, tyCon))(_.introVar(_))
     val typs = dataCons match {
@@ -147,7 +147,7 @@ private[validation] object Serializability {
       tyCon: TTyCon,
       template: Template,
   ): Unit = {
-    val context = ContextTemplate(tyCon.tycon)
+    val context = Context.Template(tyCon.tycon)
     Env(version, interface, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>
       Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
@@ -161,7 +161,7 @@ private[validation] object Serializability {
       interface: PackageInterface,
       tyCon: TTyCon,
   ): Unit = {
-    val context = ContextDefException(tyCon.tycon)
+    val context = Context.DefException(tyCon.tycon)
     Env(version, interface, context, SRExceptionArg, tyCon).checkType()
   }
 
@@ -171,7 +171,7 @@ private[validation] object Serializability {
       tyCon: TTyCon,
       defInterface: DefInterface,
   ): Unit = {
-    val context = ContextDefInterface(tyCon.tycon)
+    val context = Context.DefInterface(tyCon.tycon)
     defInterface.fixedChoices.values.foreach { choice =>
       Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
       Env(version, interface, context, SRChoiceRes, choice.returnType).checkType()
@@ -179,7 +179,7 @@ private[validation] object Serializability {
   }
 
   def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
-    val version = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
+    val version = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))

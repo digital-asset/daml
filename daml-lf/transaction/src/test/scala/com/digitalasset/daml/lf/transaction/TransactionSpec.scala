@@ -681,6 +681,7 @@ object TransactionSpec {
     Node.Exercise(
       targetCoid = cid,
       templateId = "DummyModule:dummyName",
+      interfaceId = None,
       choiceId = "dummyChoice",
       consuming = true,
       actingParties = Set.empty,

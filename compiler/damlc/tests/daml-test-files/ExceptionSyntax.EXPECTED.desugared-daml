@@ -29,7 +29,7 @@ tryCatchExample
                        -> do throw (MyException "ok")
                              pure "err"
                      \case
-                       DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (MyException m)
+                       (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (MyException m))
                          -> DA.Internal.Desugar.Some pure m
                        _ -> DA.Internal.Desugar.None
          x === "ok"

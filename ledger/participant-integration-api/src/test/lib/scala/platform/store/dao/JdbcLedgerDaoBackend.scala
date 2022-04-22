@@ -52,7 +52,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      acsIdQueueLimit: Int,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
@@ -86,7 +85,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
           acsGlobalParallelism = acsGlobalParallelism,
-          acsIdQueueLimit = acsIdQueueLimit,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -121,7 +119,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          acsIdQueueLimit = 1000000,
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
