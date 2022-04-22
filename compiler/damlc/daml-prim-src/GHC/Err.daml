@@ -19,7 +19,7 @@ import GHC.Types
 
 import DA.Exception.GeneralError
 
--- Throws a `GeneralError` exception.
+-- | Throws a `GeneralError` exception.
 error : Text -> a
 error msg = primitive @"EThrow" (GeneralError msg)
 
