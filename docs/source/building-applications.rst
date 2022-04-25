@@ -16,6 +16,7 @@ To run the examples, you will first need to `install the Daml SDK <https://docs.
   app-dev/app-arch
   app-dev/bindings-ts/index
   json-api/index
+  bindings-java/index
   daml-script/index
   daml-repl/index
   upgrade/index
