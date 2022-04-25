@@ -303,7 +303,7 @@ genIfaceDecl pkgId mod DefInterface {intName, intFixedChoices} =
   , Set.unions choiceRefs)
   where
     -- interfaces are not declared in JS code, only in the TS type declarations.
-    (name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
+    (TsTypeRef name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
     (choices, choiceRefs) =
       unzip $
       [ (ChoiceDef (unChoiceName (chcName chc)) argTy rTy, Set.union argRefs retRefs)
@@ -381,7 +381,7 @@ data TemplateDef = TemplateDef
   -- ^ Nothing if we do not have a key.
   , tplKeyEncode :: Encode
   , tplChoices' :: [ChoiceDef]
-  , tplImplements' :: [(T.Text, T.Text)] -- ^ same as genTypeCon
+  , tplImplements' :: [(TsTypeRef, JsSerializerRef)]
   }
 
 renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
@@ -390,7 +390,7 @@ renderTemplateDef TemplateDef {..} =
         T.unlines $
         concat
           [ ["exports." <> tplName <> " = Object.assign("]
-          , [impl <> "," | (_, impl) <- tplImplements']
+          , [impl <> "," | (_, JsSerializerRef impl) <- tplImplements']
           -- we spread in the interface choices, the templateId field of the interface will be overwritten by the template object.
           , [ T.unlines $
               concat
@@ -472,7 +472,7 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 
-ifaceDefTempl :: T.Text -> Maybe T.Text -> [T.Text] -> [ChoiceDef] -> [T.Text]
+ifaceDefTempl :: T.Text -> Maybe T.Text -> [TsTypeRef] -> [ChoiceDef] -> [T.Text]
 ifaceDefTempl name mbKeyTy impls choices =
   concat
   [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
@@ -913,9 +913,11 @@ genType (TypeRef curModName t) mbSubst = go t
 -- Note that the serializer is in JS file whereas the type is in the TS
 -- declaration file. Therefore they refer to things in the current module
 -- differently.
-genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
+genTypeCon :: ModuleName -> Qualified TypeConName -> (TsTypeRef, JsSerializerRef)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
-    case unTypeConName conParts of
+  (TsTypeRef typeRef, JsSerializerRef serializerRef)
+    where
+      (typeRef, serializerRef) = case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
         [c1 ,c2]
@@ -926,8 +928,10 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
           | modRef == (PRSelf, curModName) ->
             (conName, "exports" <.> conName)
           | otherwise -> dupe $ genModuleRef modRef <.> conName
-     where
-       modRef = (pkgRef, modName)
+      modRef = (pkgRef, modName)
+
+newtype TsTypeRef = TsTypeRef T.Text
+newtype JsSerializerRef = JsSerializerRef T.Text
 
 pkgVar :: PackageId -> T.Text
 pkgVar pkgId = "pkg" <> unPackageId pkgId
