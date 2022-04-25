@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, StablePackage}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.SErrorDamlException
 import com.daml.lf.speedy.SExpr._
@@ -67,9 +67,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       List("M:E1", "M:E2")
         .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val arithmeticCon = data.Ref.Identifier.assertFromString(
-      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
-    )
+    val arithmeticCon = StablePackage.DA.Exception.ArithmeticError
+      .identifier(data.Ref.DottedName.assertFromString("ArithmeticError"))
     val divZeroE =
       ValueRecord(
         Some(arithmeticCon),
