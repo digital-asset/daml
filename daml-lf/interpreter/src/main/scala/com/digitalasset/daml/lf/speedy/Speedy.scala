@@ -764,14 +764,11 @@ private[lf] object Speedy {
                 val lookupResult =
                   assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
-                val n = fields.length
-                val values = new util.ArrayList[SValue](n)
-                (lookupResult.dataRecord.fields.iterator zip fields.iterator).foreach {
-                  case ((_, fieldType), (_, fieldValue)) =>
-                    discard[Boolean](
-                      values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
-                    )
-                }
+                val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
+                  .map { case ((_, fieldType), (_, fieldValue)) =>
+                    go(AstUtil.substitute(fieldType, subst), fieldValue)
+                  }
+                  .to(ArrayList)
                 SValue.SRecord(tyCon, lookupResult.dataRecord.fields.map(_._1), values)
               case V.ValueVariant(_, constructor, value) =>
                 val info =

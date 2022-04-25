@@ -1883,7 +1883,7 @@ private[lf] object SBuiltin {
     private val closure: SValue = {
       val frame = Array.ofDim[SValue](0) // no free vars
       val arity = 3
-      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), new util.ArrayList[SValue](), arity)
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArrayList.empty, arity)
     }
 
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {

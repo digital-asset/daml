@@ -86,9 +86,9 @@ object SExpr {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, new util.ArrayList())
+          SRecord(id, fields, ArrayList.empty)
         case _ =>
-          SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
+          SPAP(PBuiltin(b), ArrayList.empty, b.arity)
       }
     }
   }
@@ -189,7 +189,7 @@ object SExpr {
         i += 1
       }
       machine.returnValue =
-        SPAP(PClosure(Profile.LabelUnset, body, sValues), new util.ArrayList[SValue](), arity)
+        SPAP(PClosure(Profile.LabelUnset, body, sValues), ArrayList.empty, arity)
     }
   }
 

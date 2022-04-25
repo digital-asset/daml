@@ -115,7 +115,8 @@ sealed trait SValue {
     go(this)
   }
 
-  def mapContractId(f: V.ContractId => V.ContractId): SValue =
+  def mapContractId(f: V.ContractId => V.ContractId): SValue = {
+    import ArrayList.Implicits._
     this match {
       case SContractId(coid) => SContractId(f(coid))
       case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
@@ -125,12 +126,11 @@ sealed trait SValue {
             PClosure(label, expr, vars.map(_.mapContractId(f)))
           case _: PBuiltin => prim
         }
-        val args2 = mapArrayList(args, _.mapContractId(f))
-        SPAP(prim2, args2, arity)
+        SPAP(prim2, args.map(_.mapContractId(f)), arity)
       case SRecord(tycon, fields, values) =>
-        SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
+        SRecord(tycon, fields, values.map(_.mapContractId(f)))
       case SStruct(fields, values) =>
-        SStruct(fields, mapArrayList(values, v => v.mapContractId(f)))
+        SStruct(fields, values.map(_.mapContractId(f)))
       case SVariant(tycon, variant, rank, value) =>
         SVariant(tycon, variant, rank, value.mapContractId(f))
       case SList(lst) =>
@@ -145,6 +145,7 @@ sealed trait SValue {
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
     }
+  }
 }
 
 object SValue {
@@ -265,11 +266,8 @@ object SValue {
   object SArithmeticError {
     val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
-      val array = new util.ArrayList[SValue](1)
-      discard(
-        array.add(
-          SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
-        )
+      val array = ArrayList.single[SValue](
+        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
       )
       SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
     }
@@ -387,32 +385,12 @@ object SValue {
   assert(entryFields.indexOf(keyFieldName) == 0)
   assert(entryFields.indexOf(valueFieldName) == 1)
 
-  private def entry(key: SValue, value: SValue) = {
-    val args = new util.ArrayList[SValue](2)
-    discard(args.add(key))
-    discard(args.add(value))
-    SStruct(entryFields, args)
-  }
-
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
       entries.view
-        .map { case (k, v) =>
-          entry(k, v)
-        }
+        .map { case (k, v) => SStruct(entryFields, ArrayList.double(k, v)) }
         .to(FrontStack)
     )
-
-  private def mapArrayList(
-      as: util.ArrayList[SValue],
-      f: SValue => SValue,
-  ): util.ArrayList[SValue] = {
-    val bs = new util.ArrayList[SValue](as.size)
-    as.forEach { a =>
-      discard(bs.add(f(a)))
-    }
-    bs
-  }
 
   private[this] val overflowUnderflow = Left("overflow/underflow")
 

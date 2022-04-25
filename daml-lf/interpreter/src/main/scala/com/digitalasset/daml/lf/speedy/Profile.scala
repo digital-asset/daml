@@ -9,7 +9,7 @@ import com.daml.lf.language.Ast
 import com.daml.scalautil.Statement.discard
 import java.lang.System
 import java.nio.file.{Files, Path}
-import java.util.ArrayList
+import java.util
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
@@ -41,7 +41,7 @@ import scala.jdk.CollectionConverters._
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
-  private[lf] val events: ArrayList[Event] = new ArrayList()
+  private[lf] val events: util.ArrayList[Event] = ArrayList.empty
   var name: String = "Daml Engine profile"
 
   def addOpenEvent(label: Label): Unit = {
@@ -154,8 +154,8 @@ object Profile {
       def fromProfile(profile: Profile) = {
         import scala.collection.mutable.HashMap
 
-        val frames = new ArrayList[FrameJson]()
-        val frameIndices = new HashMap[String, Int]()
+        val frames = ArrayList.empty[FrameJson]
+        val frameIndices = HashMap.empty[String, Int]
         var endValue = 0L
         val events = profile.events.asScala.toList.map { event =>
           val eventType = if (event.open) "O" else "C"

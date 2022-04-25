@@ -4,7 +4,6 @@
 package com.daml.lf
 package engine
 
-import java.util
 import java.io.File
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
@@ -25,7 +24,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.transaction.{Normalization, Validation, ReplayMismatch}
 import com.daml.lf.value.Value
 import Value._
-import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
+import com.daml.lf.speedy.{ArrayList, InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
@@ -2222,12 +2221,6 @@ object EngineTest {
 
   private def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
-
-  private def ArrayList[X](as: X*): util.ArrayList[X] = {
-    val a = new util.ArrayList[X](as.length)
-    as.foreach(a.add)
-    a
-  }
 
   private def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }

@@ -8,7 +8,7 @@ package preprocessing
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
@@ -220,7 +220,7 @@ private[lf] final class ValueTranslator(
                 SValue.SRecord(
                   tyCon,
                   fields.map(_._1),
-                  ArrayList(fields.map(_._2).toSeq: _*),
+                  fields.iterator.map(_._2).to(ArrayList),
                 )
 
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
