@@ -1288,7 +1288,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol",
+      "userId": "carol",
       "primaryParty": "Carol",
       "rights": [
         {
@@ -1297,11 +1297,11 @@ HTTP Request
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1344,8 +1344,8 @@ HTTP Response
 
     {
       "result": {
-        "userId": "Carol",
-        "primaryParty": "Carol",
+        "userId": "carol",
+        "primaryParty": "Carol"
       },
       "status": 200
     }
@@ -1367,7 +1367,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol"
+      "userId": "carol"
     }
 
 
@@ -1380,8 +1380,8 @@ HTTP Response
 
     {
       "result": {
-        "userId": "Carol",
-        "primaryParty": "Carol",
+        "userId": "carol",
+        "primaryParty": "Carol"
       },
       "status": 200
     }
@@ -1402,7 +1402,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol"
+      "userId": "carol"
     }
 
 
@@ -1437,12 +1437,12 @@ HTTP Response
     {
       "result": [
         {
-            "userId": "Carol",
-            "primaryParty": "Carol",
+            "userId": "carol",
+            "primaryParty": "Carol"
         },
         {
-            "userId": "Bob",
-            "primaryParty": "Bob",
+            "userId": "bob",
+            "primaryParty": "Bob"
         }
       ],
       "status": 200
@@ -1464,7 +1464,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol",
+      "userId": "carol",
       "rights": [
         {
           "type": "CanActAs",
@@ -1472,11 +1472,11 @@ HTTP Request
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1499,11 +1499,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1530,7 +1530,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol",
+      "userId": "carol",
       "rights": [
         {
           "type": "CanActAs",
@@ -1538,11 +1538,11 @@ HTTP Request
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1565,11 +1565,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1606,11 +1606,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1635,7 +1635,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol"
+      "userId": "carol"
     }
 
 Please refer to :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>` documentation for information about the meaning of the fields.
@@ -1653,11 +1653,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
