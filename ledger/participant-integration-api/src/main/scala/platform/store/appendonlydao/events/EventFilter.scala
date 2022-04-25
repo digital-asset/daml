@@ -7,7 +7,6 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.TransactionFilter
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.value.{Identifier => ProtoIdentifier}
-import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.api.v1.event.EventOps.EventOps
 
 private[platform] object EventFilter {
@@ -28,18 +27,5 @@ private[platform] object EventFilter {
       )
     )
       .filter(_.witnessParties.nonEmpty)
-
-  def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =
-    Some(event)
-      .filter(ac =>
-        (ac.signatories union ac.observers).exists(party =>
-          txf(party, event.contract.unversioned.template)
-        )
-      )
-      .map(
-        _.copy(witnesses =
-          event.witnesses.filter(party => txf(party, event.contract.unversioned.template))
-        )
-      )
 
 }
