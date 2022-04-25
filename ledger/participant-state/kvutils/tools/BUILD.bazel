@@ -91,7 +91,7 @@ da_scala_binary(
     scala_deps = ["@maven//:com_github_scopt_scopt"],
     deps = [
         "//daml-lf/data",
-        "//daml-lf/snapshot:snapshot-proto_java",
+        "//daml-lf/snapshot:snapshot_proto_java",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",

@@ -13,7 +13,7 @@ load(
 )
 
 proto_jars(
-    name = "snapshot-proto",
+    name = "snapshot_proto",
     srcs = ["src/main/protobuf/com/daml/lf/snapshot.proto"],
     maven_artifact_prefix = "daml-lf-snapshot",
     maven_group = "com.daml",
@@ -28,7 +28,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
-        "snapshot-proto_java",
+        "snapshot_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
