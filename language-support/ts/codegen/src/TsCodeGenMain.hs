@@ -353,7 +353,7 @@ data TemplateNamespace = TemplateNamespace
 renderTemplateNamespace :: TemplateNamespace -> T.Text
 renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     [ [ "export declare namespace " <> tnsName <> " {" ]
-    , [ "  export type Key = " <> fst (genType keyDef Nothing) | Just keyDef <- [tnsMbKeyDef] ]
+    , [ "  export type Key = " <> typeRef (genType keyDef Nothing) | Just keyDef <- [tnsMbKeyDef] ]
     , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
       , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
       , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
@@ -479,8 +479,8 @@ ifaceDefTempl name mbKeyTy impls choices =
   [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       name <> ", " <>
-      fst (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
-      fst (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      typeRef (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      typeRef (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
@@ -499,8 +499,8 @@ ifaceDefIface name mbKeyTy choices =
   [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       "T, " <>
-      fst (genType chcArgTy mbSubst) <> ", " <>
-      fst (genType chcRetTy mbSubst) <> ", " <>
+      typeRef (genType chcArgTy mbSubst) <> ", " <>
+      typeRef (genType chcRetTy mbSubst) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
@@ -634,7 +634,7 @@ renderDecoder = \case
         T.concat (map (\(name, d) -> name <> ": " <> renderDecoder d <> ", ") fields) <>
         "})"
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
-    DecoderRef t -> snd (genType t Nothing) <> ".decoder"
+    DecoderRef t -> serializerRef (genType t Nothing) <> ".decoder"
     DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
 
 data Encode
@@ -646,13 +646,13 @@ data Encode
 
 renderEncode :: Encode -> T.Text
 renderEncode = \case
-    EncodeRef ref -> let (_, companion) = genType ref Nothing in
+    EncodeRef ref -> let (GenType _ companion) = genType ref Nothing in
         "function (__typed__) { return " <> companion <> ".encode(__typed__); }"
     EncodeVariant typ alts -> T.unlines $ concat
         [ [ "function (__typed__) {" -- Note: switch uses ===
           , "  switch(__typed__.tag) {" ]
         , [ "    case '" <> name <> "': return {tag: __typed__.tag, value: " <> companion <> ".encode(__typed__.value)};"
-          | (name, tr) <- alts, let (_, companion) = genType tr Nothing]
+          | (name, tr) <- alts, let (GenType _ companion) = genType tr Nothing]
         , [ "    default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type " <> typ <> "';"
           , "  }"
           , "}" ] ]
@@ -661,7 +661,7 @@ renderEncode = \case
         [ [ "function (__typed__) {"
           , "  return {" ]
         , [ "    " <> name <> ": " <> companion <> ".encode(__typed__." <> name <> "),"
-          | (name, tr) <- fields, let (_, companion) = genType tr Nothing]
+          | (name, tr) <- fields, let (GenType _ companion) = genType tr Nothing]
         , [ "  };"
           , "}" ] ]
     EncodeThrow -> "function () { throw 'EncodeError'; }"
@@ -675,12 +675,12 @@ renderTypeDef :: TypeDef -> T.Text
 renderTypeDef = \case
     UnionDef t args bs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " =" ]
-        , [ "  |  { tag: '" <> k <> "'; value: " <> fst (genType t Nothing) <> " }" | (k, t) <- bs ]
+        , [ "  |  { tag: '" <> k <> "'; value: " <> typeRef (genType t Nothing) <> " }" | (k, t) <- bs ]
         , [ ";" ]
         ]
     ObjectDef t args fs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " = {" ]
-        , [ "  " <> k <> ": " <> fst (genType t Nothing) <> ";" | (k, t) <- fs ]
+        , [ "  " <> k <> ": " <> typeRef (genType t Nothing) <> ";" | (k, t) <- fs ]
         , [ "};" ]
         ]
     EnumDef t args fs -> T.unlines $ concat
@@ -853,8 +853,8 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 -- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
 -- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
 -- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
-genType :: TypeRef -> Maybe (Set.Set TsTypeRef, T.Text) -> (T.Text, T.Text)
-genType (TypeRef curModName t) mbSubst = go t
+genType :: TypeRef -> Maybe (Set.Set TsTypeRef, T.Text) -> GenType
+genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
   where
     go = \case
         TVar v -> dupe (unTypeVarName v)
@@ -911,6 +911,11 @@ genType (TypeRef curModName t) mbSubst = go t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
         TStruct{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
+
+data GenType = GenType
+  { typeRef :: T.Text
+  , serializerRef :: T.Text
+  }
 
 -- | Pair of a reference to the type and a reference to the serializer.
 -- Note that the serializer is in JS file whereas the type is in the TS
