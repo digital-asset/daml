@@ -24,6 +24,7 @@ import Control.Exception
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
+import Data.Coerce (coerce)
 import Data.Either
 import Data.Tuple.Extra
 import Data.List.Extra
@@ -894,7 +895,7 @@ genType (TypeRef curModName t) mbSubst = go t
         TConApp con ts ->
             let (con', ser)
                   | Just (impls, subst) <- mbSubst, (fst $ genTypeCon curModName con) `Set.member` impls = (subst, "")
-                  | otherwise = genTypeCon curModName con
+                  | otherwise = coerce $ genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
             in
             if null ts
