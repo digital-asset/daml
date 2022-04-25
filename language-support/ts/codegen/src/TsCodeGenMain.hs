@@ -488,8 +488,9 @@ ifaceDefTempl name mbKeyTy impls choices =
     extension
       | null impls = ""
       | otherwise = "extends " <> implTy'
-    implTy = T.intercalate " & " [impl <> "Interface<" <> name <> ">" | impl <- impls]
-    implTy' = T.intercalate " , " [impl <> "Interface<" <> name <> ">" | impl <- impls]
+    implTy = T.intercalate " & " implRefs 
+    implTy' = T.intercalate " , " implRefs
+    implRefs = [impl <> "Interface<" <> name <> ">" | TsTypeRef impl <- impls]
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
@@ -497,12 +498,13 @@ ifaceDefIface name mbKeyTy choices =
   [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       "T, " <>
-      fst (genType chcArgTy (Just (Set.singleton name, name <> "Interface<T>"))) <> ", " <>
-      fst (genType chcRetTy (Just (Set.singleton name, name <> "Interface<T>"))) <> ", " <>
+      fst (genType chcArgTy mbSubst) <> ", " <>
+      fst (genType chcRetTy mbSubst) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
+    mbSubst = Just (Set.singleton (TsTypeRef name), name <> "Interface<T>")
     keyTy = fromMaybe "undefined" mbKeyTy
 
 data ChoiceDef = ChoiceDef
@@ -850,7 +852,7 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 -- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
 -- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
 -- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
-genType :: TypeRef -> Maybe (Set.Set T.Text, T.Text) -> (T.Text, T.Text)
+genType :: TypeRef -> Maybe (Set.Set TsTypeRef, T.Text) -> (T.Text, T.Text)
 genType (TypeRef curModName t) mbSubst = go t
   where
     go = \case
@@ -931,6 +933,7 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
       modRef = (pkgRef, modName)
 
 newtype TsTypeRef = TsTypeRef T.Text
+  deriving (Eq, Ord)
 newtype JsSerializerRef = JsSerializerRef T.Text
 
 pkgVar :: PackageId -> T.Text
