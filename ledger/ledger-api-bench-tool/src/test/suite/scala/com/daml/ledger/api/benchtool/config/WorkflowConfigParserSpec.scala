@@ -22,7 +22,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    - template: Foo1
           |      weight: 50
           |      payload_size_bytes: 60
-          |      archive_probability: 0.9
+          |  nonconsuming_exercises:
+          |      probability: 4.9
+          |      payload_size_bytes: 100
+          |  consuming_exercises:
+          |      probability: 0.5
+          |      payload_size_bytes: 200
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -47,7 +52,18 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   template = "Foo1",
                   weight = 50,
                   payloadSizeBytes = 60,
-                  archiveChance = 0.9,
+                )
+              ),
+              nonconsumingExercises = Some(
+                WorkflowConfig.SubmissionConfig.NonconsumingExercises(
+                  probability = 4.9,
+                  payloadSizeBytes = 100,
+                )
+              ),
+              consumingExercises = Some(
+                WorkflowConfig.SubmissionConfig.ConsumingExercises(
+                  probability = 0.5,
+                  payloadSizeBytes = 200,
                 )
               ),
             )
@@ -83,15 +99,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |    - template: Foo1
         |      weight: 50
         |      payload_size_bytes: 60
-        |      archive_probability: 0.9
         |    - template: Foo2
         |      weight: 25
         |      payload_size_bytes: 35
-        |      archive_probability: 0.8
         |    - template: Foo3
         |      weight: 10
-        |      payload_size_bytes: 25
-        |      archive_probability: 0.7""".stripMargin
+        |      payload_size_bytes: 25""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -105,21 +118,20 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   template = "Foo1",
                   weight = 50,
                   payloadSizeBytes = 60,
-                  archiveChance = 0.9,
                 ),
                 WorkflowConfig.SubmissionConfig.ContractDescription(
                   template = "Foo2",
                   weight = 25,
                   payloadSizeBytes = 35,
-                  archiveChance = 0.8,
                 ),
                 WorkflowConfig.SubmissionConfig.ContractDescription(
                   template = "Foo3",
                   weight = 10,
                   payloadSizeBytes = 25,
-                  archiveChance = 0.7,
                 ),
               ),
+              nonconsumingExercises = None,
+              consumingExercises = None,
             )
           ),
           streams = Nil,
