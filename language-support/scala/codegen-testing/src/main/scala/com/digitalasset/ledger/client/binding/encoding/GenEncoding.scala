@@ -101,7 +101,7 @@ object GenEncoding extends GenEncoding {
 
     override def valueTextMap[A](implicit ev: Out[A]): Out[P.TextMap[A]] = {
       implicit val elt: Arbitrary[A] = Arbitrary(ev)
-      P.TextMap.leibniz[A].subst(arbitrary[collection.immutable.Map[String, A]])
+      P.TextMap.leibniz[A].substituteCo(arbitrary[collection.immutable.Map[String, A]])
     }
 
     override def valueGenMap[K, V](implicit evK: Out[K], evV: Out[V]): Out[P.GenMap[K, V]] = {
