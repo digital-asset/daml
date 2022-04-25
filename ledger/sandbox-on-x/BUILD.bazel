@@ -475,7 +475,7 @@ server_conformance_test(
     name = "conformance-test-tiny-buffers",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
+        "--participant participant-id=example,port=6865,contract-state-cache-max-size=2,contract-key-state-cache-max-size=2",
         "--enable-user-management=true",
         "--events-page-size=2",
         "--acs-id-page-size=2",
