@@ -3,19 +3,11 @@
 
 package com.daml.http
 
-import java.security.DigestInputStream
 import java.time.{Instant, LocalDate}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.Authorization
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Source, StreamConverters}
-import akka.util.ByteString
 import com.daml.api.util.TimestampConversion
-import com.daml.bazeltools.BazelRunfiles.requiredResource
-import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
-import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
 import com.daml.http.endpoints.MeteringReportEndpoint.{
@@ -26,18 +18,13 @@ import com.daml.http.endpoints.MeteringReportEndpoint.{
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
-import com.daml.http.util.FutureUtil.toFuture
-import com.daml.http.util.{FutureUtil, SandboxTestLedger}
+import com.daml.http.util.FutureUtil
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
-import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.MetadataReader
-import com.daml.ledger.test.{ModelTestDar, SemanticTestDar}
-import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -50,18 +37,15 @@ import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, \/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Try}
-import com.daml.ledger.api.{domain => LedgerApiDomain}
+import scala.util.Success
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.{value => lfv}
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
-import com.daml.ports.Port
 
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AsyncFreeSpec
