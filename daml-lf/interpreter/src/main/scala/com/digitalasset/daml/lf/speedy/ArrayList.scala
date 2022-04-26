@@ -13,7 +13,7 @@ object ArrayList extends scala.collection.IterableFactory[util.ArrayList] {
 
   override def from[A](source: IterableOnce[A]): util.ArrayList[A] = {
     val array = source.knownSize match {
-      case size if size > 0 => new util.ArrayList[A](size)
+      case size if size >= 0 => new util.ArrayList[A](size)
       case _ => empty[A]
     }
     source.iterator.foreach(array.add)
