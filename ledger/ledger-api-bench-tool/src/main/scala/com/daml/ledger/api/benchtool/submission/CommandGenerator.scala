@@ -99,7 +99,7 @@ final class CommandGenerator(
       )
       .map(randomPayload)
     val nonconsumingExercisePayload: Seq[String] =
-      config.nonconsumingExercises.fold(Seq.empty[String]) { c =>
+      config.nonConsumingExercises.fold(Seq.empty[String]) { c =>
         var f = c.probability.toInt
         if (randomnessProvider.randomDouble() <= c.probability - f) {
           f += 1
@@ -191,11 +191,17 @@ final class CommandGenerator(
   }
 
   private def randomPayload(sizeBytes: Int): String =
-    new String(randomnessProvider.randomBytes(sizeBytes), StandardCharsets.UTF_8)
+    CommandGenerator.randomPayload(randomnessProvider, sizeBytes)
 
 }
 
 object CommandGenerator {
   case class CommandGeneratorError(msg: String, cause: Throwable)
       extends RuntimeException(msg, cause)
+
+  private[submission] def randomPayload(
+      randomnessProvider: RandomnessProvider,
+      sizeBytes: Int,
+  ): String =
+    new String(randomnessProvider.randomBytes(sizeBytes), StandardCharsets.UTF_8)
 }

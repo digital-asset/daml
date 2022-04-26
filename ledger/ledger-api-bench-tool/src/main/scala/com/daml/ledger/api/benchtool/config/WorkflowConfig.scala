@@ -21,7 +21,7 @@ object WorkflowConfig {
       numberOfObservers: Int,
       uniqueParties: Boolean,
       instanceDistribution: List[WorkflowConfig.SubmissionConfig.ContractDescription],
-      nonconsumingExercises: Option[NonconsumingExercises],
+      nonConsumingExercises: Option[NonconsumingExercises],
       consumingExercises: Option[ConsumingExercises],
   )
 

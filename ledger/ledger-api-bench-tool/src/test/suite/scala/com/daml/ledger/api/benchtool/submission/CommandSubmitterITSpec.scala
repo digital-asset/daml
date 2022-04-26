@@ -31,6 +31,118 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
+class CommandSubmitterITSpec
+    extends AsyncFlatSpec
+    with SandboxFixture
+    with SuiteResourceManagementAroundAll
+    with Matchers
+    with AppendedClues {
+
+  it should "populate participant with create, consuming and non consuming exercises" in {
+
+    val foo1Config = WorkflowConfig.SubmissionConfig.ContractDescription(
+      template = "Foo1",
+      weight = 1,
+      payloadSizeBytes = 100,
+    )
+    val foo2Config = WorkflowConfig.SubmissionConfig.ContractDescription(
+      template = "Foo2",
+      weight = 1,
+      payloadSizeBytes = 100,
+    )
+    val consumingExercisesConfig = ConsumingExercises(
+      probability = 1.0,
+      payloadSizeBytes = 100,
+    )
+    val nonConsumingExercisesConfig = NonconsumingExercises(
+      probability = 2.0,
+      payloadSizeBytes = 100,
+    )
+    val config = WorkflowConfig.SubmissionConfig(
+      numberOfInstances = 10,
+      numberOfObservers = 1,
+      uniqueParties = false,
+      instanceDistribution = List(
+        foo1Config,
+        foo2Config,
+      ),
+      nonConsumingExercises = Some(nonConsumingExercisesConfig),
+      consumingExercises = Some(consumingExercisesConfig),
+    )
+
+    for {
+      ledgerApiServicesF <- LedgerApiServices.forChannel(
+        channel = channel,
+        authorizationHelper = None,
+      )
+      apiServices = ledgerApiServicesF("someUser")
+      tested = CommandSubmitter(
+        names = new Names(),
+        benchtoolUserServices = apiServices,
+        adminServices = apiServices,
+        metricRegistry = new MetricRegistry,
+        metricsManager = NoOpMetricsManager(),
+      )
+      (signatory, observers) <- tested.prepare(config)
+      _ <- tested.submit(
+        config = config,
+        signatory = signatory,
+        observers = observers,
+        maxInFlightCommands = 1,
+        submissionBatchSize = 5,
+      )
+      eventsObserver = EventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
+      _ <- apiServices.transactionService.transactionTrees(
+        config = WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
+          name = "dummy-name",
+          filters = List(
+            WorkflowConfig.StreamConfig.PartyFilter(
+              party = signatory.toString,
+              templates = List.empty,
+            )
+          ),
+          beginOffset = None,
+          endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+          objectives = None,
+        ),
+        observer = eventsObserver,
+      )
+      observerResult: ObservedEvents <- eventsObserver.result
+    } yield {
+      observerResult.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
+
+      observerResult.avgSizeOfCreateEventPerTemplateName("Foo1") shouldBe roughly(
+        foo1Config.payloadSizeBytes * 2,
+        toleranceMul = 0.5,
+      ) withClue ("payload size of create Foo1")
+      observerResult.avgSizeOfCreateEventPerTemplateName("Foo2") shouldBe roughly(
+        foo2Config.payloadSizeBytes * 2,
+        toleranceMul = 0.5,
+      ) withClue ("payload size of create Foo2")
+      observerResult.avgSizeOfConsumingExercise shouldBe roughly(
+        consumingExercisesConfig.payloadSizeBytes * 2,
+        toleranceMul = 0.5,
+      )
+      observerResult.avgSizeOfNonconsumingExercise shouldBe roughly(
+        nonConsumingExercisesConfig.payloadSizeBytes * 2,
+        toleranceMul = 0.5,
+      )
+
+      observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
+      observerResult.nonConsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonConsumingExercisesConfig.probability) withClue ("number of non consuming exercises")
+
+      succeed
+    }
+  }
+
+  private def roughly(n: Int, toleranceMul: Double): TripleEqualsSupport.Spread[Int] = {
+    require(toleranceMul > 0.0)
+    val skew = Math.round(toleranceMul * n).toInt
+    n +- skew
+  }
+
+}
+
 object EventsObserver {
   def apply(expectedTemplateNames: Set[String]): EventsObserver = new EventsObserver(
     logger = LoggerFactory.getLogger(getClass),
@@ -59,7 +171,7 @@ object EventsObserver {
     )
 
     val consumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filter(_.consuming)
-    val nonconsumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filterNot(_.consuming)
+    val nonConsumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filterNot(_.consuming)
 
     val avgSizeOfConsumingExercise: Int = {
       if (consumingExercises.isEmpty) 0
@@ -67,9 +179,9 @@ object EventsObserver {
     }
 
     val avgSizeOfNonconsumingExercise: Int = {
-      if (nonconsumingExercises.isEmpty) 0
+      if (nonConsumingExercises.isEmpty) 0
       else
-        nonconsumingExercises.map(_.choiceArgumentsSerializedSize).sum / nonconsumingExercises.size
+        nonConsumingExercises.map(_.choiceArgumentsSerializedSize).sum / nonConsumingExercises.size
     }
 
     val numberOfCreatesPerTemplateName: Map[String, Int] = {
@@ -144,116 +256,4 @@ class EventsObserver(expectedTemplateNames: Set[String], logger: Logger)
       exerciseEvents = exerciseEvents.toList,
     )
   )
-}
-
-class CommandSubmitterITSpec
-    extends AsyncFlatSpec
-    with SandboxFixture
-    with SuiteResourceManagementAroundAll
-    with Matchers
-    with AppendedClues {
-
-  it should "populate participant with create, consuming and nonconsuming exercises" in {
-
-    val foo1Config = WorkflowConfig.SubmissionConfig.ContractDescription(
-      template = "Foo1",
-      weight = 1,
-      payloadSizeBytes = 100,
-    )
-    val foo2Config = WorkflowConfig.SubmissionConfig.ContractDescription(
-      template = "Foo2",
-      weight = 1,
-      payloadSizeBytes = 100,
-    )
-    val consumingExercisesConfig = ConsumingExercises(
-      probability = 1.0,
-      payloadSizeBytes = 100,
-    )
-    val nonconsumingExercisesConfig = NonconsumingExercises(
-      probability = 2.0,
-      payloadSizeBytes = 100,
-    )
-    val config = WorkflowConfig.SubmissionConfig(
-      numberOfInstances = 10,
-      numberOfObservers = 1,
-      uniqueParties = false,
-      instanceDistribution = List(
-        foo1Config,
-        foo2Config,
-      ),
-      nonconsumingExercises = Some(nonconsumingExercisesConfig),
-      consumingExercises = Some(consumingExercisesConfig),
-    )
-
-    for {
-      ledgerApiServicesF <- LedgerApiServices.forChannel(
-        channel = channel,
-        authorizationHelper = None,
-      )
-      apiServices = ledgerApiServicesF("someUser")
-      tested = CommandSubmitter(
-        names = new Names(),
-        benchtoolUserServices = apiServices,
-        adminServices = apiServices,
-        metricRegistry = new MetricRegistry,
-        metricsManager = NoOpMetricsManager(),
-      )
-      (signatory, observers) <- tested.prepare(config)
-      _ <- tested.submit(
-        config = config,
-        signatory = signatory,
-        observers = observers,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 5,
-      )
-      eventsObserver = EventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
-      _ <- apiServices.transactionService.transactionTrees(
-        config = WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
-          name = "dummy-name",
-          filters = List(
-            WorkflowConfig.StreamConfig.PartyFilter(
-              party = signatory.toString,
-              templates = List.empty,
-            )
-          ),
-          beginOffset = None,
-          endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-          objectives = None,
-        ),
-        observer = eventsObserver,
-      )
-      observerResult: ObservedEvents <- eventsObserver.result
-    } yield {
-      observerResult.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
-
-      observerResult.avgSizeOfCreateEventPerTemplateName("Foo1") shouldBe roughly(
-        foo1Config.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      ) withClue ("payload size of create Foo1")
-      observerResult.avgSizeOfCreateEventPerTemplateName("Foo2") shouldBe roughly(
-        foo2Config.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      ) withClue ("payload size of create Foo2")
-      observerResult.avgSizeOfConsumingExercise shouldBe roughly(
-        consumingExercisesConfig.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      )
-      observerResult.avgSizeOfNonconsumingExercise shouldBe roughly(
-        nonconsumingExercisesConfig.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      )
-
-      observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
-      observerResult.nonconsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonconsumingExercisesConfig.probability) withClue ("number of nonconsuming exercises")
-
-      succeed
-    }
-  }
-
-  private def roughly(n: Int, toleranceMul: Double): TripleEqualsSupport.Spread[Int] = {
-    require(toleranceMul > 0.0)
-    val skew = Math.round(toleranceMul * n).toInt
-    n +- skew
-  }
-
 }
