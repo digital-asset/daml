@@ -16,9 +16,8 @@ import akka.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, Que
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
+import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v2.{
   ReadService,
   SubmissionResult,
@@ -354,7 +353,7 @@ object RecoveringIndexerIntegrationSpec {
       Source.repeat(
         LedgerInitialConditions(
           ledgerId,
-          LedgerReader.DefaultConfiguration,
+          Configuration.reasonableInitialConfiguration,
           Time.Timestamp.Epoch,
         )
       )
