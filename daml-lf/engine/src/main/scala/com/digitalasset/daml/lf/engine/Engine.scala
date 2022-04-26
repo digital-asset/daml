@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
 import java.nio.file.Files
 
-import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
+import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -56,7 +56,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
-  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
 
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(

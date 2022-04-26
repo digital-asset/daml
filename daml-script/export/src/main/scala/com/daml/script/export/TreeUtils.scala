@@ -4,7 +4,6 @@
 package com.daml.script.export
 
 import java.time.Instant
-
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
@@ -14,7 +13,7 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Graphs
+import com.daml.lf.language.{Graphs, StablePackage}
 import scalaz.std.option._
 import scalaz.std.iterable._
 import scalaz.std.set._
@@ -511,8 +510,9 @@ object TreeUtils {
   }
 
   def isTupleId(id: Identifier): Boolean = {
-    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
+    id.packageId == StablePackage.DA.Types.packageId &&
+    id.moduleName == StablePackage.DA.Types.moduleName.toString &&
+    id.entityName.startsWith("Tuple")
   }
 
   def isTupleRefId(name: Ref.Identifier): Boolean = {

@@ -5,7 +5,6 @@ package com.daml.script.export
 
 import java.io.FileOutputStream
 import java.nio.file.Path
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
@@ -135,7 +134,7 @@ object Dependencies {
   private def isProvidedLibrary(pkgId: PackageId, pkg: Ast.Package): Boolean = {
     // We use the list of stable packages for the compiler not the engine so we really want to catch
     // all of them ignoring the version.
-    val stablePackages = com.daml.lf.language.StablePackages.ids(LanguageVersion.DevVersions)
+    val stablePackages = com.daml.lf.language.StablePackage.ids(LanguageVersion.DevVersions)
     pkg.metadata.exists(m => providedLibraries.contains(m.name)) || stablePackages.contains(pkgId)
   }
 
