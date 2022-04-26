@@ -12,6 +12,7 @@ final case class IndexConfiguration(
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
     acsIdPageSize: Int = IndexConfiguration.DefaultAcsIdPageSize,
+    acsIdPageBufferSize: Int = IndexConfiguration.DefaultAcsIdPageBufferSize,
     acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
     acsContractFetchingParallelism: Int = IndexConfiguration.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexConfiguration.DefaultAcsGlobalParallelism,
@@ -28,6 +29,7 @@ object IndexConfiguration {
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
   val DefaultAcsIdPageSize: Int = 20000
+  val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10

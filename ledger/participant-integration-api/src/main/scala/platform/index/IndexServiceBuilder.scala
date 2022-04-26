@@ -45,6 +45,7 @@ private[platform] case class IndexServiceBuilder(
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     acsIdPageSize: Int,
+    acsIdPageBufferSize: Int,
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
@@ -312,6 +313,7 @@ private[platform] case class IndexServiceBuilder(
       eventsPageSize = eventsPageSize,
       eventsProcessingParallelism = eventsProcessingParallelism,
       acsIdPageSize = acsIdPageSize,
+      acsIdPageBufferSize = acsIdPageBufferSize,
       acsIdFetchingParallelism = acsIdFetchingParallelism,
       acsContractFetchingParallelism = acsContractFetchingParallelism,
       acsGlobalParallelism = acsGlobalParallelism,
@@ -322,6 +324,5 @@ private[platform] case class IndexServiceBuilder(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      materializer = mat,
     )
 }

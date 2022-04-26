@@ -3,8 +3,6 @@
 
 package com.daml.ledger.runner.common
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -15,15 +13,10 @@ import scala.util.{Failure, Success}
 
 object DumpIndexMetadata {
   def apply(
-      jdbcUrls: Seq[String],
-      runnerName: String,
+      jdbcUrls: Seq[String]
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
-    implicit val actorSystem: ActorSystem = ActorSystem(
-      "[^A-Za-z0-9_\\-]".r.replaceAllIn(runnerName.toLowerCase, "-")
-    )
-    implicit val materializer: Materializer = Materializer(actorSystem)
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
       newLoggingContext { implicit loggingContext: LoggingContext =>
         Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {

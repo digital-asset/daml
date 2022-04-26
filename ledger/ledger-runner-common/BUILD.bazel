@@ -13,8 +13,6 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
     ],
     tags = ["maven_coordinates=com.daml:ledger-runner-common:__VERSION__"],
     visibility = [
