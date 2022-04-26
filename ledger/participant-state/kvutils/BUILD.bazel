@@ -18,7 +18,6 @@ load(
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
-load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 da_scala_library(
     name = "kvutils",
@@ -119,7 +118,7 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
-        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
+        "//ledger/participant-state:dar-files-1.dev-lib",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
@@ -188,8 +187,8 @@ da_scala_test_suite(
         "//ledger/ledger-offset",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state:dar-files-1.dev-lib",
         "//ledger/participant-state-index",
-        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
@@ -203,22 +202,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
-)
-
-da_scala_dar_resources_library(
-    add_maven_tag = True,
-    daml_dir_names = [
-        "simple_package_party",
-        "simple_package_optional",
-        "simple_package_list",
-        "simple_package_text_map",
-        "simple_package_variant",
-        "simple_package_tuple",
-    ],
-    daml_root_dir = "src/test/lib/daml",
-    lf_versions = ["1.dev"],
-    maven_name_prefix = "kvutils-tests",
-    visibility = ["//visibility:__subpackages__"],
 )
 
 proto_jars(
