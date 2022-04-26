@@ -10,7 +10,6 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters._
 
 private[codegen] sealed trait Node
 
@@ -124,7 +123,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
 
   def fromInterface(interface: Interface): InterfaceTree = {
     val builder = new InterfaceTreeBuilder(new mutable.HashMap())
-    interface.getTypeDecls.asScala.foreach { case (identifier, typ) =>
+    interface.typeDecls.foreach { case (identifier, typ) =>
       builder.insert(identifier, typ)
     }
     builder.build(interface)
@@ -214,12 +213,4 @@ private[codegen] object InterfaceTree extends StrictLogging {
         .insert(qualifiedName.module.segments.tail, qualifiedName.name.segments, `type`)
     }
   }
-}
-
-private[codegen] final case class InterfaceTrees(interfaceTrees: List[InterfaceTree])
-
-private[codegen] object InterfaceTrees extends StrictLogging {
-
-  def fromInterfaces(interfaces: Seq[Interface]): InterfaceTrees =
-    InterfaceTrees(interfaces.view.map(InterfaceTree.fromInterface).toList)
 }

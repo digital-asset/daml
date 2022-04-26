@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
@@ -14,19 +13,22 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionRejectionEntry,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
+  DamlCommandDedupValue,
+  DamlLogEntry,
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
+  PreExecutionDeduplicationBounds,
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
-import com.daml.lf.data.Time.Timestamp
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, KeyValueCommitting, committer}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.kv.contracts.ContractConversions
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Duration}
@@ -55,7 +57,6 @@ class TransactionCommitterSpec
   "authorizeSubmitters" should {
     "reject a submission when any of the submitters keys is not present in the input state" in {
       val context = createCommitContext(
-        recordTime = None,
         inputs = createInputs(
           Alice -> Some(hostedParty(Alice)),
           Bob -> Some(hostedParty(Bob)),
@@ -72,7 +73,6 @@ class TransactionCommitterSpec
 
     "reject a submission when any of the submitters is not known" in {
       val context = createCommitContext(
-        recordTime = None,
         inputs = createInputs(
           Alice -> Some(hostedParty(Alice)),
           Bob -> None,
@@ -91,7 +91,6 @@ class TransactionCommitterSpec
 
     "reject a submission when any of the submitters' participant id is incorrect" in {
       val context = createCommitContext(
-        recordTime = None,
         inputs = createInputs(
           Alice -> Some(hostedParty(Alice)),
           Bob -> Some(notHostedParty(Bob)),
@@ -112,7 +111,6 @@ class TransactionCommitterSpec
 
     "allow a submission when all of the submitters are hosted on the participant" in {
       val context = createCommitContext(
-        recordTime = None,
         inputs = createInputs(
           Alice -> Some(hostedParty(Alice)),
           Bob -> Some(hostedParty(Bob)),
@@ -129,7 +127,7 @@ class TransactionCommitterSpec
 
   "trimUnnecessaryNodes" should {
     "remove `Fetch`, `LookupByKey`, and `Rollback` nodes from the transaction tree" in {
-      val context = createCommitContext(recordTime = None)
+      val context = createCommitContext()
 
       val actual = transactionCommitter.trimUnnecessaryNodes(
         context,
@@ -164,7 +162,7 @@ class TransactionCommitterSpec
     }
 
     "fail on a non-parsable transaction" in {
-      val context = createCommitContext(recordTime = None)
+      val context = createCommitContext()
       val brokenEntry =
         aDamlTransactionEntry.toBuilder.setRawTransaction(ByteString.copyFromUtf8("wrong")).build()
 
@@ -175,7 +173,7 @@ class TransactionCommitterSpec
     }
 
     "fail on a transaction with invalid roots" in {
-      val context = createCommitContext(recordTime = None)
+      val context = createCommitContext()
       val brokenEntry = aDamlTransactionEntry.toBuilder
         .setRawTransaction(
           aRichNodeTreeTransaction.toBuilder.addRoots("non-existent").build().toByteString
@@ -189,34 +187,12 @@ class TransactionCommitterSpec
   }
 
   "buildLogEntry" should {
-    "set record time in log entry when it is available" in {
-      val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      val actual = TransactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
-
-      actual.hasRecordTime shouldBe true
-      actual.getRecordTime shouldBe buildTimestamp(theRecordTime)
-      actual.hasTransactionEntry shouldBe true
-      actual.getTransactionEntry shouldBe aTransactionEntrySummary.submission
-    }
-
-    "skip setting record time in log entry when it is not available" in {
-      val context = createCommitContext(recordTime = None)
-
-      val actual =
-        TransactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
-
-      actual.hasRecordTime shouldBe false
-      actual.hasTransactionEntry shouldBe true
-      actual.getTransactionEntry shouldBe aTransactionEntrySummary.submission
-    }
-
-    "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = createCommitContext(recordTime = None)
+    "produce an out-of-time-bounds rejection log entry" in {
+      val context = createCommitContext()
 
       TransactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
 
-      context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
@@ -227,19 +203,11 @@ class TransactionCommitterSpec
       }
     }
 
-    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = createCommitContext(recordTime = Some(aRecordTime))
-
-      TransactionCommitter.buildLogEntry(aTransactionEntrySummary, context)
-
-      context.preExecute shouldBe false
-      context.outOfTimeBoundsLogEntry shouldBe empty
-    }
   }
 
   "blind" should {
     "always set blindingInfo" in {
-      val context = createCommitContext(recordTime = None)
+      val context = createCommitContext()
       context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
 
       val builder = TransactionBuilder()
@@ -286,6 +254,76 @@ class TransactionCommitterSpec
 
         case StepStop(_) => fail()
       }
+    }
+  }
+
+  "out of time bounds entry" should {
+
+    "be set" when {
+
+      "a submitting party is not known" in {
+        val context = createCommitContext(
+          inputs = createInputs(
+            Alice -> Some(hostedParty(Alice)),
+            Bob -> None,
+          ) + (Conversions.configurationStateKey -> None),
+          participantId = ParticipantId,
+        )
+        val transactionEntry = createEmptyTransactionEntry(List(Alice, Bob))
+        val result = transactionCommitter.preExecute(
+          DamlSubmission.newBuilder().setTransactionEntry(transactionEntry).build(),
+          context,
+        )
+        resultIsRejectedWithPayload(
+          result,
+          DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER,
+        )
+      }
+
+      "the command is a duplicate" in {
+        val transactionEntry = createEmptyTransactionEntry(List(Alice))
+        val configurationInput = Conversions.configurationStateKey -> None
+        val commandDeduplicationInput = Conversions.commandDedupKey(
+          transactionEntry.getSubmitterInfo
+        ) -> Some(
+          DamlStateValue.newBuilder
+            .setCommandDedup(
+              DamlCommandDedupValue.newBuilder
+                .setRecordTimeBounds(
+                  PreExecutionDeduplicationBounds
+                    .newBuilder()
+                    .setMaxRecordTime(transactionEntry.getSubmissionTime)
+                    .setMinRecordTime(transactionEntry.getSubmissionTime)
+                )
+            )
+            .build
+        )
+        val context = createCommitContext(
+          inputs = createInputs(
+            Alice -> Some(hostedParty(Alice))
+          ) + configurationInput + commandDeduplicationInput,
+          participantId = ParticipantId,
+        )
+        val result = transactionCommitter.preExecute(
+          DamlSubmission.newBuilder().setTransactionEntry(transactionEntry).build(),
+          context,
+        )
+        resultIsRejectedWithPayload(
+          result,
+          DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND,
+        )
+      }
+    }
+
+    def resultIsRejectedWithPayload(
+        result: KeyValueCommitting.PreExecutionResult,
+        transactionRejectionReason: DamlTransactionRejectionEntry.ReasonCase,
+    ) = {
+      result.outOfTimeBoundsLogEntry.getPayloadCase shouldBe DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY
+      result.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry.getPayloadCase shouldBe DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+      result.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE
+      result.successfulLogEntry.getPayloadCase shouldBe DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+      result.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldBe transactionRejectionReason
     }
   }
 
@@ -338,7 +376,6 @@ object TransactionCommitterSpec {
   private val OtherParticipantId = 1
   private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
-  private val aRecordTime = Timestamp(100)
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
   private val aKey = "key"
   private val aKeyMaintainer = "maintainer"

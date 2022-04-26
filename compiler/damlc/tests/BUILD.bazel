@@ -1011,3 +1011,63 @@ daml_compile_with_dalf(
     # PlatformIndependence.daml.
     ghc_options = [],
 )
+
+# Desugared daml golden tests
+da_haskell_test(
+    name = "daml-desugar",
+    srcs = ["src/DA/Test/DamlDesugar.hs"],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc/pkg-db",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "filepath",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlDesugar.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-desugar:daml-desugar-testing",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Daml renamer golden tests
+da_haskell_test(
+    name = "daml-renamer",
+    srcs = ["src/DA/Test/DamlRenamer.hs"],
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty-hunit",
+        "tasty-golden",
+        "text",
+    ],
+    main_function = "DA.Test.DamlRenamer.main",
+    src_strip_prefix = "src",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)

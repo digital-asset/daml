@@ -1,0 +1,82 @@
+module InterfaceNameCollision where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlInterface => Iface = Iface GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Iface where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Iface where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Iface Iface where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Iface Iface where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod Iface "owner" (Party)
+owner : DA.Internal.Desugar.Implements t Iface => t -> Party
+owner t
+  = GHC.Types.primitiveInterface
+      @"owner" (DA.Internal.Desugar._toInterface @_ @Iface t)
+instance DA.Internal.Desugar.HasMethod Iface "foobar" (())
+foobar : DA.Internal.Desugar.Implements t Iface => t -> ()
+foobar t
+  = GHC.Types.primitiveInterface
+      @"foobar" (DA.Internal.Desugar._toInterface @_ @Iface t)
+instance DA.Internal.Desugar.HasToAnyTemplate Iface where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Iface where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Iface where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Iface where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Iface where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Iface where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasEnsure Iface where
+  ensure this = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.HasIsInterfaceType Iface where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Iface where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance (DA.Internal.Desugar.Implements t Iface) =>
+         DA.Internal.Desugar.HasToAnyChoice t FooBar (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance (DA.Internal.Desugar.Implements t Iface) =>
+         DA.Internal.Desugar.HasFromAnyChoice t FooBar (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Iface)) =>
+         DA.Internal.Desugar.HasExerciseGuarded t FooBar (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Iface cid pred)
+instance ((DA.Internal.Desugar.HasIsInterfaceType t),
+          (DA.Internal.Desugar.HasTemplateTypeRep t),
+          (DA.Internal.Desugar.Implements t Iface)) =>
+         DA.Internal.Desugar.HasExercise t FooBar (()) where
+  exercise = DA.Internal.Desugar._exerciseDefault
+data FooBar
+  = FooBar {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_IfaceFooBar :
+  (Iface -> FooBar -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Iface
+   -> Iface -> FooBar -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Iface,
+   DA.Internal.Desugar.Optional (Iface
+                                 -> FooBar -> [DA.Internal.Desugar.Party]))
+_choice_IfaceFooBar
+  = (\ this arg@FooBar
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (owner this), 
+     \ self this arg@FooBar
+       -> let _ = self in let _ = this in let _ = arg in do pure (), 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)

@@ -51,20 +51,23 @@ object Ast {
       (typs foldLeft ETyApp(this, typ))(ETyApp)
   }
 
+  // We use this type to reduce depth of pattern matching
+  sealed abstract class ExprAtomic extends Expr
+
   /** Reference to a variable in current lexical scope. */
-  final case class EVar(value: ExprVarName) extends Expr
+  final case class EVar(value: ExprVarName) extends ExprAtomic
 
   /** Reference to a value definition. */
-  final case class EVal(value: ValueRef) extends Expr
+  final case class EVal(value: ValueRef) extends ExprAtomic
 
   /** Reference to a builtin function. */
-  final case class EBuiltin(value: BuiltinFunction) extends Expr
+  final case class EBuiltin(value: BuiltinFunction) extends ExprAtomic
 
   /** Primitive constructor, e.g. True, False or Unit. */
-  final case class EPrimCon(value: PrimCon) extends Expr
+  final case class EPrimCon(value: PrimCon) extends ExprAtomic
 
   /** Primitive literal. */
-  final case class EPrimLit(value: PrimLit) extends Expr
+  final case class EPrimLit(value: PrimLit) extends ExprAtomic
 
   /** Record construction. */
   final case class ERecCon(tycon: TypeConApp, fields: ImmArray[(FieldName, Expr)]) extends Expr
@@ -80,7 +83,7 @@ object Ast {
   final case class EVariantCon(tycon: TypeConApp, variant: VariantConName, arg: Expr) extends Expr
 
   /** Variant construction. */
-  final case class EEnumCon(tyConName: TypeConName, con: EnumConName) extends Expr
+  final case class EEnumCon(tyConName: TypeConName, con: EnumConName) extends ExprAtomic
 
   /** Struct construction. */
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
@@ -114,7 +117,7 @@ object Ast {
   final case class ELet(binding: Binding, body: Expr) extends Expr
 
   /** Empty list constructor. */
-  final case class ENil(typ: Type) extends Expr
+  final case class ENil(typ: Type) extends ExprAtomic
 
   /** List construction. */
   final case class ECons(typ: Type, front: ImmArray[Expr], tail: Expr) extends Expr
@@ -128,7 +131,7 @@ object Ast {
   /** Location annotations */
   final case class ELocation(loc: Location, expr: Expr) extends Expr
 
-  final case class ENone(typ: Type) extends Expr
+  final case class ENone(typ: Type) extends ExprAtomic
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 

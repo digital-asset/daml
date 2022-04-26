@@ -1,0 +1,83 @@
+module ExceptionCreate where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+import DA.Assert
+import DA.Exception
+data GHC.Types.DamlTemplate => MyTemplate
+  = MyTemplate {p : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "p" MyTemplate Party where
+  getField = DA.Internal.Record.getFieldPrim @"p" @MyTemplate @Party
+  setField = DA.Internal.Record.setFieldPrim @"p" @MyTemplate @Party
+instance DA.Internal.Desugar.HasSignatory MyTemplate where
+  signatory this@MyTemplate {..}
+    = DA.Internal.Desugar.toParties (p)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver MyTemplate where
+  observer this@MyTemplate {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure MyTemplate where
+  ensure this@MyTemplate {..}
+    = False
+    where
+        _ = this
+instance DA.Internal.Desugar.HasAgreement MyTemplate where
+  agreement this@MyTemplate {..}
+    = ""
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive MyTemplate where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate MyTemplate where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch MyTemplate where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate MyTemplate where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate MyTemplate where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep MyTemplate where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType MyTemplate where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise MyTemplate DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice_MyTemplateArchive :
+  (MyTemplate
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId MyTemplate
+   -> MyTemplate
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming MyTemplate,
+   DA.Internal.Desugar.Optional (MyTemplate
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_MyTemplateArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+test
+  = scenario
+      do p <- getParty "Alice"
+         m <- submit
+                p
+                do DA.Internal.Desugar._tryCatch
+                     \ _
+                       -> do create (MyTemplate p)
+                             pure ""
+                     \case
+                       (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (PreconditionFailed msg))
+                         -> DA.Internal.Desugar.Some pure msg
+                       _ -> DA.Internal.Desugar.None
+         m === "Template precondition violated: MyTemplate {p = 'Alice'}"

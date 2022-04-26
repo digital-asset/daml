@@ -1,10 +1,10 @@
-1. KVErrors
+1. KvErrors
 ===================================================================================================================
 
 Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC.
 
 
-1.1. KVErrors / Consistency
+1.1. KvErrors / Consistency
 ===================================================================================================================
 
 Errors that highlight transaction consistency issues in the committer context.
@@ -26,7 +26,7 @@ VALIDATION_FAILURE
 
 
 
-1.2. KVErrors / Internal
+1.2. KvErrors / Internal
 ===================================================================================================================
 
 Errors that arise from an internal system misbehavior.
@@ -96,7 +96,7 @@ SUBMISSION_FAILED
 
 
 
-1.3. KVErrors / Resources
+1.3. KvErrors / Resources
 ===================================================================================================================
 
 Errors that relate to system resources.
@@ -118,7 +118,7 @@ RESOURCE_EXHAUSTED
 
 
 
-1.4. KVErrors / Time
+1.4. KvErrors / Time
 ===================================================================================================================
 
 Errors that relate to the Daml concepts of time.
@@ -270,7 +270,7 @@ PARTICIPANT_BACKPRESSURE
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
     **Resolution**: Wait a bit and retry, preferably with some backoff factor. If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit.
 

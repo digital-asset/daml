@@ -59,34 +59,34 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         dkkTransfer <-
           delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
 
-        aliceIou1 <- eventually {
+        aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
           alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
         }
-        aliceIou <- eventually {
+        aliceIou <- eventually("exerciseIou_AddObserver") {
           alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
         }
-        bobIou <- eventually {
+        bobIou <- eventually("exerciseIouTransfer_Accept") {
           beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
         }
 
-        trade <- eventually {
+        trade <- eventually("create") {
           alpha.create(
             alice,
             IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
           )
         }
-        tree <- eventually {
+        tree <- eventually("exerciseIouTrade_Accept") {
           beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
         }
 
-        aliceTree <- eventually {
+        aliceTree <- eventually("transactionTreeById1") {
           alpha.transactionTreeById(tree.transactionId, alice)
         }
         bobTree <- beta.transactionTreeById(tree.transactionId, bob)
-        gbpTree <- eventually {
+        gbpTree <- eventually("transactionTreeById2") {
           alpha.transactionTreeById(tree.transactionId, gbp_bank)
         }
-        dkkTree <- eventually {
+        dkkTree <- eventually("transactionTreeById3") {
           delta.transactionTreeById(tree.transactionId, dkk_bank)
         }
 
@@ -282,7 +282,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       BranchingControllers(giver = alice, whichCtrl = true, ctrlTrue = bob, ctrlFalse = eve)
     for {
       _ <- alpha.create(alice, template)
-      _ <- eventually {
+      _ <- eventually("flatTransactions") {
         for {
           aliceView <- alpha.flatTransactions(alice)
           bobView <- beta.flatTransactions(bob)
@@ -351,7 +351,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
         transactionId <- alpha.submitAndWaitForTransactionId(create).map(_.transactionId)
-        _ <- eventually {
+        _ <- eventually("flatTransactions") {
           for {
             transactions <- beta.flatTransactions(observers: _*)
           } yield {

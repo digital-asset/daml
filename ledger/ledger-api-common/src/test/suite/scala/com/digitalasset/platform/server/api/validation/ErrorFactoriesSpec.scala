@@ -151,7 +151,7 @@ class ErrorFactoriesSpec
             ErrorDetails.RetryInfoDetail(1.second),
           ),
           logEntry = ExpectedLogEntry(
-            Level.WARN,
+            Level.INFO,
             msg,
             expectedMarkerRegex("reason=Some buffer is full"),
           ),

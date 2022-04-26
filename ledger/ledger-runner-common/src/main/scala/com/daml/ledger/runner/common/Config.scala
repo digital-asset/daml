@@ -9,13 +9,14 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcar
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
@@ -23,20 +24,16 @@ import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
 import java.io.File
-import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
-    allowedLanguageVersions: VersionRange[LanguageVersion],
+    engineConfig: EngineConfig,
     authService: AuthService,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
     acsIdFetchingParallelism: Int,
     acsIdPageSize: Int,
-    acsIdQueueLimit: Int,
     configurationLoadTimeout: Duration,
     commandConfig: CommandConfiguration,
     enableInMemoryFanOutForLedgerApi: Boolean,
@@ -52,9 +49,7 @@ final case class Config[Extra](
     metricsReportingInterval: Duration,
     mode: Mode,
     participants: Seq[ParticipantConfig],
-    profileDir: Option[Path],
     seeding: Seeding,
-    stackTraces: Boolean,
     stateValueCache: caching.WeightedCache.Configuration,
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
@@ -76,13 +71,17 @@ object Config {
 
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
-      allowedLanguageVersions = LanguageVersion.StableVersions,
+      engineConfig = EngineConfig(
+        allowedLanguageVersions = LanguageVersion.StableVersions,
+        profileDir = None,
+        stackTraceMode = false,
+        forbidV0ContractId = true,
+      ),
       authService = AuthServiceWildcard,
       acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
       acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
-      acsIdQueueLimit = IndexConfiguration.DefaultAcsIdQueueLimit,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.default,
       enableInMemoryFanOutForLedgerApi = false,
@@ -98,9 +97,7 @@ object Config {
       metricsReportingInterval = Duration.ofSeconds(10),
       mode = Mode.Run,
       participants = Vector.empty,
-      profileDir = None,
       seeding = Seeding.Strong,
-      stackTraces = false,
       stateValueCache = caching.WeightedCache.Configuration.none,
       timeProviderType = TimeProviderType.WallClock,
       tlsConfig = None,
@@ -223,42 +220,38 @@ object Config {
               .get("api-server-connection-timeout")
               .map(Duration.parse)
               .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
-            val indexerConnectionTimeout = kv
-              .get("indexer-connection-timeout")
-              .map(Duration.parse)
-              .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
             val indexerInputMappingParallelism = kv
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultInputMappingParallelism)
+              .getOrElse(IndexerConfig.DefaultInputMappingParallelism)
             val indexerMaxInputBufferSize = kv
               .get("indexer-max-input-buffer-size")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultMaxInputBufferSize)
+              .getOrElse(IndexerConfig.DefaultMaxInputBufferSize)
             val indexerBatchingParallelism = kv
               .get("indexer-batching-parallelism")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultBatchingParallelism)
+              .getOrElse(IndexerConfig.DefaultBatchingParallelism)
             val indexerIngestionParallelism = kv
               .get("indexer-ingestion-parallelism")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultIngestionParallelism)
+              .getOrElse(IndexerConfig.DefaultIngestionParallelism)
             val indexerSubmissionBatchSize = kv
               .get("indexer-submission-batch-size")
               .map(_.toLong)
-              .getOrElse(ParticipantIndexerConfig.DefaultSubmissionBatchSize)
+              .getOrElse(IndexerConfig.DefaultSubmissionBatchSize)
             val indexerTailingRateLimitPerSecond = kv
               .get("indexer-tailing-rate-limit-per-second")
               .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond)
+              .getOrElse(IndexerConfig.DefaultTailingRateLimitPerSecond)
             val indexerBatchWithinMillis = kv
               .get("indexer-batch-within-millis")
               .map(_.toLong)
-              .getOrElse(ParticipantIndexerConfig.DefaultBatchWithinMillis)
+              .getOrElse(IndexerConfig.DefaultBatchWithinMillis)
             val indexerEnableCompression = kv
               .get("indexer-enable-compression")
               .map(_.toBoolean)
-              .getOrElse(ParticipantIndexerConfig.DefaultEnableCompression)
+              .getOrElse(IndexerConfig.DefaultEnableCompression)
 
             val managementServiceTimeout = kv
               .get("management-service-timeout")
@@ -268,27 +261,27 @@ object Config {
             val maxContractStateCacheSize = kv
               .get("contract-state-cache-max-size")
               .map(_.toLong)
-              .getOrElse(ParticipantConfig.DefaultMaxContractStateCacheSize)
+              .getOrElse(IndexConfiguration.DefaultMaxContractStateCacheSize)
             val maxContractKeyStateCacheSize = kv
               .get("contract-key-state-cache-max-size")
               .map(_.toLong)
-              .getOrElse(ParticipantConfig.DefaultMaxContractKeyStateCacheSize)
+              .getOrElse(IndexConfiguration.DefaultMaxContractKeyStateCacheSize)
             val maxTransactionsInMemoryFanOutBufferSize = kv
               .get("ledger-api-transactions-buffer-max-size")
               .map(_.toLong)
-              .getOrElse(ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
+              .getOrElse(IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = ParticipantConfig(
-              runMode,
-              participantId,
-              shardName,
-              address,
-              port,
-              portFile,
-              jdbcUrl,
-              indexerConfig = ParticipantIndexerConfig(
-                databaseConnectionTimeout =
-                  FiniteDuration(indexerConnectionTimeout.toMillis, TimeUnit.MILLISECONDS),
-                allowExistingSchema = false,
+              mode = runMode,
+              participantId = participantId,
+              shardName = shardName,
+              address = address,
+              port = port,
+              portFile = portFile,
+              serverJdbcUrl = jdbcUrl,
+              indexerConfig = IndexerConfig(
+                participantId = participantId,
+                jdbcUrl = jdbcUrl,
+                startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,
                 batchingParallelism = indexerBatchingParallelism,
@@ -509,13 +502,6 @@ object Config {
             config.copy(acsGlobalParallelism = acsGlobalParallelism)
           )
 
-        opt[Int]("acs-id-queue-limit")
-          .optional()
-          .text(
-            s"Maximum number of contract ids queued for fetching. Default is ${IndexConfiguration.DefaultAcsIdQueueLimit}."
-          )
-          .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
-
         opt[Long]("max-state-value-cache-size")
           .optional()
           .text(
@@ -591,7 +577,11 @@ object Config {
 
         opt[Unit]("early-access")
           .optional()
-          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
+          .action((_, c) =>
+            c.copy(engineConfig =
+              c.engineConfig.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions)
+            )
+          )
           .text(
             "Enable preview version of the next Daml-LF language. Should not be used in production."
           )
@@ -599,7 +589,11 @@ object Config {
         opt[Unit]("daml-lf-dev-mode-unsafe")
           .optional()
           .hidden()
-          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.DevVersions))
+          .action((_, c) =>
+            c.copy(engineConfig =
+              c.engineConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
+            )
+          )
           .text(
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
@@ -683,13 +677,17 @@ object Config {
 
         opt[File]("profile-dir")
           .optional()
-          .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
+          .action((dir, c) =>
+            c.copy(engineConfig = c.engineConfig.copy(profileDir = Some(dir.toPath)))
+          )
           .text("Enable profiling and write the profiles into the given directory.")
 
         opt[Boolean]("stack-traces")
           .hidden()
           .optional()
-          .action((enabled, config) => config.copy(stackTraces = enabled))
+          .action((enabled, config) =>
+            config.copy(engineConfig = config.engineConfig.copy(stackTraceMode = enabled))
+          )
           .text(
             "Enable/disable stack traces. Default is to disable them. " +
               "Enabling stack traces may have a significant performance impact."

@@ -19,13 +19,7 @@ import GHC.Types
 
 import DA.Exception.GeneralError
 
--- | `error` stops execution and displays the given error message.
---
--- If called within a transaction, it will abort the current transaction.
--- Outside of a transaction (scenarios, Daml Script or Daml Triggers)
--- it will stop the whole scenario/script/trigger.
---
--- Throws a `GeneralError` exception.
+-- | Throws a `GeneralError` exception.
 error : Text -> a
 error msg = primitive @"EThrow" (GeneralError msg)
 

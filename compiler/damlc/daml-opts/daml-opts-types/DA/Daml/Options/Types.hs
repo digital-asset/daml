@@ -83,6 +83,8 @@ data Options = Options
   , optEnableScenarios :: EnableScenarios
     -- ^ Whether old-style scenarios should be run by the scenario service.
     -- This will be switched to False by default once scenarios are no longer supported in 2.0.
+  , optTestFilter :: T.Text -> Bool
+    -- ^ Only execute tests with a name for which the given predicate holds.
   , optSkipScenarioValidation :: SkipScenarioValidation
     -- ^ Controls whether the scenario service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
@@ -113,7 +115,7 @@ data Options = Options
   , optAccessTokenPath :: Maybe FilePath
   -- ^ Path to a file containing an access JWT token. This is used for building to query/fetch
   -- packages from remote ledgers.
-  } deriving Show
+  }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -193,6 +195,7 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optEnableScenarios = EnableScenarios False
+        , optTestFilter = const True
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False

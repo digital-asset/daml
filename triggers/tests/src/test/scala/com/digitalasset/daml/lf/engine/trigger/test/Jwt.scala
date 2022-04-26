@@ -64,8 +64,8 @@ class Jwt
         _ <- finalStateF
         acs <- queryACS(client, party)
       } yield {
-        assert(acs(assetId).size == 1)
-        assert(acs(assetMirrorId).size == 1)
+        acs(assetId) should have size 1
+        acs(assetMirrorId) should have size 1
       }
     }
   }

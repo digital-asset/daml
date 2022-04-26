@@ -82,10 +82,10 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq(contractId).toSet)
-          assert(result.successfulCompletions == 2)
-          assert(result.failedCompletions == 0)
-          assert(acs(assetMirrorId).size == 1)
+          result.activeAssets shouldBe Set(contractId)
+          result.successfulCompletions shouldBe 2
+          result.failedCompletions shouldBe 0
+          acs(assetMirrorId) should have size 1
         }
       }
 
@@ -109,10 +109,10 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq(contractId1, contractId2).toSet)
-          assert(result.successfulCompletions == 4)
-          assert(result.failedCompletions == 0)
-          assert(acs(assetMirrorId).size == 2)
+          result.activeAssets shouldBe Set(contractId1, contractId2)
+          result.successfulCompletions shouldBe 4
+          result.failedCompletions shouldBe 0
+          acs(assetMirrorId) should have size 2
         }
       }
 
@@ -139,10 +139,10 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq().toSet)
-          assert(result.successfulCompletions == 4)
-          assert(result.failedCompletions == 0)
-          assert(acs(assetMirrorId).size == 2)
+          result.activeAssets shouldBe empty
+          result.successfulCompletions shouldBe 4
+          result.failedCompletions shouldBe 0
+          acs(assetMirrorId) should have size 2
         }
       }
     }
@@ -193,9 +193,9 @@ abstract class AbstractFuncTests
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 1)
-          assert(!acs.contains(subscriberId))
-          assert(!acs.contains(copyId))
+          acs(originalId) should have length 1
+          acs shouldNot contain key subscriberId
+          acs shouldNot contain key copyId
         }
       }
       "1 original, 1 subscriber" in {
@@ -215,9 +215,9 @@ abstract class AbstractFuncTests
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 1)
-          assert(acs(subscriberId).length == 1)
-          assert(acs(copyId).length == 1)
+          acs(originalId) should have length 1
+          acs(subscriberId) should have length 1
+          acs(copyId) should have length 1
         }
       }
       "2 original, 1 subscriber" in {
@@ -237,9 +237,9 @@ abstract class AbstractFuncTests
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 2)
-          assert(acs(subscriberId).length == 1)
-          assert(acs(copyId).length == 2)
+          acs(originalId) should have length 2
+          acs(subscriberId) should have length 1
+          acs(copyId) should have length 2
         }
       }
     }
@@ -262,8 +262,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(7))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(doneId).length == 1)
+          acs(tId) should have length 1
+          acs(doneId) should have length 1
         }
       }
     }
@@ -285,8 +285,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(tPrimeId).length == 1)
+          acs(tId) should have length 1
+          acs(tPrimeId) should have length 1
         }
       }
     }
@@ -306,8 +306,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(uId).length == 1)
+          acs(tId) should have length 1
+          acs(uId) should have length 1
         }
       }
     }
@@ -353,7 +353,7 @@ abstract class AbstractFuncTests
           acs <- queryACS(client, party)
         } yield {
           val vals = acs(tId).map(_.fields(1).getValue.getNumeric).toSet
-          assert(vals == Set("1.06000000000", "2.06000000000"))
+          vals shouldBe Set("1.06000000000", "2.06000000000")
         }
       }
     }
@@ -401,9 +401,9 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(doneId).length == 1)
-          assert(!acs.contains(fooId))
-          assert(acs(booId).length == 1)
+          acs(doneId) should have length 1
+          acs shouldNot contain key fooId
+          acs(booId) should have length 1
         }
       }
     }
@@ -451,8 +451,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(doneOneId).length == 1)
-          assert(!acs.contains(doneTwoId))
+          acs(doneOneId) should have length 1
+          acs shouldNot contain key doneTwoId
         }
       }
       "filter to Two" in {
@@ -472,8 +472,8 @@ abstract class AbstractFuncTests
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(!acs.contains(doneOneId))
-          assert(acs(doneTwoId).length == 1)
+          acs shouldNot contain key doneOneId
+          acs(doneTwoId) should have length 1
         }
       }
     }
@@ -489,7 +489,7 @@ abstract class AbstractFuncTests
           // 2 heartbeats
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
         } yield {
-          assert(finalState == SInt64(2))
+          finalState shouldBe SInt64(2)
         }
       }
     }
@@ -513,9 +513,9 @@ abstract class AbstractFuncTests
                     case None => fail("No time provider type specified")
                     case Some(TimeProviderType.WallClock) =>
                       // Given the limited resolution it can happen that t0 == t1
-                      assert(t0 >= t1)
+                      t0 should be >= t1
                     case Some(TimeProviderType.Static) =>
-                      assert(t0 == t1)
+                      t0 shouldBe t1
                   }
                 case v => fail(s"Expected list with 2 elements but got $v")
               }

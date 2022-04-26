@@ -8,6 +8,11 @@ import java.time.Instant
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
+object Metrics {
+  def fromSharedMetricRegistries(registryName: String): Metrics =
+    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
+}
+
 final class Metrics(val registry: MetricRegistry) {
 
   private[metrics] def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =

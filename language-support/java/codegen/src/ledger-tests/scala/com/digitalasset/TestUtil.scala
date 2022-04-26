@@ -33,6 +33,7 @@ import org.scalatest.{Assertion, Suite}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
+import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
 
 trait SandboxTestLedger extends SandboxFixture {
@@ -136,8 +137,13 @@ object TestUtil {
           .build
       )
   }
-
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
+      channel: Channel,
+      partyName: String,
+  ): List[C] =
+    readActiveContractsSafe(PartialFunction.fromFunction(fromCreatedEvent))(channel, partyName)
+
+  def readActiveContractsSafe[C <: Contract](fromCreatedEvent: PartialFunction[CreatedEvent, C])(
       channel: Channel,
       partyName: String,
   ): List[C] = {
@@ -160,7 +166,12 @@ object TestUtil {
           .getCreatedEvents
           .stream()
       )
-      .map[C]((e: CreatedEvent) => fromCreatedEvent(e))
+      .flatMap { createdEvent =>
+        val res = fromCreatedEvent.lift(createdEvent)
+        OptionConverters
+          .toJava(res)
+          .stream(): java.util.stream.Stream[C]
+      }
       .collect(Collectors.toList[C])
       .asScala
       .toList

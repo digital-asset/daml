@@ -171,6 +171,19 @@ final class Conversions(
                     .setInterfaceId(convertIdentifier(interfaceId))
                     .build
                 )
+              case ContractDoesNotImplementRequiringInterface(
+                    requiredIfaceId,
+                    requiringIfaceId,
+                    coid,
+                    templateId,
+                  ) =>
+                builder.setContractDoesNotImplementRequiringInterface(
+                  proto.ScenarioError.ContractDoesNotImplementRequiringInterface.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setRequiredInterfaceId(convertIdentifier(requiredIfaceId))
+                    .setRequiringInterfaceId(convertIdentifier(requiringIfaceId))
+                    .build
+                )
               case FailedAuthorization(nid, fa) =>
                 builder.setScenarioCommitError(
                   proto.CommitError.newBuilder

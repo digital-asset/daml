@@ -9,7 +9,7 @@ import java.util
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{Node, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -86,23 +86,18 @@ private[engine] final class Preprocessor(
         ResultDone(acc.toList)
     }
 
-  @tailrec
   private[this] def collectNewPackagesFromTemplateIds(
-      templateIds: List[Ref.TypeConName],
-      acc: Map[Ref.PackageId, language.Reference] = Map.empty,
-  ): Result[List[(Ref.PackageId, language.Reference)]] =
-    templateIds match {
-      case templateId :: rest =>
-        val pkgId = templateId.packageId
-        val newAcc =
-          if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
-            acc
-          else
-            acc.updated(pkgId, language.Reference.TemplateOrInterface(templateId))
-        collectNewPackagesFromTemplateIds(rest, newAcc)
-      case Nil =>
-        ResultDone(acc.toList)
-    }
+      templateIds: Iterable[Ref.TypeConName]
+  ): List[(Ref.PackageId, language.Reference)] =
+    templateIds
+      .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tmplId) =>
+        val pkgId = tmplId.packageId
+        if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
+          acc
+        else
+          acc.updated(pkgId, language.Reference.TemplateOrInterface(tmplId))
+      }
+      .toList
 
   private[this] def pullPackages(
       pkgIds: List[(Ref.PackageId, language.Reference)]
@@ -125,8 +120,8 @@ private[engine] final class Preprocessor(
   private[this] def pullTypePackages(typ: Ast.Type): Result[Unit] =
     collectNewPackagesFromTypes(List(typ)).flatMap(pullPackages)
 
-  private[this] def pullTemplatePackage(tyCons: List[Ref.TypeConName]): Result[Unit] =
-    collectNewPackagesFromTemplateIds(tyCons).flatMap(pullPackages)
+  private[this] def pullTemplatePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+    pullPackages(collectNewPackagesFromTemplateIds(tyCons))
 
   /** Translates the LF value `v0` of type `ty0` to a speedy value.
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
@@ -149,7 +144,7 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.templateId).toList)) {
+    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 
@@ -166,7 +161,7 @@ private[engine] final class Preprocessor(
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
       pullTemplatePackage(
-        tx.rootNodes.toSeq.view.map(_.templateId) ++: tx.byInterfaceNodes.map(_.templateId)
+        tx.nodes.values.collect { case action: Node.Action => action.templateId }
       )
     ) {
       transactionPreprocessor.unsafeTranslateTransactionRoots(tx)

@@ -257,11 +257,11 @@ private[validation] object Typing {
   }
 
   def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = {
-    val langVersion = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
+    val langVersion = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(langVersion, interface, ContextDefDataType(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, interface, Context.DefDataType(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
@@ -276,17 +276,17 @@ private[validation] object Typing {
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
-        Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(langVersion, interface, Context.DefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(langVersion, interface, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, interface, Context.Template(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
     mod.templates.foreach { case (dfnName, template) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-      val env = Env(langVersion, interface, ContextTemplate(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.Template(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkTemplate(tyConName, template)
@@ -296,7 +296,7 @@ private[validation] object Typing {
     }
     mod.exceptions.foreach { case (exnName, message) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-      val env = Env(langVersion, interface, ContextDefException(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.DefException(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkDefException(tyConName, message)
@@ -307,7 +307,7 @@ private[validation] object Typing {
     mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
-      val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.DefInterface(tyConName), Map.empty)
       env.checkDefIface(tyConName, iface)
     }
   }
@@ -332,7 +332,7 @@ private[validation] object Typing {
       xOpt.fold(this)(introExprVar(_, t))
 
     private def newLocation(loc: Location): Env =
-      copy(ctx = ContextLocation(loc))
+      copy(ctx = Context.Location(loc))
 
     private def lookupExpVar(name: ExprVarName): Type =
       eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
@@ -1069,7 +1069,7 @@ private[validation] object Typing {
       case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
-    def typeOf(expr0: Expr): Type = expr0 match {
+    def typeOf(expr: ExprAtomic): Type = expr match {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
@@ -1080,6 +1080,20 @@ private[validation] object Typing {
         typeOfPRimCon(con)
       case EPrimLit(lit) =>
         typeOfPrimLit(lit)
+      case EEnumCon(tyCon, constructor) =>
+        checkEnumCon(tyCon, constructor)
+        TTyCon(tyCon)
+      case ENil(typ) =>
+        checkType(typ, KStar)
+        TList(typ)
+      case ENone(typ) =>
+        checkType(typ, KStar)
+        TOptional(typ)
+    }
+
+    def typeOf(expr0: Expr): Type = expr0 match {
+      case expr: ExprAtomic =>
+        typeOf(expr)
       case ERecCon(tycon, fields) =>
         checkRecCon(tycon, fields)
         typeConAppToType(tycon)
@@ -1090,9 +1104,6 @@ private[validation] object Typing {
       case EVariantCon(tycon, variant, arg) =>
         checkVariantCon(tycon, variant, arg)
         typeConAppToType(tycon)
-      case EEnumCon(tyCon, constructor) =>
-        checkEnumCon(tyCon, constructor)
-        TTyCon(tyCon)
       case EStructCon(fields) =>
         typeOfStructCon(fields)
       case proj: EStructProj =>
@@ -1114,9 +1125,6 @@ private[validation] object Typing {
         typeOfCase(scruct, alts)
       case ELet(binding, body) =>
         typeOfLet(binding, body)
-      case ENil(typ) =>
-        checkType(typ, KStar)
-        TList(typ)
       case ECons(typ, front, tail) =>
         checkCons(typ, front, tail)
         TList(typ)
@@ -1126,9 +1134,6 @@ private[validation] object Typing {
         typeOfScenario(scenario)
       case ELocation(loc, expr) =>
         newLocation(loc).typeOf(expr)
-      case ENone(typ) =>
-        checkType(typ, KStar)
-        TOptional(typ)
       case ESome(typ, body) =>
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)

@@ -230,7 +230,6 @@ class TransactionCoderSpec
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           key = None,
-          byInterface = None,
           version = TransactionVersion.minVersion,
         )
 
@@ -920,6 +919,10 @@ class TransactionCoderSpec
 
   private[this] def normalizeExe(exe: Node.Exercise) =
     exe.copy(
+      interfaceId =
+        if (exe.version >= TransactionVersion.minInterfaces)
+          exe.interfaceId
+        else None,
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult match {
         case None =>

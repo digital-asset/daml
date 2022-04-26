@@ -4,16 +4,17 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.UUID
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
   DamlPackageUploadEntry,
   DamlPackageUploadRejectionEntry,
 }
-import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
@@ -107,18 +108,17 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
     }
 
-    def submit(submission: DamlSubmission): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
-      val result @ (log2, output1) =
-        packageCommitter.run(
-          Some(com.daml.lf.data.Time.Timestamp.now()),
+    def submit(submission: DamlSubmission): PreExecutionResult = {
+      val result =
+        packageCommitter.runWithPreExecution(
           submission,
           participantId,
           Compat.wrapMap(state),
         )
-      if (log2.hasPackageUploadRejectionEntry)
-        assert(output1.isEmpty)
+      if (result.successfulLogEntry.hasPackageUploadRejectionEntry)
+        assert(result.stateUpdates.isEmpty)
       else
-        state ++= output1
+        state ++= result.stateUpdates
       result
     }
   }
@@ -152,26 +152,27 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
   }
 
   private[this] def shouldFailWith(
-      output: (DamlLogEntry, _),
+      result: PreExecutionResult,
       reason: DamlPackageUploadRejectionEntry.ReasonCase,
       msg: String = "",
   ) = {
-    output._1.hasPackageUploadRejectionEntry shouldBe true
-    output._1.getPackageUploadRejectionEntry.getReasonCase shouldBe reason
-    details(output._1.getPackageUploadRejectionEntry) should include(msg)
+    val output = result.successfulLogEntry
+    output.hasPackageUploadRejectionEntry shouldBe true
+    output.getPackageUploadRejectionEntry.getReasonCase shouldBe reason
+    details(output.getPackageUploadRejectionEntry) should include(msg)
   }
 
-  private[this] def shouldSucceed(output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue])) = {
-    output._1.hasPackageUploadRejectionEntry shouldBe false
-    output._2 shouldBe Symbol("nonEmpty")
+  private[this] def shouldSucceed(output: PreExecutionResult) = {
+    output.successfulLogEntry.hasPackageUploadRejectionEntry shouldBe false
+    output.stateUpdates shouldBe Symbol("nonEmpty")
   }
 
   private[this] def shouldSucceedWith(
-      output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]),
+      output: PreExecutionResult,
       committedPackages: Set[Ref.PackageId],
   ) = {
     shouldSucceed(output)
-    val archives = output._1.getPackageUploadEntry.getArchivesList
+    val archives = output.successfulLogEntry.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
     val packageIds = archives
       .iterator()
@@ -196,29 +197,17 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         .newBuilder()
         .setPackageUploadEntry(packageUploadEntryBuilder)
         .build()
-      val output = newCommitter.packageCommitter.run(None, submission, participantId, emptyState)
+      val output =
+        newCommitter.packageCommitter.runWithPreExecution(submission, participantId, emptyState)
       shouldFailWith(output, INVALID_PACKAGE, "Cannot parse package ID")
-    }
-
-    // Don't need to run the below test cases for all instances of PackageCommitter.
-    "set record time in log entry if record time is available" in {
-      val submission1 = buildSubmission(archive1)
-      val output = newCommitter.packageCommitter.run(
-        Some(theRecordTime),
-        submission1,
-        participantId,
-        emptyState,
-      )
-      shouldSucceed(output)
-      output._1.hasRecordTime shouldBe true
-      output._1.getRecordTime shouldBe buildTimestamp(theRecordTime)
     }
 
     "skip setting record time in log entry when it is not available" in {
       val submission1 = buildSubmission(archive1)
-      val output = newCommitter.packageCommitter.run(None, submission1, participantId, emptyState)
+      val output =
+        newCommitter.packageCommitter.runWithPreExecution(submission1, participantId, emptyState)
       shouldSucceed(output)
-      output._1.hasRecordTime shouldBe false
+      output.successfulLogEntry.hasRecordTime shouldBe false
     }
 
     "filter out already known packages" in {
@@ -253,8 +242,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val committer = newCommitter
 
       val submission1 = buildSubmission(archive1)
-      val output = committer.packageCommitter.run(
-        None,
+      val output = committer.packageCommitter.runWithPreExecution(
         submission1,
         Ref.ParticipantId.assertFromString("authorizedParticipant"),
         emptyState,
@@ -537,12 +525,11 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
-    "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = createCommitContext(recordTime = None)
+    "produce an out-of-time-bounds rejection log entry" in {
+      val context = createCommitContext()
 
       newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
-      context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
@@ -550,15 +537,6 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult.uploadEntry.getSubmissionId
         actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult.uploadEntry.getParticipantId
       }
-    }
-
-    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = createCommitContext(recordTime = Some(theRecordTime))
-
-      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
-
-      context.preExecute shouldBe false
-      context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }
 }

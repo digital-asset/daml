@@ -177,35 +177,35 @@ You should see the same login page as before at http://localhost:3000.
 
    .. figure:: images/create-daml-app-login-screen.png
       :scale: 50 %
-      :alt: Login screen for the create-daml-app
+      :alt: Login screen for the app
       :class: no-scaled-link
 
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
 
    .. figure:: images/create-daml-app-messaging-feature.png
-      :alt: You can now see the messaging feature in the create-daml-app
+      :alt: There is now a Messages section in the app, with three elements: a dropdown list to select a user, a text field to type your message, and a Send button.
 
 Go ahead and follow more users, and log in as some of those users in separate browser windows to follow yourself back.
 Then click on the dropdown menu in the *Messages* panel to see a choice of followers to message!
 
    .. figure:: images/create-daml-app-messaging-select-user.png
       :scale: 50 %
-      :alt: Select a follower from a dropdown list in the create-daml-app
+      :alt: Select a follower from a dropdown list in the Messages section.
 
 Send some messages between users and make sure you can see each one from the other side.
 Notice that each new message appears in the UI as soon as it is sent (due to the *streaming* React hooks).
 
    .. figure:: images/create-daml-app-message-received.png
       :scale: 50 %
-      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messaging" panel
+      :alt: The sent message is now visible below the Send button.
 
-.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://digitalasset.com/developers/interactive-tutorials/getting-started/deploy-to-dabl/>`_
 
 Next Steps
 ==========
 
 We've gone through the process of setting up a full-stack Daml app and implementing a useful feature end to end.
 As the next step we encourage you to really dig into the fundamentals of Daml and understand its core concepts such as parties, signatories, observers, and controllers.
-You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/interactive-tutorials/fundamental-concepts>`_.
+You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://digitalasset.com/developers/interactive-tutorials/fundamental-concepts>`.
 
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.

@@ -527,6 +527,7 @@ object TransactionConversionsSpec {
     Node.Exercise(
       targetCoid = aTargetContractId,
       templateId = aTemplateId,
+      interfaceId = None,
       choiceId = aChoiceId,
       consuming = true,
       actingParties = Set.empty,
@@ -538,7 +539,6 @@ object TransactionConversionsSpec {
       exerciseResult = None,
       key = None,
       byKey = false,
-      byInterface = None,
       version = TransactionVersion.VDev,
     )
 

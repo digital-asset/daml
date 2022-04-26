@@ -772,12 +772,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val fetchNode = builder.fetch(
         contract = createNode,
         byKey = false,
-        byInterface = None,
       )
       val fetchByKeyNode = builder.fetch(
         contract = createNode,
         byKey = true,
-        byInterface = None,
       )
       val lookupByKeyNode = builder.lookupByKey(
         contract = createNode,

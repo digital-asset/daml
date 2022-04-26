@@ -19,6 +19,7 @@ data MyRecord = MyRecord
     unit : ()
     nestedRecord: NestedRecord
     nestedVariant: NestedVariant
+  deriving (Eq, Show)
 
 
 data ParametricRecord x y = ParametricRecord
@@ -27,17 +28,21 @@ data ParametricRecord x y = ParametricRecord
         fieldX2 : x
         fieldY : y
         fieldInt: Int
+  deriving (Eq, Show)
 
 data OuterRecord x y = OuterRecord
     with
         inner : ParametricRecord x y
         innerFixed : ParametricRecord Int Text
+  deriving (Eq, Show)
 
 data NestedRecord = NestedRecord
   with
      value: Int
+  deriving (Eq, Show)
 
 data NestedVariant = Nested Int
+  deriving (Eq, Show)
 
 template Foo
     with
@@ -48,7 +53,32 @@ template Foo
 data ParametrizedContractId a = ParametrizedContractId
     with
         parametrizedContractId: ContractId a
+  deriving (Eq, Show)
 
 data FixedContractId = FixedContractId
     with
         fixedContractId: ParametrizedContractId Foo
+  deriving (Eq, Show)
+
+data UsesNumType t x
+  = UsesNumType with k: (Const t Decimal), x: x
+  deriving (Eq, Show)
+
+data Const t a
+  = Const with runConst: t
+  deriving (Eq, Show)
+
+-- Not part of the test but the codegen filters out
+-- data definitions which are not used in a template
+template RecordTestTemplate
+    with
+        owner : Party
+        myRecord : MyRecord
+        parametricRecord : ParametricRecord Int Int
+        outerRecord : OuterRecord Int Int
+        nestedRecord : NestedRecord
+        parametrizedContractId : ParametrizedContractId Int
+        fixedContractId : FixedContractId
+        usesNumType : UsesNumType Int Int
+    where
+        signatory owner

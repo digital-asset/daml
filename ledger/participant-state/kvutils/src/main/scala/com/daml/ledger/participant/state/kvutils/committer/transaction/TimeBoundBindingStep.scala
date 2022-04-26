@@ -18,20 +18,18 @@ object TimeBoundBindingStep {
       val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
       val timeModel = config.timeModel
 
-      if (commitContext.preExecute) {
-        val minimumRecordTime = transactionMinRecordTime(
-          transactionEntry.submissionTime,
-          transactionEntry.ledgerEffectiveTime,
-          timeModel,
-        )
-        val maximumRecordTime = transactionMaxRecordTime(
-          transactionEntry.submissionTime,
-          transactionEntry.ledgerEffectiveTime,
-          timeModel,
-        )
-        commitContext.minimumRecordTime = Some(minimumRecordTime)
-        commitContext.maximumRecordTime = Some(maximumRecordTime)
-      }
+      val minimumRecordTime = transactionMinRecordTime(
+        transactionEntry.submissionTime,
+        transactionEntry.ledgerEffectiveTime,
+        timeModel,
+      )
+      val maximumRecordTime = transactionMaxRecordTime(
+        transactionEntry.submissionTime,
+        transactionEntry.ledgerEffectiveTime,
+        timeModel,
+      )
+      commitContext.minimumRecordTime = Some(minimumRecordTime)
+      commitContext.maximumRecordTime = Some(maximumRecordTime)
       StepContinue(transactionEntry)
     }
   }

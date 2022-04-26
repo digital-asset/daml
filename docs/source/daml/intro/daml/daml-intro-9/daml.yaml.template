@@ -7,6 +7,6 @@ dependencies:
   - daml-stdlib
   - daml-script
 data-dependencies:
-  - ../7Composing/assets.dar
+  - ../intro7/assets.dar
 sandbox-options:
   - --wall-clock-time

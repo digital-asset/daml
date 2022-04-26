@@ -4,11 +4,12 @@
 package com.daml.ledger.api.testtool
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.tls.TlsConfiguration
 
 object Tests {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
     suites.v1_dev.default(timeoutScaleFactor)
 
-  def optional(): Vector[LedgerTestSuite] =
-    suites.v1_dev.optional()
+  def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
+    suites.v1_dev.optional(tlsConfig)
 }

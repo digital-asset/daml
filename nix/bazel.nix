@@ -59,14 +59,53 @@ let shared = rec {
 
   # We need to have a file in GOPATH that we can use as
   # root_file in go_wrap_sdk.
-  go = pkgs.go.overrideAttrs (oldAttrs: {
-    doCheck = false;
-    postFixup = ''touch $out/share/go/ROOT'';
-  });
+  go = pkgs.buildEnv {
+    name = "bazel-go-toolchain";
+    paths = [
+      pkgs.go
+    ];
+    postBuild = ''
+      touch $out/ROOT
+      ln -s $out/share/go/{api,doc,lib,misc,pkg,src} $out/
+    '';
+  };
 
   ghcPkgs = pkgs.haskell.packages.native-bignum.ghc902;
 
-  ghc = ghcPkgs.ghc;
+  ghc =
+    if system == "aarch64-darwin" then
+      pkgs.runCommand "ghc-aarch64-symlinks" { buildInputs = [ pkgs.makeWrapper ]; } ''
+        mkdir -p $out/bin
+        for tool in \
+          ghc-9.0.2 \
+          ghc-pkg \
+          ghc-pkg-9.0.2 \
+          ghci \
+          ghci-9.0.2 \
+          haddock \
+          hp2ps \
+          hpc \
+          runghc-9.0.2 \
+          runhaskell
+        do
+            ln -s ${ghcPkgs.ghc}/bin/$tool $out/bin/$tool
+        done;
+        mkdir -p $out/lib
+        ln -s ${ghcPkgs.ghc}/lib/ghc-9.0.2 $out/lib/ghc-9.0.2
+        makeWrapper ${ghcPkgs.ghc}/bin/ghc $out/bin/ghc \
+          --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
+          --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
+        makeWrapper ${ghcPkgs.ghc}/bin/runghc $out/bin/runghc \
+          --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
+          --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
+        makeWrapper ${ghcPkgs.ghc}/bin/hsc2hs $out/bin/hsc2hs \
+          --set CODESIGN_ALLOCATE ${pkgs.darwin.cctools}/bin/codesign_allocate \
+          --prefix PATH : ${pkgs.llvmPackages_12.clang}/bin:${pkgs.llvmPackages_12.llvm}/bin
+      ''
+    else
+      ghcPkgs.ghc;
+
+
   # Deliberately not taken from ghcPkgs. This is a fully
   # static executable so it doesn’t pull in another GHC
   # and upstream nixpkgs does not cache packages for
@@ -81,6 +120,7 @@ let shared = rec {
   # rules_nodejs expects nodejs in a subdirectory of a repository rule.
   # We use a linkFarm to fulfill this requirement.
   nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs; }];
+  nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs14; }];
 
   sass = pkgs.sass;
 
@@ -145,7 +185,7 @@ let shared = rec {
     ;
   };
 
-  bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
+  bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain { sigtool = pkgs.darwin.sigtool; };
 };
 in shared // (if pkgs.stdenv.isLinux then {
   inherit (pkgs)

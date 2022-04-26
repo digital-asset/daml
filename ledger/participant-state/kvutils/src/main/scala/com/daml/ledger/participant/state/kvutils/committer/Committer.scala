@@ -8,16 +8,10 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
-import com.daml.ledger.participant.state.kvutils.store.{
-  DamlLogEntry,
-  DamlOutOfTimeBoundsEntry,
-  DamlStateKey,
-  DamlStateValue,
-}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlOutOfTimeBoundsEntry}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -56,7 +50,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   // These are lazy because they rely on `committerName`, which is defined in the subclass and
   // therefore not set at object initialization.
-  private lazy val runTimer: Timer = metrics.daml.kvutils.committer.runTimer(committerName)
   private lazy val preExecutionRunTimer: Timer =
     metrics.daml.kvutils.committer.preExecutionRunTimer(committerName)
   private lazy val stepTimers: Map[StepInfo, Timer] =
@@ -79,26 +72,13 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   protected val metrics: Metrics
 
-  /** A committer can `run` a submission and produce a log entry and output states. */
-  def run(
-      recordTime: Option[Time.Timestamp],
-      submission: DamlSubmission,
-      participantId: Ref.ParticipantId,
-      inputState: DamlStateMap,
-  )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
-    runTimer.time { () =>
-      val commitContext = CommitContext(inputState, recordTime, participantId)
-      val logEntry = runSteps(commitContext, submission)
-      logEntry -> commitContext.getOutputs.toMap
-    }
-
   def runWithPreExecution(
       submission: DamlSubmission,
       participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): PreExecutionResult =
     preExecutionRunTimer.time { () =>
-      val commitContext = CommitContext(inputState, recordTime = None, participantId)
+      val commitContext = CommitContext(inputState, participantId)
       preExecute(submission, commitContext)
     }
 
@@ -187,21 +167,4 @@ object Committer {
       }
       .getOrElse(None -> defaultConfig)
 
-  def buildLogEntryWithOptionalRecordTime(
-      recordTime: Option[Timestamp],
-      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder,
-  ): DamlLogEntry = {
-    val logEntryBuilder = DamlLogEntry.newBuilder
-    addSubmissionSpecificEntry(logEntryBuilder)
-    setRecordTimeIfAvailable(recordTime, logEntryBuilder)
-    logEntryBuilder.build
-  }
-
-  private def setRecordTimeIfAvailable(
-      recordTime: Option[Timestamp],
-      logEntryBuilder: DamlLogEntry.Builder,
-  ): DamlLogEntry.Builder =
-    recordTime.fold(logEntryBuilder)(timestamp =>
-      logEntryBuilder.setRecordTime(buildTimestamp(timestamp))
-    )
 }
