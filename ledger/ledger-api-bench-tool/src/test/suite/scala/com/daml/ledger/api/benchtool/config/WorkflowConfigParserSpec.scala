@@ -54,7 +54,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   payloadSizeBytes = 60,
                 )
               ),
-              nonconsumingExercises = Some(
+              nonConsumingExercises = Some(
                 WorkflowConfig.SubmissionConfig.NonconsumingExercises(
                   probability = 4.9,
                   payloadSizeBytes = 100,
@@ -130,7 +130,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   payloadSizeBytes = 25,
                 ),
               ),
-              nonconsumingExercises = None,
+              nonConsumingExercises = None,
               consumingExercises = None,
             )
           ),
