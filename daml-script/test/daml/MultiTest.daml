@@ -74,6 +74,8 @@ waitForCid tries p cid
   | otherwise = do
     r <- queryContractId p cid
     case r of
-      None -> waitForCid (tries - 1) p cid
+      None -> do
+        sleep delay
+        waitForCid (tries - 1) p cid
       Some _ -> pure ()
   where delay = seconds 1
