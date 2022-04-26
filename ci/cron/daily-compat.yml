@@ -614,6 +614,10 @@ jobs:
         ## refresh tags, in case someone deleted one
         git fetch --prune --prune-tags
 
+        ## get latest version, in case it's already up to date
+        git fetch origin
+        git merge origin/main
+
         source $(bash_lib)
 
         cp .bazelrc compatibility/
@@ -625,8 +629,8 @@ jobs:
           BRANCH=update-compat-versions-$(date -I)
           TITLE="update compat versions ($(date -I))"
           open_pr "$BRANCH" "$TITLE"
-          trigger_azure $(System.AccessToken) PRs --branch $(branch)
-          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $(branch)
+          trigger_azure $(System.AccessToken) PRs --branch $BRANCH
+          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
         else
           echo "No changes"
         fi
