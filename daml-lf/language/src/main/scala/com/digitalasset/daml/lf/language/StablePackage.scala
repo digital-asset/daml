@@ -16,6 +16,10 @@ private[daml] final case class StablePackage(
 ) {
   def identifier(idName: Ref.DottedName): Ref.Identifier =
     Ref.Identifier(packageId, Ref.QualifiedName(moduleName, idName))
+
+  @throws[IllegalArgumentException]
+  def assertIdentifier(idName: String): Ref.Identifier =
+    identifier(Ref.DottedName.assertFromString(idName))
 }
 
 private[daml] object StablePackage {
@@ -169,7 +173,7 @@ private[daml] object StablePackage {
     )
   }
 
-  private lazy val stablePackages = remy.catcha(
+  private lazy val stablePackages =
     List(
       DA.Date.Types,
       DA.Exception.ArithmeticError,
@@ -194,10 +198,9 @@ private[daml] object StablePackage {
       GHC.Tuple,
       GHC.Types,
     )
-  )
 
   private[this] lazy val allStablePackageIds: Set[Ref.PackageId] =
-    remy.catcha(stablePackages.view.map(_.packageId).toSet)
+    stablePackages.view.map(_.packageId).toSet
 
   // TODO (MK) Filter the stable packages to the ones where stablePkgVersion < version
   @nowarn("msg=parameter value allowedLanguageVersions .* is never used")

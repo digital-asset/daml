@@ -4,13 +4,12 @@
 package com.daml.script.converter
 
 import java.util
-
 import scala.jdk.CollectionConverters._
 import scalaz.syntax.bind._
 import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref}
 import Ref._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, StablePackage}
 import com.daml.lf.speedy.{ArrayList, SValue}
 import SValue._
 import com.daml.lf.value.Value.ContractId
@@ -22,13 +21,8 @@ private[daml] object Converter {
 
   type ErrorOr[+A] = Either[String, A]
 
-  private val DA_INTERNAL_ANY_PKGID =
-    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
   def daInternalAny(s: String): Identifier =
-    Identifier(
-      DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)),
-    )
+    StablePackage.DA.Internal.Any.assertIdentifier(s)
 
   def toContractId(v: SValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case SContractId(cid) => cid })

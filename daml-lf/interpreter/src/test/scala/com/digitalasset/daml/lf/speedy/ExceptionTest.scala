@@ -67,8 +67,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       List("M:E1", "M:E2")
         .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val arithmeticCon = StablePackage.DA.Exception.ArithmeticError
-      .identifier(data.Ref.DottedName.assertFromString("ArithmeticError"))
+    val arithmeticCon =
+      StablePackage.DA.Exception.ArithmeticError.assertIdentifier("ArithmeticError")
     val divZeroE =
       ValueRecord(
         Some(arithmeticCon),

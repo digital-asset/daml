@@ -15,6 +15,7 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.StablePackage
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -84,13 +85,8 @@ object StackTrace {
 object Converter {
   import com.daml.script.converter.Converter._
 
-  private val DA_TYPES_PKGID =
-    PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
   private def daTypes(s: String): Identifier =
-    Identifier(
-      DA_TYPES_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)),
-    )
+    StablePackage.DA.Types.assertIdentifier(s)
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._

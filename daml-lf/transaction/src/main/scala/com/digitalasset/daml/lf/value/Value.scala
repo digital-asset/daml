@@ -103,8 +103,8 @@ object Value {
   ) extends Value
 
   object ValueArithmeticError {
-    val tyCon: Ref.TypeConName = StablePackage.DA.Exception.ArithmeticError
-      .identifier(Ref.DottedName.assertFromString("ArithmeticError"))
+    val tyCon: Ref.TypeConName =
+      StablePackage.DA.Exception.ArithmeticError.assertIdentifier("ArithmeticError")
     val typ: Ast.Type = Ast.TTyCon(tyCon)
     private val someTyCon = Some(tyCon)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")
