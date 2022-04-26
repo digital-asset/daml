@@ -17,13 +17,12 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
-import com.daml.lf.speedy.{SError, SValue}
+import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.script.converter.Converter.JavaList
 import scalaz.{Foldable, OneAnd}
 import scalaz.syntax.traverse._
 import scalaz.std.either._
@@ -629,19 +628,19 @@ object ScriptF {
       } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, stackTrace, continue)
     v match {
       // no location
-      case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue)) =>
+      case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue)) =>
         convert(OneAnd(sParty, List()), List(), freeAp, continue, None)
       // location
-      case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue, loc)) =>
+      case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue, loc)) =>
         convert(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
       // multi-party actAs/readAs + location
       case SRecord(
             _,
             _,
-            JavaList(
-              SRecord(_, _, JavaList(hdAct, SList(tlAct))),
+            ArrayList(
+              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
               SList(read),
-              SRecord(_, _, JavaList(freeAp)),
+              SRecord(_, _, ArrayList(freeAp)),
               continue,
               loc,
             ),
@@ -660,9 +659,9 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield Query(readAs, tplId, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(actAs, tplId, continue)) =>
+      case SRecord(_, _, ArrayList(actAs, tplId, continue)) =>
         convert(actAs, tplId, None, continue)
-      case SRecord(_, _, JavaList(actAs, tplId, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(actAs, tplId, continue, stackTrace)) =>
         convert(actAs, tplId, Some(stackTrace), continue)
       case _ => Left(s"Expected Query payload but got $v")
     }
@@ -683,9 +682,9 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield QueryContractId(actAs, tplId, cid, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(actAs, tplId, cid, continue)) =>
+      case SRecord(_, _, ArrayList(actAs, tplId, cid, continue)) =>
         convert(actAs, tplId, cid, None, continue)
-      case SRecord(_, _, JavaList(actAs, tplId, cid, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(actAs, tplId, cid, continue, stackTrace)) =>
         convert(actAs, tplId, cid, Some(stackTrace), continue)
       case _ => Left(s"Expected QueryContractId payload but got $v")
     }
@@ -706,9 +705,9 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield QueryContractKey(actAs, tplId, key, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(actAs, tplId, key, continue)) =>
+      case SRecord(_, _, ArrayList(actAs, tplId, key, continue)) =>
         convert(actAs, tplId, key, None, continue)
-      case SRecord(_, _, JavaList(actAs, tplId, key, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(actAs, tplId, key, continue, stackTrace)) =>
         convert(actAs, tplId, key, Some(stackTrace), continue)
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
@@ -730,7 +729,7 @@ object ScriptF {
       case SRecord(
             _,
             _,
-            JavaList(
+            ArrayList(
               SText(displayName),
               SText(idHint),
               participantName,
@@ -741,7 +740,7 @@ object ScriptF {
       case SRecord(
             _,
             _,
-            JavaList(
+            ArrayList(
               SText(displayName),
               SText(idHint),
               participantName,
@@ -761,9 +760,9 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield ListKnownParties(participantName, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(participantName, continue)) =>
+      case SRecord(_, _, ArrayList(participantName, continue)) =>
         convert(participantName, None, continue)
-      case SRecord(_, _, JavaList(participantName, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(participantName, continue, stackTrace)) =>
         convert(participantName, Some(stackTrace), continue)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
@@ -775,7 +774,7 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield GetTime(stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(continue, stackTrace)) => convert(Some(stackTrace), continue)
+      case SRecord(_, _, ArrayList(continue, stackTrace)) => convert(Some(stackTrace), continue)
       case _ => convert(None, v)
     }
   }
@@ -787,8 +786,8 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield SetTime(time, stackTrace, continue)
     v match {
-      case SRecord(_, _, JavaList(time, continue)) => convert(time, None, continue)
-      case SRecord(_, _, JavaList(time, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(time, continue)) => convert(time, None, continue)
+      case SRecord(_, _, ArrayList(time, continue, stackTrace)) =>
         convert(time, Some(stackTrace), continue)
       case _ => Left(s"Expected SetTime payload but got $v")
     }
@@ -802,9 +801,13 @@ object ScriptF {
     }
 
     v match {
-      case SRecord(_, _, JavaList(SRecord(_, _, JavaList(SInt64(micros))), continue)) =>
+      case SRecord(_, _, ArrayList(SRecord(_, _, ArrayList(SInt64(micros))), continue)) =>
         convert(micros, None, continue)
-      case SRecord(_, _, JavaList(SRecord(_, _, JavaList(SInt64(micros))), continue, stackTrace)) =>
+      case SRecord(
+            _,
+            _,
+            ArrayList(SRecord(_, _, ArrayList(SInt64(micros))), continue, stackTrace),
+          ) =>
         convert(micros, Some(stackTrace), continue)
       case _ => Left(s"Expected Sleep payload but got $v")
     }
@@ -813,7 +816,7 @@ object ScriptF {
 
   private def parseCatch(v: SValue): Either[String, Catch] = {
     v match {
-      case SRecord(_, _, JavaList(act, handle)) =>
+      case SRecord(_, _, ArrayList(act, handle)) =>
         Right(Catch(act, handle))
       case _ => Left(s"Expected Catch payload but got $v")
     }
@@ -822,7 +825,7 @@ object ScriptF {
 
   private def parseThrow(v: SValue): Either[String, Throw] = {
     v match {
-      case SRecord(_, _, JavaList(exc: SAny)) =>
+      case SRecord(_, _, ArrayList(exc: SAny)) =>
         Right(Throw(exc))
       case _ => Left(s"Expected Throw payload but got $v")
     }
@@ -831,7 +834,7 @@ object ScriptF {
 
   private def parseValidateUserId(ctx: Ctx, v: SValue): Either[String, ValidateUserId] =
     v match {
-      case SRecord(_, _, JavaList(userName, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(userName, continue, stackTrace)) =>
         for {
           userName <- toText(userName)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
@@ -841,7 +844,7 @@ object ScriptF {
 
   private def parseCreateUser(ctx: Ctx, v: SValue): Either[String, CreateUser] =
     v match {
-      case SRecord(_, _, JavaList(user, rights, participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(user, rights, participant, continue, stackTrace)) =>
         for {
           user <- Converter.toUser(user)
           participant <- Converter.toParticipantName(participant)
@@ -853,7 +856,7 @@ object ScriptF {
 
   private def parseGetUser(ctx: Ctx, v: SValue): Either[String, GetUser] =
     v match {
-      case SRecord(_, _, JavaList(userId, participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(userId, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toParticipantName(participant)
@@ -864,7 +867,7 @@ object ScriptF {
 
   private def parseDeleteUser(ctx: Ctx, v: SValue): Either[String, DeleteUser] =
     v match {
-      case SRecord(_, _, JavaList(userId, participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(userId, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toParticipantName(participant)
@@ -875,7 +878,7 @@ object ScriptF {
 
   private def parseListAllUsers(ctx: Ctx, v: SValue): Either[String, ListAllUsers] =
     v match {
-      case SRecord(_, _, JavaList(participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(participant, continue, stackTrace)) =>
         for {
           participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
@@ -885,7 +888,7 @@ object ScriptF {
 
   private def parseGrantUserRights(ctx: Ctx, v: SValue): Either[String, GrantUserRights] =
     v match {
-      case SRecord(_, _, JavaList(userId, rights, participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(userId, rights, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
@@ -897,7 +900,7 @@ object ScriptF {
 
   private def parseRevokeUserRights(ctx: Ctx, v: SValue): Either[String, RevokeUserRights] =
     v match {
-      case SRecord(_, _, JavaList(userId, rights, participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(userId, rights, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
@@ -909,7 +912,7 @@ object ScriptF {
 
   private def parseListUserRights(ctx: Ctx, v: SValue): Either[String, ListUserRights] =
     v match {
-      case SRecord(_, _, JavaList(userId, participant, continue, stackTrace)) =>
+      case SRecord(_, _, ArrayList(userId, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toParticipantName(participant)

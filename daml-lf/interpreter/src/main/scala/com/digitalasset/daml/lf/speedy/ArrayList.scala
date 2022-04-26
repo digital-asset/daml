@@ -9,7 +9,7 @@ import java.util
 import scala.collection.{View, mutable}
 import scala.jdk.CollectionConverters._
 
-private[lf] object ArrayList extends scala.collection.IterableFactory[util.ArrayList] {
+object ArrayList extends scala.collection.IterableFactory[util.ArrayList] {
 
   override def from[A](source: IterableOnce[A]): util.ArrayList[A] = {
     val array = source.knownSize match {

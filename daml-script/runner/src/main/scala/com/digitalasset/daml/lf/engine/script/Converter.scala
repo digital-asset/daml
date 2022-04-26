@@ -19,7 +19,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Pretty, SValue, Speedy}
+import com.daml.lf.speedy.{ArrayList, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -186,7 +186,7 @@ object Converter {
 
   def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
     v match {
-      case SRecord(_, _, JavaList(SAny(TTyCon(tyCon), choiceVal), _)) =>
+      case SRecord(_, _, ArrayList(SAny(TTyCon(tyCon), choiceVal), _)) =>
         // This exploits the fact that in Daml, choice argument type names
         // and choice names match up.
         ChoiceName.fromString(tyCon.qualifiedName.name.toString).map(AnyChoice(_, choiceVal))
@@ -563,7 +563,7 @@ object Converter {
       case SRecord(
             _,
             _,
-            JavaList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+            ArrayList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
           ) =>
         for {
           unitId <- toText(unitId)
@@ -584,7 +584,7 @@ object Converter {
 
   def toLocation(knownPackages: Map[String, PackageId], v: SValue): Either[String, Location] =
     v match {
-      case SRecord(_, _, JavaList(definition, loc)) =>
+      case SRecord(_, _, ArrayList(definition, loc)) =>
         for {
           // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
           //   However, the call-stack only gives us access to the inner definition, `submit` in this case.

@@ -38,6 +38,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{
+  ArrayList,
   Compiler,
   Pretty,
   SDefinition,
@@ -50,7 +51,7 @@ import com.daml.lf.speedy.{
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
-import com.daml.script.converter.Converter.{JavaList, unrollFree}
+import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
@@ -465,7 +466,7 @@ private[lf] class Runner(
               .flatMap(run(_))
           case Left(v) =>
             v match {
-              case SRecord(_, _, JavaList(newState, _)) => {
+              case SRecord(_, _, ArrayList(newState, _)) => {
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Future { newState }
               }
