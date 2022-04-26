@@ -13,7 +13,6 @@ The Ledger API
    grpc/proto-docs
    grpc/daml-to-ledger-api
    daml-lf-translation
-   bindings-java/index
    bindings-x-lang/index
 
 
