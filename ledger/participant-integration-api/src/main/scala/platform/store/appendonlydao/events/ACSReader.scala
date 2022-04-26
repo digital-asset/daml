@@ -3,9 +3,11 @@
 
 package com.daml.platform.store.appendonlydao.events
 
+import java.util.concurrent.atomic.AtomicReference
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
+import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.ParticipantBackpressure
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -15,11 +17,12 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
-import com.daml.platform.store.utils.ConcurrencyLimiter
+import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 
 trait ACSReader {
   def acsStream(
@@ -47,6 +50,14 @@ class FilterTableACSReader(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acsStream(
+      filter: FilterRelation,
+      activeAt: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed] =
+    acsStream3(filter, activeAt)
+
+  def acsStream1(
       filter: FilterRelation,
       activeAt: (Offset, Long),
   )(implicit
@@ -87,6 +98,9 @@ class FilterTableACSReader(
             logger.debug(s"getActiveContractIds $query returned #${result.size} ${result.lastOption
               .map(last => s"until $last")
               .getOrElse("")}")
+            println(s"getActiveContractIds $query returned #${result.size} ${result.lastOption
+              .map(last => s"until $last")
+              .getOrElse("")}")
             result -> newTasks
           }(materializer.executionContext),
       initialTasks = tasks,
@@ -115,6 +129,11 @@ class FilterTableACSReader(
                 pruned =>
                   s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
               )(connection, implicitly)
+              println(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
               logger.debug(
                 s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
                   .map(last => s"until $last")
@@ -126,6 +145,177 @@ class FilterTableACSReader(
       }
   }
 
+  def acsStream2(
+      filter: FilterRelation,
+      activeAt: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed] = {
+    val allFilterParties = filter.keySet
+    val filters = filter.iterator.flatMap {
+      case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
+      case (party, templateIds) =>
+        templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
+    }.toVector
+
+    val idQueryLimiter =
+      new QueueBasedConcurrencyLimiter(idFetchingParallelism, materializer.executionContext)
+
+    mergeSort(
+      filters.map { filter =>
+        idPageSource(
+          getPage = from =>
+            idQueryLimiter.execute(() =>
+              dispatcher
+                .executeSql(metrics.daml.index.db.getActiveContractIds)(
+                  eventStorageBackend.activeContractEventIds(
+                    partyFilter = filter.party,
+                    templateIdFilter = filter.templateId,
+                    startExclusive = from,
+                    endInclusive = activeAt._2,
+                    limit = idPageSize,
+                  )
+                )
+                .map { result =>
+                  println(
+                    s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                  )
+                  logger.debug(
+                    s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                  )
+                  result
+                }(materializer.executionContext)
+            ),
+          maxBufferSize = 2, // FIXME to param
+        )
+      }
+    )(Ordering.by[(Long, Vector[Long]), Long](_._1))
+      .map(_._2)
+      .statefulMapConcat(
+        statefulBatchMergeSort[Long](
+          filters.size
+        ) statefulPipe statefulDeduplicate statefulPipe statefulBatch(pageSize)
+      )
+//      .wireTap(x => println(s"out: $x"))
+      .async
+      .mapAsync(acsFetchingparallelism) { ids =>
+        querylimiter.execute(() =>
+          dispatcher
+            .executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
+              val result = queryNonPruned.executeSql(
+                eventStorageBackend.activeContractEventBatch(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAt._2,
+                )(connection),
+                activeAt._1,
+                pruned =>
+                  s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              )(connection, implicitly)
+              println(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
+              logger.debug(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
+              result
+            }
+        )
+      }
+  }
+
+  def acsStream3(
+      filter: FilterRelation,
+      activeAt: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed] = {
+    val allFilterParties = filter.keySet
+    val filters = filter.iterator.flatMap {
+      case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
+      case (party, templateIds) =>
+        templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
+    }.toVector
+
+    val idQueryLimiter =
+      new QueueBasedConcurrencyLimiter(idFetchingParallelism, materializer.executionContext)
+
+    mergeSort3(
+      filters.map { filter =>
+        idSource3(
+          getPage = (from, limit) =>
+            idQueryLimiter.execute(() =>
+              dispatcher
+                .executeSql(metrics.daml.index.db.getActiveContractIds)(
+                  eventStorageBackend.activeContractEventIds(
+                    partyFilter = filter.party,
+                    templateIdFilter = filter.templateId,
+                    startExclusive = from,
+                    endInclusive = activeAt._2,
+                    limit = limit,
+                  )
+                )
+                .map { result =>
+                  println(
+                    s"getActiveContractIds from:$from $filter returned #${result.size} ${result.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                  )
+                  logger.debug(
+                    s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                  )
+                  result
+                }(materializer.executionContext)
+            ),
+          minBatchSize = pageSize / 2,
+          maxBatchSize = idPageSize,
+          maxBatchBufferSize = 2, // FIXME to param
+        )
+      }
+    )
+      .statefulMapConcat(statefulDeduplicate3)
+      .grouped(pageSize)
+      .map(_.toVector)
+      .async
+      .mapAsync(acsFetchingparallelism) { ids =>
+        querylimiter.execute(() =>
+          dispatcher
+            .executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
+              val result = queryNonPruned.executeSql(
+                eventStorageBackend.activeContractEventBatch(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAt._2,
+                )(connection),
+                activeAt._1,
+                pruned =>
+                  s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              )(connection, implicitly)
+              println(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
+              logger.debug(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
+              result
+            }
+        )
+      }
+  }
 }
 
 private[events] object FilterTableACSReader {
@@ -138,6 +328,125 @@ private[events] object FilterTableACSReader {
   object QueryTask {
     implicit val ordering: Ordering[QueryTask] =
       Ordering.by[QueryTask, Long](_.fromExclusiveEventSeqId)
+  }
+
+  def idPageSource(
+      getPage: Long => Future[Vector[Long]],
+      maxBufferSize: Int,
+  ): Source[(Long, Vector[Long]), NotUsed] =
+    Source
+      .unfoldAsync(0L) { last =>
+        getPage(last).map {
+          case empty if empty.isEmpty => Some(last -> (last -> empty))
+          case nonEmpty => Some(nonEmpty.last -> (last -> nonEmpty))
+        }(scala.concurrent.ExecutionContext.parasitic)
+      }
+      .takeWhile(_._2.nonEmpty, inclusive = true)
+      .buffer(maxBufferSize, OverflowStrategy.backpressure)
+//      .wireTap(x => println(s"in: $x"))
+
+  @tailrec
+  def mergeSort[T: Ordering](sources: Vector[Source[T, NotUsed]]): Source[T, NotUsed] =
+    sources match {
+      case empty if empty.isEmpty => Source.empty
+      case one if one.size == 1 => one.head
+      case twoOrMore =>
+        mergeSort(
+          twoOrMore
+            .drop(2)
+            .appended(twoOrMore.head.mergeSorted(twoOrMore(1)))
+        )
+    }
+
+  implicit class StatefulMapperCombinator[T, U](firstMapper: () => T => U) {
+    def statefulPipe[V](secondMapper: () => U => V): () => T => V =
+      () => firstMapper() andThen secondMapper()
+  }
+
+  def statefulBatchMergeSort[T: Ordering](
+      initialSize: Int
+  ): () => Vector[T] => Option[Iterator[T]] =
+    () => {
+      var size = initialSize
+      val iteratorQueue: mutable.PriorityQueue[(T, Iterator[T])] =
+        new mutable.PriorityQueue()(
+          Ordering.by[(T, Iterator[T]), T](_._1).reverse
+        )
+      idPage => {
+        if (idPage.isEmpty) size -= 1
+        else iteratorQueue.enqueue(idPage.head -> idPage.iterator.drop(1))
+
+        if (size == 0) {
+          None
+        } else if (size != iteratorQueue.size) {
+          Some(Iterator.empty)
+        } else {
+          var lastElem =
+            null.asInstanceOf[T] // hack not to have an option here: since size is not null and only non empty iterators are in the priority queue, this must never be null
+          Some(
+            Iterator
+              .continually(())
+              .takeWhile(_ => iteratorQueue.size == size)
+              .map { _ =>
+                val (elem, iterator) = iteratorQueue.dequeue()
+                if (iterator.nonEmpty)
+                  iteratorQueue.enqueue(iterator.next() -> iterator)
+                lastElem = elem
+                elem
+              }
+              .concat(
+                Iterator
+                  .continually(iteratorQueue.headOption)
+                  .takeWhile(_.isDefined)
+                  .map(_.get)
+                  .takeWhile(elem => Ordering.apply[T].compare(elem._1, lastElem) == 0)
+                  .map { case (elem, iterator) =>
+                    iteratorQueue.dequeue()
+                    if (iterator.nonEmpty)
+                      iteratorQueue.enqueue(iterator.next() -> iterator)
+                    elem
+                  }
+              )
+          )
+        }
+      }
+    }
+
+  def statefulDeduplicate[T]: () => Option[Iterator[T]] => Option[Iterator[T]] =
+    () => {
+      var lastElem = null.asInstanceOf[T]
+      _.map(
+        _.filterNot(_ == lastElem)
+          .tapEach(lastElem = _)
+      )
+    }
+
+  def statefulBatch[T](
+      outputBatchSize: Int
+  )(implicit ct: ClassTag[T]): () => Option[Iterator[T]] => Vector[Vector[T]] = {
+    assert(outputBatchSize > 0)
+    () => {
+      var buff: Array[T] = Array.ofDim(outputBatchSize)
+      var buffIndex: Int = 0
+
+      {
+        case None => // flush
+          Vector(buff.view.take(buffIndex).toVector)
+
+        case Some(outputIterator) =>
+          var output: Vector[Vector[T]] = Vector.empty
+          outputIterator.foreach { elem =>
+            buff.update(buffIndex, elem)
+            buffIndex += 1
+            if (buffIndex == outputBatchSize) {
+              output = output :+ buff.toVector
+              buff = Array.ofDim(outputBatchSize)
+              buffIndex = 0
+            }
+          }
+          output
+      }
+    }
   }
 
   /** This Source implementation solves the following problem:
@@ -282,7 +591,7 @@ private[events] object FilterTableACSReader {
         metrics.daml.index.acsRetrievalSequentialProcessing, {
           go(taskTracker.add(task, ids))
           val result = outputQueue.flushOutput
-          logger.debug(
+          logger.trace(
             s"acsRetrievalSequentialProcessing received $task with #{${ids.size}} ${ids.lastOption
               .map(last => s"until $last ")
               .getOrElse("")}and produced ${result.size}"
@@ -429,5 +738,174 @@ private[events] object FilterTableACSReader {
         Some((ids, task))
       }
 
+  }
+
+  def idSource3(
+      getPage: (Long, Int) => Future[Vector[Long]],
+      minBatchSize: Int,
+      maxBatchSize: Int,
+      maxBatchBufferSize: Int,
+  ): Source[Long, NotUsed] = {
+    assert(maxBatchBufferSize > 0)
+    assert(minBatchSize > 0)
+    assert(maxBatchSize > 0)
+    assert(maxBatchSize > minBatchSize)
+    Source
+      .unfoldAsync(0L -> minBatchSize) { case (last, batchSize) =>
+        getPage(last, batchSize).map {
+          case empty if empty.isEmpty => None
+          case nonEmpty =>
+            val newBatchSize =
+              if (batchSize * 2 >= maxBatchSize) maxBatchSize
+              else batchSize * 2
+            Some((nonEmpty.last, newBatchSize) -> nonEmpty)
+        }(scala.concurrent.ExecutionContext.parasitic)
+      }
+      .buffer(maxBatchBufferSize, OverflowStrategy.backpressure)
+      .mapConcat(identity)
+  }
+
+  @tailrec
+  def mergeSort3[T: Ordering](sources: Vector[Source[T, NotUsed]]): Source[T, NotUsed] =
+    sources match {
+      case empty if empty.isEmpty => Source.empty
+      case one if one.size == 1 => one.head
+      case twoOrMore =>
+        mergeSort3(
+          twoOrMore
+            .drop(2)
+            .appended(twoOrMore.head.mergeSorted(twoOrMore(1)))
+        )
+    }
+
+  def statefulDeduplicate3[T]: () => T => List[T] =
+    () => {
+      var last = null.asInstanceOf[T]
+      elem =>
+        if (elem == last) Nil
+        else {
+          last = elem
+          List(elem)
+        }
+    }
+}
+
+class TestACSReader(
+    pageSize: Int,
+    idPageSize: Int,
+    idFetchingParallelism: Int,
+    metrics: Metrics,
+    materializer: Materializer,
+    fixture: Map[String, AtomicReference[List[Long]]],
+) {
+  import FilterTableACSReader._
+
+  private val logger = ContextualizedLogger.get(this.getClass)
+
+  def queryPage(key: String): Future[Vector[Long]] = Future {
+    val current = fixture(key).get()
+    fixture(key).set(current.drop(idPageSize))
+    current.view.take(idPageSize).toVector
+  }(scala.concurrent.ExecutionContext.global)
+
+  def acsStream1(
+      filter: FilterRelation
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[Vector[Long], NotUsed] = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+    val tasks = filter.iterator
+      .flatMap {
+        case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
+        case (party, templateIds) =>
+          templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
+      }
+      .map(QueryTask(0L, _))
+      .toVector
+
+    pullWorkerSource[QueryTask, Vector[Long]](
+      workerParallelism = idFetchingParallelism,
+      materializer = materializer,
+    )(
+      query => {
+        queryPage(query.filter.party.toString)
+          .map { result =>
+            val newTasks =
+              if (result.size < idPageSize) None
+              else Some(query.copy(fromExclusiveEventSeqId = result.last))
+            result -> newTasks
+          }(materializer.executionContext)
+      },
+      initialTasks = tasks,
+    )
+      .map({ case (queryTask, results) => queryTask.filter -> results })
+      .statefulMapConcat(
+        mergeIdStreams(
+          tasks = tasks.map(_.filter),
+          outputBatchSize = pageSize,
+          inputBatchSize = idPageSize,
+          metrics = metrics,
+        )
+      )
+      .async
+  }
+
+  def acsStream2(
+      filter: FilterRelation
+  ): Source[Vector[Long], NotUsed] = {
+    val filters = filter.iterator.flatMap {
+      case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
+      case (party, templateIds) =>
+        templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
+    }.toVector
+
+    val idQueryLimiter =
+      new QueueBasedConcurrencyLimiter(idFetchingParallelism, materializer.executionContext)
+
+    mergeSort(
+      filters.map { filter =>
+        idPageSource(
+          getPage = _ => idQueryLimiter.execute(() => queryPage(filter.party.toString)),
+          maxBufferSize = 2, // FIXME to param
+        )
+      }
+    )(Ordering.by[(Long, Vector[Long]), Long](_._1))
+      .map(_._2)
+      .statefulMapConcat(
+        statefulBatchMergeSort[Long](
+          filters.size
+        ) statefulPipe statefulDeduplicate statefulPipe statefulBatch(pageSize)
+      )
+      //      .wireTap(x => println(s"out: $x"))
+      .async
+  }
+
+  def acsStream3(
+      filter: FilterRelation
+  ): Source[Vector[Long], NotUsed] = {
+    val filters = filter.iterator.flatMap {
+      case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
+      case (party, templateIds) =>
+        templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
+    }.toVector
+
+    val idQueryLimiter =
+      new QueueBasedConcurrencyLimiter(idFetchingParallelism, materializer.executionContext)
+
+    mergeSort3(
+      filters.map { filter =>
+        idSource3(
+          getPage = (_, _) => idQueryLimiter.execute(() => queryPage(filter.party.toString)),
+          minBatchSize = pageSize / 2,
+          maxBatchSize = idPageSize,
+          maxBatchBufferSize = 2, // FIXME to param
+        )
+      }
+    )
+      .statefulMapConcat(statefulDeduplicate3)
+      .grouped(pageSize)
+      .map(_.toVector)
+      .async
   }
 }
