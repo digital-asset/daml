@@ -4,8 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.language.Ast._
@@ -549,7 +547,7 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private def noArgs = new util.ArrayList[SValue](0)
+  private def noArgs = ArrayList.empty[SValue]
 
   private[this] def compileERecCon(
       env: Env,

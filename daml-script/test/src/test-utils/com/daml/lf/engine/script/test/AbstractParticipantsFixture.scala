@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-import java.util
 
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.archive.{Dar, DarDecoder}
@@ -15,7 +14,7 @@ import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue.SRecord
 import org.scalatest.Suite
 import scalaz.\/-
@@ -46,10 +45,7 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
     Runner.run(dar, scriptId, inputValue, clients, timeMode)
   }
 
-  def tuple(a: SValue, b: SValue) = {
-    val vals = new util.ArrayList[SValue](2);
-    vals.add(a)
-    vals.add(b)
+  def tuple(a: SValue, b: SValue) =
     SRecord(
       id = Identifier(
         PackageId.assertFromString(
@@ -58,7 +54,6 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
         QualifiedName.assertFromString("DA.Types:Tuple2"),
       ),
       fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2")),
-      values = vals,
+      values = ArrayList(a, b),
     )
-  }
 }

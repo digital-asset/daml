@@ -11,6 +11,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -297,7 +298,7 @@ private[lf] object SBuiltin {
     private[speedy] def buildException(args: util.ArrayList[SValue]) =
       SArithmeticError(
         name,
-        args.iterator.asScala.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
+        args.view.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
       )
 
     override private[speedy] def execute(
@@ -711,7 +712,7 @@ private[lf] object SBuiltin {
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(args.subList(0, n).asScala.to(ImmArray) ++: getSList(args, n))
+      SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
   }
 
   /** $cons :: a -> List a -> List a */
@@ -1883,7 +1884,7 @@ private[lf] object SBuiltin {
     private val closure: SValue = {
       val frame = Array.ofDim[SValue](0) // no free vars
       val arity = 3
-      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), new util.ArrayList[SValue](), arity)
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArrayList.empty, arity)
     }
 
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {

@@ -4,7 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SExpr.SExpr
@@ -44,7 +43,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
         .fill(10 * 1000)(
           Command.Create(
             recordCon,
-            SValue.SRecord(recordCon, ImmArray.Empty, new util.ArrayList()),
+            SValue.SRecord(recordCon, ImmArray.Empty, ArrayList.empty),
           )
         )
         .toImmArray

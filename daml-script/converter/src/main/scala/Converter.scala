@@ -11,7 +11,7 @@ import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref}
 import Ref._
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{ArrayList, SValue}
 import SValue._
 import com.daml.lf.value.Value.ContractId
 
@@ -62,7 +62,7 @@ private[daml] object Converter {
 
   object DamlTuple2 {
     def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
-      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(fst, snd)) =>
+      case SRecord(Identifier(_, DaTypesTuple2), _, ArrayList(fst, snd)) =>
         Some((fst, snd))
       case _ => None
     }
@@ -73,11 +73,6 @@ private[daml] object Converter {
       val SRecord(Identifier(_, QualifiedName(_, name)), _, values) = v
       Some((name.dottedName, values.asScala))
     }
-  }
-
-  object JavaList {
-    def unapplySeq[A](jl: util.List[A]): Some[collection.Seq[A]] =
-      Some(jl.asScala)
   }
 
   object Implicits {
