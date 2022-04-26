@@ -467,6 +467,27 @@ server_conformance_test(
     ],
 )
 
+# By default, participants are tuned for performance. The buffers and caches used by the participant
+# are by default so large that they are not filled by the small amount of data produced by the conformance test.
+# We run one conformance test with small buffer/cache sizes to make sure we cover cases where data doesn't fit
+# into a cache or where multiple buffers have to be combined.
+server_conformance_test(
+    name = "conformance-test-tiny-buffers",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865,contract-state-cache-max-size=2,contract-key-state-cache-max-size=2",
+        "--enable-user-management=true",
+        "--events-page-size=2",
+        "--acs-id-page-size=2",
+        "--user-management-max-cache-size=2",
+        # "--user-management-max-users-page-size=2" -- minimum size is 100 which is not tiny anymore
+    ],
+    servers = {"postgresql": SERVERS["postgresql"]},
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
 conformance_test(
     name = "conformance-test-static-time",
     ports = [6865],
