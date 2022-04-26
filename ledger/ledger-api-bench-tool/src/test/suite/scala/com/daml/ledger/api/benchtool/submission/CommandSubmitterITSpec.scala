@@ -123,11 +123,11 @@ class CommandSubmitterITSpec
         consumingExercisesConfig.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       )
+      observerResult.avgSizeOfNonconsumingExercise shouldBe nonConsumingExercisesConfig.payloadSizeBytes
       observerResult.avgSizeOfNonconsumingExercise shouldBe roughly(
         nonConsumingExercisesConfig.payloadSizeBytes * 2,
         toleranceMul = 0.5,
       )
-
       observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
       observerResult.nonConsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonConsumingExercisesConfig.probability) withClue ("number of non consuming exercises")
 

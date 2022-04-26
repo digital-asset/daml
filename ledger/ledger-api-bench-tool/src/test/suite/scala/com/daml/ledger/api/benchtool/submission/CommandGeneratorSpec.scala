@@ -3,13 +3,15 @@
 
 package com.daml.ledger.api.benchtool.submission
 
+import java.nio.charset.StandardCharsets
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class CommandGeneratorSpec extends AnyFlatSpec with Matchers {
 
   it should "generate random payload of a given size" in {
-    CommandGenerator.randomPayload(RandomnessProvider.Default, 10).length shouldBe 10
+    CommandGenerator.randomPayload(RandomnessProvider.Default, sizeBytes = 100).getBytes(StandardCharsets.UTF_8).length shouldBe 100
   }
 
 }
