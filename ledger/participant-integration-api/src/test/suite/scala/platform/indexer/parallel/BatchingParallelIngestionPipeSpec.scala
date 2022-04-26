@@ -10,8 +10,8 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.chaining._
 
 class BatchingParallelIngestionPipeSpec
@@ -98,26 +98,30 @@ class BatchingParallelIngestionPipeSpec
   }
 
   it should "form max-sized batches under load" in {
+    val batchSizes = ArrayBuffer.empty[Int]
     runPipe(
       ingesterHook = batch => {
-        batch.size shouldBe MaxBatchSize
+        batchSizes.synchronized {
+          batchSizes.addOne(batch.size)
+        }
         ()
       }
     ).map { case (_, _, err) =>
+      // The first and last batches can be smaller than `MaxBatchSize`
+      // so we assert the average batch size instead of the sizes of individual batches
+      batchSizes.sum.toDouble / batchSizes.size should be > (MaxBatchSize.toDouble - MaxBatchSize / 10.0)
       err shouldBe empty
     }
   }
 
   it should "form small batch sizes under no load" in {
-    val batchSizes = ArrayBuffer.empty[Int]
     runPipe(
       ingesterHook = batch => {
-        batchSizes.addOne(batch.size)
+        batch.size shouldBe 1
         ()
       },
-      inputSource = Source(input).map(_.tap(_ => Thread.sleep(1L))).async,
+      inputSource = Source(input).take(10).map(_.tap(_ => Thread.sleep(10L))).async,
     ).map { case (_, _, err) =>
-      batchSizes.sum.toDouble / batchSizes.size should be < 2.0
       err shouldBe empty
     }
   }
