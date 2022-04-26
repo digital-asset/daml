@@ -304,7 +304,7 @@ genIfaceDecl pkgId mod DefInterface {intName, intFixedChoices} =
   , Set.unions choiceRefs)
   where
     -- interfaces are not declared in JS code, only in the TS type declarations.
-    (TsTypeRef name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
+    (TsTypeConRef name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
     (choices, choiceRefs) =
       unzip $
       [ (ChoiceDef (unChoiceName (chcName chc)) argTy rTy, Set.union argRefs retRefs)
@@ -353,7 +353,7 @@ data TemplateNamespace = TemplateNamespace
 renderTemplateNamespace :: TemplateNamespace -> T.Text
 renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     [ [ "export declare namespace " <> tnsName <> " {" ]
-    , [ "  export type Key = " <> typeRef (genType keyDef Nothing) | Just keyDef <- [tnsMbKeyDef] ]
+    , [ "  export type Key = " <> tsTypeRef (genType keyDef Nothing) | Just keyDef <- [tnsMbKeyDef] ]
     , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
       , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
       , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
@@ -382,7 +382,7 @@ data TemplateDef = TemplateDef
   -- ^ Nothing if we do not have a key.
   , tplKeyEncode :: Encode
   , tplChoices' :: [ChoiceDef]
-  , tplImplements' :: [(TsTypeRef, JsSerializerRef)]
+  , tplImplements' :: [(TsTypeConRef, JsSerializerConRef)]
   }
 
 renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
@@ -391,7 +391,7 @@ renderTemplateDef TemplateDef {..} =
         T.unlines $
         concat
           [ ["exports." <> tplName <> " = Object.assign("]
-          , [impl <> "," | (_, JsSerializerRef impl) <- tplImplements']
+          , [impl <> "," | (_, JsSerializerConRef impl) <- tplImplements']
           -- we spread in the interface choices, the templateId field of the interface will be overwritten by the template object.
           , [ T.unlines $
               concat
@@ -473,14 +473,14 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 
-ifaceDefTempl :: T.Text -> Maybe T.Text -> [TsTypeRef] -> [ChoiceDef] -> [T.Text]
+ifaceDefTempl :: T.Text -> Maybe T.Text -> [TsTypeConRef] -> [ChoiceDef] -> [T.Text]
 ifaceDefTempl name mbKeyTy impls choices =
   concat
   [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       name <> ", " <>
-      typeRef (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
-      typeRef (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      tsTypeRef (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      tsTypeRef (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
@@ -491,7 +491,7 @@ ifaceDefTempl name mbKeyTy impls choices =
       | otherwise = "extends " <> implTy'
     implTy = T.intercalate " & " implRefs 
     implTy' = T.intercalate " , " implRefs
-    implRefs = [impl <> "Interface<" <> name <> ">" | TsTypeRef impl <- impls]
+    implRefs = [impl <> "Interface<" <> name <> ">" | TsTypeConRef impl <- impls]
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
@@ -499,13 +499,13 @@ ifaceDefIface name mbKeyTy choices =
   [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       "T, " <>
-      typeRef (genType chcArgTy mbSubst) <> ", " <>
-      typeRef (genType chcRetTy mbSubst) <> ", " <>
+      tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
+      tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
-    mbSubst = Just (Set.singleton (TsTypeRef name), name <> "Interface<T>")
+    mbSubst = Just (Set.singleton (TsTypeConRef name), name <> "Interface<T>")
     keyTy = fromMaybe "undefined" mbKeyTy
 
 data ChoiceDef = ChoiceDef
@@ -675,12 +675,12 @@ renderTypeDef :: TypeDef -> T.Text
 renderTypeDef = \case
     UnionDef t args bs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " =" ]
-        , [ "  |  { tag: '" <> k <> "'; value: " <> typeRef (genType t Nothing) <> " }" | (k, t) <- bs ]
+        , [ "  |  { tag: '" <> k <> "'; value: " <> tsTypeRef (genType t Nothing) <> " }" | (k, t) <- bs ]
         , [ ";" ]
         ]
     ObjectDef t args fs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " = {" ]
-        , [ "  " <> k <> ": " <> typeRef (genType t Nothing) <> ";" | (k, t) <- fs ]
+        , [ "  " <> k <> ": " <> tsTypeRef (genType t Nothing) <> ";" | (k, t) <- fs ]
         , [ "};" ]
         ]
     EnumDef t args fs -> T.unlines $ concat
@@ -853,7 +853,7 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 -- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
 -- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
 -- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
-genType :: TypeRef -> Maybe (Set.Set TsTypeRef, T.Text) -> GenType
+genType :: TypeRef -> Maybe (Set.Set TsTypeConRef, T.Text) -> GenType
 genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
   where
     go = \case
@@ -913,7 +913,7 @@ genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
 
 data GenType = GenType
-  { typeRef :: T.Text
+  { tsTypeRef :: T.Text
   , serializerRef :: T.Text
   }
 
@@ -921,11 +921,11 @@ data GenType = GenType
 -- Note that the serializer is in JS file whereas the type is in the TS
 -- declaration file. Therefore they refer to things in the current module
 -- differently.
-genTypeCon :: ModuleName -> Qualified TypeConName -> (TsTypeRef, JsSerializerRef)
+genTypeCon :: ModuleName -> Qualified TypeConName -> (TsTypeConRef, JsSerializerConRef)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
-  (TsTypeRef typeRef, JsSerializerRef serializerRef)
+  (TsTypeConRef typeConRef, JsSerializerConRef serializerRef)
     where
-      (typeRef, serializerRef) = case unTypeConName conParts of
+      (typeConRef, serializerRef) = case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
         [c1 ,c2]
@@ -938,9 +938,9 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
           | otherwise -> dupe $ genModuleRef modRef <.> conName
       modRef = (pkgRef, modName)
 
-newtype TsTypeRef = TsTypeRef T.Text
+newtype TsTypeConRef = TsTypeConRef T.Text
   deriving (Eq, Ord)
-newtype JsSerializerRef = JsSerializerRef T.Text
+newtype JsSerializerConRef = JsSerializerConRef T.Text
 
 pkgVar :: PackageId -> T.Text
 pkgVar pkgId = "pkg" <> unPackageId pkgId
