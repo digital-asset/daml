@@ -47,7 +47,6 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/participant-state/kvutils",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
