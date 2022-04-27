@@ -10,47 +10,60 @@ import com.daml.ledger.javaapi.data.Value;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 public abstract class ContractCompanion<Ct, Id, Data> {
-  public abstract Identifier getTemplateId();
+  public final Identifier TEMPLATE_ID;
 
-  protected abstract Id newContractId(String contractId);
-
-  protected abstract Data fromValue(DamlRecord record$);
+  protected final Function<String, Id> newContractId;
+  protected final Function<DamlRecord, Data> fromValue;
 
   @Deprecated
   public abstract Ct fromIdAndRecord(String contractId, DamlRecord record$);
 
   public abstract Ct fromCreatedEvent(CreatedEvent event);
 
-  public abstract static class WithoutKey<Ct, Id, Data> extends ContractCompanion<Ct, Id, Data> {
-    protected abstract Ct newContract(
-        Id id,
-        Data data,
-        Optional<String> agreementText,
-        Set<String> signatories,
-        Set<String> observers);
+  protected ContractCompanion(
+      Identifier templateId,
+      Function<String, Id> newContractId,
+      Function<DamlRecord, Data> fromValue) {
+    this.TEMPLATE_ID = templateId;
+    this.newContractId = newContractId;
+    this.fromValue = fromValue;
+  }
 
-    public final Ct fromIdAndRecord(
+  public static final class WithoutKey<Ct, Id, Data> extends ContractCompanion<Ct, Id, Data> {
+    private final NewContract<Ct, Id, Data> newContract;
+
+    public WithoutKey(
+        Identifier templateId,
+        Function<String, Id> newContractId,
+        Function<DamlRecord, Data> fromValue,
+        NewContract<Ct, Id, Data> newContract) {
+      super(templateId, newContractId, fromValue);
+      this.newContract = newContract;
+    }
+
+    public Ct fromIdAndRecord(
         String contractId,
         DamlRecord record$,
         Optional<String> agreementText,
         Set<String> signatories,
         Set<String> observers) {
-      Id id = newContractId(contractId);
-      Data data = fromValue(record$);
-      return newContract(id, data, agreementText, signatories, observers);
+      Id id = newContractId.apply(contractId);
+      Data data = fromValue.apply(record$);
+      return newContract.newContract(id, data, agreementText, signatories, observers);
     }
 
     @Deprecated
     @Override
-    public final Ct fromIdAndRecord(String contractId, DamlRecord record$) {
+    public Ct fromIdAndRecord(String contractId, DamlRecord record$) {
       return fromIdAndRecord(
           contractId, record$, Optional.empty(), Collections.emptySet(), Collections.emptySet());
     }
 
     @Override
-    public final Ct fromCreatedEvent(CreatedEvent event) {
+    public Ct fromCreatedEvent(CreatedEvent event) {
       return fromIdAndRecord(
           event.getContractId(),
           event.getArguments(),
@@ -58,34 +71,48 @@ public abstract class ContractCompanion<Ct, Id, Data> {
           event.getSignatories(),
           event.getObservers());
     }
+
+    @FunctionalInterface
+    public interface NewContract<Ct, Id, Data> {
+      Ct newContract(
+          Id id,
+          Data data,
+          Optional<String> agreementText,
+          Set<String> signatories,
+          Set<String> observers);
+    }
   }
 
-  public abstract static class WithKey<Ct, Id, Data, Key> extends ContractCompanion<Ct, Id, Data> {
-    protected abstract Ct newContract(
-        Id id,
-        Data data,
-        Optional<String> agreementText,
-        Optional<Key> key,
-        Set<String> signatories,
-        Set<String> observers);
+  public static final class WithKey<Ct, Id, Data, Key> extends ContractCompanion<Ct, Id, Data> {
+    private final NewContract<Ct, Id, Data, Key> newContract;
+    private final Function<Value, Key> keyFromValue;
 
-    protected abstract Key keyFromValue(Value keyValue);
+    public WithKey(
+        Identifier templateId,
+        Function<String, Id> newContractId,
+        Function<DamlRecord, Data> fromValue,
+        NewContract<Ct, Id, Data, Key> newContract,
+        Function<Value, Key> keyFromValue) {
+      super(templateId, newContractId, fromValue);
+      this.newContract = newContract;
+      this.keyFromValue = keyFromValue;
+    }
 
-    public final Ct fromIdAndRecord(
+    public Ct fromIdAndRecord(
         String contractId,
         DamlRecord record$,
         Optional<String> agreementText,
         Optional<Key> key,
         Set<String> signatories,
         Set<String> observers) {
-      Id id = newContractId(contractId);
-      Data data = fromValue(record$);
-      return newContract(id, data, agreementText, key, signatories, observers);
+      Id id = newContractId.apply(contractId);
+      Data data = fromValue.apply(record$);
+      return newContract.newContract(id, data, agreementText, key, signatories, observers);
     }
 
     @Deprecated
     @Override
-    public final Ct fromIdAndRecord(String contractId, DamlRecord record$) {
+    public Ct fromIdAndRecord(String contractId, DamlRecord record$) {
       return fromIdAndRecord(
           contractId,
           record$,
@@ -96,14 +123,24 @@ public abstract class ContractCompanion<Ct, Id, Data> {
     }
 
     @Override
-    public final Ct fromCreatedEvent(CreatedEvent event) {
+    public Ct fromCreatedEvent(CreatedEvent event) {
       return fromIdAndRecord(
           event.getContractId(),
           event.getArguments(),
           event.getAgreementText(),
-          event.getContractKey().map(this::keyFromValue),
+          event.getContractKey().map(keyFromValue),
           event.getSignatories(),
           event.getObservers());
+    }
+
+    public interface NewContract<Ct, Id, Data, Key> {
+      Ct newContract(
+          Id id,
+          Data data,
+          Optional<String> agreementText,
+          Optional<Key> key,
+          Set<String> signatories,
+          Set<String> observers);
     }
   }
 }
