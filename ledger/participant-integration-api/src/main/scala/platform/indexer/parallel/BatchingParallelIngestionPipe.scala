@@ -4,9 +4,8 @@
 package com.daml.platform.indexer.parallel
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Source
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 
 object BatchingParallelIngestionPipe {
@@ -27,7 +26,7 @@ object BatchingParallelIngestionPipe {
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .via(batchN(submissionBatchSize.toInt, inputMappingParallelism))
+      .via(BatchN(submissionBatchSize.toInt, inputMappingParallelism))
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
@@ -43,33 +42,4 @@ object BatchingParallelIngestionPipe {
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .map(_ => ())
-
-  /** Forms dynamically-sized batches based on downstream backpressure.
-    *   - Under light load, this flow emits batches of size 1.
-    *   - Under heavy load, this flow emits batches of `maxBatchSize`.
-    */
-  private def batchN[IN](
-      maxBatchSize: Int,
-      maxBatchCount: Int,
-  ): Flow[IN, ArrayBuffer[IN], NotUsed] =
-    Flow[IN]
-      .batch[Vector[ArrayBuffer[IN]]](
-        (maxBatchSize * maxBatchCount).toLong,
-        in => Vector(newBatch(maxBatchSize, in)),
-      ) { case (batches, in) =>
-        val lastBatch = batches.last
-        if (lastBatch.size < maxBatchSize) {
-          lastBatch.addOne(in)
-          batches
-        } else
-          batches :+ newBatch(maxBatchSize, in)
-      }
-      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
-
-  private def newBatch[IN](maxBatchSize: Int, newElement: IN) = {
-    val newBatch = ArrayBuffer.empty[IN]
-    newBatch.sizeHint(maxBatchSize)
-    newBatch.addOne(newElement)
-    newBatch
-  }
 }
