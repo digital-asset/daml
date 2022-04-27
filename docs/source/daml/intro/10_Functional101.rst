@@ -289,7 +289,7 @@ If we need functions that can return two (or more) types of things we need to en
   :start-after: -- INT_OR_TEXT_BEGIN
   :end-before: -- INT_OR_TEXT_END
 
-Branching In Actions
+Branching in Actions
 ~~~~~~~~~~~~~~~~~~~~
 
 The most common case where this becomes important is inside ``do`` blocks. Say we want to create a contract of one type in one case, and of another type in another case. Let's say we have two template types and want to write a function that creates an ``S`` if a condition is met, and a ``T`` otherwise.
