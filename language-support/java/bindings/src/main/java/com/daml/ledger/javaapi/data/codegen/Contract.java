@@ -38,7 +38,7 @@ public class Contract<Id, Data> implements com.daml.ledger.javaapi.data.Contract
   }
 
   @Override
-  public final boolean equals(Object object) {
+  public boolean equals(Object object) {
     if (this == object) {
       return true;
     }
@@ -59,7 +59,7 @@ public class Contract<Id, Data> implements com.daml.ledger.javaapi.data.Contract
   }
 
   @Override
-  public final int hashCode() {
+  public int hashCode() {
     return Objects.hash(this.id, this.data, this.agreementText, this.signatories, this.observers);
   }
 }

@@ -184,15 +184,21 @@ object ContractClass {
       val contractIdClassName = ClassName.bestGuess("ContractId")
       val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
 
-      contractKeyClassName.foreach { name =>
-        classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      }
-
       classBuilder.superclass(
-        ParameterizedTypeName.get(
-          ClassName get classOf[javaapi.data.codegen.Contract[_, _]],
-          contractIdClassName,
-          templateClassName,
+        contractKeyClassName.fold(
+          ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.Contract[_, _]],
+            contractIdClassName,
+            templateClassName,
+          )
+        )(kname =>
+          ParameterizedTypeName.get(
+            ClassName get
+              classOf[javaapi.data.codegen.ContractWithKey[_, _, _]],
+            contractIdClassName,
+            templateClassName,
+            kname,
+          )
         )
       )
 
@@ -211,17 +217,26 @@ object ContractClass {
         .addParameter(setOfStrings, signatoriesFieldName)
         .addParameter(setOfStrings, observersFieldName)
 
-      constructorBuilder.addStatement(
-        "super($L, $L, $L, $L, $L)",
-        idFieldName,
-        dataFieldName,
-        agreementFieldName,
-        signatoriesFieldName,
-        observersFieldName,
+      contractKeyClassName.fold(
+        constructorBuilder.addStatement(
+          "super($L, $L, $L, $L, $L)",
+          idFieldName,
+          dataFieldName,
+          agreementFieldName,
+          signatoriesFieldName,
+          observersFieldName,
+        )
+      )(_ =>
+        constructorBuilder.addStatement(
+          "super($L, $L, $L, $L, $L, $L)",
+          idFieldName,
+          dataFieldName,
+          agreementFieldName,
+          contractKeyFieldName,
+          signatoriesFieldName,
+          observersFieldName,
+        )
       )
-      contractKeyClassName.foreach { _ =>
-        constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName)
-      }
 
       val constructor = constructorBuilder.build()
 
@@ -232,8 +247,8 @@ object ContractClass {
         .map(_ => contractKeyFieldName)
         .toList ++ Vector(signatoriesFieldName, observersFieldName)
       classBuilder
-        .addMethods(
-          ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava
+        .addMethod(
+          ObjectMethods.generateToString(contractClassName, fields, Some(templateClassName))
         )
       new Builder(
         classBuilder,
