@@ -3,7 +3,7 @@
 
 package com.daml.ledger.error.definitions.kv
 
-import com.daml.error.definitions.ErrorGroups
+import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, ErrorGroups}
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
@@ -12,7 +12,6 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-
 import java.time.Instant
 
 @Explanation(
@@ -36,6 +35,27 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           extends KVLoggingTransactionErrorImpl(
             cause = s"Validation failure: $details"
           )
+    }
+
+    @Explanation("At least one input has been altered by a concurrent transaction submission.")
+    @Resolution(
+      "The correct resolution depends on the business flow, for example it may be possible to proceed " +
+        "without an archived contract as an input, or the transaction submission may be retried " +
+        "to load the up-to-date value of a contract key."
+    )
+    object PostExecutionConflicts
+        extends ErrorCode(
+          id = "INCONSISTENT_INPUT",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends DamlErrorWithDefiniteAnswer(
+            cause = s"Inconsistent: $details"
+          )
+
     }
 
   }
@@ -88,6 +108,24 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           "maximum_record_time" -> maximumRecordTime.toString,
         )
       }
+    }
+
+    @Explanation(
+      "The record time is not within bounds for reasons such as " +
+        "excessive latency, excessive clock skew between the participant and the committer " +
+        "or a time model that is too restrictive."
+    )
+    @Resolution("Retry the submission or contact the participant operator.")
+    object RecordTimeOutOfBounds
+        extends ErrorCode(
+          id = "RECORD_TIME_OUT_OF_BOUNDS",
+          ErrorCategory.ContentionOnSharedResources, // It may succeed at a later time
+        ) {
+      case class Reject(
+          override val definiteAnswer: Boolean,
+          override val cause: String,
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(cause)
     }
 
     @Explanation(
