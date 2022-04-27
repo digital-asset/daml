@@ -19,7 +19,7 @@ import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 final class ConfigManagementServiceIT extends LedgerTestSuite {
   test(
@@ -135,60 +135,36 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
       // Get the current time model
-      response1 <- ledger.getTimeModel()
+      preUpdateTimeModelResponse <- ledger.getTimeModel()
       oldTimeModel = {
-        assert(response1.timeModel.isDefined, "Expected time model to be defined")
-        response1.timeModel.get
+        assert(preUpdateTimeModelResponse.timeModel.isDefined, "Expected time model to be defined")
+        preUpdateTimeModelResponse.timeModel.get
       }
 
       // Set a new time model with the next generation in parallel
       t1 <- ledger.time()
       f1 = ledger.setTimeModel(
         mrt = t1.plusSeconds(30),
-        generation = response1.configurationGeneration,
+        generation = preUpdateTimeModelResponse.configurationGeneration,
         newTimeModel = oldTimeModel,
       )
       f2 = ledger.setTimeModel(
         mrt = t1.plusSeconds(30),
-        generation = response1.configurationGeneration,
+        generation = preUpdateTimeModelResponse.configurationGeneration,
         newTimeModel = oldTimeModel,
       )
 
-      failure <- f1
+      _ <- f1
         .flatMap(_ => f2)
         .mustFail("setting Time Model with an outdated generation")
 
       // Check if generation got updated (meaning, one of the above succeeded)
-      response2 <- ledger.getTimeModel()
+      postUpdateTimeModelResponse <- ledger.getTimeModel()
     } yield {
       assert(
-        response1.configurationGeneration + 1 == response2.configurationGeneration,
-        s"New configuration's generation (${response2.configurationGeneration} should be original configurations's generation (${response1.configurationGeneration} + 1) )",
+        preUpdateTimeModelResponse.configurationGeneration + 1 == postUpdateTimeModelResponse.configurationGeneration,
+        s"New configuration's generation (${postUpdateTimeModelResponse.configurationGeneration} should be original configurations's generation (${preUpdateTimeModelResponse.configurationGeneration} + 1) )",
       )
-      Try {
-        // if the "looser" command fails already on command submission (the winner completed before looser submission is over)
-        assertGrpcError(
-          failure,
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some("Mismatching configuration generation"),
-        )
-      }.recover { case _ =>
-        // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
-        assertGrpcError(
-          failure,
-          LedgerApiErrors.Admin.ConfigurationEntryRejected,
-          Some("Generation mismatch"),
-        )
-      } match {
-        case Failure(GrpcException(GrpcStatus(notExpectedCode, _), _)) =>
-          fail(s"One of the submissions failed with an unexpected status code: $notExpectedCode")
-
-        case Failure(notExpectedException) =>
-          fail(
-            s"Unexpected exception: type:${notExpectedException.getClass.getName}, message:${notExpectedException.getMessage}"
-          )
-        case Success(_) => ()
-      }
     }
   })
 
