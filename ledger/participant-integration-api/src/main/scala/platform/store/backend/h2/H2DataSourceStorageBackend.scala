@@ -8,7 +8,7 @@ import java.sql.Connection
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.backend.common.{
-  DataSourceStorageBackendTemplate,
+  DataSourceStorageBackendImpl,
   InitHookDataSourceProxy,
 }
 import javax.sql.DataSource
@@ -52,5 +52,5 @@ object H2DataSourceStorageBackend extends DataSourceStorageBackend {
   }
 
   override def checkDatabaseAvailable(connection: Connection): Unit =
-    DataSourceStorageBackendTemplate.checkDatabaseAvailable(connection)
+    DataSourceStorageBackendImpl.checkDatabaseAvailable(connection)
 }

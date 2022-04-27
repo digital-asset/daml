@@ -17,14 +17,14 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.Conversions.{applicationId, offset, timestampFromMicros}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.platform.store.backend.common.MeteringParameterStorageBackendTemplate.assertLedgerMeteringEnd
-import com.daml.platform.store.backend.common.MeteringStorageBackendTemplate._
+import com.daml.platform.store.backend.common.MeteringParameterStorageBackendImpl.assertLedgerMeteringEnd
+import com.daml.platform.store.backend.common.MeteringStorageBackendImpl._
 import com.daml.platform.store.backend.{MeteringStorageReadBackend, MeteringStorageWriteBackend}
 import com.daml.scalautil.Statement.discard
 
 import java.sql.Connection
 
-private[backend] object MeteringStorageBackendTemplate {
+private[backend] object MeteringStorageBackendImpl {
 
   val participantMeteringParser: RowParser[ParticipantMetering] = {
     (

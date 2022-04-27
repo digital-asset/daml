@@ -18,7 +18,7 @@ import scalaz.syntax.tag._
 
 import java.sql.Connection
 
-private[backend] object ParameterStorageBackendTemplate extends ParameterStorageBackend {
+private[backend] object ParameterStorageBackendImpl extends ParameterStorageBackend {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 

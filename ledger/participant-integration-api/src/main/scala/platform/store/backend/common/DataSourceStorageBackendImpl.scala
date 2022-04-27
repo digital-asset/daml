@@ -8,7 +8,7 @@ import java.sql.Connection
 import anorm.SqlParser.get
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 
-private[backend] object DataSourceStorageBackendTemplate {
+private[backend] object DataSourceStorageBackendImpl {
 
   def exe(statement: String): Connection => Unit = { implicit connection =>
     SQL"#$statement".execute()
