@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.transaction.{
   TransactionTree => ApiTransactionTree,
 }
 import com.daml.lf.ledger.EventId
+import com.daml.platform.NodeId
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,

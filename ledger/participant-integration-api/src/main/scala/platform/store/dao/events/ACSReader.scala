@@ -13,6 +13,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.{FilterRelation, Party}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.utils.ConcurrencyLimiter

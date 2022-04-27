@@ -14,9 +14,9 @@ import com.daml.lf.data.Ref.{ApplicationId, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
-import com.daml.platform
+import com.daml.platform.{ContractId, Key}
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.dao.events.{ContractId, Key, Raw}
+import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
@@ -324,8 +324,8 @@ object EventStorageBackend {
       commandId: Option[String],
       workflowId: Option[String],
       eventId: EventId,
-      contractId: platform.store.dao.events.ContractId,
-      templateId: Option[platform.store.dao.events.Identifier],
+      contractId: ContractId,
+      templateId: Option[Ref.Identifier],
       ledgerEffectiveTime: Option[Timestamp],
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],

@@ -18,8 +18,8 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
-import com.daml.platform.store.dao
-import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, events}
+import com.daml.platform.{FilterRelation, Party}
+import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.getTransactions
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
@@ -36,7 +36,7 @@ private[events] class BufferedTransactionsReader(
         TxUpdate,
         FilterRelation,
         Set[String],
-        Map[events.Identifier, Set[String]],
+        Map[Ref.Identifier, Set[String]],
         Boolean,
     ) => Future[Option[FlatTransaction]],
     toTransactionTree: (TxUpdate, Set[String], Boolean) => Future[Option[TransactionTree]],
@@ -127,9 +127,9 @@ private[events] class BufferedTransactionsReader(
       s"getTransactionLogUpdates is not supported on ${getClass.getSimpleName}"
     )
 
-  private def invertMapping(partiesTemplates: Map[Party, Set[dao.events.Identifier]]) =
+  private def invertMapping(partiesTemplates: Map[Party, Set[Ref.Identifier]]) =
     partiesTemplates
-      .foldLeft(Map.empty[dao.events.Identifier, mutable.Builder[String, Set[String]]]) {
+      .foldLeft(Map.empty[Ref.Identifier, mutable.Builder[String, Set[String]]]) {
         case (acc, (k, vs)) =>
           vs.foldLeft(acc) { case (a, v) =>
             a + (v -> (a.getOrElse(v, Set.newBuilder) += k))

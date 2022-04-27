@@ -8,6 +8,7 @@ import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.{Contract, ContractId, Identifier, Key, Party, Value}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.ContractsReader._
 import com.daml.platform.store.backend.ContractStorageBackend

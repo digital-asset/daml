@@ -16,10 +16,16 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
+import com.daml.platform.{Exercise, ContractId, Create}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.events.Raw.TreeEvent
-import com.daml.platform.store.dao.events._
 import com.daml.platform.store.dao.JdbcLedgerDao
+import com.daml.platform.store.dao.events.{
+  CompressionStrategy,
+  FieldCompressionStrategy,
+  LfValueSerialization,
+  Raw,
+}
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status

@@ -23,6 +23,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
+import com.daml.platform._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{
   DbDispatcher,

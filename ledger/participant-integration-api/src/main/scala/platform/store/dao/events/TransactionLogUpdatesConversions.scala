@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import com.daml.api.util.TimestampConversion.fromInstant
-
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TransactionTree,
@@ -14,10 +13,9 @@ import com.daml.ledger.api.v1.transaction.{
 import com.daml.ledger.api.v1.{event => apiEvent}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.ApiOffset
+import com.daml.platform.{ApiOffset, ContractId, FilterRelation, Identifier, Value}
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.dao.events
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf.timestamp.Timestamp
@@ -30,7 +28,7 @@ private[events] object TransactionLogUpdatesConversions {
         tx: TransactionLogUpdate.Transaction,
         filter: FilterRelation,
         wildcardParties: Set[String],
-        templateSpecificParties: Map[events.Identifier, Set[String]],
+        templateSpecificParties: Map[Identifier, Set[String]],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -88,7 +86,7 @@ private[events] object TransactionLogUpdatesConversions {
       (
           event: TransactionLogUpdate.Event,
           wildcardParties: Set[String],
-          templateSpecificParties: Map[events.Identifier, Set[String]],
+          templateSpecificParties: Map[Identifier, Set[String]],
       ) => {
 
         val stakeholdersMatchingParties =

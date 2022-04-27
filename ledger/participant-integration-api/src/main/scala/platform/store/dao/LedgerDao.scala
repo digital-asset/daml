@@ -25,7 +25,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.events.{ContractStateEvent, FilterRelation}
+import com.daml.platform.FilterRelation
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}

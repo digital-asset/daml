@@ -17,10 +17,10 @@ import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.{engine => LfEngine}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.packages.DeduplicatingPackageLoader
-import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.dao.events.{
+import com.daml.platform.{
+  ContractId,
+  Create,
+  Exercise,
   ChoiceName => LfChoiceName,
   DottedName => LfDottedName,
   Identifier => LfIdentifier,
@@ -29,6 +29,9 @@ import com.daml.platform.store.dao.events.{
   QualifiedName => LfQualifiedName,
   Value => LfValue,
 }
+import com.daml.platform.packages.DeduplicatingPackageLoader
+import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}

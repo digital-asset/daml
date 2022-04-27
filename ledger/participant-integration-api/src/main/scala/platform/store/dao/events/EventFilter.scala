@@ -7,6 +7,7 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.TransactionFilter
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.value.{Identifier => ProtoIdentifier}
+import com.daml.platform.Party
 import com.daml.platform.api.v1.event.EventOps.EventOps
 
 private[platform] object EventFilter {
