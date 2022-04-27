@@ -391,8 +391,11 @@ renderTemplateDef TemplateDef {..} =
         T.unlines $
         concat
           [ ["exports." <> tplName <> " = Object.assign("]
+          -- defining the template directly here would overwrite the template ID
+          -- with an interface ID
+          , ["{},"]
           , [impl <> "," | (_, JsSerializerConRef impl) <- tplImplements']
-          -- we spread in the interface choices, the templateId field of the interface will be overwritten by the template object.
+          -- template ID and directly-defined choices are always top-priority
           , [ T.unlines $
               concat
                 [ ["{"]
