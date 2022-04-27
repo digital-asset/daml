@@ -459,7 +459,7 @@ If there is no explicit iterator, you can use recursion. Let's try to write a fu
 
 You may be tempted to make ``reverseWorker`` a local definition inside ``reverse``, but Daml only supports recursion for top-level functions so the recursive part ``recurseWorker`` has to be its own top-level function.
 
-Folds and Maps In Action Contexts
+Folds and Maps in Action Contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. In day-to-day Daml that's the exception rather than the rule. If you have looked at the chapter 8 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA`` all over the place. A good example are the ``mapA`` in the ``testMultiTrade`` script:
