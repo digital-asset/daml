@@ -10,6 +10,7 @@ import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.syntax.std.option._
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -74,6 +75,7 @@ private[inner] object TemplateClass extends StrictLogging {
             .addGenerateFromMethods()
             .build()
         )
+        .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
         .build()
@@ -308,4 +310,45 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext.name,
     )
 
+  private def generateCompanion(
+      templateClassName: ClassName,
+      maybeKey: Option[Type],
+      packagePrefixes: Map[PackageId, String],
+  ): FieldSpec = {
+    import scala.language.existentials
+    import javaapi.data.codegen.ContractCompanion
+    val (fieldClass, keyTypes, keyParams, keyArgs) = maybeKey.cata(
+      keyType =>
+        (
+          classOf[ContractCompanion.WithKey[_, _, _, _]],
+          Seq(toJavaTypeName(keyType, packagePrefixes)),
+          ", e -> $L",
+          Seq(
+            FromValueGenerator
+              .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes)
+          ),
+        ),
+      (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),
+    )
+    FieldSpec
+      .builder(
+        ParameterizedTypeName.get(
+          ClassName get fieldClass,
+          Seq(
+            ClassName bestGuess "Contract",
+            ClassName bestGuess "ContractId",
+            templateClassName,
+          ) ++ keyTypes: _*
+        ),
+        "COMPANION",
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer(
+        "new $T<>(TEMPLATE_ID, $T.ContractId::new, $T::fromValue, $T.Contract::new" + keyParams + ")",
+        Seq(fieldClass, templateClassName, templateClassName, templateClassName) ++ keyArgs: _*
+      )
+      .build()
+  }
 }
