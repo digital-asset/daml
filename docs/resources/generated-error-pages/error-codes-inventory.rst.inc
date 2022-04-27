@@ -178,7 +178,7 @@ INVALID_RECORD_TIME
 RECORD_TIME_OUT_OF_BOUNDS
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: The record time is not within bounds for reasons such as excessive latency. Excessive clock skew between the participant and the committer or a time model that is too restrictive may also produce this rejection.
+    **Explanation**: The record time is not within bounds for reasons such as excessive latency, excessive clock skew between the participant and the committer or a time model that is too restrictive.
 
     **Category**: ContentionOnSharedResources
 
