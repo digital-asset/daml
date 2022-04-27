@@ -149,18 +149,6 @@
   type: jar-scala
 - target: //ledger/participant-state:participant-state
   type: jar-scala
-- target: //ledger/participant-state/kvutils:daml_kvutils_proto_jar
-  type: jar-lib
-- target: //ledger/participant-state/kvutils:daml_kvutils_proto_java
-  type: jar-proto
-- target: //ledger/participant-state/kvutils:kvutils
-  type: jar-scala
-- target: //ledger/participant-state/kvutils:kvutils-tests-lib
-  type: jar-scala
-- target: //ledger/participant-state/kvutils/app:app
-  type: jar-scala
-- target: //ledger/participant-state/kvutils/tools:tools
-  type: jar-scala
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
 - target: //ledger/participant-state-kv-errors:participant-state-kv-errors
