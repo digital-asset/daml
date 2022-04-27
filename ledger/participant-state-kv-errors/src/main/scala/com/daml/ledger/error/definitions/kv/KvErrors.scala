@@ -46,7 +46,7 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
     object PostExecutionConflicts
         extends ErrorCode(
           id = "INCONSISTENT_INPUT",
-          ErrorCategory.InconsistentSystemStateDuringSubmission,
+          ErrorCategory.ContentionOnSharedResources,
         ) {
 
       case class Reject(
@@ -119,7 +119,7 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
     object RecordTimeOutOfBounds
         extends ErrorCode(
           id = "RECORD_TIME_OUT_OF_BOUNDS",
-          ErrorCategory.InconsistentSystemStateDuringSubmission, // It may succeed at a later time
+          ErrorCategory.ContentionOnSharedResources, // It may succeed at a later time
         ) {
       case class Reject(
           override val definiteAnswer: Boolean,

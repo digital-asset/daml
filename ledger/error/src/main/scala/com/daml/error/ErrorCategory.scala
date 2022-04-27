@@ -53,7 +53,6 @@ object ErrorCategory {
       InvalidGivenCurrentSystemStateSeekAfterEnd,
       BackgroundProcessDegradationWarning,
       InternalUnsupportedOperation,
-      InconsistentSystemStateDuringSubmission,
     )
 
   def fromInt(ii: Int): Option[ErrorCategory] = all.find(_.asInt == ii)
@@ -358,23 +357,6 @@ object ErrorCategory {
         securitySensitive = true,
         asInt = 14,
         rank = 1,
-      )
-      with ErrorCategory
-
-  @Description(
-    """The mutable state of the system no longer satisfies the requirements set by the submission."""
-  )
-  @RetryStrategy("""Retry quickly (indefinitely or limited).""")
-  @Resolution("""Expectation: this is processing-flow level contention that should be handled by
-                |retrying the request with appropriate backoff.""")
-  object InconsistentSystemStateDuringSubmission
-      extends ErrorCategoryImpl(
-        grpcCode = Some(Code.ABORTED),
-        logLevel = Level.INFO,
-        retryable = None,
-        securitySensitive = false,
-        asInt = 15,
-        rank = 3,
       )
       with ErrorCategory
 
