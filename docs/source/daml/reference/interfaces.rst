@@ -200,10 +200,24 @@ Interface functions
        be used to convert an interface contract id into a contract id of one of
        its required interfaces.
    * - ``fromInterfaceContractId``
-     - ``forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))``
-     - ``ContractId MyInterface -> Update (Optional (ContractId MyTemplate))``
-     - Attempts to convert an interface contract id into a template contract id.
-       In order to verify that the underlying contract has the expected template
-       type, this needs to perform a fetch. Can also be used to convert a
-       contract id of an interface type to a contract id of one of its
-       requiring interfaces.
+     - ``forall t i. HasFromInterface t i => ContractId i -> ContractId t``
+     - ``ContractId MyInterface -> ContractId MyTemplate``
+     - Converts an interface contract id into a template contract id.
+       Can also be used to convert an interface contract id into a contract id
+       of a one of its requiring interfaces.
+       This function does not verify that the given contract id actually points
+       to a contract of the resulting type; if that is not the case, a
+       subsequent ``fetch``, ``exercise`` or ``archive`` will fail.
+       Therefore, this should only be used when the underlying contract is known
+       to be of the resulting type, or when the result is immediately used by a
+       ``fetch``, ``exercise`` or ``archive`` action and a transaction failure
+       is the desired behavior in case of mismatch.
+       In all other cases, consider using ``fetchFromInterface`` instead.
+   * - ``fetchFromInterface``
+     - ``forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t, t))``
+     - ``ContractId MyInterface -> Update (Optional (ContractId MyTemplate, MyTemplate))``
+     - Attempts to fetch and convert an interface contract id into a template,
+       returning both the converted contract and its contract id if the
+       conversion is successful, or ``None`` otherwise.
+       Can also be used to fetch and convert an interface contract id into a
+       contract and contract id of one of its requiring interfaces.
