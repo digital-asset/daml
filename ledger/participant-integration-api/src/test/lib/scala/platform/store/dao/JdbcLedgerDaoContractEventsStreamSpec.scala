@@ -9,8 +9,8 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.{Value => LfValue}
-import com.daml.platform.store.appendonlydao.events.{Contract, ContractId, ContractStateEvent}
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent.{
+import com.daml.platform.store.dao.events.{Contract, ContractId, ContractStateEvent}
+import com.daml.platform.store.dao.events.ContractStateEvent.{
   Archived,
   Created,
   LedgerEndMarker,

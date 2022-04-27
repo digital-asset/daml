@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao.events
+package com.daml.platform.store.dao.events
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -10,8 +10,8 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.FetchTransactions
-import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReaderSpec.{
+import com.daml.platform.store.dao.events.BufferedTransactionsReader.FetchTransactions
+import com.daml.platform.store.dao.events.BufferedTransactionsReaderSpec.{
   predecessor,
   transactionLogUpdate,
 }

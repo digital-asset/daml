@@ -13,7 +13,7 @@ import com.daml.platform.store.Conversions.{ledgerString, offset, timestampFromM
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.PackageStorageBackend
 import com.daml.platform.store.cache.LedgerEndCache

@@ -17,9 +17,9 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
-import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.dao.events.Raw.TreeEvent
+import com.daml.platform.store.dao.events._
+import com.daml.platform.store.dao.JdbcLedgerDao
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status

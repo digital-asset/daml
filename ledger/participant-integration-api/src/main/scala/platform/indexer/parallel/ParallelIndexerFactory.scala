@@ -12,7 +12,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,

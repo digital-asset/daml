@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao
+package com.daml.platform.store.dao
 
 import java.sql.Connection
 import com.daml.ledger.offset.Offset
@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
+import com.daml.platform.store.dao.SequentialWriteDaoSpec._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 import com.daml.platform.store.cache.MutableLedgerEndCache

@@ -12,7 +12,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.Conversions.{contractId, eventId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.events.{EventsTable, Raw}
+import com.daml.platform.store.dao.events.{EventsTable, Raw}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent

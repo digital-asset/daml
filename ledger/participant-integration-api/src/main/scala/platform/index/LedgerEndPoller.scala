@@ -8,7 +8,7 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.LedgerReadDao
+import com.daml.platform.store.dao.LedgerReadDao
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 
 import scala.concurrent.{ExecutionContext, Future}

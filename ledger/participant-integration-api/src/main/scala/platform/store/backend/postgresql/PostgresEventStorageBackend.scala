@@ -27,7 +27,7 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
 
   /** If `pruneAllDivulgedContracts` is set, validate that the pruning offset is after
     * the last event offset that was ingested before the migration to append-only schema (if such event offset exists).
-    * (see [[com.daml.platform.store.appendonlydao.JdbcLedgerDao.prune]])
+    * (see [[com.daml.platform.store.dao.JdbcLedgerDao.prune]])
     */
   override def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,

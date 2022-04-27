@@ -25,7 +25,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.PersistenceResponse
+import com.daml.platform.store.dao.PersistenceResponse
 import com.daml.platform.store.dao.JdbcLedgerDaoSuite._
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite

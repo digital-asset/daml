@@ -11,7 +11,7 @@ import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
 import lf.data.Time.Timestamp
 import lf.transaction.GlobalKey
-import platform.store.appendonlydao.events.ContractId
+import platform.store.dao.events.ContractId
 import com.google.rpc.status.Status
 import java.time.Duration
 

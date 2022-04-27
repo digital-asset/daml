@@ -7,7 +7,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.SequencerState.{LastUpdatedAt, SequencerQueue}
 import com.daml.lf.transaction.GlobalKey
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
+import com.daml.platform.store.dao.events.{ContractId, Key}
 
 import scala.collection.Searching
 import scala.util.chaining._
