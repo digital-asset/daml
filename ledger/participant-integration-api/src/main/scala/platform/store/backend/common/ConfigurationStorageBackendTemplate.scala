@@ -10,7 +10,7 @@ import anorm.RowParser
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.Conversions.offset
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.ConfigurationStorageBackend

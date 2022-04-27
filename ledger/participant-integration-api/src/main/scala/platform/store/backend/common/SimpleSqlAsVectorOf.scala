@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store
+package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 private[platform] object SimpleSqlAsVectorOf {
 
-  implicit final class SimpleSqlAsVectorOf(val sql: SimpleSql[Row]) extends AnyVal {
+  implicit final class `SimpleSql ops`(val sql: SimpleSql[Row]) extends AnyVal {
 
     /** Returns the result of [[sql]] as a [[Vector]].
       *
