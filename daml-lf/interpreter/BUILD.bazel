@@ -44,8 +44,6 @@ da_scala_library(
     ],
 )
 
-bigNumericTests = "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala"
-
 da_scala_library(
     name = "interpreter-test-lib",
     srcs = glob(["src/test/**/*Lib.scala"]),
@@ -68,7 +66,6 @@ da_scala_test_suite(
     srcs = glob(
         ["src/test/**/*.scala"],
         exclude = [
-            bigNumericTests,
             "src/test/**/*Lib.scala",
         ],
     ),
@@ -98,29 +95,6 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_test(
-    name = "test_bignumeric",
-    srcs = [bigNumericTests],
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_freespec",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":interpreter",
-        ":interpreter-test-lib",
-        "//daml-lf/data",
-        "//daml-lf/language",
-        "//daml-lf/parser",
-        "//daml-lf/transaction",
-        "//libs-scala/contextualized-logging",
-        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
