@@ -116,14 +116,10 @@ case class CommandSubmitter(
       }
     } yield ()
 
-  private def submitAndWait(
-      id: String,
-      party: Primitive.Party,
-      commands: Seq[Command],
-  )(implicit
+  private def submitAndWait(id: String, party: Primitive.Party, commands: List[Command])(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    def makeCommands(commands: Seq[Command]) = new Commands(
+    val result = new Commands(
       ledgerId = benchtoolUserServices.ledgerId,
       applicationId = names.benchtoolApplicationId,
       commandId = id,
@@ -131,11 +127,7 @@ case class CommandSubmitter(
       commands = commands,
       workflowId = names.workflowId,
     )
-
-    for {
-      _ <- benchtoolUserServices.commandService
-        .submitAndWait(makeCommands(commands))
-    } yield ()
+    benchtoolUserServices.commandService.submitAndWait(result).map(_ => ())
   }
 
   private def submitCommands(
@@ -151,7 +143,7 @@ case class CommandSubmitter(
 
     val numBatches: Int = config.numberOfInstances / submissionBatchSize
     val progressMeter = CommandSubmitter.ProgressMeter(config.numberOfInstances)
-    // Output a log line roughly once per 10% progress, or once every 10000 submissions (whichever comes first)
+    // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
     val progressLogInterval = math.min(config.numberOfInstances / 10 + 1, 10000)
     val progressLoggingSink = {
       var lastInterval = 0
@@ -193,7 +185,7 @@ case class CommandSubmitter(
                 submitAndWait(
                   id = names.commandId(index),
                   party = signatory,
-                  commands = commands.flatten,
+                  commands = commands,
                 )
               )
                 .map(_ => index + commands.length - 1)

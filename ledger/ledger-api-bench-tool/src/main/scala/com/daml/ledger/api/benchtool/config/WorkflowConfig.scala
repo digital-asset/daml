@@ -3,10 +3,6 @@
 
 package com.daml.ledger.api.benchtool.config
 
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig.{
-  ConsumingExercises,
-  NonconsumingExercises,
-}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 case class WorkflowConfig(
@@ -21,8 +17,6 @@ object WorkflowConfig {
       numberOfObservers: Int,
       uniqueParties: Boolean,
       instanceDistribution: List[WorkflowConfig.SubmissionConfig.ContractDescription],
-      nonconsumingExercises: Option[NonconsumingExercises],
-      consumingExercises: Option[ConsumingExercises],
   )
 
   object SubmissionConfig {
@@ -30,18 +24,8 @@ object WorkflowConfig {
         template: String,
         weight: Int,
         payloadSizeBytes: Int,
+        archiveChance: Double,
     )
-
-    case class NonconsumingExercises(
-        probability: Double,
-        payloadSizeBytes: Int,
-    )
-
-    case class ConsumingExercises(
-        probability: Double,
-        payloadSizeBytes: Int,
-    )
-
   }
 
   sealed trait StreamConfig extends Product with Serializable {

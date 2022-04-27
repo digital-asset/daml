@@ -98,32 +98,19 @@ object WorkflowConfigParser {
         }
 
     implicit val contractDescriptionDecoder: Decoder[SubmissionConfig.ContractDescription] =
-      Decoder.forProduct3(
+      Decoder.forProduct4(
         "template",
         "weight",
         "payload_size_bytes",
+        "archive_probability",
       )(SubmissionConfig.ContractDescription.apply)
 
-    implicit val nonconsumingExercisesDecoder: Decoder[SubmissionConfig.NonconsumingExercises] =
-      Decoder.forProduct2(
-        "probability",
-        "payload_size_bytes",
-      )(SubmissionConfig.NonconsumingExercises.apply)
-
-    implicit val consumingExercisesDecoder: Decoder[SubmissionConfig.ConsumingExercises] =
-      Decoder.forProduct2(
-        "probability",
-        "payload_size_bytes",
-      )(SubmissionConfig.ConsumingExercises.apply)
-
     implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
-      Decoder.forProduct6(
+      Decoder.forProduct4(
         "num_instances",
         "num_observers",
         "unique_parties",
         "instance_distribution",
-        "nonconsuming_exercises",
-        "consuming_exercises",
       )(SubmissionConfig.apply)
 
     implicit val workflowConfigDecoder: Decoder[WorkflowConfig] =
