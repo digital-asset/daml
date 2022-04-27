@@ -21,6 +21,7 @@ import com.daml.lf.codegen.backend.java.inner.ClassGenUtils.{
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Type
 import com.squareup.javapoet._
+import scalaz.syntax.std.option._
 
 import scala.jdk.CollectionConverters._
 import javax.lang.model.element.Modifier
@@ -184,21 +185,15 @@ object ContractClass {
       val contractIdClassName = ClassName.bestGuess("ContractId")
       val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
 
+      import scala.language.existentials
+      val (contractSuperclass, keyTparams) = contractKeyClassName.cata(
+        kname => (classOf[javaapi.data.codegen.ContractWithKey[_, _, _]], Seq(kname)),
+        (classOf[javaapi.data.codegen.Contract[_, _]], Seq.empty),
+      )
       classBuilder.superclass(
-        contractKeyClassName.fold(
-          ParameterizedTypeName.get(
-            ClassName get classOf[javaapi.data.codegen.Contract[_, _]],
-            contractIdClassName,
-            templateClassName,
-          )
-        )(kname =>
-          ParameterizedTypeName.get(
-            ClassName get
-              classOf[javaapi.data.codegen.ContractWithKey[_, _, _]],
-            contractIdClassName,
-            templateClassName,
-            kname,
-          )
+        ParameterizedTypeName.get(
+          ClassName get contractSuperclass,
+          Seq(contractIdClassName, templateClassName) ++ keyTparams: _*
         )
       )
 
@@ -217,25 +212,16 @@ object ContractClass {
         .addParameter(setOfStrings, signatoriesFieldName)
         .addParameter(setOfStrings, observersFieldName)
 
-      contractKeyClassName.fold(
-        constructorBuilder.addStatement(
-          "super($L, $L, $L, $L, $L)",
-          idFieldName,
-          dataFieldName,
-          agreementFieldName,
+      val (superCtor, superCtorKeyArgs) = contractKeyClassName.cata(
+        _ => ("super($L, $L, $L, $L, $L, $L)", Seq(contractKeyFieldName)),
+        ("super($L, $L, $L, $L, $L)", Seq.empty),
+      )
+      constructorBuilder.addStatement(
+        superCtor,
+        Seq(idFieldName, dataFieldName, agreementFieldName) ++ superCtorKeyArgs ++ Seq(
           signatoriesFieldName,
           observersFieldName,
-        )
-      )(_ =>
-        constructorBuilder.addStatement(
-          "super($L, $L, $L, $L, $L, $L)",
-          idFieldName,
-          dataFieldName,
-          agreementFieldName,
-          contractKeyFieldName,
-          signatoriesFieldName,
-          observersFieldName,
-        )
+        ): _*
       )
 
       val constructor = constructorBuilder.build()
