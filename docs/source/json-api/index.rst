@@ -49,7 +49,7 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
     daml new my-project --template quickstart-java
     cd my-project
     daml build
-    daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
+    daml sandbox --wall-clock-time --dar ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
@@ -298,21 +298,21 @@ require at least one party in either ``actAs`` or ``readAs``. The application id
     token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id
     and party so it requires that you use :ref:`a valid Daml ledger access token format<access-token-formats>`.
 
-For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.atGiYNc9HfBFbm8s9j5vvMv2sJUlVprFiRmLeoUpJeY>`_ (or the JWT library of your choice) to generate your
+For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJzYW5kYm94IiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsImFjdEFzIjpbIkFsaWNlIl19fQ.1Y9BBFH5uVz1Nhfmx12G_ECJVcMncwm-XLaWM40EHbY>`_ (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
     {
       "https://daml.com/ledger-api": {
-        "ledgerId": "MyLedger",
+        "ledgerId": "sandbox",
         "applicationId": "foobar",
         "actAs": ["Alice"]
       }
     }
 
 The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying Daml Ledger.
-For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
+For the Sandbox this corresponds to the participant id which by default is just `sandbox`.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
 
@@ -330,18 +330,18 @@ the service as described in the following sections.
 
 Alternatively, here are two tokens you can use for testing:
 
-``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
+``{"https://daml.com/ledger-api": {"ledgerId": "sandbox", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
 
 .. code-block:: none
 
-    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJzYW5kYm94IiwiYXBwbGljYXRpb25JZCI6IkhUVFAtSlNPTi1BUEktR2F0ZXdheSIsImFjdEFzIjpbIkFsaWNlIl19fQ.FIjS4ao9yu1XYnv1ZL3t7ooPNIyQYAHY3pmzej4EMCM
 
 
-``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
+``{"https://daml.com/ledger-api": {"ledgerId": "sandbox", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
 
 .. code-block:: none
 
-    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJzYW5kYm94IiwiYXBwbGljYXRpb25JZCI6IkhUVFAtSlNPTi1BUEktR2F0ZXdheSIsImFjdEFzIjpbIkJvYiJdfX0.y6iwpnYt-ObtNo_FyLVxMtNTwpJF8uxzNfPELQUVKVg
 
 Auth via HTTP
 ^^^^^^^^^^^^^
