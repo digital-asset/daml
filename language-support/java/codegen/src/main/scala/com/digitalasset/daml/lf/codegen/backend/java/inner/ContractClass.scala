@@ -184,18 +184,17 @@ object ContractClass {
       val contractIdClassName = ClassName.bestGuess("ContractId")
       val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
 
-      classBuilder.addField(contractIdClassName, idFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
-
       contractKeyClassName.foreach { name =>
         classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
       }
 
-      classBuilder.addField(setOfStrings, signatoriesFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      classBuilder.addField(setOfStrings, observersFieldName, Modifier.PUBLIC, Modifier.FINAL)
-
-      classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
+      classBuilder.superclass(
+        ParameterizedTypeName.get(
+          ClassName get classOf[javaapi.data.codegen.Contract[_, _]],
+          contractIdClassName,
+          templateClassName,
+        )
+      )
 
       val constructorBuilder = MethodSpec
         .constructorBuilder()
@@ -212,14 +211,17 @@ object ContractClass {
         .addParameter(setOfStrings, signatoriesFieldName)
         .addParameter(setOfStrings, observersFieldName)
 
-      constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
-      constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
-      constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
+      constructorBuilder.addStatement(
+        "super($L, $L, $L, $L, $L)",
+        idFieldName,
+        dataFieldName,
+        agreementFieldName,
+        signatoriesFieldName,
+        observersFieldName,
+      )
       contractKeyClassName.foreach { _ =>
         constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName)
       }
-      constructorBuilder.addStatement("this.$L = $L", signatoriesFieldName, signatoriesFieldName)
-      constructorBuilder.addStatement("this.$L = $L", observersFieldName, observersFieldName)
 
       val constructor = constructorBuilder.build()
 
