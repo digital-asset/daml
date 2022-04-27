@@ -134,7 +134,7 @@ Let's turn this into prose: Given that ``t`` is the type of a template, and that
 
 That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
 
-Pattern Matching In Arguments
+Pattern Matching in Arguments
 .............................
 
 You met pattern matching in :doc:`3_Data`, using ``case`` statements which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
