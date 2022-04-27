@@ -17,11 +17,7 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
-import com.daml.platform.store.dao.{
-  JdbcLedgerDao,
-  LedgerDaoTransactionsReader,
-  LedgerReadDao,
-}
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{
   EventsBuffer,

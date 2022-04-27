@@ -10,11 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.platform.store.dao.events.{Contract, ContractId, ContractStateEvent}
-import com.daml.platform.store.dao.events.ContractStateEvent.{
-  Archived,
-  Created,
-  LedgerEndMarker,
-}
+import com.daml.platform.store.dao.events.ContractStateEvent.{Archived, Created, LedgerEndMarker}
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
