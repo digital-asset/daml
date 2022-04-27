@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.platform.store.appendonlydao._
+import com.daml.platform.store.dao._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 

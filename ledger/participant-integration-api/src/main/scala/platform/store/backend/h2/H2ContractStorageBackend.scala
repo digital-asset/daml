@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend.h2
 
 import anorm.{Row, SimpleSql}
-import com.daml.platform.store.appendonlydao.events.ContractId
+import com.daml.platform.store.dao.events.ContractId
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.ContractStorageBackendTemplate
 import com.daml.platform.store.cache.LedgerEndCache

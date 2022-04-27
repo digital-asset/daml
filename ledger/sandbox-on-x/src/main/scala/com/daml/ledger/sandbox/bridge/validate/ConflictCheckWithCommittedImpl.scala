@@ -16,7 +16,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
-import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.dao.events._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

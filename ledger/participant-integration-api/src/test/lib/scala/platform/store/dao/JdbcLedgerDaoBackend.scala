@@ -13,8 +13,8 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
-import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
+import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}

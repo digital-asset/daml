@@ -12,7 +12,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{ledgerString, offset, party, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PartyStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.cache.LedgerEndCache

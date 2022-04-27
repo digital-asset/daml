@@ -18,7 +18,7 @@ import com.daml.lf.value.Value.{ContractInstance, ValueInt64, VersionedValue}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
   IndexViewContractsReader,
