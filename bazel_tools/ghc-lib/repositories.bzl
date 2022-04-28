@@ -20,6 +20,7 @@ load(
 )
 
 def _ghc_lib_deps_windows():
+    """Import dependencies of ghc-lib on Windows."""
     dadew_binary_bundle(
         name = "dadew_ghc_lib_deps",
         paths = [
@@ -134,6 +135,7 @@ def _ghc_lib_deps_windows():
     )
 
 def _ghc_lib_deps_unix():
+    """Import dependencies of ghc-lib on Linux and MacOS."""
     nixpkgs_package(
         name = "nix_ghc_lib_deps",
         attribute_path = "ghc_lib_deps",
@@ -145,6 +147,15 @@ def _ghc_lib_deps_unix():
     )
 
 def ghc_lib_and_dependencies():
+    """Import ghc-lib and its Bazel dependencies.
+
+    Import the ghc-lib repository and the corresponding GHC repository as well
+    as any dependencies needed to generate the ghc-lib(-parser) Cabal sdists.
+
+    Note, this does not cover any Stackage dependencies, these are imported
+    using `stack_snapshot`. The final `ghc-lib(-parser)` Haskell packages are
+    also exposed via `@stackage` as vendored packages.
+    """
     _ghc_lib_deps_unix()
     _ghc_lib_deps_windows()
     http_archive(

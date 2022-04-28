@@ -6,6 +6,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary", "haskell_cabal
 load(":version.bzl", "GHC_FLAVOR", "GHC_LIB_VERSION")
 
 def ghc_lib_gen():
+    """Build the ghc-lib-gen binary provided ghc-lib."""
     native.filegroup(
         name = "srcs",
         srcs = native.glob(["**"]),
@@ -49,6 +50,11 @@ def ghc_lib_gen():
     )
 
 def ghc():
+    """Build the ghc-lib(-parser) sdist from GHC using ghc-lib-gen.
+
+    Builds `hadrian` with Bazel and exposes it as a ready-made tool into the
+    `genrule`s that create the Cabal sdists.
+    """
     native.filegroup(
         name = "hadrian-srcs",
         srcs = native.glob(["hadrian/**"]),
