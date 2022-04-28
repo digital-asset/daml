@@ -16,7 +16,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
-load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib")
+load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
 # TODO[AH] Remove once ghc-lib-gen is fully Bazelified.
 GHC_LIB_REV = "c722d215b83379849383c9233534126e"
@@ -130,7 +130,7 @@ haskell_library(
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
-    ghc_lib()
+    ghc_lib_and_dependencies()
 
     # TODO[AH] Remove once ghc-lib-gen is fully Bazelified.
     http_archive(
