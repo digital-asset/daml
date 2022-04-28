@@ -211,9 +211,16 @@ private[events] object TransactionLogUpdatesConversions {
           )
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)
-            val visibleSet = visible.toSet
+            val visibleOrder = visible.view.zipWithIndex.toMap
             val eventsById = treeEvents.iterator
-              .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+              .map(e =>
+                e.eventId -> e
+                  .filterChildEventIds(visibleOrder.contains)
+                  // childEventIds need to be returned in the event order in the original transaction.
+                  // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
+                  // The order is determined by the order of the events, which follows the event order of the original transaction.
+                  .sortChildEventIdsBy(visibleOrder)
+              )
               .toMap
 
             // All event identifiers that appear as a child of another item in this response

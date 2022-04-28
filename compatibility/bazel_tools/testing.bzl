@@ -819,6 +819,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Fixing childEventId ordering: this test is now checking conformance to ordering, so it needs to be excluded for conformance tests which come after, and for versions which are older
+        "start": "2.2.0-snapshot.20220425.9780.1",
+        "platform_ranges": [
+            {
+                "end": "2.2.0-snapshot.20220425.9780.0.f4d60375",
+                "exclusions": [
+                    "TransactionServiceVisibilityIT:TXTreeChildOrder",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
