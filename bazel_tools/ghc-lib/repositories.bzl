@@ -16,7 +16,6 @@ load(
     "GHC_PATCHES",
     "GHC_REPO_URL",
     "GHC_REV",
-    "GHC_SHA256",
 )
 
 def _ghc_lib_deps_windows():
