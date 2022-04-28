@@ -169,7 +169,7 @@ case class CommandSubmitter(
       signatory = signatory,
       config = config,
       observers = observers,
-    ).asInstanceOf[FooCommandGenerator]
+    )
 
     logger.info(
       s"Submitting commands ($numBatches commands, $submissionBatchSize contracts per command)..."
