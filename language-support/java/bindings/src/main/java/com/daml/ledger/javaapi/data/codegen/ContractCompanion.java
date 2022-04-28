@@ -133,6 +133,7 @@ public abstract class ContractCompanion<Ct, Id, Data> {
           event.getObservers());
     }
 
+    @FunctionalInterface
     public interface NewContract<Ct, Id, Data, Key> {
       Ct newContract(
           Id id,
