@@ -137,38 +137,36 @@ object ContractClass {
         className: ClassName,
         maybeContractKeyClassName: Option[TypeName],
     ): MethodSpec = {
-
-      val (keyParam, keyFmt, keyArgs) = maybeContractKeyClassName.cata(
-        name =>
-          (
-            Seq(ParameterSpec.builder(optional(name), contractKeyFieldName).build),
-            ", $N",
-            Seq(contractKeyFieldName),
-          ),
-        (Seq.empty, "", Seq.empty),
-      )
-      val methodParameters = Iterable(
-        ParameterSpec.builder(classOf[String], "contractId").build(),
-        ParameterSpec.builder(classOf[javaapi.data.DamlRecord], "record$").build(),
-        ParameterSpec.builder(optionalString, agreementFieldName).build(),
-      ) ++ keyParam ++ Iterable(
-        ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(),
-        ParameterSpec.builder(setOfStrings, observersFieldName).build(),
+      val methodParameters = Seq(
+        (ClassName get classOf[String], "contractId"),
+        (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
+        (optionalString, agreementFieldName),
+      ) ++ maybeContractKeyClassName
+        .map(name => (optional(name), contractKeyFieldName))
+        .toList ++ Iterable(
+        (setOfStrings, signatoriesFieldName),
+        (setOfStrings, observersFieldName),
       )
 
-      val spec =
-        MethodSpec
-          .methodBuilder("fromIdAndRecord")
-          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(className)
-          .addParameters(methodParameters.asJava)
-          .addStatement(
-            "return COMPANION.fromIdAndRecord(contractId, record$$, $N" + keyFmt + ", $N, $N)",
-            Seq(agreementFieldName) ++ keyArgs ++
-              Seq(signatoriesFieldName, observersFieldName): _*
-          )
+      generateCompanionForwarder("fromIdAndRecord", className, methodParameters: _*)
+    }
 
-      spec.build()
+    private[this] def generateCompanionForwarder(
+        methodName: String,
+        returns: TypeName,
+        parameters: (TypeName, String)*
+    ): MethodSpec = {
+      val methodParameters = parameters.map { case (t, n) => ParameterSpec.builder(t, n).build() }
+      MethodSpec
+        .methodBuilder(methodName)
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(returns)
+        .addParameters(methodParameters.asJava)
+        .addStatement(
+          "return COMPANION.$N(" + parameters.view.map(_ => "$N").mkString(",$W") + ")",
+          methodName +: parameters.map(_._2): _*
+        )
+        .build()
     }
 
     def create(
