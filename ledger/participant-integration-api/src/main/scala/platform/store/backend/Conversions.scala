@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store
+package com.daml.platform.store.backend
 
 import anorm.Column.nonNull
 import anorm._
@@ -15,84 +15,11 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.io.BufferedReader
-import java.sql.{PreparedStatement, SQLNonTransientException, Types}
+import java.sql.{PreparedStatement, SQLNonTransientException}
 import java.util.stream.Collectors
 import scala.util.Try
 
-// TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
-
-private[platform] object OracleArrayConversions {
-  implicit object PartyJsonFormat extends RootJsonFormat[Ref.Party] {
-    def write(c: Ref.Party) =
-      JsString(c)
-
-    def read(value: JsValue) = value match {
-      case JsString(s) => s.asInstanceOf[Ref.Party]
-      case _ => deserializationError("Party expected")
-    }
-  }
-
-  implicit object LedgerStringJsonFormat extends RootJsonFormat[Ref.LedgerString] {
-    def write(c: Ref.LedgerString) =
-      JsString(c)
-
-    def read(value: JsValue) = value match {
-      case JsString(s) => s.asInstanceOf[Ref.LedgerString]
-      case _ => deserializationError("Ledger string expected")
-    }
-  }
-  implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
-    override def sqlType: String = "ARRAY"
-    override def jdbcType: Int = java.sql.Types.ARRAY
-  }
-
-  // Oracle does not support the boolean SQL type, so we need to treat it as integer
-  // when setting nulls
-  implicit object BooleanParameterMetaData extends ParameterMetaData[Boolean] {
-    val sqlType = "INTEGER"
-    val jdbcType = Types.INTEGER
-  }
-
-}
-
-private[platform] object JdbcArrayConversions {
-
-  // Array[String]
-
-  implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
-    override def sqlType: String = "ARRAY"
-    override def jdbcType: Int = java.sql.Types.ARRAY
-  }
-
-  abstract sealed class ArrayToStatement[T](postgresTypeName: String)
-      extends ToStatement[Array[T]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf(postgresTypeName, v.asInstanceOf[Array[AnyRef]])
-      s.setArray(index, ts)
-    }
-  }
-
-  object IntToSmallIntConversions {
-
-    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
-      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
-        val conn = s.getConnection
-        val intOrNullsArray = intOpts.map(_.map(Integer.valueOf(_)).orNull)
-        val ts = conn.createArrayOf("SMALLINT", intOrNullsArray.asInstanceOf[Array[AnyRef]])
-        s.setArray(index, ts)
-      }
-    }
-
-  }
-
-  implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
-
-  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
-
-}
-
-private[platform] object Conversions {
+private[backend] object Conversions {
 
   private def stringColumnToX[X](f: String => Either[String, X]): Column[X] =
     Column.nonNull((value: Any, meta) =>

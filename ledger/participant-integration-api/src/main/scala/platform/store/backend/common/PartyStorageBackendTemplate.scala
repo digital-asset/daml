@@ -10,7 +10,12 @@ import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{ledgerString, offset, party, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{
+  ledgerString,
+  offset,
+  party,
+  timestampFromMicros,
+}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PartyStorageBackend
@@ -24,7 +29,7 @@ class PartyStorageBackendTemplate(
 ) extends PartyStorageBackend {
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
+    import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     (offset("ledger_offset") ~
       timestampFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
@@ -91,7 +96,7 @@ class PartyStorageBackendTemplate(
   }
 
   private val partyDetailsParser: RowParser[PartyDetails] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
+    import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     str("party") ~
       str("display_name").? ~
       bool("is_local") map { case party ~ displayName ~ isLocal =>
@@ -107,7 +112,7 @@ class PartyStorageBackendTemplate(
       parties: Option[Set[String]],
       connection: Connection,
   ): Vector[PartyDetails] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
       case None => cSQL""

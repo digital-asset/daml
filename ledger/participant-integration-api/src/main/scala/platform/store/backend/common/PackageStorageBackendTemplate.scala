@@ -9,7 +9,7 @@ import anorm.SqlParser.{flatten, str}
 import anorm.{Macro, RowParser, SqlParser}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.platform.store.Conversions.{ledgerString, offset, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{ledgerString, offset, timestampFromMicros}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
@@ -40,7 +40,7 @@ private[backend] class PackageStorageBackendTemplate(
     )
 
   def lfPackages(connection: Connection): Map[PackageId, PackageDetails] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
       select packages.package_id, packages.source_description, packages.known_since, packages.package_size
@@ -59,8 +59,8 @@ private[backend] class PackageStorageBackendTemplate(
   }
 
   def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]] = {
-    import com.daml.platform.store.Conversions.packageIdToStatement
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.packageIdToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
       select packages.package

@@ -15,7 +15,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
-import com.daml.platform.store.Conversions.{offset, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{offset, timestampFromMicros}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.interning.StringInterning
@@ -35,7 +35,7 @@ class CompletionStorageBackendTemplate(
       applicationId: Ref.ApplicationId,
       parties: Set[Party],
   )(connection: Connection): List[CompletionStreamResponse] = {
-    import com.daml.platform.store.Conversions.applicationIdToStatement
+    import com.daml.platform.store.backend.Conversions.applicationIdToStatement
     import ComposableQuery._
     val internedParties =
       parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
@@ -169,7 +169,7 @@ class CompletionStorageBackendTemplate(
       pruneUpToInclusive: Offset
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     pruneWithLogging(queryDescription = "Command completions pruning") {
-      import com.daml.platform.store.Conversions.OffsetToStatement
+      import com.daml.platform.store.backend.Conversions.OffsetToStatement
       SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
     }(connection, loggingContext)
   }

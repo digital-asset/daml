@@ -34,7 +34,7 @@ object H2EventStrategy extends EventStrategy {
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           -- Create events filter table (only for contracts archived before the specified offset)
           delete from participant_events_create_filter
