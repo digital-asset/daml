@@ -144,8 +144,10 @@ object ContractClass {
         .returns(returns)
         .addParameters(methodParameters.asJava)
         .addStatement(
-          "return COMPANION.$N(" + parameters.view.map(_ => "$N").mkString(",$W") + ")",
-          methodName +: parameters.map(_._2): _*
+          "return COMPANION.$N($L)",
+          methodName,
+          CodeBlock
+            .join(parameters.map { case (_, pName) => CodeBlock.of("$N", pName) }.asJava, ",$W"),
         )
         .build()
     }
