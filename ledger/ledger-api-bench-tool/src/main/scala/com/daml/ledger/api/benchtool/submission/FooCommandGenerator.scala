@@ -11,8 +11,8 @@ import com.daml.ledger.test.model.Foo._
 
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicLong
-import scala.util.{Failure, Try}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 case class FooTemplateDescriptor(
     templateId: Identifier,

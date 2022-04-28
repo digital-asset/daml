@@ -11,6 +11,11 @@ import java.io.StringReader
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
+  private val ledgerBeginOffset =
+    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+  private val ledgerEndOffset =
+    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+
   "WorkflowConfigParser" should {
     "parse complete workflow configuration" in {
       val yaml =
@@ -141,20 +146,41 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "parse no submission configuration" in {
+    "parse empty submission configuration" in {
       val yaml =
         """submission:
           |  type: empty
+        """.stripMargin
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = Some(WorkflowConfig.EmptySubmissionConfig),
+          streams = Nil,
+        )
+      )
+    }
+
+    "parse fibonacci submission configuration" in {
+      val yaml =
+        """submission:
+          |  type: fibonacci
+          |  num_instances: 500
+          |  unique_parties: true
+          |  value: 7
         """.stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = Some(
-            WorkflowConfig.EmptySubmissionConfig
+            WorkflowConfig.FibonacciSubmissionConfig(
+              numberOfInstances = 500,
+              uniqueParties = true,
+              value = 7,
+            )
           ),
           streams = Nil,
         )
       )
+
     }
 
     "parse transactions stream configuration" in {
@@ -430,8 +456,5 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
     WorkflowConfigParser.parse(new StringReader(yaml))
 
   def offset(str: String): LedgerOffset = LedgerOffset.defaultInstance.withAbsolute(str)
-  private val ledgerBeginOffset =
-    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-  private val ledgerEndOffset =
-    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+
 }

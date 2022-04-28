@@ -22,6 +22,14 @@ object WorkflowConfig {
     def uniqueParties: Boolean
   }
 
+  final case class FibonacciSubmissionConfig(
+      numberOfInstances: Int,
+      uniqueParties: Boolean,
+      value: Int,
+  ) extends SubmissionConfig {
+    def numberOfObservers = 0
+  }
+
   final case class FooSubmissionConfig(
       numberOfInstances: Int,
       numberOfObservers: Int,

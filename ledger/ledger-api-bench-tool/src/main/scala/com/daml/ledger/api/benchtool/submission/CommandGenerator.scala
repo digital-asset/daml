@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.{
   EmptySubmissionConfig,
+  FibonacciSubmissionConfig,
   FooSubmissionConfig,
   SubmissionConfig,
 }
@@ -26,6 +27,8 @@ object CommandGenerator {
   ): CommandGenerator = config match {
     case c: FooSubmissionConfig =>
       new FooCommandGenerator(randomnessProvider, c, signatory, observers)
+    case c: FibonacciSubmissionConfig =>
+      new FibonacciCommandGenerator(c, signatory)
     case EmptySubmissionConfig =>
       () => Success(Seq.empty)
   }
