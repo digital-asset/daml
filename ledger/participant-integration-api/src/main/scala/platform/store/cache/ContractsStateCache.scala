@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.cache
+
 import com.daml.caching.SizedCache
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics

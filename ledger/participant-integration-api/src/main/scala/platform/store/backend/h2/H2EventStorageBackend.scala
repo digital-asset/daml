@@ -8,7 +8,7 @@ import java.sql.Connection
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
-  ParameterStorageBackendTemplate,
+  ParameterStorageBackendImpl,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
@@ -20,7 +20,7 @@ class H2EventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: Str
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       participantAllDivulgedContractsPrunedUpToInclusive =
-        ParameterStorageBackendTemplate.participantAllDivulgedContractsPrunedUpToInclusive,
+        ParameterStorageBackendImpl.participantAllDivulgedContractsPrunedUpToInclusive,
     ) {
 
   // Migration from mutable schema is not supported for H2

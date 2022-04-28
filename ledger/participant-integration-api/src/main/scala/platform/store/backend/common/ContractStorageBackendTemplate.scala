@@ -9,8 +9,8 @@ import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+import com.daml.platform.store.dao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.backend.ContractStorageBackend.RawContractState

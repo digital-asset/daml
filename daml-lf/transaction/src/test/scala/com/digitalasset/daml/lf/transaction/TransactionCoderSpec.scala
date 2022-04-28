@@ -683,7 +683,7 @@ class TransactionCoderSpec
                 txVersion,
                 NodeId(0),
                 normalizedNode,
-                disableVersionCheck = true, //so the bad proto can be created
+                disableVersionCheck = true, // so the bad proto can be created
               )
           val result =
             TransactionCoder
@@ -713,7 +713,7 @@ class TransactionCoderSpec
               v2,
               NodeId(0),
               normalizedNode,
-              disableVersionCheck = true, //so the bad proto can be created
+              disableVersionCheck = true, // so the bad proto can be created
             )
         val result =
           TransactionCoder
@@ -892,7 +892,7 @@ class TransactionCoderSpec
 
   private[this] def normalizeNode(node: Node) =
     node match {
-      case rb: Node.Rollback => rb //nothing to normalize
+      case rb: Node.Rollback => rb // nothing to normalize
       case exe: Node.Exercise => normalizeExe(exe)
       case fetch: Node.Fetch => normalizeFetch(fetch)
       case create: Node.Create => normalizeCreate(create)

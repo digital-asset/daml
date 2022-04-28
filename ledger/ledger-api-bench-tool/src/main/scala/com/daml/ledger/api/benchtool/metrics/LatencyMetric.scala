@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
+
 import com.daml.ledger.api.benchtool.metrics.LatencyMetric.{LatencyNanos, MaxLatency, Value}
 
 import java.time.Duration

@@ -12,8 +12,8 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.Conversions.{ledgerString, offset, timestampFromMicros}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.PackageStorageBackend
 import com.daml.platform.store.cache.LedgerEndCache
@@ -98,10 +98,10 @@ private[backend] class PackageStorageBackendTemplate(
     SQL"""
       select * from package_entries
       where ${queryStrategy.offsetIsBetween(
-      nonNullableColumn = "ledger_offset",
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-    )}
+        nonNullableColumn = "ledger_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

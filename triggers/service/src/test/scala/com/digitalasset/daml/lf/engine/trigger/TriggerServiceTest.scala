@@ -123,7 +123,7 @@ trait AbstractTriggerServiceTest
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
-          .getOrElse("null")}", "readAs": $readAsContent}""",
+            .getOrElse("null")}", "readAs": $readAsContent}""",
       ),
     )
     httpRequestFollow(req)

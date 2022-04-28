@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams
+
 import akka.actor.ActorSystem
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec

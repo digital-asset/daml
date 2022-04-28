@@ -18,7 +18,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.appendonlydao._
+import com.daml.platform.store.dao._
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -526,7 +526,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  //TODO need to find out why this is so slow to execute on Oracle
+  // TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(

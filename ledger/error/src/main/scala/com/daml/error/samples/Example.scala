@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.samples
+
 import scala.concurrent.duration._
 
 import com.daml.error.definitions.DamlError

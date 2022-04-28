@@ -254,7 +254,7 @@ object SExpr {
         i += 1
       }
       val v = builtin.executePure(actuals)
-      machine.pushEnv(v) //use pushEnv not env.add so instrumentation is updated
+      machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
       machine.ctrl = body
     }
   }
@@ -278,7 +278,7 @@ object SExpr {
       }
       builtin.compute(actuals) match {
         case Some(value) =>
-          machine.pushEnv(value) //use pushEnv not env.add so instrumentation is updated
+          machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
           machine.ctrl = body
         case None =>
           unwindToHandler(machine, builtin.buildException(actuals))

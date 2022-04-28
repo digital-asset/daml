@@ -1641,7 +1641,7 @@ private[lf] object SBuiltin {
         opt match {
           case None =>
             onLedger.ptx = onLedger.ptx.abortTry
-            unwindToHandler(machine, excep) //re-throw
+            unwindToHandler(machine, excep) // re-throw
           case Some(handler) =>
             onLedger.ptx = onLedger.ptx.rollbackTry(excep)
             machine.enterApplication(handler, Array(SEValue(SToken)))
@@ -1862,7 +1862,7 @@ private[lf] object SBuiltin {
                         SCaseAlt(
                           SCPPrimCon(Ast.PCTrue), // True ->
                           SEAppAtomicGeneral(
-                            SEBuiltin(SBEqualList), //single recursive occurrence
+                            SEBuiltin(SBEqualList), // single recursive occurrence
                             Array(
                               SELocA(0), // f
                               SELocS(2), // yss
@@ -1906,7 +1906,7 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
-    //TODO: move this into the speedy compiler code
+    // TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer

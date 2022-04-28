@@ -246,7 +246,7 @@ object TransactionCoder {
       nodeId: NodeId,
       node: Node,
       disableVersionCheck: Boolean =
-        false, //true allows encoding of bad protos (for testing of decode checks)
+        false, // true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
 
     val nodeBuilder =

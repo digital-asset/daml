@@ -230,8 +230,8 @@ private final class ConcatenableMatchingStringModule(
       val c = s(i).toInt
       if (c > 0x7f || disallowedChar(c))
         throw new IllegalArgumentException(s"""non expected character 0x${s(
-          i
-        ).toInt.toHexString} in $description "$s"""")
+            i
+          ).toInt.toHexString} in $description "$s"""")
       i += 1
     }
     s

@@ -529,7 +529,7 @@ object Repl {
             (false, state)
           case success: ScenarioRunner.ScenarioSuccess =>
             // NOTE(JM): cannot print this, output used in tests.
-            //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+            // println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
             println(prettyLedger(success.ledger).render(128))
             (true, state)
         }

@@ -10,7 +10,7 @@ import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.BuffersUpdater._
-import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
+import com.daml.platform.store.dao.events.{Contract, ContractStateEvent, Key, Party}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 

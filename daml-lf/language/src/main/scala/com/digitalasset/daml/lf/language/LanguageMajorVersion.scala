@@ -32,7 +32,7 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: N
     } else {
       val supportedVersions = acceptedVersions.map(v => s"$this.${v.identifier}")
       Left(s"LF $this.$minorVersion unsupported. Supported LF versions are ${supportedVersions
-        .mkString(",")}")
+          .mkString(",")}")
     }
 }
 

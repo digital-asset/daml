@@ -18,7 +18,7 @@ import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.dao.events._
 
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}

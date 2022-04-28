@@ -294,7 +294,7 @@ object Update {
   ) extends Update {
     override def description: String =
       s"Reject command ${completionInfo.commandId}${if (definiteAnswer)
-        " (definite answer)"}: ${reasonTemplate.message}"
+          " (definite answer)"}: ${reasonTemplate.message}"
 
     /** If true, the [[ReadService]]'s deduplication guarantees apply to this rejection.
       * The participant state implementations should strive to set this flag to true as often as

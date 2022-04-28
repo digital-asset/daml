@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.store.appendonlydao.PersistenceResponse
+import com.daml.platform.store.dao.PersistenceResponse
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.entries.PartyLedgerEntry.AllocationAccepted
 import org.scalatest.flatspec.AsyncFlatSpec

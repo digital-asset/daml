@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
+
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Record
 import com.squareup.javapoet.{ClassName, TypeSpec, TypeVariableName}

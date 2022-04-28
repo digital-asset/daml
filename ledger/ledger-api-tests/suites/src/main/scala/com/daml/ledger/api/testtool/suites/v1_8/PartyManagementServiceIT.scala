@@ -196,8 +196,8 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
       assert(
         nonUniqueNames.isEmpty,
         s"There are non-unique party names: ${nonUniqueNames
-          .map { case (name, count) => s"$name ($count)" }
-          .mkString(", ")}",
+            .map { case (name, count) => s"$name ($count)" }
+            .mkString(", ")}",
       )
     }
   })

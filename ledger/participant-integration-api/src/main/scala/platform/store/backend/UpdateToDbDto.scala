@@ -14,8 +14,8 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
-import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.dao.JdbcLedgerDao
+import com.daml.platform.store.dao.events._
 
 object UpdateToDbDto {
 

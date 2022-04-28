@@ -152,19 +152,19 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"(( 42 ))" -> T"Int64",
         // ExpLitDecimal
         E"(( 3.1415926536 ))" -> T"(( Numeric 10 ))",
-        //ExpLitText
+        // ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
-        //ExpLitDate
+        // ExpLitDate
         E"(( 1879-03-14 ))" -> T"(( Date ))",
-        //ExpLitTimestamp
+        // ExpLitTimestamp
         E"(( 1969-07-20T20:17:00.000000Z ))" -> T"(( Timestamp ))",
-        //TextMap
+        // TextMap
         E"Λ (τ : ⋆) . (( TEXTMAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( TextMap τ ))",
-        //GenMap
+        // GenMap
         E"Λ (τ : ⋆) (σ : ⋆). (( GENMAP_EMPTY @τ @σ ))" -> T"∀ (τ : ⋆) (σ : ⋆) . (( GenMap τ σ ))",
-        //ExpVal
+        // ExpVal
         E"(( Mod:f ))" -> T"(( Int64 →  Bool ))",
-        //ExpRecCon
+        // ExpRecCon
         E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f2 =e₂ } )) " ->
           T"∀ (σ : ⋆) . Int64 → List σ → (( Mod:R σ ))",
         // ExpRecProj
@@ -496,13 +496,13 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆). λ (e : List τ) → ⸨ Cons @τ [] e ⸩" -> //
           { case _: EEmptyConsFront => },
-        //ExpVal
+        // ExpVal
         E"⸨ Mod:g ⸩" -> //
           { case EUnknownDefinition(_, LookupError(Reference.Definition(_), Reference.Value(_))) =>
           },
         E"⸨ Mod:R ⸩" -> //
           { case EUnknownDefinition(_, LookupError(Reference.Value(_), Reference.Value(_))) => },
-        //ExpRecCon
+        // ExpRecCon
         E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) → ⸨ Mod:R @σ { f1 = e₁, f2 = nothing } ⸩" -> //

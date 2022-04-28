@@ -142,7 +142,7 @@ object PreemptableSequence {
           case Success(t) => Future.successful(t)
           case Failure(ex) =>
             logger.debug(s"Retrying (retires left: ${if (maxAmountOfRetries < 0) "unlimited"
-            else maxAmountOfRetries - 1}). Due to: ${ex.getMessage}")
+              else maxAmountOfRetries - 1}). Due to: ${ex.getMessage}")
             waitFor(waitMillisBetweenRetries).flatMap(_ =>
               // Note: this recursion is out of stack
               retry(waitMillisBetweenRetries, maxAmountOfRetries - 1)(body)

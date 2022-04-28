@@ -34,8 +34,7 @@ class DeduplicationPeriodValidatorSpec
         maxDeduplicationDuration,
       ),
       code = FAILED_PRECONDITION,
-      description =
-        s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
+      description = s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
           .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication duration of ${maxDeduplicationDuration}",
       metadata = Map(
         ValidMaxDeduplicationFieldKey -> maxDeduplicationDuration.toString

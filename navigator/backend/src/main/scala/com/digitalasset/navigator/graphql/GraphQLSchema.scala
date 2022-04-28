@@ -121,7 +121,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val NodeType: InterfaceType[GraphQLContext, Node[_]] = InterfaceType[GraphQLContext, Node[_]](
     "Node",
     fields[GraphQLContext, Node[_]](
@@ -140,7 +140,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     )
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val DamlLfNodeType: InterfaceType[GraphQLContext, DamlLfNode] = InterfaceType(
     "DamlLfNode",
     fields[GraphQLContext, DamlLfNode](
@@ -169,7 +169,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val TemplateType: ObjectType[GraphQLContext, Template] = ObjectType(
     "Template",
     interfaces[GraphQLContext, Template](NodeType, DamlLfNodeType),
@@ -217,7 +217,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val EventType: InterfaceType[GraphQLContext, Event] = InterfaceType(
     "Event",
     () =>
@@ -250,7 +250,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
   ).withPossibleObjectTypes(() => List(CreatedEventType, ExercisedEventType))
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val CreatedEventType: ObjectType[GraphQLContext, ContractCreated] = ObjectType(
     "CreatedEvent",
     interfaces[GraphQLContext, ContractCreated](NodeType, EventType),
@@ -272,7 +272,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val ExercisedEventType: ObjectType[GraphQLContext, ChoiceExercised] = ObjectType(
     "ExercisedEvent",
     interfaces[GraphQLContext, ChoiceExercised](NodeType, EventType),
@@ -324,7 +324,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val ContractType = ObjectType(
     "Contract",
     interfaces[GraphQLContext, Contract](NodeType),
@@ -392,7 +392,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val CommandStatusType: InterfaceType[GraphQLContext, CommandStatus] = InterfaceType(
     "CommandStatus",
     () =>
@@ -443,7 +443,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val CommandType: InterfaceType[GraphQLContext, Command] = InterfaceType(
     "Command",
     () =>
@@ -525,7 +525,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     ),
   )
 
-  //noinspection ForwardReference
+  // noinspection ForwardReference
   val DamlLfDefDataTypeType: ObjectType[GraphQLContext, DamlLfDefDataTypeBoxed] = ObjectType(
     "DamlLfDefDataType",
     interfaces[GraphQLContext, DamlLfDefDataTypeBoxed](NodeType, DamlLfNodeType),

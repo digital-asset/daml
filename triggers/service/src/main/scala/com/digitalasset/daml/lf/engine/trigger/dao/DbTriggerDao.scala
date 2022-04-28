@@ -328,9 +328,9 @@ final class DbTriggerDaoOracle(
   ): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
       insert /*+  ignore_row_on_dupkey_index ( ${Fragment
-      .const(s"${tablePrefix}dalfs")} ( package_id ) ) */
+        .const(s"${tablePrefix}dalfs")} ( package_id ) ) */
       into ${Fragment
-      .const(s"${tablePrefix}dalfs")} values (${packageId.toString}, ${pkg.toByteArray})
+        .const(s"${tablePrefix}dalfs")} values (${packageId.toString}, ${pkg.toByteArray})
     """
     insert.update.run.void
   }

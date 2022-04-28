@@ -56,25 +56,25 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |
        |Other metrics:
        |  inputMapping.batchSize:     ${histogramToString(
-      metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
-    )}
+        metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
+      )}
        |  inputMapping.duration:      ${histogramToString(
-      inputMappingDurationMetric.getSnapshot
-    )}
+        inputMappingDurationMetric.getSnapshot
+      )}
        |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
        |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
        |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
        |  seqMapping.duration: ${histogramToString(
-      metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot
-    )}|
+        metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot
+      )}|
        |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
        |  ingestion.duration:         ${histogramToString(
-      metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
-    )}
+        metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
+      )}
        |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
        |  tailIngestion.duration:         ${histogramToString(
-      metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
-    )}
+        metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
+      )}
        |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
        |
        |Notes:

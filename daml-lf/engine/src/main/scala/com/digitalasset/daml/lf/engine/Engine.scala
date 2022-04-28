@@ -198,7 +198,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
-    //reinterpret
+    // reinterpret
     for {
       result <- replay(
         submitters,

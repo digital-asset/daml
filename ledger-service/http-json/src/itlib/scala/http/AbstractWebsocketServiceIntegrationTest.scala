@@ -336,7 +336,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
                             )
                           )
                         ) =>
-                      //matchedQuery should be 0 for the initial query supplied
+                      // matchedQuery should be 0 for the initial query supplied
                       Set((amt, ix)) should ===(Set((BigDecimal("999.99"), Vector(BigDecimal(0)))))
                   }
                 }
@@ -350,7 +350,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           )
       }
 
-      //initial query without offset
+      // initial query without offset
       val query =
         """[
           {"templateIds": ["Iou:Iou"], "query": {"currency": "USD"}}
@@ -368,7 +368,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .preMaterialize()
         lastSeen <- source via parseResp runWith resp(iouCid, kill)
 
-        //construct a new multiquery with one of them having an offset while the other doesn't
+        // construct a new multiquery with one of them having an offset while the other doesn't
         multiquery = s"""[
           {"templateIds": ["Iou:Iou"], "query": {"currency": "USD"}, "offset": "${lastSeen.unwrap}"},
           {"templateIds": ["Iou:Iou"]}
@@ -378,7 +378,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .take(1)
           .runWith(collectResultsAsTextMessageSkipOffsetTicks)
       } yield inside(clientMsg) { case Vector(result) =>
-        //we should expect to have matchedQueries [1] to indicate a match for the new template query only.
+        // we should expect to have matchedQueries [1] to indicate a match for the new template query only.
         result should include(s"""$iouCid""")
         result should include(""""matchedQueries":[1]""")
       }

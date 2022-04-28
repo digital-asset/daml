@@ -513,7 +513,7 @@ object CommonCliBase {
       val raf = new RandomAccessFile(f, "r")
       val n = raf.readInt
       raf.close()
-      n == 0x504b0304 //non-empty, non-spanned ZIPs are always beginning with this
+      n == 0x504b0304 // non-empty, non-spanned ZIPs are always beginning with this
     }.getOrElse(false)
   }
 

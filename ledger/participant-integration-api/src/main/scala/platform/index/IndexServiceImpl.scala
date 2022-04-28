@@ -47,7 +47,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps

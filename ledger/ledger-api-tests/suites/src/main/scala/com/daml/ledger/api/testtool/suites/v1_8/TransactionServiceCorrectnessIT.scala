@@ -400,7 +400,7 @@ object TransactionServiceCorrectnessIT {
     assert(
       createdContracts == archivedContracts,
       s"$context: the contract identifiers for created and archived contracts differ: ${createdContracts
-        .diff(archivedContracts)}",
+          .diff(archivedContracts)}",
     )
     val sortedCreations = creations.sortBy(_._1)
     val sortedArchivals = archivals.sortBy(_._1)

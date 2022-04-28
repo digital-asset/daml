@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao.events
+package com.daml.platform.store.dao.events
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
