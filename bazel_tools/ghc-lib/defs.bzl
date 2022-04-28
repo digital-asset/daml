@@ -122,11 +122,7 @@ GHC="$$(abs_dirname $(execpath :README.md))"
 TMP=$$(mktemp -d)
 trap "rm -rf $$TMP" EXIT
 cp -rLt $$TMP $$GHC/.
-
 export HOME="$$TMP"
-export STACK_ROOT="$$TMP/.stack"
-mkdir -p $$STACK_ROOT
-echo -e "system-ghc: true\\ninstall-ghc: false" > $$STACK_ROOT/config.yaml
 
 $(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor}
 sed -i.bak \\

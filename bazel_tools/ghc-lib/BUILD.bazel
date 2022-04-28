@@ -21,7 +21,6 @@ binary_bundle(
         "@dadew_ghc_lib_deps//:tools",
         "@dadew_ghc_lib_deps_python//:tools",
         "@ghc_865_win//:tools",
-        "@stack_windows//:stack.exe",
     ],
 ) if is_windows else None
 

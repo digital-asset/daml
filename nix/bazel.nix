@@ -42,7 +42,6 @@ let shared = rec {
         ncurses
         perl
         pkgs.haskell.compiler.ghc865Binary
-        stack
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
         xz
       ] ++ (
