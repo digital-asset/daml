@@ -322,7 +322,7 @@ private[inner] object TemplateClass extends StrictLogging {
         (
           classOf[ContractCompanion.WithKey[_, _, _, _]],
           Seq(toJavaTypeName(keyType, packagePrefixes)),
-          ", e -> $L",
+          ",$We -> $L",
           Seq(
             FromValueGenerator
               .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes)
@@ -348,7 +348,7 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "new $T<>(TEMPLATE_ID, $T::new, $T::fromValue, $T::new" + keyParams + ")",
+        "$Znew $T<>($>$ZTEMPLATE_ID, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
         Seq(fieldClass, contractIdName, templateClassName, contractName) ++ keyArgs: _*
       )
       .build()
