@@ -9,9 +9,15 @@ BinaryBundleInfo = provider(fields = ["tool_dirs"])
 LibraryBundleInfo = provider(fields = ["library_dirs"])
 
 def _to_var_name(label_name):
+    """Turn a label name into a template variable info.
+
+    Uses all upper case variable names with `_` as separator.
+    """
     return label_name.upper().replace("-", "_")
 
 def _path_separator(ctx):
+    """Generate the path list separator."""
+
     # Use ':' even on Windows because msys2 will automatically convert such
     # path lists to the Windows format, using ';' as separator and 'C:\'
     # syntax. Be sure that absolute paths use the format '/c/...' instead of
@@ -79,7 +85,16 @@ cc_toolchain_binary_bundle = rule(
     doc = """\
 Bundle the CC toolchain tools and expose a PATH value in a make variable.
 
+This bundle can be used as a dependency to `binary_bundle` rules or as a
+`toolchain` dependency to `genrule`s. In the latter case the make variable
+exposes a `PATH` variable to the bundled tools.
+
 The make variable is called `<RULE_NAME>_PATH`.
+
+Refer to the [Bazel documentation][bazel-doc] for more information on Bazel
+make variables.
+
+[bazel-doc]: https://bazel.build/reference/be/make-variables
 """,
 )
 
@@ -121,12 +136,29 @@ def _binary_bundle_impl(ctx):
 binary_bundle = rule(
     _binary_bundle_impl,
     attrs = {
-        "tools": attr.label_list(allow_files = True),
-        "deps": attr.label_list(),
-        "data": attr.label_list(allow_files = True),
+        "tools": attr.label_list(
+            allow_files = True,
+            doc = "Include these binaries in the bundle.",
+        ),
+        "deps": attr.label_list(
+            doc = "Include these transitive bundle dependencies.",
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = "Include additional data files when running build actions that depend on these tools.",
+        ),
     },
     doc = """\
-Bundles multiple binaries and expose a PATH value in a make variable.
+Bundles multiple binaries and exposes a PATH value in a make variable.
+
+This bundle can be used as a dependency to other `binary_bundle` rules or as a
+`toolchain` dependency to `genrule`s. In the latter case the make variable
+exposes a `PATH` variable to the bundled tools.
+
+The make variable is called `<RULE_NAME>_PATH`.
+
+Refer to the [Bazel documentation][bazel-doc] for more information on Bazel
+make variables.
 
 The make variable is called `<RULE_NAME>_PATH`.
 """,
@@ -194,13 +226,30 @@ def _library_bundle_impl(ctx):
 library_bundle = rule(
     _library_bundle_impl,
     attrs = {
-        "libs": attr.label_list(allow_files = True),
-        "deps": attr.label_list(),
-        "data": attr.label_list(allow_files = True),
+        "libs": attr.label_list(
+            allow_files = True,
+            doc = "Include these cc_library targets (or equivalent) in the bundle.",
+        ),
+        "deps": attr.label_list(
+            doc = "Include these transitive library bundle dependencies.",
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = "Include additional data files when running build actions that depend on this bundle.",
+        ),
     },
     doc = """\
-Bundles multiple libraries and expose a LIBRARY_PATH value in a make variable.
+Bundles multiple libraries and exposes a LIBRARY_PATH value in a make variable.
+
+This bundle can be used as a dependency to other `library_bundle` rules or as a
+`toolchain` dependency to `genrule`s. In the latter case the make variable
+exposes a `LIBRARY_PATH` variable to the bundled static and dynamic libraries.
 
 The make variable is called `<RULE_NAME>_LIBRARY_PATH`.
+
+Refer to the [Bazel documentation][bazel-doc] for more information on Bazel
+make variables.
+
+[bazel-doc]: https://bazel.build/reference/be/make-variables
 """,
 )

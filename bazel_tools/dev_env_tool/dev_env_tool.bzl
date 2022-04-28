@@ -234,6 +234,12 @@ def dadew_sh_posix_configure(name = "dadew_sh_posix"):
     native.register_toolchains("@%s//:dadew_posix_toolchain" % name)
 
 def _create_shim(repository_ctx, shim_exe, *, shim, path, extension):
+    """Create a shim file for Scoop's shim.exe utility.
+
+    See [ScoopInstaller/Shim][shim-gh] for further information.
+
+    [shim-gh]: https://github.com/ScoopInstaller/Shim#readme
+    """
     if extension in [".exe", ".cmd", ".bat"]:
         repository_ctx.file(shim + ".shim", executable = False, content = "path = " + str(path))
         result = shim + ".exe"
@@ -299,9 +305,32 @@ binary_bundle(
 dadew_binary_bundle = repository_rule(
     _dadew_binary_bundle_impl,
     attrs = {
-        "tool": attr.string(mandatory = True),
-        "paths": attr.string_list(mandatory = True),
+        "tool": attr.string(
+            mandatory = True,
+            doc = "Import binaries from this Scoop tool, i.e. an entry under the `dev-env/windows/manifests` folder.",
+        ),
+        "paths": attr.string_list(
+            mandatory = True,
+            doc = """\
+Import these binaries from the Scoop tool into Bazel.
+
+Items can either be paths relative to the Scoop tool installation path, or colon (`:`) separated tuples where the first item is the path relative to the Scoop tool installation and the second item the name that it should be mapped to within Bazel.
+""",
+        ),
     },
     configure = True,
     local = True,
+    doc = """\
+Generate a `binary_bundle` containing a set of binaries provided by a Scoop tool.
+
+Use this to import binaries provided by Scoop into the Bazel build in a
+hermetic way. This generates [Scoop shims][scoop-shim] for the specified
+binaries within Bazel's execution root and constructs a `binary_bundle` that
+contains these shims. The generated PATH make variable will only cover tools
+explicitly listed on this rule.
+
+See [`binary_bundle`](../bundle.bzl) for more information on `binary_bundle`.
+
+[scoop-shim]: https://github.com/ScoopInstaller/Shim#readme
+""",
 )
