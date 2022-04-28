@@ -13,7 +13,7 @@ import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdm
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.UserManagementStorageBackend
 
 import scala.util.Try

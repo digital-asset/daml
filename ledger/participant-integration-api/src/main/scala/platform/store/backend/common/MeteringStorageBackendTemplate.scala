@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.Conversions.{applicationId, offset, timestampFromMicros}
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.MeteringParameterStorageBackendTemplate.assertLedgerMeteringEnd
 import com.daml.platform.store.backend.common.MeteringStorageBackendTemplate._

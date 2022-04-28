@@ -8,7 +8,7 @@ import java.sql.Connection
 import anorm.SqlParser.{int, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
 import com.daml.platform.store.backend.StringInterningStorageBackend
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 object StringInterningStorageBackendTemplate extends StringInterningStorageBackend {
 
