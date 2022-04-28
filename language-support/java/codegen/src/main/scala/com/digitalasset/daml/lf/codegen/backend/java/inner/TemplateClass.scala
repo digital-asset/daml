@@ -330,13 +330,15 @@ private[inner] object TemplateClass extends StrictLogging {
         ),
       (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),
     )
+    val contractIdName = ClassName bestGuess "ContractId"
+    val contractName = ClassName bestGuess "Contract"
     FieldSpec
       .builder(
         ParameterizedTypeName.get(
           ClassName get fieldClass,
           Seq(
-            ClassName bestGuess "Contract",
-            ClassName bestGuess "ContractId",
+            contractName,
+            contractIdName,
             templateClassName,
           ) ++ keyTypes: _*
         ),
@@ -346,8 +348,8 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "new $T<>(TEMPLATE_ID, $T.ContractId::new, $T::fromValue, $T.Contract::new" + keyParams + ")",
-        Seq(fieldClass, templateClassName, templateClassName, templateClassName) ++ keyArgs: _*
+        "new $T<>(TEMPLATE_ID, $T::new, $T::fromValue, $T::new" + keyParams + ")",
+        Seq(fieldClass, contractIdName, templateClassName, contractName) ++ keyArgs: _*
       )
       .build()
   }
