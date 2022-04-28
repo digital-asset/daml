@@ -3,19 +3,18 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
-import com.daml.ledger.api.v1.commands.Command
-import com.daml.ledger.api.v1.commands.ExerciseByKeyCommand
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+import com.daml.ledger.api.v1.commands.{Command, ExerciseByKeyCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Foo._
+
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicLong
-
-import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
+import scala.util.control.NonFatal
 
-case class TemplateDescriptor(
+case class FooTemplateDescriptor(
     templateId: Identifier,
     consumingChoiceName: String,
     nonconsumingChoiceName: String,
@@ -23,33 +22,33 @@ case class TemplateDescriptor(
 
 /** NOTE: Keep me in sync with `Foo.daml`
   */
-object TemplateDescriptor {
+object FooTemplateDescriptor {
 
-  val Foo1: TemplateDescriptor = TemplateDescriptor(
+  val Foo1: FooTemplateDescriptor = FooTemplateDescriptor(
     templateId = com.daml.ledger.test.model.Foo.Foo1.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo1_ConsumingChoice",
     nonconsumingChoiceName = "Foo1_NonconsumingChoice",
   )
-  val Foo2: TemplateDescriptor = TemplateDescriptor(
+  val Foo2: FooTemplateDescriptor = FooTemplateDescriptor(
     templateId = com.daml.ledger.test.model.Foo.Foo2.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo2_ConsumingChoice",
     nonconsumingChoiceName = "Foo2_NonconsumingChoice",
   )
-  val Foo3: TemplateDescriptor = TemplateDescriptor(
+  val Foo3: FooTemplateDescriptor = FooTemplateDescriptor(
     templateId = com.daml.ledger.test.model.Foo.Foo3.id.asInstanceOf[Identifier],
     consumingChoiceName = "Foo3_ConsumingChoice",
     nonconsumingChoiceName = "Foo3_NonconsumingChoice",
   )
 }
 
-final class CommandGenerator(
+final class FooCommandGenerator(
     randomnessProvider: RandomnessProvider,
-    config: SubmissionConfig,
+    config: FooSubmissionConfig,
     signatory: Primitive.Party,
     observers: List[Primitive.Party],
-) {
+) extends CommandGenerator {
   private val distribution = new Distribution(config.instanceDistribution.map(_.weight))
-  private val descriptionMapping: Map[Int, SubmissionConfig.ContractDescription] =
+  private val descriptionMapping: Map[Int, FooSubmissionConfig.ContractDescription] =
     config.instanceDistribution.zipWithIndex
       .map(_.swap)
       .toMap
@@ -68,14 +67,14 @@ final class CommandGenerator(
       )
     } yield command).recoverWith { case NonFatal(ex) =>
       Failure(
-        CommandGenerator.CommandGeneratorError(
+        FooCommandGenerator.CommandGeneratorError(
           msg = s"Command generation failed. Details: ${ex.getLocalizedMessage}",
           cause = ex,
         )
       )
     }
 
-  private def pickDescription(): SubmissionConfig.ContractDescription =
+  private def pickDescription(): FooSubmissionConfig.ContractDescription =
     descriptionMapping(distribution.index(randomnessProvider.randomDouble()))
 
   private def pickObservers(): List[Primitive.Party] =
@@ -109,17 +108,17 @@ final class CommandGenerator(
     val (templateDesc, createCmd) = templateName match {
       case "Foo1" =>
         (
-          TemplateDescriptor.Foo1,
+          FooTemplateDescriptor.Foo1,
           Foo1(signatory, observers, payload, id = commandId).create.command,
         )
       case "Foo2" =>
         (
-          TemplateDescriptor.Foo2,
+          FooTemplateDescriptor.Foo2,
           Foo2(signatory, observers, payload, id = commandId).create.command,
         )
       case "Foo3" =>
         (
-          TemplateDescriptor.Foo3,
+          FooTemplateDescriptor.Foo3,
           Foo3(signatory, observers, payload, id = commandId).create.command,
         )
       case invalid => sys.error(s"Invalid template: $invalid")
@@ -191,11 +190,11 @@ final class CommandGenerator(
   }
 
   private def randomPayload(sizeBytes: Int): String =
-    CommandGenerator.randomPayload(randomnessProvider, sizeBytes)
+    FooCommandGenerator.randomPayload(randomnessProvider, sizeBytes)
 
 }
 
-object CommandGenerator {
+object FooCommandGenerator {
   case class CommandGeneratorError(msg: String, cause: Throwable)
       extends RuntimeException(msg, cause)
 

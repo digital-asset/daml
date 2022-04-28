@@ -5,7 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig.{
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   ConsumingExercises,
   NonconsumingExercises,
 }
@@ -31,7 +31,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
-class CommandSubmitterITSpec
+class FooCommandSubmitterITSpec
     extends AsyncFlatSpec
     with SandboxFixture
     with SuiteResourceManagementAroundAll
@@ -40,12 +40,12 @@ class CommandSubmitterITSpec
 
   it should "populate participant with create, consuming and non consuming exercises" in {
 
-    val foo1Config = WorkflowConfig.SubmissionConfig.ContractDescription(
+    val foo1Config = WorkflowConfig.FooSubmissionConfig.ContractDescription(
       template = "Foo1",
       weight = 1,
       payloadSizeBytes = 100,
     )
-    val foo2Config = WorkflowConfig.SubmissionConfig.ContractDescription(
+    val foo2Config = WorkflowConfig.FooSubmissionConfig.ContractDescription(
       template = "Foo2",
       weight = 1,
       payloadSizeBytes = 100,
@@ -58,7 +58,7 @@ class CommandSubmitterITSpec
       probability = 2.0,
       payloadSizeBytes = 100,
     )
-    val config = WorkflowConfig.SubmissionConfig(
+    val config = WorkflowConfig.FooSubmissionConfig(
       numberOfInstances = 10,
       numberOfObservers = 1,
       uniqueParties = false,

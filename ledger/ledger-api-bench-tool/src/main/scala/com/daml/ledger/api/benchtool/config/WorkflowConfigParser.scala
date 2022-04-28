@@ -97,26 +97,26 @@ object WorkflowConfigParser {
           case invalid => Decoder.failedWithMessage(s"Invalid stream type: $invalid")
         }
 
-    implicit val contractDescriptionDecoder: Decoder[SubmissionConfig.ContractDescription] =
+    implicit val contractDescriptionDecoder: Decoder[FooSubmissionConfig.ContractDescription] =
       Decoder.forProduct3(
         "template",
         "weight",
         "payload_size_bytes",
-      )(SubmissionConfig.ContractDescription.apply)
+      )(FooSubmissionConfig.ContractDescription.apply)
 
-    implicit val nonconsumingExercisesDecoder: Decoder[SubmissionConfig.NonconsumingExercises] =
+    implicit val nonconsumingExercisesDecoder: Decoder[FooSubmissionConfig.NonconsumingExercises] =
       Decoder.forProduct2(
         "probability",
         "payload_size_bytes",
-      )(SubmissionConfig.NonconsumingExercises.apply)
+      )(FooSubmissionConfig.NonconsumingExercises.apply)
 
-    implicit val consumingExercisesDecoder: Decoder[SubmissionConfig.ConsumingExercises] =
+    implicit val consumingExercisesDecoder: Decoder[FooSubmissionConfig.ConsumingExercises] =
       Decoder.forProduct2(
         "probability",
         "payload_size_bytes",
-      )(SubmissionConfig.ConsumingExercises.apply)
+      )(FooSubmissionConfig.ConsumingExercises.apply)
 
-    implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
+    implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
       Decoder.forProduct6(
         "num_instances",
         "num_observers",
@@ -124,7 +124,16 @@ object WorkflowConfigParser {
         "instance_distribution",
         "nonconsuming_exercises",
         "consuming_exercises",
-      )(SubmissionConfig.apply)
+      )(FooSubmissionConfig.apply)
+
+    implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
+      Decoder
+        .forProduct1[String, String]("type")(identity)
+        .flatMap[SubmissionConfig] {
+          case "foo" => fooSubmissionConfigDecoder.widen
+          case "empty" => Decoder.const(EmptySubmissionConfig)
+          case invalid => Decoder.failedWithMessage(s"Invalid submission type: $invalid")
+        }
 
     implicit val workflowConfigDecoder: Decoder[WorkflowConfig] =
       (c: HCursor) =>

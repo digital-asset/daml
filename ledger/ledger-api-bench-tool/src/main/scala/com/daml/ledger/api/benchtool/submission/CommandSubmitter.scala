@@ -164,12 +164,12 @@ case class CommandSubmitter(
 
     }
 
-    val generator = new CommandGenerator(
+    val generator = CommandGenerator(
       randomnessProvider = RandomnessProvider.Default,
       signatory = signatory,
       config = config,
       observers = observers,
-    )
+    ).asInstanceOf[FooCommandGenerator]
 
     logger.info(
       s"Submitting commands ($numBatches commands, $submissionBatchSize contracts per command)..."

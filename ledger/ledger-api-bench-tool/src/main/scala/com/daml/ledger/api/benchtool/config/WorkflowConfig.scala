@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.config
 
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig.{
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   ConsumingExercises,
   NonconsumingExercises,
 }
@@ -16,16 +16,28 @@ case class WorkflowConfig(
 
 object WorkflowConfig {
 
-  case class SubmissionConfig(
+  sealed trait SubmissionConfig extends Product with Serializable {
+    def numberOfInstances: Int
+    def numberOfObservers: Int
+    def uniqueParties: Boolean
+  }
+
+  final case class FooSubmissionConfig(
       numberOfInstances: Int,
       numberOfObservers: Int,
       uniqueParties: Boolean,
-      instanceDistribution: List[WorkflowConfig.SubmissionConfig.ContractDescription],
+      instanceDistribution: List[WorkflowConfig.FooSubmissionConfig.ContractDescription],
       nonConsumingExercises: Option[NonconsumingExercises],
       consumingExercises: Option[ConsumingExercises],
-  )
+  ) extends SubmissionConfig
 
-  object SubmissionConfig {
+  case object EmptySubmissionConfig extends SubmissionConfig {
+    def numberOfInstances: Int = 0
+    def numberOfObservers: Int = 0
+    def uniqueParties: Boolean = false
+  }
+
+  object FooSubmissionConfig {
     case class ContractDescription(
         template: String,
         weight: Int,
