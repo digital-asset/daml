@@ -8,12 +8,6 @@ import com.daml.lf.codegen.backend.java.ObjectMethods
 import com.daml.lf.codegen.backend.java.inner.ClassGenUtils.{
   emptyOptional,
   emptySet,
-  getAgreementText,
-  getArguments,
-  getContractId,
-  getContractKey,
-  getObservers,
-  getSignatories,
   optional,
   optionalString,
   setOfStrings,
@@ -61,9 +55,7 @@ object ContractClass {
         )
         .addMethod(
           Builder.generateFromCreatedEvent(
-            contractClassName,
-            key,
-            packagePrefixes,
+            contractClassName
           )
         )
       this
@@ -81,24 +73,13 @@ object ContractClass {
     private val observersFieldName = "observers"
 
     private def generateFromCreatedEvent(
-        className: ClassName,
-        maybeContractKeyType: Option[Type],
-        packagePrefixes: Map[PackageId, String],
-    ) = {
-
-      val spec =
-        MethodSpec
-          .methodBuilder("fromCreatedEvent")
-          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(className)
-          .addParameter(classOf[javaapi.data.CreatedEvent], "event")
-
-      val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
-        .map(getContractKey(_, packagePrefixes))
-        .toList ++ Vector(getSignatories, getObservers)
-
-      spec.addStatement("return fromIdAndRecord($L)", CodeBlock.join(params.asJava, ", ")).build()
-    }
+        className: ClassName
+    ) =
+      generateCompanionForwarder(
+        "fromCreatedEvent",
+        className,
+        (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
+      )
 
     private def generateFromIdAndRecordDeprecated(
         className: ClassName,
