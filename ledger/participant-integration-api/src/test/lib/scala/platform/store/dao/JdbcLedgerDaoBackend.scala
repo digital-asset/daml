@@ -13,7 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
@@ -22,8 +22,8 @@ import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import org.scalatest.AsyncTestSuite
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 
 object JdbcLedgerDaoBackend {
 
@@ -60,11 +60,16 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport
       .migratedOwner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
-        connectionPoolSize = dbType.maxSupportedWriteConnections(16),
-        connectionTimeout = 250.millis,
         metrics = metrics,
+        dbConfig = DbConfig(
+          jdbcUrl,
+          connectionPool = ConnectionPoolConfig(
+            minimumIdle = dbType.maxSupportedWriteConnections(16),
+            maxPoolSize = dbType.maxSupportedWriteConnections(16),
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map { dbSupport =>
         JdbcLedgerDao.write(

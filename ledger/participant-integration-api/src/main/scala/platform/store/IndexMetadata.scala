@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
@@ -50,11 +51,16 @@ object IndexMetadata {
     val metrics = new Metrics(new MetricRegistry)
     DbSupport
       .owner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.ReadIndexMetadata,
-        connectionPoolSize = 1,
-        connectionTimeout = 250.millis,
         metrics = metrics,
+        dbConfig = DbConfig(
+          jdbcUrl = jdbcUrl,
+          connectionPool = ConnectionPoolConfig(
+            minimumIdle = 1,
+            maxPoolSize = 1,
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

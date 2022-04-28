@@ -105,25 +105,26 @@ object DbDispatcher {
   def owner(
       dataSource: DataSource,
       serverRole: ServerRole,
-      connectionPoolSize: Int,
+      minimumIdle: Int,
+      maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher with ReportsHealth] =
     for {
       hikariDataSource <- HikariDataSourceOwner(
-        dataSource,
-        serverRole,
-        connectionPoolSize,
-        connectionPoolSize,
-        connectionTimeout,
-        Some(metrics.registry),
+        dataSource = dataSource,
+        serverRole = serverRole,
+        minimumIdle = minimumIdle,
+        maxPoolSize = maxPoolSize,
+        connectionTimeout = connectionTimeout,
+        metrics = Some(metrics.registry),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>
         new InstrumentedExecutorService(
           Executors.newFixedThreadPool(
-            connectionPoolSize,
+            maxPoolSize,
             new ThreadFactoryBuilder()
               .setNameFormat(s"$threadPoolName-%d")
               .setUncaughtExceptionHandler((_, e) =>

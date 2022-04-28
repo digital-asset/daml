@@ -3,8 +3,11 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.runner.common.{Config, ConfigProvider}
-import com.daml.platform.configuration.InitialLedgerConfiguration
+import com.daml.ledger.runner.common.{ConfigProvider, LegacyCliConfig}
+import com.daml.ledger.sandbox.BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
+import pureconfig.{ConfigReader, ConfigWriter}
+import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
 import scopt.OptionParser
 
 import java.time.Duration
@@ -15,8 +18,16 @@ case class BridgeConfig(
     implicitPartyAllocation: Boolean,
 )
 
-object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
-  override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
+object BridgeConfig {
+  implicit val bridgeConfigReader: ConfigReader[BridgeConfig] = deriveReader[BridgeConfig]
+  implicit val bridgeConfigWriter: ConfigWriter[BridgeConfig] = deriveWriter[BridgeConfig]
+}
+
+class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
+  override def partyConfig(extra: BridgeConfig): PartyConfiguration =
+    PartyConfiguration(implicitPartyAllocation = extra.implicitPartyAllocation)
+
+  override def extraConfigParser(parser: OptionParser[LegacyCliConfig[BridgeConfig]]): Unit = {
     parser
       .opt[Int]("bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")
@@ -47,11 +58,11 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     ()
   }
 
-  override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration = {
-    val superConfig = super.initialLedgerConfig(config)
-    superConfig.copy(configuration =
-      superConfig.configuration.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)
-    )
+  override def initialLedgerConfig(
+      maxDeduplicationDuration: Option[Duration]
+  ): InitialLedgerConfiguration = {
+    val superConfig = super.initialLedgerConfig(maxDeduplicationDuration)
+    superConfig.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)
   }
 
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
@@ -60,5 +71,8 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     implicitPartyAllocation = false,
   )
 
+}
+
+object BridgeConfigProvider {
   val DefaultMaximumDeduplicationDuration: Duration = Duration.ofMinutes(30L)
 }

@@ -370,9 +370,7 @@ object EventStorageBackend {
 
 trait DataSourceStorageBackend {
   def createDataSource(
-      jdbcUrl: String,
-      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
-        DataSourceStorageBackend.DataSourceConfig(),
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit] = None,
   )(implicit loggingContext: LoggingContext): DataSource
 
@@ -388,7 +386,8 @@ object DataSourceStorageBackend {
   /** @param postgresConfig configurations which apply only for the PostgresSQL backend
     */
   case class DataSourceConfig(
-      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig()
+      jdbcUrl: String,
+      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig(),
   )
 }
 

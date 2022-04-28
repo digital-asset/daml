@@ -30,56 +30,55 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
-import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
+import com.daml.resources.{AbstractResourceOwner, ProgramResource}
+import com.typesafe.config.ConfigFactory
 
+import java.time.Duration
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
+import FileBasedConfig._
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
-  def owner(
-      args: collection.Seq[String],
-      manipulateConfig: Config[BridgeConfig] => Config[BridgeConfig] = identity,
-  ): ResourceOwner[Unit] =
-    Config
-      .owner(
-        RunnerName,
-        BridgeConfigProvider.extraConfigParser,
-        BridgeConfigProvider.defaultExtraConfig,
-        args,
-      )
-      .map(manipulateConfig)
-      .flatMap(owner)
+  def run(configObject: com.typesafe.config.Config = ConfigFactory.load()): Unit = {
+    val config = ConfigLoader.loadConfigUnsafe[Config]("ledger", configObject)
+    val bridge = ConfigLoader.loadConfigUnsafe[BridgeConfig]("bridge", configObject)
+    val configProvider: BridgeConfigProvider = new BridgeConfigProvider
+    println(s"Running with \n${ConfigRenderer.render(config)}")
+    new ProgramResource(
+      owner = SandboxOnXRunner.owner(configProvider, config, bridge)
+    ).run(ResourceContext.apply)
+  }
 
-  def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
+  def owner(
+      configProvider: BridgeConfigProvider,
+      config: Config,
+      bridgeConfig: BridgeConfig,
+  ): AbstractResourceOwner[ResourceContext, Unit] = {
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-        val config = BridgeConfigProvider.manipulateConfig(originalConfig)
-
-        config.mode match {
-          case Mode.DumpIndexMetadata(jdbcUrls) =>
-            DumpIndexMetadata(jdbcUrls)
-            sys.exit(0)
-          case Mode.Run =>
-            run(config)
-        }
+        SandboxOnXRunner.run(configProvider, config, bridgeConfig)
       }
     }
+  }
 
-  private def run(
-      config: Config[BridgeConfig]
+  def run(
+      configProvider: ConfigProvider[BridgeConfig],
+      config: Config,
+      bridgeConfig: BridgeConfig,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -95,17 +94,20 @@ object SandboxOnXRunner {
       _ <- buildLedger(
         config,
         participantConfig,
+        bridgeConfig,
         materializer,
         actorSystem,
+        configProvider,
       ).acquire()
-    } yield logInitializationHeader(config, participantConfig)
+    } yield logInitializationHeader(config, participantConfig, bridgeConfig)
   }
 
   def validateCombinedParticipantMode(
-      config: Config[BridgeConfig]
+      config: Config
   ): Resource[ParticipantConfig] =
     config.participants.toList match {
-      case participantConfig :: Nil if participantConfig.mode == ParticipantRunMode.Combined =>
+      case (_, participantConfig) :: Nil
+          if participantConfig.runMode == ParticipantRunMode.Combined =>
         Resource.successful(participantConfig)
       case _ =>
         Resource.failed {
@@ -116,27 +118,23 @@ object SandboxOnXRunner {
     }
 
   def buildLedger(implicit
-      config: Config[BridgeConfig],
+      config: Config,
       participantConfig: ParticipantConfig,
+      bridgeConfig: BridgeConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
+      configProvider: ConfigProvider[BridgeConfig],
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
-    implicit val apiServerConfig: ApiServerConfig =
-      BridgeConfigProvider.apiServerConfig(
-        participantConfig,
-        Some(RateLimitingConfig.default),
-        config,
-      )
-    val sharedEngine = new Engine(config.engineConfig)
+    val apiServerConfig: ApiServerConfig = participantConfig.apiServer
+    val sharedEngine = new Engine(config.engine)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
         for {
           metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-            eventConfiguration = config.lfValueTranslationEventCache,
-            contractConfiguration = config.lfValueTranslationContractCache,
+            config = participantConfig.lfValueTranslationCache,
             metrics = metrics,
           )
 
@@ -150,7 +148,7 @@ object SandboxOnXRunner {
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
-            maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+            maximumDeduplicationDuration = participantConfig.maxDeduplicationDuration.getOrElse(
               BridgeConfigProvider.DefaultMaximumDeduplicationDuration
             ),
             stateUpdatesSource,
@@ -165,25 +163,23 @@ object SandboxOnXRunner {
 
           dbSupport <- DbSupport
             .owner(
-              jdbcUrl = apiServerConfig.jdbcUrl,
               serverRole = ServerRole.ApiServer,
-              connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
-              connectionTimeout = apiServerConfig.databaseConnectionTimeout,
               metrics = metrics,
+              dbConfig = apiServerConfig.database,
             )
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
-            config = apiServerConfig.indexConfiguration,
+            config = participantConfig.index,
             metrics = metrics,
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
-            participantId = apiServerConfig.participantId,
+            participantId = participantConfig.participantId,
           )
 
-          timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
+          timeServiceBackend = configProvider.timeServiceBackend(apiServerConfig)
 
           writeService <- buildWriteService(
             stateUpdatesFeedSink,
@@ -192,6 +188,11 @@ object SandboxOnXRunner {
             servicesExecutionContext,
             servicesThreadPoolSize,
             timeServiceBackend,
+            participantConfig,
+            bridgeConfig,
+            configProvider
+              .initialLedgerConfig(participantConfig.maxDeduplicationDuration)
+              .maxDeduplicationDuration,
           )
 
           apiServer <- buildStandaloneApiServer(
@@ -203,6 +204,10 @@ object SandboxOnXRunner {
             indexerHealthChecks,
             timeServiceBackend,
             dbSupport,
+            config,
+            apiServerConfig,
+            participantConfig.participantId,
+            configProvider,
           )
         } yield (apiServer, writeService, indexService)
     }
@@ -217,31 +222,31 @@ object SandboxOnXRunner {
       healthChecksWithIndexer: HealthChecks,
       timeServiceBackend: Option[TimeServiceBackend],
       dbSupport: DbSupport,
+      config: Config,
+      apiServerConfig: ApiServerConfig,
+      participantId: Ref.ParticipantId,
+      configProvider: ConfigProvider[BridgeConfig],
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-      config: Config[BridgeConfig],
-      apiServerConfig: ApiServerConfig,
   ): ResourceOwner[ApiServer] =
     StandaloneApiServer(
       indexService = indexService,
       ledgerId = config.ledgerId,
       config = apiServerConfig,
-      commandConfig = config.commandConfig,
-      partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = config.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
-      otherInterceptors = BridgeConfigProvider.interceptors(config),
+      otherInterceptors = List.empty,
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(
         dbSupport = dbSupport,
         metrics = metrics,
-        cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-        maxCacheSize = config.userManagementConfig.maxCacheSize,
+        cacheExpiryAfterWriteInSeconds =
+          apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
+        maxCacheSize = apiServerConfig.userManagement.maxCacheSize,
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
@@ -261,8 +266,8 @@ object SandboxOnXRunner {
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
-      userManagementConfig = config.userManagementConfig,
-      apiStreamShutdownTimeout = apiServerConfig.indexConfiguration.apiStreamShutdownTimeout,
+      participantId = participantId,
+      authService = configProvider.authService(apiServerConfig),
     )
 
   private def buildIndexerServer(
@@ -276,8 +281,9 @@ object SandboxOnXRunner {
   ): ResourceOwner[HealthChecks] =
     for {
       indexerHealth <- new StandaloneIndexerServer(
+        participantId = participantConfig.participantId,
         readService = readService,
-        config = participantConfig.indexerConfig,
+        config = participantConfig.indexer,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )
@@ -302,17 +308,17 @@ object SandboxOnXRunner {
 
   private def buildMetrics(implicit
       participantConfig: ParticipantConfig,
-      config: Config[BridgeConfig],
+      config: Config,
   ): ResourceOwner[Metrics] =
     Metrics
       .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
-        config.metricsReporter
+        config.metrics.reporter
           .fold(ResourceOwner.unit)(reporter =>
             ResourceOwner
               .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+              .map(_.start(config.metrics.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
           )
           .map(_ => metrics)
       }
@@ -325,27 +331,29 @@ object SandboxOnXRunner {
       servicesExecutionContext: ExecutionContext,
       servicesThreadPoolSize: Int,
       timeServiceBackend: Option[TimeServiceBackend],
+      participantConfig: ParticipantConfig,
+      bridgeConfig: BridgeConfig,
+      maxDeduplicationDuration: Duration,
   )(implicit
       materializer: Materializer,
-      config: Config[BridgeConfig],
-      participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
   ): ResourceOwner[WriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext
     val bridgeMetrics = new BridgeMetrics(metrics)
     for {
       ledgerBridge <- LedgerBridge.owner(
-        config,
         participantConfig,
+        bridgeConfig,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
         timeServiceBackend.getOrElse(TimeProvider.UTC),
+        maxDeduplicationDuration,
       )
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
           feedSink = feedSink,
-          submissionBufferSize = config.extra.submissionBufferSize,
+          submissionBufferSize = bridgeConfig.submissionBufferSize,
           ledgerBridge = ledgerBridge,
           bridgeMetrics = bridgeMetrics,
         )
@@ -354,10 +362,12 @@ object SandboxOnXRunner {
   }
 
   private def logInitializationHeader(
-      config: Config[BridgeConfig],
+      config: Config,
       participantConfig: ParticipantConfig,
+      extra: BridgeConfig,
   ): Unit = {
-    val authentication = BridgeConfigProvider.authService(config) match {
+    val apiServerConfig = participantConfig.apiServer
+    val authentication = apiServerConfig.authentication.create() match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"
@@ -367,15 +377,17 @@ object SandboxOnXRunner {
 
     val ledgerDetails =
       Seq[(String, String)](
-        "run-mode" -> s"${participantConfig.mode} participant",
-        "index DB backend" -> DbType.jdbcType(participantConfig.serverJdbcUrl).name,
+        "run-mode" -> s"${participantConfig.runMode} participant",
+        "index DB backend" -> DbType
+          .jdbcType(apiServerConfig.database.jdbcUrl)
+          .name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
-        "port" -> participantConfig.port.toString,
-        "time mode" -> config.timeProviderType.description,
-        "allowed language versions" -> s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
+        "port" -> apiServerConfig.port.toString,
+        "time mode" -> apiServerConfig.timeProviderType.description,
+        "allowed language versions" -> s"[min = ${config.engine.allowedLanguageVersions.min}, max = ${config.engine.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
-        "contract ids seeding" -> config.seeding.toString,
+        "contract ids seeding" -> apiServerConfig.seeding.toString,
       ).map { case (key, value) =>
         s"$key = $value"
       }.mkString(", ")
@@ -383,7 +395,7 @@ object SandboxOnXRunner {
     logger.withoutContext.info(
       s"Initialized {} with {}, version {}, {}",
       RunnerName,
-      if (config.extra.conflictCheckingEnabled) "conflict checking ledger bridge"
+      if (extra.conflictCheckingEnabled) "conflict checking ledger bridge"
       else "pass-through ledger bridge (no conflict checking)",
       BuildInfo.Version,
       ledgerDetails,

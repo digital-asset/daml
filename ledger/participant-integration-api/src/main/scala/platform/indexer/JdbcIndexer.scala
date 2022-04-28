@@ -6,6 +6,7 @@ package com.daml.platform.indexer
 import akka.stream._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.{
@@ -13,21 +14,15 @@ import com.daml.platform.indexer.parallel.{
   ParallelIndexerFactory,
   ParallelIndexerSubscription,
 }
-import com.daml.platform.store.DbType.{
-  AsynchronousCommit,
-  LocalSynchronousCommit,
-  SynchronousCommit,
-}
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.Future
 
 object JdbcIndexer {
   private[daml] final class Factory(
+      participantId: Ref.ParticipantId,
       config: IndexerConfig,
       readService: state.ReadService,
       metrics: Metrics,
@@ -35,7 +30,7 @@ object JdbcIndexer {
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
-      val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
+      val factory = StorageBackendFactory.of(DbType.jdbcType(config.database.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val meteringStoreBackend = factory.createMeteringStorageWriteBackend
@@ -44,29 +39,15 @@ object JdbcIndexer {
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val indexer = ParallelIndexerFactory(
-        jdbcUrl = config.jdbcUrl,
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        ingestionParallelism = config.ingestionParallelism,
-        dataSourceConfig = DataSourceConfig(
-          postgresConfig = PostgresDataSourceConfig(
-            synchronousCommit = Some(config.asyncCommitMode match {
-              case SynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.On
-              case AsynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Off
-              case LocalSynchronousCommit =>
-                PostgresDataSourceConfig.SynchronousCommitValue.Local
-            }),
-            tcpKeepalivesIdle = config.postgresTcpKeepalivesIdle,
-            tcpKeepalivesInterval = config.postgresTcpKeepalivesInterval,
-            tcpKeepalivesCount = config.postgresTcpKeepalivesCount,
-          )
-        ),
-        haConfig = config.haConfig,
+        dbConfig = config.database,
+        haConfig = config.highAvailability,
         metrics = metrics,
         dbLockStorageBackend = DBLockStorageBackend,
         dataSourceStorageBackend = dataSourceStorageBackend,
         initializeParallelIngestion = InitializeParallelIngestion(
-          providedParticipantId = config.participantId,
+          providedParticipantId = participantId,
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
           metrics = metrics,
@@ -74,7 +55,7 @@ object JdbcIndexer {
         parallelIndexerSubscription = ParallelIndexerSubscription(
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
-          participantId = config.participantId,
+          participantId = participantId,
           translation = new LfValueTranslation(
             cache = lfValueTranslationCache,
             metrics = metrics,

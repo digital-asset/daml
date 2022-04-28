@@ -18,27 +18,30 @@ object LfValueTranslationCache {
   type EventCache = caching.Cache[EventCache.Key, EventCache.Value]
   type ContractCache = caching.Cache[ContractCache.Key, ContractCache.Value]
 
+  final case class Config(
+      eventsMaximumSize: caching.SizedCache.Configuration,
+      contractsMaximumSize: caching.SizedCache.Configuration,
+  )
+
   object Cache {
 
     def none: Cache = Cache(caching.Cache.none, caching.Cache.none)
 
     def newInstance(
-        eventConfiguration: caching.SizedCache.Configuration,
-        contractConfiguration: caching.SizedCache.Configuration,
+        config: Config
     ): Cache =
       Cache(
-        events = EventCache.newInstance(eventConfiguration),
-        contracts = ContractCache.newInstance(contractConfiguration),
+        events = EventCache.newInstance(config.eventsMaximumSize),
+        contracts = ContractCache.newInstance(config.contractsMaximumSize),
       )
 
     def newInstrumentedInstance(
-        eventConfiguration: caching.SizedCache.Configuration,
-        contractConfiguration: caching.SizedCache.Configuration,
+        config: Config,
         metrics: Metrics,
     ): Cache =
       Cache(
-        events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
-        contracts = ContractCache.newInstrumentedInstance(contractConfiguration, metrics),
+        events = EventCache.newInstrumentedInstance(config.eventsMaximumSize, metrics),
+        contracts = ContractCache.newInstrumentedInstance(config.contractsMaximumSize, metrics),
       )
   }
 

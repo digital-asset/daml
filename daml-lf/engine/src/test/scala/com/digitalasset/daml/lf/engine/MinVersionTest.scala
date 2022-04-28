@@ -20,8 +20,12 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.runner.common.{Config, ParticipantConfig, ParticipantRunMode}
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
+import com.daml.ledger.runner.common.{
+  LegacyCliConfig,
+  LegacyCliParticipantConfig,
+  ParticipantRunMode,
+}
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, LegacySandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
@@ -124,37 +128,37 @@ final class MinVersionTest
   }
 
   private val participantId = Ref.ParticipantId.assertFromString("participant1")
-  private val participant = ParticipantConfig(
+  private val participant = LegacyCliParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId,
     shardName = None,
     address = Some("localhost"),
     port = Port.Dynamic,
     portFile = Some(portfile),
-    serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+    serverJdbcUrl = LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId),
     indexerConfig = IndexerConfig(
-      participantId = participantId,
-      jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
       startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
+      database = IndexerConfig.createDefaultDatabaseConfig(
+        LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)
+      ),
     ),
   )
+  private val configProvider = new BridgeConfigProvider()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val defaultConfig = Config
-      .createDefault[BridgeConfig](BridgeConfigProvider.defaultExtraConfig)
+    val defaultConfig = LegacyCliConfig
+      .createDefault[BridgeConfig](configProvider.defaultExtraConfig)
+    val config = defaultConfig.copy(
+      participants = Seq(participant),
+      // Bump min version to 1.14 and check that older stable packages are still accepted.
+      engineConfig = defaultConfig.engineConfig.copy(
+        allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)
+      ),
+    )
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(
-          defaultConfig
-            .copy(
-              participants = Seq(participant),
-              // Bump min version to 1.14 and check that older stable packages are still accepted.
-              engineConfig = defaultConfig.engineConfig.copy(
-                allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)
-              ),
-            )
-        )
+        _ <- LegacySandboxOnXRunner.owner(configProvider)(config)
       } yield readPortfile(portfile)
     )
   }

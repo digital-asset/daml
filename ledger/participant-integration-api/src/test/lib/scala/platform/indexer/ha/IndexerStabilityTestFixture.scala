@@ -59,13 +59,12 @@ object IndexerStabilityTestFixture {
       lockIdSeed: Int,
   )(implicit resourceContext: ResourceContext, materializer: Materializer): Resource[Indexers] = {
     val indexerConfig = IndexerConfig(
-      participantId = EndlessReadService.participantId,
-      jdbcUrl = jdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart(),
-      haConfig = HaConfig(
+      highAvailability = HaConfig(
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
+      database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
     )
 
     newLoggingContext { implicit loggingContext =>
@@ -96,6 +95,7 @@ object IndexerStabilityTestFixture {
                   metrics = new Metrics(metricRegistry)
                   // Create an indexer and immediately start it
                   indexing <- new StandaloneIndexerServer(
+                    participantId = EndlessReadService.participantId,
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,

@@ -7,20 +7,19 @@ import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
+import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
-import com.daml.platform.usermanagement.UserManagementConfig
-
 import scala.concurrent.duration._
 
 /** Defines the basic configuration for running sandbox
@@ -75,16 +74,6 @@ final case class SandboxConfig(
   ): SandboxConfig =
     copy(userManagementConfig = modify(userManagementConfig))
 
-  lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
-    InitialLedgerConfiguration(
-      Configuration.reasonableInitialConfiguration.copy(
-        timeModel = timeModel,
-        maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
-          Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
-        ),
-      ),
-      delayBeforeSubmittingLedgerConfiguration,
-    )
 }
 
 object SandboxConfig {

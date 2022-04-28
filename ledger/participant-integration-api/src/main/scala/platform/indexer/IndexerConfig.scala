@@ -3,45 +3,67 @@
 
 package com.daml.platform.indexer
 
-import com.daml.lf.data.Ref
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.store.DbType
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
+import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
-    participantId: Ref.ParticipantId,
-    jdbcUrl: String,
-    startupMode: IndexerStartupMode,
+    startupMode: IndexerStartupMode = DefaultIndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
-    asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
     batchingParallelism: Int = DefaultBatchingParallelism,
     ingestionParallelism: Int = DefaultIngestionParallelism,
     submissionBatchSize: Long = DefaultSubmissionBatchSize,
     enableCompression: Boolean = DefaultEnableCompression,
-    haConfig: HaConfig = HaConfig(),
-    // PostgresSQL specific configurations
-    // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
-    // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
-    postgresTcpKeepalivesIdle: Option[Int] = Some(10),
-    postgresTcpKeepalivesInterval: Option[Int] = Some(1),
-    postgresTcpKeepalivesCount: Option[Int] = Some(5),
+    highAvailability: HaConfig = DefaultHaConfig,
+    database: DbConfig = DefaultDatabase,
 )
 
 object IndexerConfig {
 
+  def createDefaultDatabaseConfig(jdbcUrl: String): DbConfig = DbConfig(
+    jdbcUrl = jdbcUrl,
+    // PostgresSQL specific configurations
+    // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
+    // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
+    postgres = PostgresDataSourceConfig(
+      synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off),
+      tcpKeepalivesIdle = Some(10),
+      tcpKeepalivesInterval = Some(1),
+      tcpKeepalivesCount = Some(5),
+    ),
+    connectionPool = ConnectionPoolConfig(
+      minimumIdle = DefaultIngestionParallelism + 1, // + 1 for the tailing ledger_end updates
+      maxPoolSize = DefaultIngestionParallelism + 1, // + 1 for the tailing ledger_end updates
+      // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+      connectionTimeout = FiniteDuration(
+        250,
+        "millis",
+      ),
+    ),
+  )
+
+  val DefaultIndexerStartupMode: IndexerStartupMode.MigrateAndStart =
+    IndexerStartupMode.MigrateAndStart(allowExistingSchema = false)
+  val DefaultHaConfig: HaConfig = HaConfig()
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-  val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
-
   val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L
   val DefaultEnableCompression: Boolean = false
-
+  val DefaultDatabase: DbConfig = DbConfig(
+    jdbcUrl = "default-jdbc-url",
+    connectionPool = ConnectionPoolConfig(
+      minimumIdle = 16,
+      maxPoolSize = 16,
+      connectionTimeout = 250.millis,
+    ),
+  )
 }

@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.resources.ResourceContext
+import com.daml.platform.indexer.IndexerConfig
 import com.daml.resources.ProgramResource
 import com.daml.testing.oracle.OracleAround
 
@@ -12,7 +13,7 @@ object MainWithEphemeralOracleUser {
     val user = OracleAround.createNewUniqueRandomUser()
     sys.addShutdownHook(user.drop())
     new ProgramResource(
-      owner = SandboxOnXRunner.owner(
+      owner = LegacySandboxOnXRunner.owner(
         args = args,
         manipulateConfig = originalConfig =>
           originalConfig.copy(
@@ -20,11 +21,11 @@ object MainWithEphemeralOracleUser {
               participantConfig.copy(
                 serverJdbcUrl = user.jdbcUrl,
                 indexerConfig = participantConfig.indexerConfig.copy(
-                  haConfig = participantConfig.indexerConfig.haConfig.copy(
+                  highAvailability = participantConfig.indexerConfig.highAvailability.copy(
                     indexerLockId = user.lockIdSeed,
                     indexerWorkerLockId = user.lockIdSeed + 1,
                   ),
-                  jdbcUrl = user.jdbcUrl,
+                  database = IndexerConfig.createDefaultDatabaseConfig(user.jdbcUrl),
                 ),
               )
             )

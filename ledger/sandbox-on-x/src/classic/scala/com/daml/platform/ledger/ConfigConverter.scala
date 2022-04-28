@@ -3,11 +3,10 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.caching
-import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.runner.common._
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.apiserver.AuthServiceConfig
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.sandbox.config.SandboxConfig.{DefaultTimeProviderType, EngineMode}
@@ -25,11 +24,11 @@ object ConfigConverter {
       sandboxConfig: SandboxConfig,
       maybeLedgerId: Option[String],
       ledgerName: LedgerName,
-  ): Config[BridgeConfig] = {
+  ): LegacyCliConfig[BridgeConfig] = {
     // When missing, sandbox-classic used an in-memory ledger.
     // For Sandbox-on-X we don't offer that, so default to H2
     val serverJdbcUrl = sandboxConfig.jdbcUrl.getOrElse(defaultH2SandboxJdbcUrl())
-    val singleCombinedParticipant = ParticipantConfig(
+    val singleCombinedParticipant = LegacyCliParticipantConfig(
       mode = ParticipantRunMode.Combined,
       participantId = sandboxConfig.participantId,
       shardName = None,
@@ -37,13 +36,12 @@ object ConfigConverter {
       port = sandboxConfig.port,
       portFile = sandboxConfig.portFile,
       serverJdbcUrl = serverJdbcUrl,
-      managementServiceTimeout = sandboxConfig.managementServiceTimeout,
+      managementServiceTimeout = sandboxConfig.managementServiceTimeout.toScala,
       indexerConfig = IndexerConfig(
-        participantId = sandboxConfig.participantId,
-        jdbcUrl = serverJdbcUrl,
-        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
+        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = true),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
+        database = IndexerConfig.createDefaultDatabaseConfig(serverJdbcUrl),
       ),
       apiServerDatabaseConnectionPoolSize = sandboxConfig.databaseConnectionPoolSize,
     )
@@ -60,14 +58,14 @@ object ConfigConverter {
       case EngineMode.Dev => LanguageVersion.DevVersions
     }
 
-    Config[BridgeConfig](
+    LegacyCliConfig[BridgeConfig](
       engineConfig = EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
         profileDir = sandboxConfig.profileDir,
         stackTraceMode = sandboxConfig.stackTraces,
         forbidV0ContractId = true,
       ),
-      authService = sandboxConfig.authService.getOrElse(AuthServiceWildcard),
+      authService = AuthServiceConfig.Wildcard,
       acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,
@@ -95,7 +93,6 @@ object ConfigConverter {
         singleCombinedParticipant
       ),
       seeding = sandboxConfig.seeding,
-      stateValueCache = caching.WeightedCache.Configuration.none,
       timeProviderType = sandboxConfig.timeProviderType.getOrElse(DefaultTimeProviderType),
       tlsConfig = sandboxConfig.tlsConfig,
       userManagementConfig = sandboxConfig.userManagementConfig,

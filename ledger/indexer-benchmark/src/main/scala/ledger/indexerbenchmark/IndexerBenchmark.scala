@@ -42,7 +42,13 @@ class IndexerBenchmark() {
       .owner()
       .use(db => {
         println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
-        run(createUpdates, config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = db.url)))
+        run(
+          createUpdates,
+          config.copy(indexerConfig =
+            config.indexerConfig
+              .copy(database = config.indexerConfig.database.copy(jdbcUrl = db.url))
+          ),
+        )
       })(ExecutionContext.parasitic)
 
   def run(
@@ -66,6 +72,7 @@ class IndexerBenchmark() {
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
       val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
+        config.participantId,
         config.indexerConfig,
         readService,
         metrics,
@@ -91,7 +98,9 @@ class IndexerBenchmark() {
 
         // Note: this allows the user to inpsect the contents of an ephemeral database
         if (config.waitForUserInput) {
-          println(s"Index database is still running at ${config.indexerConfig.jdbcUrl}.")
+          println(
+            s"Index database is still running at ${config.indexerConfig.database.jdbcUrl}."
+          )
           StdIn.readLine("Press <enter> to terminate this process.")
         }
 
@@ -113,7 +122,7 @@ class IndexerBenchmark() {
     Await
       .result(
         StandaloneIndexerServer
-          .migrateOnly(jdbcUrl = config.indexerConfig.jdbcUrl)
+          .migrateOnly(dataSourceConfig = config.indexerConfig.database.dataSourceConfig)
           .map(_ => indexerFactory.initialized())(indexerExecutionContext),
         Duration(5, "minute"),
       )
@@ -165,7 +174,7 @@ object IndexerBenchmark {
       updates: () => Future[Source[(Offset, Update), NotUsed]],
   ): Unit = {
     val result: Future[Unit] =
-      (if (config.indexerConfig.jdbcUrl.isEmpty) {
+      (if (config.indexerConfig.database.jdbcUrl.isEmpty) {
          new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
        } else {
          new IndexerBenchmark().run(updates, config)

@@ -5,7 +5,6 @@ package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
-
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT

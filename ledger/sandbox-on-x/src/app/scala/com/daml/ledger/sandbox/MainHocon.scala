@@ -3,10 +3,10 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.resources.ResourceContext
-import com.daml.resources.ProgramResource
+import com.daml.ledger.runner.common.HoconCli
 
-object Main {
+object MainHocon {
   def main(args: Array[String]): Unit =
-    new ProgramResource(owner = LegacySandboxOnXRunner.owner(args)).run(ResourceContext.apply)
+    SandboxOnXRunner.run(HoconCli.loadConfigWithOverrides(SandboxOnXRunner.RunnerName, args))
+
 }

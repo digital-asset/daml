@@ -13,6 +13,9 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
+        "@maven//:com_github_pureconfig_pureconfig_core",
+        "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_chuusai_shapeless",
     ],
     tags = ["maven_coordinates=com.daml:ledger-runner-common:__VERSION__"],
     visibility = [
@@ -28,9 +31,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger-service/jwt",
         "//ledger/caching",
-        "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-configuration",
@@ -42,7 +43,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
-        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_typesafe_config",
         "@maven//:io_netty_netty_handler",
     ],
 )

@@ -8,7 +8,6 @@ import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
@@ -32,6 +31,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
@@ -199,11 +199,11 @@ class RecoveringIndexerIntegrationSpec
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState._1,
+        participantId = participantId,
         config = IndexerConfig(
-          participantId = participantId,
-          jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
+          database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -238,11 +238,16 @@ class RecoveringIndexerIntegrationSpec
     val metrics = new Metrics(new MetricRegistry)
     DbSupport
       .owner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
-        connectionPoolSize = 16,
-        connectionTimeout = 250.millis,
         metrics = metrics,
+        dbConfig = DbConfig(
+          jdbcUrl,
+          connectionPool = ConnectionPoolConfig(
+            minimumIdle = 16,
+            maxPoolSize = 16,
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

@@ -3,13 +3,13 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import java.time.Duration
-
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import scopt.OptionParser
+
+import java.time.Duration
 
 /** @param updateCount The number of updates to process.
   * @param updateSource The name of the source of state updates.
@@ -24,6 +24,7 @@ case class Config(
     indexerConfig: IndexerConfig,
     waitForUserInput: Boolean,
     minUpdateRate: Option[Long],
+    participantId: Ref.ParticipantId,
 )
 
 object Config {
@@ -33,12 +34,12 @@ object Config {
     metricsReporter = None,
     metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
-      participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
-      jdbcUrl = "",
       startupMode = IndexerStartupMode.MigrateAndStart(),
+      database = IndexerConfig.createDefaultDatabaseConfig(""),
     ),
     waitForUserInput = false,
     minUpdateRate = None,
+    participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
   )
 
   private[this] val Parser: OptionParser[Config] =
@@ -88,7 +89,10 @@ object Config {
           "The JDBC URL of the index database. Default: the benchmark will run against an ephemeral Postgres database."
         )
         .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = value))
+          config.copy(indexerConfig =
+            config.indexerConfig
+              .copy(database = config.indexerConfig.database.copy(jdbcUrl = value))
+          )
         )
 
       opt[Long]("update-count")

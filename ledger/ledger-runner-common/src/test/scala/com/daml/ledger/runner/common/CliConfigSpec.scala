@@ -14,7 +14,7 @@ import scopt.OptionParser
 import java.io.File
 import java.time.Duration
 
-final class ConfigSpec
+final class CliConfigSpec
     extends AnyFlatSpec
     with Matchers
     with OptionValues
@@ -47,16 +47,18 @@ final class ConfigSpec
   private def configParser(
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
-  ): Option[Config[Unit]] =
-    Config.parse(
+  ): Option[LegacyCliConfig[Unit]] =
+    LegacyCliConfig.parse(
       name = "Test",
-      extraOptions = (_: OptionParser[Config[Unit]]) => (),
+      extraOptions = (_: OptionParser[LegacyCliConfig[Unit]]) => (),
       defaultExtra = (),
       args = parameters,
       getEnvVar = getEnvVar,
     )
 
-  private def configParserSimple(parameters: Iterable[String] = Seq.empty): Option[Config[Unit]] =
+  private def configParserSimple(
+      parameters: Iterable[String] = Seq.empty
+  ): Option[LegacyCliConfig[Unit]] =
     configParser(
       Seq(
         dumpIndexMetadataCommand,
@@ -196,7 +198,7 @@ final class ConfigSpec
   }
 
   it should "return the default when env variable not provided" in {
-    val defaultJdbc = ParticipantConfig.defaultIndexJdbcUrl(participantId)
+    val defaultJdbc = LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)
     val config = configParser(
       Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
     ).getOrElse(parsingFailure())

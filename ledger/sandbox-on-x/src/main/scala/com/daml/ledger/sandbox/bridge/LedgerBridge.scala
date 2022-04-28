@@ -8,18 +8,19 @@ import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
+import com.daml.ledger.runner.common.ParticipantConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
 import com.google.common.primitives.Longs
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
@@ -29,24 +30,26 @@ trait LedgerBridge {
 
 object LedgerBridge {
   def owner(
-      config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
+      bridgeConfig: BridgeConfig,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      maxDeduplicationDuration: Duration,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] =
-    if (config.extra.conflictCheckingEnabled)
+    if (bridgeConfig.conflictCheckingEnabled)
       buildConfigCheckingLedgerBridge(
-        config,
         participantConfig,
+        bridgeConfig,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
         timeProvider,
+        maxDeduplicationDuration,
       )
     else
       ResourceOwner.forValue(() =>
@@ -54,12 +57,13 @@ object LedgerBridge {
       )
 
   private def buildConfigCheckingLedgerBridge(
-      config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
+      bridgeConfig: BridgeConfig,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      maxDeduplicationDuration: Duration,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -81,13 +85,11 @@ object LedgerBridge {
       initialAllocatedParties = allocatedPartiesAtInitialization,
       initialLedgerConfiguration = initialLedgerConfiguration,
       bridgeMetrics = bridgeMetrics,
-      validatePartyAllocation = !config.extra.implicitPartyAllocation,
+      validatePartyAllocation = !bridgeConfig.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
-        .getOrElse(
-          BridgeConfigProvider.initialLedgerConfig(config).configuration.maxDeduplicationDuration
-        ),
+        .getOrElse(maxDeduplicationDuration),
     )
 
   private[bridge] def packageUploadSuccess(
