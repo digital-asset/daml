@@ -15,7 +15,7 @@ import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMet
 
 import java.sql.Connection
 
-private[backend] object MeteringParameterStorageBackendTemplate
+private[backend] object MeteringParameterStorageBackendImpl
     extends MeteringParameterStorageBackend {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)

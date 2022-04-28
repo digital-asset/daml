@@ -18,7 +18,7 @@ import com.daml.platform.store.backend.UserManagementStorageBackend
 
 import scala.util.Try
 
-object UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
+object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
 
   private val ParticipantUserParser: RowParser[(Int, String, Option[String], Long)] =
     int("internal_id") ~ str("user_id") ~ str("primary_party").? ~ long("created_at") map {

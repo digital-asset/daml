@@ -10,7 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
-  ParameterStorageBackendTemplate,
+  ParameterStorageBackendImpl,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
@@ -22,7 +22,7 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       participantAllDivulgedContractsPrunedUpToInclusive =
-        ParameterStorageBackendTemplate.participantAllDivulgedContractsPrunedUpToInclusive,
+        ParameterStorageBackendImpl.participantAllDivulgedContractsPrunedUpToInclusive,
     ) {
 
   /** If `pruneAllDivulgedContracts` is set, validate that the pruning offset is after

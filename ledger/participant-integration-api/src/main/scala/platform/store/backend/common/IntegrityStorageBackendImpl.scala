@@ -11,7 +11,7 @@ import anorm.~
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.IntegrityStorageBackend
 
-private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorageBackend {
+private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBackend {
 
   private val allSequentialIds: String =
     s"""

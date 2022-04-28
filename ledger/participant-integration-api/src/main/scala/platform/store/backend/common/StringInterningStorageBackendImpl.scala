@@ -10,7 +10,7 @@ import anorm.{RowParser, SqlStringInterpolation, ~}
 import com.daml.platform.store.backend.StringInterningStorageBackend
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
-object StringInterningStorageBackendTemplate extends StringInterningStorageBackend {
+object StringInterningStorageBackendImpl extends StringInterningStorageBackend {
 
   private val StringInterningEntriesParser: RowParser[(Int, String)] =
     int("internal_id") ~ str("external_string") map { case internalId ~ externalString =>

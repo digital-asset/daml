@@ -9,7 +9,7 @@ import anorm.SqlStringInterpolation
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.backend.common.{
-  DataSourceStorageBackendTemplate,
+  DataSourceStorageBackendImpl,
   InitHookDataSourceProxy,
 }
 
@@ -46,7 +46,7 @@ class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit],
   )(implicit loggingContext: LoggingContext): DataSource = {
-    import DataSourceStorageBackendTemplate.exe
+    import DataSourceStorageBackendImpl.exe
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
 
@@ -103,7 +103,7 @@ class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
   }
 
   override def checkDatabaseAvailable(connection: Connection): Unit =
-    DataSourceStorageBackendTemplate.checkDatabaseAvailable(connection)
+    DataSourceStorageBackendImpl.checkDatabaseAvailable(connection)
 }
 
 object PostgresDataSourceStorageBackend {
