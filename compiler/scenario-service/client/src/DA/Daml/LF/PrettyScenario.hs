@@ -750,6 +750,7 @@ prettyNodeNode nn = do
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
+isUnitValue (Just (Value (Just (ValueSumRecord Record{recordFields})))) = V.null recordFields
 isUnitValue _ = False
 
 prettyNode :: Node -> M (Doc SyntaxClass)
