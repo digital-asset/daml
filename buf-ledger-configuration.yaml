@@ -5,8 +5,8 @@ version: v1beta1
 
 build:
   roots:
-    - daml-lf/transaction/src/main/protobuf
+    - ledger/ledger-configuration/protobuf
 
 breaking:
   use:
-    - WIRE
+    - FILE
