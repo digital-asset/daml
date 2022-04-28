@@ -43,9 +43,7 @@ object ContractClass {
           Builder.generateFromIdAndRecordDeprecated(contractClassName)
         )
         .addMethod(
-          Builder.generateFromCreatedEvent(
-            contractClassName
-          )
+          Builder.generateFromCreatedEvent(contractClassName)
         )
       this
     }
