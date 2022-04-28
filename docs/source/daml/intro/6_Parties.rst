@@ -167,32 +167,32 @@ You can see the graph of this transaction in the transaction view of the IDE:
 
 .. code-block:: none
 
-  TX #12 1970-01-01T00:00:00Z (Parties:269:3)
+  TX 12 1970-01-01T00:00:00Z (Parties:276:3)
   #12:0
-  │   known to (since): 'Bob' (#12), 'Charlie' (#12)
+  │   disclosed to (since): 'Bob' (12), 'Charlie' (12)
   └─> 'Bob' exercises Send_Iou on #10:0 (Parties:IouSender)
             with
               iouCid = #11:3
       children:
       #12:1
-      │   known to (since): 'Bob' (#12), 'Charlie' (#12)
+      │   disclosed to (since): 'Bob' (12), 'Charlie' (12), 'Alice' (12)
       └─> fetch #11:3 (Parties:Iou)
 
       #12:2
-      │   known to (since): 'Bob' (#12), 'Alice' (#12), 'Charlie' (#12)
+      │   disclosed to (since): 'Bob' (12), 'Charlie' (12), 'Alice' (12)
       └─> 'Bob', 'Charlie' exercises Mutual_Transfer on #11:3 (Parties:Iou)
                            with
                              newOwner = 'Charlie'
           children:
           #12:3
-          │   known to (since): 'Charlie' (#12), 'Alice' (#12), 'Bob' (#12)
+          │   disclosed to (since): 'Bob' (12), 'Charlie' (12), 'Alice' (12)
           └─> create Parties:Iou
               with
                 issuer = 'Alice';
                 owner = 'Charlie';
                 cash =
                   (Parties:Cash with
-                     currency = "USD"; amount = 100.0)
+                     currency = "USD"; amount = 100.0000000000)
 
 Note that authority is not automatically transferred transitively.
 
