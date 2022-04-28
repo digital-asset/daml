@@ -4,6 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
@@ -89,9 +90,10 @@ private[inner] object TemplateClass extends StrictLogging {
       .addModifiers(Modifier.PUBLIC)
       .returns(classOf[javaapi.data.CreateCommand])
       .addStatement(
-        "return new $T($T.TEMPLATE_ID, this.toValue())",
+        "return new $T($T.$N, this.toValue())",
         classOf[javaapi.data.CreateCommand],
         name,
+        templateIdFieldName,
       )
       .build()
 
@@ -174,9 +176,10 @@ private[inner] object TemplateClass extends StrictLogging {
       case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     exerciseByKeyBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, $L, $S, $L)",
+      "return new $T($T.$N, $L, $S, $L)",
       classOf[javaapi.data.ExerciseByKeyCommand],
       templateClassName,
+      templateIdFieldName,
       ToValueGenerator
         .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
       choiceName,
@@ -281,9 +284,10 @@ private[inner] object TemplateClass extends StrictLogging {
           )
     }
     createAndExerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, argValue)",
+      "return new $T($T.$N, this.toValue(), $S, argValue)",
       classOf[javaapi.data.CreateAndExerciseCommand],
       templateClassName,
+      templateIdFieldName,
       choiceName,
     )
     createAndExerciseChoiceBuilder.build()
@@ -342,14 +346,20 @@ private[inner] object TemplateClass extends StrictLogging {
             templateClassName,
           ) ++ keyTypes: _*
         ),
-        "COMPANION",
+        companionFieldName,
         Modifier.STATIC,
         Modifier.FINAL,
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$ZTEMPLATE_ID, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
-        Seq(fieldClass, contractIdName, templateClassName, contractName) ++ keyArgs: _*
+        "$Znew $T<>($>$Z$N, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
+        Seq(
+          fieldClass,
+          templateIdFieldName,
+          contractIdName,
+          templateClassName,
+          contractName,
+        ) ++ keyArgs: _*
       )
       .build()
   }

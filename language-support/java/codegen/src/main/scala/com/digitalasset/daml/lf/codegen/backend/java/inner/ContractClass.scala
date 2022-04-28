@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.ObjectMethods
-import ClassGenUtils.{optional, optionalString, setOfStrings}
+import ClassGenUtils.{companionFieldName, optional, optionalString, setOfStrings}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Type
 import com.squareup.javapoet._
@@ -111,7 +111,8 @@ object ContractClass {
         .returns(returns)
         .addParameters(methodParameters.asJava)
         .addStatement(
-          "return COMPANION.$N($L)",
+          "return $N.$N($L)",
+          companionFieldName,
           methodName,
           CodeBlock
             .join(parameters.map { case (_, pName) => CodeBlock.of("$N", pName) }.asJava, ",$W"),

@@ -14,7 +14,7 @@ import com.daml.ledger.javaapi
 import javax.lang.model.element.Modifier
 import scala.reflect.ClassTag
 
-object ClassGenUtils {
+private[inner] object ClassGenUtils {
 
   val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
 
@@ -52,11 +52,14 @@ object ClassGenUtils {
     } else None
   }
 
+  val templateIdFieldName = "TEMPLATE_ID"
+  val companionFieldName = "COMPANION"
+
   def generateTemplateIdField(packageId: PackageId, moduleName: String, name: String) =
     FieldSpec
       .builder(
         ClassName.get(classOf[javaapi.data.Identifier]),
-        "TEMPLATE_ID",
+        templateIdFieldName,
         Modifier.STATIC,
         Modifier.FINAL,
         Modifier.PUBLIC,
