@@ -109,7 +109,7 @@ object KeyUtils {
          |      "alg": "RS256",
          |      "use": "sig",
          |      "e": "${java.util.Base64.getUrlEncoder
-        .encodeToString(key.getPublicExponent.toByteArray)}",
+          .encodeToString(key.getPublicExponent.toByteArray)}",
          |      "n": "${java.util.Base64.getUrlEncoder.encodeToString(key.getModulus.toByteArray)}"
          |    }""".stripMargin
 

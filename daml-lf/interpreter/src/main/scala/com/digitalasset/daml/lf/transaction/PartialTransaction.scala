@@ -635,7 +635,7 @@ private[speedy] case class PartialTransaction(
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds =
-            actionNodeSeeds :+ actionNodeSeed, //(NC) pushed by 'beginExercises'; why push again?
+            actionNodeSeeds :+ actionNodeSeed, // (NC) pushed by 'beginExercises'; why push again?
         )
       case _ =>
         InternalError.runtimeException(

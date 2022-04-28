@@ -198,7 +198,7 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
       success
   }
 
-  //this check only checks for "required" fields to conclude that both config file and cli args were supplied
+  // this check only checks for "required" fields to conclude that both config file and cli args were supplied
   checkConfig { cfg =>
     if (
       cfg.configFile.isDefined && (cfg.ledgerHost != "" || cfg.ledgerPort != -1 || cfg.httpPort != -1)

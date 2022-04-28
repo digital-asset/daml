@@ -526,7 +526,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  //TODO need to find out why this is so slow to execute on Oracle
+  // TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(

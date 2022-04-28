@@ -1297,7 +1297,7 @@ class EngineTest
       }
 
       fetchNodes.foreach { case (_, n) =>
-        val nid = NodeId(0) //we must use node-0 so the constructed tx is normalized
+        val nid = NodeId(0) // we must use node-0 so the constructed tx is normalized
         val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
         val Right((reinterpreted, _)) =
           suffixLenientEngine

@@ -67,9 +67,9 @@ private[backend] class ConfigurationStorageBackendTemplate(
       where
         configuration_entries.typ = '#$acceptType' and
         ${queryStrategy.offsetIsSmallerOrEqual(
-      nonNullableColumn = "ledger_offset",
-      endInclusive = ledgerEndOffset,
-    )}
+        nonNullableColumn = "ledger_offset",
+        endInclusive = ledgerEndOffset,
+      )}
       order by ledger_offset desc
       fetch next 1 row only
   """
@@ -97,10 +97,10 @@ private[backend] class ConfigurationStorageBackendTemplate(
         configuration_entries
       where
         ${queryStrategy.offsetIsBetween(
-      nonNullableColumn = "ledger_offset",
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-    )}
+        nonNullableColumn = "ledger_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

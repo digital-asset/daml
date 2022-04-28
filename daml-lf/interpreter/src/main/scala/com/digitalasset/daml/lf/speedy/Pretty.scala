@@ -198,12 +198,12 @@ private[lf] object Pretty {
         s"node $id (${nc.templateId}) has no controllers"
       case ma: FailedAuthorization.CreateMissingAuthorization =>
         s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
-          .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
+            .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
       case ma: FailedAuthorization.FetchMissingAuthorization =>
         s"node $id requires one of the stakeholders ${ma.stakeholders} of the fetched contract to be an authorizer, but authorizers were ${ma.authorizingParties}"
       case ma: FailedAuthorization.ExerciseMissingAuthorization =>
         s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
-          .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
+            .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
       case ns: FailedAuthorization.NoSignatories =>
         s"node $id (${ns.templateId}) has no signatories"
       case nlbk: FailedAuthorization.LookupByKeyMissingAuthorization =>

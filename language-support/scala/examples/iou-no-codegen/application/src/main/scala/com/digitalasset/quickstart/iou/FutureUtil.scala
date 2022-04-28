@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.quickstart.iou
+
 import scala.concurrent.Future
 
 object FutureUtil {

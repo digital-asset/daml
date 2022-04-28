@@ -675,7 +675,7 @@ private[lf] final class PhaseOne(
           val env1 = env0.pushExprVar(binder)
           body match {
             case eLet1: ELet =>
-              compileELet(env1, eLet1, bounds) //recursive call in compileExp is stack-safe
+              compileELet(env1, eLet1, bounds) // recursive call in compileExp is stack-safe
             case _ =>
               compileExp(env1, body) {
                 case SELet(bounds1, body1) =>
@@ -792,7 +792,7 @@ private[lf] final class PhaseOne(
     exp match {
       case EApp(fun, arg) =>
         compileExp(env, arg) { arg =>
-          compileAppsX(env, fun, arg :: args) //recursive call in compileExp is stack-safe
+          compileAppsX(env, fun, arg :: args) // recursive call in compileExp is stack-safe
         }
       case ETyApp(fun, arg) =>
         compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))

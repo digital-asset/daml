@@ -739,8 +739,8 @@ final class CommandDeduplicationIT(
          |Request: $requestString
          |Response: $response
          |Metadata: ${extractErrorInfoMetadata(
-        GrpcStatus.toJavaProto(response.completion.getStatus)
-      )}""".stripMargin,
+          GrpcStatus.toJavaProto(response.completion.getStatus)
+        )}""".stripMargin,
     )
 
   private def assertDeduplicatedSubmissionIdAndOffsetOnError(

@@ -1396,7 +1396,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
     getUniquePartyAndAuthHeaders(uri)("Alice").flatMap { case (alice, headers) =>
-      //The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
+      // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
       val helperId = domain.TemplateId(None, "Account", "Helper")
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))

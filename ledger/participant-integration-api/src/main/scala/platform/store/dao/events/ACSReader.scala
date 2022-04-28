@@ -85,8 +85,8 @@ class FilterTableACSReader(
               if (result.size < idPageSize) None
               else Some(query.copy(fromExclusiveEventSeqId = result.last))
             logger.debug(s"getActiveContractIds $query returned #${result.size} ${result.lastOption
-              .map(last => s"until $last")
-              .getOrElse("")}")
+                .map(last => s"until $last")
+                .getOrElse("")}")
             result -> newTasks
           }(materializer.executionContext),
       initialTasks = tasks,
@@ -117,8 +117,8 @@ class FilterTableACSReader(
               )(connection, implicitly)
               logger.debug(
                 s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
+                    .map(last => s"until $last")
+                    .getOrElse("")}"
               )
               result
             }
@@ -284,8 +284,8 @@ private[events] object FilterTableACSReader {
           val result = outputQueue.flushOutput
           logger.debug(
             s"acsRetrievalSequentialProcessing received $task with #{${ids.size}} ${ids.lastOption
-              .map(last => s"until $last ")
-              .getOrElse("")}and produced ${result.size}"
+                .map(last => s"until $last ")
+                .getOrElse("")}and produced ${result.size}"
           )
           result
         },

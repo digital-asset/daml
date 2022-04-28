@@ -51,8 +51,8 @@ class LargeTransactionBench {
       perfTestTimeout,
     )
 
-  //note that when running this with Postgres the bottleneck seems to originate from the fact the we traverse the huge
-  //Transaction and execute SQL queries one after another. We could potentially partition the transaction so we can have batch queries instead.
+  // note that when running this with Postgres the bottleneck seems to originate from the fact the we traverse the huge
+  // Transaction and execute SQL queries one after another. We could potentially partition the transaction so we can have batch queries instead.
   @Timeout(
     time = 20,
     timeUnit = TimeUnit.MINUTES,

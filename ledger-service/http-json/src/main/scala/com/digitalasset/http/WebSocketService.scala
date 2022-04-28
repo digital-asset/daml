@@ -324,7 +324,7 @@ object WebSocketService {
           } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, (ix, pos)))))
         for {
           res <-
-            request.queriesWithPos.zipWithIndex //index is used to ensure matchesOffset works properly
+            request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
               .map { case ((q, pos), ix) => (q, pos, ix) }
               .foldMapM(query.tupled)
           (resolved, unresolved, q) = res

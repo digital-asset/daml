@@ -30,7 +30,7 @@ object ValueGenerators {
   import TransactionVersion.minExceptions
   import TransactionVersion.minInterfaces
 
-  //generate decimal values
+  // generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     val num = for {
       integerPart <- Gen.listOfN(Numeric.maxPrecision - scale, Gen.choose(1, 9)).map(_.mkString)

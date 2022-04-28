@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
+
 import com.daml.platform.testing.StreamConsumer
 import io.grpc.reflection.v1alpha.{ServerReflectionGrpc, ServerReflectionResponse}
 

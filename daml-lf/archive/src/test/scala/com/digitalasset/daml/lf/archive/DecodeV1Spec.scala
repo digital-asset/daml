@@ -410,7 +410,7 @@ class DecodeV1Spec
     def toDecimalProto(s: String): DamlLf1.Expr =
       DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setDecimalStr(s)).build()
 
-    //def toNumericProto(s: String): DamlLf1.Expr =
+    // def toNumericProto(s: String): DamlLf1.Expr =
     //  DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setNumeric(s)).build()
 
     def toNumericProto(id: Int): DamlLf1.Expr =

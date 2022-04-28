@@ -34,7 +34,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
       assert(
         exercised.head.getExercised.contractId == Tag.unwrap(dummyFactory),
         s"The identifier of the exercised contract should have been ${Tag
-          .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
+            .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
       )
     }
   })

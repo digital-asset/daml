@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
+
 import java.time.Instant
 import java.util.concurrent.TimeoutException
 

@@ -139,7 +139,7 @@ private[lf] object Speedy {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
-    private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
+    private[lf] def ptxInternal: PartialTransaction = ptx // deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
 
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
@@ -482,7 +482,7 @@ private[lf] object Speedy {
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
-          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) //stop
+          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) // stop
       }
     }
 

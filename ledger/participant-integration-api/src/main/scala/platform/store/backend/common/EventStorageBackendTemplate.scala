@@ -464,7 +464,7 @@ abstract class EventStorageBackendTemplate(
         "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
         "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
         // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
-        //"participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
+        // "participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
       ),
     )(
       limit = rangeParams.limit,
@@ -589,11 +589,11 @@ abstract class EventStorageBackendTemplate(
       partitions = List(
         // we do not want to fetch divulgence events
         "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
+            .constBooleanSelect(false)} as exercise_consuming",
         "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(true)} as exercise_consuming",
+            .constBooleanSelect(true)} as exercise_consuming",
         "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
+            .constBooleanSelect(false)} as exercise_consuming",
       ),
     )(
       limit = rangeParams.limit,
@@ -620,11 +620,11 @@ abstract class EventStorageBackendTemplate(
       partitions = List(
         // we do not want to fetch divulgence events
         "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
+            .constBooleanSelect(false)} as exercise_consuming",
         "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(true)} as exercise_consuming",
+            .constBooleanSelect(true)} as exercise_consuming",
         "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-          .constBooleanSelect(false)} as exercise_consuming",
+            .constBooleanSelect(false)} as exercise_consuming",
       ),
     )(
       limit = None,

@@ -2,18 +2,18 @@
 
 let
   baseName = "scalafmt";
-  version = "3.0.6";
+  version = "3.5.1";
   deps = stdenv.mkDerivation {
     name = "${baseName}-deps-${version}";
     buildCommand = ''
       export COURSIER_CACHE=$(pwd)
-      ${coursier}/bin/coursier fetch org.scalameta:scalafmt-cli_2.12:${version} > deps
+      ${coursier}/bin/cs fetch org.scalameta:scalafmt-cli_2.13:${version} > deps
       mkdir -p $out/share/java
       cp $(< deps) $out/share/java/
     '';
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash     = "0wsly5fhpywwrcz3pkcpyrzk43w887dfnyv70l4rkicd599arwy5";
+    outputHash     = "96buqvJKCOJO5KRB4DJIHvdLfOKXgVaU0MVr1lCyzH8=";
   };
 in
 stdenv.mkDerivation rec {

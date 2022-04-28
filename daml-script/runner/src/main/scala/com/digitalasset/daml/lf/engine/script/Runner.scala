@@ -98,7 +98,7 @@ case class Participants[+T](
         } else {
           Left(
             s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
-              .zip(participants.toList)}"
+                .zip(participants.toList)}"
           )
         }
     } yield participant

@@ -65,7 +65,7 @@ final class ScenarioRunner(
     var steps = 0
     var finalValue: SValue = null
     while (finalValue == null) {
-      //machine.print(steps)
+      // machine.print(steps)
       steps += 1 // this counts the number of external `Need` interactions
       val res: SResult = machine.run()
       res match {

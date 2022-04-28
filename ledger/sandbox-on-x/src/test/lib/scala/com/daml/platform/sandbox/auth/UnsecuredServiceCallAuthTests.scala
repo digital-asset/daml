@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
+
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 
 trait UnsecuredServiceCallAuthTests extends ServiceCallAuthTests {
