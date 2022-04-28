@@ -122,7 +122,7 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           ErrorCategory.ContentionOnSharedResources, // It may succeed at a later time
         ) {
       case class Reject(
-          override val cause: String,
+          override val cause: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(cause)
     }
