@@ -5,13 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.ObjectMethods
-import com.daml.lf.codegen.backend.java.inner.ClassGenUtils.{
-  emptyOptional,
-  emptySet,
-  optional,
-  optionalString,
-  setOfStrings,
-}
+import ClassGenUtils.{optional, optionalString, setOfStrings}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Type
 import com.squareup.javapoet._
@@ -46,12 +40,7 @@ object ContractClass {
           )
         )
         .addMethod(
-          Builder.generateFromIdAndRecordDeprecated(
-            contractClassName,
-            templateClassName,
-            contractIdClassName,
-            contractKeyClassName,
-          )
+          Builder.generateFromIdAndRecordDeprecated(contractClassName)
         )
         .addMethod(
           Builder.generateFromCreatedEvent(
@@ -78,41 +67,20 @@ object ContractClass {
       generateCompanionForwarder(
         "fromCreatedEvent",
         className,
+        identity,
         (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
       )
 
     private def generateFromIdAndRecordDeprecated(
-        className: ClassName,
-        templateClassName: ClassName,
-        idClassName: ClassName,
-        maybeContractKeyClassName: Option[TypeName],
-    ): MethodSpec = {
-      val spec =
-        MethodSpec
-          .methodBuilder("fromIdAndRecord")
-          .addAnnotation(classOf[Deprecated])
-          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(className)
-          .addParameter(classOf[String], "contractId")
-          .addParameter(classOf[javaapi.data.DamlRecord], "record$")
-          .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-          .addStatement(
-            "$T $L = $T.fromValue(record$$)",
-            templateClassName,
-            dataFieldName,
-            templateClassName,
-          )
-
-      val callParameters = Vector(
-        CodeBlock.of(idFieldName),
-        CodeBlock.of(dataFieldName),
-        emptyOptional,
-      ) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(emptySet, emptySet)
-
-      spec
-        .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))
-        .build()
-    }
+        className: ClassName
+    ): MethodSpec =
+      generateCompanionForwarder(
+        "fromIdAndRecord",
+        className,
+        _.addAnnotation(classOf[Deprecated]),
+        (ClassName get classOf[String], "contractId"),
+        (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
+      )
 
     private[inner] def generateFromIdAndRecord(
         className: ClassName,
@@ -129,16 +97,17 @@ object ContractClass {
         (setOfStrings, observersFieldName),
       )
 
-      generateCompanionForwarder("fromIdAndRecord", className, methodParameters: _*)
+      generateCompanionForwarder("fromIdAndRecord", className, identity, methodParameters: _*)
     }
 
     private[this] def generateCompanionForwarder(
         methodName: String,
         returns: TypeName,
+        otherSettings: MethodSpec.Builder => MethodSpec.Builder,
         parameters: (TypeName, String)*
     ): MethodSpec = {
       val methodParameters = parameters.map { case (t, n) => ParameterSpec.builder(t, n).build() }
-      MethodSpec
+      val spec = MethodSpec
         .methodBuilder(methodName)
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .returns(returns)
@@ -149,7 +118,7 @@ object ContractClass {
           CodeBlock
             .join(parameters.map { case (_, pName) => CodeBlock.of("$N", pName) }.asJava, ",$W"),
         )
-        .build()
+      otherSettings(spec).build()
     }
 
     def create(
