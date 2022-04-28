@@ -158,7 +158,7 @@ The lines above and below ``create Token_Test:Token`` give additional informatio
 
 - ``consumed by: #2:0`` tells you that the contract is archived in sub-transaction ``0`` of commit ``2``.
 - ``referenced by #2:0`` tells you that the contract was used in other transactions, and lists their IDs.
-- ``known to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to a ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
+- ``disclosed to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to an ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
 - Everything following ``with`` shows the create arguments.
 
 Exercises
