@@ -85,6 +85,17 @@ On Windows you need to enable long file paths by running the following command i
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
 ```
 
+You also need to configure Bazel for Windows:
+
+```
+echo "build --config windows" > .bazelrc.local
+```
+
+Note, if you are on a Windows ad-hoc or CI machine you can use
+`ci/configure-bazel.sh` instead of performing these steps manually.
+In that case, you should checkout the `daml` repository into the path
+`D:\a\1\s` in order to be able to use remote cache artifacts.
+
 Then start `dev-env` from PowerShell with:
 
 ```
