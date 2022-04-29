@@ -6,7 +6,11 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 load("//bazel_tools/ghc-lib:version.bzl", "GHC_LIB_VERSION")
 load("//bazel_tools:pkg.bzl", "unpack_tar")
-load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
+load(
+    "//bazel_tools/sh:sh.bzl",
+    "sh_inline_binary",
+    "sh_inline_test",
+)
 
 unpack_tar(
     name = "unpack",
@@ -26,6 +30,20 @@ copy_file(
     name = "cabal-file",
     src = "@da-ghc//:ghc-lib-parser.cabal",
     out = "srcs/ghc-lib-parser.cabal",
+)
+
+sh_inline_binary(
+    name = "cabal-update",
+    cmd = """\
+SOURCE=$$(canonicalize_rlocation $(rootpath @da-ghc//:ghc-lib-parser.cabal))
+OUTPUT_DIR=$$BUILD_WORKSPACE_DIRECTORY/bazel_tools/ghc-lib/ghc-lib-parser
+
+cp --no-preserve=mode -t "$$OUTPUT_DIR" "$$SOURCE"
+""",
+    data = [
+        "@da-ghc//:ghc-lib-parser.cabal",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
 )
 
 sh_inline_test(
