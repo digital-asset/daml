@@ -27,8 +27,8 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import io.grpc.Status
-import io.grpc.Status.{Code => GrpcCode}
+import com.google.rpc.{Code => GrpcCode}
+import com.google.rpc.Status
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
@@ -74,8 +74,13 @@ object EndpointsCompanion {
 
     def fromThrowable: Throwable PartialFunction Error = {
       case LedgerClientJwt.Grpc.StatusEnvelope(status) =>
-        val details = ErrorDetails.from(status.asRuntimeException)
-        ParticipantServerError(status.getCode, Option(status.getDescription), details, status)
+        val details = ErrorDetails.from(status)
+        ParticipantServerError(
+          GrpcCode.forNumber(status.getCode),
+          Option(status.getMessage),
+          details,
+          status,
+        )
       case NonFatal(t) => ServerError(t)
     }
   }
@@ -256,13 +261,16 @@ object EndpointsCompanion {
     val ((status, errorMsg), ledgerApiErrorOpt) =
       error match {
         case InvalidUserInput(e) => StatusCodes.BadRequest -> e -> None
-        case ParticipantServerError(grpcStatus, d, details, status) =>
+        case ParticipantServerError(grpcStatus, d, _, status) =>
           val ledgerApiError =
             domain.LedgerApiError(
-              code = status.getCode.value(),
-              message = status.getDescription,
-              details = details,
+              code = status.getCode,
+              message = status.getMessage,
+              details = ErrorDetails.from(status),
             )
+          import spray.json._
+          import json.JsonProtocol._
+          logger.info(s"${ledgerApiError.toJson}")
           grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}" -> Some(
             ledgerApiError
           )

@@ -22,17 +22,18 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
-import io.grpc.Status, Status.Code, Code.{values => _, _}
-import scalaz.{OneAnd, \/, -\/}
+import scalaz.{-\/, OneAnd, \/}
 import scalaz.syntax.std.boolean._
 
-import scala.concurrent.{ExecutionContext => EC, Future}
+import scala.concurrent.{Future, ExecutionContext => EC}
 import scala.util.control.NonFatal
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.api.v1.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,
 }
+import com.google.rpc.{Code, Status}
+import io.grpc.protobuf.StatusProto
 
 object LedgerClientJwt {
   import Grpc.EFuture, Grpc.Category._
@@ -199,13 +200,13 @@ object LedgerClientJwt {
   def listKnownParties(client: DamlLedgerClient)(implicit ec: EC): ListKnownParties =
     jwt =>
       client.partyManagementClient.listKnownParties(bearer(jwt)).requireHandling {
-        case PERMISSION_DENIED => PermissionDenied
+        case Code.PERMISSION_DENIED => PermissionDenied
       }
 
   def getParties(client: DamlLedgerClient)(implicit ec: EC): GetParties =
     (jwt, partyIds) =>
       client.partyManagementClient.getParties(partyIds, bearer(jwt)).requireHandling {
-        case PERMISSION_DENIED => PermissionDenied
+        case Code.PERMISSION_DENIED => PermissionDenied
       }
 
   def allocateParty(client: DamlLedgerClient): AllocateParty =
@@ -253,9 +254,9 @@ object LedgerClientJwt {
     private[http] object StatusEnvelope {
       def unapply(t: Throwable): Option[Status] = t match {
         case NonFatal(t) =>
-          val s = Status fromThrowable t
+          val s = StatusProto fromThrowable t
           // fromThrowable uses UNKNOWN if it didn't find one
-          (s.getCode != UNKNOWN) option s
+          (com.google.rpc.Code.forNumber(s.getCode) != com.google.rpc.Code.UNKNOWN) option s
         case _ => None
       }
     }
@@ -276,8 +277,8 @@ object LedgerClientJwt {
       // think of it more like a Venn diagram
 
       private[LedgerClientJwt] val submitErrors: Code PartialFunction SubmitError = {
-        case PERMISSION_DENIED => PermissionDenied
-        case INVALID_ARGUMENT => InvalidArgument
+        case Code.PERMISSION_DENIED => PermissionDenied
+        case Code.INVALID_ARGUMENT => InvalidArgument
       }
 
       private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
@@ -286,7 +287,7 @@ object LedgerClientJwt {
         def requireHandling[E](c: Code PartialFunction E)(implicit ec: EC): EFuture[E, A] =
           fa map \/.right[Error[E], A] recover Function.unlift {
             case StatusEnvelope(status) =>
-              c.lift(status.getCode) map (e => -\/(Error(e, status.asRuntimeException.getMessage)))
+              c.lift(Code.forNumber(status.getCode)) map (e => -\/(Error(e, status.getMessage)))
             case _ => None
           }
       }

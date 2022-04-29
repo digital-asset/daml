@@ -524,9 +524,9 @@ object Endpoints {
         )
       case CommandService.GrpcError(status) =>
         ParticipantServerError(
-          status.getCode,
-          Option(status.getDescription),
-          ErrorDetails.from(status.asRuntimeException),
+          com.google.rpc.Code.forNumber(status.getCode),
+          Option(status.getMessage),
+          ErrorDetails.from(status),
           status,
         )
       case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>

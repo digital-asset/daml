@@ -313,7 +313,7 @@ object CommandService {
       id: Grpc.Category.PermissionDenied \/ Grpc.Category.InvalidArgument,
       message: String,
   ) extends Error
-  final case class GrpcError(status: io.grpc.Status) extends Error
+  final case class GrpcError(status: com.google.rpc.Status) extends Error
   final case class InternalError(id: Option[Symbol], error: Throwable) extends Error
   object InternalError {
     def apply(id: Option[Symbol], message: String): InternalError =

@@ -5,7 +5,7 @@ package com.daml.http
 package util
 
 private[http] object GrpcHttpErrorCodes {
-  import io.grpc.Status.{Code => G}
+  import com.google.rpc.{Code => G}
   import akka.http.scaladsl.model.{StatusCode, StatusCodes => A}
 
   implicit final class `gRPC status as akka http`(private val self: G) extends AnyVal {
@@ -19,7 +19,7 @@ private[http] object GrpcHttpErrorCodes {
       case G.ABORTED | G.ALREADY_EXISTS => A.Conflict
       case G.RESOURCE_EXHAUSTED => A.TooManyRequests
       case G.CANCELLED => ClientClosedRequest
-      case G.DATA_LOSS | G.UNKNOWN | G.INTERNAL => A.InternalServerError
+      case G.DATA_LOSS | G.UNKNOWN | G.UNRECOGNIZED | G.INTERNAL => A.InternalServerError
       case G.UNIMPLEMENTED => A.NotImplemented
       case G.UNAVAILABLE => A.ServiceUnavailable
       case G.DEADLINE_EXCEEDED => A.GatewayTimeout
