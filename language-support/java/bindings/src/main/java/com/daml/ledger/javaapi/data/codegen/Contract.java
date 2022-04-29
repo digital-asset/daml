@@ -37,7 +37,8 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
     this.observers = observers;
   }
 
-  protected abstract ContractCompanion<?, Id, Data> getCompanion();
+  // concrete 1st type param would need a self-reference type param in Contract
+  protected abstract ContractCompanion<? extends Contract<Id, Data>, Id, Data> getCompanion();
 
   @Override
   public boolean equals(Object object) {
