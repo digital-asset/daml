@@ -7,7 +7,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.RouteResult.Complete
 import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.util.ByteString
-import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload}
+import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload, LedgerApiError}
 import com.daml.http.json.SprayJson
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import util.GrpcHttpErrorCodes._
@@ -73,8 +73,8 @@ object EndpointsCompanion {
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
-      case ParticipantServerError(s, d, _) =>
-        s"Endpoints.ParticipantServerError: ${s: GrpcCode}: $d"
+      case ParticipantServerError(grpcStatus, description, _) =>
+        s"Endpoints.ParticipantServerError: $grpcStatus: $description"
       case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
@@ -259,31 +259,37 @@ object EndpointsCompanion {
   private[http] def errorResponse(
       error: Error
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): domain.ErrorResponse = {
-    val ((status, errorMsg), ledgerApiErrorOpt) =
-      error match {
-        case InvalidUserInput(e) => StatusCodes.BadRequest -> e -> None
-        case ParticipantServerError(grpcStatus, description, details) =>
-          val ledgerApiError =
-            domain.LedgerApiError(
-              code = grpcStatus.getNumber,
-              message = description,
-              details = details,
-            )
-          grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus: $description" -> Some(
-            ledgerApiError
+    def mkErrorResponse(
+        status: StatusCode,
+        error: String,
+        ledgerApiError: Option[LedgerApiError] = None,
+    ) =
+      domain.ErrorResponse(
+        errors = List(error),
+        warnings = None,
+        status = status,
+        ledgerApiError = ledgerApiError,
+      )
+    error match {
+      case InvalidUserInput(e) => mkErrorResponse(StatusCodes.BadRequest, e)
+      case ParticipantServerError(grpcStatus, description, details) =>
+        val ledgerApiError =
+          domain.LedgerApiError(
+            code = grpcStatus.getNumber,
+            message = description,
+            details = details,
           )
-        case ServerError(reason) =>
-          logger.error(s"Internal server error occured", reason)
-          StatusCodes.InternalServerError -> "HTTP JSON API Server Error" -> None
-        case Unauthorized(e) => StatusCodes.Unauthorized -> e -> None
-        case NotFound(e) => StatusCodes.NotFound -> e -> None
-      }
-    domain.ErrorResponse(
-      errors = List(errorMsg),
-      warnings = None,
-      status = status,
-      ledgerApiError = ledgerApiErrorOpt,
-    )
+        mkErrorResponse(
+          grpcStatus.asAkkaHttpForJsonApi,
+          s"$grpcStatus: $description",
+          Some(ledgerApiError),
+        )
+      case ServerError(reason) =>
+        logger.error(s"Internal server error occured", reason)
+        mkErrorResponse(StatusCodes.InternalServerError, "HTTP JSON API Server Error")
+      case Unauthorized(e) => mkErrorResponse(StatusCodes.Unauthorized, e)
+      case NotFound(e) => mkErrorResponse(StatusCodes.NotFound, e)
+    }
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
