@@ -16,7 +16,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
 import com.daml.platform
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.dao.events.{ContractId, EventsTable, Key, Raw}
+import com.daml.platform.store.dao.events.{ContractId, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
@@ -271,7 +271,7 @@ trait EventStorageBackend {
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
   def activeContractEventIds(
       partyFilter: Ref.Party,
       templateIdFilter: Option[Ref.Identifier],
@@ -283,19 +283,19 @@ trait EventStorageBackend {
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
       endInclusive: Long,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
   def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
   def transactionTreeEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
   def transactionTree(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
@@ -347,6 +347,17 @@ object EventStorageBackend {
       eventSequentialId: Long,
       offset: Offset,
   ) extends NeverEqualsOverride
+
+  final case class Entry[+E](
+      eventOffset: Offset,
+      transactionId: String,
+      nodeIndex: Int,
+      eventSequentialId: Long,
+      ledgerEffectiveTime: Timestamp,
+      commandId: String,
+      workflowId: String,
+      event: E,
+  )
 }
 
 trait DataSourceStorageBackend {

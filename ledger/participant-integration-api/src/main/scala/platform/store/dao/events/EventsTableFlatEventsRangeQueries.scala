@@ -23,7 +23,7 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       offset: Offset,
       filter: FilterRelation,
       pageSize: Int,
-  ): Connection => Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+  ): Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     require(filter.nonEmpty, "The request must be issued by at least one party")
 
     // Route the request to the correct underlying query
@@ -87,7 +87,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
           EventsRange[Long],
           Option[Int],
           Option[Int],
-      ) => Connection => Vector[EventsTable.Entry[Raw.FlatEvent]]
+      ) => Connection => Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
   ) extends Product
       with Serializable
 
