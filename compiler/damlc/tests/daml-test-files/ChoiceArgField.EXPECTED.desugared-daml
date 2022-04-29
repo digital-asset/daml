@@ -1,0 +1,140 @@
+module ChoiceArgField where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data GHC.Types.DamlTemplate => Asset
+  = Asset {s : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "s" Asset Party where
+  getField = DA.Internal.Record.getFieldPrim @"s" @Asset @Party
+  setField = DA.Internal.Record.setFieldPrim @"s" @Asset @Party
+data ChoiceWithArgField
+  = ChoiceWithArgField {t : Party, arg : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "t" ChoiceWithArgField Party where
+  getField
+    = DA.Internal.Record.getFieldPrim @"t" @ChoiceWithArgField @Party
+  setField
+    = DA.Internal.Record.setFieldPrim @"t" @ChoiceWithArgField @Party
+instance DA.Internal.Record.HasField "arg" ChoiceWithArgField Int where
+  getField
+    = DA.Internal.Record.getFieldPrim @"arg" @ChoiceWithArgField @Int
+  setField
+    = DA.Internal.Record.setFieldPrim @"arg" @ChoiceWithArgField @Int
+data ChoiceWithoutArgField
+  = ChoiceWithoutArgField {t : Party, notArg : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "t" ChoiceWithoutArgField Party where
+  getField
+    = DA.Internal.Record.getFieldPrim
+        @"t" @ChoiceWithoutArgField @Party
+  setField
+    = DA.Internal.Record.setFieldPrim
+        @"t" @ChoiceWithoutArgField @Party
+instance DA.Internal.Record.HasField "notArg" ChoiceWithoutArgField Int where
+  getField
+    = DA.Internal.Record.getFieldPrim
+        @"notArg" @ChoiceWithoutArgField @Int
+  setField
+    = DA.Internal.Record.setFieldPrim
+        @"notArg" @ChoiceWithoutArgField @Int
+instance DA.Internal.Desugar.HasSignatory Asset where
+  signatory this@Asset {..}
+    = DA.Internal.Desugar.toParties (s)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver Asset where
+  observer this@Asset {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure Asset where
+  ensure this@Asset {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasAgreement Asset where
+  agreement this@Asset {..}
+    = ""
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive Asset where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate Asset where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch Asset where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate Asset where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Asset where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Asset where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType Asset where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExercise Asset ChoiceWithArgField (Int) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Asset ChoiceWithArgField (Int) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Asset ChoiceWithArgField (Int) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExercise Asset ChoiceWithoutArgField (Int) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Asset ChoiceWithoutArgField (Int) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Asset ChoiceWithoutArgField (Int) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice_AssetArchive :
+  (Asset
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Asset
+   -> Asset
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Asset,
+   DA.Internal.Desugar.Optional (Asset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_AssetArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice_AssetChoiceWithArgField :
+  (Asset -> ChoiceWithArgField -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Asset
+   -> Asset -> ChoiceWithArgField -> DA.Internal.Desugar.Update (Int),
+   DA.Internal.Desugar.Consuming Asset,
+   DA.Internal.Desugar.Optional (Asset
+                                 -> ChoiceWithArgField -> [DA.Internal.Desugar.Party]))
+_choice_AssetChoiceWithArgField
+  = (\ this@Asset {..} ChoiceWithArgField {..}
+       -> let _ = this in DA.Internal.Desugar.toParties (s), 
+     \ self this@Asset {..} ChoiceWithArgField {..}
+       -> let _ = self in let _ = this in do return arg, 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+_choice_AssetChoiceWithoutArgField :
+  (Asset -> ChoiceWithoutArgField -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Asset
+   -> Asset
+      -> ChoiceWithoutArgField -> DA.Internal.Desugar.Update (Int),
+   DA.Internal.Desugar.Consuming Asset,
+   DA.Internal.Desugar.Optional (Asset
+                                 -> ChoiceWithoutArgField -> [DA.Internal.Desugar.Party]))
+_choice_AssetChoiceWithoutArgField
+  = (\ this@Asset {..} arg@ChoiceWithoutArgField {..}
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (s), 
+     \ self this@Asset {..} arg@ChoiceWithoutArgField {..}
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in do return (DA.Internal.Record.getField @"notArg" arg), 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
