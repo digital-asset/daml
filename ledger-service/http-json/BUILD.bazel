@@ -254,6 +254,7 @@ daml_compile(
             "//ledger-service/jwt",
             "//ledger-service/lf-value-json",
             "//ledger-service/utils",
+            "//ledger/error",
             "//ledger/ledger-api-common",
             "//libs-scala/contextualized-logging",
             "//libs-scala/db-utils",
