@@ -269,9 +269,6 @@ object EndpointsCompanion {
               message = description,
               details = details,
             )
-          import spray.json._
-          import json.JsonProtocol._
-          logger.info(s"${ledgerApiError.toJson}")
           grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus: $description" -> Some(
             ledgerApiError
           )
