@@ -25,12 +25,12 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     val ctx: Context = Context.None
     val env = Typing.Env(langVersion, interface, ctx)
 
-    def typecheck(expr: Expr): Boolean = { // This is the code under test
+    def typecheck(expr: Expr): Option[ValidationError] = { // This is the code under test
       try {
         val _: Type = env.typeOf(expr)
-        true
+        None
       } catch {
-        case _: ValidationError => false
+        case e: ValidationError => Some(e)
       }
     }
 
@@ -38,11 +38,11 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
      * recursion points of an expression, using one of the builder functions below, and
      * then ensuring we can 'typecheck' the expression.
      */
-    def runTest(transform: Expr => Boolean)(depth: Int, cons: Expr => Expr): Boolean = {
+    def runTest[T](check: Expr => T)(depth: Int, cons: Expr => Expr): T = {
       // Make an expression by iterating the 'cons' function, 'depth' times
       @tailrec def loop(x: Expr, n: Int): Expr = if (n == 0) x else loop(cons(x), n - 1)
       val source: Expr = loop(exp, depth)
-      transform(source)
+      check(source)
     }
 
     // TODO https://github.com/digital-asset/daml/issues/13351
