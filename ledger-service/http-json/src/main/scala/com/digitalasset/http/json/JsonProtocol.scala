@@ -480,8 +480,8 @@ object JsonProtocol extends JsonProtocolLow {
               val duration = scala.concurrent.duration.Duration.fromNanos(nanos.toLongExact)
               RetryInfoDetail(duration)
             }
-            .getOrElse(deserializationError("Feck"))
-        case _ => deserializationError("Feck2.0")
+            .getOrElse(deserializationError("Expected field duration of type number"))
+        case _ => deserializationError("Expected an object with field duration of type number")
       }
     }
 
