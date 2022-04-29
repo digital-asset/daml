@@ -57,9 +57,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         ("tyApp", tyApp),
         ("app1", app1),
         ("app2", app2),
-        ("app1of3", app1of3),
-        ("app2of3", app2of3),
-        ("app3of3", app3of3),
         ("esome", esome),
         ("eabs", eabs),
         ("etyabs", etyabs),
@@ -142,9 +139,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
           ("tyApp", tyApp),
           //("app1", app1),
           ("app2", app2),
-          //("app1of3", app1of3),
-          ("app2of3", app2of3),
-          ("app3of3", app3of3),
           ("esome", esome),
           ("eabs", eabs),
           //("etyabs", etyabs),
@@ -218,9 +212,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
   // Construct one level of source-expression at various 'recursion-points'.
   private def app1 = (x: Expr) => EApp(x, exp)
   private def app2 = (x: Expr) => EApp(exp, x)
-  private def app1of3 = (x: Expr) => EApp(x, EApp(exp, exp))
-  private def app2of3 = (x: Expr) => EApp(exp, EApp(x, exp))
-  private def app3of3 = (x: Expr) => EApp(exp, EApp(exp, x))
   private def tyApp = (x: Expr) => ETyApp(x, ty)
   private def esome = (x: Expr) => ESome(ty, x)
   private def eabs = (x: Expr) => EAbs(binder, x, None)
