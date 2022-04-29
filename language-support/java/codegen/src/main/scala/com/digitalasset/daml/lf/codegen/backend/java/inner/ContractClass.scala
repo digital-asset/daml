@@ -4,7 +4,6 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.codegen.backend.java.ObjectMethods
 import ClassGenUtils.{companionFieldName, optional, optionalString, setOfStrings}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Type
@@ -192,13 +191,7 @@ object ContractClass {
       classBuilder.addMethod(constructor)
 
       val contractClassName = ClassName.bestGuess("Contract")
-      val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName
-        .map(_ => contractKeyFieldName)
-        .toList ++ Vector(signatoriesFieldName, observersFieldName)
       classBuilder
-        .addMethod(
-          ObjectMethods.generateToString(contractClassName, fields, Some(templateClassName))
-        )
         .addMethod(generateGetCompanion(templateClassName))
       new Builder(
         classBuilder,

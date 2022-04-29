@@ -33,4 +33,17 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
     return Objects.hash(
         this.id, this.data, this.agreementText, this.key, this.signatories, this.observers);
   }
+
+  @Override
+  public final String toString() {
+    return String.format(
+        "%s.Contract(%s, %s, %s, %s, %s, %s)",
+        getCompanion().templateClassName,
+        this.id,
+        this.data,
+        this.agreementText,
+        this.key,
+        this.signatories,
+        this.observers);
+  }
 }

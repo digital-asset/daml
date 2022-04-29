@@ -64,4 +64,16 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   public int hashCode() {
     return Objects.hash(this.id, this.data, this.agreementText, this.signatories, this.observers);
   }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "%s.Contract(%s, %s, %s, %s, %s)",
+        getCompanion().templateClassName,
+        this.id,
+        this.data,
+        this.agreementText,
+        this.signatories,
+        this.observers);
+  }
 }

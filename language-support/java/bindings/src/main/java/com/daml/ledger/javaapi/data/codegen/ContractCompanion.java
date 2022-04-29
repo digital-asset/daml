@@ -14,6 +14,7 @@ import java.util.function.Function;
 
 public abstract class ContractCompanion<Ct, Id, Data> {
   public final Identifier TEMPLATE_ID;
+  final String templateClassName; // not something we want outside this package
 
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
@@ -24,10 +25,12 @@ public abstract class ContractCompanion<Ct, Id, Data> {
   public abstract Ct fromCreatedEvent(CreatedEvent event);
 
   protected ContractCompanion(
+      String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue) {
     this.TEMPLATE_ID = templateId;
+    this.templateClassName = templateClassName;
     this.newContractId = newContractId;
     this.fromValue = fromValue;
   }
@@ -36,11 +39,12 @@ public abstract class ContractCompanion<Ct, Id, Data> {
     private final NewContract<Ct, Id, Data> newContract;
 
     public WithoutKey(
+        String templateClassName,
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data> newContract) {
-      super(templateId, newContractId, fromValue);
+      super(templateClassName, templateId, newContractId, fromValue);
       this.newContract = newContract;
     }
 
@@ -88,12 +92,13 @@ public abstract class ContractCompanion<Ct, Id, Data> {
     private final Function<Value, Key> keyFromValue;
 
     public WithKey(
+        String templateClassName,
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data, Key> newContract,
         Function<Value, Key> keyFromValue) {
-      super(templateId, newContractId, fromValue);
+      super(templateClassName, templateId, newContractId, fromValue);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
     }

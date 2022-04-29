@@ -352,9 +352,10 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$Z$N, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
+        "$Znew $T<>($>$Z$S,$W$N, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
         Seq(
           fieldClass,
+          templateClassName,
           templateIdFieldName,
           contractIdName,
           templateClassName,
