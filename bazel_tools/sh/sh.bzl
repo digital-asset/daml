@@ -55,7 +55,7 @@ def sh_inline_test(
     _sh_inline_script(
         name = name + "_script",
         cmd = cmd,
-        template = "//bazel_tools/sh:test.sh.tpl",
+        template = "@com_github_digital_asset_daml//bazel_tools/sh:test.sh.tpl",
         output = name + ".sh",
         data = data,
         testonly = testonly,
@@ -79,7 +79,7 @@ def sh_inline_binary(
     _sh_inline_script(
         name = name + "_script",
         cmd = cmd,
-        template = "//bazel_tools/sh:inline.sh.tpl",
+        template = "@com_github_digital_asset_daml//bazel_tools/sh:inline.sh.tpl",
         output = name + ".sh",
         data = data,
         toolchains = toolchains,
