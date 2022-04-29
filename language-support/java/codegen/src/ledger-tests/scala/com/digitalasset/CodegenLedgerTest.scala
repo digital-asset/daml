@@ -137,11 +137,11 @@ class CodegenLedgerTest
     sendCmd(client, alice, glookofly.create())
 
     val wolpertinger :: _ =
-      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
+      readActiveContractKeys(Wolpertinger.COMPANION)(client, alice)
 
-    wolpertinger.key.isPresent shouldBe true
-    wolpertinger.key.get.owner shouldEqual alice
-    wolpertinger.key.get.age shouldEqual new BigDecimal("17.4200000000")
+    wolpertinger.isPresent shouldBe true
+    wolpertinger.get.owner shouldEqual alice
+    wolpertinger.get.age shouldEqual new BigDecimal("17.4200000000")
   }
 
   it should "be able to exercise by key" in withUniqueParty {
@@ -157,14 +157,14 @@ class CodegenLedgerTest
         Wolpertinger.exerciseByKeyReproduce(glookoflyContract.key.get, sruquitoContract.id, tob)
       sendCmd(client, alice, reproduceByKeyCmd)
 
-      val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
+      val wolpertingers = readActiveContractPayloads(Wolpertinger.COMPANION)(client, alice)
       wolpertingers should have length 2
 
       val sruq :: glookosruq :: Nil = wolpertingers
 
-      sruq.data.name shouldEqual sruquito.name
-      glookosruq.data.name shouldEqual s"${glookofly.name}-${sruquito.name}"
-      glookosruq.data.timeOfBirth shouldEqual tob
+      sruq.name shouldEqual sruquito.name
+      glookosruq.name shouldEqual s"${glookofly.name}-${sruquito.name}"
+      glookosruq.timeOfBirth shouldEqual tob
   }
 
   it should "provide the correct signatories" in withUniqueParty { (alice, glookofly, _, client) =>
