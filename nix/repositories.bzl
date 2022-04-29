@@ -1,3 +1,6 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Bazel cannot automatically determine which files a Nix target depends on.
 # rules_nixpkgs offers the nix_file_deps attribute for that purpose. It should
 # list all files that a target depends on. This allows Bazel to rebuild the
