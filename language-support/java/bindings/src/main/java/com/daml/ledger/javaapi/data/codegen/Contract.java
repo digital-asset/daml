@@ -13,7 +13,7 @@ import java.util.Set;
  * @param <Id> The generated contract ID class alongside the generated Contract class.
  * @param <Data> The containing template's associated record type.
  */
-public class Contract<Id, Data> implements com.daml.ledger.javaapi.data.Contract {
+public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data.Contract {
   public final Id id;
 
   public final Data data;
@@ -36,6 +36,8 @@ public class Contract<Id, Data> implements com.daml.ledger.javaapi.data.Contract
     this.signatories = signatories;
     this.observers = observers;
   }
+
+  protected abstract ContractCompanion<?, Id, Data> getCompanion();
 
   @Override
   public boolean equals(Object object) {

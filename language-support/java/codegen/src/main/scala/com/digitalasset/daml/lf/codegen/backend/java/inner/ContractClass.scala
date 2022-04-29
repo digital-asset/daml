@@ -120,6 +120,26 @@ object ContractClass {
       otherSettings(spec).build()
     }
 
+    private[this] val contractIdClassName = ClassName bestGuess "ContractId"
+
+    private[this] def generateGetCompanion(templateClassName: ClassName): MethodSpec = {
+      val contractClassName = ClassName bestGuess "Contract"
+      MethodSpec
+        .methodBuilder("getCompanion")
+        .addModifiers(Modifier.PROTECTED)
+        .addAnnotation(classOf[Override])
+        .returns(
+          ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
+            contractClassName,
+            contractIdClassName,
+            templateClassName,
+          )
+        )
+        .addStatement("return $N", companionFieldName)
+        .build()
+    }
+
     def create(
         templateClassName: ClassName,
         key: Option[Type],
@@ -127,7 +147,6 @@ object ContractClass {
     ) = {
       val classBuilder =
         TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
-      val contractIdClassName = ClassName.bestGuess("ContractId")
       val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
 
       import scala.language.existentials
@@ -180,6 +199,7 @@ object ContractClass {
         .addMethod(
           ObjectMethods.generateToString(contractClassName, fields, Some(templateClassName))
         )
+        .addMethod(generateGetCompanion(templateClassName))
       new Builder(
         classBuilder,
         contractClassName,
