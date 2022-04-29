@@ -4,6 +4,13 @@
 package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
+import com.daml.error.utils.ErrorDetails.{
+  ErrorDetail,
+  ErrorInfoDetail,
+  RequestInfoDetail,
+  ResourceInfoDetail,
+  RetryInfoDetail,
+}
 import com.daml.http.domain
 import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -451,8 +458,72 @@ object JsonProtocol extends JsonProtocolLow {
   implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
     jsonFormat3(domain.OkResponse[R])
 
+  implicit val ResourceInfoDetailFormat: RootJsonFormat[ResourceInfoDetail] = jsonFormat2(
+    ResourceInfoDetail
+  )
+  implicit val ErrorInfoDetailFormat: RootJsonFormat[ErrorInfoDetail] = jsonFormat2(
+    ErrorInfoDetail
+  )
+
+  implicit val RetryInfoDetailFormat: RootJsonFormat[RetryInfoDetail] =
+    new RootJsonFormat[RetryInfoDetail] {
+      override def write(obj: RetryInfoDetail): JsValue = JsObject(
+        "duration" -> JsNumber(obj.duration.toNanos)
+      )
+      override def read(json: JsValue): RetryInfoDetail = json match {
+        case JsObject(fields) =>
+          fields
+            .get("duration")
+            .collect { case JsNumber(nanos) =>
+              val duration = scala.concurrent.duration.Duration.fromNanos(nanos.toLongExact)
+              RetryInfoDetail(duration)
+            }
+            .getOrElse(deserializationError("Expected field duration of type number"))
+        case _ => deserializationError("Expected an object with field duration of type number")
+      }
+    }
+
+  implicit val RequestInfoDetailFormat: RootJsonFormat[RequestInfoDetail] = jsonFormat1(
+    RequestInfoDetail
+  )
+
+  implicit val ErrorDetailsFormat: RootJsonFormat[ErrorDetail] =
+    new RootJsonFormat[ErrorDetail] {
+      override def write(obj: ErrorDetail): JsValue = {
+        val (jsValue, name) = obj match {
+          case a: ResourceInfoDetail => ResourceInfoDetailFormat.write(a) -> "ResourceInfoDetail"
+          case a: ErrorInfoDetail => ErrorInfoDetailFormat.write(a) -> "ErrorInfoDetail"
+          case a: RetryInfoDetail => RetryInfoDetailFormat.write(a) -> "RetryInfoDetail"
+          case a: RequestInfoDetail => RequestInfoDetailFormat.write(a) -> "RequestInfoDetail"
+        }
+        val fields = jsValue.asJsObject.fields ++ Map("@type" -> JsString(name))
+        JsObject(fields.toList: _*)
+      }
+      override def read(json: JsValue): ErrorDetail = {
+        val obj = json.asJsObject
+        obj.fields
+          .get("@type")
+          .map {
+            case JsString(value) => value
+            case value => deserializationError(s"Expected string but got $value")
+          }
+          .map {
+            case "ResourceInfoDetail" => ResourceInfoDetailFormat.read(obj)
+            case "ErrorInfoDetail" => ErrorInfoDetailFormat.read(obj)
+            case "RetryInfoDetail" => RetryInfoDetailFormat.read(obj)
+            case "RequestInfoDetail" =>
+              RequestInfoDetailFormat.read(obj)
+            case name =>
+              deserializationError(s"Unknown value for @type field: $name")
+          }
+      }.getOrElse(deserializationError("Field @type is required for decoding ErrorDetail"))
+    }
+
+  implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
+    jsonFormat3(domain.LedgerApiError)
+
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
-    jsonFormat3(domain.ErrorResponse)
+    jsonFormat4(domain.ErrorResponse)
 
   implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
     new RootJsonFormat[domain.SyncResponse[R]] {

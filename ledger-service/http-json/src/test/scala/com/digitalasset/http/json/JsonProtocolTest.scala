@@ -4,6 +4,13 @@
 package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCodes
+import com.daml.error.utils.ErrorDetails.{
+  ErrorDetail,
+  ErrorInfoDetail,
+  RequestInfoDetail,
+  ResourceInfoDetail,
+  RetryInfoDetail,
+}
 import com.daml.http.Generators.{
   OptionalPackageIdGen,
   contractGen,
@@ -174,6 +181,29 @@ class JsonProtocolTest
             List(domain.TemplateId(Option.empty[String], "AAA", "BBB"))
           )
       }
+    }
+  }
+
+  "ErrorDetail" - {
+    "Encoding and decoding ResourceInfoDetail should result in the same object" in {
+      val resourceInfoDetail: ErrorDetail = ResourceInfoDetail("test", "test")
+      resourceInfoDetail shouldBe resourceInfoDetail.toJson.convertTo[ErrorDetail]
+    }
+
+    "Encoding and decoding RetryInfoDetail should result in the same object" in {
+      val retryInfoDetail: ErrorDetail = RetryInfoDetail(scala.concurrent.duration.Duration.Zero)
+      retryInfoDetail shouldBe retryInfoDetail.toJson.convertTo[ErrorDetail]
+    }
+
+    "Encoding and decoding RequestInfoDetail should result in the same object" in {
+      val requestInfoDetail: ErrorDetail = RequestInfoDetail("test")
+      requestInfoDetail shouldBe requestInfoDetail.toJson.convertTo[ErrorDetail]
+    }
+
+    "Encoding and decoding ErrorInfoDetail should result in the same object" in {
+      val errorInfoDetail: ErrorDetail =
+        ErrorInfoDetail("test", Map("test" -> "test1", "test2" -> "test3"))
+      errorInfoDetail shouldBe errorInfoDetail.toJson.convertTo[ErrorDetail]
     }
   }
 
