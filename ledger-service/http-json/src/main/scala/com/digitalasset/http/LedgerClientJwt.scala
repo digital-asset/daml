@@ -255,9 +255,13 @@ object LedgerClientJwt {
       def unapply(t: Throwable): Option[Status] = t match {
         case NonFatal(t) =>
           val status = StatusProto fromThrowable t
-          // fromThrowable uses UNKNOWN if it didn't find one
-          (com.google.rpc.Code
-            .forNumber(status.getCode) != com.google.rpc.Code.UNKNOWN) option status
+          if (status == null) None
+          else {
+            // fromThrowable uses UNKNOWN if it didn't find one
+            val code = com.google.rpc.Code.forNumber(status.getCode)
+            if (code == null) None
+            else (code != com.google.rpc.Code.UNKNOWN) option status
+          }
         case _ => None
       }
     }
