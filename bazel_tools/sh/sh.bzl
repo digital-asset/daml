@@ -8,12 +8,13 @@ def _sh_inline_script_impl(ctx):
     cmd = ctx.expand_location(cmd, ctx.attr.data)
     cmd = ctx.expand_make_variables("cmd", cmd, {})
     ctx.actions.expand_template(
-        template = ctx.file._template,
+        template = ctx.file.template,
         output = ctx.outputs.output,
         is_executable = True,
         substitutions = {
             "%cmd%": cmd,
             "%os%": os_name,
+            "%workspace%": ctx.workspace_name,
         },
     )
 
@@ -38,9 +39,8 @@ _sh_inline_script = rule(
         "output": attr.output(
             mandatory = True,
         ),
-        "_template": attr.label(
+        "template": attr.label(
             allow_single_file = True,
-            default = "//bazel_tools/sh:test.sh.tpl",
         ),
     },
 )
@@ -55,6 +55,7 @@ def sh_inline_test(
     _sh_inline_script(
         name = name + "_script",
         cmd = cmd,
+        template = "//bazel_tools/sh:test.sh.tpl",
         output = name + ".sh",
         data = data,
         testonly = testonly,
@@ -66,5 +67,27 @@ def sh_inline_test(
         deps = ["@bazel_tools//tools/bash/runfiles"],
         srcs = [name + ".sh"],
         testonly = testonly,
+        **kwargs
+    )
+
+def sh_inline_binary(
+        name,
+        cmd,
+        data = [],
+        toolchains = [],
+        **kwargs):
+    _sh_inline_script(
+        name = name + "_script",
+        cmd = cmd,
+        template = "//bazel_tools/sh:inline.sh.tpl",
+        output = name + ".sh",
+        data = data,
+        toolchains = toolchains,
+    )
+    native.sh_binary(
+        name = name,
+        data = data,
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+        srcs = [name + ".sh"],
         **kwargs
     )
