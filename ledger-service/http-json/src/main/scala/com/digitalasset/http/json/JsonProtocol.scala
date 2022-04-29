@@ -21,8 +21,6 @@ import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
 
-import scala.util.Try
-
 object JsonProtocol extends JsonProtocolLow {
 
   implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
@@ -491,20 +489,34 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val ErrorDetailsFormat: RootJsonFormat[ErrorDetail] =
     new RootJsonFormat[ErrorDetail] {
-      override def write(obj: ErrorDetail): JsValue = obj match {
-        case a: ResourceInfoDetail => ResourceInfoDetailFormat.write(a)
-        case a: ErrorInfoDetail => ErrorInfoDetailFormat.write(a)
-        case a: RetryInfoDetail => RetryInfoDetailFormat.write(a)
-        case a: RequestInfoDetail => RequestInfoDetailFormat.write(a)
-      }
-      override def read(json: JsValue): ErrorDetail =
-        Try(ResourceInfoDetailFormat.read(json))
-          .orElse(Try(ErrorInfoDetailFormat.read(json)))
-          .orElse(Try(RetryInfoDetailFormat.read(json)))
-          .orElse(Try(RequestInfoDetailFormat.read(json))) match {
-          case scala.util.Success(res) => res
-          case scala.util.Failure(ex) => deserializationError("Couldn't read error detail", ex)
+      override def write(obj: ErrorDetail): JsValue = {
+        val (jsValue, name) = obj match {
+          case a: ResourceInfoDetail => ResourceInfoDetailFormat.write(a) -> "ResourceInfoDetail"
+          case a: ErrorInfoDetail => ErrorInfoDetailFormat.write(a) -> "ErrorInfoDetail"
+          case a: RetryInfoDetail => RetryInfoDetailFormat.write(a) -> "RetryInfoDetail"
+          case a: RequestInfoDetail => RequestInfoDetailFormat.write(a) -> "RequestInfoDetail"
         }
+        val fields = jsValue.asJsObject.fields ++ Map("@type" -> JsString(name))
+        JsObject(fields.toList: _*)
+      }
+      override def read(json: JsValue): ErrorDetail = {
+        val obj = json.asJsObject
+        obj.fields
+          .get("@type")
+          .map {
+            case JsString(value) => value
+            case value => deserializationError(s"Expected string but got $value")
+          }
+          .map {
+            case "ResourceInfoDetail" => ResourceInfoDetailFormat.read(obj)
+            case "ErrorInfoDetail" => ErrorInfoDetailFormat.read(obj)
+            case "RetryInfoDetail" => RetryInfoDetailFormat.read(obj)
+            case "RequestInfoDetail" =>
+              RequestInfoDetailFormat.read(obj)
+            case name =>
+              deserializationError(s"Unknown value for @type field: $name")
+          }
+      }.getOrElse(deserializationError("Field @type is required for decoding ErrorDetail"))
     }
 
   implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
