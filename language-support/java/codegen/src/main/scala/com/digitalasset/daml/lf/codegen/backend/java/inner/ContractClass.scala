@@ -161,10 +161,9 @@ object ContractClass {
       constructorBuilder.addStatement(
         "super($L)",
         CodeBlock.join(
-          (Seq(idFieldName, dataFieldName, agreementFieldName) ++ superCtorKeyArgs ++ Seq(
-            signatoriesFieldName,
-            observersFieldName,
-          )).map(CodeBlock.of("$L", _)).asJava,
+          (Seq(idFieldName, dataFieldName, agreementFieldName)
+            ++ superCtorKeyArgs
+            ++ Seq(signatoriesFieldName, observersFieldName)).map(CodeBlock.of("$L", _)).asJava,
           ",$W",
         ),
       )
