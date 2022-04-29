@@ -169,13 +169,17 @@ A file is generated that defines three Java classes:
 
 .. code-block:: java
   :caption: com/acme/templates/Bar.java
-  :emphasize-lines: 3,14,24
+  :emphasize-lines: 3,22,33
 
   package com.acme.templates;
 
   public class Bar extends Template {
 
     public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
+
+    public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
+        new ContractCompanion.WithKey<>("com.acme.templates.Bar",
+          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e));
 
     public final String owner;
     public final String name;
@@ -188,7 +192,8 @@ A file is generated that defines three Java classes:
 
     public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(String aName) { /* ... */ }
 
-    public static class ContractId {
+    public static class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Bar> {
+      // inherited:
       public final String contractId;
 
       public ExerciseCommand exerciseArchive(Unit arg) { /* ... */ }
@@ -198,7 +203,8 @@ A file is generated that defines three Java classes:
       public ExerciseCommand exerciseBar_SomeChoice(String aName) { /* ... */ }
     }
 
-    public static class Contract {
+    public static class Contract extends ContractWithKey<ContractId, Bar, BarKey> {
+      // inherited:
       public final ContractId id;
       public final Bar data;
 
