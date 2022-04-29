@@ -68,6 +68,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
+            "//ledger/error",
             "//ledger/metrics",
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",

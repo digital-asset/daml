@@ -49,6 +49,7 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 
 package domain {
 
+  import com.daml.error.utils.ErrorDetails.ErrorDetail
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
   trait JwtPayloadTag
@@ -562,10 +563,17 @@ package domain {
       status: StatusCode = StatusCodes.OK,
   ) extends SyncResponse[R]
 
+  final case class LedgerApiError(
+      code: Int,
+      message: String,
+      details: Seq[ErrorDetail],
+  )
+
   final case class ErrorResponse(
       errors: List[String],
       warnings: Option[ServiceWarning],
       status: StatusCode,
+      ledgerApiError: Option[LedgerApiError] = None,
   ) extends SyncResponse[Nothing]
 
   object OkResponse {

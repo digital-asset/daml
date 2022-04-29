@@ -4,6 +4,13 @@
 package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
+import com.daml.error.utils.ErrorDetails.{
+  ErrorDetail,
+  ErrorInfoDetail,
+  RequestInfoDetail,
+  ResourceInfoDetail,
+  RetryInfoDetail,
+}
 import com.daml.http.domain
 import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -13,6 +20,8 @@ import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
+
+import scala.util.Try
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -451,8 +460,56 @@ object JsonProtocol extends JsonProtocolLow {
   implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
     jsonFormat3(domain.OkResponse[R])
 
+  implicit val ResourceInfoDetailFormat: RootJsonFormat[ResourceInfoDetail] = jsonFormat2(
+    ResourceInfoDetail
+  )
+  implicit val ErrorInfoDetailFormat: RootJsonFormat[ErrorInfoDetail] = jsonFormat2(
+    ErrorInfoDetail
+  )
+
+  implicit val RetryInfoDetailFormat: RootJsonFormat[RetryInfoDetail] =
+    new RootJsonFormat[RetryInfoDetail] {
+      override def write(obj: RetryInfoDetail): JsValue = JsObject(
+        "duration" -> JsNumber(obj.duration.toNanos)
+      )
+      override def read(json: JsValue): RetryInfoDetail = json match {
+        case JsObject(fields) =>
+          fields
+            .get("duration")
+            .collect { case JsNumber(nanos) =>
+              val duration = scala.concurrent.duration.Duration.fromNanos(nanos.toLongExact)
+              RetryInfoDetail(duration)
+            }
+            .getOrElse(deserializationError("Feck"))
+        case _ => deserializationError("Feck2.0")
+      }
+    }
+
+  implicit val RequestInfoDetailFormat: RootJsonFormat[RequestInfoDetail] = jsonFormat1(
+    RequestInfoDetail
+  )
+
+  implicit val ErrorDetailsFormat: RootJsonFormat[ErrorDetail] =
+    new RootJsonFormat[ErrorDetail] {
+      override def write(obj: ErrorDetail): JsValue = obj match {
+        case a: ResourceInfoDetail => ResourceInfoDetailFormat.write(a)
+        case a: ErrorInfoDetail => ErrorInfoDetailFormat.write(a)
+        case a: RetryInfoDetail => RetryInfoDetailFormat.write(a)
+        case a: RequestInfoDetail => RequestInfoDetailFormat.write(a)
+      }
+      override def read(json: JsValue): ErrorDetail =
+        Try(ResourceInfoDetailFormat.read(json))
+          .orElse(Try(ErrorInfoDetailFormat.read(json)))
+          .orElse(Try(RetryInfoDetailFormat.read(json)))
+          .orElse(Try(RequestInfoDetailFormat.read(json)))
+          .get
+    }
+
+  implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
+    jsonFormat3(domain.LedgerApiError)
+
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
-    jsonFormat3(domain.ErrorResponse)
+    jsonFormat4(domain.ErrorResponse)
 
   implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
     new RootJsonFormat[domain.SyncResponse[R]] {

@@ -20,11 +20,14 @@ import com.daml.ledger.api.auth.{
 }
 import com.daml.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}
+import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.ErrorDetails.ErrorDetail
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import io.grpc.Status
 import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
@@ -45,8 +48,12 @@ object EndpointsCompanion {
 
   final case class ServerError(message: Throwable) extends Error
 
-  final case class ParticipantServerError(grpcStatus: GrpcCode, description: Option[String])
-      extends Error
+  final case class ParticipantServerError(
+      grpcStatus: GrpcCode,
+      description: Option[String],
+      details: Seq[ErrorDetail],
+      status: Status,
+  ) extends Error
 
   final case class NotFound(message: String) extends Error
 
@@ -58,7 +65,7 @@ object EndpointsCompanion {
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
-      case ParticipantServerError(s, d) =>
+      case ParticipantServerError(s, d, _, _) =>
         s"Endpoints.ParticipantServerError: ${s: GrpcCode}${d.cata((": " + _), "")}"
       case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
@@ -67,7 +74,8 @@ object EndpointsCompanion {
 
     def fromThrowable: Throwable PartialFunction Error = {
       case LedgerClientJwt.Grpc.StatusEnvelope(status) =>
-        ParticipantServerError(status.getCode, Option(status.getDescription))
+        val details = ErrorDetails.from(status.asRuntimeException)
+        ParticipantServerError(status.getCode, Option(status.getDescription), details, status)
       case NonFatal(t) => ServerError(t)
     }
   }
@@ -245,17 +253,31 @@ object EndpointsCompanion {
   private[http] def errorResponse(
       error: Error
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): domain.ErrorResponse = {
-    val (status, errorMsg): (StatusCode, String) = error match {
-      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
-      case ParticipantServerError(grpcStatus, d) =>
-        grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
-      case ServerError(reason) =>
-        logger.error(s"Internal server error occured", reason)
-        StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
-      case Unauthorized(e) => StatusCodes.Unauthorized -> e
-      case NotFound(e) => StatusCodes.NotFound -> e
-    }
-    domain.ErrorResponse(errors = List(errorMsg), warnings = None, status = status)
+    val ((status, errorMsg), ledgerApiErrorOpt) =
+      error match {
+        case InvalidUserInput(e) => StatusCodes.BadRequest -> e -> None
+        case ParticipantServerError(grpcStatus, d, details, status) =>
+          val ledgerApiError =
+            domain.LedgerApiError(
+              code = status.getCode.value(),
+              message = status.getDescription,
+              details = details,
+            )
+          grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}" -> Some(
+            ledgerApiError
+          )
+        case ServerError(reason) =>
+          logger.error(s"Internal server error occured", reason)
+          StatusCodes.InternalServerError -> "HTTP JSON API Server Error" -> None
+        case Unauthorized(e) => StatusCodes.Unauthorized -> e -> None
+        case NotFound(e) => StatusCodes.NotFound -> e -> None
+      }
+    domain.ErrorResponse(
+      errors = List(errorMsg),
+      warnings = None,
+      status = status,
+      ledgerApiError = ledgerApiErrorOpt,
+    )
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {

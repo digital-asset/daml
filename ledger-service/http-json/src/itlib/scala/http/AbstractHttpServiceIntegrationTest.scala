@@ -347,14 +347,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           encoder,
           headers,
         ).map { response =>
-          inside(response) { case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest) =>
-            errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
-            inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
-              unknownTemplateIds.toSet shouldBe Set(
-                domain.TemplateId(None, "AAA", "BBB"),
-                domain.TemplateId(None, "XXX", "YYY"),
-              )
-            }
+          inside(response) {
+            case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest, _) =>
+              errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
+              inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
+                unknownTemplateIds.toSet shouldBe Set(
+                  domain.TemplateId(None, "AAA", "BBB"),
+                  domain.TemplateId(None, "XXX", "YYY"),
+                )
+              }
           }
         }
       }
@@ -494,6 +495,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             Seq(_),
             Some(domain.UnknownTemplateIds(Seq(TpId.IIou.IIou))),
             StatusCodes.BadRequest,
+            _,
           ) =>
         succeed
     }
@@ -951,7 +953,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       ).flatMap { case (status, output) =>
         status shouldBe StatusCodes.BadRequest
         inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
-          case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest)) =>
+          case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _)) =>
             error should include("Daml-LF Party is empty")
         }
       }: Future[Assertion]
