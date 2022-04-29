@@ -157,16 +157,16 @@ object ContractClass {
         .addParameter(setOfStrings, signatoriesFieldName)
         .addParameter(setOfStrings, observersFieldName)
 
-      val (superCtor, superCtorKeyArgs) = contractKeyClassName.cata(
-        _ => ("super($L, $L, $L, $L, $L, $L)", Seq(contractKeyFieldName)),
-        ("super($L, $L, $L, $L, $L)", Seq.empty),
-      )
+      val superCtorKeyArgs = contractKeyClassName.map(_ => contractKeyFieldName).toList
       constructorBuilder.addStatement(
-        superCtor,
-        Seq(idFieldName, dataFieldName, agreementFieldName) ++ superCtorKeyArgs ++ Seq(
-          signatoriesFieldName,
-          observersFieldName,
-        ): _*
+        "super($L)",
+        CodeBlock.join(
+          (Seq(idFieldName, dataFieldName, agreementFieldName) ++ superCtorKeyArgs ++ Seq(
+            signatoriesFieldName,
+            observersFieldName,
+          )).map(CodeBlock.of("$L", _)).asJava,
+          ",$W",
+        ),
       )
 
       val constructor = constructorBuilder.build()
