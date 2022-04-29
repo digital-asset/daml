@@ -501,8 +501,10 @@ object JsonProtocol extends JsonProtocolLow {
         Try(ResourceInfoDetailFormat.read(json))
           .orElse(Try(ErrorInfoDetailFormat.read(json)))
           .orElse(Try(RetryInfoDetailFormat.read(json)))
-          .orElse(Try(RequestInfoDetailFormat.read(json)))
-          .get
+          .orElse(Try(RequestInfoDetailFormat.read(json))) match {
+          case scala.util.Success(res) => res
+          case scala.util.Failure(ex) => deserializationError("Couldn't read error detail", ex)
+        }
     }
 
   implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
