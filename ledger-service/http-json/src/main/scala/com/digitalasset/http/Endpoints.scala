@@ -37,7 +37,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
-import com.daml.error.utils.ErrorDetails
 import com.daml.http.endpoints.MeteringReportEndpoint
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
@@ -523,12 +522,7 @@ object Endpoints {
           )
         )
       case CommandService.GrpcError(status) =>
-        ParticipantServerError(
-          com.google.rpc.Code.forNumber(status.getCode),
-          Option(status.getMessage),
-          ErrorDetails.from(status),
-          status,
-        )
+        ParticipantServerError(status)
       case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
         Unauthorized(message)
       case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>

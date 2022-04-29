@@ -50,10 +50,18 @@ object EndpointsCompanion {
 
   final case class ParticipantServerError(
       grpcStatus: GrpcCode,
-      description: Option[String],
+      description: String,
       details: Seq[ErrorDetail],
-      status: Status,
   ) extends Error
+
+  object ParticipantServerError {
+    def apply(status: Status): ParticipantServerError =
+      ParticipantServerError(
+        com.google.rpc.Code.forNumber(status.getCode),
+        status.getMessage,
+        ErrorDetails.from(status),
+      )
+  }
 
   final case class NotFound(message: String) extends Error
 
@@ -65,22 +73,15 @@ object EndpointsCompanion {
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
-      case ParticipantServerError(s, d, _, _) =>
-        s"Endpoints.ParticipantServerError: ${s: GrpcCode}${d.cata((": " + _), "")}"
+      case ParticipantServerError(s, d, _) =>
+        s"Endpoints.ParticipantServerError: ${s: GrpcCode}: $d"
       case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
 
     def fromThrowable: Throwable PartialFunction Error = {
-      case LedgerClientJwt.Grpc.StatusEnvelope(status) =>
-        val details = ErrorDetails.from(status)
-        ParticipantServerError(
-          GrpcCode.forNumber(status.getCode),
-          Option(status.getMessage),
-          details,
-          status,
-        )
+      case LedgerClientJwt.Grpc.StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }
   }
@@ -261,17 +262,17 @@ object EndpointsCompanion {
     val ((status, errorMsg), ledgerApiErrorOpt) =
       error match {
         case InvalidUserInput(e) => StatusCodes.BadRequest -> e -> None
-        case ParticipantServerError(grpcStatus, d, _, status) =>
+        case ParticipantServerError(grpcStatus, description, details) =>
           val ledgerApiError =
             domain.LedgerApiError(
-              code = status.getCode,
-              message = status.getMessage,
-              details = ErrorDetails.from(status),
+              code = grpcStatus.getNumber,
+              message = description,
+              details = details,
             )
           import spray.json._
           import json.JsonProtocol._
           logger.info(s"${ledgerApiError.toJson}")
-          grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}" -> Some(
+          grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus: $description" -> Some(
             ledgerApiError
           )
         case ServerError(reason) =>
