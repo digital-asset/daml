@@ -115,9 +115,9 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit
       loggingContext: LoggingContext
   ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
-    val cacheQueried = ids.map(id => id -> contractsCache.get(id))
+    val cacheQueried = ids.view.map(id => id -> contractsCache.get(id)).toVector
 
-    val cached = cacheQueried.view
+    val cached = cacheQueried
       .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
         // successful lookups
         case (Right(timestamps), (_, Some(active: Active))) =>
@@ -133,7 +133,7 @@ private[platform] class MutableCacheBackedContractStore(
 
     cached
       .map { cached =>
-        val missing = cacheQueried.collect { case (id, None) => id }
+        val missing = cacheQueried.view.collect { case (id, None) => id }.toSet
         (cached, missing)
       }
   }
