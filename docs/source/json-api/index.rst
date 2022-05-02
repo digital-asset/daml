@@ -36,8 +36,8 @@ We welcome feedback about the JSON API on
    search-query-language
    production-setup
 
-Running the JSON API
-********************
+Run the JSON API
+****************
 
 Start a Daml Ledger
 ===================
@@ -206,7 +206,7 @@ Replace the version number ``2.0.0`` by the version of the SDK you are
 using.
 
 With Query Store
-------------------
+----------------
 
 In production setups, you should configure the JSON API to use a
 PostgreSQL backend as a cache. The in-memory backend will call the
@@ -415,7 +415,7 @@ Where:
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
-Successful response, HTTP status: 200 OK
+Successful Response, HTTP Status: 200 OK
 ========================================
 
 - Content-Type: ``application/json``
@@ -428,7 +428,7 @@ Successful response, HTTP status: 200 OK
         "result": <JSON object>
     }
 
-Successful response with a warning, HTTP status: 200 OK
+Successful Response with a Warning, HTTP Status: 200 OK
 =======================================================
 
 - Content-Type: ``application/json``
@@ -444,7 +444,7 @@ Successful response with a warning, HTTP status: 200 OK
 
 .. _error-format:
 
-Failure, HTTP status: 400 | 401 | 404 | 500
+Failure, HTTP Status: 400 | 401 | 404 | 500
 ===========================================
 
 - Content-Type: ``application/json``
@@ -502,7 +502,7 @@ Examples
 
     {"status": 500, "errors": ["Cannot initialize Ledger API"]}
 
-Create a new Contract
+Create a New Contract
 *********************
 
 To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
@@ -581,8 +581,8 @@ Where:
 
 .. _create-request-with-meta:
 
-Creating a Contract with a Command ID
-*************************************
+Create a Contract with a Command ID
+***********************************
 
 When creating a new contract you may specify an optional ``meta`` field. This allows you to control the ``commandId``, ``actAs``, and ``readAs`` used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
 
@@ -999,7 +999,7 @@ Contract Found HTTP Response
     }
 
 
-Get all Active Contracts
+Get All Active Contracts
 ************************
 
 List all currently active contracts for all known templates.
@@ -1020,7 +1020,7 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Get all Active Contracts Matching a Given Query
+Get All Active Contracts Matching a Given Query
 ***********************************************
 
 List currently active contracts that match a given query.
@@ -1101,7 +1101,7 @@ Where
 - ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
 - ``status`` matches the HTTP status code returned in the HTTP header.
 
-Nonempty HTTP Response with Unknown Template IDs Warning
+Nonempty HTTP Response With Unknown Template IDs Warning
 ========================================================
 
 - Content-Type: ``application/json``
@@ -1193,7 +1193,7 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-Response with Unknown Parties Warning
+Response With Unknown Parties Warning
 =====================================
 
 - Content-Type: ``application/json``
@@ -1272,8 +1272,8 @@ HTTP Response
     }
 
 
-Creating a New User
-********************
+Create a New User
+*****************
 
 This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>`.
 
@@ -1715,7 +1715,7 @@ HTTP Response, status: 200 OK
 
 The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
 
-HTTP Response with Error, any status different from 200 OK
+HTTP Response With Error, Any Status Different from 200 OK
 ==========================================================
 
 Any status different from ``200 OK`` will be in the format specified below.
@@ -1745,7 +1745,7 @@ HTTP Request
 
 The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
 
-HTTP Response, status: 200 OK
+HTTP Response, Status: 200 OK
 =============================
 
 - Content-Type: ``application/json``
@@ -1758,7 +1758,7 @@ HTTP Response, status: 200 OK
         "status": 200
     }
 
-HTTP Response with Error
+HTTP Response With Error
 ========================
 
 - Content-Type: ``application/json``
@@ -2169,7 +2169,7 @@ The HTTP JSON API provides two healthcheck endpoints for integration
 with schedulers like
 `Kubernetes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 
-Liveness check
+Liveness Check
 ==============
 
 - URL: ``/livez``
@@ -2180,7 +2180,7 @@ A status code of ``200`` indicates a successful liveness check.
 This is an unauthenticated endpoint intended to be used as a liveness
 probe.
 
-Readiness check
+Readiness Check
 ===============
 
 - URL: ``/readyz``

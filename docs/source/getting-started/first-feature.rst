@@ -168,8 +168,8 @@ Following the formatting of the previous panels, we include the new messaging co
 That is all for the implementation!
 Let's give the new functionality a spin.
 
-Running the Updated UI
-======================
+Run the Updated UI
+==================
 
 If you have the frontend UI up and running you're all set. If you don't have the UI running, open a new terminal window and navigate to the ``create-daml-app/ui`` folder, then run the ``npm start`` command to start the UI.
 

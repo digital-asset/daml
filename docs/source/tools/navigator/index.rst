@@ -8,7 +8,7 @@ The Navigator is a front-end that you can use to connect to any Daml Ledger and 
 
 The first sections of this guide cover use of the Navigator with the SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
 
-Navigator functionality
+Navigator Functionality
 ***********************
 
 Connect the Navigator to any Daml Ledger and use it to:
@@ -33,7 +33,7 @@ Navigator is included in the SDK. To launch it:
 .. note:: Navigator is compatible with these browsers: Safari, Chrome, or
    Firefox.
 
-Logging in
+Logging In
 **********
 
 By default, Navigator shows a drop-down list with the users that have been
@@ -126,7 +126,7 @@ to allocate those parties before you can log in as them.
      - Alice::12201d00faa0968d7ab81e63ad6ad4ee0d31b08a3581b1d8596e68a1356f27519ccb
      - Bob::12201d00faa0968d7ab81e63ad6ad4ee0d31b08a3581b1d8596e68a1356f27519ccb
 
-Viewing templates or contracts
+Viewing Templates or Contracts
 ******************************
 
 Daml *contract ​templates* are ​models ​that contain ​the ​agreement ​statement, ​all ​the ​applicable
@@ -322,7 +322,7 @@ If the access token cannot be retrieved, is missing or wrong, you'll be unable t
 
 .. _navigator-manual-advanced-usage:
 
-Advanced usage
+Advanced Usage
 **************
 
 .. _navigator-custom-views:

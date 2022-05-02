@@ -26,8 +26,8 @@ on, you will need Artifactory credentials. In the rest of this document, we
 assume that ``$ARTIFACTORY_USERNAME`` refers to your Artifactory user name,
 whereas ``$ARTIFACTORY_PASSWORD`` refers to your Artifactory API key.
 
-Installing the Helm Chart Repository
-------------------------------------
+Install the Helm Chart Repository
+---------------------------------
 
 To let your local Helm installation know about the Daml Helm chart, you
 need to add the repository with::
@@ -60,8 +60,8 @@ where ``values.yaml`` is a YAML file that includes at least the
 ``imagePullSecret`` key. See the rest of this page for other options in
 ``values.yaml``, and the Helm documentation for related Helm usage.
 
-Setting Up the ``imagePullSecret``
-----------------------------------
+Set Up the ``imagePullSecret``
+------------------------------
 
 The Helm chart relies on the production-ready Docker images for individual
 components that are part of Daml Enterprise. Specifically, it expects a
@@ -216,8 +216,8 @@ See each component's documentation for details on the metrics exposed:
 - `Daml driver for PostgreSQL </daml-driver-for-postgresql/#types-of-metrics>`_
 - :ref:`JSON API metrics <json-api-metrics>`
 
-Upgrading
----------
+Upgrade
+-------
 
 .. note::
 
@@ -237,8 +237,8 @@ place.
 Assuming you do not change the database coordinates, you should have data
 continuity through the upgrade.
 
-Backing Up
-----------
+Back Up
+-------
 
 .. note::
 
@@ -259,8 +259,8 @@ entirely, as the database for the HTTP JSON API Service is an
 easy-to-reconstruct cache. This assume that, in this setup, the data store of
 the Ledger API server is, itself, properly backed up.
 
-Securing Daml
--------------
+Secure Daml
+-----------
 
 The Helm chart assumes that the Kubernetes environment itself is trusted, and
 as such does not encrypt connections between components. Full TLS encryption

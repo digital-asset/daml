@@ -3,8 +3,8 @@
 
 .. _quickstart:
 
-IOU Quickstart Tutorial
-#######################
+Daml IOU Quickstart Tutorial
+############################
 
 In this guide, you will learn about developer tools and Daml applications by:
 
@@ -18,7 +18,7 @@ Prerequisites:
 
 .. _quickstart-download:
 
-Download the quickstart application
+Download the Quickstart Application
 ***********************************
 
 You can get the quickstart application using the Daml assistant (``daml``):
@@ -28,7 +28,7 @@ You can get the quickstart application using the Daml assistant (``daml``):
    This creates the ``quickstart-java`` application into a new folder called ``quickstart``.
 #. Run ``cd quickstart`` to change into the new directory.
 
-Folder structure
+Folder Structure
 ================
 
 The project contains the following files:
@@ -68,8 +68,8 @@ You will explore these in more detail through the rest of this guide.
 
 .. _tutorials-iou-overview:
 
-Overview of what an IOU is
-**************************
+Understand IOUs
+***************
 
 To run through this guide, you will need to understand what an IOU is. This section describes the properties of an IOU like a bank bill that make it useful as a representation and transfer of value.
 
@@ -107,7 +107,7 @@ The note itself is printed on paper, and its legal owner is the person holding i
 
 .. _quickstart-start:
 
-Run the application using prototyping tools
+Run the Application Using Prototyping Tools
 *******************************************
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping Daml:
@@ -151,8 +151,8 @@ In this section, you will run the quickstart application and get introduced to t
 
 .. _quickstart-work:
 
-Try out the application
-***********************
+Try the Application
+*******************
 
 Now everything is running, you can try out the quickstart application:
 
@@ -252,7 +252,7 @@ Now everything is running, you can try out the quickstart application:
 
 .. _quickstart-daml:
 
-Get started with Daml
+Get Started with Daml
 *********************
 
 The *contract model* specifies the possible contracts, as well as the allowed transactions on the ledger, and is written in Daml.
@@ -360,7 +360,7 @@ For a deeper introduction to Daml, consult the :doc:`Daml Reference </daml/refer
 
 .. _quickstart-scripts:
 
-Test using Daml Script
+Test Using Daml Script
 ======================
 
 You can check the correct authorization and privacy of a contract model using *scripts*: tests that are written in Daml.
@@ -480,7 +480,7 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
 
 The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
-..  Interact with the ledger through the command line
+..  Interact With the Ledger Through the Command Line
     *************************************************
 
     All interaction with a Daml ledger, be it sandbox or any other implementation, happens via the :doc:`Ledger API </app-dev/ledger-api>`. It is based on `gRPC <https://grpc.io/>`_.
@@ -497,7 +497,7 @@ The ``submit`` function used in this script tries to perform a transaction and f
 
 .. _quickstart-application:
 
-Integrate with the ledger
+Integrate With the Ledger
 *************************
 
 A distributed ledger only forms the core of a full Daml application.
@@ -609,7 +609,7 @@ The rest of the application sets up the REST services using `Spark Java <http://
 
 For a discussion of ledger application design and architecture, take a look at :doc:`Application Architecture Guide </app-dev/app-arch>`.
 
-Next steps
+Next Steps
 **********
 
 Great - you've completed the quickstart guide!

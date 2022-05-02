@@ -20,8 +20,8 @@ by the local participant from remote participants are *not* included.
 
 Only events contained in committed transactions are included, a failed transaction has no effect on ledger metering.
 
-Generating a Metering Report
-----------------------------
+Generate a Metering Report
+--------------------------
 
 A metering report is generated using the :doc:`Daml assistant </tools/assistant>` utility.
 

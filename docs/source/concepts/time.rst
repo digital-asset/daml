@@ -3,8 +3,8 @@
 
 .. _time:
 
-Time
-####
+Time on Daml Ledgers
+####################
 
 The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
 However, the notion of time comes with a lot of problems in a distributed setting.
@@ -16,7 +16,7 @@ the *ledger time* ``lt_TX`` and the *record time* ``rt_TX``.
 
 .. _ledger_time:
 
-Ledger time
+Ledger Time
 ***********
 
 The *ledger time* ``lt_TX`` is a property of a transaction.
@@ -27,7 +27,7 @@ The ledger time is assigned by the submitting participant as part of the Daml co
 
 .. _record-time:
 
-Record time
+Record Time
 ***********
 
 The *record time* ``rt_TX`` is another property of a transaction.
@@ -63,7 +63,7 @@ Daml applications should not interpret the value returned by :ref:`getTime <daml
 
 .. _ledger-time-model:
 
-Ledger time model
+Ledger Time Model
 *****************
 
 The *ledger time model* is the set of parameters used in the assignment and validation of ledger time.
@@ -82,8 +82,8 @@ The ledger time model is part of the ledger configuration and can be changed by 
 
 .. _assigning-ledger-time:
 
-Assigning ledger time
-*********************
+Assign Ledger Time
+******************
 
 The ledger time is assigned automatically by the participant.
 In most cases, Daml applications will not need to worry about ledger time and record time at all.
