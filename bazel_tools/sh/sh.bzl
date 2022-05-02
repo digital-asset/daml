@@ -8,7 +8,7 @@ def _sh_inline_script_impl(ctx):
     cmd = ctx.expand_location(cmd, ctx.attr.data)
     cmd = ctx.expand_make_variables("cmd", cmd, {})
     ctx.actions.expand_template(
-        template = ctx.file.template,
+        template = ctx.file._template,
         output = ctx.outputs.output,
         is_executable = True,
         substitutions = {
@@ -27,6 +27,25 @@ def _sh_inline_script_impl(ctx):
         runfiles = runfiles,
     )
 
+_sh_inline_test_script = rule(
+    _sh_inline_script_impl,
+    attrs = {
+        "cmd": attr.string(
+            mandatory = True,
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+        ),
+        "output": attr.output(
+            mandatory = True,
+        ),
+        "_template": attr.label(
+            allow_single_file = True,
+            default = "//bazel_tools/sh:test.sh.tpl",
+        ),
+    },
+)
+
 _sh_inline_script = rule(
     _sh_inline_script_impl,
     attrs = {
@@ -39,8 +58,9 @@ _sh_inline_script = rule(
         "output": attr.output(
             mandatory = True,
         ),
-        "template": attr.label(
+        "_template": attr.label(
             allow_single_file = True,
+            default = "//bazel_tools/sh:inline.sh.tpl",
         ),
     },
 )
@@ -52,10 +72,9 @@ def sh_inline_test(
         toolchains = [],
         **kwargs):
     testonly = kwargs.pop("testonly", True)
-    _sh_inline_script(
+    _sh_inline_test_script(
         name = name + "_script",
         cmd = cmd,
-        template = "@com_github_digital_asset_daml//bazel_tools/sh:test.sh.tpl",
         output = name + ".sh",
         data = data,
         testonly = testonly,
@@ -79,7 +98,6 @@ def sh_inline_binary(
     _sh_inline_script(
         name = name + "_script",
         cmd = cmd,
-        template = "@com_github_digital_asset_daml//bazel_tools/sh:inline.sh.tpl",
         output = name + ".sh",
         data = data,
         toolchains = toolchains,
