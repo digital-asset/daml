@@ -20,7 +20,7 @@ Here's an example of setting up a contract key for a bank account, to act as a b
 What Can Be a Contract Key
 **************************
 
-The key can be an arbitrary serializable expression that does **not** contain contract IDs. However, it **must** include every party that you want to use as a ``maintainer`` (see `Specifying maintainers`_ below).
+The key can be an arbitrary serializable expression that does **not** contain contract IDs. However, it **must** include every party that you want to use as a ``maintainer`` (see `Specify Maintainers`_ below).
 
 It's best to use simple types for your keys like ``Text`` or ``Int``, rather than a list or more complex type.
 
