@@ -234,7 +234,7 @@ message ScenarioError {
     Identifier requiring_interface_id = 2;
     Identifier required_interface_id = 3;
   }
-  
+
   message DisclosurePreprocessingDuplicateContractKeys {
     Identifier template_id = 1;
     string key_hash = 2;
@@ -335,6 +335,10 @@ message ScenarioError {
     DisclosurePreprocessingNonExistentTemplate disclosure_preprocessing_non_existent_template = 40;
     DisclosurePreprocessingNonExistentDisclosedContractKeyHash disclosure_preprocessing_non_existent_disclosed_contract_key_hash = 41;
     InconsistentDisclosureTableIncorrectlyTypedContract inconsistent_disclosure_table_incorrectly_typed_contract = 42;
+
+    // Errors related to the scenario service itself crashing
+    string stack_overflow = 43;
+    string out_of_memory = 44;
   }
 }
 

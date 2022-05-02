@@ -6,13 +6,14 @@ package scenario
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultError}
+import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
+import com.daml.lf.scenario.Error.{OutOfMemory, StackOverflow}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
-import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
@@ -21,7 +22,6 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
 
 /** Speedy scenario runner that uses the reference ledger.
   *
@@ -150,10 +150,11 @@ object ScenarioRunner {
     throw Error.Internal(reason)
 
   private def handleUnsafe[T](unsafe: => T): Either[Error, T] = {
-    Try(unsafe) match {
-      case Failure(err: Error) => Left(err: Error)
-      case Failure(other) => throw other
-      case Success(t) => Right(t)
+    try Right(unsafe)
+    catch {
+      case err: Error => Left(err: Error)
+      case so: StackOverflowError => Left(StackOverflow(so))
+      case oom: OutOfMemoryError => Left(OutOfMemory(oom))
     }
   }
 

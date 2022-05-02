@@ -511,6 +511,16 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Expected template: " $ prettyMay "<missing template>" (prettyDefName world) expectedTemplateId
         , label_ "Actual template: " $ prettyMay "<missing template>" (prettyDefName world) actualTemplateId
         ]
+    ScenarioErrorErrorStackOverflow so -> pure $ vcat
+      [ "The scenario service had a stack overflow"
+      , label_ "Details:" $
+          ltext so
+      ]
+    ScenarioErrorErrorOutOfMemory oom -> pure $ vcat
+      [ "The scenario service ran out of memory"
+      , label_ "Details:" $
+          ltext oom
+      ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

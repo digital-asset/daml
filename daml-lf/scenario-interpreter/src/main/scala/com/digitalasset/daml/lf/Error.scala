@@ -77,4 +77,10 @@ object Error {
 
   /** Submitted commands for parties that have not been allocated. */
   final case class PartiesNotAllocated(parties: Set[Party]) extends Error
+
+  /** The scenario interpreter had a stack overflow. */
+  final case class StackOverflow(err: StackOverflowError) extends Error
+
+  /** The scenario interpreter ran out of memory. */
+  final case class OutOfMemory(err: OutOfMemoryError) extends Error
 }

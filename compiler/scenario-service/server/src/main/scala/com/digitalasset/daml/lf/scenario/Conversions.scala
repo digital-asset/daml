@@ -335,6 +335,11 @@ final class Conversions(
             .addAllParties(parties.map(convertParty).asJava)
             .build
         )
+
+      case Error.StackOverflow(so) =>
+        builder.setStackOverflow(so.toString())
+      case Error.OutOfMemory(oom) =>
+        builder.setOutOfMemory(oom.toString())
     }
     builder.build
   }
