@@ -465,59 +465,32 @@ object JsonProtocol extends JsonProtocolLow {
     ErrorInfoDetail
   )
 
-  implicit val RetryInfoDetailFormat: RootJsonFormat[RetryInfoDetail] =
-    new RootJsonFormat[RetryInfoDetail] {
-      override def write(obj: RetryInfoDetail): JsValue = JsObject(
-        "duration" -> JsNumber(obj.duration.toNanos)
+  // Encapsulating the way how duration is serialized to be able to reimport
+  // where necessary.
+  object RetryInfoDetailFormats {
+    import scala.concurrent.duration.Duration
+    implicit val durationFormat: JsonFormat[Duration] =
+      jsonFormat[Duration](
+        JsonReader.func2Reader((LongJsonFormat.read _).andThen(Duration.fromNanos)),
+        JsonWriter.func2Writer[Duration](duration => LongJsonFormat.write(duration.toNanos)),
       )
-      override def read(json: JsValue): RetryInfoDetail = json match {
-        case JsObject(fields) =>
-          fields
-            .get("duration")
-            .collect { case JsNumber(nanos) =>
-              val duration = scala.concurrent.duration.Duration.fromNanos(nanos.toLongExact)
-              RetryInfoDetail(duration)
-            }
-            .getOrElse(deserializationError("Expected field duration of type number"))
-        case _ => deserializationError("Expected an object with field duration of type number")
-      }
-    }
+  }
+
+  implicit val RetryInfoDetailFormat: RootJsonFormat[RetryInfoDetail] = {
+    import RetryInfoDetailFormats._
+    jsonFormat1(RetryInfoDetail)
+  }
 
   implicit val RequestInfoDetailFormat: RootJsonFormat[RequestInfoDetail] = jsonFormat1(
     RequestInfoDetail
   )
 
-  implicit val ErrorDetailsFormat: RootJsonFormat[ErrorDetail] =
-    new RootJsonFormat[ErrorDetail] {
-      override def write(obj: ErrorDetail): JsValue = {
-        val (jsValue, name) = obj match {
-          case a: ResourceInfoDetail => ResourceInfoDetailFormat.write(a) -> "ResourceInfoDetail"
-          case a: ErrorInfoDetail => ErrorInfoDetailFormat.write(a) -> "ErrorInfoDetail"
-          case a: RetryInfoDetail => RetryInfoDetailFormat.write(a) -> "RetryInfoDetail"
-          case a: RequestInfoDetail => RequestInfoDetailFormat.write(a) -> "RequestInfoDetail"
-        }
-        val fields = jsValue.asJsObject.fields ++ Map("@type" -> JsString(name))
-        JsObject(fields.toList: _*)
-      }
-      override def read(json: JsValue): ErrorDetail = {
-        val obj = json.asJsObject
-        obj.fields
-          .get("@type")
-          .map {
-            case JsString(value) => value
-            case value => deserializationError(s"Expected string but got $value")
-          }
-          .map {
-            case "ResourceInfoDetail" => ResourceInfoDetailFormat.read(obj)
-            case "ErrorInfoDetail" => ErrorInfoDetailFormat.read(obj)
-            case "RetryInfoDetail" => RetryInfoDetailFormat.read(obj)
-            case "RequestInfoDetail" =>
-              RequestInfoDetailFormat.read(obj)
-            case name =>
-              deserializationError(s"Unknown value for @type field: $name")
-          }
-      }.getOrElse(deserializationError("Field @type is required for decoding ErrorDetail"))
-    }
+  implicit val ErrorDetailsFormat: JsonFormat[ErrorDetail] = {
+    // We need to reimport this here because otherwise
+    // the `deriveFormat` will not work.
+    import RetryInfoDetailFormats._
+    deriveFormat[ErrorDetail]
+  }
 
   implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
     jsonFormat3(domain.LedgerApiError)
