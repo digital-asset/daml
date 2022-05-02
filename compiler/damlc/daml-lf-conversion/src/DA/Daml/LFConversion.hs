@@ -516,7 +516,8 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
     exceptions <- convertExceptionDefs env
     interfaces <- convertInterfaces env binds
     exports <- convertExports env (md_exports details)
-    let defs =
+    let fixities = convertFixities (mi_fixities modIface)
+        defs =
             types
             ++ templates
             ++ exceptions
@@ -524,6 +525,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             ++ interfaces
             ++ depOrphanModules
             ++ exports
+            ++ fixities
     pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
     where
         envGHCModuleName = GHC.moduleName $ cm_module x
@@ -762,6 +764,15 @@ convertDepOrphanModules env orphanModules = do
     let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
+
+convertFixities :: [(OccName, GHC.Fixity)] -> [Definition]
+convertFixities = zipWith mkFixityDef [0..]
+  where
+    mkFixityDef i fixityInfo =
+      DValue $
+        mkMetadataStub
+          (fixityName i)
+          (encodeFixityInfo fixityInfo)
 
 convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
 convertExports env availInfos = do
