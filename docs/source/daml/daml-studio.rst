@@ -324,7 +324,7 @@ choice 'Consume' of which he is not a controller
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
       #0:0
-      │   known to (since): 'Alice' (#0), 'Bob' (#0)
+      │   disclosed to (since): 'Alice' (#0), 'Bob' (#0)
       └─> create ExerciseAuthFailure:Example
           with
             owner = 'Alice'; friend = 'Bob'
@@ -364,7 +364,7 @@ to exercise the contract the following error would occur:
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
       #0:0
-      │   known to (since): 'Alice' (#0)
+      │   disclosed to (since): 'Alice' (#0)
       └─> create NotVisibleFailure:Example
           with
             owner = 'Alice'

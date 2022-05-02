@@ -11,7 +11,7 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
-import com.daml.lf.scenario.ScenarioLedger.TransactionId
+import com.daml.lf.scenario.ScenarioLedger.{TransactionId, Disclosure}
 import com.daml.lf.scenario._
 import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion}
 import com.daml.lf.speedy.SError._
@@ -299,18 +299,13 @@ private[lf] object Pretty {
           })
     }
 
-    // TODO(MH): Take explicitness into account.
-    val ppDisclosedTo =
-      if (ni.disclosures.nonEmpty)
+    def mkPpDisclosedTo(kw: String, disclosures: Seq[(Party, Disclosure)]) =
+      if (disclosures.nonEmpty)
         meta(
-          text("known to (since):") &
+          text(kw) &
             intercalate(
               comma + space,
-              ni.disclosures.toSeq
-                .sortWith { case ((p1, d1), (p2, d2)) =>
-                  // FIXME(MH): Does this order make any sense?
-                  d1.since <= d2.since && p1 < p2
-                }
+              disclosures
                 .map { case (p, d) =>
                   text(p) & text("(#") + str(d.since.id) + char(')')
                 },
@@ -318,6 +313,17 @@ private[lf] object Pretty {
         )
       else
         Doc.empty
+
+    val (witnesses, divulgences) = ni.disclosures.toSeq
+      .sortWith { case ((p1, d1), (p2, d2)) =>
+        // FIXME(MH): Does this order make any sense?
+        d1.since <= d2.since && p1 < p2
+      }
+      .partition { case (_, d) => d.explicit }
+
+    val ppDisclosedTo = mkPpDisclosedTo("disclosed to (since):", witnesses)
+    val ppDivulgedTo = mkPpDisclosedTo("divulged to (since):", divulgences)
+
     val ppReferencedBy =
       if (ni.referencedBy.nonEmpty)
         meta(
@@ -332,7 +338,7 @@ private[lf] object Pretty {
         case Some(nid) => meta("archived by" &: prettyEventId(nid))
       }
     prettyEventId(eventId) & prettyOptVersion(ni.node.optVersion) / stack(
-      Seq(ppArchivedBy, ppReferencedBy, ppDisclosedTo, arrowRight(ppNode))
+      Seq(ppArchivedBy, ppReferencedBy, ppDisclosedTo, ppDivulgedTo, arrowRight(ppNode))
         .filter(_.nonEmpty)
     )
   }
