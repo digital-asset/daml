@@ -85,7 +85,6 @@ getContractById id (ACS tpls pending) = do
   a <- fromAnyTemplate aa
   if any (elem aid) pending then None else Some a
 
-
 -- | Extract the contracts of a given template from the ACS.
 query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
 query = implQuery
