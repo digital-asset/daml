@@ -22,6 +22,8 @@ abstract class NonRepudiationTest extends AbstractNonRepudiationTest {
         commandId = Some(domain.CommandId(expectedCommandId)),
         actAs = None,
         readAs = None,
+        submissionId = None,
+        deduplicationPeriod = None,
       )
     )
     val domainParty = domain.Party(expectedParty)

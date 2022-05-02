@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
@@ -357,7 +358,50 @@ object JsonProtocol extends JsonProtocolLow {
       domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
+  implicit val hexStringFormat: JsonFormat[HexString] =
+    jsonFormat[HexString](
+      JsonReader.func2Reader((StringJsonFormat.read _).andThen(HexString.assertFromString)),
+      JsonWriter.func2Writer[HexString](StringJsonFormat.write(_)),
+    )
+
+  object DeduplicationDurationFormats {
+    // VPRM: Duration is quite the mess to handle for serialization. I would have went with
+    // nanos here to be consistent with other serialization within this file however
+    // internally we expect that duration to be not nanos-accurate.
+    implicit val jDurationFormat: JsonFormat[java.time.Duration] =
+      jsonFormat[java.time.Duration](
+        JsonReader.func2Reader((LongJsonFormat.read _).andThen(java.time.Duration.ofMillis)),
+        JsonWriter.func2Writer[java.time.Duration](duration =>
+          LongJsonFormat.write(duration.toMillis)
+        ),
+      )
+  }
+
+  implicit val DeduplicationDurationFormat: JsonFormat[domain.DeduplicationDuration] = {
+    import DeduplicationDurationFormats._
+    jsonFormat1(domain.DeduplicationDuration)
+  }
+
+  implicit val DeduplicationOffsetFormat: JsonFormat[domain.DeduplicationOffset] = {
+    jsonFormat1(domain.DeduplicationOffset)
+  }
+
+  implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] = {
+    // We need to reimport this here because otherwise
+    // the `deriveFormat` will not work.
+    import DeduplicationDurationFormats._
+    deriveFormat[domain.DeduplicationPeriod]
+  }
+
+  implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] =
+    jsonFormat[domain.SubmissionId](
+      JsonReader.func2Reader(
+        (StringJsonFormat.read _).andThen(domain.SubmissionId.apply(_))
+      ),
+      JsonWriter.func2Writer[domain.SubmissionId](id => StringJsonFormat.write(id.toString)),
+    )
+
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat5(
     domain.CommandMeta
   )
 

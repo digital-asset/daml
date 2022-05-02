@@ -25,6 +25,8 @@ final class NonRepudiationTest
         commandId = Some(domain.CommandId(expectedCommandId)),
         actAs = None,
         readAs = None,
+        submissionId = None,
+        deduplicationPeriod = None,
       )
     )
     val domainParty = domain.Party(expectedParty)

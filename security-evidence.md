@@ -203,7 +203,7 @@
 ## Performance:
 - Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
 - archiving a large number of contracts should succeed: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1418)
-- creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L562)
+- creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L568)
 
 ## Input Validation:
 - TLS configuration is parsed correctly from the config file: [CliSpec.scala](ledger-service/http-json/src/test/scala/com/digitalasset/http/CliSpec.scala#L273)

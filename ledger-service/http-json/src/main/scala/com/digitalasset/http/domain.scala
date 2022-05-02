@@ -17,7 +17,19 @@ import scalaz.std.vector._
 import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
+import scalaz.{
+  -\/,
+  @@,
+  Applicative,
+  Bitraverse,
+  Functor,
+  NonEmptyList,
+  OneAnd,
+  Tag,
+  Traverse,
+  \/,
+  \/-,
+}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -46,6 +58,9 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type CommandId = lar.CommandId
   val CommandId = lar.CommandId
 
+  type SubmissionId = String @@ SubmissionIdTag
+  val SubmissionId = Tag.of[SubmissionIdTag]
+
   type LfType = iface.Type
 
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
@@ -55,6 +70,10 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.daml.ledger.api.v1.commands.Commands
+  import com.daml.lf.data.Ref.HexString
+
+  sealed trait SubmissionIdTag
 
   trait JwtPayloadTag
 
@@ -219,10 +238,32 @@ package domain {
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
+  sealed abstract class DeduplicationPeriod extends Product with Serializable
+
+  final case class DeduplicationDuration(duration: java.time.Duration)
+      extends domain.DeduplicationPeriod
+
+  final case class DeduplicationOffset(offset: HexString) extends domain.DeduplicationPeriod
+
+  object DeduplicationPeriod {
+    def toProto(deduplicationPeriod: DeduplicationPeriod): Commands.DeduplicationPeriod =
+      deduplicationPeriod match {
+        case DeduplicationDuration(duration) =>
+          Commands.DeduplicationPeriod.DeduplicationDuration(
+            com.google.protobuf.duration.Duration.of(duration.getSeconds, duration.getNano)
+          )
+        case DeduplicationOffset(offset) =>
+          Commands.DeduplicationPeriod
+            .DeduplicationOffset(offset)
+      }
+  }
+
   final case class CommandMeta(
       commandId: Option[CommandId],
       actAs: Option[NonEmptyList[Party]],
       readAs: Option[List[Party]],
+      submissionId: Option[SubmissionId],
+      deduplicationPeriod: Option[domain.DeduplicationPeriod],
   )
 
   final case class CreateCommand[+LfV, TmplId](

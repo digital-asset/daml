@@ -24,6 +24,7 @@ import com.daml.http.util.{Commands, Transactions}
 import LedgerClientJwt.Grpc
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -222,6 +223,11 @@ class CommandService(
           actAs,
           readAs,
           command,
+          meta
+            .flatMap(_.deduplicationPeriod)
+            .map(domain.DeduplicationPeriod.toProto(_))
+            .getOrElse(DeduplicationPeriod.Empty: DeduplicationPeriod),
+          meta.flatMap(_.submissionId),
         )
       }
   }
