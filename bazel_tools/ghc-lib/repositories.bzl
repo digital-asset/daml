@@ -108,13 +108,13 @@ def _ghc_lib_deps_windows():
     http_archive(
         name = "ghc_865_win",
         build_file_content = """\
-    load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
-    binary_bundle(
-        name = "tools",
-        tools = glob(["ghc-8.6.5/bin/*"]),
-        visibility = ["//visibility:public"],
-    )
-    """,
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
+binary_bundle(
+    name = "tools",
+    tools = glob(["ghc-8.6.5/bin/*"]),
+    visibility = ["//visibility:public"],
+)
+""",
         sha256 = "457024c6ea43bdce340af428d86319931f267089398b859b00efdfe2fd4ce93f",
         urls = ["https://downloads.haskell.org/~ghc/8.6.5/ghc-8.6.5-x86_64-unknown-mingw32.tar.xz"],
     )
@@ -122,13 +122,13 @@ def _ghc_lib_deps_windows():
     http_archive(
         name = "cabal_win",
         build_file_content = """\
-    load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
-    binary_bundle(
-        name = "tools",
-        tools = glob(["cabal.exe"]),
-        visibility = ["//visibility:public"],
-    )
-    """,
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
+binary_bundle(
+    name = "tools",
+    tools = glob(["cabal.exe"]),
+    visibility = ["//visibility:public"],
+)
+""",
         sha256 = "8222b49b6eac3d06aaa390bc688f467e8f949a38943567f46246f8320fd72ded",
         urls = ["https://downloads.haskell.org/~cabal/cabal-install-3.6.0.0/cabal-install-3.6.0.0-x86_64-windows.zip"],
     )
