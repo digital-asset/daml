@@ -194,9 +194,6 @@ data DalfDependency = DalfDependency
 getDlintIdeas :: NormalizedFilePath -> Action (Maybe ())
 getDlintIdeas f = runMaybeT $ fst <$> useE GetDlintDiagnostics f
 
-modInfoDepOrphanModules :: HomeModInfo -> [Module]
-modInfoDepOrphanModules = dep_orphs . mi_deps . hm_iface
-
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
@@ -264,9 +261,9 @@ generateRawDalfRule =
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated, envEnableScenarios} <- getDamlServiceEnv
-                    depOrphanModules <- modInfoDepOrphanModules . tmrModInfo <$> use_ TypeCheck file
+                    modIface <- hm_iface . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
+                    case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core modIface details of
                         Left e -> return ([e], Nothing)
                         Right v -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -418,8 +415,8 @@ generateSerializedDalfRule options =
                             DamlEnv{envIsGenerated, envEnableScenarios} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
-                                depOrphanModules = modInfoDepOrphanModules modInfo
-                            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
+                                modIface = hm_iface modInfo
+                            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core modIface details of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
