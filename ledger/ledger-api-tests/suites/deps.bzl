@@ -4,6 +4,7 @@
 def deps(lf_version):
     return [
         "//daml-lf/data",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/error",
         "//ledger/ledger-api-common",

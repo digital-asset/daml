@@ -217,7 +217,7 @@ object UpdateToDbDto {
                   exercise_child_event_ids = Some(
                     exercise.children.iterator
                       .map(EventId(u.transactionId, _).toLedgerString.toString)
-                      .toSet
+                      .toVector
                   ),
                   create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
                   exercise_argument_compression =

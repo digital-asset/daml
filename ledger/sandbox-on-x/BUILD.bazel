@@ -508,6 +508,20 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=100000",
+        "--buffered-ledger-api-streams",
+    ],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-in-memory-fan-out-tiny-buffer",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=10",
         "--buffered-ledger-api-streams",
     ],

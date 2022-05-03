@@ -87,14 +87,21 @@ object EventsTable {
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
       val visible = events.map(_.event.eventId)
-      val visibleSet = visible.toSet
+      val visibleOrder = visible.view.zipWithIndex.toMap
 
       // All events in this transaction by their identifier, with their children
       // filtered according to those visible for this request
       val eventsById =
         events.iterator
           .map(_.event)
-          .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+          .map(e =>
+            e.eventId -> e
+              .filterChildEventIds(visibleOrder.contains)
+              // childEventIds need to be returned in the event order in the original transaction.
+              // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
+              // The order is determined by the order of the events, which follows the event order of the original transaction.
+              .sortChildEventIdsBy(visibleOrder)
+          )
           .toMap
 
       // All event identifiers that appear as a child of another item in this response
