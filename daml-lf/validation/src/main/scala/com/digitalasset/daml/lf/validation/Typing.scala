@@ -856,7 +856,9 @@ private[validation] object Typing {
         checkType(typ0, KStar)
         val typ1 = resolveExprType(expr, typ0)
         introExprVar(vName, typ1).typeOf(body)
-      case Binding(_, _, bound @ _) =>
+      case Binding(None, typ0, bound) =>
+        checkType(typ0, KStar)
+        val _ = resolveExprType(bound, typ0)
         typeOf(body)
     }
 
