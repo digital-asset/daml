@@ -52,7 +52,7 @@ object FileBasedConfig {
       Some(Duration.apply(str))
         .collect { case d: FiniteDuration => d }
         .map(_.toJava)
-        .toRight(CannotConvert(str, "java.time.Duration", s"Could not convert $str"))
+        .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
     }
 
   implicit val versionRangeReader: ConfigReader[VersionRange[language.LanguageVersion]] =
@@ -61,7 +61,8 @@ object FileBasedConfig {
       case "early-access" => Right(LanguageVersion.EarlyAccessVersions)
       case "stable" => Right(LanguageVersion.StableVersions)
       case "legacy" => Right(LanguageVersion.LegacyVersions)
-      case value => Left(CannotConvert(value, "VersionRange", s"$value does not exists."))
+      case value =>
+        Left(CannotConvert(value, VersionRange.getClass.getName, s"$value is not recognized."))
     }
 
   implicit val versionRangeWriter: ConfigWriter[VersionRange[language.LanguageVersion]] =
@@ -102,7 +103,6 @@ object FileBasedConfig {
   implicit val metricsReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]
   implicit val metricsWriter: ConfigWriter[MetricsConfig] = deriveWriter[MetricsConfig]
 
-  // TlsConfiguration
   implicit val secretsUrlReader: ConfigReader[SecretsUrl] =
     ConfigReader.fromString[SecretsUrl] { url =>
       Right(SecretsUrl.fromString(url))
@@ -120,7 +120,9 @@ object FileBasedConfig {
     ConfigReader.fromString[TlsVersion] { tlsVersion =>
       TlsVersion.allVersions
         .find(_.version == tlsVersion)
-        .toRight(CannotConvert(tlsVersion, "TlsVersion", s"$tlsVersion does not exists."))
+        .toRight(
+          CannotConvert(tlsVersion, TlsVersion.getClass.getName, s"$tlsVersion is not recognized.")
+        )
     }
 
   implicit val tlsVersionWriter: ConfigWriter[TlsVersion] =
@@ -130,8 +132,6 @@ object FileBasedConfig {
     deriveReader[TlsConfiguration]
   implicit val tlsConfigurationWriter: ConfigWriter[TlsConfiguration] =
     deriveWriter[TlsConfiguration]
-
-  //
 
   implicit val portReader: ConfigReader[Port] = ConfigReader.intConfigReader.map(Port.apply)
   implicit val portWriter: ConfigWriter[Port] = ConfigWriter.intConfigWriter.contramap[Port] {
@@ -247,7 +247,6 @@ object FileBasedConfig {
   implicit val apiServerConfigReader: ConfigReader[ApiServerConfig] = deriveReader[ApiServerConfig]
   implicit val apiServerConfigWriter: ConfigWriter[ApiServerConfig] = deriveWriter[ApiServerConfig]
 
-  //
   implicit val participantRunModeReader: ConfigReader[ParticipantRunMode] =
     deriveEnumerationReader[ParticipantRunMode]
   implicit val participantRunModeWriter: ConfigWriter[ParticipantRunMode] =
@@ -283,8 +282,11 @@ object FileBasedConfig {
   implicit val haConfigReader: ConfigReader[HaConfig] = deriveReader[HaConfig]
   implicit val haConfigWriter: ConfigWriter[HaConfig] = deriveWriter[HaConfig]
 
-  private def createParticipantId(s: String) =
-    Ref.ParticipantId.fromString(s).left.map(err => CannotConvert(s, "Ref.ParticipantId", err))
+  private def createParticipantId(participantId: String) =
+    Ref.ParticipantId
+      .fromString(participantId)
+      .left
+      .map(err => CannotConvert(participantId, Ref.ParticipantId.getClass.getName, err))
 
   implicit val participantIdReader: ConfigReader[Ref.ParticipantId] = ConfigReader
     .fromString[Ref.ParticipantId](createParticipantId)
@@ -315,10 +317,8 @@ object FileBasedConfig {
   implicit val participantConfigWriter: ConfigWriter[ParticipantConfig] =
     deriveWriter[ParticipantConfig]
 
-  private def createParticipantName(s: String) = Right(ParticipantName(s))
-
   implicit def participantNameKeyReader: ConfigReader[Map[ParticipantName, ParticipantConfig]] =
-    genericMapReader[ParticipantName, ParticipantConfig](createParticipantName)
+    genericMapReader[ParticipantName, ParticipantConfig]((s: String) => Right(ParticipantName(s)))
   implicit def participantNameKeyWriter: ConfigWriter[Map[ParticipantName, ParticipantConfig]] =
     genericMapWriter[ParticipantName, ParticipantConfig](_.value)
 
