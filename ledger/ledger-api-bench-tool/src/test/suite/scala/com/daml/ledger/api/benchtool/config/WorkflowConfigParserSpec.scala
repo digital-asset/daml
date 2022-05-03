@@ -15,6 +15,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
     "parse complete workflow configuration" in {
       val yaml =
         """submission:
+          |  type: foo
           |  num_instances: 500
           |  num_observers: 4
           |  unique_parties: true
@@ -43,25 +44,25 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = Some(
-            WorkflowConfig.SubmissionConfig(
+            WorkflowConfig.FooSubmissionConfig(
               numberOfInstances = 500,
               numberOfObservers = 4,
               uniqueParties = true,
               instanceDistribution = List(
-                WorkflowConfig.SubmissionConfig.ContractDescription(
+                WorkflowConfig.FooSubmissionConfig.ContractDescription(
                   template = "Foo1",
                   weight = 50,
                   payloadSizeBytes = 60,
                 )
               ),
               nonConsumingExercises = Some(
-                WorkflowConfig.SubmissionConfig.NonconsumingExercises(
+                WorkflowConfig.FooSubmissionConfig.NonconsumingExercises(
                   probability = 4.9,
                   payloadSizeBytes = 100,
                 )
               ),
               consumingExercises = Some(
-                WorkflowConfig.SubmissionConfig.ConsumingExercises(
+                WorkflowConfig.FooSubmissionConfig.ConsumingExercises(
                   probability = 0.5,
                   payloadSizeBytes = 200,
                 )
@@ -89,9 +90,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "parse submission configuration" in {
+    "parse foo submission configuration" in {
       val yaml =
         """submission:
+        |  type: foo
         |  num_instances: 500
         |  num_observers: 4
         |  unique_parties: true
@@ -109,22 +111,22 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = Some(
-            WorkflowConfig.SubmissionConfig(
+            WorkflowConfig.FooSubmissionConfig(
               numberOfInstances = 500,
               numberOfObservers = 4,
               uniqueParties = true,
               instanceDistribution = List(
-                WorkflowConfig.SubmissionConfig.ContractDescription(
+                WorkflowConfig.FooSubmissionConfig.ContractDescription(
                   template = "Foo1",
                   weight = 50,
                   payloadSizeBytes = 60,
                 ),
-                WorkflowConfig.SubmissionConfig.ContractDescription(
+                WorkflowConfig.FooSubmissionConfig.ContractDescription(
                   template = "Foo2",
                   weight = 25,
                   payloadSizeBytes = 35,
                 ),
-                WorkflowConfig.SubmissionConfig.ContractDescription(
+                WorkflowConfig.FooSubmissionConfig.ContractDescription(
                   template = "Foo3",
                   weight = 10,
                   payloadSizeBytes = 25,
@@ -133,6 +135,22 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               nonConsumingExercises = None,
               consumingExercises = None,
             )
+          ),
+          streams = Nil,
+        )
+      )
+    }
+
+    "parse no submission configuration" in {
+      val yaml =
+        """submission:
+          |  type: empty
+        """.stripMargin
+
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = Some(
+            WorkflowConfig.EmptySubmissionConfig
           ),
           streams = Nil,
         )
