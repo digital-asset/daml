@@ -143,9 +143,8 @@ private[platform] object FlywayMigrations {
   private val javaMigrationClasspathBase = "classpath:com/daml/platform/db/migration/"
 
   private[platform] def locations(dbType: DbType) =
-    // TODO append-only: rename the -appendonly folders
     List(
-      sqlMigrationClasspathBase + dbType.name + "-appendonly",
+      sqlMigrationClasspathBase + dbType.name,
       javaMigrationClasspathBase + dbType.name,
     )
 
