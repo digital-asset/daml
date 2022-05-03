@@ -10,7 +10,12 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.Conversions.{contractId, eventId, offset, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{
+  contractId,
+  eventId,
+  offset,
+  timestampFromMicros,
+}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend
@@ -30,8 +35,8 @@ abstract class EventStorageBackendTemplate(
     // This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
     participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
 ) extends EventStorageBackend {
-  import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
-  import com.daml.platform.store.Conversions.ArrayColumnToStringArray._
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToStringArray._
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
@@ -123,7 +128,7 @@ abstract class EventStorageBackendTemplate(
       Array[Int] ~ Array[String]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
+    import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
@@ -551,8 +556,8 @@ abstract class EventStorageBackendTemplate(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    import com.daml.platform.store.Conversions.ledgerStringToStatement
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.ledgerStringToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     events(
       joinClause = cSQL"""JOIN parameters ON
@@ -606,8 +611,8 @@ abstract class EventStorageBackendTemplate(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-    import com.daml.platform.store.Conversions.ledgerStringToStatement
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.ledgerStringToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     events(
       joinClause = cSQL"""JOIN parameters ON
@@ -638,7 +643,7 @@ abstract class EventStorageBackendTemplate(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
 
     if (pruneAllDivulgedContracts) {
       pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
@@ -740,7 +745,7 @@ abstract class EventStorageBackendTemplate(
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
-    import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
+    import com.daml.platform.store.backend.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
     (int("event_kind") ~
       str("transaction_id") ~
       int("node_index") ~
@@ -924,7 +929,7 @@ abstract class EventStorageBackendTemplate(
   override def maxEventSequentialIdOfAnObservableEvent(
       offset: Offset
   )(connection: Connection): Option[Long] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     def selectFrom(table: String) = cSQL"""
       SELECT max(event_sequential_id) AS max_esi FROM #$table
       WHERE event_offset = (select max(event_offset) from #$table where event_offset <= $offset)

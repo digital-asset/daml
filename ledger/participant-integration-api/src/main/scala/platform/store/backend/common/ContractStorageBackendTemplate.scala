@@ -8,7 +8,7 @@ import java.sql.Connection
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{contractId, offset, timestampFromMicros}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -27,7 +27,7 @@ class ContractStorageBackendTemplate(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
-  import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
   override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
     contractKey(
@@ -71,7 +71,7 @@ class ContractStorageBackendTemplate(
   override def contractState(contractId: ContractId, before: Long)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
     SQL"""
            (SELECT
              event_sequential_id,
@@ -196,7 +196,7 @@ class ContractStorageBackendTemplate(
       coalescedColumns: String,
   ): SimpleSql[Row] = {
     val lastEventSequentialId = ledgerEndCache()._2
-    import com.daml.platform.store.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (
                SELECT participant_events_consuming_exercise.*
                  FROM participant_events_consuming_exercise
@@ -364,7 +364,7 @@ class ContractStorageBackendTemplate(
           )
         )
 
-      import com.daml.platform.store.Conversions.HashToStatement
+      import com.daml.platform.store.backend.Conversions.HashToStatement
       SQL"""
            WITH last_contract_key_create AS (
                   SELECT participant_events_create.*
