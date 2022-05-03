@@ -12,7 +12,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.Conversions.{contractId, eventId, offset, timestampFromMicros}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
-import com.daml.platform.store.dao.events.{EventsTable, Raw}
+import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
@@ -141,14 +141,14 @@ abstract class EventStorageBackendTemplate(
 
   private def createdFlatEventParser(
       allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
+  ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~
           createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        EventsTable.Entry(
+        EventStorageBackend.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           nodeIndex = nodeIndex,
@@ -187,12 +187,12 @@ abstract class EventStorageBackendTemplate(
 
   private def archivedFlatEventParser(
       allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
+  ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        EventsTable.Entry(
+        EventStorageBackend.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           nodeIndex = nodeIndex,
@@ -220,17 +220,17 @@ abstract class EventStorageBackendTemplate(
 
   private def rawFlatEventParser(
       allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.FlatEvent]] =
+  ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent]] =
     createdFlatEventParser(allQueryingParties) | archivedFlatEventParser(allQueryingParties)
 
   private def createdTreeEventParser(
       allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
+  ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        EventsTable.Entry(
+        EventStorageBackend.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           nodeIndex = nodeIndex,
@@ -269,12 +269,12 @@ abstract class EventStorageBackendTemplate(
 
   private def exercisedTreeEventParser(
       allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
+  ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        EventsTable.Entry(
+        EventStorageBackend.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           nodeIndex = nodeIndex,
@@ -312,7 +312,7 @@ abstract class EventStorageBackendTemplate(
 
   private def rawTreeEventParser(
       allQueryingParties: Set[Int]
-  ): RowParser[EventsTable.Entry[Raw.TreeEvent]] =
+  ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent]] =
     createdTreeEventParser(allQueryingParties) | exercisedTreeEventParser(allQueryingParties)
 
   private val selectColumnsForTransactionTreeCreate = Seq(
@@ -451,7 +451,7 @@ abstract class EventStorageBackendTemplate(
   override def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     events(
       joinClause = cSQL"",
       additionalAndClause = cSQL"""
@@ -520,7 +520,7 @@ abstract class EventStorageBackendTemplate(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
       endInclusive: Long,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     val allInternedFilterParties = allFilterParties.iterator
       .map(stringInterning.party.tryInternalize)
       .flatMap(_.iterator)
@@ -550,7 +550,7 @@ abstract class EventStorageBackendTemplate(
   override def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
@@ -578,7 +578,7 @@ abstract class EventStorageBackendTemplate(
   override def transactionTreeEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
     events(
       joinClause = cSQL"",
       additionalAndClause = cSQL"""
@@ -605,7 +605,7 @@ abstract class EventStorageBackendTemplate(
   override def transactionTree(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1

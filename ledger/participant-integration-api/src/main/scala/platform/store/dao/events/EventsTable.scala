@@ -19,26 +19,14 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.platform.store.backend.EventStorageBackend.Entry
 
 // TODO append-only: FIXME: move to the right place
 object EventsTable {
 
-  final case class Entry[+E](
-      eventOffset: Offset,
-      transactionId: String,
-      nodeIndex: Int,
-      eventSequentialId: Long,
-      ledgerEffectiveTime: Timestamp,
-      commandId: String,
-      workflowId: String,
-      event: E,
-  )
-
-  object Entry {
+  object TransactionConversions {
 
     private def flatTransaction(events: Vector[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>

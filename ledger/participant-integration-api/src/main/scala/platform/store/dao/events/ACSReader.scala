@@ -27,7 +27,7 @@ trait ACSReader {
       activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
-  ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed]
+  ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed]
 }
 
 class FilterTableACSReader(
@@ -51,7 +51,7 @@ class FilterTableACSReader(
       activeAt: (Offset, Long),
   )(implicit
       loggingContext: LoggingContext
-  ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed] = {
+  ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
     implicit val errorLogger: ContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
