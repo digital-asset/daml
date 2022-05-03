@@ -137,6 +137,10 @@ object Reference {
     override def pretty: String = s"method $methodName in interface $tyCon"
   }
 
+  final case class InterfaceField(tyCon: TypeConName, fieldName: Ast.FieldName) extends Reference {
+    override def pretty: String = s"interface field $fieldName in interface $tyCon"
+  }
+
   final case class Exception(tyCon: TypeConName) extends Reference {
     override def pretty: String = s"exception $tyCon"
   }
