@@ -13,6 +13,7 @@ import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
+import scalaz.syntax.tag._
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -461,10 +462,12 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val durationFormat: JsonFormat[domain.RetryInfoDetailDuration] =
     jsonFormat[domain.RetryInfoDetailDuration](
       JsonReader.func2Reader(
-        (LongJsonFormat.read _).andThen(domain.RetryInfoDetailDuration.fromNanos)
+        (LongJsonFormat.read _)
+          .andThen(scala.concurrent.duration.Duration.fromNanos)
+          .andThen(it => domain.RetryInfoDetailDuration(it: scala.concurrent.duration.Duration))
       ),
       JsonWriter.func2Writer[domain.RetryInfoDetailDuration](duration =>
-        LongJsonFormat.write(duration.toNanos)
+        LongJsonFormat.write(duration.unwrap.toNanos)
       ),
     )
 

@@ -185,7 +185,11 @@ class JsonProtocolTest
 
     "Encoding and decoding RetryInfoDetail should result in the same object" in {
       val retryInfoDetail: domain.ErrorDetail =
-        domain.RetryInfoDetail(scala.concurrent.duration.Duration.Zero)
+        domain.RetryInfoDetail(
+          domain.RetryInfoDetailDuration(
+            scala.concurrent.duration.Duration.Zero: scala.concurrent.duration.Duration
+          )
+        )
       retryInfoDetail shouldBe retryInfoDetail.toJson.convertTo[domain.ErrorDetail]
     }
 

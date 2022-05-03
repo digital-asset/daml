@@ -23,6 +23,8 @@ import spray.json.JsValue
 import scala.annotation.tailrec
 
 package object domain extends com.daml.fetchcontracts.domain.Aliases {
+  import scalaz.{@@, Tag}
+
   type InputContractRef[LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
 
@@ -46,8 +48,8 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   type LfType = iface.Type
 
-  type RetryInfoDetailDuration = scala.concurrent.duration.Duration
-  val RetryInfoDetailDuration = scala.concurrent.duration.Duration
+  type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
+  val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
 }
 
 package domain {
@@ -581,7 +583,8 @@ package domain {
         case ErrorDetails.ResourceInfoDetail(name, typ) => domain.ResourceInfoDetail(name, typ)
         case ErrorDetails.ErrorInfoDetail(errorCodeId, metadata) =>
           domain.ErrorInfoDetail(errorCodeId, metadata)
-        case ErrorDetails.RetryInfoDetail(duration) => domain.RetryInfoDetail(duration)
+        case ErrorDetails.RetryInfoDetail(duration) =>
+          domain.RetryInfoDetail(domain.RetryInfoDetailDuration(duration))
         case ErrorDetails.RequestInfoDetail(correlationId) =>
           domain.RequestInfoDetail(correlationId)
       }
