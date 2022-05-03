@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.error.definitions.kv.KvErrors
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
@@ -154,7 +155,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         newTimeModel = oldTimeModel,
       )
 
-      _ <- f1
+      failure <- f1
         .flatMap(_ => f2)
         .mustFail("setting Time Model with an outdated generation")
 
@@ -164,6 +165,12 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       assert(
         preUpdateTimeModelResponse.configurationGeneration + 1 == postUpdateTimeModelResponse.configurationGeneration,
         s"New configuration's generation (${postUpdateTimeModelResponse.configurationGeneration} should be original configurations's generation (${preUpdateTimeModelResponse.configurationGeneration} + 1) )",
+      )
+      assertGrpcErrorOneOf(
+        failure,
+        LedgerApiErrors.Admin.ConfigurationEntryRejected,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        KvErrors.Consistency.PostExecutionConflicts,
       )
     }
   })

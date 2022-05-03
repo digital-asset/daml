@@ -17,6 +17,7 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
+import scala.util.{Success, Try}
 
 object Assertions {
   def fail(message: String): Nothing =
@@ -66,6 +67,15 @@ object Assertions {
 
   def assertIsEmpty(actual: Iterable[_]): Unit = {
     assertSameElements(actual, Seq.empty)
+  }
+
+  def assertGrpcErrorOneOf(t: Throwable, errors: ErrorCode*): Unit = {
+    val hasErrorCode = errors.map(errorCode => Try(assertGrpcError(t, errorCode, None))).exists {
+      case Success(_) => true
+      case _ => false
+    }
+    if (hasErrorCode) ()
+    else fail(s"gRPC failure did not contain one of the expected error codes $errors.", t)
   }
 
   def assertGrpcError(
