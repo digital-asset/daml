@@ -11,10 +11,9 @@ import com.daml.ledger.participant.state.index.v2.MeteringStore.{
   ReportData,
   TransactionMetering,
 }
-import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.store.backend
+import com.daml.platform.ApplicationId
 import com.daml.platform.store.backend.Conversions.{applicationId, offset, timestampFromMicros}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -94,9 +93,9 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
   implicit val offsetToStatement: ToStatement[Offset] =
     Conversions.OffsetToStatement
   implicit val timestampToStatement: ToStatement[Timestamp] =
-    backend.Conversions.TimestampToStatement
+    Conversions.TimestampToStatement
   implicit val timestampParamMeta: ParameterMetaData[Timestamp] =
-    backend.Conversions.TimestampParamMeta
+    Conversions.TimestampParamMeta
 
   def applicationCountParser: RowParser[(ApplicationId, Long)] =
     (applicationId(columnName = "application_id") ~ long(columnPosition = 2))
@@ -180,11 +179,11 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStorageWriteBackend {
 
   implicit val offsetToStatement: ToStatement[Offset] =
-    backend.Conversions.OffsetToStatement
+    Conversions.OffsetToStatement
   implicit val timestampToStatement: ToStatement[Timestamp] =
-    backend.Conversions.TimestampToStatement
+    Conversions.TimestampToStatement
   implicit val timestampParamMeta: ParameterMetaData[Timestamp] =
-    backend.Conversions.TimestampParamMeta
+    Conversions.TimestampParamMeta
 
   def applicationCountParser: RowParser[(ApplicationId, Int)] =
     (applicationId(columnName = "application_id") ~ int(columnPosition = 2))

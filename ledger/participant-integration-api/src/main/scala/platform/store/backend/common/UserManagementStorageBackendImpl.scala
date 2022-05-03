@@ -11,8 +11,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.UserId
+import com.daml.platform.{Party, UserId}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.UserManagementStorageBackend
 
@@ -64,7 +63,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
         UserManagementStorageBackend.DbUser(
           internalId = internalId,
           domainUser = domain.User(
-            id = Ref.UserId.assertFromString(userId),
+            id = UserId.assertFromString(userId),
             primaryParty = dbStringToPartyString(primaryPartyRaw),
           ),
           createdAt = createdAt,
@@ -91,7 +90,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       }
   }
 
-  override def deleteUser(userId: Ref.UserId)(connection: Connection): Boolean = {
+  override def deleteUser(userId: UserId)(connection: Connection): Boolean = {
     val updatedRowsCount =
       SQL"""
          DELETE FROM participant_users WHERE user_id = ${userId: String}
@@ -102,7 +101,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def userRightExists(internalId: Int, right: UserRight)(
       connection: Connection
   ): Boolean = {
-    val (userRight: Int, forParty: Option[Ref.Party]) = fromUserRight(right)
+    val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
 
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val res: Seq[_] =
@@ -121,7 +120,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
   ): Unit = {
-    val (userRight: Int, forParty: Option[Ref.Party]) = fromUserRight(right)
+    val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
     val _ =
       SQL"""
          INSERT INTO participant_user_rights (user_internal_id, user_right, for_party, granted_at)
@@ -157,7 +156,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def deleteUserRight(internalId: Int, right: domain.UserRight)(
       connection: Connection
   ): Boolean = {
-    val (userRight: Int, forParty: Option[Ref.Party]) = fromUserRight(right)
+    val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
 
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val updatedRowCount: Int =
@@ -189,7 +188,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     }
   }
 
-  private def fromUserRight(right: UserRight): (Int, Option[Ref.Party]) = {
+  private def fromUserRight(right: UserRight): (Int, Option[Party]) = {
     right match {
       case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None)
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party))
@@ -199,21 +198,21 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     }
   }
 
-  private def dbStringToPartyString(raw: Option[String]): Option[Ref.Party] = {
-    raw.map(Ref.Party.assertFromString)
+  private def dbStringToPartyString(raw: Option[String]): Option[Party] = {
+    raw.map(Party.assertFromString)
   }
 
-  private def isForPartyPredicate(forParty: Option[Ref.Party]): ComposableQuery.CompositeSql = {
+  private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    forParty.fold(cSQL"IS NULL") { party: Ref.Party =>
+    forParty.fold(cSQL"IS NULL") { party: Party =>
       cSQL"= ${party: String}"
     }
   }
 
   private def toDomainUser(userId: String, primaryParty: Option[String]): domain.User = {
     domain.User(
-      Ref.UserId.assertFromString(userId),
-      primaryParty.map(Ref.Party.assertFromString),
+      UserId.assertFromString(userId),
+      primaryParty.map(Party.assertFromString),
     )
   }
 

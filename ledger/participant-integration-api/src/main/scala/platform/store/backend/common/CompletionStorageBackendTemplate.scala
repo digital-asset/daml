@@ -9,10 +9,9 @@ import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.{ApplicationId, Party}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.backend.Conversions.{offset, timestampFromMicros}
@@ -32,7 +31,7 @@ class CompletionStorageBackendTemplate(
   override def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
+      applicationId: ApplicationId,
       parties: Set[Party],
   )(connection: Connection): List[CompletionStreamResponse] = {
     import com.daml.platform.store.backend.Conversions.applicationIdToStatement

@@ -16,9 +16,9 @@ import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.transaction.{GlobalKey => LfGlobalKey, Transaction => LfTransaction}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.dao.events._
 
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,8 +60,8 @@ private[validate] class ConflictCheckingLedgerBridge(
 private[bridge] object ConflictCheckingLedgerBridge {
   private[validate] type Validation[T] = Either[Rejection, T]
   private[validate] type AsyncValidation[T] = Future[Validation[T]]
-  private[validate] type KeyInputs = Map[Key, LfTransaction.KeyInput]
-  private[validate] type UpdatedKeys = Map[Key, Option[ContractId]]
+  private[validate] type KeyInputs = Map[LfGlobalKey, LfTransaction.KeyInput]
+  private[validate] type UpdatedKeys = Map[LfGlobalKey, Option[ContractId]]
 
   // Conflict checking stages
   private[validate] type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]

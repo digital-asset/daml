@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.event.{
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
 import com.daml.logging.LoggingContext
+import com.daml.platform.Identifier
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.Compression
 

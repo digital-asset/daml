@@ -4,8 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import com.daml.api.util.TimestampConversion
-import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{CommittedTransaction, Node}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
@@ -17,6 +16,7 @@ import com.daml.ledger.api.v1.transaction.{
   TransactionTree => ApiTransactionTree,
 }
 import com.daml.lf.ledger.EventId
+import com.daml.platform.{CommandId, LedgerString, NodeId, Party, Relation, TransactionId}
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
@@ -50,14 +50,14 @@ private[platform] object TransactionConversion {
   }
 
   private def maskCommandId(
-      commandId: Option[Ref.CommandId],
-      actAs: List[Ref.Party],
-      requestingParties: Set[Ref.Party],
+      commandId: Option[CommandId],
+      actAs: List[Party],
+      requestingParties: Set[Party],
   ): String =
     commandId.filter(_ => actAs.exists(requestingParties)).getOrElse("")
 
   private def toFlatEvent(
-      trId: Ref.TransactionId,
+      trId: TransactionId,
       verbose: Boolean,
   ): PartialFunction[(NodeId, Node), Event] = {
     case (nodeId, node: Node.Create) =>
@@ -113,8 +113,8 @@ private[platform] object TransactionConversion {
 
   private def disclosureForParties(
       transaction: Transaction,
-      parties: Set[Ref.Party],
-  ): Option[Relation[NodeId, Ref.Party]] =
+      parties: Set[Party],
+  ): Option[Relation[NodeId, Party]] =
     Some(
       Blinding
         .blind(transaction)
@@ -135,8 +135,8 @@ private[platform] object TransactionConversion {
   }
   private def toTreeEvent(
       verbose: Boolean,
-      trId: Ref.LedgerString,
-      disclosure: Relation[NodeId, Ref.Party],
+      trId: LedgerString,
+      disclosure: Relation[NodeId, Party],
       nodes: Map[NodeId, Node],
   ): PartialFunction[(NodeId, Node), (String, TreeEvent)] = {
     case (nodeId, node: Node.Create) if disclosure.contains(nodeId) =>
@@ -185,9 +185,9 @@ private[platform] object TransactionConversion {
   }
 
   private def applyDisclosure(
-      trId: Ref.LedgerString,
+      trId: LedgerString,
       tx: Transaction,
-      disclosure: Relation[NodeId, Ref.Party],
+      disclosure: Relation[NodeId, Party],
       verbose: Boolean,
   ): Option[ApiTransactionTree] =
     Some(collect(tx)(toTreeEvent(verbose, trId, disclosure, tx.nodes))).collect {
@@ -201,7 +201,7 @@ private[platform] object TransactionConversion {
   def ledgerEntryToTransactionTree(
       offset: domain.LedgerOffset.Absolute,
       entry: LedgerEntry.Transaction,
-      requestingParties: Set[Ref.Party],
+      requestingParties: Set[Party],
       verbose: Boolean,
   ): Option[ApiTransactionTree] = {
     val filteredTree =

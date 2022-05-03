@@ -3,8 +3,9 @@
 
 package com.daml.platform.store.dao.events
 
-import java.sql.Connection
+import com.daml.platform.FilterRelation
 
+import java.sql.Connection
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 

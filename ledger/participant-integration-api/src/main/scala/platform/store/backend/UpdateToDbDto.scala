@@ -13,6 +13,7 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.daml.platform.{Create, Exercise, Key, Node, NodeId}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._

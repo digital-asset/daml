@@ -10,8 +10,8 @@ import anorm.{Macro, RowParser, SqlParser}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.backend.Conversions.{ledgerString, offset, timestampFromMicros}
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
+import com.daml.platform.PackageId
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
