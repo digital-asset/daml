@@ -126,12 +126,20 @@ object WorkflowConfigParser {
         "consuming_exercises",
       )(FooSubmissionConfig.apply)
 
+    implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =
+      Decoder.forProduct3(
+        "num_instances",
+        "unique_parties",
+        "value",
+      )(FibonacciSubmissionConfig.apply)
+
     implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
       Decoder
         .forProduct1[String, String]("type")(identity)
         .flatMap[SubmissionConfig] {
           case "foo" => fooSubmissionConfigDecoder.widen
           case "empty" => Decoder.const(EmptySubmissionConfig)
+          case "fibonacci" => fibonacciSubmissionConfigDecoder.widen
           case invalid => Decoder.failedWithMessage(s"Invalid submission type: $invalid")
         }
 
