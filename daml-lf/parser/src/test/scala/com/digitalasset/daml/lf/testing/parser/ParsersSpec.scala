@@ -306,6 +306,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ESome(TVar(n"a"), EVar(n"e")),
         "let x:Int64 = 2 in x" ->
           ELet(Binding(Some(x.value), t"Int64", e"2"), e"x"),
+        "let _:Int64 = 2 in 3" ->
+          ELet(Binding(None, t"Int64", e"2"), e"3"),
         "case e of () -> ()" ->
           ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCUnit), e"()"))),
         "case e of True -> False" ->
