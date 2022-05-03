@@ -7,7 +7,6 @@ import java.time.{Instant, LocalDate}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import com.daml.api.util.TimestampConversion
-import com.daml.error.utils.ErrorDetails.{ErrorInfoDetail, RequestInfoDetail, ResourceInfoDetail}
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
@@ -715,16 +714,16 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           )
           import org.scalatest.Inspectors._
           forExactly(1, ledgerApiError.details) {
-            case ErrorInfoDetail(errorCodeId, _) =>
+            case domain.ErrorInfoDetail(errorCodeId, _) =>
               errorCodeId shouldBe "CONTRACT_NOT_FOUND"
             case _ => fail()
           }
           forExactly(1, ledgerApiError.details) {
-            case RequestInfoDetail(_) => succeed
+            case domain.RequestInfoDetail(_) => succeed
             case _ => fail()
           }
           forExactly(1, ledgerApiError.details) {
-            case ResourceInfoDetail(name, typ) =>
+            case domain.ResourceInfoDetail(name, typ) =>
               name shouldBe "000000000000000000000000000000000000000000000000000000000000000000"
               typ shouldBe "CONTRACT_ID"
             case _ => fail()

@@ -23,6 +23,8 @@ import spray.json.JsValue
 import scala.annotation.tailrec
 
 package object domain extends com.daml.fetchcontracts.domain.Aliases {
+  import scalaz.{@@, Tag}
+
   type InputContractRef[LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
 
@@ -45,11 +47,13 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   val CommandId = lar.CommandId
 
   type LfType = iface.Type
+
+  type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
+  val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
 }
 
 package domain {
 
-  import com.daml.error.utils.ErrorDetails.ErrorDetail
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
   trait JwtPayloadTag
@@ -562,6 +566,29 @@ package domain {
       warnings: Option[ServiceWarning] = None,
       status: StatusCode = StatusCodes.OK,
   ) extends SyncResponse[R]
+
+  sealed trait RetryInfoDetailDurationTag
+
+  sealed trait ErrorDetail extends Product with Serializable
+  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
+  final case class ErrorInfoDetail(errorCodeId: String, metadata: Map[String, String])
+      extends ErrorDetail
+  final case class RetryInfoDetail(duration: RetryInfoDetailDuration) extends ErrorDetail
+  final case class RequestInfoDetail(correlationId: String) extends ErrorDetail
+
+  object ErrorDetail {
+    import com.daml.error.utils.ErrorDetails
+    def fromErrorUtils(errorDetail: ErrorDetails.ErrorDetail): domain.ErrorDetail =
+      errorDetail match {
+        case ErrorDetails.ResourceInfoDetail(name, typ) => domain.ResourceInfoDetail(name, typ)
+        case ErrorDetails.ErrorInfoDetail(errorCodeId, metadata) =>
+          domain.ErrorInfoDetail(errorCodeId, metadata)
+        case ErrorDetails.RetryInfoDetail(duration) =>
+          domain.RetryInfoDetail(domain.RetryInfoDetailDuration(duration))
+        case ErrorDetails.RequestInfoDetail(correlationId) =>
+          domain.RequestInfoDetail(correlationId)
+      }
+  }
 
   final case class LedgerApiError(
       code: Int,

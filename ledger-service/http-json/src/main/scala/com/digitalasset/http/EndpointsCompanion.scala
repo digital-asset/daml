@@ -277,7 +277,7 @@ object EndpointsCompanion {
           domain.LedgerApiError(
             code = grpcStatus.getNumber,
             message = description,
-            details = details,
+            details = details.map(domain.ErrorDetail.fromErrorUtils),
           )
         mkErrorResponse(
           grpcStatus.asAkkaHttpForJsonApi,
