@@ -543,20 +543,16 @@ final class CommandDeduplicationIT(
           // Send a dummy command to the ledger so that we obtain a recent offset
           // We should be able to just grab the current ledger end,
           // but the converter from offsets to durations cannot handle this yet.
-          dummyResponse <- submitRequestAndAssertCompletionAccepted(
+          offsetBeforeFirstCompletion <- submitRequestAndAssertCompletionAccepted(
             ledger,
             dummyRequest,
             party,
-          )
-          offsetBeforeFirstCompletion = dummyResponse.offset
+          ).map(_.offset)
           response <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
             party,
           )
-          // Wait for any ledgers that might adjust based on time skews
-          // This is done so that we can validate that the third command is accepted
-          _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
           response2 <- submitRequestAndAssertDeduplication(
             ledger,
@@ -571,6 +567,8 @@ final class CommandDeduplicationIT(
             response.offset,
             party,
           )
+          // Wait for any ledgers that might adjust based on time skews
+          _ <- delayForOffsetIfRequired(ledger)
           response3 <- submitRequestAndAssertCompletionAccepted(
             ledger,
             ledger.submitRequest(party, Dummy(party).create.command),
