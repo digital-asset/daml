@@ -194,7 +194,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
     /* We test stack-safety by building deep expressions through each of the different
      * recursion points of an expression, using one of the builder functions below, and
-     * then ensuring we can 'typecheck' the expression.
+     * then ensuring we can 'typecheck' the expression, without blowing the stack.
      */
     def runTest[T](check: Expr => T)(depth: Int, cons: Expr => Expr): T = {
       // Make an expression by iterating the 'cons' function, 'depth' times
@@ -203,7 +203,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       check(source)
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/13351
+    // TODO https://github.com/digital-asset/daml/issues/13410
     //
     // Add tests for recursion points in all syntactic classes which may recurse:
     // -- Kind, Type, Expr
@@ -252,14 +252,14 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     {
       val depth = 100 // Small enough to not cause stack-overflow, even for stack-unsafe code
 
-      // TODO https://github.com/digital-asset/daml/issues/13351
+      // TODO https://github.com/digital-asset/daml/issues/13410
       //
       // testCases should not fail even when depth is LARGE, say 10k or 100k
 
       s"typing, (SMALL) depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
           name in {
-            // we enfrce that all the test examples are well-typed
+            // ensure examples can be typechecked and are well-typed
             runTest(typecheck)(depth, recursionPoint) shouldBe None
           }
         }
