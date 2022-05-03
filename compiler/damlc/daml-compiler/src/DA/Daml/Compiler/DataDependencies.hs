@@ -8,10 +8,11 @@ module DA.Daml.Compiler.DataDependencies
     , prefixDependencyModule
     ) where
 
-import DA.Pretty
+import DA.Pretty hiding (first)
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
+import Data.Bifunctor (first)
 import Data.Char (isDigit)
 import qualified Data.DList as DL
 import Data.Foldable (fold)
@@ -334,6 +335,7 @@ generateSrcFromLf env = noLoc mod
             , dataTypeDecls
             , valueDecls
             , interfaceDecls
+            , fixityDecls
             ]
         instDecls <- sequence instanceDecls
         pure $ decls <> catMaybes instDecls
@@ -627,6 +629,36 @@ generateSrcFromLf env = noLoc mod
                 , cid_datafam_insts = []
                 , cid_overlap_mode = Nothing
                 }
+
+    fixityDecls :: [Gen (LHsDecl GhcPs)]
+    fixityDecls = do
+      (name, fixity) <- fixityDefs
+      pure $ pure $
+        noLoc $
+          SigD NoExt $
+            FixSig NoExt $
+              FixitySig NoExt [mkRdrName name] fixity
+      where
+        -- NOTE(MA): An OccName is just a string and a namespace. However, in the surface
+        -- language, there's no way to specify a fixity for a particular namespace;
+        -- e.g. given
+        --   data Pair a b = Pair a b
+        --   infixr 5 `Pair`
+        -- the fixity declaration applies to _both_ the type constructor `Pair`
+        -- and the data constructor `Pair`, and there's no way to specify their
+        -- fixities separately.
+        -- Thus, we discard the namespace information and only keep the string.
+        -- The nubbing step is necessary because `mi_fixities` does keep one entry
+        -- per name, per namespace, so there will be "duplicates" in the metadata.
+        fixityDefs :: [(T.Text, Fixity)]
+        fixityDefs
+          = nubOrdOn fst
+          $ fmap (first (T.pack . occNameString))
+          $ do
+            LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
+            Just _ <- [LFC.unFixityName name] -- We don't care about the indices
+            Just fixity <- [LFC.decodeFixityInfo ty]
+            pure fixity
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
