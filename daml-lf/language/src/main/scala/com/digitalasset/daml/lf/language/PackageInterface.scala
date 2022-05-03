@@ -349,6 +349,23 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, InterfaceMethod] =
     lookupInterfaceMethod(ifaceName, methodName, Reference.Method(ifaceName, methodName))
 
+  def lookupInterfaceField(
+    ifaceName: TypeConName,
+    fieldName: FieldName,
+    context: => Reference,
+  ): Either[LookupError, InterfaceField] =
+    lookupInterface(ifaceName, context).flatMap(
+      _.fields
+        .get(fieldName)
+        .toRight(LookupError(Reference.InterfaceField(ifaceName, fieldName), context))
+    )
+
+  def lookupInterfaceField(
+    ifaceName: TypeConName,
+    fieldName: FieldName,
+  ): Either[LookupError, InterfaceField] =
+    lookupInterfaceField(ifaceName, fieldName, Reference.InterfaceField(ifaceName, fieldName))
+
   private[this] def lookupTemplateKey(
       name: TypeConName,
       context: => Reference,

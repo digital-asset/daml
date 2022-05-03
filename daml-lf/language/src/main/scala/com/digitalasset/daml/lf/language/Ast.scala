@@ -217,6 +217,21 @@ object Ast {
       body: Expr,
   ) extends Expr
 
+  /** Obtain the value of an interface field */
+  final case class EInterfaceFieldProject (
+      ifaceId: TypeConName,
+      field: FieldName,
+      payload: Expr,
+  ) extends Expr
+
+  /** Update the value of an interface field */
+  final case class EInterfaceFieldUpdate (
+      ifaceId: TypeConName,
+      field: FieldName,
+      payload: Expr,
+      value: Expr
+  ) extends Expr
+
   //
   // Kinds
   //
@@ -700,6 +715,7 @@ object Ast {
       requires: Set[TypeConName],
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
+      fields: Map[MethodName, InterfaceField],
       methods: Map[MethodName, InterfaceMethod],
       precond: E, // Interface creation precondition.
   )
@@ -710,6 +726,7 @@ object Ast {
         requires: Iterable[TypeConName],
         param: ExprVarName, // Binder for template argument.
         choices: Iterable[GenTemplateChoice[E]],
+        fields: Iterable[InterfaceField],
         methods: Iterable[InterfaceMethod],
         precond: E,
     ): GenDefInterface[E] = {
@@ -721,32 +738,38 @@ object Ast {
         choices.view.map(c => c.name -> c),
         (name: ChoiceName) => PackageError(s"collision on interface choice name $name"),
       )
+      val fieldMap = toMapWithoutDuplicate(
+        fields.view.map(c => c.name -> c),
+        (name: FieldName) => PackageError(s"collision on interface field name $name"),
+      )
       val methodMap = toMapWithoutDuplicate(
         methods.view.map(c => c.name -> c),
         (name: MethodName) => PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, precond)
+      GenDefInterface(requiresSet, param, choiceMap, fieldMap, methodMap, precond)
     }
 
     def apply(
         requires: Set[TypeConName],
         param: ExprVarName,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
+        fields: Map[FieldName, InterfaceField],
         methods: Map[MethodName, InterfaceMethod],
         precond: E,
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, precond)
+      GenDefInterface(requires, param, choices, fields, methods, precond)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
           Set[TypeConName],
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
+          Map[FieldName, InterfaceField],
           Map[MethodName, InterfaceMethod],
           E,
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.precond))
+      Some((arg.requires, arg.param, arg.choices, arg.fields, arg.methods, arg.precond))
   }
 
   type DefInterface = GenDefInterface[Expr]
@@ -754,6 +777,11 @@ object Ast {
 
   type DefInterfaceSignature = GenDefInterface[Unit]
   val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
+
+  final case class InterfaceField(
+      name: FieldName,
+      fieldType: Type,
+  )
 
   final case class InterfaceMethod(
       name: MethodName,

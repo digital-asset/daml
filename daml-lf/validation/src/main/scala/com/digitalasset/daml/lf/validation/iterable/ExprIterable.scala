@@ -73,17 +73,21 @@ private[validation] object ExprIterable {
       case ECallInterface(iface @ _, method @ _, value) =>
         Iterator(value)
       case EToRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
-        iterator(body)
+        Iterator(body)
       case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
-        iterator(body)
+        Iterator(body)
       case EUnsafeFromRequiredInterface(requiredIface @ _, requiringIface @ _, cid, body) =>
         Iterator(cid, body)
       case EInterfaceTemplateTypeRep(iface @ _, body) =>
-        iterator(body)
+        Iterator(body)
       case ESignatoryInterface(iface @ _, body) =>
-        iterator(body)
+        Iterator(body)
       case EObserverInterface(iface @ _, body) =>
-        iterator(body)
+        Iterator(body)
+      case EInterfaceFieldProject(iface @ _, name @ _, payload) =>
+        Iterator(payload)
+      case EInterfaceFieldUpdate(iface @ _, name @ _, payload, value) =>
+        Iterator(payload, value)
     }
   }
 
@@ -219,6 +223,7 @@ private[validation] object ExprIterable {
             requires @ _,
             param @ _,
             choices,
+            fields @ _,
             methods @ _,
             precond,
           ) =>

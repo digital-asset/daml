@@ -99,6 +99,10 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
       case EObserverInterface(ifaceId, body) =>
         Iterator(TTyCon(ifaceId)) ++ iterator(body)
+      case EInterfaceFieldProject(ifaceId, name @ _, payload) =>
+        Iterator(TTyCon(ifaceId)) ++ iterator(payload)
+      case EInterfaceFieldUpdate(ifaceId, name @ _, payload, value) =>
+        Iterator(TTyCon(ifaceId)) ++ iterator(payload) ++ iterator(value)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
@@ -257,11 +261,18 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(requires, _, choices, methods, precond) =>
+      case DefInterface(requires, _, choices, fields, methods, precond) =>
         requires.iterator.map(TTyCon) ++
           iterator(precond) ++
           choices.values.iterator.flatMap(iterator) ++
+          fields.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator)
+    }
+
+  private[validation] def iterator(ifield: InterfaceField) : Iterator[Type] =
+    ifield match {
+      case InterfaceField(name @ _, ty) =>
+        Iterator(ty)
     }
 
   private[validation] def iterator(imethod: InterfaceMethod): Iterator[Type] =

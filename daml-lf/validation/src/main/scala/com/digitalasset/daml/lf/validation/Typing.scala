@@ -458,7 +458,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, precond) =>
+        case DefInterface(requires, param, choices, fields, methods, precond) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -468,9 +468,14 @@ private[validation] object Typing {
             if !requires(requiredRequired)
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           env.checkExpr(precond, TBool)
+          fields.values.foreach(checkIfaceField)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
       }
+
+    private def checkIfaceField(field: InterfaceField): Unit = {
+      checkType(field.fieldType, KStar)
+    }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
       checkType(method.returnType, KStar)
@@ -486,7 +491,7 @@ private[validation] object Typing {
     ): Unit = {
 
       impls.foreach { case (iface, impl) =>
-        val DefInterfaceSignature(requires, _, choices, methods, _) =
+        val DefInterfaceSignature(requires, _, choices, fields, methods, _) =
           handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
 
         requires
@@ -502,6 +507,18 @@ private[validation] object Typing {
             choicesSet,
             impl.inheritedChoices,
           )
+        }
+
+        val tplRecord = handleLookup(ctx, interface.lookupDataRecord(tplTcon))
+        fields.values.foreach { (ifaceField: InterfaceField) =>
+          val tplFieldName = ifaceField.name
+          tplRecord.dataRecord.fieldInfo.get(tplFieldName) match {
+            case None =>
+              throw EMissingInterfaceField(ctx, tplTcon, impl.interfaceId, ifaceField)
+            case Some((tplFieldType, tplFieldIndex @ _)) =>
+              if (!alphaEquiv(ifaceField.fieldType, tplFieldType))
+                throw EBadInterfaceField(ctx, tplTcon, impl.interfaceId, ifaceField, tplFieldName, tplFieldType)
+          }
         }
 
         methods.values.foreach { (method: InterfaceMethod) =>
@@ -1218,6 +1235,15 @@ private[validation] object Typing {
         discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
         checkExpr(body, TTyCon(ifaceId))
         TList(TParty)
+      case EInterfaceFieldProject(ifaceId, fieldName, payload) =>
+        val field = handleLookup(ctx, interface.lookupInterfaceField(ifaceId, fieldName))
+        checkExpr(payload, TTyCon(ifaceId))
+        field.fieldType
+      case EInterfaceFieldUpdate(ifaceId, fieldName, payload, value) =>
+        val field = handleLookup(ctx, interface.lookupInterfaceField(ifaceId, fieldName))
+        checkExpr(payload, TTyCon(ifaceId))
+        checkExpr(value, field.fieldType)
+        TTyCon(ifaceId)
       case EExperimental(_, typ) =>
         typ
     }

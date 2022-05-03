@@ -996,6 +996,28 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Obtain the value of an interface field
+  message InterfaceFieldProject {
+    // Interface type
+    TypeConName interface = 1;
+    // Field name
+    int32 field_interned_str = 2;
+    // Interface payload
+    Expr payload = 3;
+  }
+
+  // Update the value of an interface field
+  message InterfaceFieldUpdate {
+    // Interface type
+    TypeConName interface = 1;
+    // Field name
+    int32 field_interned_str = 2;
+    // Interface payload
+    Expr payload = 3;
+    // New interface field value
+    Expr value = 4;
+  }
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -1136,6 +1158,11 @@ message Expr {
     UnsafeFromInterface unsafe_from_interface = 44;
     // Unsafe downcast interface payloads.
     UnsafeFromRequiredInterface unsafe_from_required_interface = 45;
+
+    // Project and update interface fields.
+    // *Available in versions >= 1.dev*
+    InterfaceFieldProject interface_field_project = 46;
+    InterfaceFieldUpdate interface_field_update = 47;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1605,18 +1632,27 @@ message InterfaceMethod {
   Type type = 3;
 }
 
+// Interface field definition.
+// *Available in versions >= 1.dev*
+message InterfaceField {
+  Location location = 1;
+  int32 field_interned_name = 2;
+  Type type = 3;
+}
+
 // Interface definition.
 // *Available in versions >= 1.dev*
 message DefInterface {
   Location location = 1;
   int32 tycon_interned_dname = 2;
   repeated TypeConName requires = 3;
-  repeated InterfaceMethod methods = 4;
+  repeated InterfaceField fields = 4;
+  repeated InterfaceMethod methods = 5;
 
   // Binder for interface value ("this") in precond and fixed choices.
-  int32 param_interned_str = 5;
-  Expr precond = 6;
-  repeated TemplateChoice choices = 7;
+  int32 param_interned_str = 6;
+  Expr precond = 7;
+  repeated TemplateChoice choices = 8;
 }
 
 // Exception definition

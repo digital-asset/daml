@@ -422,6 +422,28 @@ final case class EBadInheritedChoices(
     s"Inherited choices for template $template implementation of interface $iface does not match interface definition.\n Expected: $expected\n But got: $got"
 }
 
+final case class EMissingInterfaceField(
+    context: Context,
+    iface: TypeConName,
+    template: TypeConName,
+    field: InterfaceField
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template is missing field ${field.name} required by interface $iface\n Expected:  ${field.name} : ${field.fieldType}\n But template has no such field."
+}
+
+final case class EBadInterfaceField(
+    context: Context,
+    iface: TypeConName,
+    template: TypeConName,
+    field: InterfaceField,
+    tplFieldName: FieldName,
+    tplFieldType: Type,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Type of template field $tplFieldName in template $template does not match the type of interface field ${field.name} from interface $iface\n Expected: $tplFieldName : ${field.fieldType}\n But got: $tplFieldName : $tplFieldType"
+}
+
 final case class EMissingInterfaceMethod(
     context: Context,
     template: TypeConName,
