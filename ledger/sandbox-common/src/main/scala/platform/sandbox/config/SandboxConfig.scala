@@ -122,7 +122,7 @@ object SandboxConfig {
         minSkew = Duration.ofSeconds(120L),
         maxSkew = Duration.ofSeconds(120L),
       ).get,
-      commandConfig = CommandConfiguration.default,
+      commandConfig = CommandConfiguration.Default,
       tlsConfig = None,
       implicitPartyAllocation = true,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,

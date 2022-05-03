@@ -52,8 +52,8 @@ object ApiServerConfig {
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultUserManagement: UserManagementConfig = UserManagementConfig.default(enabled = false)
   val DefaultAuthentication: AuthServiceConfig = AuthServiceConfig.Wildcard
-  val DefaultParty: PartyConfiguration = PartyConfiguration.default
-  val DefaultCommand: CommandConfiguration = CommandConfiguration.default
+  val DefaultParty: PartyConfiguration = PartyConfiguration.Default
+  val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultDatabase: DbConfig = DbConfig(
     jdbcUrl = "default-jdbc-url",

@@ -82,7 +82,7 @@ object LegacyCliConfig {
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
       acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
       configurationLoadTimeout = Duration.ofSeconds(10),
-      commandConfig = CommandConfiguration.default,
+      commandConfig = CommandConfiguration.Default,
       enableInMemoryFanOutForLedgerApi = false,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
@@ -392,7 +392,7 @@ object LegacyCliConfig {
             config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
           )
           .text(
-            s"Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted. Default is ${CommandConfiguration.default.maxCommandsInFlight}."
+            s"Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted. Default is ${CommandConfiguration.Default.maxCommandsInFlight}."
           )
 
         opt[Int]("input-buffer-size")
@@ -401,7 +401,7 @@ object LegacyCliConfig {
             config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
           )
           .text(
-            s"Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code. Default is ${CommandConfiguration.default.inputBufferSize}."
+            s"Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code. Default is ${CommandConfiguration.Default.inputBufferSize}."
           )
 
         opt[Duration]("tracker-retention-period")
