@@ -170,7 +170,10 @@ final class LedgerTestCasesRunner(
               identifierSuffix = identifierSuffix,
               features = session.features,
             )
-            _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
+            // upload the dars sequentially to avoid conflicts
+            _ <- Dars.resources.foldLeft(Future.unit) { case (result, newResource) =>
+              result.flatMap(_ => uploadDar(context, newResource))
+            }
           } yield ()
         })
         .map(_ => ())
