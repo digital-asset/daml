@@ -3,13 +3,13 @@
 
 package com.daml.platform.store.interning
 
-import com.daml.lf.data.Ref
+import com.daml.platform.{Identifier, Party}
 
 /** The facade for all supported string-interning domains
   */
 trait StringInterning {
-  def templateId: StringInterningDomain[Ref.Identifier]
-  def party: StringInterningDomain[Ref.Party]
+  def templateId: StringInterningDomain[Identifier]
+  def party: StringInterningDomain[Party]
 }
 
 /** Composes a StringInterningAccessor for the domain-string type and an unsafe StringInterningAccessor for raw strings

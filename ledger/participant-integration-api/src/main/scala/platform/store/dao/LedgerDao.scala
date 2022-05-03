@@ -21,11 +21,17 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
-import com.daml.platform.FilterRelation
+import com.daml.platform.{
+  ApplicationId,
+  FilterRelation,
+  PackageId,
+  Party,
+  TransactionId,
+  WorkflowId,
+}
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -42,14 +48,14 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
-      transactionId: Ref.TransactionId,
-      requestingParties: Set[Ref.Party],
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
   def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
-      requestingParties: Set[Ref.Party],
+      requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -72,8 +78,8 @@ private[platform] trait LedgerDaoTransactionsReader {
   ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
-      requestingParties: Set[Ref.Party],
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   def getActiveContracts(
@@ -99,8 +105,8 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
+      applicationId: ApplicationId,
+      parties: Set[Party],
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed]
@@ -134,7 +140,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def completions: LedgerDaoCommandCompletionsReader
 
   /** Returns a list of party details for the parties specified. */
-  def getParties(parties: Seq[Ref.Party])(implicit
+  def getParties(parties: Seq[Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]]
 
@@ -149,10 +155,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Returns a list of all known Daml-LF packages */
   def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[Ref.PackageId, PackageDetails]]
+  ): Future[Map[PackageId, PackageDetails]]
 
   /** Returns the given Daml-LF archive */
-  def getLfArchive(packageId: Ref.PackageId)(implicit
+  def getLfArchive(packageId: PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]]
 
@@ -178,7 +184,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[Ref.ApplicationId],
+      applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[ReportData]
 }
 
@@ -244,8 +250,8 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     */
   def storeTransaction(
       completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[Ref.WorkflowId],
-      transactionId: Ref.TransactionId,
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,

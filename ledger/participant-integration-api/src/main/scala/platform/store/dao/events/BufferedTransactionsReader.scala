@@ -15,10 +15,9 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
-import com.daml.platform.{FilterRelation, Party}
+import com.daml.platform.{FilterRelation, Identifier, Party, TransactionId}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.getTransactions
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -36,7 +35,7 @@ private[events] class BufferedTransactionsReader(
         TxUpdate,
         FilterRelation,
         Set[String],
-        Map[Ref.Identifier, Set[String]],
+        Map[Identifier, Set[String]],
         Boolean,
     ) => Future[Option[FlatTransaction]],
     toTransactionTree: (TxUpdate, Set[String], Boolean) => Future[Option[TransactionTree]],
@@ -94,13 +93,13 @@ private[events] class BufferedTransactionsReader(
     )
 
   override def lookupFlatTransactionById(
-      transactionId: Ref.TransactionId,
+      transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     delegate.lookupFlatTransactionById(transactionId, requestingParties)
 
   override def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
+      transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     delegate.lookupTransactionTreeById(transactionId, requestingParties)
@@ -127,9 +126,9 @@ private[events] class BufferedTransactionsReader(
       s"getTransactionLogUpdates is not supported on ${getClass.getSimpleName}"
     )
 
-  private def invertMapping(partiesTemplates: Map[Party, Set[Ref.Identifier]]) =
+  private def invertMapping(partiesTemplates: Map[Party, Set[Identifier]]) =
     partiesTemplates
-      .foldLeft(Map.empty[Ref.Identifier, mutable.Builder[String, Set[String]]]) {
+      .foldLeft(Map.empty[Identifier, mutable.Builder[String, Set[String]]]) {
         case (acc, (k, vs)) =>
           vs.foldLeft(acc) { case (a, v) =>
             a + (v -> (a.getOrElse(v, Set.newBuilder) += k))

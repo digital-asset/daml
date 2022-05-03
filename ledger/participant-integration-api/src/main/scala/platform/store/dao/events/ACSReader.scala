@@ -10,10 +10,9 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.ParticipantBackpressure
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.{FilterRelation, Party}
+import com.daml.platform.{FilterRelation, Identifier, Party}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.utils.ConcurrencyLimiter
@@ -132,7 +131,7 @@ class FilterTableACSReader(
 private[events] object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  case class Filter(party: Party, templateId: Option[Ref.Identifier])
+  case class Filter(party: Party, templateId: Option[Identifier])
 
   case class QueryTask(fromExclusiveEventSeqId: Long, filter: Filter)
 

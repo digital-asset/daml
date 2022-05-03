@@ -9,7 +9,7 @@ import anorm.{RowParser, ~}
 import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
+import com.daml.platform.Party
 import com.daml.platform.store.backend.Conversions.{
   ledgerString,
   offset,
@@ -101,7 +101,7 @@ class PartyStorageBackendTemplate(
       str("display_name").? ~
       bool("is_local") map { case party ~ displayName ~ isLocal =>
         PartyDetails(
-          party = Ref.Party.assertFromString(party),
+          party = Party.assertFromString(party),
           displayName = displayName,
           isLocal = isLocal,
         )
@@ -141,7 +141,7 @@ class PartyStorageBackendTemplate(
        """.asVectorOf(partyDetailsParser)(connection)
   }
 
-  override def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] =
+  override def parties(parties: Seq[Party])(connection: Connection): List[PartyDetails] =
     queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
 
   override def knownParties(connection: Connection): List[PartyDetails] =

@@ -41,17 +41,24 @@ package object platform {
   private[platform] val TransactionId = lfdata.Ref.LedgerString
   private[platform] type WorkflowId = lfdata.Ref.LedgerString
   private[platform] val WorkflowId = lfdata.Ref.LedgerString
+  private[platform] type SubmissionId = lfdata.Ref.SubmissionId
+  private[platform] val SubmissionId = lfdata.Ref.SubmissionId
+  private[platform] type ApplicationId = lfdata.Ref.ApplicationId
+  private[platform] val ApplicationId = lfdata.Ref.ApplicationId
+  private[platform] type CommandId = lfdata.Ref.CommandId
+  private[platform] val CommandId = lfdata.Ref.CommandId
+  private[platform] type ParticipantId = lfdata.Ref.ParticipantId
+  private[platform] val ParticipantId = lfdata.Ref.ParticipantId
   private[platform] type ChoiceName = lfdata.Ref.ChoiceName
   private[platform] val ChoiceName = lfdata.Ref.ChoiceName
   private[platform] type PackageId = lfdata.Ref.PackageId
   private[platform] val PackageId = lfdata.Ref.PackageId
-  private[platform] type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
-  private[platform] type DisclosureRelation = WitnessRelation[NodeId]
-  private[platform] type DivulgenceRelation = WitnessRelation[ContractId]
+  private[platform] type Relation[A, B] = lfdata.Relation.Relation[A, B]
   private[platform] val Relation = lfdata.Relation.Relation
+  private[platform] type UserId = lfdata.Ref.UserId
+  private[platform] val UserId = lfdata.Ref.UserId
 
-  private[platform] type FilterRelation =
-    lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
+  private[platform] type FilterRelation = Relation[Party, lfdata.Ref.Identifier]
 
   import com.daml.lf.crypto
   private[platform] type Hash = crypto.Hash

@@ -7,8 +7,7 @@ import java.sql.Connection
 
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
-import com.daml.lf.data.Ref
-import com.daml.platform.{ContractId, Key}
+import com.daml.platform.{ContractId, Key, Party}
 import com.daml.platform.store.backend.Conversions.{contractId, offset, timestampFromMicros}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -253,7 +252,7 @@ class ContractStorageBackendTemplate(
       resultSetParser: ResultSetParser[Option[T]],
       resultColumns: List[String],
   )(
-      readers: Set[Ref.Party],
+      readers: Set[Party],
       contractId: ContractId,
   )(connection: Connection): Option[T] = {
     val internedReaders =
@@ -285,7 +284,7 @@ class ContractStorageBackendTemplate(
     int("template_id")
 
   override def activeContractWithArgument(
-      readers: Set[Ref.Party],
+      readers: Set[Party],
       contractId: ContractId,
   )(connection: Connection): Option[ContractStorageBackend.RawContract] = {
     activeContract(
@@ -298,7 +297,7 @@ class ContractStorageBackendTemplate(
   }
 
   override def activeContractWithoutArgument(
-      readers: Set[Ref.Party],
+      readers: Set[Party],
       contractId: ContractId,
   )(connection: Connection): Option[String] =
     activeContract(
@@ -309,7 +308,7 @@ class ContractStorageBackendTemplate(
       contractId = contractId,
     )(connection).map(stringInterning.templateId.unsafe.externalize)
 
-  override def contractKey(readers: Set[Ref.Party], key: Key)(
+  override def contractKey(readers: Set[Party], key: Key)(
       connection: Connection
   ): Option[ContractId] =
     contractKey(
@@ -325,7 +324,7 @@ class ContractStorageBackendTemplate(
       resultColumns: List[String],
       resultParser: RowParser[T],
   )(
-      readers: Option[Set[Ref.Party]],
+      readers: Option[Set[Party]],
       key: Key,
       validAt: Long,
   )(
