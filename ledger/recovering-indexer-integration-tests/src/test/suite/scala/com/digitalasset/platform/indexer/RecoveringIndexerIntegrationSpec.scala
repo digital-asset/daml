@@ -290,7 +290,7 @@ object RecoveringIndexerIntegrationSpec {
       ResourceOwner
         .forReleasable(() =>
           // required for the indexer to resubscribe to the update source
-          Source.queue[(Offset, Update)](1).toMat(BroadcastHub.sink)(Keep.both).run()
+          Source.queue[(Offset, Update)](bufferSize = 16).toMat(BroadcastHub.sink)(Keep.both).run()
         )({ case (queue, _) =>
           Future {
             queue.complete()
