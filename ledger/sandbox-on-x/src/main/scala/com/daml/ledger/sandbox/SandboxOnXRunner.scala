@@ -57,7 +57,6 @@ object SandboxOnXRunner {
     val config = ConfigLoader.loadConfigUnsafe[Config]("ledger", configObject)
     val bridge = ConfigLoader.loadConfigUnsafe[BridgeConfig]("bridge", configObject)
     val configProvider: BridgeConfigProvider = new BridgeConfigProvider
-    println(s"Running with \n${ConfigRenderer.render(config)}")
     new ProgramResource(
       owner = SandboxOnXRunner.owner(configProvider, config, bridge)
     ).run(ResourceContext.apply)
