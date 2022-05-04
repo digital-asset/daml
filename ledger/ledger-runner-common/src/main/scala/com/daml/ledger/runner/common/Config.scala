@@ -27,10 +27,11 @@ object Config {
     stackTraceMode = false,
     forbidV0ContractId = true,
   )
-  val DefaultParticipants = Map(
+  val DefaultParticipants: Map[ParticipantName, ParticipantConfig] = Map(
     ParticipantName.fromParticipantId(
       ParticipantConfig.DefaultParticipantId,
       ParticipantConfig.DefaultShardName,
     ) -> ParticipantConfig()
   )
+  val Default: Config = Config()
 }

@@ -20,18 +20,12 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.runner.common.{
-  LegacyCliConfig,
-  LegacyCliParticipantConfig,
-  ParticipantRunMode,
-}
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, LegacySandboxOnXRunner}
+import com.daml.ledger.runner.common._
+import com.daml.ledger.sandbox.{BridgeConfigProvider, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
-import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion.v1_14
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
@@ -126,39 +120,34 @@ final class MinVersionTest
       } yield succeed
     }
   }
-
-  private val participantId = Ref.ParticipantId.assertFromString("participant1")
-  private val participant = LegacyCliParticipantConfig(
-    mode = ParticipantRunMode.Combined,
-    participantId = participantId,
-    shardName = None,
-    address = Some("localhost"),
-    port = Port.Dynamic,
-    portFile = Some(portfile),
-    serverJdbcUrl = LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId),
-    indexerConfig = IndexerConfig(
-      startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
-      database = IndexerConfig.createDefaultDatabaseConfig(
-        LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)
-      ),
-    ),
-  )
   private val configProvider = new BridgeConfigProvider()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val defaultConfig = LegacyCliConfig
-      .createDefault[BridgeConfig](configProvider.defaultExtraConfig)
-    val config = defaultConfig.copy(
-      participants = Seq(participant),
-      // Bump min version to 1.14 and check that older stable packages are still accepted.
-      engineConfig = defaultConfig.engineConfig.copy(
-        allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)
-      ),
+    val jdbcUrl = s"jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
+
+    val config = Config.Default.copy(
+      engine = Config.DefaultEngineConfig
+        .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
+      participants = Config.Default.participants.map { case (key, value) =>
+        key -> value.copy(
+          apiServer = value.apiServer.copy(
+            database = value.apiServer.database
+              .copy(jdbcUrl = jdbcUrl),
+            portFile = Some(portfile),
+            port = Port.Dynamic,
+            address = Some("localhost"),
+            initialLedgerConfiguration = Some(configProvider.initialLedgerConfig(None)),
+          ),
+          indexer = value.indexer.copy(database = value.indexer.database.copy(jdbcUrl = jdbcUrl)),
+        )
+      },
     )
+    val bridgeConfig = configProvider.defaultExtraConfig
+
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- LegacySandboxOnXRunner.owner(configProvider)(config)
+        _ <- SandboxOnXRunner.owner(configProvider, config, bridgeConfig)
       } yield readPortfile(portfile)
     )
   }
