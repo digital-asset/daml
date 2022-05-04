@@ -5,9 +5,9 @@ module Test where
 
 import Daml.Script
 
+import SomeCoins
+import UpgradableDesign
 import qualified DA.Map as Map
-import Design3
-import SomeCoinsForDesign3
 
 script1 : Script ()
 script1 = do

@@ -1,12 +1,12 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module SomeCoinsForDesign3 where
+module SomeCoins where
 
 -- Nothing in Design3 depends directly on specific Coins, so the templates below which
 -- implement AnyCoin can be defined later, and even be in a different package.
 
-import Design3 (AnyCoin)
+import UpgradableDesign (AnyCoin)
 
 -- As before we assume that UnitCoin is backed by an off-ledger legal contract which
 -- ensures the owner can redeem the on-ledger UnitCoin for a unit of the specified

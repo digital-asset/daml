@@ -1,17 +1,17 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Design3 where -- using AnyCoin interface
+module UpgradableDesign where -- using AnyCoin interface
 
-import qualified DA.Map as Map
 import DA.Map (Map)
+import qualified DA.Map as Map
+
 
 interface AnyCoin where
 
   getOwner : Party
 
   transferTo : Party -> Update (ContractId AnyCoin)
-
   --setOwner : Party -> AnyCoin --TODO: try this instead of transferTo
 
   choice Transfer : (ContractId AnyCoin)
@@ -20,17 +20,6 @@ interface AnyCoin where
     do
      transferTo this newOwner
      --create (setOwner this newOwner)
-
-
-data AcceptedCoins = AcceptedCoins (Map Text Int)
-  deriving (Eq,Show)
-
-valueCoin : AcceptedCoins -> AnyCoin -> Int
-valueCoin (AcceptedCoins m) coin = do
-  let k = templateTypeRepToText (interfaceTypeRep coin)
-  case Map.lookup k m of
-    Some v -> v
-    None -> error "unacceptable coin"
 
 
 template Invoice
@@ -59,6 +48,17 @@ template Invoice
           | (p,coin) <- paymentFetched
           ]
         create Receipt with orderId, seller, buyer
+
+
+data AcceptedCoins = AcceptedCoins (Map Text Int)
+  deriving (Eq,Show)
+
+valueCoin : AcceptedCoins -> AnyCoin -> Int
+valueCoin (AcceptedCoins m) coin = do
+  let k = templateTypeRepToText (interfaceTypeRep coin)
+  case Map.lookup k m of
+    Some v -> v
+    None -> error "unacceptable coin"
 
 
 template Receipt
