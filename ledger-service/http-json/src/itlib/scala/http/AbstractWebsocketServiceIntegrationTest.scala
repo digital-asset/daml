@@ -5,12 +5,7 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{
-  Message,
-  PeerClosedConnectionException,
-  TextMessage,
-  WebSocketRequest,
-}
+import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -979,16 +974,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
       query = s"""[{"templateIds": ["Iou:Iou"]}]"""
       streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
         .runWith(Sink.seq)
-        .failed
-    } yield inside(streamError) { case t: PeerClosedConnectionException =>
-      // TODO #13506 descriptive/structured error.  The logs when running this
-      // test include
-      //     Websocket handler failed with FAILED_PRECONDITION: PARTICIPANT_PRUNED_DATA_ACCESSED(9,0):
-      //     Transactions request from 0000000000000006 to 0000000000000008
-      //     precedes pruned offset 0000000000000007
-      // but this doesn't propagate to the client
-      t.closeCode should ===(1011) // see RFC 6455
-      t.closeReason should ===("internal error")
+    } yield inside(streamError) { case Seq(TextMessage.Strict(text)) =>
+      val errorResponse = decodeErrorResponse(text)
+      errorResponse.status shouldBe StatusCodes.InternalServerError
     }
   }
 

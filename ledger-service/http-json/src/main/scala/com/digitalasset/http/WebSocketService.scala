@@ -54,6 +54,8 @@ import scala.util.{Failure, Success}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
+import scala.util.control.NonFatal
+
 object WebSocketService {
   import util.ErrorOps._
 
@@ -697,6 +699,7 @@ class WebSocketService(
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
+      .recover { case NonFatal(ex) => -\/(ServerError(ex)) }
       .map(
         _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
       )
