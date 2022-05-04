@@ -27,6 +27,7 @@ import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
+import Data.Tuple.Extra (fst3, snd3, thd3)
 import Development.IDE.Types.Location
 import GHC.Generics (Generic)
 import GHC.Stack
@@ -389,24 +390,34 @@ generateSrcFromLf env = noLoc mod
         IEModuleContents noExt (noLoc ghcModName)
 
     classReexports :: [Gen (LIE GhcPs)]
-    classReexports = map snd (MS.elems classReexportMap)
+    classReexports = map snd3 (MS.elems classReexportMap)
 
-    classReexportMap :: MS.Map LF.TypeSynName (LF.PackageId, Gen (LIE GhcPs))
+    classReexportMap ::
+      MS.Map
+        LF.TypeSynName    -- Class name
+        ( LF.PackageId    -- Package that defined it
+        , Gen (LIE GhcPs) -- Reexport entry
+        , [T.Text]        -- Class methods
+        )
     classReexportMap = MS.fromList $ do
         synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        guard $ isJust (getTypeClassFields synType)
+        Just fields <- [getTypeClassFields synType]
+        let methods = catMaybes (getClassMethodName . fst <$> fields)
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
         let occName = mkOccName clsName (T.unpack name)
-        pure . (\x -> (synName,(pkgId, x))) $ do
+        pure . (\x -> (synName,(pkgId, x, methods))) $ do
             ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
             pure . noLoc . IEThingAll noExt
                 . noLoc . IEName . noLoc
                 $ mkOrig ghcMod occName
 
     reexportedClasses :: MS.Map LF.TypeSynName LF.PackageId
-    reexportedClasses = MS.map fst classReexportMap
+    reexportedClasses = MS.map fst3 classReexportMap
+
+    reexportedClassMethods :: Set T.Text
+    reexportedClassMethods = Set.fromList $ thd3 =<< MS.elems classReexportMap
 
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
@@ -653,13 +664,17 @@ generateSrcFromLf env = noLoc mod
         -- per name, per namespace, so there will be "duplicates" in the metadata.
         fixityDefs :: [(T.Text, Fixity)]
         fixityDefs
-          = nubOrdOn fst
+          = filter (shouldExposeFixityDef . fst)
+          $ nubOrdOn fst
           $ fmap (first (T.pack . occNameString))
           $ do
             LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
             Just _ <- [LFC.unFixityName name] -- We don't care about the indices
             Just fixity <- [LFC.decodeFixityInfo ty]
             pure fixity
+
+        shouldExposeFixityDef :: T.Text -> Bool
+        shouldExposeFixityDef t = t `Set.notMember` reexportedClassMethods
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
