@@ -60,7 +60,7 @@ object LedgerBridge {
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
-      timeProvider: TimeProvider
+      timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,

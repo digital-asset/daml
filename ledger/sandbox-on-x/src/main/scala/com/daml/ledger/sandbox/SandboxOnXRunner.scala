@@ -187,7 +187,7 @@ object SandboxOnXRunner {
             servicesThreadPoolSize,
             timeServiceBackend,
             participantConfig,
-            bridgeConfig
+            bridgeConfig,
           )
 
           apiServer <- buildStandaloneApiServer(
