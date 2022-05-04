@@ -5,6 +5,6 @@ This example shows how Daml interfaces can be used to structure a design which i
 
 ### Build/Test
 ```
-  daml build --target=1.dev
-  daml test --target=1.dev
+  daml build
+  daml test
 ```
