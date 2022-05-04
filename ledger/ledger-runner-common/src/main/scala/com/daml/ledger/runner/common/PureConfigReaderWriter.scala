@@ -39,7 +39,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
 import scala.util.Try
 
-object FileBasedConfig {
+object PureConfigReaderWriter {
   val Secret = "****"
 
   implicit val javaDurationWriter: ConfigWriter[java.time.Duration] =

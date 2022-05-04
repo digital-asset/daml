@@ -22,7 +22,7 @@ object ConfigRenderer {
     configValue.render(renderOptions)
 
   def render(config: Config): String = {
-    import FileBasedConfig._
+    import PureConfigReaderWriter._
     val configValue = toConfig(config)
     render(configValue)
   }

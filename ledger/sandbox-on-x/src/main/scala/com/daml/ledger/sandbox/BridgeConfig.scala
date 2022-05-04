@@ -5,7 +5,7 @@ package com.daml.ledger.sandbox
 
 import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
 import pureconfig.{ConfigReader, ConfigWriter}
-
+import com.daml.ledger.runner.common.PureConfigReaderWriter._
 import java.time.Duration
 
 case class BridgeConfig(

@@ -46,7 +46,7 @@ import com.typesafe.config.ConfigFactory
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
-import FileBasedConfig._
+import PureConfigReaderWriter._
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
