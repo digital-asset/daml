@@ -38,6 +38,7 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
 import "ghc-lib-parser" FieldLabel (FieldLbl (..))
 import "ghc-lib" GHC
+import qualified "ghc-lib-parser" GHC.Lexeme
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (ppr, showSDocForUser)
@@ -689,10 +690,15 @@ generateSrcFromLf env = noLoc mod
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
-        = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
+        = not (isInternalName (LF.unExprValName lfName))
         && not (any isHidden (DL.toList (refsFromType lfType)))
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
+
+    isInternalName :: T.Text -> Bool
+    isInternalName t = case T.stripPrefix "$" t of
+      Nothing -> False
+      Just s -> T.any (not . GHC.Lexeme.isVarSymChar) s
 
     shouldExposeInstance :: LF.DefValue -> Bool
     shouldExposeInstance LF.DefValue{..}
