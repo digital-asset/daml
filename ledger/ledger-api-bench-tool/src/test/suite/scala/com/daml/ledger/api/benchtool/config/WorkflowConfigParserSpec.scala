@@ -146,19 +146,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "parse empty submission configuration" in {
-      val yaml =
-        """submission:
-          |  type: empty
-        """.stripMargin
-      parseYaml(yaml) shouldBe Right(
-        WorkflowConfig(
-          submission = Some(WorkflowConfig.EmptySubmissionConfig),
-          streams = Nil,
-        )
-      )
-    }
-
     "parse fibonacci submission configuration" in {
       val yaml =
         """submission:

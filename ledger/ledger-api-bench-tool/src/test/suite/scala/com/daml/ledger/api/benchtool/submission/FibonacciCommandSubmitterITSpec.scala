@@ -22,7 +22,7 @@ class FibonacciCommandSubmitterITSpec
     with Matchers
     with AppendedClues {
 
-  it should "populate participant with create, consuming and non consuming exercises" in {
+  it should "populate create fibonacci contracts" in {
 
     val config = WorkflowConfig.FibonacciSubmissionConfig(
       numberOfInstances = 10,

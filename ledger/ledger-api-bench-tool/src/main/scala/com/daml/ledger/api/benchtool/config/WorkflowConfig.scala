@@ -39,12 +39,6 @@ object WorkflowConfig {
       consumingExercises: Option[ConsumingExercises],
   ) extends SubmissionConfig
 
-  case object EmptySubmissionConfig extends SubmissionConfig {
-    def numberOfInstances: Int = 0
-    def numberOfObservers: Int = 0
-    def uniqueParties: Boolean = false
-  }
-
   object FooSubmissionConfig {
     case class ContractDescription(
         template: String,
