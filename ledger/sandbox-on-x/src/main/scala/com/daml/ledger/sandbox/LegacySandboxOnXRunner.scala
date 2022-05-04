@@ -36,7 +36,15 @@ object LegacySandboxOnXRunner {
             sys.exit(0)
           case Mode.Run =>
             val config = configProvider.fromLegacyCliConfig(originalConfig)
-            run(configProvider, config, originalConfig.extra)
+            run(
+              configProvider,
+              config,
+              originalConfig.extra.copy(maxDeduplicationDuration =
+                originalConfig.maxDeduplicationDuration.getOrElse(
+                  BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+                )
+              ),
+            )
         }
       }
     }

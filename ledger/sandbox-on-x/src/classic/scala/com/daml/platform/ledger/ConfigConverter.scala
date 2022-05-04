@@ -49,6 +49,9 @@ object ConfigConverter {
     val extraBridgeConfig = BridgeConfig(
       conflictCheckingEnabled = true,
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
+      maxDeduplicationDuration = sandboxConfig.maxDeduplicationDuration.getOrElse(
+        BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+      ),
     )
 
     val allowedLanguageVersions = sandboxConfig.engineMode match {

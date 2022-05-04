@@ -11,8 +11,6 @@ import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.platform.store.LfValueTranslationCache
 
-import java.time.Duration
-
 final case class ParticipantConfig(
     participantId: Ref.ParticipantId = DefaultParticipantId,
     // A name of the participant shard in a horizontally scaled participant.
@@ -21,7 +19,6 @@ final case class ParticipantConfig(
     indexer: IndexerConfig = DefaultIndexerConfig,
     index: IndexConfiguration = DefaultIndexConfig,
     lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
-    maxDeduplicationDuration: Option[Duration] = DefaultMaxDeduplicationDuration,
     apiServer: ApiServerConfig = DefaultApiServer,
 ) {
   def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
@@ -38,6 +35,5 @@ object ParticipantConfig {
       eventsMaximumSize = caching.SizedCache.Configuration.none,
       contractsMaximumSize = caching.SizedCache.Configuration.none,
     )
-  val DefaultMaxDeduplicationDuration: Option[Duration] = None
   val DefaultApiServer: ApiServerConfig = ApiServerConfig()
 }

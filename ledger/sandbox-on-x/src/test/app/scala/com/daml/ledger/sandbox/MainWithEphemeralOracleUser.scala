@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.resources.ResourceContext
-import com.daml.platform.indexer.IndexerConfig
 import com.daml.resources.ProgramResource
 import com.daml.testing.oracle.OracleAround
 
@@ -25,7 +24,7 @@ object MainWithEphemeralOracleUser {
                     indexerLockId = user.lockIdSeed,
                     indexerWorkerLockId = user.lockIdSeed + 1,
                   ),
-                  database = IndexerConfig.createDefaultDatabaseConfig(user.jdbcUrl),
+                  database = participantConfig.indexerConfig.database.copy(jdbcUrl = user.jdbcUrl),
                 ),
               )
             )

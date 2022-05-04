@@ -53,7 +53,6 @@ trait ConfigProvider[ExtraConfig] {
       contractsMaximumSize = cliConfig.lfValueTranslationContractCache,
       eventsMaximumSize = cliConfig.lfValueTranslationEventCache,
     ),
-    maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
     apiServer = ApiServerConfig(
       port = config.port,
       address = config.address,
