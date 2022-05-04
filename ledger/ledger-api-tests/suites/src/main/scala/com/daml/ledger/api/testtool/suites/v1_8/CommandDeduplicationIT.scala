@@ -548,13 +548,16 @@ final class CommandDeduplicationIT(
             dummyRequest,
             party,
           ).map(_.offset)
-          response <- submitRequestAndAssertCompletionAccepted(
+          firstAcceptedResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
             party,
           )
+          // Wait for any ledgers that might adjust based on time skews
+          // This is done so that we can validate later that the command is accepted again
+          _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
-          response2 <- submitRequestAndAssertDeduplication(
+          duplicateResponse <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -564,23 +567,16 @@ final class CommandDeduplicationIT(
               )
             ),
             acceptedSubmissionId,
-            response.offset,
-            party,
-          )
-          // Wait for any ledgers that might adjust based on time skews
-          _ <- delayForOffsetIfRequired(ledger)
-          response3 <- submitRequestAndAssertCompletionAccepted(
-            ledger,
-            ledger.submitRequest(party, Dummy(party).create.command),
+            firstAcceptedResponse.offset,
             party,
           )
           // Submit command again using the rejection offset as a deduplication period
-          response4 <- submitRequestAndAssertCompletionAccepted(
+          secondAcceptedResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
                 _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                  Ref.HexString.assertFromString(response3.offset.getAbsolute)
+                  Ref.HexString.assertFromString(duplicateResponse.offset.getAbsolute)
                 )
               )
             ),
@@ -588,13 +584,13 @@ final class CommandDeduplicationIT(
           )
         } yield {
           assertDeduplicationOffset(
-            response,
-            response2,
+            firstAcceptedResponse,
+            duplicateResponse,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
           assertDeduplicationOffset(
-            response3,
-            response4,
+            duplicateResponse,
+            secondAcceptedResponse,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
         }
@@ -618,8 +614,13 @@ final class CommandDeduplicationIT(
           .getTimeModel()
           .flatMap(response => {
             ledger.delayMechanism.delayBy(
-              response.getTimeModel.getMaxSkew.asScala +
-                2 * response.getTimeModel.getMinSkew.asScala
+              Durations.scaleDuration(
+                Durations.asFiniteDuration(
+                  2 * (response.getTimeModel.getMaxSkew.asScala +
+                    response.getTimeModel.getMinSkew.asScala)
+                ),
+                timeoutScaleFactor,
+              )
             )
           })
       case OffsetSupport.Unrecognized(_) | OffsetSupport.OFFSET_NOT_SUPPORTED =>
