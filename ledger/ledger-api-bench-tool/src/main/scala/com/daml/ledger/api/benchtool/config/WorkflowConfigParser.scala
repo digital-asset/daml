@@ -138,7 +138,6 @@ object WorkflowConfigParser {
         .forProduct1[String, String]("type")(identity)
         .flatMap[SubmissionConfig] {
           case "foo" => fooSubmissionConfigDecoder.widen
-          case "empty" => Decoder.const(EmptySubmissionConfig)
           case "fibonacci" => fibonacciSubmissionConfigDecoder.widen
           case invalid => Decoder.failedWithMessage(s"Invalid submission type: $invalid")
         }
