@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-8 Exception Handling
-====================
+Exception Handling
+==================
 
 The default behavior in Daml is to abort the transaction on any error
 and roll back all changes that have happened until then. However, this
@@ -154,7 +154,7 @@ For more information on exceptions, take a look at the
 :ref:`language reference <exceptions>`.
 
 
-Next up
+Next Up
 -------
 
 We have now seen how to develop safe models and how we can handle

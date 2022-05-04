@@ -18,7 +18,7 @@ import com.daml.lf.value.Value.{ContractInstance, ValueInt64, VersionedValue}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
   IndexViewContractsReader,
@@ -174,7 +174,7 @@ private object MutableCacheBackedContractStoreRaceTests {
         fail(message =
           s"Key state corruption for ${event.key}: " +
             s"expected ${if (event.created) s"assignment to ${event.contractId} -> ${event.contract}"
-            else "unassigned"}, " +
+              else "unassigned"}, " +
             s"but got assignment to $contractId"
         )
       case None if event.created =>
@@ -193,7 +193,7 @@ private object MutableCacheBackedContractStoreRaceTests {
         fail(message =
           s"Contract state corruption for ${event.contractId}: " +
             s"expected ${if (event.created) s"active contract (${event.contract})"
-            else "non-active contract"}, but got assignment to $actualContract"
+              else "non-active contract"}, but got assignment to $actualContract"
         )
       case None if event.created =>
         fail(message =
@@ -216,7 +216,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           case actual =>
             fail(
               s"Test bug: actual $actual after event $event: index view: ${indexViewContractsReader.keyStateStore
-                .get(event.key)}"
+                  .get(event.key)}"
             )
         }
       _ <- indexViewContractsReader
@@ -228,7 +228,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           case actual =>
             fail(
               s"Test bug: actual $actual after event $event: index view: ${indexViewContractsReader.contractStateStore
-                .get(event.contractId)}"
+                  .get(event.contractId)}"
             )
         }
     } yield event

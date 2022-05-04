@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import java.util
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
@@ -170,12 +169,6 @@ private[engine] final class Preprocessor(
 }
 
 private[preprocessing] object Preprocessor {
-
-  private[preprocessing] def ArrayList[X](as: X*): util.ArrayList[X] = {
-    val a = new util.ArrayList[X](as.length)
-    as.foreach(a.add)
-    a
-  }
 
   @throws[Error.Preprocessing.Error]
   def handleLookup[X](either: Either[LookupError, X]): X = either match {

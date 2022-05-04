@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-How Daml types are translated to protobuf
+How Daml Types are Translated to Protobuf
 #########################################
 
 This page gives an overview and reference on how Daml types and contracts are represented by the Ledger API as protobuf messages, most notably:
@@ -27,7 +27,7 @@ A particular value of ``Foo`` is then represented by the Ledger API in this way:
 
 The name of messages is added as a comment after the opening curly brace.
 
-Records and primitive types
+Records and Primitive Types
 ***************************
 
 Records or product types are translated to :ref:`com.daml.ledger.api.v1.record`. Here's an example Daml record type that contains a field for each primitive type:
@@ -73,7 +73,7 @@ The snippets below shows the value of ``mySum1`` and ``mySum2`` respectively as 
 	:lines: 14-38
 	:caption: mySum2
 
-Contract templates
+Contract Templates
 ******************
 
 Contract templates are represented as records with the same identifier as the template.
@@ -85,22 +85,22 @@ This first example template below contains only the signatory party and a simple
   :start-after: -- BEGIN_SIMPLE_TEMPLATE
   :end-before: -- END_SIMPLE_TEMPLATE
 
-Creating a contract
-===================
+Create a Contract
+=================
 
 Creating contracts is done by sending a :ref:`com.daml.ledger.api.v1.createcommand` to the :ref:`com.daml.ledger.api.v1.commandsubmissionservice` or the :ref:`com.daml.ledger.api.v1.commandservice`. The message to create a `MySimpleTemplate` contract with *Alice* being the owner is shown below:
 
 .. literalinclude:: ../code-snippets/CreateMySimpleTemplate.payload
 
-Receiving a contract
-====================
+Receive a Contract
+==================
 
 Contracts are received from the :ref:`com.daml.ledger.api.v1.transactionservice` in the form of a :ref:`com.daml.ledger.api.v1.createdevent`. The data contained in the event corresponds to the data that was used to create the contract.
 
 .. literalinclude:: ../code-snippets/CreatedEventMySimpleTemplate.payload
 
-Exercising a choice
-===================
+Exercise a Choice
+=================
 
 A choice is exercised by sending an :ref:`com.daml.ledger.api.v1.exercisecommand`. Taking the same contract template again, exercising the choice ``MyChoice`` would result in a command similar to the following:
 

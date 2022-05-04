@@ -396,7 +396,7 @@ main
                 DA.Internal.Desugar._tryCatch
                   \ _ -> do exerciseGuarded (\ _ -> error "foo") asset getRich
                   \case
-                    DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GeneralError {}
+                    (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GeneralError {})
                       -> DA.Internal.Desugar.Some
                            pure $ toInterfaceContractId @Token asset
                     _ -> DA.Internal.Desugar.None
@@ -407,7 +407,7 @@ main
                     -> do exerciseGuarded
                             (\ _ -> throwPure (GuardException "bar")) asset getRich
                   \case
-                    DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GuardException {}
+                    (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some GuardException {})
                       -> DA.Internal.Desugar.Some
                            pure $ toInterfaceContractId @Token asset
                     _ -> DA.Internal.Desugar.None

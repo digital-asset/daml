@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.interning
 
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.platform.{Identifier, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -63,19 +63,19 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
   private val TemplatePrefix = "t|"
   private val PartyPrefix = "p|"
 
-  override val templateId: StringInterningDomain[Ref.Identifier] =
+  override val templateId: StringInterningDomain[Identifier] =
     StringInterningDomain.prefixing(
       prefix = TemplatePrefix,
       prefixedAccessor = rawAccessor,
-      to = Ref.Identifier.assertFromString,
+      to = Identifier.assertFromString,
       from = _.toString,
     )
 
-  override val party: StringInterningDomain[Ref.Party] =
+  override val party: StringInterningDomain[Party] =
     StringInterningDomain.prefixing(
       prefix = PartyPrefix,
       prefixedAccessor = rawAccessor,
-      to = Ref.Party.assertFromString,
+      to = Party.assertFromString,
       from = _.toString,
     )
 

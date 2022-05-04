@@ -34,7 +34,6 @@ final case class Config[Extra](
     acsGlobalParallelism: Int,
     acsIdFetchingParallelism: Int,
     acsIdPageSize: Int,
-    acsIdQueueLimit: Int,
     configurationLoadTimeout: Duration,
     commandConfig: CommandConfiguration,
     enableInMemoryFanOutForLedgerApi: Boolean,
@@ -83,7 +82,6 @@ object Config {
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
       acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
-      acsIdQueueLimit = IndexConfiguration.DefaultAcsIdQueueLimit,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.default,
       enableInMemoryFanOutForLedgerApi = false,
@@ -504,13 +502,6 @@ object Config {
             config.copy(acsGlobalParallelism = acsGlobalParallelism)
           )
 
-        opt[Int]("acs-id-queue-limit")
-          .optional()
-          .text(
-            s"Maximum number of contract ids queued for fetching. Default is ${IndexConfiguration.DefaultAcsIdQueueLimit}."
-          )
-          .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
-
         opt[Long]("max-state-value-cache-size")
           .optional()
           .text(
@@ -542,9 +533,9 @@ object Config {
         opt[String]("contract-id-seeding")
           .optional()
           .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys
-            .mkString(
-              ","
-            )}. Default is "strong".""")
+              .mkString(
+                ","
+              )}. Default is "strong".""")
           .validate(v =>
             Either.cond(
               seedingMap.contains(v.toLowerCase),

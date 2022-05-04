@@ -8,6 +8,7 @@ package preprocessing
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Util._
+import com.daml.lf.speedy.ArrayList
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
@@ -24,7 +25,6 @@ class ValueTranslatorSpec
     with Matchers
     with TableDrivenPropertyChecks {
 
-  import Preprocessor.ArrayList
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 

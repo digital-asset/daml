@@ -1,7 +1,7 @@
 transactions:
 TX #0 1970-01-01T00:00:00Z [Test:21] version: 14
 #0:0 version: 14
-│   known to (since): Alice (#0)
+│   disclosed to (since): Alice (#0)
 └─> create Test:BigNumericResults@XXXXXXXX
     with: { party = 'Alice', values = [1.0000000000, -0.5000000000, 0.2500000000, 1.0000000000, 0.0000000000, 1.0000000000, 0.0000000000] }
 

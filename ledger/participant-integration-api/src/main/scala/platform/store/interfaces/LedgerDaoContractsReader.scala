@@ -3,11 +3,11 @@
 
 package com.daml.platform.store.interfaces
 
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
+import com.daml.platform.Party
 
 import scala.concurrent.Future
 

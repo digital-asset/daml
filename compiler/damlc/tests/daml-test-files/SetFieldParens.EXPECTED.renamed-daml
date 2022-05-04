@@ -1,0 +1,4 @@
+SetFieldParens.foo : (Text -> (Int, Bool)) -> (Int, Bool)
+SetFieldParens.foo mkTup
+= (setField
+@"_2" (not (getField @"_2" (mkTup "baz"))) (mkTup "bar"))

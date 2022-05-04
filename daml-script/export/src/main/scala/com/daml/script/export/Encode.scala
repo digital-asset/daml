@@ -59,9 +59,8 @@ private[export] object Encode {
     def primInstance(name: String, parms: Doc): Doc = {
       val cls = Doc.text(s"Has${name.capitalize}")
       val fun = Doc.text(s"_$name")
-      val prim = Doc.text(s"E${name.capitalize}")
       (Doc.text("instance") & cls & parms & Doc.text("where") /
-        fun & Doc.text("= GHC.Types.primitive @") + quotes(prim)).nested(2)
+        fun & Doc.text("= GHC.Types.primitive @") + quotes(s"E${name.capitalize}")).nested(2)
     }
     val header =
       (Doc.text("{-") &
@@ -105,7 +104,7 @@ private[export] object Encode {
   }
 
   private def encodePartyBinding(party: Party, binding: String): Doc =
-    s"let $binding = lookupParty" &: quotes(Doc.text(Party.unwrap(party))) :& "parties"
+    s"let $binding = lookupParty" &: quotes(Party.unwrap(party)) :& "parties"
 
   private def encodeTestExport(): Doc =
     Doc.text("-- | Test 'export' with freshly allocated parties and") /
@@ -151,7 +150,7 @@ private[export] object Encode {
       ("[" &: Doc.intercalate(
         Doc.hardLine :+ ", ",
         partyMap.keys.map { case Party(p) =>
-          val party = quotes(Doc.text(p))
+          val party = quotes(p)
           tuple(Seq(party, party))
         },
       ) :& "])").indent(2)
@@ -320,23 +319,28 @@ private[export] object Encode {
     }
   }
 
-  private def quotes(v: Doc) =
-    "\"" +: v :+ "\""
+  private def quotes(v: String) =
+    "\"" +: Doc.text(v) :+ "\""
 
   private def parens(v: Doc) =
-    Doc.text("(") + v + Doc.text(")")
-
-  private def tuple(xs: Seq[Doc]) =
-    parens(Doc.intercalate(Doc.text(", "), xs))
+    Doc.char('(') + v.nested(2) + Doc.char(')')
 
   private def brackets(v: Doc) =
-    Doc.text("[") + v + Doc.text("]")
+    Doc.char('[') + v.nested(2) + Doc.char(']')
+
+  private def braces(v: Doc) =
+    Doc.char('{') + v.nested(2) + Doc.char('}')
+
+  private[this] val comma = Doc.comma + Doc.lineOrSpace
+
+  private def tuple(xs: Seq[Doc]) =
+    parens(Doc.intercalate(comma, xs))
 
   private def list(xs: Seq[Doc]) =
-    brackets(Doc.intercalate(Doc.text(", "), xs))
+    brackets(Doc.intercalate(comma, xs))
 
   private def pair(v1: Doc, v2: Doc) =
-    parens(v1 + Doc.text(", ") + v2)
+    parens(v1 + comma + v2)
 
   private def stackNonEmpty(docs: Seq[Doc]): Doc =
     Doc.stack(docs.filter(_.nonEmpty))
@@ -346,12 +350,14 @@ private[export] object Encode {
       cidMap: Map[ContractId, String],
       r: Record,
   ): Doc = {
-    if (r.fields.isEmpty) {
+    if (r.fields.isEmpty)
       qualifyId(r.getRecordId)
-    } else {
-      (qualifyId(r.getRecordId) + Doc.text(" with") /
-        Doc.stack(r.fields.map(f => encodeField(partyMap, cidMap, f)))).nested(2)
-    }
+    else
+      parens(
+        qualifyId(r.getRecordId) &
+          braces(Doc.intercalate(comma, r.fields.map(encodeField(partyMap, cidMap, _))))
+      )
+
   }
 
   private def encodeField(
@@ -372,7 +378,7 @@ private[export] object Encode {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
     cidMap.get(cid) match {
       case Some(value) => Doc.text(value)
-      case None => parens("lookupContract" &: quotes(Doc.text(cid.toString)) :& "contracts")
+      case None => parens("lookupContract" &: quotes(cid.toString) :& "contracts")
     }
   }
 
@@ -391,7 +397,7 @@ private[export] object Encode {
     qualifyId(TemplateId.unwrap(id))
 
   private def encodeChoice(choice: Choice): Doc =
-    quotes(Doc.text(Choice.unwrap(choice)))
+    quotes(Choice.unwrap(choice))
 
   private def encodeCmd(
       partyMap: Map[Party, String],

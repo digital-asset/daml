@@ -16,9 +16,10 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText}
 import com.daml.logging.LoggingContext
+import com.daml.platform.{Contract, Key, Party}
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.testing.LogCollector

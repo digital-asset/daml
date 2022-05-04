@@ -595,10 +595,50 @@ jobs:
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
 
+  - job: compat_versions_pr
+    condition: eq(variables['Build.SourceBranchName'], 'main')
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - bash: ci/dev-env-install.sh
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+
+        ## refresh tags, in case someone deleted one
+        git fetch --prune --prune-tags
+
+        ## get latest version, in case it's already up to date
+        git fetch origin
+        git merge origin/main
+
+        source $(bash_lib)
+
+        cp .bazelrc compatibility/
+        compatibility/update-versions.sh
+        git add compatibility/versions.bzl compatibility/maven_install.json
+
+
+        if ! git diff --cached --quiet; then
+          BRANCH=update-compat-versions-$(date -I)
+          TITLE="update compat versions ($(date -I))"
+          open_pr "$BRANCH" "$TITLE"
+          trigger_azure $(System.AccessToken) PRs --branch $BRANCH
+          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
+        else
+          echo "No changes"
+        fi
+
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
                 perf_speedy, perf_http_json, perf_http_json_querystore, check_releases,
-                blackduck_scan, run_notices_pr_build, bump_canton]
+                blackduck_scan, run_notices_pr_build, bump_canton, compat_versions_pr]
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
@@ -618,6 +658,7 @@ jobs:
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
       bump_canton: $[ dependencies.bump_canton.result ]
+      compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
     steps:
     - template: ../bash-lib.yml
       parameters:
@@ -640,7 +681,9 @@ jobs:
            && "$(check_releases)" == "Succeeded"
            && "$(bump_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
-           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
+           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
+           && "$(compat_versions_pr)" == "Succeeded"
+           ]]; then
             MSG="Daily tests passed: $COMMIT_LINK"
             REPORT='```
         speedy_perf: $(speedy_perf)

@@ -155,7 +155,7 @@ abstract class HttpServiceIntegrationTest
       val Status = StatusCodes.BadRequest
       discard { exerciseTest._1 should ===(Status) }
       inside(exerciseTest._2.convertTo[domain.ErrorResponse]) {
-        case domain.ErrorResponse(Seq(lookup), None, Status) =>
+        case domain.ErrorResponse(Seq(lookup), None, Status, _) =>
           lookup should include regex raw"Cannot resolve Template Key type, given: TemplateId\([0-9a-f]{64},IIou,IIou\)"
       }
     }

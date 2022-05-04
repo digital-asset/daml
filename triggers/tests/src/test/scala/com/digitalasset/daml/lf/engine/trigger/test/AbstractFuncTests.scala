@@ -584,5 +584,30 @@ abstract class AbstractFuncTests
         }
       }
     }
+
+    "queryFilter" should {
+      "return contracts matching predicates" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(
+            client,
+            QualifiedName.assertFromString("QueryFilter:trigger"),
+            party,
+          )
+          (acs, offset) <- runner.queryACS()
+          // 1 for the completion & 1 for the transaction.
+          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+        } yield {
+          inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
+            values.asScala shouldBe Seq[SValue](
+              SInt64(1),
+              SInt64(2),
+              SBool(true),
+            )
+          }
+        }
+      }
+    }
   }
 }

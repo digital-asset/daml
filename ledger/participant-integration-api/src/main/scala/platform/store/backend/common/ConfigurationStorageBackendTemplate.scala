@@ -9,9 +9,9 @@ import anorm.SqlParser.{byteArray, flatten, str}
 import anorm.RowParser
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.Conversions.offset
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.platform.store.backend.Conversions.offset
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.ConfigurationStorageBackend
 import com.daml.platform.store.cache.LedgerEndCache
@@ -67,9 +67,9 @@ private[backend] class ConfigurationStorageBackendTemplate(
       where
         configuration_entries.typ = '#$acceptType' and
         ${queryStrategy.offsetIsSmallerOrEqual(
-      nonNullableColumn = "ledger_offset",
-      endInclusive = ledgerEndOffset,
-    )}
+        nonNullableColumn = "ledger_offset",
+        endInclusive = ledgerEndOffset,
+      )}
       order by ledger_offset desc
       fetch next 1 row only
   """
@@ -97,10 +97,10 @@ private[backend] class ConfigurationStorageBackendTemplate(
         configuration_entries
       where
         ${queryStrategy.offsetIsBetween(
-      nonNullableColumn = "ledger_offset",
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-    )}
+        nonNullableColumn = "ledger_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

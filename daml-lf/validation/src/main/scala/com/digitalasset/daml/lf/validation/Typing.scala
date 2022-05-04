@@ -43,11 +43,12 @@ private[validation] object Typing {
     case PLRoundingMode(_) => TRoundingMode
   }
 
+  private def tBinop(typ: Type): Type = typ ->: typ ->: typ
+
   protected[validation] lazy val typeOfBuiltinFunction = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
-    def tBinop(typ: Type): Type = typ ->: typ ->: typ
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
     val tMultiNumBinop =
       TForall(
@@ -256,37 +257,38 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = {
-    val langVersion = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
+  def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = { // entry point
+    val langVersion = handleLookup(Context.None, interface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
-          Env(langVersion, interface, ContextDefDataType(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, interface, Context.DefDataType(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
-        def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
           case DataRecord(fields) =>
             env.checkRecordType(fields)
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
+            val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
             env.checkEnumType(tyConName, params, values)
           case DataInterface =>
+            val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
-        Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(langVersion, interface, Context.DefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(langVersion, interface, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+          Env(langVersion, interface, Context.Template(pkgId, mod.name, dfnName), params.toMap)
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
     mod.templates.foreach { case (dfnName, template) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-      val env = Env(langVersion, interface, ContextTemplate(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.Template(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkTemplate(tyConName, template)
@@ -296,7 +298,7 @@ private[validation] object Typing {
     }
     mod.exceptions.foreach { case (exnName, message) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-      val env = Env(langVersion, interface, ContextDefException(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.DefException(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkDefException(tyConName, message)
@@ -307,7 +309,7 @@ private[validation] object Typing {
     mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
-      val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
+      val env = Env(langVersion, interface, Context.DefInterface(tyConName), Map.empty)
       env.checkDefIface(tyConName, iface)
     }
   }
@@ -332,7 +334,7 @@ private[validation] object Typing {
       xOpt.fold(this)(introExprVar(_, t))
 
     private def newLocation(loc: Location): Env =
-      copy(ctx = ContextLocation(loc))
+      copy(ctx = Context.Location(loc))
 
     private def lookupExpVar(name: ExprVarName): Type =
       eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
@@ -340,7 +342,7 @@ private[validation] object Typing {
     private def lookupTypeVar(name: TypeVarName): Kind =
       tVars.getOrElse(name, throw EUnknownTypeVar(ctx, name))
 
-    def checkKind(kind: Kind): Unit = {
+    def checkKind(kind: Kind): Unit = { // testing entry point
       @tailrec
       def loop(k: Kind, stack: List[Kind] = List.empty): Unit =
         k match {
@@ -361,12 +363,12 @@ private[validation] object Typing {
 
     /* Typing Ops*/
 
-    def checkVariantType(variants: ImmArray[(VariantConName, Type)]): Unit = {
+    private[Typing] def checkVariantType(variants: ImmArray[(VariantConName, Type)]): Unit = {
       checkUniq[VariantConName](variants.keys, EDuplicateVariantCon(ctx, _))
       variants.values.foreach(checkType(_, KStar))
     }
 
-    def checkEnumType[X](
+    private[Typing] def checkEnumType[X](
         tyConName: => TypeConName,
         params: ImmArray[X],
         values: ImmArray[EnumConName],
@@ -375,7 +377,7 @@ private[validation] object Typing {
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
-    def checkInterfaceType[X](
+    private[Typing] def checkInterfaceType[X](
         tyConName: => TypeConName,
         params: ImmArray[X],
     ): Unit = {
@@ -383,7 +385,7 @@ private[validation] object Typing {
       val _ = handleLookup(ctx, interface.lookupInterface(tyConName))
     }
 
-    def checkDValue(dfn: DValue): Unit = dfn match {
+    private[Typing] def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, body, isTest) =>
         checkType(typ, KStar)
         checkExpr(body, typ)
@@ -398,7 +400,7 @@ private[validation] object Typing {
       case _ => typ0
     }
 
-    def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
+    private[Typing] def checkRecordType(fields: ImmArray[(FieldName, Type)]): Unit = {
       checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
       fields.values.foreach(checkType(_, KStar))
     }
@@ -427,7 +429,7 @@ private[validation] object Typing {
           ()
       }
 
-    def checkTemplate(tplName: TypeConName, template: Template): Unit = {
+    private[Typing] def checkTemplate(tplName: TypeConName, template: Template): Unit = {
       val Template(
         param,
         precond,
@@ -454,7 +456,7 @@ private[validation] object Typing {
       }
     }
 
-    def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
+    private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
         case DefInterface(requires, param, fixedChoices, methods, precond) =>
           val env = introExprVar(param, TTyCon(ifaceName))
@@ -470,15 +472,15 @@ private[validation] object Typing {
           fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
       }
 
-    def checkIfaceMethod(method: InterfaceMethod): Unit = {
+    private def checkIfaceMethod(method: InterfaceMethod): Unit = {
       checkType(method.returnType, KStar)
     }
 
-    def alphaEquiv(t1: Type, t2: Type) =
+    private def alphaEquiv(t1: Type, t2: Type) =
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    def checkIfaceImplementations(
+    private def checkIfaceImplementations(
         tplTcon: TypeConName,
         impls: Map[TypeConName, TemplateImplements],
     ): Unit = {
@@ -517,7 +519,10 @@ private[validation] object Typing {
       }
     }
 
-    def checkDefException(excepName: TypeConName, defException: DefException): Unit = {
+    private[Typing] def checkDefException(
+        excepName: TypeConName,
+        defException: DefException,
+    ): Unit = {
       checkExpr(defException.message, TTyCon(excepName) ->: TText)
       ()
     }
@@ -530,7 +535,7 @@ private[validation] object Typing {
         TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
     }
 
-    def checkType(typ: Type, kind: Kind): Unit = {
+    private[Typing] def checkType(typ: Type, kind: Kind): Unit = {
       val typKind = kindOf(typ)
       if (kind != typKind)
         throw EKindMismatch(ctx, foundKind = typKind, expectedKind = kind)
@@ -539,7 +544,8 @@ private[validation] object Typing {
     private def kindOfDataType(defDataType: DDataType): Kind =
       defDataType.params.reverse.foldLeft[Kind](KStar) { case (acc, (_, k)) => KArrow(k, acc) }
 
-    def kindOf(typ0: Type): Kind = typ0 match {
+    def kindOf(typ0: Type): Kind = typ0 match { // testing entry point
+
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
         checkType(ty, KStar)
@@ -674,13 +680,13 @@ private[validation] object Typing {
 
     private def typeOfTyApp(expr: Expr, typs: List[Type]): Type = {
       @tailrec
-      def unwrapForall(body0: Type, typs: List[Type], acc: Map[TypeVarName, Type]): Type =
+      def loopForall(body0: Type, typs: List[Type], acc: Map[TypeVarName, Type]): Type =
         typs match {
           case head :: tail =>
             toForall(body0) match {
               case TForall((v, k), body) =>
                 checkType(head, k)
-                unwrapForall(body, tail, acc.updated(v, head))
+                loopForall(body, tail, acc.updated(v, head))
               case otherwise =>
                 throw EExpectedUniversalType(ctx, otherwise)
             }
@@ -688,7 +694,7 @@ private[validation] object Typing {
             TypeSubst.substitute(acc, body0)
         }
 
-      unwrapForall(typeOf(expr), typs, Map.empty)
+      loopForall(typeOf(expr), typs, Map.empty)
     }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
@@ -850,7 +856,9 @@ private[validation] object Typing {
         checkType(typ0, KStar)
         val typ1 = resolveExprType(expr, typ0)
         introExprVar(vName, typ1).typeOf(body)
-      case Binding(_, _, bound @ _) =>
+      case Binding(None, typ0, bound) =>
+        checkType(typ0, KStar)
+        val _ = resolveExprType(bound, typ0)
         typeOf(body)
     }
 
@@ -1069,7 +1077,7 @@ private[validation] object Typing {
       case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
-    def typeOf(expr: ExprAtomic): Type = expr match {
+    private def typeOf(expr: ExprAtomic): Type = expr match {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
@@ -1091,7 +1099,7 @@ private[validation] object Typing {
         TOptional(typ)
     }
 
-    def typeOf(expr0: Expr): Type = expr0 match {
+    def typeOf(expr0: Expr): Type = expr0 match { // testing entry point
       case expr: ExprAtomic =>
         typeOf(expr)
       case ERecCon(tycon, fields) =>
@@ -1214,14 +1222,14 @@ private[validation] object Typing {
         typ
     }
 
-    def resolveExprType(expr: Expr, typ: Type): Type = {
+    private def resolveExprType(expr: Expr, typ: Type): Type = {
       val exprType = typeOf(expr)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
       exprType
     }
 
-    def checkExpr(expr: Expr, typ0: Type): Unit = {
+    private def checkExpr(expr: Expr, typ0: Type): Unit = {
       discard[Type](resolveExprType(expr, typ0))
     }
 
@@ -1279,7 +1287,7 @@ private[validation] object Typing {
   /* Utils */
 
   private implicit final class TypeOp(val rightType: Type) extends AnyVal {
-    def ->:(leftType: Type) = TFun(leftType, rightType)
+    private[Typing] def ->:(leftType: Type) = TFun(leftType, rightType)
   }
 
   private def typeConAppToType(app: TypeConApp): Type = app match {
@@ -1287,11 +1295,12 @@ private[validation] object Typing {
   }
 
   private[this] class ExpectedPatterns(val number: Int, patterns: => Iterator[CasePat]) {
-    def missingPatterns(ranks: Set[Int]): List[CasePat] =
+    private[Typing] def missingPatterns(ranks: Set[Int]): List[CasePat] =
       patterns.zipWithIndex.collect { case (p, i) if !ranks(i) => p }.toList
   }
   private[this] object ExpectedPatterns {
-    def apply(patterns: CasePat*) = new ExpectedPatterns(patterns.length, patterns.iterator)
+    private[Typing] def apply(patterns: CasePat*) =
+      new ExpectedPatterns(patterns.length, patterns.iterator)
   }
 
   private[this] val wildcard: ExprVarName = Name.assertFromString("_")

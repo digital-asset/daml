@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-9 Working with Dependencies
-===========================
+Work with Dependencies
+======================
 
 The application from Chapter 7 is a complete and secure model for atomic swaps of assets, but there is plenty of room for improvement. However, one can't implement all feature before going live with an application so it's important to understand way to change already running code. There are fundamentally two types of change one may want to make:
 
@@ -85,7 +85,7 @@ For example, in all our projects in this intro, including this chapter, our scri
 
 Similarly, we included ``Trade`` in the same project as ``Asset`` in chapter 7, even though ``Trade`` is a pure extension to the core ``Asset`` model. If we expect ``Trade`` to need more frequent changes, it may be a good idea to split it out into a separate project from the start.
 
-Next up
+Next Up
 -------
 
 The ``MultiTrade`` model has more complex control flow and data handling than previous models. In :doc:`10_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your chapter 7 and 8 folders just yet.

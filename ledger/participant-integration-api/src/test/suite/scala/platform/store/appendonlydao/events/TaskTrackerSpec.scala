@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao.events
+package com.daml.platform.store.dao.events
 
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -15,7 +15,6 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     val tracker = new FilterTableACSReader.TaskTracker[String](
       allTasks = List("A"),
       inputBatchSize = 2,
-      maxQueueSize = 100,
     )
 
     tracker.add("A", List(1L, 2L)) shouldBe Some(List(1L, 2L), "A") -> true
@@ -27,7 +26,6 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     val tracker = new FilterTableACSReader.TaskTracker[String](
       allTasks = List("A"),
       inputBatchSize = 2,
-      maxQueueSize = 100,
     )
 
     tracker.add("A", List(1L)) shouldBe Some(List(1L), "A") -> true
@@ -39,7 +37,6 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     val tracker = new FilterTableACSReader.TaskTracker[String](
       allTasks = List("A"),
       inputBatchSize = 2,
-      maxQueueSize = 100,
     )
 
     tracker.add("A", List.empty) shouldBe None -> true
@@ -51,7 +48,6 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     val tracker = new FilterTableACSReader.TaskTracker[String](
       allTasks = List("A"),
       inputBatchSize = 2,
-      maxQueueSize = 100,
     )
 
     tracker.add("A", List(1L, 2L)) shouldBe Some(List(1L, 2L), "A") -> true
@@ -68,7 +64,6 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     val tracker = new FilterTableACSReader.TaskTracker[String](
       allTasks = List("A"),
       inputBatchSize = 2,
-      maxQueueSize = 100,
     )
 
     tracker.add("A", List(1L, 2L)) shouldBe Some(List(1L, 2L), "A") -> true
@@ -84,7 +79,6 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     val tracker = new FilterTableACSReader.TaskTracker[String](
       allTasks = List("A", "B"),
       inputBatchSize = 2,
-      maxQueueSize = 100,
     )
 
     tracker.add("A", List(1L, 2L)) shouldBe Some(List(1L, 2L), "A") -> false
@@ -93,20 +87,4 @@ class TaskTrackerSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     tracker.finished("A") shouldBe None -> false
     tracker.finished("B") shouldBe None -> false
   }
-
-  it should "fail if a queue is full" in {
-    val tracker = new FilterTableACSReader.TaskTracker[String](
-      allTasks = List("A", "B"),
-      inputBatchSize = 2,
-      maxQueueSize = 2,
-    )
-
-    tracker.add("A", List(1L, 2L)) shouldBe Some(List(1L, 2L), "A") -> false
-    tracker.add("A", List(3L, 4L)) shouldBe None -> false
-    tracker.add("A", List(5L, 6L)) shouldBe None -> false
-
-    assertThrows[RuntimeException] { tracker.add("A", List(7L, 8L)) }
-    tracker.add("B", List(7L, 8L)) shouldBe Some(List(7L, 8L), "B") -> true
-  }
-
 }

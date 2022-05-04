@@ -70,14 +70,10 @@ export Args{parties, contracts} = do
 -- EXPORT_PARTIES_END
 -- EXPORT_PROPOSALS_BEGIN
   (coinProposal_1_0, coinProposal_1_1) <- submit bank_0 do
-    coinProposal_1_0 <- createCmd ScriptExample.CoinProposal with
-      coin = ScriptExample.Coin with
-        issuer = bank_0
-        owner = alice_0
-    coinProposal_1_1 <- createCmd ScriptExample.CoinProposal with
-      coin = ScriptExample.Coin with
-        issuer = bank_0
-        owner = bob_0
+    coinProposal_1_0 <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
+            owner = alice_0})})
+    coinProposal_1_1 <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
+            owner = bob_0})})
     pure (coinProposal_1_0, coinProposal_1_1)
 -- EXPORT_PROPOSALS_END
 -- EXPORT_ACCEPT_BEGIN

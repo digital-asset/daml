@@ -15,12 +15,12 @@ that a template must implement. This allows decoupling such behavior from its
 implementation, so other developers can write applications in terms of the
 interface instead of the concrete template.
 
-Interface declaration
+Interface Declaration
 *********************
 
 An interface declaration is somewhat similar to a template declaration.
 
-Interface name
+Interface Name
 --------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -32,7 +32,7 @@ Interface name
 - It's preceded by the keyword ``interface`` and followed by the keyword ``where``.
 - It must begin with a capital letter, like any other type name.
 
-Interface methods
+Interface Methods
 -----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -53,7 +53,7 @@ Interface methods
 - Methods are also in scope in interface choices
   (see :ref:`interface-choices` below).
 
-Interface precondition
+Interface Precondition
 ----------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -73,7 +73,7 @@ Interface precondition
 
 .. _interface-choices:
 
-Interface choices
+Interface Choices
 -----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -94,7 +94,7 @@ Interface choices
 - See :doc:`choices` for full reference information, but note that
   controller-first syntax is not supported for interface choices.
 
-Empty interfaces
+Empty Interfaces
 ----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -106,7 +106,7 @@ Empty interfaces
   methods, precondition or choices. In such a case, the ``where`` keyword
   can be dropped.
 
-Required interfaces
+Required Interfaces
 -------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -127,7 +127,7 @@ Required interfaces
      :start-after: -- EMPTY_INTERFACE_REQUIRES_BEGIN
      :end-before: -- EMPTY_INTERFACE_REQUIRES_END
 
-Interface implementation
+Interface Implementation
 ************************
 
 For context, a simple template definition:
@@ -137,7 +137,7 @@ For context, a simple template definition:
    :start-after: -- TEMPLATE_HEADER_BEGIN
    :end-before: -- TEMPLATE_HEADER_END
 
-Implements clause
+Implements Clause
 -----------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -154,7 +154,7 @@ Implements clause
 - Methods can be defined using the same syntax as for top level functions,
   including pattern matches and guards (e.g. ``method3``).
 
-Empty implements clause
+Empty Implements Clause
 -----------------------
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
@@ -165,7 +165,7 @@ Empty implements clause
 - If the interface being implemented has no methods, the ``where`` keyword
   can be dropped.
 
-Interface functions
+Interface Functions
 *******************
 
 .. list-table::
@@ -200,10 +200,24 @@ Interface functions
        be used to convert an interface contract id into a contract id of one of
        its required interfaces.
    * - ``fromInterfaceContractId``
-     - ``forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))``
-     - ``ContractId MyInterface -> Update (Optional (ContractId MyTemplate))``
-     - Attempts to convert an interface contract id into a template contract id.
-       In order to verify that the underlying contract has the expected template
-       type, this needs to perform a fetch. Can also be used to convert a
-       contract id of an interface type to a contract id of one of its
-       requiring interfaces.
+     - ``forall t i. HasFromInterface t i => ContractId i -> ContractId t``
+     - ``ContractId MyInterface -> ContractId MyTemplate``
+     - Converts an interface contract id into a template contract id.
+       Can also be used to convert an interface contract id into a contract id
+       of a one of its requiring interfaces.
+       This function does not verify that the given contract id actually points
+       to a contract of the resulting type; if that is not the case, a
+       subsequent ``fetch``, ``exercise`` or ``archive`` will fail.
+       Therefore, this should only be used when the underlying contract is known
+       to be of the resulting type, or when the result is immediately used by a
+       ``fetch``, ``exercise`` or ``archive`` action and a transaction failure
+       is the desired behavior in case of mismatch.
+       In all other cases, consider using ``fetchFromInterface`` instead.
+   * - ``fetchFromInterface``
+     - ``forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t, t))``
+     - ``ContractId MyInterface -> Update (Optional (ContractId MyTemplate, MyTemplate))``
+     - Attempts to fetch and convert an interface contract id into a template,
+       returning both the converted contract and its contract id if the
+       conversion is successful, or ``None`` otherwise.
+       Can also be used to fetch and convert an interface contract id into a
+       contract and contract id of one of its requiring interfaces.

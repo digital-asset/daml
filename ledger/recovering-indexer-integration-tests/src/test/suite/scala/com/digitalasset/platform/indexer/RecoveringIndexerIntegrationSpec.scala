@@ -16,9 +16,8 @@ import akka.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, Que
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
+import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v2.{
   ReadService,
   SubmissionResult,
@@ -33,7 +32,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -254,7 +253,6 @@ class RecoveringIndexerIntegrationSpec
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          acsIdQueueLimit = 1000000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -292,7 +290,7 @@ object RecoveringIndexerIntegrationSpec {
       ResourceOwner
         .forReleasable(() =>
           // required for the indexer to resubscribe to the update source
-          Source.queue[(Offset, Update)](1).toMat(BroadcastHub.sink)(Keep.both).run()
+          Source.queue[(Offset, Update)](bufferSize = 16).toMat(BroadcastHub.sink)(Keep.both).run()
         )({ case (queue, _) =>
           Future {
             queue.complete()
@@ -355,7 +353,7 @@ object RecoveringIndexerIntegrationSpec {
       Source.repeat(
         LedgerInitialConditions(
           ledgerId,
-          LedgerReader.DefaultConfiguration,
+          Configuration.reasonableInitialConfiguration,
           Time.Timestamp.Epoch,
         )
       )

@@ -246,7 +246,7 @@ object TransactionCoder {
       nodeId: NodeId,
       node: Node,
       disableVersionCheck: Boolean =
-        false, //true allows encoding of bad protos (for testing of decode checks)
+        false, // true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
 
     val nodeBuilder =
@@ -329,7 +329,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
@@ -345,6 +345,11 @@ object TransactionCoder {
               ne.choiceObservers.foreach(builder.addObservers)
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
+              }
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                ne.interfaceId.foreach(iface =>
+                  builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
+                )
               }
               for {
                 _ <- Either.cond(
@@ -601,9 +606,16 @@ object TransactionCoder {
             if (nodeVersion >= TransactionVersion.minByKey)
               protoExe.getByKey
             else false
+          interfaceId <-
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasInterfaceId) {
+              ValueCoder.decodeIdentifier(protoExe.getInterfaceId).map(Some(_))
+            } else {
+              Right(None)
+            }
         } yield ni -> Node.Exercise(
           targetCoid = targetCoid,
           templateId = templateId,
+          interfaceId = interfaceId,
           choiceId = choiceName,
           consuming = protoExe.getConsuming,
           actingParties = actingParties,

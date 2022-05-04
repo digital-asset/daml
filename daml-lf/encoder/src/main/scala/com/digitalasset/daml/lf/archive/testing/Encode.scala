@@ -11,6 +11,12 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
+/** The Daml-LF Encoder library can be used to build dar files directly from LF
+  * definitions without passing through Damlc.
+  *
+  * It is designed for testing only and provided without any guarantee.
+  * In particular future version can break the API without notice.
+  */
 // Important: do not use this in production code. It is designed for testing only.
 object Encode {
 

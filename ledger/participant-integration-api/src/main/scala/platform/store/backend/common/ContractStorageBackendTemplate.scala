@@ -7,10 +7,9 @@ import java.sql.Connection
 
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
-import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
+import com.daml.platform.{ContractId, Key, Party}
+import com.daml.platform.store.backend.Conversions.{contractId, offset, timestampFromMicros}
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.backend.ContractStorageBackend.RawContractState
@@ -27,7 +26,7 @@ class ContractStorageBackendTemplate(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
-  import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
   override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
     contractKey(
@@ -71,7 +70,7 @@ class ContractStorageBackendTemplate(
   override def contractState(contractId: ContractId, before: Long)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
     SQL"""
            (SELECT
              event_sequential_id,
@@ -196,7 +195,7 @@ class ContractStorageBackendTemplate(
       coalescedColumns: String,
   ): SimpleSql[Row] = {
     val lastEventSequentialId = ledgerEndCache()._2
-    import com.daml.platform.store.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (
                SELECT participant_events_consuming_exercise.*
                  FROM participant_events_consuming_exercise
@@ -253,7 +252,7 @@ class ContractStorageBackendTemplate(
       resultSetParser: ResultSetParser[Option[T]],
       resultColumns: List[String],
   )(
-      readers: Set[Ref.Party],
+      readers: Set[Party],
       contractId: ContractId,
   )(connection: Connection): Option[T] = {
     val internedReaders =
@@ -285,7 +284,7 @@ class ContractStorageBackendTemplate(
     int("template_id")
 
   override def activeContractWithArgument(
-      readers: Set[Ref.Party],
+      readers: Set[Party],
       contractId: ContractId,
   )(connection: Connection): Option[ContractStorageBackend.RawContract] = {
     activeContract(
@@ -298,7 +297,7 @@ class ContractStorageBackendTemplate(
   }
 
   override def activeContractWithoutArgument(
-      readers: Set[Ref.Party],
+      readers: Set[Party],
       contractId: ContractId,
   )(connection: Connection): Option[String] =
     activeContract(
@@ -309,7 +308,7 @@ class ContractStorageBackendTemplate(
       contractId = contractId,
     )(connection).map(stringInterning.templateId.unsafe.externalize)
 
-  override def contractKey(readers: Set[Ref.Party], key: Key)(
+  override def contractKey(readers: Set[Party], key: Key)(
       connection: Connection
   ): Option[ContractId] =
     contractKey(
@@ -325,7 +324,7 @@ class ContractStorageBackendTemplate(
       resultColumns: List[String],
       resultParser: RowParser[T],
   )(
-      readers: Option[Set[Ref.Party]],
+      readers: Option[Set[Party]],
       key: Key,
       validAt: Long,
   )(
@@ -364,7 +363,7 @@ class ContractStorageBackendTemplate(
           )
         )
 
-      import com.daml.platform.store.Conversions.HashToStatement
+      import com.daml.platform.store.backend.Conversions.HashToStatement
       SQL"""
            WITH last_contract_key_create AS (
                   SELECT participant_events_create.*

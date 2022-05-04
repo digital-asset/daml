@@ -4,8 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.language.Ast._
@@ -549,7 +547,7 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private def noArgs = new util.ArrayList[SValue](0)
+  private def noArgs = ArrayList.empty[SValue]
 
   private[this] def compileERecCon(
       env: Env,
@@ -677,7 +675,7 @@ private[lf] final class PhaseOne(
           val env1 = env0.pushExprVar(binder)
           body match {
             case eLet1: ELet =>
-              compileELet(env1, eLet1, bounds) //recursive call in compileExp is stack-safe
+              compileELet(env1, eLet1, bounds) // recursive call in compileExp is stack-safe
             case _ =>
               compileExp(env1, body) {
                 case SELet(bounds1, body1) =>
@@ -794,7 +792,7 @@ private[lf] final class PhaseOne(
     exp match {
       case EApp(fun, arg) =>
         compileExp(env, arg) { arg =>
-          compileAppsX(env, fun, arg :: args) //recursive call in compileExp is stack-safe
+          compileAppsX(env, fun, arg :: args) // recursive call in compileExp is stack-safe
         }
       case ETyApp(fun, arg) =>
         compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))

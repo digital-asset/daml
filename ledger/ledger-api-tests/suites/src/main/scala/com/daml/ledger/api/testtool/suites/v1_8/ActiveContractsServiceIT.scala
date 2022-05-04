@@ -157,8 +157,8 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       assert(
         contractsBeforeExercise.exists(_.contractId == dummy),
         s"Expected to receive contract with contractId $dummy, but received ${contractsBeforeExercise
-          .map(_.contractId)
-          .mkString(", ")} instead.",
+            .map(_.contractId)
+            .mkString(", ")} instead.",
       )
 
       // check the contracts AFTER the exercise

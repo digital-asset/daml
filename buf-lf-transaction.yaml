@@ -9,6 +9,4 @@ build:
 
 breaking:
   use:
-    # WIRE is enough here as KVUtils only needs to be able to read data persisted
-    # by previous versions of the code.
     - WIRE

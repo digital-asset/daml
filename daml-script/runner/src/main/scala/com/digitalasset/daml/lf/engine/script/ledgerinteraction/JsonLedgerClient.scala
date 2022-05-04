@@ -664,8 +664,8 @@ object JsonLedgerClient {
           )
         } else if (missingParties.nonEmpty) {
           Left(s"Tried to $what as [${parties.toList
-            .mkString(", ")}] but token provides claims for [${tokenParties
-            .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]")
+              .mkString(", ")}] but token provides claims for [${tokenParties
+              .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]")
         } else {
           import scalaz.std.string._
           if (partiesSet === tokenParties) {
@@ -706,12 +706,12 @@ object JsonLedgerClient {
         } else if (missingActAs.nonEmpty) {
           Left(
             s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
-              .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
+                .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
           )
         } else if (missingReadAs.nonEmpty) {
           Left(
             s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
-              .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
+                .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
           )
         } else {
           import scalaz.std.string._

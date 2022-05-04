@@ -313,6 +313,7 @@ object NormalizeRollbackSpec {
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
       ),
+      interfaceId = None,
       choiceId = Ref.Name.assertFromString("dummyChoice"),
       consuming = true,
       actingParties = Set.empty,

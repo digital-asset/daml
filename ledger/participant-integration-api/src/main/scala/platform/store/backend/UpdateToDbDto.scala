@@ -13,9 +13,10 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.daml.platform.{Create, Exercise, Key, Node, NodeId}
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
-import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.dao.JdbcLedgerDao
+import com.daml.platform.store.dao.events._
 
 object UpdateToDbDto {
 
@@ -217,7 +218,7 @@ object UpdateToDbDto {
                   exercise_child_event_ids = Some(
                     exercise.children.iterator
                       .map(EventId(u.transactionId, _).toLedgerString.toString)
-                      .toSet
+                      .toVector
                   ),
                   create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
                   exercise_argument_compression =

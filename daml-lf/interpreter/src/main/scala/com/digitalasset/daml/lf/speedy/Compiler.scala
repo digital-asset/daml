@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
@@ -149,12 +149,12 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileModule( //called by scenario-service
+  def unsafeCompileModule( // called by scenario-service
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
 
-  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -432,9 +432,10 @@ private[lf] final class Compiler(
       let(
         env,
         SBUBeginExercise(
-          tmplId,
-          choice.name,
-          choice.consuming,
+          templateId = tmplId,
+          interfaceId = None,
+          choiceId = choice.name,
+          consuming = choice.consuming,
           byKey = mbKey.isDefined,
         )(
           env.toSEVar(choiceArgPos),
@@ -485,8 +486,10 @@ private[lf] final class Compiler(
         let(
           env,
           SBResolveSBUBeginExercise(
+            interfaceId = ifaceId,
             choiceName = choice.name,
             consuming = choice.consuming,
+            byKey = false,
           )(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),
@@ -591,7 +594,7 @@ private[lf] final class Compiler(
   @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
   private[this] def compileFetchBody(env: Env, tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
-      mbKey: Option[Position], //defined for byKey operation
+      mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ) =
     let(

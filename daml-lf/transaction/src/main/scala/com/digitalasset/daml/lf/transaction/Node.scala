@@ -143,6 +143,7 @@ object Node {
   final case class Exercise(
       targetCoid: ContractId,
       override val templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],

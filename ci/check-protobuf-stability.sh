@@ -37,8 +37,8 @@ function check_lf_protos() {
 function check_non_lf_protos() {
 
   declare -a BUF_MODULES_AGAINST_STABLE=(
-    "buf-kvutils.yaml"
     "buf-ledger-api.yaml"
+    "buf-ledger-configuration.yaml"
     "buf-participant-integration-api.yaml"
   )
 

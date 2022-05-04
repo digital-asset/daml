@@ -750,6 +750,7 @@ prettyNodeNode nn = do
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
+isUnitValue (Just (Value (Just (ValueSumRecord Record{recordFields})))) = V.null recordFields
 isUnitValue _ = False
 
 prettyNode :: Node -> M (Doc SyntaxClass)
@@ -770,21 +771,24 @@ prettyNode Node{..}
             else meta $ keyword_ "referenced by"
                    <-> fcommasep (mapV prettyNodeIdLink nodeReferencedBy)
 
-      let ppDisclosedTo =
-            if V.null nodeDisclosures
+      let mkPpDisclosures kw disclosures =
+            if null disclosures
             then mempty
             else
-              meta $ keyword_ "known to (since):"
+              meta $ keyword_ kw
                 <-> fcommasep
-                  (mapV
-                    -- TODO(MH): Take explicitness into account.
+                  (map
                     (\(Disclosure p txId _explicit) -> prettyMayParty p <-> parens (prettyTxId txId))
-                    nodeDisclosures)
+                    disclosures)
+
+      let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures
+      let ppDisclosedTo = mkPpDisclosures "disclosed to (since):" nodeWitnesses
+      let ppDivulgedTo = mkPpDisclosures "divulged to (since):" nodeDivulgences
 
       pure
          $ prettyMay "<missing node id>" prettyNodeId nodeNodeId
         $$ vcat
-             [ ppConsumedBy, ppReferencedBy, ppDisclosedTo
+             [ ppConsumedBy, ppReferencedBy, ppDisclosedTo, ppDivulgedTo
              , arrowright ppNode
              ]
 

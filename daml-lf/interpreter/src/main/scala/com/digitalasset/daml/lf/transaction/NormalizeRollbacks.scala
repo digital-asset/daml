@@ -68,9 +68,9 @@ private[lf] object NormalizeRollbacks {
             }
           }
         }
-        //pass 1
+        // pass 1
         traverseNodeIds(rootsOriginal.toList) { norms =>
-          //pass 2
+          // pass 2
           pushNorms(initialState, norms.toList) { (finalState, roots) =>
             Land(
               (

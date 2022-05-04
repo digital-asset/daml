@@ -79,7 +79,7 @@ trait QueryStrategy {
     *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
     */
   def offsetIsSmallerOrEqual(nonNullableColumn: String, endInclusive: Offset): CompositeSql = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     // Note: there are two reasons for special casing Offset.beforeBegin:
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
@@ -95,7 +95,7 @@ trait QueryStrategy {
     *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
     */
   def offsetIsGreater(nonNullableColumn: String, startExclusive: Offset): CompositeSql = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     // Note: there are two reasons for special casing Offset.beforeBegin:
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
@@ -115,7 +115,7 @@ trait QueryStrategy {
       startExclusive: Offset,
       endInclusive: Offset,
   ): CompositeSql = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     // Note: there are two reasons for special casing Offset.beforeBegin:
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with

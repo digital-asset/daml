@@ -13,6 +13,7 @@ import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
+import scalaz.syntax.tag._
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -451,8 +452,39 @@ object JsonProtocol extends JsonProtocolLow {
   implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
     jsonFormat3(domain.OkResponse[R])
 
+  implicit val ResourceInfoDetailFormat: RootJsonFormat[domain.ResourceInfoDetail] = jsonFormat2(
+    domain.ResourceInfoDetail
+  )
+  implicit val ErrorInfoDetailFormat: RootJsonFormat[domain.ErrorInfoDetail] = jsonFormat2(
+    domain.ErrorInfoDetail
+  )
+
+  implicit val durationFormat: JsonFormat[domain.RetryInfoDetailDuration] =
+    jsonFormat[domain.RetryInfoDetailDuration](
+      JsonReader.func2Reader(
+        (LongJsonFormat.read _)
+          .andThen(scala.concurrent.duration.Duration.fromNanos)
+          .andThen(it => domain.RetryInfoDetailDuration(it: scala.concurrent.duration.Duration))
+      ),
+      JsonWriter.func2Writer[domain.RetryInfoDetailDuration](duration =>
+        LongJsonFormat.write(duration.unwrap.toNanos)
+      ),
+    )
+
+  implicit val RetryInfoDetailFormat: RootJsonFormat[domain.RetryInfoDetail] =
+    jsonFormat1(domain.RetryInfoDetail)
+
+  implicit val RequestInfoDetailFormat: RootJsonFormat[domain.RequestInfoDetail] = jsonFormat1(
+    domain.RequestInfoDetail
+  )
+
+  implicit val ErrorDetailsFormat: JsonFormat[domain.ErrorDetail] = deriveFormat[domain.ErrorDetail]
+
+  implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
+    jsonFormat3(domain.LedgerApiError)
+
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
-    jsonFormat3(domain.ErrorResponse)
+    jsonFormat4(domain.ErrorResponse)
 
   implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
     new RootJsonFormat[domain.SyncResponse[R]] {

@@ -15,42 +15,30 @@ sealed abstract class Context extends Product with Serializable {
   def pretty: String
 }
 
-case object NoContext extends Context {
-  def pretty: String = ""
-}
-final case class ContextDefDataType(tycon: TypeConName) extends Context {
-  def pretty: String = s"data type ${tycon.qualifiedName}"
-}
-final case class ContextTemplate(tycon: TypeConName) extends Context {
-  def pretty: String = s"template definition ${tycon.qualifiedName}"
-}
-final case class ContextDefException(tycon: TypeConName) extends Context {
-  def pretty: String = s"exception definition ${tycon.qualifiedName}"
-}
-final case class ContextDefInterface(tycon: TypeConName) extends Context {
-  def pretty: String = s"interface definition ${tycon.qualifiedName}"
-}
-final case class ContextDefValue(ref: ValueRef) extends Context {
-  def pretty: String = s"value definition ${ref.qualifiedName}"
-}
-final case class ContextLocation(loc: Location) extends Context {
-  def pretty: String =
-    s"definition ${loc.packageId}:${loc.module}:${loc.definition} (start: ${loc.start}, end: ${loc.end})"
-}
+object Context {
 
-object ContextDefDataType {
-  def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextDefDataType =
-    ContextDefDataType(TypeConName(pkgId, QualifiedName(module, name)))
-}
+  final case object None extends Context {
+    def pretty = ""
+  }
+  final case class Reference(ref: language.Reference) extends Context {
+    def pretty = " in " + ref.pretty
+  }
+  final case class Location(loc: data.Ref.Location) extends Context {
+    def pretty = " in " + loc.pretty
+  }
 
-object ContextTemplate {
-  def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextTemplate =
-    ContextTemplate(TypeConName(pkgId, QualifiedName(module, name)))
-}
+  final class ReferenceBuilder private[Context] (mkRef: Identifier => language.Reference) {
+    def apply(id: Identifier): Context.Reference = Context.Reference(mkRef(id))
+    def apply(pkgId: PackageId, module: DottedName, name: DottedName): Context.Reference =
+      apply(Identifier(pkgId, QualifiedName(module, name)))
+  }
 
-object ContextDefValue {
-  def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextDefValue =
-    ContextDefValue(ValueRef(pkgId, QualifiedName(module, name)))
+  val DefDataType = new ReferenceBuilder(language.Reference.DataType)
+  val Template = new ReferenceBuilder(language.Reference.Template)
+  val DefException = new ReferenceBuilder(language.Reference.Exception)
+  val DefInterface = new ReferenceBuilder(language.Reference.Interface)
+  val DefValue = new ReferenceBuilder(language.Reference.Value)
+
 }
 
 sealed abstract class TemplatePart extends Product with Serializable
@@ -160,7 +148,7 @@ case object URInterface extends UnserializabilityReason {
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context
-  def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
+  def pretty: String = s"validation error${context.pretty}: $prettyInternal"
   override def getMessage: String = pretty
   protected def prettyInternal: String
 }
@@ -399,7 +387,7 @@ final case class ECollision(
 
   assert(entity1.fullyResolvedName == entity2.fullyResolvedName)
 
-  def context: Context = NoContext
+  def context: Context = Context.None
 
   def collisionName: DottedName = entity1.fullyResolvedName
 
@@ -420,7 +408,7 @@ final case class EModuleVersionDependencies(
   override protected def prettyInternal: String =
     s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
 
-  override def context: Context = NoContext
+  override def context: Context = Context.None
 }
 
 final case class EBadInheritedChoices(

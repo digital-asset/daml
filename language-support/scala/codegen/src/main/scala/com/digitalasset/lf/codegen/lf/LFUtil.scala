@@ -451,7 +451,7 @@ object LFUtil {
   def toNotReservedName(name: String): String =
     "userDefined" + name.capitalize
 
-  //----------------------------------------------
+  // ----------------------------------------------
 
   sealed trait CodeGenDeclKind
   case object Template extends CodeGenDeclKind

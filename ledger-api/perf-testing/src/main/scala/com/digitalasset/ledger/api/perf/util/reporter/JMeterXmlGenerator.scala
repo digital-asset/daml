@@ -77,7 +77,7 @@ private[reporter] object JMeterXmlGenerator {
         node.setAttribute(
           time,
           implicitly[Numeric[T]].toLong(measurement).toString,
-        ) //No floating point results observed among samples
+        ) // No floating point results observed among samples
         node.setAttribute(responseCode, resp.code)
         node.setAttribute(responseMessage, resp.message)
         node.setAttribute(success, resp.success)

@@ -23,9 +23,9 @@ jmh command line functionality:
 where:
 
 * `<entries files>`: is the full path of the ledger entries
-  files to be used separated by commas (`,`). At the time of writting,
-  entries files can be created by the 
-  `//ledger/participant-state/kvutils/tools:submission-entries-extractor`
+  files to be used separated by commas (`,`). At the time of writing,
+  entries files can be created by the `submission-entries-extractor`
+  residing in a private repository.
 
 * `<exercise choice names>`: is the full qualified choice name of the
   root exercise node to be benchmarked separated by commas (`,`). A full

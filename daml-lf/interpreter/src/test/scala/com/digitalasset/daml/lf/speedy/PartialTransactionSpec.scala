@@ -61,6 +61,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         auth = Authorize(Set(party)),
         targetId = cid,
         templateId = templateId,
+        interfaceId = None,
         choiceId = choiceId,
         optLocation = None,
         consuming = false,

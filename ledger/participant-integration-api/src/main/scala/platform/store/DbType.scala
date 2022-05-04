@@ -39,7 +39,7 @@ object DbType {
         "oracle",
         "oracle.jdbc.OracleDriver",
         supportsParallelWrites = true,
-        //TODO https://github.com/digital-asset/daml/issues/9493
+        // TODO https://github.com/digital-asset/daml/issues/9493
         supportsAsynchronousCommits = false,
       )
 

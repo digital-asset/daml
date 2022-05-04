@@ -10,7 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
-  ParameterStorageBackendTemplate,
+  ParameterStorageBackendImpl,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
@@ -22,12 +22,12 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       participantAllDivulgedContractsPrunedUpToInclusive =
-        ParameterStorageBackendTemplate.participantAllDivulgedContractsPrunedUpToInclusive,
+        ParameterStorageBackendImpl.participantAllDivulgedContractsPrunedUpToInclusive,
     ) {
 
   /** If `pruneAllDivulgedContracts` is set, validate that the pruning offset is after
     * the last event offset that was ingested before the migration to append-only schema (if such event offset exists).
-    * (see [[com.daml.platform.store.appendonlydao.JdbcLedgerDao.prune]])
+    * (see [[com.daml.platform.store.dao.JdbcLedgerDao.prune]])
     */
   override def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,
@@ -35,7 +35,7 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
       connection: Connection,
   ): Boolean =
     if (pruneAllDivulgedContracts) {
-      import com.daml.platform.store.Conversions.OffsetToStatement
+      import com.daml.platform.store.backend.Conversions.OffsetToStatement
       def selectFrom(table: String) = cSQL"""
          (select max(event_offset) as max_event_offset
          from #$table, participant_migration_history_v100

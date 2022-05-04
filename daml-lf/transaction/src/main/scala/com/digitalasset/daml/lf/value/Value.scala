@@ -7,7 +7,7 @@ package value
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, StablePackage}
 import data.ScalazEqual._
 
 import scalaz.{@@, Equal, Order, Tag}
@@ -103,11 +103,8 @@ object Value {
   ) extends Value
 
   object ValueArithmeticError {
-    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
-    // See test compiler/damlc/tests/src/stable-packages.sh
-    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
-      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
-    )
+    val tyCon: Ref.TypeConName =
+      StablePackage.DA.Exception.ArithmeticError.assertIdentifier("ArithmeticError")
     val typ: Ast.Type = Ast.TTyCon(tyCon)
     private val someTyCon = Some(tyCon)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")

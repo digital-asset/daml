@@ -54,7 +54,7 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
     case class Reject(parties: Set[String])(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(cause = s"Parties not known on ledger: ${parties
-          .mkString("[", ",", "]")}") {
+            .mkString("[", ",", "]")}") {
       override def resources: Seq[(ErrorResource, String)] =
         parties.map((ErrorResource.Party, _)).toSeq
     }

@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: templates
+Reference: Templates
 ####################
 
 This page gives reference information on templates:
@@ -10,7 +10,7 @@ For the structure of a template, see :doc:`structure`.
 
 .. _daml-ref-template-name:
 
-Template name
+Template Name
 *************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -24,7 +24,7 @@ Template name
 
 .. _daml-ref-template-parameters:
 
-Template parameters
+Template Parameters
 *******************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -55,7 +55,7 @@ Template-local Definitions
 
 .. _daml-ref-signatories:
 
-Signatory parties
+Signatory Parties
 *****************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -140,7 +140,7 @@ Preconditions
 
 .. _daml-ref-maintainers:
 
-Contract keys and maintainers
+Contract Keys and Maintainers
 *****************************
 
 .. literalinclude:: ../code-snippets/Reference.daml

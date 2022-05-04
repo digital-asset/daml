@@ -297,9 +297,9 @@ object ScenarioLedger {
       richTransaction: RichTransaction,
   )
 
-  //----------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // Enriching transactions with disclosure information
-  //----------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
 
   def collectCoids(value: VersionedValue): Set[ContractId] =
     collectCoids(value.unversioned)

@@ -33,7 +33,7 @@ Participant Nodes advertise the Ledger API version they support via the :ref:`ve
 
 As a concrete example, Daml for Postgres 1.4.0 has the Participant Node integrated, and exposes Ledger API version 1.4.0 and the Daml for VMware Blockchain 1.0 Participant Nodes expose Ledger API version 1.6.0. So any application that runs on Daml for Postgres 1.4.0 will also run on Daml for VMware Blockchain 1.0.
 
-List of Ledger API Versions supported by Daml
+List of Ledger API Versions Supported by Daml
 =============================================
 
 The below lists with which Daml version a new Ledger API version was introduced.
@@ -94,6 +94,23 @@ Driver and Participant Compatibility: Network Upgradeability
 Given the Ledger API Compatibility above, network upgrades are seamless if they preserve data, and Participant Nodes keep exposing the same or a newer minor version of the same major Ledger API Version. The semantic versioning of Daml drivers and participant nodes gives this guarantee. Upgrades from one minor version to another are data preserving, and major Ledger API versions may only be removed with a new major version of integration components, Daml drivers and Participant Nodes.
 
 As an example, from an application standpoint, the only effect of upgrading Daml for Postgres 1.4.0 to Daml for Postgres 1.6.0 is an uptick in the Ledger API version. There may be significant changes to components or database schemas, but these are not public APIs. 
+
+Participant database migration
+==============================
+
+Participant Nodes automatically manage their database schema. The database schema is tied to the Daml version, and schema migrations are always data preserving. The below lists which Daml version can be upgraded from which Daml version.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Daml SDK version
+     - Upgradeable from
+   * - 2.1
+     - 1.7 or later
+   * - <= 2.0
+     - 1.0 or later
+
+As an example, to upgrade a Participant Node built with Daml 1.4.0 to a version built with Daml 2.1, the operator should first upgrade to Daml 1.7 (or any other version between 1.7 and and 2.0), then upgrade to Daml 2.1.
 
 SDK, Runtime Component, and Library Compatibility: Daml Upgradeability
 **********************************************************************

@@ -1,14 +1,14 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: functions
+Reference: Functions
 ####################
 
 This page gives reference information on functions in Daml.
 
 Daml is a functional language. It lets you apply functions partially and also have functions that take other functions as arguments. This page discusses these *higher-order functions*.
 
-Defining functions
+Defining Functions
 ******************
 
 In :doc:`expressions`, the ``tubeSurfaceArea`` function was defined as:
@@ -23,7 +23,7 @@ You can define this function equivalently using lambdas, involving ``\``, a sequ
    :language: daml
    :lines: 13-14
 
-Partial application
+Partial Application
 *******************
 
 The type of the ``tubeSurfaceArea`` function described previously, is ``Decimal -> Decimal -> Decimal``. An equivalent, but more instructive, way to read its type is: ``Decimal -> (Decimal -> Decimal)``: saying that ``tubeSurfaceArea`` is a function that takes *one* argument and returns another function.
@@ -46,7 +46,7 @@ You could also define equivalent lambda functions:
    :language: daml
    :lines: 20-22
 
-Functions are values
+Functions are Values
 ********************
 
 The function type can be explicitly added to the ``tubeSurfaceArea`` function (when it is written with the lambda notation):
@@ -69,7 +69,7 @@ The :ref:`daml-ref-folding` section looks into two useful built-in functions, ``
 
 .. note:: Daml does not allow functions as parameters of contract templates and contract choices. However, a follow up of a choice can use built-in functions, defined at the top level or in the contract template body.
 
-Generic functions
+Generic Functions
 *****************
 
 A function is *parametrically polymorphic* if it behaves uniformly for all types, in at least one of its type parameters. For example, you can define function composition as follows:

@@ -8,24 +8,75 @@ template Foo1
     signatory : Party
     observers : [Party]
     payload : Text
+    id: Int
   where
     signatory signatory
     observer observers
+    key (signatory, id): (Party, Int)
+    maintainer key._1
+
+    nonconsuming choice Foo1_NonconsumingChoice: ()
+      with
+        exercisePayload: Text
+      controller signatory
+      do
+        return ()
+
+    choice Foo1_ConsumingChoice: ()
+      with
+          exercisePayload: Text
+      controller signatory
+      do
+          return ()
 
 template Foo2
   with
     signatory : Party
     observers : [Party]
     payload : Text
+    id: Int
   where
     signatory signatory
     observer observers
+    key (signatory, id): (Party, Int)
+    maintainer key._1
+
+    nonconsuming choice Foo2_NonconsumingChoice: ()
+      with
+        exercisePayload: Text
+      controller signatory
+      do
+        return ()
+
+    choice Foo2_ConsumingChoice: ()
+      with
+         exercisePayload: Text
+      controller signatory
+      do
+         return ()
 
 template Foo3
   with
     signatory : Party
     observers : [Party]
     payload : Text
+    id: Int
   where
     signatory signatory
     observer observers
+    key (signatory, id): (Party, Int)
+    maintainer key._1
+
+    nonconsuming choice Foo3_NonconsumingChoice: ()
+      with
+        exercisePayload: Text
+      controller signatory
+      do
+        return ()
+
+    choice Foo3_ConsumingChoice: ()
+      with
+          exercisePayload: Text
+      controller signatory
+      do
+          return ()

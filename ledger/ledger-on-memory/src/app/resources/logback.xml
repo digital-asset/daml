@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  ~ Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-  ~ SPDX-License-Identifier: Apache-2.0
-  -->
-
-<configuration>
-    <include resource="com/daml/ledger/participant/state/kvutils/app/logback.base.xml"/>
-</configuration>

@@ -4,7 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
@@ -1698,12 +1697,7 @@ object SBuiltinTest {
 
   private val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
-  private def mapEntry(k: String, v: SValue) = {
-    val args = new util.ArrayList[SValue](2)
-    args.add(SText(k))
-    args.add(v)
-    SStruct(entryFields, args)
-  }
+  private def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArrayList(SText(k), v))
 
   private def lit2string(x: SValue): String =
     x match {

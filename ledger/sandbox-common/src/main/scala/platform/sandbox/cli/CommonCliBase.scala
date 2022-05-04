@@ -286,13 +286,6 @@ class CommonCliBase(name: LedgerName) {
           config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
         )
 
-      opt[Int]("acs-id-queue-limit")
-        .optional()
-        .text(
-          s"Maximum number of contract ids queued for fetching. Default is ${SandboxConfig.DefaultAcsIdQueueLimit}."
-        )
-        .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
-
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
@@ -520,7 +513,7 @@ object CommonCliBase {
       val raf = new RandomAccessFile(f, "r")
       val n = raf.readInt
       raf.close()
-      n == 0x504b0304 //non-empty, non-spanned ZIPs are always beginning with this
+      n == 0x504b0304 // non-empty, non-spanned ZIPs are always beginning with this
     }.getOrElse(false)
   }
 

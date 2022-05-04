@@ -547,6 +547,28 @@ test("create + fetch & exercise", async () => {
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
 });
 
+describe("interface definition", () => {
+  const tpl = buildAndLint.Main.Asset;
+  const if1 = buildAndLint.Main.Token;
+  const if2 = buildAndLint.Lib.Mod.Other;
+  test("separate object from template", () => {
+    expect(if1).not.toBe(tpl);
+    expect(if2).not.toBe(tpl);
+  });
+  test("template IDs not overwritten", () => {
+    expect(if1.templateId).not.toEqual(tpl.templateId);
+    expect(if2.templateId).not.toEqual(tpl.templateId);
+  });
+  test("choices not copied to interfaces", () => {
+    const key1 = "Transfer";
+    const key2 = "Something";
+    expect(if1).toHaveProperty(key1);
+    expect(if2).toHaveProperty(key2);
+    expect(if1).not.toHaveProperty(key2);
+    expect(if2).not.toHaveProperty(key1);
+  });
+});
+
 test("interfaces", async () => {
   const aliceLedger = new Ledger({
     token: ALICE_TOKEN,

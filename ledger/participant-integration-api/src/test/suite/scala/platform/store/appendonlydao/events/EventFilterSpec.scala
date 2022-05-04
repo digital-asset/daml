@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao.events
+package com.daml.platform.store.dao.events
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.event.{
 }
 import com.daml.ledger.api.v1.value.{Identifier => ApiIdentifier, Record}
 import com.daml.platform.api.v1.event.EventOps.EventOps
-import com.daml.platform.store.appendonlydao.events.EventFilter
+import com.daml.platform.store.dao.events.EventFilter
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
