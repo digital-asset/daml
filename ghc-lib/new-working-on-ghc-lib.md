@@ -5,8 +5,7 @@ SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by Daml and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
 
-Here are instructions for when working on Daml surface syntax, as implemented in the the digital-assert fork of `ghc`. (linked in via `ghc-lib`).
-
+Here are instructions for when working on Daml surface syntax, as implemented in the the digital-assert fork of `ghc`. (linked in via `ghc-lib`, see [ghc-lib](/bazel_tools/ghc-lib/).
 
 ### Cloning the digital-assert fork of `ghc`
 
@@ -50,6 +49,48 @@ The quickest way to build and test is:
 
 Step 1 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 2 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`
 
+
+### Interactive development workflow
+
+While working on GHC, you can integrate your changes directly into the `daml` project as follows.
+
+1. Make initial clone from the main ghc gitlab repo:
+   ```
+   git clone --recurse-submodules https://gitlab.haskell.org/ghc/ghc.git
+   cd ghc
+   ```
+
+2. Add the DA fork as a remote
+   ```
+   git remote add da-fork git@github.com:digital-asset/ghc.git
+   git fetch da-fork
+   ```
+
+3. Checkout the version of interest (usually `GHC_REV` from [`/bazel_tools/ghc-lib/version.bzl`]) and update the submodules:
+   ```
+   git checkout da-master-8.8.1
+   git submodule update --init --recursive
+   ```
+
+4. Add `WORKSPACE` and `BUILD` file:
+   ```
+   cp ../daml/bazel_tools/ghc-lib/BUILD.ghc BUILD
+   touch WORKSPACE
+   ```
+
+5. Apply the patches (in `GHC_PATCHES` from [`/bazel_tools/ghc-lib/version.bzl`]):
+   ```
+   git apply ../daml/bazel_tools/ghc-lib/ghc-daml-prim.patch
+   git apply ../daml/bazel_tools/ghc-lib/ghc-hadrian.patch
+   ```
+
+6. Make additional changes...  
+
+7. Build from your local checkout of GHC:
+   ```
+   cd ../daml
+   bazel build --override_repository=da-ghc="$( cd ../ghc ; pwd )" //...
+   ```
 
 ### Building `daml` following a change to `ghc`
 
