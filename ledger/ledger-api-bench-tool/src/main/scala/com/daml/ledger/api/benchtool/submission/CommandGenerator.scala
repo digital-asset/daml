@@ -3,7 +3,11 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.{FibonacciSubmissionConfig, FooSubmissionConfig, SubmissionConfig}
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.{
+  FibonacciSubmissionConfig,
+  FooSubmissionConfig,
+  SubmissionConfig,
+}
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.client.binding.Primitive
 
