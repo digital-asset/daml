@@ -5,9 +5,9 @@ package com.daml.ledger.sandbox
 
 import com.daml.ledger.runner.common.{ConfigProvider, LegacyCliConfig}
 import com.daml.ledger.sandbox.BridgeConfigProvider.DefaultMaximumDeduplicationDuration
-import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
-import pureconfig.{ConfigReader, ConfigWriter}
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
+import pureconfig.{ConfigReader, ConfigWriter}
 import scopt.OptionParser
 
 import java.time.Duration
@@ -15,7 +15,6 @@ import java.time.Duration
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     submissionBufferSize: Int,
-    implicitPartyAllocation: Boolean,
 )
 
 object BridgeConfig {
@@ -24,8 +23,6 @@ object BridgeConfig {
 }
 
 class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
-  override def partyConfig(extra: BridgeConfig): PartyConfiguration =
-    PartyConfiguration(implicitPartyAllocation = extra.implicitPartyAllocation)
 
   override def extraConfigParser(parser: OptionParser[LegacyCliConfig[BridgeConfig]]): Unit = {
     parser
@@ -42,7 +39,7 @@ class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     parser
       .opt[Boolean](name = "implicit-party-allocation")
       .optional()
-      .action((x, c) => c.copy(extra = c.extra.copy(implicitPartyAllocation = x)))
+      .action((x, c) => c.copy(implicitPartyAllocation = x))
       .text(
         s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring participant into line with other ledgers."
@@ -68,7 +65,6 @@ class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
     conflictCheckingEnabled = true,
     submissionBufferSize = 500,
-    implicitPartyAllocation = false,
   )
 
 }

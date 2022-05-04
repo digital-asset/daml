@@ -18,6 +18,7 @@ import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
+import com.daml.platform.configuration.PartyConfiguration
 import com.google.common.primitives.Longs
 
 import java.time.Duration
@@ -44,7 +45,7 @@ object LedgerBridge {
     if (bridgeConfig.conflictCheckingEnabled)
       buildConfigCheckingLedgerBridge(
         participantConfig,
-        bridgeConfig,
+        participantConfig.apiServer.party,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
@@ -58,7 +59,7 @@ object LedgerBridge {
 
   private def buildConfigCheckingLedgerBridge(
       participantConfig: ParticipantConfig,
-      bridgeConfig: BridgeConfig,
+      partyConfig: PartyConfiguration,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
@@ -85,7 +86,7 @@ object LedgerBridge {
       initialAllocatedParties = allocatedPartiesAtInitialization,
       initialLedgerConfiguration = initialLedgerConfiguration,
       bridgeMetrics = bridgeMetrics,
-      validatePartyAllocation = !bridgeConfig.implicitPartyAllocation,
+      validatePartyAllocation = !partyConfig.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)

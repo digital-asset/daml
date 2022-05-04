@@ -19,7 +19,6 @@ import scopt.OptionParser
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
-import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.JavaDurationOps
 
@@ -74,7 +73,8 @@ trait ConfigProvider[ExtraConfig] {
       userManagement = cliConfig.userManagementConfig,
       authentication = cliConfig.authService,
       command = cliConfig.commandConfig,
-      party = partyConfig(cliConfig.extra),
+      party = PartyConfiguration.Default
+        .copy(implicitPartyAllocation = cliConfig.implicitPartyAllocation),
       timeProviderType = cliConfig.timeProviderType,
       database = DbConfig(
         jdbcUrl = config.serverJdbcUrl,
@@ -106,8 +106,6 @@ trait ConfigProvider[ExtraConfig] {
       }.toMap,
     )
   }
-
-  def partyConfig(@unused extra: ExtraConfig): PartyConfiguration = PartyConfiguration.Default
 
   def initialLedgerConfig(
       maxDeduplicationDuration: Option[Duration]
