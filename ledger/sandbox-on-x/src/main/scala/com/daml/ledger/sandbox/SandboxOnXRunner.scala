@@ -43,7 +43,6 @@ import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserMana
 import com.daml.resources.{AbstractResourceOwner, ProgramResource}
 import com.typesafe.config.ConfigFactory
 
-import java.time.Duration
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
@@ -188,10 +187,7 @@ object SandboxOnXRunner {
             servicesThreadPoolSize,
             timeServiceBackend,
             participantConfig,
-            bridgeConfig,
-            configProvider
-              .initialLedgerConfig(participantConfig.maxDeduplicationDuration)
-              .maxDeduplicationDuration,
+            bridgeConfig
           )
 
           apiServer <- buildStandaloneApiServer(
@@ -332,7 +328,6 @@ object SandboxOnXRunner {
       timeServiceBackend: Option[TimeServiceBackend],
       participantConfig: ParticipantConfig,
       bridgeConfig: BridgeConfig,
-      maxDeduplicationDuration: Duration,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -347,7 +342,6 @@ object SandboxOnXRunner {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeServiceBackend.getOrElse(TimeProvider.UTC),
-        maxDeduplicationDuration,
       )
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
