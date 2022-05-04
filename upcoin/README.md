@@ -30,7 +30,7 @@ This design defines an interface `AnyCoin` which captures the idea that anything
 
 And even for coins which are well behaved, we would like to support the idea of different coins having different values.
 
-To address these concerns, we allow the invoice issuer can choose what coins are deemed _acceptable_ and how each kind of coin is valued, by having the `Invoice` contract contain an `AcceptedCoins` _whitelist_, which maps different kinds of coin to the value chosen by the invoicer.
+To address these concerns, we allow the invoice issuer to choose what coins are deemed _acceptable_ and how each kind of coin is valued, by having the `Invoice` contract contain an `AcceptedCoins` _whitelist_, which maps different kinds of coin to the value chosen by the invoicer.
 
 This design allow new kinds of coins to be introduced into the system even after the original system is deployed. The set of acceptable coins is chosen only when an invoice is raised, on a per-invoice basis.
 
