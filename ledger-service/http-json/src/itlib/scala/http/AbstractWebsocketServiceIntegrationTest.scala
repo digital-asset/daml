@@ -976,7 +976,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
         .runWith(Sink.seq)
     } yield inside(streamError) { case Seq(TextMessage.Strict(text)) =>
       val errorResponse = decodeErrorResponse(text)
-      errorResponse.status shouldBe StatusCodes.InternalServerError
+      errorResponse.status shouldBe StatusCodes.BadRequest
+      errorResponse.ledgerApiError
+        .map { it =>
+          it.code shouldBe 9
+          it.message should include("PARTICIPANT_PRUNED_DATA_ACCESSED")
+        }
+        .getOrElse(fail("ledger api error was expected to be included in the response"))
     }
   }
 

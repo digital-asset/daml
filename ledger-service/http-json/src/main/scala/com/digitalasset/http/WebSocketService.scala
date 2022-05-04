@@ -699,7 +699,7 @@ class WebSocketService(
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
-      .recover { case NonFatal(ex) => -\/(ServerError(ex)) }
+      .recover { case NonFatal(ex) => -\/(Error.fromThrowable(ex)) }
       .map(
         _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
       )
