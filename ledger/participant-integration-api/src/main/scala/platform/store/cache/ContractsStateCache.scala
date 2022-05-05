@@ -4,13 +4,14 @@
 package com.daml.platform.store.cache
 
 import com.daml.caching.SizedCache
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
 
 object ContractsStateCache {
-  def apply(initialCacheIndex: Long, cacheSize: Long, metrics: Metrics)(implicit
+  def apply(initialCacheIndex: Offset, cacheSize: Long, metrics: Metrics)(implicit
       ec: ExecutionContext
   ): StateCache[ContractId, ContractStateValue] =
     new StateCache(

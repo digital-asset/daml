@@ -70,7 +70,7 @@ final class BuffersUpdaterSpec
         subscribeToTransactionLogUpdates = { _ => source },
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
-        updateMutableCache = contractStateMock += _,
+        updateMutableCache = contractStateMock ++= _,
         executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 10.millis,
         sysExitWithCode = _ => fail("should not be triggered"),

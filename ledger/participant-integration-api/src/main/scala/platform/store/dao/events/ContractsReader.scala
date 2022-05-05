@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import com.codahale.metrics.Timer
 import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.{Contract, ContractId, Identifier, Key, Party, Value}
@@ -33,7 +34,7 @@ private[dao] sealed class ContractsReader(
     * @param validAt the event_sequential_id of the ledger at which to query for the key state
     * @return the key state.
     */
-  override def lookupKeyState(key: Key, validAt: Long)(implicit
+  override def lookupKeyState(key: Key, validAt: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[KeyState] =
     Timed.future(
@@ -43,7 +44,7 @@ private[dao] sealed class ContractsReader(
       ),
     )
 
-  override def lookupContractState(contractId: ContractId, before: Long)(implicit
+  override def lookupContractState(contractId: ContractId, before: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractState]] = {
     implicit val errorLogger: ContextualizedErrorLogger =

@@ -111,7 +111,7 @@ private[events] class BufferedTransactionsReader(
 
   override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
       implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
+  ): Source[((Offset, Long), Vector[ContractStateEvent]), NotUsed] =
     throw new UnsupportedOperationException(
       s"getContractStateEvents is not supported on ${getClass.getSimpleName}"
     )

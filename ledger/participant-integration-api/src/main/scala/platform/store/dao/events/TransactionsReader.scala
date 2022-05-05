@@ -399,12 +399,14 @@ private[dao] final class TransactionsReader(
 
   override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
       implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed] = {
+  ): Source[((Offset, Long), Vector[ContractStateEvent]), NotUsed] = {
 
     val endMarker = Source.single(
-      endInclusive -> ContractStateEvent.LedgerEndMarker(
-        eventOffset = endInclusive._1,
-        eventSequentialId = endInclusive._2,
+      endInclusive -> Vector(
+        ContractStateEvent.LedgerEndMarker(
+          eventOffset = endInclusive._1,
+          eventSequentialId = endInclusive._2,
+        )
       )
     )
 
@@ -446,11 +448,17 @@ private[dao] final class TransactionsReader(
         )
       }
       .map(event => (event.eventOffset, event.eventSequentialId) -> event)
-      .mapMaterializedValue(_ => NotUsed)
+
+    val groupedByOffset = TransactionsReader
+      .groupContiguous(contractStateEventsSource)(by = { case ((offset, _), _) => offset })
+      .map { v =>
+        val offset = v.head._1
+        offset -> v.map(_._2)
+      }
 
     InstrumentedSource
       .bufferedSource(
-        original = contractStateEventsSource,
+        original = groupedByOffset,
         counter = metrics.daml.index.contractStateEventsBufferSize,
         size = outputStreamBufferSize,
       )
