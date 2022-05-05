@@ -486,7 +486,6 @@ camelcase 6.3.0 : MIT License
 camelcase-keys 2.1.0 : MIT License
 camelize 1.0.0 : MIT License
 caniuse-lite 1.0.30001260 : Creative Commons Attribution 4.0
-caniuse-lite 1.0.30001335 : Creative Commons Attribution 4.0
 Cardinal 2.1.1 : MIT License
 case-sensitive-paths-webpack-plugin 2.4.0 : MIT License
 Cats core 2.6.1 : MIT License
@@ -720,7 +719,6 @@ ekmett/free v5.1.7 : BSD 3-clause "New" or "Revised" License
 ekmett/profunctors v5.6.2 : BSD 3-clause "New" or "Revised" License
 ekmett/void v0.7.3 : BSD 3-clause "New" or "Revised" License
 electron-to-chromium 1.3.850 : ISC License
-electron-to-chromium 1.4.132 : ISC License
 elegant-spinner 1.0.1 : MIT License
 elliptic v6.5.4 : MIT License
 emittery v0.8.1 : MIT License
@@ -5567,7 +5565,7 @@ POSSIBILITY OF SUCH DAMAGES.
 ---
 
 Creative Commons Attribution 4.0
-(caniuse-lite 1.0.30001260, caniuse-lite 1.0.30001335)
+(caniuse-lite 1.0.30001260)
 
 Creative Commons Attribution 4.0
 ================================
@@ -8360,7 +8358,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 ---
 
 ISC License
-(@apollographql/graphql-language-service-interface 2.0.2, @apollographql/graphql-language-service-parser 2.0.2, @apollographql/graphql-language-service-types 2.0.2, @apollographql/graphql-language-service-utils 2.0.2, @oclif/linewrap 1.0.0, boolbase 1.0.0, electron-to-chromium 1.3.850, electron-to-chromium 1.4.132, hosted-git-info 4.1.0, http-call 5.3.0, minimatch 3.0.7, minimatch 3.1.2, node-glob 7.2.0, node-graceful-fs 4.2.10, node-graceful-fs 4.2.8, node-graceful-fs 4.2.9, node-semver 7.3.7, picocolors 1.0.0, tapjs/signal-exit 3.0.6, tapjs/signal-exit 3.0.7, th-abstraction 0.4.3.0, tty 1.0.1, v8-to-istanbul 8.1.1, wide-align 1.1.5, yargs-parser 20.2.9)
+(@apollographql/graphql-language-service-interface 2.0.2, @apollographql/graphql-language-service-parser 2.0.2, @apollographql/graphql-language-service-types 2.0.2, @apollographql/graphql-language-service-utils 2.0.2, @oclif/linewrap 1.0.0, boolbase 1.0.0, electron-to-chromium 1.3.850, hosted-git-info 4.1.0, http-call 5.3.0, minimatch 3.0.7, minimatch 3.1.2, node-glob 7.2.0, node-graceful-fs 4.2.10, node-graceful-fs 4.2.8, node-graceful-fs 4.2.9, node-semver 7.3.7, picocolors 1.0.0, tapjs/signal-exit 3.0.6, tapjs/signal-exit 3.0.7, th-abstraction 0.4.3.0, tty 1.0.1, v8-to-istanbul 8.1.1, wide-align 1.1.5, yargs-parser 20.2.9)
 
 ISC License (ISCL)
 ==================
