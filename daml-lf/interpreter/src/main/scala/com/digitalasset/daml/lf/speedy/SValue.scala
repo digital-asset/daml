@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -16,6 +15,7 @@ import com.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
+import scala.collection.IndexedSeqView
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
@@ -114,38 +114,6 @@ sealed trait SValue {
     }
     go(this)
   }
-
-  def mapContractId(f: V.ContractId => V.ContractId): SValue = {
-    import ArrayList.Implicits._
-    this match {
-      case SContractId(coid) => SContractId(f(coid))
-      case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
-      case SPAP(prim, args, arity) =>
-        val prim2 = prim match {
-          case PClosure(label, expr, vars) =>
-            PClosure(label, expr, vars.map(_.mapContractId(f)))
-          case _: PBuiltin => prim
-        }
-        SPAP(prim2, args.map(_.mapContractId(f)), arity)
-      case SRecord(tycon, fields, values) =>
-        SRecord(tycon, fields, values.map(_.mapContractId(f)))
-      case SStruct(fields, values) =>
-        SStruct(fields, values.map(_.mapContractId(f)))
-      case SVariant(tycon, variant, rank, value) =>
-        SVariant(tycon, variant, rank, value.mapContractId(f))
-      case SList(lst) =>
-        SList(lst.map(_.mapContractId(f)))
-      case SOptional(mbV) =>
-        SOptional(mbV.map(_.mapContractId(f)))
-      case SMap(isTextMap, value) =>
-        SMap(
-          isTextMap,
-          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) },
-        )
-      case SAny(ty, value) =>
-        SAny(ty, value.mapContractId(f))
-    }
-  }
 }
 
 object SValue {
@@ -217,25 +185,29 @@ object SValue {
   }
 
   object SMap {
-    implicit def `SMap Ordering`: Ordering[SValue] = svalue.Ordering
+    private[this] implicit def ordering: Ordering[SValue] = svalue.Ordering
 
     @throws[SError.SError]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
-    def comparable(k: SValue): Unit = {
-      discard[Int](`SMap Ordering`.compare(k, k))
+    def comparable(k: SValue): Unit = discard[Int](ordering.compare(k, k))
+
+    // O(n)
+    def fromOrderedEntries(
+        isTextMap: Boolean,
+        entries: IndexedSeqView[(SValue, SValue)],
+    ): SMap = {
+      if (entries.size == 1) comparable(entries.head._1)
+      SMap(isTextMap, TreeMapFactory.fromOrderedEntries(entries))
     }
 
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
+    // O(n.log(n))
+    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
       SMap(
         isTextMap,
-        entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
+        entries.iterator.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
-    }
 
-    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
-      SMap(isTextMap: Boolean, entries.iterator)
   }
-
   // represents Any And AnyException
   final case class SAny(ty: Type, value: SValue) extends SValue
 
