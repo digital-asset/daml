@@ -643,6 +643,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           ) { case \/-(response) =>
             response.status shouldBe StatusCodes.OK
             response.warnings shouldBe empty
+            response.result.completionOffset.unwrap should not be empty
             inside(response.result.events) {
               case List(
                     domain.Contract(\/-(created0)),
@@ -693,7 +694,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           .map { case (status, output) =>
             status shouldBe StatusCodes.OK
             decode1[domain.OkResponse, domain.CreateCommandResponse[JsValue]](output) match {
-              case \/-(it) => it.result.completionOffset
+              case \/-(it) => it.result.completionOffset.unwrap should not be empty
               case _ => fail()
             }
           }
@@ -719,7 +720,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       headers: List[HttpHeader],
   ): Future[Assertion] = {
     inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](exerciseResponse)) {
-      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2), _)) =>
+      case \/-(
+            domain.ExerciseResponse(
+              JsString(exerciseResult),
+              List(contract1, contract2),
+              completionOffset,
+            )
+          ) =>
+        completionOffset.unwrap should not be empty
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
           Future {
