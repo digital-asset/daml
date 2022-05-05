@@ -31,7 +31,9 @@ object TreeMapFactory {
   }
 
   // Linear builder for TreeMap
-  // Verify the entries are in order
+  // Verifies the entries are in order
+  // Relies on the fact that TreeMap.from uses an linear builder when the argument is a SortedMap
+  // instead a n.log(n) builder for generic traversal
   def fromOrderedEntries[K, V](entries: IndexedSeqView[(K, V)])(implicit
       ordering: Ordering[K]
   ): TreeMap[K, V] =
