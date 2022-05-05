@@ -715,7 +715,7 @@ private[lf] final class PhaseOne(
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            Return(t.ChoiceDefRef(tmplId, chId)(cid, arg))
+            Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
       case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
@@ -723,10 +723,10 @@ private[lf] final class PhaseOne(
           compileExp(env, arg) { arg =>
             compileExp(env, guard) { guard =>
               Return(
-                t.GuardedChoiceDefRef(ifaceId, chId)(
+                t.InterfaceChoiceDefRef(ifaceId, chId)(
+                  guard,
                   cid,
                   arg,
-                  guard,
                 )
               )
             }

@@ -36,7 +36,7 @@ private[lf] final class CommandPreprocessor(
   }
 
   def unsafePreprocessExercise(
-      identifier: Ref.Identifier,
+      typeId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
@@ -52,18 +52,18 @@ private[lf] final class CommandPreprocessor(
       toSpeedyCommand(arg)
     }
 
-    handleLookup(interface.lookupChoice(identifier, choiceId)) match {
+    handleLookup(interface.lookupChoice(typeId, choiceId)) match {
       case ChoiceInfo.Template(choice) =>
-        command(choice, speedy.Command.Exercise(identifier, cid, choiceId, _))
+        command(choice, speedy.Command.ExerciseTemplate(typeId, cid, choiceId, _))
       case ChoiceInfo.Interface(choice) =>
-        command(choice, speedy.Command.ExerciseInterface(identifier, cid, choiceId, _))
+        command(choice, speedy.Command.ExerciseInterface(typeId, cid, choiceId, _))
       case ChoiceInfo.Inherited(ifaceId, choice) =>
-        command(choice, speedy.Command.ExerciseByInterface(ifaceId, identifier, cid, choiceId, _))
+        command(choice, speedy.Command.ExerciseByInterface(ifaceId, typeId, cid, choiceId, _))
       case ChoiceInfo.InterfaceInherited(ifaceId, choice) =>
         command(
           choice,
           speedy.Command
-            .ExerciseByInheritedInterface(ifaceId, identifier, cid, choiceId, _),
+            .ExerciseByInheritedInterface(ifaceId, typeId, cid, choiceId, _),
         )
     }
   }
@@ -75,13 +75,13 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command.Exercise = {
+  ): speedy.Command.ExerciseTemplate = {
     val cid = valueTranslator.unsafeTranslateCid(contractId)
     val choiceArgType = handleLookup(
       interface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
     val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    speedy.Command.Exercise(templateId, cid, choiceId, arg)
+    speedy.Command.ExerciseTemplate(templateId, cid, choiceId, arg)
   }
 
   @throws[Error.Preprocessing.Error]
