@@ -1584,6 +1584,53 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "x = e"
         ]
 
+    , simpleImportTest "Fixities are preserved"
+        [ "module Lib where"
+
+        , "data Pair a b = Pair with"
+        , "  fst : a"
+        , "  snd : b"
+        , "infixr 5 `Pair`"
+
+        , "pair : a -> b -> Pair a b"
+        , "pair = Pair"
+        , "infixr 5 `pair`"
+
+        , "class Category cat where"
+        , "  id : cat a a"
+        , "  (<<<) : cat b c -> cat a b -> cat a c"
+        , "  infixr 1 <<<"
+
+        , "class Category a => Arrow a where"
+        , "  (&&&) : a b c -> a b c' -> a b (c,c')"
+        , "  infixr 3 &&&"
+        ]
+        [ "{-# LANGUAGE TypeOperators #-}"
+        , "module Main where"
+        , "import Lib"
+
+        -- If the fixity of the `Pair` data constructor isn't preserved, it's assumed
+        -- to be infixl 9, so the type would be `Pair (Pair Bool Int) Text` instead.
+        , "x : Pair Bool (Pair Int Text)"
+        , "x = True `Pair` 42 `Pair` \"foo\""
+
+        -- If the fixity of the `Pair` _type_ constructor isn't preserved, it's assumed
+        -- to be infixl 9, so the type would be equivalent to `Pair (Pair Bool Int) Text` instead
+        -- of the expected `Pair Bool (Pair Int Text)`
+        , "x' : Bool `Pair` Int `Pair` Text"
+        , "x' = x"
+
+        -- Like `x`, but using the `pair` function instead of the `Pair` constructor.
+        , "y : Pair Bool (Pair Int Text)"
+        , "y = True `pair` 42 `pair` \"foo\""
+
+        -- If the fixities of `<<<` and `&&&` are not preserved, they are both
+        -- assumed to be infixl 9, so the type would be
+        -- `Arrow arr => arr a b -> arr c a -> arr c (b, c)` instead.
+        , "z : Arrow arr => (arr (a, b) c) -> (arr b a) -> (arr b c)"
+        , "z f g = f <<< g &&& id"
+        ]
+
     , dataDependenciesTestOptions "implement interface from data-dependency"
         [ "--target=1.dev" ]
         [   (,) "Lib.daml"

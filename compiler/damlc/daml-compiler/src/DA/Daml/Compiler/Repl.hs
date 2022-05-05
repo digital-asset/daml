@@ -55,7 +55,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Compile (compileModule, typecheckModule, RunSimplifier(..))
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getExternalPackages, ideErrorPretty, modInfoDepOrphanModules)
+import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getExternalPackages, ideErrorPretty)
 import Development.IDE.Core.Service
 import Development.IDE.Core.Service.Daml (DamlEnv(..), getDamlServiceEnv)
 import Development.IDE.Core.Shake
@@ -66,7 +66,7 @@ import Development.IDE.Types.Options
 import ErrUtils
 import GHC hiding (typecheckModule)
 import GHC.LanguageExtensions.Type
-import HscTypes (HscEnv(..), HscSource(HsSrcFile))
+import HscTypes (HscEnv(..), HscSource(HsSrcFile), HomeModInfo(hm_iface))
 import Language.Haskell.GhclibParserEx.Parse
 import qualified Language.LSP.Types as LSP
 import Module (mainUnitId, unitIdString)
@@ -485,8 +485,8 @@ runRepl importPkgs opts replClient logger ideState = do
             let core = cgGutsToCoreModule safeMode cgGuts details
             PackageMap pkgMap <- useE' GeneratePackageMap file
             stablePkgs <- lift $ useNoFile_ GenerateStablePackages
-            let depOrphanModules = modInfoDepOrphanModules (tmrModInfo tm)
-            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core depOrphanModules details of
+            let modIface = hm_iface (tmrModInfo tm)
+            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core modIface details of
                 Left diag -> handleIdeResult ([diag], Nothing)
                 Right v -> do
                    pkgs <- lift $ getExternalPackages file
