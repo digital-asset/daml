@@ -8,21 +8,20 @@ import Daml.Script
 import DA.Date
 
 -- PRODUCT_TYPE_DEF_BEGIN
-data MyProductType = MyProductType {
-  intField: Int;
-  textField: Text;
-  decimalField: Decimal;
-  boolField: Bool;
-  partyField: Party;
-  timeField: Time;
-  listField: [Int];
-  contractIdField: ContractId SomeTemplate
-}
+data MyProductType = MyProductType with
+  intField : Int
+  textField : Text
+  decimalField : Decimal
+  boolField : Bool
+  partyField : Party
+  timeField : Time
+  listField : [Int]
+  contractIdField : ContractId SomeTemplate
 -- PRODUCT_TYPE_DEF_END
 
 -- SUM_TYPE_DEF_BEGIN
-data MySumType = MySumConstructor1 Int |
-                 MySumConstructor2 (Text, Bool)
+data MySumType = MySumConstructor1 Int
+               | MySumConstructor2 (Text, Bool)
 -- SUM_TYPE_DEF_END
 
 template SomeTemplate
