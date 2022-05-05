@@ -49,8 +49,8 @@ rules_haskell_patches = [
     # This should be upstreamed
     "@com_github_digital_asset_daml//bazel_tools:haskell-arm-m1.patch",
 ]
-rules_nixpkgs_version = "b39b20edc4637032bc65f6a93af888463027767c"
-rules_nixpkgs_sha256 = "69bbc7aceaeab20693ae8bdc46b7d7a208ef3d3f1e5c295bef474d9b2e6aa39f"
+rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
+rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
 rules_nixpkgs_patches = [
     # On CI and locally we observe occasional segmantation faults
     # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
@@ -59,8 +59,6 @@ rules_nixpkgs_patches = [
     # reportedly solves the issue. See
     # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
     "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-arm.patch",
 ]
 
 buildifier_version = "4.0.0"
@@ -124,14 +122,37 @@ def daml_deps():
         )
 
     if "io_tweag_rules_nixpkgs" not in native.existing_rules():
+        # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
+        #
+        # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
+
+        strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
+
         http_archive(
             name = "io_tweag_rules_nixpkgs",
-            strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
+            strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
         )
+
+        http_archive(
+            name = "rules_nixpkgs_core",
+            strip_prefix = strip_prefix + "/core",
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+            sha256 = rules_nixpkgs_sha256,
+            patches = rules_nixpkgs_patches,
+            patch_args = ["-p2"],
+        )
+
+        for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
+            http_archive(
+                name = "rules_nixpkgs_" + toolchain,
+                strip_prefix = strip_prefix + "/toolchains/" + toolchain,
+                urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+                sha256 = rules_nixpkgs_sha256,
+            )
 
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
