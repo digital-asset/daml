@@ -17,18 +17,20 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
 
   it should "deny calls authorized to read/write as the wrong party" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a call authorized to read/write as the wrong party")
+      attackPermissionDenied(threat =
+        "Present a JWT with an unknown party authorized to read/write"
+      )
     ) in {
     expectPermissionDenied(serviceCallWithToken(canActAsRandomParty))
   }
   it should "deny calls authorized to read-only as the wrong party" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a call authorized to read-only as the wrong party")
+      attackPermissionDenied(threat = "Present a JWT with an unknown party authorized to read-only")
     ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsRandomParty))
   }
   it should "deny calls with an invalid signature" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a call with an invalid signature")
+    attackPermissionDenied(threat = "Present a JWT signed by an unknown secret")
   ) in {
     expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
   }

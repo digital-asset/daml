@@ -52,7 +52,7 @@ trait ExpiringStreamServiceCallAuthTests[T]
 
   it should "break a stream in flight upon read-only token expiration" taggedAs securityAsset
     .setAttack(
-      streamAttack(threat = "Exploit a read-only token upon expiration")
+      streamAttack(threat = "Present a read-only JWT upon expiration")
     ) in {
     val _ = Delayed.Future.by(10.seconds)(submitAndWaitAsMainActor())
     expectExpiration(canReadAsMainActorExpiresInFiveSeconds).map(_ => succeed)
@@ -60,7 +60,7 @@ trait ExpiringStreamServiceCallAuthTests[T]
 
   it should "break a stream in flight upon read/write token expiration" taggedAs securityAsset
     .setAttack(
-      streamAttack(threat = "Exploit a read/write token upon expiration")
+      streamAttack(threat = "Present a read/write JWT upon expiration")
     ) in {
     val _ = Delayed.Future.by(10.seconds)(submitAndWaitAsMainActor())
     expectExpiration(canActAsMainActorExpiresInFiveSeconds).map(_ => succeed)

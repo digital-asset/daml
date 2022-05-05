@@ -32,14 +32,14 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   behavior of serviceCallName
 
   it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a call without token")
+    attackUnauthenticated(threat = "Do not present a JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(None))
   }
 
   it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a call with token referring to an unknown user")
+      attackPermissionDenied(threat = "Present a JWT with an unknown user")
     ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
@@ -52,7 +52,7 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   }
 
   it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit an invalid argument for a custom token")
+    attackInvalidArgument(threat = "Present a custom admin JWT")
   ) in {
     expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
   }
