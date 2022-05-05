@@ -205,10 +205,14 @@ private[lf] final class CommandPreprocessor(
             argument,
           ) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
-      case command.ReplayCommand.Fetch(templateId, coid) =>
-        discard(handleLookup(interface.lookupTemplate(templateId)))
+      case command.ReplayCommand.Fetch(typeId, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
-        speedy.Command.Fetch(templateId, cid)
+        handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
+          case Left(_) =>
+            speedy.Command.FetchTemplate(typeId, cid)
+          case Right(_) =>
+            speedy.Command.FetchInterface(typeId, cid)
+        }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)

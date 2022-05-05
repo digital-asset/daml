@@ -986,7 +986,7 @@ private[validation] object Typing {
         typeOfExerciseInterface(tpl, choice, cid, arg, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
-      case UpdateFetch(tpl, cid) =>
+      case UpdateFetchTemplate(tpl, cid) =>
         typeOfFetch(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)

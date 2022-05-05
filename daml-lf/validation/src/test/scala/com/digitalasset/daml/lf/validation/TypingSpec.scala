@@ -377,9 +377,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update Decimal ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
           T"Party → Int64 → (( Update Decimal ))",
-        E"λ (e: ContractId Mod:T) → (( fetch @Mod:T e ))" ->
+        E"λ (e: ContractId Mod:T) → (( fetch_template @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",
-        E"λ (e: ContractId Mod:I) → (( fetch_by_interface @Mod:I e ))" ->
+        E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
           T"ContractId Mod:I → (( Update Mod:I ))",
         E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
           T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
@@ -862,24 +862,24 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               assert(env.interface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
         // UpdFetch
-        E"λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
+        E"λ (e: ContractId Mod:U) → ⸨ fetch_template @Mod:U e ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Template(_), Reference.Template(_)),
                 ) =>
           },
-        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch_template @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
         // UpdFetchInterface
-        E"λ (e: ContractId Mod:U) → ⸨ fetch_by_interface @Mod:U e ⸩" -> //
+        E"λ (e: ContractId Mod:U) → ⸨ fetch_interface @Mod:U e ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Interface(_), Reference.Interface(_)),
                 ) =>
           },
-        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch_by_interface @Mod:I e ⸩" -> //
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch_interface @Mod:I e ⸩" -> //
           { case _: ETypeMismatch => },
         // UpFecthByKey & lookupByKey
         E"""⸨ fetch_by_key @Mod:U "Bob" ⸩""" -> //

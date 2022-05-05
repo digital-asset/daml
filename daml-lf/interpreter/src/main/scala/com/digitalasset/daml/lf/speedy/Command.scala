@@ -62,15 +62,14 @@ private[lf] object Command {
   ) extends Command
 
   /** Fetch a template, not by interface */
-  final case class Fetch(
+  final case class FetchTemplate(
       templateId: Identifier,
       coid: SContractId,
   ) extends Command
 
   /** Fetch a template, by interface */
-  final case class FetchByInterface(
+  final case class FetchInterface(
       interfaceId: Identifier,
-      templateId: Identifier,
       coid: SContractId,
   ) extends Command
 

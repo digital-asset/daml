@@ -694,13 +694,13 @@ private[lf] final class PhaseOne(
         compilePure(env, e)
       case UpdateBlock(bindings, body) =>
         compileBlock(env, bindings, body)
-      case UpdateFetch(tmplId, coid) =>
+      case UpdateFetchTemplate(tmplId, coid) =>
         compileExp(env, coid) { coid =>
-          Return(t.FetchDefRef(tmplId)(coid))
+          Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
       case UpdateFetchInterface(ifaceId, coid) =>
         compileExp(env, coid) { coid =>
-          Return(t.FetchDefRef(ifaceId)(coid))
+          Return(t.FetchInterfaceDefRef(ifaceId)(coid))
         }
       case UpdateEmbedExpr(_, exp) =>
         compileEmbedExpr(env, exp)
