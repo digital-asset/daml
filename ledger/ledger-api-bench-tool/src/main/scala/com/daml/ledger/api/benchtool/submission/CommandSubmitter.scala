@@ -40,9 +40,14 @@ case class CommandSubmitter(
     adminServices: LedgerApiServices,
     metricRegistry: MetricRegistry,
     metricsManager: MetricsManager[LatencyNanos],
+    waitForSubmission: Boolean,
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
-  private val submitAndWaitTimer = metricRegistry.timer("daml_submit_and_wait_latency")
+  private val submitLatencyTimer = if (waitForSubmission) {
+    metricRegistry.timer("daml_submit_and_wait_latency")
+  } else {
+    metricRegistry.timer("daml_submit_latency")
+  }
 
   def prepare(config: SubmissionConfig)(implicit
       ec: ExecutionContext
@@ -87,11 +92,12 @@ case class CommandSubmitter(
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    submitAndWait(
+    submit(
       id = commandId,
       actAs = actAs,
       commands = commands,
       applicationId = names.benchtoolApplicationId,
+      waitForSubmission = true,
     )
   }
 
@@ -151,11 +157,12 @@ case class CommandSubmitter(
       }
     } yield ()
 
-  private def submitAndWait(
+  private def submit(
       id: String,
       actAs: Seq[Primitive.Party],
       commands: Seq[Command],
       applicationId: String,
+      waitForSubmission: Boolean,
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
@@ -168,10 +175,13 @@ case class CommandSubmitter(
       workflowId = names.workflowId,
     )
 
-    for {
-      _ <- benchtoolUserServices.commandService
-        .submitAndWait(makeCommands(commands))
-    } yield ()
+    val future = if (waitForSubmission) {
+      benchtoolUserServices.commandService.submitAndWait(makeCommands(commands))
+    } else {
+      benchtoolUserServices.commandSubmissionService.submit(makeCommands(commands))
+    }
+
+    future.map(_ => ())
   }
 
   private def submitCommands(
@@ -217,12 +227,13 @@ case class CommandSubmitter(
             .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
             .mapAsync(maxInFlightCommands) { case (index, commands) =>
-              timed(submitAndWaitTimer, metricsManager)(
-                submitAndWait(
+              timed(submitLatencyTimer, metricsManager)(
+                submit(
                   id = names.commandId(index),
                   actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
                   commands = commands.flatten,
                   applicationId = generator.nextApplicationId(),
+                  waitForSubmission = config.waitForSubmission,
                 )
               )
                 .map(_ => index + commands.length - 1)
