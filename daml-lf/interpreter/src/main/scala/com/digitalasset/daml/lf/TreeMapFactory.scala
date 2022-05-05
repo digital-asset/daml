@@ -38,4 +38,3 @@ object TreeMapFactory {
     collection.immutable.TreeMap.from(new SortedListAdapter(entries, ordering))
 
 }
-
