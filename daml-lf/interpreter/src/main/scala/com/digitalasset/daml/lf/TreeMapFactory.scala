@@ -1,3 +1,6 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.lf
 
 import scala.collection.IndexedSeqView
@@ -28,10 +31,11 @@ object TreeMapFactory {
   }
 
   // Linear builder for TreeMap
-  // Verify the list is order
+  // Verify the entries are in order
   def fromOrderedEntries[K, V](entries: IndexedSeqView[(K, V)])(implicit
       ordering: Ordering[K]
   ): TreeMap[K, V] =
     collection.immutable.TreeMap.from(new SortedListAdapter(entries, ordering))
 
 }
+
