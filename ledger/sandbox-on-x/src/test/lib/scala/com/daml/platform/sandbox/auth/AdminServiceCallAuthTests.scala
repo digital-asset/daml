@@ -18,7 +18,7 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
       .flatMap { case (_, token) => serviceCallWithToken(token) }
 
   it should "deny calls with an invalid signature" taggedAs adminSecurityAsset.setAttack(
-    attackUnauthenticated(threat = "Present an admin JWT signed by unknown secret")
+    attackUnauthenticated(threat = "Present an admin JWT signed by unknown key")
   ) in {
     expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
   }
@@ -28,7 +28,7 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectUnauthenticated(serviceCallWithToken(canReadAsAdminExpired))
   }
   it should "deny calls with a read-only token" taggedAs adminSecurityAsset.setAttack(
-    attackPermissionDenied(threat = "Present a read-only user JWT for an unknown party")
+    attackPermissionDenied(threat = "Present a read-only user JWT with an unknown party")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsRandomParty))
   }
@@ -65,7 +65,7 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
     )
   }
   it should "deny calls with freshly created non-admin user" taggedAs adminSecurityAsset.setAttack(
-    attackPermissionDenied(threat = "Present a freshly created non-admin user")
+    attackPermissionDenied(threat = "Present a user JWT for a freshly created non-admin user")
   ) in {
     expectPermissionDenied(serviceCallWithFreshUser(Vector.empty))
   }

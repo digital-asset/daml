@@ -40,19 +40,19 @@ trait ServiceCallAuthTests
   def attackPermissionDenied(threat: String): Attack = Attack(
     actor = s"Ledger API client calling $serviceCallName",
     threat = threat,
-    mitigation = s"Refuse to connect the user with PERMISSION_DENIED to $serviceCallName",
+    mitigation = s"Refuse call by the client with PERMISSION_DENIED to $serviceCallName",
   )
 
   def attackInvalidArgument(threat: String): Attack = Attack(
     actor = s"Ledger API client calling $serviceCallName",
     threat = threat,
-    mitigation = s"Refuse to connect the user with INVALID_ARGUMENT to $serviceCallName",
+    mitigation = s"Refuse call by the client with INVALID_ARGUMENT to $serviceCallName",
   )
 
   def attackUnauthenticated(threat: String): Attack = Attack(
     actor = s"Ledger API client calling $serviceCallName",
     threat = threat,
-    mitigation = s"Refuse to connect the user with UNAUTHENTICATED to $serviceCallName",
+    mitigation = s"Refuse call by the client with UNAUTHENTICATED to $serviceCallName",
   )
 
   def streamAttack(threat: String): Attack = Attack(

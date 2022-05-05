@@ -105,7 +105,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny single-party calls authorized to no parties (party)" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a single-party call authorized to no parties (party)"
+        "Execute a single-party call authorized to no parties (party)"
       )
     ) in {
     expectPermissionDenied(
@@ -119,7 +119,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny single-party calls authorized to no parties (actAs)" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a single-party call authorized to no parties (actAs)"
+        "Execute a single-party call authorized to no parties (actAs)"
       )
     ) in {
     expectPermissionDenied(
@@ -133,7 +133,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny single-party calls authorized in read-only mode (party)" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a single-party call authorized in read-only mode (party)"
+        "Execute a single-party call authorized in read-only mode (party)"
       )
     ) in {
     expectPermissionDenied(
@@ -147,7 +147,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny single-party calls authorized in read-only mode (actAs)" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a single-party calls authorized in read-only mode (actAs)"
+        "Execute a single-party call authorized in read-only mode (actAs)"
       )
     ) in {
     expectPermissionDenied(
@@ -161,7 +161,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny single-party calls authorized to a random party (party)" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a single-party call authorized to a random party (party)"
+        "Execute a single-party call authorized to a random party (party)"
       )
     ) in {
     expectPermissionDenied(
@@ -175,7 +175,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny single-party calls authorized to a random party (actAs)" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a single-party call authorized to a random party (actAs)"
+        "Execute a single-party call authorized to a random party (actAs)"
       )
     ) in {
     expectPermissionDenied(
@@ -247,7 +247,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "deny multi-party calls authorized to no parties" taggedAs securityAsset.setAttack(
-    attackPermissionDenied(threat = "Exploit a multi-party call authorized to no parties")
+    attackPermissionDenied(threat = "Execute a multi-party call authorized to no parties")
   ) in {
     expectPermissionDenied(
       serviceCallFor(
@@ -258,7 +258,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "deny multi-party calls authorized to random parties" taggedAs securityAsset.setAttack(
-    attackPermissionDenied(threat = "Exploit a multi-party call authorized to random parties")
+    attackPermissionDenied(threat = "Execute a multi-party call authorized to random parties")
   ) in {
     expectPermissionDenied(
       serviceCallFor(
@@ -271,7 +271,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny multi-party calls with all parties authorized in read-only mode" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a multi-party call with all parties authorized in read-only mode"
+        "Execute a multi-party call with all parties authorized in read-only mode"
       )
     ) in {
     expectPermissionDenied(
@@ -285,7 +285,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny multi-party calls with one missing actor authorization" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a multi-party call with one missing actor authorization"
+        "Execute a multi-party call with one missing actor authorization"
       )
     ) in {
     expectPermissionDenied(
@@ -299,7 +299,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny multi-party calls with one missing reader authorization" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a multi-party call with one missing reader authorization"
+        "Execute a multi-party call with one missing reader authorization"
       )
     ) in {
     expectPermissionDenied(
@@ -313,7 +313,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "deny multi-party calls authorized to swapped actAs/readAs parties" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat =
-        "Exploit a multi-party call authorized to swapped actAs/readAs parties"
+        "Execute a multi-party call authorized to swapped actAs/readAs parties"
       )
     ) in {
     expectPermissionDenied(
