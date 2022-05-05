@@ -33,27 +33,27 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   behavior of serviceCallName
 
   it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a call without token")
+    attackUnauthenticated(threat = "Do not present JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(None))
   }
 
   it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a call with standard token referring to an unknown user")
+      attackPermissionDenied(threat = "Present JWT with an unknown user")
     ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
   it should "return the 'participant_admin' user when using its standard token" taggedAs securityAsset
     .setHappyCase(
-      "Ledger API client can make a call with a standard token"
+      "Ledger API client can make a call with a standard JWT"
     ) in {
     expectUser(canReadAsAdminStandardJWT, User("participant_admin", ""))
   }
 
   it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a call with custom token")
+    attackInvalidArgument(threat = "Present a custom JWT")
   ) in {
     expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
   }
