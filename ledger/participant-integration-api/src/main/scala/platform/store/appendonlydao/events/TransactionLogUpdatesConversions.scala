@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def apply(
-        tx: TransactionLogUpdate.TransactionAccepted,
+        transactionLogUpdate: TransactionLogUpdate,
         filter: FilterRelation,
         wildcardParties: Set[Party],
         templateSpecificParties: Map[events.Identifier, Set[Party]],
@@ -36,39 +36,41 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[FlatTransaction]] = {
-      val transactionEvents = tx.events
-      val filtered = transactionEvents.filter(
-        FlatTransactionPredicate(_, wildcardParties, templateSpecificParties)
-      )
+    ): Future[Option[FlatTransaction]] = transactionLogUpdate match {
+      case tx: TransactionLogUpdate.TransactionAccepted =>
+        val transactionEvents = tx.events
+        val filtered = transactionEvents.filter(
+          FlatTransactionPredicate(_, wildcardParties, templateSpecificParties)
+        )
 
-      filtered.headOption
-        .map { first =>
-          val events = removeTransient(filtered)
-          val requestingParties = filter.keySet
+        filtered.headOption
+          .map { first =>
+            val events = removeTransient(filtered)
+            val requestingParties = filter.keySet
 
-          Future
-            .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
-            .map(_.collect { case Some(value) => value })
-            .map { flatEvents =>
-              // Allows emitting flat transactions with no events, a use-case needed
-              // for the functioning of Daml triggers.
-              // (more details in https://github.com/digital-asset/daml/issues/6975)
-              if (flatEvents.nonEmpty || first.commandId.nonEmpty) {
-                Some(
-                  FlatTransaction(
-                    transactionId = first.transactionId,
-                    commandId = getCommandId(events, requestingParties),
-                    workflowId = first.workflowId,
-                    effectiveAt = Some(timestampToTimestamp(first.ledgerEffectiveTime)),
-                    events = flatEvents,
-                    offset = ApiOffset.toApiString(tx.offset),
+            Future
+              .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
+              .map(_.collect { case Some(value) => value })
+              .map { flatEvents =>
+                // Allows emitting flat transactions with no events, a use-case needed
+                // for the functioning of Daml triggers.
+                // (more details in https://github.com/digital-asset/daml/issues/6975)
+                if (flatEvents.nonEmpty || first.commandId.nonEmpty) {
+                  Some(
+                    FlatTransaction(
+                      transactionId = first.transactionId,
+                      commandId = getCommandId(events, requestingParties),
+                      workflowId = first.workflowId,
+                      effectiveAt = Some(timestampToTimestamp(first.ledgerEffectiveTime)),
+                      events = flatEvents,
+                      offset = ApiOffset.toApiString(tx.offset),
+                    )
                   )
-                )
-              } else None
-            }
-        }
-        .getOrElse(Future.successful(None))
+                } else None
+              }
+          }
+          .getOrElse(Future.successful(None))
+      case _ => Future.successful(Option.empty)
     }
 
     private def removeTransient(aux: Vector[TransactionLogUpdate.Event]) = {
@@ -193,50 +195,53 @@ private[events] object TransactionLogUpdatesConversions {
 
   object ToTransactionTree {
     def apply(
-        tx: TransactionLogUpdate.TransactionAccepted,
+        transactionLogUpdate: TransactionLogUpdate,
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[TransactionTree]] = {
-      val filteredForVisibility = tx.events
-        .filter(TransactionTreePredicate(requestingParties))
+    ): Future[Option[TransactionTree]] = transactionLogUpdate match {
+      case tx: TransactionLogUpdate.TransactionAccepted =>
+        val filteredForVisibility = tx.events
+          .filter(TransactionTreePredicate(requestingParties))
 
-      if (filteredForVisibility.isEmpty) Future.successful(None)
-      else
-        Future
-          .traverse(filteredForVisibility)(
-            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
-          )
-          .map(_.collect { case Some(e) => e })
-          .map { treeEvents =>
-            val visible = treeEvents.map(_.eventId)
-            val visibleSet = visible.toSet
-            val eventsById = treeEvents.iterator
-              .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
-              .toMap
-
-            // All event identifiers that appear as a child of another item in this response
-            val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
-
-            // The roots for this request are all visible items
-            // that are not a child of some other visible item
-            val rootEventIds = visible.filterNot(children)
-
-            Some(
-              TransactionTree(
-                transactionId = tx.transactionId,
-                commandId = getCommandId(filteredForVisibility, requestingParties),
-                workflowId = tx.workflowId,
-                effectiveAt = Some(timestampToTimestamp(tx.effectiveAt)),
-                offset = ApiOffset.toApiString(tx.offset),
-                eventsById = eventsById,
-                rootEventIds = rootEventIds,
-              )
+        if (filteredForVisibility.isEmpty) Future.successful(None)
+        else
+          Future
+            .traverse(filteredForVisibility)(
+              toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
             )
-          }
+            .map(_.collect { case Some(e) => e })
+            .map { treeEvents =>
+              val visible = treeEvents.map(_.eventId)
+              val visibleSet = visible.toSet
+              val eventsById = treeEvents.iterator
+                .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+                .toMap
+
+              // All event identifiers that appear as a child of another item in this response
+              val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+
+              // The roots for this request are all visible items
+              // that are not a child of some other visible item
+              val rootEventIds = visible.filterNot(children)
+
+              Some(
+                TransactionTree(
+                  transactionId = tx.transactionId,
+                  commandId = getCommandId(filteredForVisibility, requestingParties),
+                  workflowId = tx.workflowId,
+                  effectiveAt = Some(timestampToTimestamp(tx.effectiveAt)),
+                  offset = ApiOffset.toApiString(tx.offset),
+                  eventsById = eventsById,
+                  rootEventIds = rootEventIds,
+                )
+              )
+            }
+
+      case _ => Future.successful(Option.empty)
     }
 
     private def toTransactionTreeEvent(

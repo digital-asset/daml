@@ -4,7 +4,6 @@
 package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -25,7 +24,6 @@ import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, event
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.{TransactionAccepted => TxUpdate}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,13 +32,17 @@ private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     toFlatTransaction: (
-        TxUpdate,
+        TransactionLogUpdate,
         FilterRelation,
         Set[Party],
         Map[events.Identifier, Set[Party]],
         Boolean,
     ) => Future[Option[FlatTransaction]],
-    toTransactionTree: (TxUpdate, Set[Party], Boolean) => Future[Option[TransactionTree]],
+    toTransactionTree: (
+        TransactionLogUpdate,
+        Set[Party],
+        Boolean,
+    ) => Future[Option[TransactionTree]],
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
@@ -86,7 +88,7 @@ private[events] class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
-      toApiTx = (tx: TxUpdate, requestingParties: Set[Party], verbose) =>
+      toApiTx = (tx: TransactionLogUpdate, requestingParties: Set[Party], verbose) =>
         toTransactionTree(tx, requestingParties, verbose),
       apiResponseCtor = GetTransactionTreesResponse(_),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
@@ -177,7 +179,7 @@ private[platform] object BufferedTransactionsReader {
       filter: FILTER,
       verbose: Boolean,
   )(
-      toApiTx: (TxUpdate, FILTER, Boolean) => Future[Option[API_TX]],
+      toApiTx: (TransactionLogUpdate, FILTER, Boolean) => Future[Option[API_TX]],
       apiResponseCtor: Seq[API_TX] => API_RESPONSE,
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       sourceTimer: Timer,
@@ -188,35 +190,6 @@ private[platform] object BufferedTransactionsReader {
       bufferSizeCounter: Counter,
       inStreamBufferLength: Counter,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
-    def bufferedSource(
-        slice: Array[(Offset, TransactionLogUpdate)]
-    ): Source[(Offset, API_RESPONSE), NotUsed] =
-      Source
-        .fromIterator(() =>
-          slice
-            .collect { case (offset, tx: TransactionLogUpdate.TransactionAccepted) =>
-              offset -> tx
-            }
-            .iterator
-            .grouped(10)
-        )
-        .collectType[Seq[(Offset, TransactionLogUpdate.TransactionAccepted)]]
-        .buffered(32)(inStreamBufferLength)
-        .mapAsync(2) { batch =>
-          Timed.future(
-            toApiTxTimer,
-            Future.sequence(batch.iterator.map { case (offset, tx) =>
-              toApiTx(tx, filter, verbose).map(offset -> _)
-            }),
-          )
-        }
-        .flatMapConcat(it => Source.fromIterator(() => it))
-        .async
-        .collect { case (offset, Some(tx)) =>
-          resolvedFromBufferCounter.inc()
-          offset -> apiResponseCtor(Seq(tx))
-        }
-
     def getNextChunk(startExclusive: Offset): () => Source[(Offset, API_RESPONSE), NotUsed] = () =>
       getTransactions(transactionsBuffer)(
         startExclusive,
@@ -238,28 +211,19 @@ private[platform] object BufferedTransactionsReader {
 
     val transactionsSource = Timed.source(
       sourceTimer, {
-        transactionsBuffer.slice(startExclusive, endInclusive) match {
+        transactionsBuffer.slice[API_RESPONSE](
+          startExclusive,
+          endInclusive,
+          toApiTx(_, filter, verbose).map(_.map(tx => apiResponseCtor(Seq(tx)))),
+          getNextChunk,
+        ) match {
           case BufferSlice.Empty =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          case BufferSlice.EmptyPrefix =>
-            fetchTransactions(startExclusive, endInclusive, filter, verbose)
+          case BufferSlice.Prefix(headOffset, source) =>
+            fetchTransactions(startExclusive, headOffset, filter, verbose).concat(source)
 
-          case BufferSlice.Prefix(head, tail, isChunked) =>
-            if (tail.length == 0)
-              fetchTransactions(startExclusive, endInclusive, filter, verbose)
-            else
-              fetchTransactions(startExclusive, head._1, filter, verbose)
-                .concat(bufferedSource(tail))
-                .concatLazy {
-                  if (isChunked) Source.lazySource(getNextChunk(tail.last._1)) else Source.empty
-                }
-
-          case BufferSlice.Inclusive(slice, isChunked) =>
-            bufferedSource(slice)
-              .concatLazy {
-                if (isChunked) Source.lazySource(getNextChunk(slice.last._1)) else Source.empty
-              }
+          case BufferSlice.Inclusive(source) => source
         }
       }.map(tx => {
         totalRetrievedCounter.inc()
@@ -274,17 +238,17 @@ private[platform] object BufferedTransactionsReader {
     )
   }
 
-  private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
-    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Source[T, NotUsed] =
-      source
-        .map { in =>
-          counter.inc()
-          in
-        }
-        .buffer(bufferLength, OverflowStrategy.backpressure)
-        .map { in =>
-          counter.dec()
-          in
-        }
-  }
+//  private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
+//    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Source[T, NotUsed] =
+//      source
+//        .map { in =>
+//          counter.inc()
+//          in
+//        }
+//        .buffer(bufferLength, OverflowStrategy.backpressure)
+//        .map { in =>
+//          counter.dec()
+//          in
+//        }
+//  }
 }
