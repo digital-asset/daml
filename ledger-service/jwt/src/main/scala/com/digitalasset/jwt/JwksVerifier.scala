@@ -31,7 +31,7 @@ import scalaz.syntax.show._
   */
 class JwksVerifier(
     url: URL,
-    cacheMaxSize: Long = 10,
+    cacheMaxSize: Long = 1000,
     cacheExpirationTime: Long = 10,
     cacheExpirationUnit: TimeUnit = TimeUnit.HOURS,
     connectionTimeout: Long = 10,
