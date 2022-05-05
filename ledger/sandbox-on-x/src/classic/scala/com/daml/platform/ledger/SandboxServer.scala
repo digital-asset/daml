@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.{Config, ConfigProvider, ParticipantConfig}
+import com.daml.ledger.runner.common.{CliConfigConverter, Config, ParticipantConfig}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -56,11 +56,11 @@ final class SandboxServer(
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
     val genericCliConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
-    val configProvider: ConfigProvider[BridgeConfig] = new BridgeConfigProvider {
+    val bridgeConfigAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor {
       override def authService(apiServerConfig: ApiServerConfig): AuthService =
         config.authService.getOrElse(AuthServiceWildcard)
     }
-    val genericConfig = configProvider.fromLegacyCliConfig(genericCliConfig)
+    val genericConfig = CliConfigConverter.toConfig(bridgeConfigAdaptor, genericCliConfig)
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
@@ -72,7 +72,7 @@ final class SandboxServer(
             genericCliConfig.extra,
             materializer,
             materializer.system,
-            configProvider,
+            bridgeConfigAdaptor,
             Some(metrics),
           )
           .acquire()

@@ -13,7 +13,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
     new ProgramResource(
-      owner = LegacySandboxOnXRunner.owner(
+      owner = CliSandboxOnXRunner.owner(
         args = args,
         manipulateConfig = originalConfig =>
           originalConfig.copy(

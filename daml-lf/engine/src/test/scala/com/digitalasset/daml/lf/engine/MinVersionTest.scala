@@ -21,7 +21,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common._
-import com.daml.ledger.sandbox.{BridgeConfigProvider, SandboxOnXRunner}
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
@@ -120,7 +120,7 @@ final class MinVersionTest
       } yield succeed
     }
   }
-  private val configProvider = new BridgeConfigProvider()
+  private val configAdaptor = new BridgeConfigAdaptor()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
     val jdbcUrl = s"jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
@@ -136,18 +136,18 @@ final class MinVersionTest
             portFile = Some(portfile),
             port = Port.Dynamic,
             address = Some("localhost"),
-            initialLedgerConfiguration = Some(configProvider.initialLedgerConfig(None)),
+            initialLedgerConfiguration = Some(configAdaptor.initialLedgerConfig(None)),
           ),
           indexer = value.indexer.copy(database = value.indexer.database.copy(jdbcUrl = jdbcUrl)),
         )
       },
     )
-    val bridgeConfig = configProvider.defaultExtraConfig
+    val bridgeConfig = BridgeConfig.Default
 
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(configProvider, config, bridgeConfig)
+        _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
       } yield readPortfile(portfile)
     )
   }

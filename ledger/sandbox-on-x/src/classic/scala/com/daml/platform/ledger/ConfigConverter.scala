@@ -24,11 +24,11 @@ object ConfigConverter {
       sandboxConfig: SandboxConfig,
       maybeLedgerId: Option[String],
       ledgerName: LedgerName,
-  ): LegacyCliConfig[BridgeConfig] = {
+  ): CliConfig[BridgeConfig] = {
     // When missing, sandbox-classic used an in-memory ledger.
     // For Sandbox-on-X we don't offer that, so default to H2
     val serverJdbcUrl = sandboxConfig.jdbcUrl.getOrElse(defaultH2SandboxJdbcUrl())
-    val singleCombinedParticipant = LegacyCliParticipantConfig(
+    val singleCombinedParticipant = CliParticipantConfig(
       mode = ParticipantRunMode.Combined,
       participantId = sandboxConfig.participantId,
       shardName = None,
@@ -50,7 +50,7 @@ object ConfigConverter {
       conflictCheckingEnabled = true,
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
       maxDeduplicationDuration = sandboxConfig.maxDeduplicationDuration.getOrElse(
-        BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+        BridgeConfig.DefaultMaximumDeduplicationDuration
       ),
     )
 
@@ -60,7 +60,7 @@ object ConfigConverter {
       case EngineMode.Dev => LanguageVersion.DevVersions
     }
 
-    LegacyCliConfig[BridgeConfig](
+    CliConfig[BridgeConfig](
       engineConfig = EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
         profileDir = sandboxConfig.profileDir,

@@ -8,5 +8,5 @@ import com.daml.resources.ProgramResource
 
 object Main {
   def main(args: Array[String]): Unit =
-    new ProgramResource(owner = LegacySandboxOnXRunner.owner(args)).run(ResourceContext.apply)
+    new ProgramResource(owner = CliSandboxOnXRunner.owner(args)).run(ResourceContext.apply)
 }

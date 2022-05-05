@@ -3,16 +3,14 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.runner.common.{ConfigProvider, LegacyCliConfig}
-import com.daml.ledger.sandbox.BridgeConfigProvider.DefaultMaximumDeduplicationDuration
-import com.daml.platform.configuration.InitialLedgerConfiguration
+import com.daml.ledger.runner.common.{CliConfigProvider, CliConfig}
 import scopt.OptionParser
 
 import java.time.Duration
 
-class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
+class BridgeCliConfigProvider extends CliConfigProvider[BridgeConfig] {
 
-  override def extraConfigParser(parser: OptionParser[LegacyCliConfig[BridgeConfig]]): Unit = {
+  override def extraConfigParser(parser: OptionParser[CliConfig[BridgeConfig]]): Unit = {
     parser
       .opt[Int]("bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")
@@ -43,21 +41,6 @@ class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     ()
   }
 
-  override def initialLedgerConfig(
-      maxDeduplicationDuration: Option[Duration]
-  ): InitialLedgerConfiguration = {
-    val superConfig = super.initialLedgerConfig(maxDeduplicationDuration)
-    superConfig.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)
-  }
+  override val defaultExtraConfig: BridgeConfig = BridgeConfig.Default
 
-  override val defaultExtraConfig: BridgeConfig = BridgeConfig(
-    conflictCheckingEnabled = true,
-    submissionBufferSize = 500,
-    maxDeduplicationDuration = DefaultMaximumDeduplicationDuration,
-  )
-
-}
-
-object BridgeConfigProvider {
-  val DefaultMaximumDeduplicationDuration: Duration = Duration.ofMinutes(30L)
 }

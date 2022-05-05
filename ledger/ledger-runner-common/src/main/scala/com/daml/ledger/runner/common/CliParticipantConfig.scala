@@ -11,7 +11,7 @@ import com.daml.ports.Port
 import java.nio.file.Path
 import scala.concurrent.duration._
 
-final case class LegacyCliParticipantConfig(
+final case class CliParticipantConfig(
     mode: ParticipantRunMode,
     participantId: Ref.ParticipantId,
     // A name of the participant shard in a horizontally scaled participant.
@@ -20,19 +20,19 @@ final case class LegacyCliParticipantConfig(
     port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
-    managementServiceTimeout: Duration = LegacyCliParticipantConfig.DefaultManagementServiceTimeout,
+    managementServiceTimeout: Duration = CliParticipantConfig.DefaultManagementServiceTimeout,
     indexerConfig: IndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
-      LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+      CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout: Duration =
-      LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
+      CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
     maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
       IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
 )
 
-object LegacyCliParticipantConfig {
+object CliParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
@@ -41,5 +41,4 @@ object LegacyCliParticipantConfig {
 
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16
-
 }

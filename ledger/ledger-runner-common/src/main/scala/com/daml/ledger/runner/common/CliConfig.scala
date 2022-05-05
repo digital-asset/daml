@@ -27,7 +27,7 @@ import java.time.Duration
 import java.util.UUID
 import scala.jdk.DurationConverters.JavaDurationOps
 
-final case class LegacyCliConfig[Extra](
+final case class CliConfig[Extra](
     engineConfig: EngineConfig,
     authService: AuthServiceConfig,
     acsContractFetchingParallelism: Int,
@@ -49,28 +49,28 @@ final case class LegacyCliConfig[Extra](
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     mode: Mode,
-    participants: Seq[LegacyCliParticipantConfig],
+    participants: Seq[CliParticipantConfig],
     seeding: Seeding,
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
     userManagementConfig: UserManagementConfig,
 ) {
-  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): LegacyCliConfig[Extra] =
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): CliConfig[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
 
   def withUserManagementConfig(
       modify: UserManagementConfig => UserManagementConfig
-  ): LegacyCliConfig[Extra] =
+  ): CliConfig[Extra] =
     copy(userManagementConfig = modify(userManagementConfig))
 }
 
-object LegacyCliConfig {
+object CliConfig {
   val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
-  def createDefault[Extra](extra: Extra): LegacyCliConfig[Extra] =
-    LegacyCliConfig(
+  def createDefault[Extra](extra: Extra): CliConfig[Extra] =
+    CliConfig(
       engineConfig = EngineConfig(
         allowedLanguageVersions = LanguageVersion.StableVersions,
         profileDir = None,
@@ -107,27 +107,27 @@ object LegacyCliConfig {
   def ownerWithoutExtras(
       name: String,
       args: collection.Seq[String],
-  ): ResourceOwner[LegacyCliConfig[Unit]] =
+  ): ResourceOwner[CliConfig[Unit]] =
     owner(name, _ => (), (), args)
 
   def owner[Extra](
       name: String,
-      extraOptions: OptionParser[LegacyCliConfig[Extra]] => Unit,
+      extraOptions: OptionParser[CliConfig[Extra]] => Unit,
       defaultExtra: Extra,
       args: collection.Seq[String],
-  ): ResourceOwner[LegacyCliConfig[Extra]] =
+  ): ResourceOwner[CliConfig[Extra]] =
     parse(name, extraOptions, defaultExtra, args)
-      .fold[ResourceOwner[LegacyCliConfig[Extra]]](ResourceOwner.failed(new ConfigParseException))(
+      .fold[ResourceOwner[CliConfig[Extra]]](ResourceOwner.failed(new ConfigParseException))(
         ResourceOwner.successful
       )
 
   def parse[Extra](
       name: String,
-      extraOptions: OptionParser[LegacyCliConfig[Extra]] => Unit,
+      extraOptions: OptionParser[CliConfig[Extra]] => Unit,
       defaultExtra: Extra,
       args: collection.Seq[String],
       getEnvVar: String => Option[String] = sys.env.get(_),
-  ): Option[LegacyCliConfig[Extra]] =
+  ): Option[CliConfig[Extra]] =
     parser(name, extraOptions, getEnvVar).parse(args, createDefault(defaultExtra)).flatMap {
       case config if config.mode == Mode.Run && config.participants.isEmpty =>
         System.err.println("No --participant provided to run")
@@ -138,11 +138,11 @@ object LegacyCliConfig {
 
   private def parser[Extra](
       name: String,
-      extraOptions: OptionParser[LegacyCliConfig[Extra]] => Unit,
+      extraOptions: OptionParser[CliConfig[Extra]] => Unit,
       getEnvVar: String => Option[String],
-  ): OptionParser[LegacyCliConfig[Extra]] = {
-    val parser: OptionParser[LegacyCliConfig[Extra]] =
-      new OptionParser[LegacyCliConfig[Extra]](name) {
+  ): OptionParser[CliConfig[Extra]] = {
+    val parser: OptionParser[CliConfig[Extra]] =
+      new OptionParser[CliConfig[Extra]](name) {
         head(s"$name as a service")
 
         cmd("dump-index-metadata")
@@ -213,18 +213,18 @@ object LegacyCliConfig {
               kv.getOrElse(
                 "server-jdbc-url",
                 jdbcUrlFromEnv
-                  .getOrElse(LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)),
+                  .getOrElse(CliParticipantConfig.defaultIndexJdbcUrl(participantId)),
               )
             val apiServerConnectionPoolSize = kv
               .get("api-server-connection-pool-size")
               .map(_.toInt)
-              .getOrElse(LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize)
+              .getOrElse(CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize)
 
             val apiServerConnectionTimeout = kv
               .get("api-server-connection-timeout")
               .map(Duration.parse)
               .map(_.toScala)
-              .getOrElse(LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
+              .getOrElse(CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
 
             val indexerInputMappingParallelism = kv
               .get("indexer-input-mapping-parallelism")
@@ -263,7 +263,7 @@ object LegacyCliConfig {
               .get("management-service-timeout")
               .map(Duration.parse)
               .map(_.toScala)
-              .getOrElse(LegacyCliParticipantConfig.DefaultManagementServiceTimeout)
+              .getOrElse(CliParticipantConfig.DefaultManagementServiceTimeout)
             val shardName = kv.get("shard-name")
             val maxContractStateCacheSize = kv
               .get("contract-state-cache-max-size")
@@ -277,7 +277,7 @@ object LegacyCliConfig {
               .get("ledger-api-transactions-buffer-max-size")
               .map(_.toLong)
               .getOrElse(IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize)
-            val partConfig = LegacyCliParticipantConfig(
+            val partConfig = CliParticipantConfig(
               mode = runMode,
               participantId = participantId,
               shardName = shardName,
@@ -432,7 +432,7 @@ object LegacyCliConfig {
         opt[Int]("max-inbound-message-size")
           .optional()
           .text(
-            s"Max inbound message size in bytes. Defaults to ${LegacyCliConfig.DefaultMaxInboundMessageSize}."
+            s"Max inbound message size in bytes. Defaults to ${CliConfig.DefaultMaxInboundMessageSize}."
           )
           .action((maxInboundMessageSize, config) =>
             config.copy(maxInboundMessageSize = maxInboundMessageSize)
@@ -619,7 +619,7 @@ object LegacyCliConfig {
           .text(
             "Whether to enable participant user management."
           )
-          .action((enabled, config: LegacyCliConfig[Extra]) =>
+          .action((enabled, config: CliConfig[Extra]) =>
             config.withUserManagementConfig(_.copy(enabled = enabled))
           )
 
@@ -630,7 +630,7 @@ object LegacyCliConfig {
               "Used to set expiry time for user management cache. " +
               "Also determines the maximum delay for propagating user management state changes which is double its value."
           )
-          .action((value, config: LegacyCliConfig[Extra]) =>
+          .action((value, config: CliConfig[Extra]) =>
             config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
           )
 
@@ -640,7 +640,7 @@ object LegacyCliConfig {
             s"Defaults to ${UserManagementConfig.DefaultMaxCacheSize} entries. " +
               "Determines the maximum in-memory cache size for user management state."
           )
-          .action((value, config: LegacyCliConfig[Extra]) =>
+          .action((value, config: CliConfig[Extra]) =>
             config.withUserManagementConfig(_.copy(maxCacheSize = value))
           )
 
@@ -650,7 +650,7 @@ object LegacyCliConfig {
             s"Maximum number of users that the server can return in a single response. " +
               s"Defaults to ${UserManagementConfig.DefaultMaxUsersPageSize} entries."
           )
-          .action((value, config: LegacyCliConfig[Extra]) =>
+          .action((value, config: CliConfig[Extra]) =>
             config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
           )
         checkConfig(c => {

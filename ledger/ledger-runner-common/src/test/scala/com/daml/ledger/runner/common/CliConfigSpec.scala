@@ -47,10 +47,10 @@ final class CliConfigSpec
   private def configParser(
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
-  ): Option[LegacyCliConfig[Unit]] =
-    LegacyCliConfig.parse(
+  ): Option[CliConfig[Unit]] =
+    CliConfig.parse(
       name = "Test",
-      extraOptions = (_: OptionParser[LegacyCliConfig[Unit]]) => (),
+      extraOptions = (_: OptionParser[CliConfig[Unit]]) => (),
       defaultExtra = (),
       args = parameters,
       getEnvVar = getEnvVar,
@@ -58,7 +58,7 @@ final class CliConfigSpec
 
   private def configParserSimple(
       parameters: Iterable[String] = Seq.empty
-  ): Option[LegacyCliConfig[Unit]] =
+  ): Option[CliConfig[Unit]] =
     configParser(
       Seq(
         dumpIndexMetadataCommand,
@@ -198,7 +198,7 @@ final class CliConfigSpec
   }
 
   it should "return the default when env variable not provided" in {
-    val defaultJdbc = LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)
+    val defaultJdbc = CliParticipantConfig.defaultIndexJdbcUrl(participantId)
     val config = configParser(
       Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
     ).getOrElse(parsingFailure())

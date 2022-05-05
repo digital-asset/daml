@@ -7,15 +7,15 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.SandboxOnXRunner.run
 
-object LegacySandboxOnXRunner {
+object CliSandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
 
   def owner(
       args: collection.Seq[String],
-      manipulateConfig: LegacyCliConfig[BridgeConfig] => LegacyCliConfig[BridgeConfig] = identity,
-      configProvider: ConfigProvider[BridgeConfig] = new BridgeConfigProvider,
-  ): ResourceOwner[Unit] =
-    LegacyCliConfig
+      manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
+  ): ResourceOwner[Unit] = {
+    val configProvider = new BridgeCliConfigProvider
+    CliConfig
       .owner(
         RunnerName,
         configProvider.extraConfigParser,
@@ -23,25 +23,25 @@ object LegacySandboxOnXRunner {
         args,
       )
       .map(manipulateConfig)
-      .flatMap(owner(configProvider))
+      .flatMap(owner)
+  }
 
-  def owner(
-      configProvider: ConfigProvider[BridgeConfig]
-  )(originalConfig: LegacyCliConfig[BridgeConfig]): ResourceOwner[Unit] =
+  def owner(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
+        val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         originalConfig.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
             DumpIndexMetadata(jdbcUrls, RunnerName)
             sys.exit(0)
           case Mode.Run =>
-            val config = configProvider.fromLegacyCliConfig(originalConfig)
+            val config = CliConfigConverter.toConfig(configAdaptor, originalConfig)
             run(
-              configProvider,
+              configAdaptor,
               config,
               originalConfig.extra.copy(maxDeduplicationDuration =
                 originalConfig.maxDeduplicationDuration.getOrElse(
-                  BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+                  BridgeConfig.DefaultMaximumDeduplicationDuration
                 )
               ),
             )

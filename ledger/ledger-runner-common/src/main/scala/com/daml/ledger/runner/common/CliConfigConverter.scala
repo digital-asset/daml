@@ -3,33 +3,21 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.ledger.api.auth.AuthService
-import com.daml.ledger.configuration.Configuration
-import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{
-  IndexConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
-import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.apiserver.ApiServerConfig
+import com.daml.platform.configuration.{IndexConfiguration, PartyConfiguration}
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.LfValueTranslationCache
-import io.grpc.ServerInterceptor
-import scopt.OptionParser
 
-import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.JavaDurationOps
 
-trait ConfigProvider[ExtraConfig] {
-  val defaultExtraConfig: ExtraConfig
-
-  def extraConfigParser(parser: OptionParser[LegacyCliConfig[ExtraConfig]]): Unit
+object CliConfigConverter {
 
   private def toParticipantConfig(
-      cliConfig: LegacyCliConfig[ExtraConfig],
-      config: LegacyCliParticipantConfig,
+      configAdaptor: ConfigAdaptor,
+      cliConfig: CliConfig[_],
+      config: CliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
     runMode = config.mode,
     participantId = config.participantId,
@@ -58,7 +46,8 @@ trait ConfigProvider[ExtraConfig] {
       address = config.address,
       tls = cliConfig.tlsConfig,
       maxInboundMessageSize = cliConfig.maxInboundMessageSize,
-      initialLedgerConfiguration = Some(initialLedgerConfig(cliConfig.maxDeduplicationDuration)),
+      initialLedgerConfiguration =
+        Some(configAdaptor.initialLedgerConfig(cliConfig.maxDeduplicationDuration)),
       configurationLoadTimeout = FiniteDuration(
         cliConfig.configurationLoadTimeout.toMillis,
         TimeUnit.MILLISECONDS,
@@ -89,7 +78,7 @@ trait ConfigProvider[ExtraConfig] {
     ),
   )
 
-  def fromLegacyCliConfig(config: LegacyCliConfig[ExtraConfig]): Config = {
+  def toConfig(configAdaptor: ConfigAdaptor, config: CliConfig[_]): Config = {
     Config(
       engine = config.engineConfig,
       ledgerId = config.ledgerId,
@@ -101,49 +90,9 @@ trait ConfigProvider[ExtraConfig] {
         ParticipantName.fromParticipantId(
           participantConfig.participantId,
           participantConfig.shardName,
-        ) -> toParticipantConfig(config, participantConfig)
+        ) -> toParticipantConfig(configAdaptor, config, participantConfig)
       }.toMap,
     )
   }
 
-  def initialLedgerConfig(
-      maxDeduplicationDuration: Option[Duration]
-  ): InitialLedgerConfiguration = {
-    val conf = Configuration.reasonableInitialConfiguration
-    InitialLedgerConfiguration(
-      maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
-        conf.maxDeduplicationDuration
-      ),
-      avgTransactionLatency = conf.timeModel.avgTransactionLatency,
-      minSkew = conf.timeModel.minSkew,
-      maxSkew = conf.timeModel.maxSkew,
-      generation = conf.generation,
-      // If a new index database is added to an already existing ledger,
-      // a zero delay will likely produce a "configuration rejected" ledger entry,
-      // because at startup the indexer hasn't ingested any configuration change yet.
-      // Override this setting for distributed ledgers where you want to avoid these superfluous entries.
-      delayBeforeSubmitting = Duration.ZERO,
-    )
-  }
-
-  def timeServiceBackend(config: ApiServerConfig): Option[TimeServiceBackend] =
-    config.timeProviderType match {
-      case TimeProviderType.Static => Some(TimeServiceBackend.simple(Instant.EPOCH))
-      case TimeProviderType.WallClock => None
-    }
-
-  def interceptors: List[ServerInterceptor] = List.empty
-
-  def authService(apiServerConfig: ApiServerConfig): AuthService =
-    apiServerConfig.authentication.create()
-}
-
-object ConfigProvider {
-  class ForUnit extends ConfigProvider[Unit] {
-    override val defaultExtraConfig: Unit = ()
-
-    override def extraConfigParser(parser: OptionParser[LegacyCliConfig[Unit]]): Unit = ()
-  }
-
-  object ForUnit extends ForUnit
 }

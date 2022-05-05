@@ -55,26 +55,26 @@ object SandboxOnXRunner {
   def run(configObject: com.typesafe.config.Config = ConfigFactory.load()): Unit = {
     val config = ConfigLoader.loadConfigUnsafe[Config]("ledger", configObject)
     val bridge = ConfigLoader.loadConfigUnsafe[BridgeConfig]("bridge", configObject)
-    val configProvider: BridgeConfigProvider = new BridgeConfigProvider
+    val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
     new ProgramResource(
-      owner = SandboxOnXRunner.owner(configProvider, config, bridge)
+      owner = SandboxOnXRunner.owner(configAdaptor, config, bridge)
     ).run(ResourceContext.apply)
   }
 
   def owner(
-      configProvider: BridgeConfigProvider,
+      configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
   ): AbstractResourceOwner[ResourceContext, Unit] = {
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-        SandboxOnXRunner.run(configProvider, config, bridgeConfig)
+        SandboxOnXRunner.run(configAdaptor, config, bridgeConfig)
       }
     }
   }
 
   def run(
-      configProvider: ConfigProvider[BridgeConfig],
+      configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
@@ -95,7 +95,7 @@ object SandboxOnXRunner {
         bridgeConfig,
         materializer,
         actorSystem,
-        configProvider,
+        configAdaptor,
       ).acquire()
     } yield logInitializationHeader(config, participantConfig, bridgeConfig)
   }
@@ -121,7 +121,7 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
-      configProvider: ConfigProvider[BridgeConfig],
+      configAdaptor: BridgeConfigAdaptor,
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
     val apiServerConfig: ApiServerConfig = participantConfig.apiServer
@@ -175,7 +175,7 @@ object SandboxOnXRunner {
             participantId = participantConfig.participantId,
           )
 
-          timeServiceBackend = configProvider.timeServiceBackend(apiServerConfig)
+          timeServiceBackend = configAdaptor.timeServiceBackend(apiServerConfig)
 
           writeService <- buildWriteService(
             stateUpdatesFeedSink,
@@ -200,7 +200,7 @@ object SandboxOnXRunner {
             config,
             apiServerConfig,
             participantConfig.participantId,
-            configProvider,
+            configAdaptor,
           )
         } yield (apiServer, writeService, indexService)
     }
@@ -218,7 +218,7 @@ object SandboxOnXRunner {
       config: Config,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
-      configProvider: ConfigProvider[BridgeConfig],
+      configAdaptor: BridgeConfigAdaptor,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -260,7 +260,7 @@ object SandboxOnXRunner {
         ),
       ),
       participantId = participantId,
-      authService = configProvider.authService(apiServerConfig),
+      authService = configAdaptor.authService(apiServerConfig),
     )
 
   private def buildIndexerServer(
