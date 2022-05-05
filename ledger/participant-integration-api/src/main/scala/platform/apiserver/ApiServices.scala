@@ -5,13 +5,17 @@ package com.daml.platform.apiserver
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
@@ -23,6 +27,7 @@ import com.daml.platform.apiserver.configuration.{
   LedgerConfigurationSubscription,
 }
 import com.daml.platform.apiserver.execution.{
+  CommandExecutorProbe,
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
   TimedCommandExecutor,
@@ -38,14 +43,12 @@ import com.daml.platform.configuration.{
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
+
 import java.time.Duration
-
-import com.daml.ledger.api.SubmissionIdGenerator
-import com.daml.platform.usermanagement.UserManagementConfig
-
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -183,7 +186,7 @@ private[daml] object ApiServices {
           )
         )
       val writeServiceBackedApiServices =
-        intitializeWriteServiceBackedApiServices(
+        initializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigurationSubscription,
           completionService,
@@ -229,15 +232,17 @@ private[daml] object ApiServices {
         ) ::: maybeApiUserManagementService.toList
     }
 
-    private def intitializeWriteServiceBackedApiServices(
+    private def initializeWriteServiceBackedApiServices(
         ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         apiCompletionService: CommandCompletionService,
         apiTransactionService: GrpcTransactionService,
-        checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
+        downstreamOverload: TelemetryContext => Option[state.SubmissionResult],
+        maxConcurrentRequests: Int = 100,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
+
       optWriteService.toList.flatMap { writeService =>
-        val commandExecutor = new TimedCommandExecutor(
+        val timedCommandExecutor = new TimedCommandExecutor(
           new LedgerTimeAwareCommandExecutor(
             new StoreBackedCommandExecutor(
               engine,
@@ -252,6 +257,33 @@ private[daml] object ApiServices {
           ),
           metrics,
         )
+
+        val (commandExecutor, probe) = CommandExecutorProbe(timedCommandExecutor)
+
+        def errorLogger: ContextualizedErrorLogger =
+          new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+        val executorOverloaded: TelemetryContext => Option[state.SubmissionResult] = _ => {
+          val executions = probe()
+				  logger.warn(s"Work in progress is $executions (max: $maxConcurrentRequests)")
+          if (executions > maxConcurrentRequests) {
+            Some(
+              SubmissionResult.SynchronousError(
+                LedgerApiErrors.ParticipantBackpressure
+                  .Rejection(
+                    s"Work in progress exceeds limit [$executions > $maxConcurrentRequests]"
+                  )(errorLogger)
+                  .rpcStatus()
+              )
+            )
+          } else {
+            None
+          }
+        }
+
+        val checkOverloaded: TelemetryContext => Option[state.SubmissionResult] = context => {
+          downstreamOverload(context).orElse(executorOverloaded(context))
+        }
 
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,

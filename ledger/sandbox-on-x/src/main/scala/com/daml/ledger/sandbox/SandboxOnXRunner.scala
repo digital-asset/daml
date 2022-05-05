@@ -10,23 +10,15 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
-  AuthServiceNone,
-  AuthServiceStatic,
-  AuthServiceWildcard,
-}
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-}
+import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalContractIds}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, SubmissionResult, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
@@ -35,6 +27,7 @@ import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.execution.ExecutorServiceProbe
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
@@ -47,6 +40,9 @@ import scala.util.chaining._
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
+
+  def errorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, LoggingContext.empty, None)
 
   def owner(
       args: collection.Seq[String],
@@ -138,7 +134,7 @@ object SandboxOnXRunner {
           (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
           servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
-          servicesExecutionContext <- buildServicesExecutionContext(
+          (servicesExecutionContext, ecProbe) <- buildServicesExecutionContext(
             metrics,
             servicesThreadPoolSize,
           )
@@ -193,7 +189,7 @@ object SandboxOnXRunner {
             sharedEngine,
             indexService,
             metrics,
-            servicesExecutionContext,
+            servicesExecutionContext, ecProbe,
             new TimedWriteService(writeService, metrics),
             indexerHealthChecks,
             timeServiceBackend,
@@ -204,14 +200,16 @@ object SandboxOnXRunner {
   }
 
   private def buildStandaloneApiServer(
-      sharedEngine: Engine,
-      indexService: IndexService,
-      metrics: Metrics,
-      servicesExecutionContext: ExecutionContextExecutorService,
-      writeService: WriteService,
-      healthChecksWithIndexer: HealthChecks,
-      timeServiceBackend: Option[TimeServiceBackend],
-      dbSupport: DbSupport,
+                                        sharedEngine: Engine,
+                                        indexService: IndexService,
+                                        metrics: Metrics,
+                                        servicesExecutionContext: ExecutionContextExecutorService,
+                                        ecProbe: () => Int,
+                                        writeService: WriteService,
+                                        healthChecksWithIndexer: HealthChecks,
+                                        timeServiceBackend: Option[TimeServiceBackend],
+                                        dbSupport: DbSupport,
+                                        maxQueueSize: Int = 100,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -232,6 +230,23 @@ object SandboxOnXRunner {
       otherInterceptors = BridgeConfigProvider.interceptors(config),
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
+      checkOverloaded = _ => {
+        val queueSize = ecProbe()
+        logger.warn(s"Execution context queue size is $queueSize (max: $maxQueueSize)")
+        if (queueSize > maxQueueSize) {
+          Some(
+            SubmissionResult.SynchronousError(
+              LedgerApiErrors.ParticipantBackpressure
+                .Rejection(
+                  s"Execution queue size exceeds limit [$queueSize > $maxQueueSize]"
+                )(errorLogger)
+                .rpcStatus()
+            )
+          )
+        } else {
+          None
+        }
+      },
       userManagementStore = PersistentUserManagementStore.cached(
         dbSupport = dbSupport,
         metrics = metrics,
@@ -284,7 +299,7 @@ object SandboxOnXRunner {
   private def buildServicesExecutionContext(
       metrics: Metrics,
       servicesThreadPoolSize: Int,
-  ): ResourceOwner[ExecutionContextExecutorService] =
+  ): ResourceOwner[(ExecutionContextExecutorService, ()=>Int)] =
     ResourceOwner
       .forExecutorService(() =>
         new InstrumentedExecutorService(
@@ -293,7 +308,10 @@ object SandboxOnXRunner {
           metrics.daml.lapi.threadpool.apiServices.toString,
         )
       )
-      .map(ExecutionContext.fromExecutorService)
+      .map (es => {
+        val (pes, p) = ExecutorServiceProbe(es)
+        (ExecutionContext.fromExecutorService(pes), p)
+      })
 
   private def buildMetrics(implicit
       participantConfig: ParticipantConfig,

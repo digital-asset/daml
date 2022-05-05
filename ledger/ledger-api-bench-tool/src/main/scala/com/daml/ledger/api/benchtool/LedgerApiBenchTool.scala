@@ -242,6 +242,7 @@ class LedgerApiBenchTool(
             adminServices = adminServices,
             metricRegistry = metricRegistry,
             metricsManager = metricsManager,
+            waitForSubmission = true
           )
           result <- submitter
             .generateAndSubmit(
@@ -287,6 +288,7 @@ class LedgerApiBenchTool(
       adminServices = adminServices,
       metricRegistry = metricRegistry,
       metricsManager = NoOpMetricsManager(),
+      waitForSubmission = true
     )
     for {
       allocatedParties <- submitter.prepare(
