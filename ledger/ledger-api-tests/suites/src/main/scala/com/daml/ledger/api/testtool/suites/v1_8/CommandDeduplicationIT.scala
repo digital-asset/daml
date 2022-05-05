@@ -610,6 +610,8 @@ final class CommandDeduplicationIT(
         //
         // the duration is extended with up to minSkew + maxSkew when using pre-execution,
         // as we use maxRecordTime and minRecordTime to calculate the interval between the two commands
+        //
+        // thus, we delay by twice the skews below
         ledger
           .getTimeModel()
           .flatMap(response => {
