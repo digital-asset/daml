@@ -187,7 +187,7 @@ class DispatcherSpec
       forAllSteppingModes() { subSrc =>
         val dispatcher = newDispatcher()
 
-        dispatcher.close()
+        dispatcher.shutdown()
 
         dispatcher.signalNewHead(Index(1)) // should not throw
         dispatcher
@@ -220,7 +220,7 @@ class DispatcherSpec
         val out = collect(i50, i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
-        dispatcher.close()
+        dispatcher.shutdown()
 
         out.map(_ shouldEqual pairs100)
       }
@@ -279,7 +279,7 @@ class DispatcherSpec
         val out75F = collect(i75, i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
-        dispatcher.close()
+        dispatcher.shutdown()
 
         validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
       }
@@ -308,7 +308,7 @@ class DispatcherSpec
           val out75F = collect(i75, i100, dispatcher, subSrc, delayMs = 10)
           publish(i100, dispatcher)
 
-          dispatcher.close()
+          dispatcher.shutdown()
 
           validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
       }
@@ -327,7 +327,7 @@ class DispatcherSpec
         for {
           results <- resultsF
         } yield {
-          dispatcher.close()
+          dispatcher.shutdown()
           results shouldEqual pairs25
         }
       }
@@ -344,7 +344,7 @@ class DispatcherSpec
         collect(Index(startIndex), i25, dispatcher, oneAfterAnotherSteppingMode),
         1.second,
       ).andThen { case _ =>
-        dispatcher.close()
+        dispatcher.shutdown()
       }
     }
 
@@ -357,7 +357,7 @@ class DispatcherSpec
       1.to(updateCount).foreach(_ => dispatcher.signalNewHead(Index(random.nextInt(100))))
       dispatcher.signalNewHead(Index(100))
       out.map(_ shouldEqual pairs).andThen { case _ =>
-        dispatcher.close()
+        dispatcher.shutdown()
       }
     }
   }

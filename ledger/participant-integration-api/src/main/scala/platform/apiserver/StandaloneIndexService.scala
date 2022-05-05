@@ -89,6 +89,7 @@ object StandaloneIndexService {
         maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
         maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+        apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
       )(materializer, loggingContext, servicesExecutionContext)
         .owner()
         .map(index => new TimedIndexService(index, metrics))

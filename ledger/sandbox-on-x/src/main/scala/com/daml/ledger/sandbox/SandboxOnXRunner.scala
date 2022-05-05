@@ -257,6 +257,7 @@ object SandboxOnXRunner {
         ),
       ),
       userManagementConfig = config.userManagementConfig,
+      apiStreamShutdownTimeout = apiServerConfig.indexConfiguration.apiStreamShutdownTimeout,
     )
 
   private def buildIndexerServer(
