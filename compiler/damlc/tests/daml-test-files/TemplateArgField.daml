@@ -1,0 +1,32 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module TemplateArgField where
+
+template AssetWithArgField
+  with
+    s : Party
+    arg : Int
+  where
+    signatory s
+
+    choice Choice1 : Int
+      with
+        t : Party
+      controller s
+      do return arg -- arg refers to the template field 'arg'
+
+template AssetWithoutArgField
+  with
+    s : Party
+  where
+    signatory s
+
+    choice Choice2 : Int
+      with
+        t : Party
+        notArg : Int
+      controller s
+      do return arg.notArg -- arg refers to the choice record
