@@ -34,13 +34,15 @@ Records or product types are translated to :ref:`com.daml.ledger.api.v1.record`.
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 9-18
+	:start-after: -- PRODUCT_TYPE_DEF_BEGIN
+	:end-before: -- PRODUCT_TYPE_DEF_END
 
 And here's an example of creating a value of type `MyProductType`:
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 29,31,33-41
+	:start-after: -- PRODUCT_TYPE_CREATE_BEGIN
+	:end-before: -- PRODUCT_TYPE_CREATE_END
 
 For this data, the respective data on the Ledger API is shown below. Note that this value would be enclosed by a particular contract containing a field of type `MyProductType`. See `Contract templates`_ for the translation of Daml contracts to the representation by the Ledger API.
 
@@ -53,13 +55,15 @@ Variants or sum types are types with multiple constructors. This example defines
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 20-21
+	:start-after: -- SUM_TYPE_DEF_BEGIN
+	:end-before: -- SUM_TYPE_DEF_END
 
-The constructor ``MyConstructor1`` takes a single parameter of type ``Integer``, whereas the constructor ``MyConstructor2`` takes a record with two fields as parameter. The snippet below shows how you can create values with either of the constructors.
+The constructor ``MyConstructor1`` takes a single parameter of type ``Integer``, whereas the constructor ``MyConstructor2`` takes a tuple with two fields as parameter. The snippet below shows how you can create values with either of the constructors.
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 43-44
+	:start-after: -- SUM_TYPE_CREATE_BEGIN
+	:end-before: -- SUM_TYPE_CREATE_END
 
 Similar to records, variants are also enclosed by a contract, a record, or another variant.
 
