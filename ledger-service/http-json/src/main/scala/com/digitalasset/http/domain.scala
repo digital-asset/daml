@@ -65,6 +65,9 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
   val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
+
+  type CompletionOffset = String @@ CompletionOffsetTag
+  val CompletionOffset = Tag.of[CompletionOffsetTag]
 }
 
 package domain {
@@ -74,6 +77,8 @@ package domain {
   import com.daml.lf.data.Ref.HexString
 
   sealed trait SubmissionIdTag
+
+  sealed trait CompletionOffsetTag
 
   trait JwtPayloadTag
 
@@ -292,9 +297,21 @@ package domain {
       meta: Option[CommandMeta],
   )
 
+  final case class CreateCommandResponse[+LfV](
+      contractId: ContractId,
+      templateId: TemplateId.RequiredPkg,
+      key: Option[LfV],
+      payload: LfV,
+      signatories: Seq[Party],
+      observers: Seq[Party],
+      agreementText: String,
+      completionOffset: CompletionOffset,
+  )
+
   final case class ExerciseResponse[LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
+      completionOffset: CompletionOffset,
   )
 
   object PartyDetails {
@@ -589,11 +606,27 @@ package domain {
         val gb: G[B] = f(fa.exerciseResult)
         val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
         ^(gb, gbs) { (exerciseResult, events) =>
-          ExerciseResponse(
+          fa.copy(
             exerciseResult = exerciseResult,
             events = events,
           )
         }
+      }
+    }
+  }
+  object CreateCommandResponse {
+    implicit val covariant: Traverse[CreateCommandResponse] = new Traverse[CreateCommandResponse] {
+
+      override def map[A, B](fa: CreateCommandResponse[A])(f: A => B): CreateCommandResponse[B] =
+        fa.copy(key = fa.key map f, payload = f(fa.payload))
+
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: CreateCommandResponse[A]
+      )(f: A => G[B]): G[CreateCommandResponse[B]] = {
+        import scalaz.syntax.apply._
+        val gk: G[Option[B]] = fa.key traverse f
+        val ga: G[B] = f(fa.payload)
+        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
       }
     }
   }

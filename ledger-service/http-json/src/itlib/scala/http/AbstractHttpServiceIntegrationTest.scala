@@ -47,6 +47,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.{value => lfv}
 import lfv.test.TypedValueGenerators.{ValueAddend => VA}
 
+import java.util.UUID
+
 trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AsyncFreeSpec
     with AbstractHttpServiceIntegrationTestFuns
@@ -658,6 +660,55 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
+  "create IOU_Transfer, command deduplication should work" in withHttpService {
+    (uri, encoder, _, _) =>
+      def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
+      getUniquePartyAndAuthHeaders(uri)("Alice").flatMap { case (alice, headers) =>
+        val cmdId = domain.CommandId apply UUID.randomUUID().toString
+        def cmd(
+            submissionId: domain.SubmissionId
+        ): domain.CreateCommand[v.Record, OptionalPkg] =
+          iouCreateCommand(
+            alice.unwrap,
+            amount = "19002.0",
+            meta = Some(
+              domain.CommandMeta(
+                commandId = Some(cmdId),
+                actAs = None,
+                readAs = None,
+                submissionId = Some(submissionId),
+                deduplicationPeriod = Some(
+                  domain.DeduplicationDuration(
+                    java.time.Duration.ofSeconds(10L)
+                  ): domain.DeduplicationPeriod
+                ),
+              )
+            ),
+          )
+
+        val json: JsValue =
+          encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+
+        postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json, headers)
+          .map { case (status, output) =>
+            status shouldBe StatusCodes.OK
+            decode1[domain.OkResponse, domain.CreateCommandResponse[JsValue]](output) match {
+              case \/-(it) => it.result.completionOffset
+              case _ => fail()
+            }
+          }
+          .flatMap { _ =>
+            val json2: JsValue =
+              encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+            postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json2, headers)
+              .flatMap { case (status, _) =>
+                status shouldBe StatusCodes.Conflict
+              }: Future[Assertion]
+          }
+      }
+
+  }
+
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: JsValue,
       createCmd: domain.CreateCommand[v.Record, OptionalPkg],
@@ -668,7 +719,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       headers: List[HttpHeader],
   ): Future[Assertion] = {
     inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](exerciseResponse)) {
-      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) =>
+      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2), _)) =>
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
           Future {
@@ -815,7 +866,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   ): Assertion = {
     inside(exerciseResponse) { case result @ JsObject(_) =>
       inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
-        case \/-(domain.ExerciseResponse(exerciseResult, List(contract1))) =>
+        case \/-(domain.ExerciseResponse(exerciseResult, List(contract1), _)) =>
           exerciseResult shouldBe JsObject()
           inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
             (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)

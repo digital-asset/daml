@@ -91,9 +91,10 @@ object Commands {
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,
-      submissionId = submissionId.getOrElse("").toString,
       commands = Seq(lav1.commands.Command(command)),
     )
-    lav1.command_service.SubmitAndWaitRequest(Some(commands))
+    val updatedCommands =
+      submissionId.map(_.unwrap).map(commands.withSubmissionId).getOrElse(commands)
+    lav1.command_service.SubmitAndWaitRequest(Some(updatedCommands))
   }
 }

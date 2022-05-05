@@ -450,8 +450,14 @@ object JsonProtocol extends JsonProtocolLow {
   ] =
     jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
 
+  implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =
+    taggedJsonFormat[String, domain.CompletionOffsetTag]
+
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
-    jsonFormat2(domain.ExerciseResponse[JsValue])
+    jsonFormat3(domain.ExerciseResponse[JsValue])
+
+  implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
+    jsonFormat8(domain.CreateCommandResponse[JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {
