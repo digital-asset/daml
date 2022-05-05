@@ -543,22 +543,21 @@ final class CommandDeduplicationIT(
           // Send a dummy command to the ledger so that we obtain a recent offset
           // We should be able to just grab the current ledger end,
           // but the converter from offsets to durations cannot handle this yet.
-          dummyResponse <- submitRequestAndAssertCompletionAccepted(
+          offsetBeforeFirstCompletion <- submitRequestAndAssertCompletionAccepted(
             ledger,
             dummyRequest,
             party,
-          )
-          offsetBeforeFirstCompletion = dummyResponse.offset
-          response <- submitRequestAndAssertCompletionAccepted(
+          ).map(_.offset)
+          firstAcceptedResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
             party,
           )
           // Wait for any ledgers that might adjust based on time skews
-          // This is done so that we can validate that the third command is accepted
+          // This is done so that we can validate later that the command is accepted again
           _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
-          response2 <- submitRequestAndAssertDeduplication(
+          duplicateResponse <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -568,21 +567,16 @@ final class CommandDeduplicationIT(
               )
             ),
             acceptedSubmissionId,
-            response.offset,
-            party,
-          )
-          response3 <- submitRequestAndAssertCompletionAccepted(
-            ledger,
-            ledger.submitRequest(party, Dummy(party).create.command),
+            firstAcceptedResponse.offset,
             party,
           )
           // Submit command again using the rejection offset as a deduplication period
-          response4 <- submitRequestAndAssertCompletionAccepted(
+          secondAcceptedResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
                 _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                  Ref.HexString.assertFromString(response3.offset.getAbsolute)
+                  Ref.HexString.assertFromString(duplicateResponse.offset.getAbsolute)
                 )
               )
             ),
@@ -590,13 +584,13 @@ final class CommandDeduplicationIT(
           )
         } yield {
           assertDeduplicationOffset(
-            response,
-            response2,
+            firstAcceptedResponse,
+            duplicateResponse,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
           assertDeduplicationOffset(
-            response3,
-            response4,
+            duplicateResponse,
+            secondAcceptedResponse,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
         }
@@ -616,12 +610,19 @@ final class CommandDeduplicationIT(
         //
         // the duration is extended with up to minSkew + maxSkew when using pre-execution,
         // as we use maxRecordTime and minRecordTime to calculate the interval between the two commands
+        //
+        // thus, we delay by twice the skews below
         ledger
           .getTimeModel()
           .flatMap(response => {
             ledger.delayMechanism.delayBy(
-              response.getTimeModel.getMaxSkew.asScala +
-                2 * response.getTimeModel.getMinSkew.asScala
+              Durations.scaleDuration(
+                Durations.asFiniteDuration(
+                  2 * (response.getTimeModel.getMaxSkew.asScala +
+                    response.getTimeModel.getMinSkew.asScala)
+                ),
+                timeoutScaleFactor,
+              )
             )
           })
       case OffsetSupport.Unrecognized(_) | OffsetSupport.OFFSET_NOT_SUPPORTED =>
