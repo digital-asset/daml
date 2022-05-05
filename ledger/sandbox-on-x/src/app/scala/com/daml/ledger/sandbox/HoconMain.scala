@@ -5,7 +5,7 @@ package com.daml.ledger.sandbox
 
 import com.daml.ledger.runner.common.HoconCli
 
-object MainHocon {
+object HoconMain {
   def main(args: Array[String]): Unit =
     SandboxOnXRunner.run(HoconCli.loadConfigWithOverrides(SandboxOnXRunner.RunnerName, args))
 

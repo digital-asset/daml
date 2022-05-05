@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.runner.common.HoconCli
 import com.daml.testing.oracle.OracleAround
 
-object MainWithEphemeralOracleUserHocon {
+object HoconMainWithEphemeralOracleUser {
   def main(args: Array[String]): Unit = {
     val user = OracleAround.createNewUniqueRandomUser()
     sys.addShutdownHook(user.drop())

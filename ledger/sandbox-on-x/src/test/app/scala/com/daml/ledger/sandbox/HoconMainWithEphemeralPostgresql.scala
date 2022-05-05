@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.runner.common.HoconCli
 import com.daml.testing.postgresql.PostgresAround
 
-object MainWithEphemeralPostgresqlHocon extends PostgresAround {
+object HoconMainWithEphemeralPostgresql extends PostgresAround {
 
   def main(args: Array[String]): Unit = {
     connectToPostgresqlServer()

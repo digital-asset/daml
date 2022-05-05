@@ -541,20 +541,20 @@ conformance_test(
 
 SERVERS_HOCON = {
     "h2database": {
-        "binary": ":app-hocon",
+        "binary": ":hocon-app",
     },
     "postgresql": {
-        "binary": ":conformance-test-postgres-bin-hocon",
+        "binary": ":hocon-conformance-test-postgres-bin",
     },
     "oracle": {
-        "binary": ":conformance-test-oracle-bin-hocon",
+        "binary": ":hocon-conformance-test-oracle-bin",
         "tags": oracle_tags,
     },
 }
 
 da_scala_binary(
-    name = "app-hocon",
-    main_class = "com.daml.ledger.sandbox.MainHocon",
+    name = "hocon-app",
+    main_class = "com.daml.ledger.sandbox.HoconMain",
     tags = [
         "fat_jar",
         "maven_coordinates=com.daml:sandbox-on-x-app-jar:__VERSION__",
@@ -572,8 +572,8 @@ da_scala_binary(
 )
 
 da_scala_binary(
-    name = "conformance-test-oracle-bin-hocon",
-    main_class = "com.daml.ledger.sandbox.MainWithEphemeralOracleUserHocon",
+    name = "hocon-conformance-test-oracle-bin",
+    main_class = "com.daml.ledger.sandbox.HoconMainWithEphemeralOracleUser",
     visibility = ["//visibility:public"],
     runtime_deps = [],
     deps = [
@@ -582,8 +582,8 @@ da_scala_binary(
 )
 
 da_scala_binary(
-    name = "conformance-test-postgres-bin-hocon",
-    main_class = "com.daml.ledger.sandbox.MainWithEphemeralPostgresqlHocon",
+    name = "hocon-conformance-test-postgres-bin",
+    main_class = "com.daml.ledger.sandbox.HoconMainWithEphemeralPostgresql",
     visibility = ["//visibility:public"],
     runtime_deps = [],
     deps = [
@@ -593,9 +593,9 @@ da_scala_binary(
 
 #Duplicated tests using new hocon-style configuration
 conformance_test(
-    name = "conformance-test-no-conflict-checking-hocon",
+    name = "hocon-conformance-test-no-conflict-checking",
     ports = [6865],
-    server = ":app-hocon",
+    server = ":hocon-app",
     server_args = [
         "-C ledger.participants.default.api-server.seeding=testing-weak",
         "-C bridge.conflict-checking-enabled=false",
@@ -617,7 +617,7 @@ conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-hocon",
+    name = "hocon-conformance-test",
     server_args = [
         "-C ledger.participants.default.api-server.seeding=testing-weak",
         "-C ledger.participants.default.api-server.user-management.enabled=true",
@@ -633,7 +633,7 @@ server_conformance_test(
 # We run one conformance test with small buffer/cache sizes to make sure we cover cases where data doesn't fit
 # into a cache or where multiple buffers have to be combined.
 server_conformance_test(
-    name = "conformance-test-tiny-buffers-hocon",
+    name = "hocon-conformance-test-tiny-buffers",
     server_args = [
         "-C ledger.participants.default.api-server.seeding=testing-weak",
         "-C ledger.participants.default.index.max-contract-key-state-cache-size=2",
@@ -651,9 +651,9 @@ server_conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-static-time-hocon",
+    name = "hocon-conformance-test-static-time",
     ports = [6865],
-    server = ":app-hocon",
+    server = ":hocon-app",
     server_args = [
         "-C ledger.participants.default.api-server.seeding=testing-weak",
         "-C ledger.participants.default.api-server.time-provider-type=static",
@@ -664,9 +664,9 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-in-memory-fan-out-hocon",
+    name = "hocon-conformance-test-in-memory-fan-out",
     ports = [6865],
-    server = ":app-hocon",
+    server = ":hocon-app",
     server_args = [
         "-C ledger.participants.default.api-server.seeding=testing-weak",
         "-C ledger.participants.default.index.max-transactions-in-memory-fan-out-buffer-size=10",
