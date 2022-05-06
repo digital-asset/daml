@@ -164,7 +164,7 @@ case class CommandSubmitter(
 
     }
 
-    val generator = new CommandGenerator(
+    val generator = CommandGenerator(
       randomnessProvider = RandomnessProvider.Default,
       signatory = signatory,
       config = config,

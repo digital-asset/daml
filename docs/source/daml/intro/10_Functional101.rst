@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-10 Functional Programming 101
-=============================
+Functional Programming 101
+==========================
 
 In this chapter, you will learn more about expressing complex logic in a functional language like Daml. Specifically, you'll learn about
 
@@ -497,7 +497,7 @@ Have a go at implementing ``foldlA`` in terms of ``foldl`` and ``sequence`` and 
 
 Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used. ``mapA_ fn xs fn = void (mapA fn xs)``. The Daml Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.
 
-Next up
+Next Up
 -------
 
 You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`11_StdLib`, you'll get an overview of the library and learn how to search and browse it.

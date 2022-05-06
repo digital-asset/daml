@@ -204,15 +204,11 @@ This testing procedure starts once the release is listed on the [releases page].
    can run through this on both Windows and your local unix in parallel fairly
    easily.
 
-    1. For these steps you will need the documentation for the
-       release you are about to make. Documentation for stable releases
-       is published at every hour so if you wait for a bit you can go to
-       https://docs.daml.com/$VERSION/getting-started/index.html.
-       Otherwise (e.g. for snapshot releases), check out the commit that
-       you are referencing in the `LATEST` file and build documentation
-       locally via `./docs/scripts/preview.sh`. Alternatively, if you are
-       sure that the Getting Started Guide didn't change since the last
-       stable version, you can simply go to https://docs.daml.com/getting-started/index.html
+    1. For these steps you will need the getting started documentation for the
+       release you are about to make. You can either build the documentation
+       locally (see `docs/README.md`), or, if you are sure that the Getting
+       Started Guide didn't change since the last stable version, you can
+       simply go to [the live documentation](https://docs.daml.com/getting-started/index.html).
 
     1. `daml new create-daml-app --template create-daml-app`
 

@@ -13,8 +13,8 @@ specific to an individual application, just like the upgrade models.
 Nevertheless, we have found that the pattern shown here
 occurs frequently.
 
-Structuring the Upgrade
-=======================
+Structure the Upgrade
+=====================
 
 There are three kinds of actions performed during the upgrade:
 
@@ -90,8 +90,8 @@ whenever the state of the ledger changes. So whenever an owner accepts
 an upgrade proposal, the trigger will run the rule and upgrade all
 certificates of that owner.
 
-Deploying and Executing the Upgrade
-===================================
+Deploy and Execute the Upgrade
+==============================
 
 Now that we defined our Daml script and our trigger, it is time to use
 them! If you still have Sandbox running from the previous section,

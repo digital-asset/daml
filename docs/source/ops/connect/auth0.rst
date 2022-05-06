@@ -71,8 +71,8 @@ In order to follow along this guide, you will need:
   system. In this guide, we'll use the `create-daml-app` template,
   which supports Auth0 out-of-the-box on its UI side.
 
-Generating Party Allocation Credentials
----------------------------------------
+Generate Party Allocation Credentials
+-------------------------------------
 
 Since Auth0 will be in charge of requesting the allocation of parties, the
 first logical step is to make it generate a token that can be used to allocate
@@ -375,11 +375,11 @@ Don't forget to click on Deploy to save your changes. This time, as the Action
 is already part of a Flow, clicking the Deploy button really deploys the Action
 and there is no further action needed.
 
-Running Your App
-----------------
+Run Your App
+------------
 
-Preparing Your Application
-**************************
+Prepare Your Application
+************************
 
 You may have an application already. In that case, use that. For the purposes
 of illustration, here we're going to work with a modified version of
@@ -594,8 +594,8 @@ our frontend. All we need now is to get a Daml system up and running.
 We document two paths forward here: one that relies on the Helm chart included
 in Daml Enterprise, and a manual setup using only the Open Source SDK.
 
-Using the Daml Helm Chart
-*************************
+Use the Daml Helm Chart
+***********************
 
 For simplicity, we assume that you have access to a server with a public IP
 address that both you and Auth0 can reach. Furthermore, we assume that you have
@@ -669,8 +669,8 @@ domain on which your server is exposed. And voilà! Your application is up and
 running. You should be able to log in with Auth0, exchange messages, and set up
 an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
 
-Manually Setting Up the Daml Components
-***************************************
+Set Up the Daml Components Manually 
+***********************************
 
 For simplicity, we assume that all of the Daml components will run on a single
 machine (they can find each other on ``localhost``) and that this machine has

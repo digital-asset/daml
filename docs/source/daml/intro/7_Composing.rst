@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-7 Composing choices
-===================
+Composing Choices
+=================
 
 It's time to put everything you've learnt so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
 
@@ -18,7 +18,7 @@ The model in this section is not a single Daml file, but a Daml project consisti
 
   Remember that you can load all the code for this section into a folder called ``intro7`` by running ``daml new intro7 --template daml-intro-7``
 
-Daml projects
+Daml Projects
 -------------
 
 Daml is organized in projects, packages and modules. A Daml project is specified using a single ``daml.yaml`` file, and compiles into a package in Daml's intermediate language, or bytecode equivalent, Daml-LF. Each Daml file within a project becomes a Daml module, which is a bit like a namespace. Each Daml project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
@@ -34,7 +34,7 @@ You can generally set ``name`` and ``version`` freely to describe your project. 
 
 You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/${project_name}-${project_version}.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`9_Dependencies`.
 
-Project structure
+Project Structure
 -----------------
 
 This project contains an asset holding model for transferable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
@@ -89,7 +89,7 @@ corresponding functionality:
 
   import Daml.Script
 
-Project overview
+Project Overview
 ----------------
 
 The project both changes and adds to the ``Iou`` model presented in :doc:`6_Parties`:
@@ -100,8 +100,8 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
   With the ``Iou`` model, an ``issuer`` could end up owing cash to anyone as transfers were authorized by just ``owner`` and ``newOwner``. In this project, only parties having an ``AssetHolder`` contract can end up owning assets. This allows the ``issuer`` to determine which parties may own their assets.
 - The ``Trade`` template adds a swap of two assets to the model.
 
-Composed choices and scripts
-------------------------------
+Composed Choices and Scripts
+----------------------------
 
 This project showcases how you can put the ``Update`` and ``Script`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
 
@@ -126,64 +126,70 @@ The resulting transaction, with its two nested levels of consequences, can be se
 
 .. code-block:: none
 
-  TX #15 1970-01-01T00:00:00Z (Test.Intro.Asset.Trade:77:23)
-  #15:0
-  │   known to (since): 'Alice' (#15), 'Bob' (#15)
-  └─> 'Bob' exercises Trade_Settle on #13:1 (Intro.Asset.Trade:Trade)
+  TX 14 1970-01-01T00:00:00Z (Test.Intro.Asset.Trade:79:23)
+  #14:0
+  │   disclosed to (since): 'Alice' (14), 'Bob' (14)
+  └─> 'Bob' exercises Trade_Settle on #12:0 (Intro.Asset.Trade:Trade)
             with
-              quoteAssetCid = #10:1; baseApprovalCid = #14:2
+              quoteAssetCid = #9:1; baseApprovalCid = #13:1
       children:
-      #15:1
-      │   known to (since): 'Alice' (#15), 'Bob' (#15)
-      └─> fetch #11:1 (Intro.Asset:Asset)
-
-      #15:2
-      │   known to (since): 'Alice' (#15), 'Bob' (#15)
+      #14:1
+      │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
       └─> fetch #10:1 (Intro.Asset:Asset)
 
-      #15:3
-      │   known to (since): 'USD_Bank' (#15), 'Bob' (#15), 'Alice' (#15)
+      #14:2
+      │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
+      └─> fetch #9:1 (Intro.Asset:Asset)
+
+      #14:3
+      │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
       └─> 'Alice',
-          'Bob' exercises TransferApproval_Transfer on #14:2 (Intro.Asset:TransferApproval)
+          'Bob' exercises TransferApproval_Transfer on #13:1 (Intro.Asset:TransferApproval)
                 with
-                  assetCid = #11:1
+                  assetCid = #10:1
           children:
-          #15:4
-          │   known to (since): 'USD_Bank' (#15), 'Bob' (#15), 'Alice' (#15)
-          └─> fetch #11:1 (Intro.Asset:Asset)
-
-          #15:5
-          │   known to (since): 'Alice' (#15), 'USD_Bank' (#15), 'Bob' (#15)
-          └─> 'Alice', 'USD_Bank' exercises Archive on #11:1 (Intro.Asset:Asset)
-
-          #15:6
-          │   referenced by #17:0
-          │   known to (since): 'Bob' (#15), 'USD_Bank' (#15), 'Alice' (#15)
-          └─> create Intro.Asset:Asset
-              with
-                issuer = 'USD_Bank'; owner = 'Bob'; symbol = "USD"; quantity = 100.0; observers = []
-
-      #15:7
-      │   known to (since): 'EUR_Bank' (#15), 'Alice' (#15), 'Bob' (#15)
-      └─> 'Bob',
-          'Alice' exercises TransferApproval_Transfer on #12:1 (Intro.Asset:TransferApproval)
-                  with
-                    assetCid = #10:1
-          children:
-          #15:8
-          │   known to (since): 'EUR_Bank' (#15), 'Alice' (#15), 'Bob' (#15)
+          #14:4
+          │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
           └─> fetch #10:1 (Intro.Asset:Asset)
 
-          #15:9
-          │   known to (since): 'Bob' (#15), 'EUR_Bank' (#15), 'Alice' (#15)
-          └─> 'Bob', 'EUR_Bank' exercises Archive on #10:1 (Intro.Asset:Asset)
+          #14:5
+          │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
+          └─> 'Alice', 'USD_Bank' exercises Archive on #10:1 (Intro.Asset:Asset)
 
-          #15:10
-          │   referenced by #16:0
-          │   known to (since): 'Alice' (#15), 'EUR_Bank' (#15), 'Bob' (#15)
+          #14:6
+          │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
           └─> create Intro.Asset:Asset
               with
-                issuer = 'EUR_Bank'; owner = 'Alice'; symbol = "EUR"; quantity = 90.0; observers = []
+                issuer = 'USD_Bank';
+                owner = 'Bob';
+                symbol = "USD";
+                quantity = 100.0000000000;
+                observers = []
+
+      #14:7
+      │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
+      └─> 'Alice',
+          'Bob' exercises TransferApproval_Transfer on #11:1 (Intro.Asset:TransferApproval)
+                with
+                  assetCid = #9:1
+          children:
+          #14:8
+          │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
+          └─> fetch #9:1 (Intro.Asset:Asset)
+
+          #14:9
+          │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
+          └─> 'Bob', 'EUR_Bank' exercises Archive on #9:1 (Intro.Asset:Asset)
+
+          #14:10
+          │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
+          └─> create Intro.Asset:Asset
+              with
+                issuer = 'EUR_Bank';
+                owner = 'Alice';
+                symbol = "EUR";
+                quantity = 90.0000000000;
+                observers = []
 
 Similar to choices, you can see how the scripts in this project are built up from each other:
 
@@ -206,7 +212,7 @@ Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal,
 
 .. _execution_model:
 
-Daml's execution model
+Daml's Execution Model
 ----------------------
 
 Daml's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
@@ -300,7 +306,7 @@ Note that Principle 2 of the privacy model means that sometimes parties see cont
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing Daml models for privacy sensitive applications.
 
-Next up
+Next Up
 -------
 
 In :doc:`8_Exceptions`, we will learn about how errors in your model can be handled in Daml.

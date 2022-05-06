@@ -15,7 +15,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     serviceCallWithToken(Some(toHeader(payload)))
 
   it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit an expired read-only token")
+    attackUnauthenticated(threat = "Present an expired read-only JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))
   }
@@ -46,7 +46,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   it should "deny calls with expired 'participant_admin' user token" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit an expired 'participant_admin' user token")
+      attackUnauthenticated(threat = "Present an expired 'participant_admin' user JWT")
     ) in {
     val payload =
       standardToken("participant_admin", Some(Duration.ofDays(-1)))
@@ -64,7 +64,9 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   it should "deny calls with 'participant_admin' user token for another participant node" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit 'participant_admin' user token for another participant node")
+      attackPermissionDenied(threat =
+        "Present 'participant_admin' user JWT for another participant node"
+      )
     ) in {
     val payload =
       standardToken(userId = "participant_admin", participantId = Some("other-participant-id"))
@@ -81,13 +83,13 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
   it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit non-expired 'unknown_user' user token")
+      attackPermissionDenied(threat = "Present a non-expired 'unknown_user' user JWT")
     ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
   it should "deny calls with an expired read/write token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit expired read/write token")
+    attackPermissionDenied(threat = "Present an expired read/write JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(canActAsRandomPartyExpired))
   }
@@ -105,7 +107,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "deny calls with an expired admin token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit expired admin token")
+    attackUnauthenticated(threat = "Present an expired admin JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(canReadAsAdminExpired))
   }
@@ -129,7 +131,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "deny calls with a random ledger ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit random ledger ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown ledger ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsRandomPartyRandomLedgerId))
   }
@@ -141,7 +143,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
 
   it should "deny calls with a random participant ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit calls with a random participant ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown participant ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsRandomPartyRandomParticipantId))
   }

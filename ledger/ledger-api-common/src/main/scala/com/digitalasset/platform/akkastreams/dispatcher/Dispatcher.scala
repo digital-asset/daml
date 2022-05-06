@@ -7,6 +7,11 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.resources.ResourceOwner
 
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+
+import com.daml.timer.Timeout._
+
 /** A fanout signaller, representing a stream of external updates,
   * that can be subscribed to dynamically at a given point in the stream.
   * Stream positions are given by the Index type, and stream values are given by T. Subscribing to a point
@@ -15,7 +20,7 @@ import com.daml.ledger.resources.ResourceOwner
   *
   * Implementations must be thread-safe, so must the callbacks provided to it.
   */
-trait Dispatcher[Index] extends AutoCloseable {
+trait Dispatcher[Index] {
 
   /** Returns the head index where this Dispatcher is at */
   def getHead(): Index
@@ -29,6 +34,8 @@ trait Dispatcher[Index] extends AutoCloseable {
       subSource: SubSource[Index, T],
       endInclusive: Option[Index] = None,
   ): Source[(Index, T), NotUsed]
+
+  def shutdown(): Future[Unit]
 }
 
 object Dispatcher {
@@ -51,7 +58,11 @@ object Dispatcher {
       name: String,
       zeroIndex: Index,
       headAtInitialization: Index,
+      shutdownTimeout: Duration = Duration.Inf,
+      onShutdownTimeout: () => Unit = () => (),
   ): ResourceOwner[Dispatcher[Index]] =
-    ResourceOwner.forCloseable(() => apply(name, zeroIndex, headAtInitialization))
+    ResourceOwner.forReleasable(() => apply(name, zeroIndex, headAtInitialization))(
+      _.shutdown().withTimeout(shutdownTimeout)(onShutdownTimeout())
+    )
 
 }

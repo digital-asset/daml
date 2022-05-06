@@ -35,7 +35,7 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
       connection: Connection,
   ): Boolean =
     if (pruneAllDivulgedContracts) {
-      import com.daml.platform.store.Conversions.OffsetToStatement
+      import com.daml.platform.store.backend.Conversions.OffsetToStatement
       def selectFrom(table: String) = cSQL"""
          (select max(event_offset) as max_event_offset
          from #$table, participant_migration_history_v100

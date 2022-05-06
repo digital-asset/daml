@@ -57,6 +57,7 @@ private[platform] case class IndexServiceBuilder(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
+    apiStreamShutdownTimeout: Duration,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -257,6 +258,11 @@ private[platform] case class IndexServiceBuilder(
       name = "sql-ledger",
       zeroIndex = Offset.beforeBegin,
       headAtInitialization = ledgerEnd,
+      shutdownTimeout = apiStreamShutdownTimeout,
+      onShutdownTimeout = () =>
+        logger.warn(
+          s"Shutdown of API streams did not finish in ${apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
+        ),
     )
 
   private def verifyLedgerId(

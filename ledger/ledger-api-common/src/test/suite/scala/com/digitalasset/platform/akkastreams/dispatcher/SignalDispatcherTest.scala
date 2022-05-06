@@ -67,7 +67,7 @@ class SignalDispatcherTest
       s.request(1L)
       s.expectNext(SignalDispatcher.Signal)
       sut.getRunningState should have size 1L
-      sut.close()
+      sut.shutdown()
       assertThrows[IllegalStateException](sut.getRunningState)
       assertThrows[IllegalStateException](sut.signal())
       s.expectComplete()

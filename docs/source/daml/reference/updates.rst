@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: updates
+Reference: Updates
 ##################
 
 This page gives reference information on Updates. For the structure around them, see :doc:`structure`.
@@ -16,7 +16,7 @@ Background
 
 .. _daml-ref-binding-variables:
 
-Binding variables
+Binding Variables
 *****************
 
 .. code-block:: daml

@@ -347,14 +347,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           encoder,
           headers,
         ).map { response =>
-          inside(response) { case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest) =>
-            errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
-            inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
-              unknownTemplateIds.toSet shouldBe Set(
-                domain.TemplateId(None, "AAA", "BBB"),
-                domain.TemplateId(None, "XXX", "YYY"),
-              )
-            }
+          inside(response) {
+            case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest, _) =>
+              errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
+              inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
+                unknownTemplateIds.toSet shouldBe Set(
+                  domain.TemplateId(None, "AAA", "BBB"),
+                  domain.TemplateId(None, "XXX", "YYY"),
+                )
+              }
           }
         }
       }
@@ -494,6 +495,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             Seq(_),
             Some(domain.UnknownTemplateIds(Seq(TpId.IIou.IIou))),
             StatusCodes.BadRequest,
+            _,
           ) =>
         succeed
     }
@@ -704,6 +706,28 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           expectedOneErrorMessage(output) should include(
             s"Contract could not be found with id $contractIdString"
           )
+          val ledgerApiError =
+            output.asJsObject.fields("ledgerApiError").convertTo[domain.LedgerApiError]
+          ledgerApiError.message should include("CONTRACT_NOT_FOUND")
+          ledgerApiError.message should include(
+            "Contract could not be found with id 000000000000000000000000000000000000000000000000000000000000000000"
+          )
+          import org.scalatest.Inspectors._
+          forExactly(1, ledgerApiError.details) {
+            case domain.ErrorInfoDetail(errorCodeId, _) =>
+              errorCodeId shouldBe "CONTRACT_NOT_FOUND"
+            case _ => fail()
+          }
+          forExactly(1, ledgerApiError.details) {
+            case domain.RequestInfoDetail(_) => succeed
+            case _ => fail()
+          }
+          forExactly(1, ledgerApiError.details) {
+            case domain.ResourceInfoDetail(name, typ) =>
+              name shouldBe "000000000000000000000000000000000000000000000000000000000000000000"
+              typ shouldBe "CONTRACT_ID"
+            case _ => fail()
+          }
         }: Future[Assertion]
   }
 
@@ -951,7 +975,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       ).flatMap { case (status, output) =>
         status shouldBe StatusCodes.BadRequest
         inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
-          case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest)) =>
+          case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _)) =>
             error should include("Daml-LF Party is empty")
         }
       }: Future[Assertion]

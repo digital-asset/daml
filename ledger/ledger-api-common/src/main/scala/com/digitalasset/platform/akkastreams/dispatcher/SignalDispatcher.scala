@@ -11,13 +11,13 @@ import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
   * the signal is sent will eventually receive a signal.
   */
-class SignalDispatcher private () extends AutoCloseable {
+class SignalDispatcher private () {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -63,14 +63,17 @@ class SignalDispatcher private () extends AutoCloseable {
   /** Closes this SignalDispatcher.
     * For any downstream with pending signals, at least one such signal will be sent first.
     */
-  def close(): Unit =
+  def shutdown(): Future[Unit] = {
+    implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState
       .getAndSet(None)
-      // note, Materializer's lifecycle is managed outside of this class
-      // fire and forget complete signals -- we can't control how long downstream takes
-      .fold(throw new IllegalStateException("SignalDispatcher is already closed"))(
-        _.foreach(_.complete())
-      )
+      .fold(throw new IllegalStateException("SignalDispatcher is already closed")) { sources =>
+        sources.foreach(_.complete())
+        Future
+          .sequence(sources.map(_.watchCompletion()))
+          .map(_ => ())
+      }
+  }
 
 }
 

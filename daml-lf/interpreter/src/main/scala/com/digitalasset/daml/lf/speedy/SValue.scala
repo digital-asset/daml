@@ -114,38 +114,6 @@ sealed trait SValue {
     }
     go(this)
   }
-
-  def mapContractId(f: V.ContractId => V.ContractId): SValue = {
-    import ArrayList.Implicits._
-    this match {
-      case SContractId(coid) => SContractId(f(coid))
-      case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
-      case SPAP(prim, args, arity) =>
-        val prim2 = prim match {
-          case PClosure(label, expr, vars) =>
-            PClosure(label, expr, vars.map(_.mapContractId(f)))
-          case _: PBuiltin => prim
-        }
-        SPAP(prim2, args.map(_.mapContractId(f)), arity)
-      case SRecord(tycon, fields, values) =>
-        SRecord(tycon, fields, values.map(_.mapContractId(f)))
-      case SStruct(fields, values) =>
-        SStruct(fields, values.map(_.mapContractId(f)))
-      case SVariant(tycon, variant, rank, value) =>
-        SVariant(tycon, variant, rank, value.mapContractId(f))
-      case SList(lst) =>
-        SList(lst.map(_.mapContractId(f)))
-      case SOptional(mbV) =>
-        SOptional(mbV.map(_.mapContractId(f)))
-      case SMap(isTextMap, value) =>
-        SMap(
-          isTextMap,
-          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) },
-        )
-      case SAny(ty, value) =>
-        SAny(ty, value.mapContractId(f))
-    }
-  }
 }
 
 object SValue {

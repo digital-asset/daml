@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import java.io.ByteArrayInputStream
-import com.daml.platform.store.dao.events
+import com.daml.platform.{Contract, ContractId, Identifier, Key}
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.ContractStorageBackend.RawContractStateEvent
@@ -66,7 +66,7 @@ object ContractStateEventsReader {
 
   private def getCachedOrDecompressContract(
       contractId: ContractId,
-      templateId: events.Identifier,
+      templateId: Identifier,
       createArgument: Array[Byte],
       maybeCreateArgumentCompression: Option[Int],
       lfValueTranslation: LfValueTranslation,
@@ -85,7 +85,7 @@ object ContractStateEventsReader {
   }
 
   private def decompressKey(
-      templateId: events.Identifier,
+      templateId: Identifier,
       maybeCreateKeyValue: Option[Array[Byte]],
       maybeCreateKeyValueCompression: Option[Int],
   ): Option[Key] =

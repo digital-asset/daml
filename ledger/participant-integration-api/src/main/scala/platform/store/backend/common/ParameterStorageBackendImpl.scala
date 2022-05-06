@@ -9,9 +9,8 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.MismatchException
-import com.daml.platform.store.Conversions
-import com.daml.platform.store.Conversions.{ledgerString, offset}
-import com.daml.platform.store.backend.ParameterStorageBackend
+import com.daml.platform.store.backend.Conversions.{ledgerString, offset}
+import com.daml.platform.store.backend.{Conversions, ParameterStorageBackend}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
@@ -25,7 +24,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd
   )(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import Conversions.OffsetToStatement
     SQL"""
       UPDATE
         parameters
@@ -105,7 +104,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
         logger.info(
           s"Initializing new database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
         )
-        import com.daml.platform.store.Conversions.OffsetToStatement
+        import Conversions.OffsetToStatement
         val ledgerEnd = ParameterStorageBackend.LedgerEnd.beforeBegin
         discard(
           SQL"""insert into #$TableName(
@@ -154,7 +153,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
       .as(LedgerIdentityParser.singleOpt)(connection)
 
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import Conversions.OffsetToStatement
     SQL"""
       update parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
       where participant_pruned_up_to_inclusive < $prunedUpToInclusive or participant_pruned_up_to_inclusive is null
@@ -166,7 +165,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
   def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import Conversions.OffsetToStatement
     SQL"""
       update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
       where participant_all_divulged_contracts_pruned_up_to_inclusive < $prunedUpToInclusive or participant_all_divulged_contracts_pruned_up_to_inclusive is null

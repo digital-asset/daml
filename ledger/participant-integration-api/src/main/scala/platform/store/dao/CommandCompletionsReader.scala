@@ -7,10 +7,9 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.ApiOffset
+import com.daml.platform.{ApiOffset, ApplicationId, Party}
 import com.daml.platform.store.dao.events.QueryNonPruned
 import com.daml.platform.store.backend.CompletionStorageBackend
 
@@ -27,8 +26,8 @@ private[dao] final class CommandCompletionsReader(
   override def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
+      applicationId: ApplicationId,
+      parties: Set[Party],
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed] = {

@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
-import com.daml.platform.ApiOffset
+import com.daml.platform.{ApiOffset, FilterRelation}
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao._
@@ -716,7 +716,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 private[dao] object JdbcLedgerDaoTransactionsSpec {
   private final case class FlatTransactionCodePath(
       label: String,
-      filter: events.FilterRelation,
+      filter: FilterRelation,
       makeMatching: () => (Offset, LedgerEntry.Transaction),
       makeNonMatching: () => (Offset, LedgerEntry.Transaction),
       // XXX SC we don't need discriminate unless we test the event contents

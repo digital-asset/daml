@@ -478,6 +478,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ(e : σ) → ⸨ let x : τ = nothing in e ⸩" -> //
           { case _: EKindMismatch => },
+        // ExpLet (rhs)
+        E"Λ  (τ₁: ⋆). λ (e₁ : τ₁) → ⸨ let x : τ₁ = e₁ e₁ in unbound ⸩" -> //
+          { case _: EExpectedFunctionType => },
+        E"Λ  (τ₁: ⋆). λ (e₁ : τ₁) → ⸨ let _ : τ₁ = e₁ e₁ in unbound ⸩" -> //
+          { case _: EExpectedFunctionType => },
         // ExpListNil
         E"Λ (τ : ⋆ → ⋆). ⸨ Nil @τ ⸩" -> //
           { case _: EKindMismatch => },

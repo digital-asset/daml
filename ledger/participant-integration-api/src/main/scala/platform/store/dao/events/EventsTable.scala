@@ -19,26 +19,14 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.platform.store.backend.EventStorageBackend.Entry
 
 // TODO append-only: FIXME: move to the right place
 object EventsTable {
 
-  final case class Entry[+E](
-      eventOffset: Offset,
-      transactionId: String,
-      nodeIndex: Int,
-      eventSequentialId: Long,
-      ledgerEffectiveTime: Timestamp,
-      commandId: String,
-      workflowId: String,
-      event: E,
-  )
-
-  object Entry {
+  object TransactionConversions {
 
     private def flatTransaction(events: Vector[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
@@ -99,14 +87,21 @@ object EventsTable {
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
       val visible = events.map(_.event.eventId)
-      val visibleSet = visible.toSet
+      val visibleOrder = visible.view.zipWithIndex.toMap
 
       // All events in this transaction by their identifier, with their children
       // filtered according to those visible for this request
       val eventsById =
         events.iterator
           .map(_.event)
-          .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+          .map(e =>
+            e.eventId -> e
+              .filterChildEventIds(visibleOrder.contains)
+              // childEventIds need to be returned in the event order in the original transaction.
+              // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
+              // The order is determined by the order of the events, which follows the event order of the original transaction.
+              .sortChildEventIdsBy(visibleOrder)
+          )
           .toMap
 
       // All event identifiers that appear as a child of another item in this response

@@ -44,7 +44,7 @@ Deploying to Daml ledgers
    :titlesonly:
    :maxdepth: 2
 
-   deploying
+   deploy/generic_ledger
 
 Operating Daml
 --------------
@@ -76,6 +76,7 @@ Background concepts
    concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
+   concepts/test-evidence
 
 Examples
 --------

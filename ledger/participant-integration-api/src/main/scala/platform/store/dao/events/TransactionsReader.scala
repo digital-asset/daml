@@ -23,6 +23,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
+import com.daml.platform._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{
   DbDispatcher,
@@ -31,6 +32,7 @@ import com.daml.platform.store.dao.{
 }
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.{ContractStorageBackend, EventStorageBackend}
+import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
@@ -78,14 +80,14 @@ private[dao] final class TransactionsReader(
   private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
-  private def deserializeEvent[E](verbose: Boolean)(entry: EventsTable.Entry[Raw[E]])(implicit
-      loggingContext: LoggingContext
+  private def deserializeEvent[E](verbose: Boolean)(entry: EventStorageBackend.Entry[Raw[E]])(
+      implicit loggingContext: LoggingContext
   ): Future[E] =
     entry.event.applyDeserialization(lfValueTranslation, verbose)
 
   private def deserializeEntry[E](verbose: Boolean)(
-      entry: EventsTable.Entry[Raw[E]]
-  )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
+      entry: EventStorageBackend.Entry[Raw[E]]
+  )(implicit loggingContext: LoggingContext): Future[EventStorageBackend.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
   override def getFlatTransactions(
@@ -114,7 +116,7 @@ private[dao] final class TransactionsReader(
       )
     }
 
-    val events: Source[EventsTable.Entry[Event], NotUsed] =
+    val events: Source[EventStorageBackend.Entry[Event], NotUsed] =
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
           streamEvents(
@@ -129,7 +131,7 @@ private[dao] final class TransactionsReader(
     val flatTransactionsStream = TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionsResponse(events)
+        val response = TransactionConversions.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
 
@@ -171,7 +173,7 @@ private[dao] final class TransactionsReader(
           value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
         )
       )
-      .map(EventsTable.Entry.toGetFlatTransactionResponse)
+      .map(TransactionConversions.toGetFlatTransactionResponse)
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -215,7 +217,7 @@ private[dao] final class TransactionsReader(
       )
     }
 
-    val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
+    val events: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] =
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
           streamEvents(
@@ -230,7 +232,7 @@ private[dao] final class TransactionsReader(
     val transactionTreesStream = TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
+        val response = TransactionConversions.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
 
@@ -272,7 +274,7 @@ private[dao] final class TransactionsReader(
           value = Future.traverse(rawEvents)(deserializeEntry(verbose = true)),
         )
       )
-      .map(EventsTable.Entry.toGetTransactionResponse)
+      .map(TransactionConversions.toGetTransactionResponse)
 
   override def getTransactionLogUpdates(
       startExclusive: (Offset, Long),
@@ -383,7 +385,7 @@ private[dao] final class TransactionsReader(
           timer = dbMetrics.getActiveContracts.translationTimer,
         )
       }
-      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
+      .mapConcat(TransactionConversions.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
         Spans.addEventToSpan(
@@ -456,7 +458,7 @@ private[dao] final class TransactionsReader(
   }
 
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
-      a: EventsTable.Entry[E]
+      a: EventStorageBackend.Entry[E]
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
@@ -504,16 +506,16 @@ private[dao] final class TransactionsReader(
   private def streamEvents[A: Ordering, E](
       verbose: Boolean,
       queryMetric: DatabaseMetrics,
-      query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
-      getNextPageRange: EventsTable.Entry[E] => EventsRange[A],
+      query: EventsRange[A] => Connection => Vector[EventStorageBackend.Entry[Raw[E]]],
+      getNextPageRange: EventStorageBackend.Entry[E] => EventsRange[A],
   )(range: EventsRange[A])(implicit
       loggingContext: LoggingContext
-  ): Source[EventsTable.Entry[E], NotUsed] =
+  ): Source[EventStorageBackend.Entry[E], NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)
       else {
-        val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
+        val rawEvents: Future[Vector[EventStorageBackend.Entry[Raw[E]]]] =
           dispatcher.executeSql(queryMetric)(query(range1))
         rawEvents.flatMap(es =>
           Timed.future(

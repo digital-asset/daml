@@ -17,7 +17,6 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
@@ -25,6 +24,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -138,7 +138,7 @@ private class JdbcLedgerDao(
       ) { implicit conn =>
         val update = state.Update.ConfigurationChanged(
           recordTime = recordedAt,
-          submissionId = Ref.SubmissionId.assertFromString(submissionId),
+          submissionId = SubmissionId.assertFromString(submissionId),
           participantId = Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
           newConfiguration = configuration,
         )
@@ -240,7 +240,7 @@ private class JdbcLedgerDao(
   private val PageSize = 100
 
   override def getParties(
-      parties: Seq[Ref.Party]
+      parties: Seq[Party]
   )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
     if (parties.isEmpty)
       Future.successful(List.empty)
@@ -260,14 +260,14 @@ private class JdbcLedgerDao(
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[Ref.PackageId, PackageDetails]] =
+  ): Future[Map[PackageId, PackageDetails]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadPackages)(
         readStorageBackend.packageStorageBackend.lfPackages
       )
 
   override def getLfArchive(
-      packageId: Ref.PackageId
+      packageId: PackageId
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive)(
@@ -501,8 +501,8 @@ private class JdbcLedgerDao(
     */
   override def storeTransaction(
       completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[Ref.WorkflowId],
-      transactionId: Ref.TransactionId,
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -558,7 +558,7 @@ private[platform] object JdbcLedgerDao {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
 
-    def transactionId(id: Ref.TransactionId): LoggingEntry =
+    def transactionId(id: TransactionId): LoggingEntry =
       "transactionId" -> id
   }
 

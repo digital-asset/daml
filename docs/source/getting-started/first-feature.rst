@@ -168,8 +168,8 @@ Following the formatting of the previous panels, we include the new messaging co
 That is all for the implementation!
 Let's give the new functionality a spin.
 
-Running the Updated UI
-======================
+Run the Updated UI
+==================
 
 If you have the frontend UI up and running you're all set. If you don't have the UI running, open a new terminal window and navigate to the ``create-daml-app/ui`` folder, then run the ``npm start`` command to start the UI.
 
@@ -206,6 +206,7 @@ Next Steps
 
 We've gone through the process of setting up a full-stack Daml app and implementing a useful feature end to end.
 As the next step we encourage you to really dig into the fundamentals of Daml and understand its core concepts such as parties, signatories, observers, and controllers.
-You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://digitalasset.com/developers/interactive-tutorials/fundamental-concepts>`.
+You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://digitalasset.com/developers/interactive-tutorials/fundamental-concepts>`_.
+
 
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.

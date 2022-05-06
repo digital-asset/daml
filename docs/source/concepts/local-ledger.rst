@@ -3,8 +3,8 @@
 
 .. _local-ledger:
 
-Causality and Local Ledgers
-###########################
+Causality and Local Daml Ledgers
+################################
 
 Daml ledgers do not totally order all transactions.
 So different parties may observe two transactions on different Participant Nodes in different orders via the :ref:`Ledger API <ledger-api-services>`.
@@ -19,7 +19,7 @@ The presentation assumes that you are familiar with the following concepts:
 
 .. _causality-examples:
 
-Causality examples
+Causality Examples
 ******************
 
 A Daml Ledger need not totally order all transaction, unlike ledgers in the Daml Ledger Model.
@@ -37,8 +37,8 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
 
 .. _causality-example-create-archive:
 
-Stakeholders of a contract see creation and archival in the same order.
-=======================================================================
+Stakeholders of a Contract See Creation and Archival in the Same Order
+======================================================================
 
 Every Daml Ledger orders the creation of the `CounterOffer A P Bank` before the painter exercising the consuming choice on the `CounterOffer`.
 (If the **Create** was ordered after the **Exercise**, the resulting shared ledger would be inconsistent, which violates the validity guarantee of Daml ledgers.)
@@ -47,8 +47,8 @@ This does not depend on whether they are hosted on the same Participant Node.
 
 .. _causality-example-create-use-archive:
 
-Signatories of a contract and stakeholder actors see usages after the creation and before the archival.
-=======================================================================================================
+Signatories of a Contract and Stakeholder Actors See Usages After the Creation and Before the Archival
+======================================================================================================
 
 The `Fetch A (Iou Bank A)` action comes after the creation of the `Iou Bank A` and before its archival,
 for both Alice and the Bank,
@@ -56,8 +56,8 @@ because the Bank is a signatory of the `Iou Bank A` contract and Alice is a stak
 
 .. _causality-example-commit-atomic:
 
-Commits are atomic.
-===================
+Commits Are Atomic
+==================
 
 Alice sees the **Create** of her `Iou` before the creation of the `CounterOffer`,
 because the `CounterOffer` is created in the same commit as the **Fetch** of the `Iou`
@@ -65,8 +65,8 @@ and the **Fetch** commit comes after the **Create** of the `Iou`.
 
 .. _causality-example-non-consuming:
 
-Non-consuming usages in different commits may appear in different orders.
-=========================================================================
+Non-Consuming Usages in Different Commits May Appear in Different Orders
+========================================================================
 
 Suppose that the Bank exercises a non-consuming choice on the `Iou Bank A` without consequences while Alice creates the `CounterOffer`.
 In the ledger shown below, the Bank's commit comes before Alice's commit.
@@ -83,8 +83,8 @@ Yet, the **Fetch** may come before the non-consuming **Exercise** in the Bank's 
 
 .. _causality-example-out-of-band:
 
-Out-of-band causality is not respected.
-=======================================
+Out-of-Band Causality Is Not Respected
+======================================
 
 The following examples assume that Alice splits up her commit into two as follows:
 
@@ -114,8 +114,8 @@ Daml ledgers therefore do not capture data flow through applications.
 
 .. _causality-divulgence-example:
 
-Divulged actions do not induce order.
-=====================================
+Divulged Actions Do Not Induce Order
+====================================
 
 The painter witnesses the fetching of Alice's `Iou` when the `ShowIou` contract is consumed.
 The painter also witnesses the **Exercise** of the `Iou` when Alice exercises the transfer choice as a consequence of the painter accepting the `CounterOffer`.
@@ -139,8 +139,8 @@ Analogously, choice observers of an **Exercise** action benefit from the orderin
 
 .. _causality-example-depend-on-party:
 
-The ordering guarantees depend on the party.
-============================================
+The Ordering Guarantees Depend on the Party
+===========================================
 
 By the previous example, for the painter, fetching the `Iou` is not ordered before transferring the `Iou`.
 For Alice, however, the **Fetch** must appear before the **Exercise** 
@@ -150,7 +150,7 @@ This shows that the ordering guarantees depend on the party.
 
 .. _causality-graph:
    
-Causality graphs
+Causality Graphs
 ****************
 
 The above examples indicate that Daml ledgers order transactions only partially.
@@ -299,7 +299,7 @@ For this set of transactions, consistency allows only one such order: `tx5` come
 
 .. _causality-consistency-ledger-model:
 
-From causality graphs to ledgers
+From Causality Graphs to Ledgers
 ================================
 
 Since causality graphs are acyclic, their vertices can be sorted topologically and the resulting list is again a causality graph, where every vertex has an outgoing edge to all later vertices.
@@ -344,7 +344,7 @@ Conversely, if the sequence of commits `L` is ledger consistent, `G`:sub:`L` is 
 
 .. _local-ledger-structure:
    
-Local ledgers
+Local Ledgers
 *************
 
 As explained in the Daml Ledger Model, parties see only a :ref:`projection <da-model-projections>` of the shared ledger for privacy reasons.
@@ -398,7 +398,7 @@ This difference explains the :ref:`divulgence causality example <causality-divul
 
 .. _ordering-guarantees:
 
-Ledger API ordering guarantees
+Ledger API Ordering Guarantees
 ==============================
 
 The :ref:`Transaction Service <transaction-service>` provides the updates as a stream of Daml transactions
@@ -432,7 +432,7 @@ These guarantees are subject to the deployed Daml ledger's trust assumptions.
    That is, all the local ledgers can in theory be combined into a consistent single causality graph of which they are projections.
 
 
-Explaining the causality examples
+Explaining the Causality Examples
 =================================
 
 The :ref:`causality examples <causality-examples>` can be explained in terms of causality graphs and local ledgers as follows:

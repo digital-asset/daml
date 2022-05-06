@@ -3,7 +3,9 @@
 
 .. _daml-codegen-java:
 
-Generate Java code from Daml
+
+
+Generate Java Code from Daml
 ############################
 
 Introduction
@@ -15,14 +17,14 @@ The :doc:`Daml assistant documentation </tools/codegen>` describes how to run an
 
 The rest of this page describes Java-specific topics.
 
-Understand the generated Java model
-===================================
+Understand the Generated Java Model
+======================================
 
 The Java codegen generates source files in a directory tree under the output directory specified on the command line.
 
 .. _daml-codegen-java-primitive-types:
 
-Map Daml primitives to Java types
+Map Daml Primitives to Java Types
 ---------------------------------
 
 Daml built-in types are translated to the following equivalent types in Java:
@@ -63,7 +65,7 @@ Daml built-in types are translated to the following equivalent types in Java:
 +--------------------------------+--------------------------------------------+------------------------+
 
 
-Understand escaping rules
+Understand Escaping Rules
 -------------------------
 
 To avoid clashes with Java keywords, the Java codegen applies escaping rules to the following Daml identifiers:
@@ -76,7 +78,7 @@ To avoid clashes with Java keywords, the Java codegen applies escaping rules to 
 
 If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Java codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
 
-Understand the generated classes
+Understand the Generated Classes
 --------------------------------
 
 Every user-defined data type in Daml (template, record, and variant) is represented by one or more Java classes as described in this section.
@@ -93,7 +95,7 @@ The Java package for the generated classes is the equivalent of the lowercase Da
 
   package foo.bar.baz;
 
-Records (a.k.a product types)
+Records (a.k.a Product Types)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :ref:`Daml record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the Daml record fields. A Daml field having the type of another record is represented as a field having the type of the generated class for that record.
@@ -214,7 +216,7 @@ A file is generated that defines three Java classes:
 
 Note that the static methods returning an ``ExerciseByKeyCommand`` will only be generated for templates that define a key.
 
-Variants (a.k.a sum types)
+Variants (a.k.a Sum Types)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
@@ -297,7 +299,7 @@ The Java code generated for this variant is:
     public DamlRecord toValue() { /* ... */ }
   }
 
-Parameterized types
+Parameterized Types
 ^^^^^^^^^^^^^^^^^^^
 
 .. note::
@@ -387,7 +389,7 @@ The Java code generated for this variant is:
   }
 
 
-Convert a value of a generated type to a Java Bindings value
+Convert a Value of a Generated Type to a Java Bindings Value
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 To convert an instance of the generic type ``Attribute<a>`` to a Java Bindings `Value`_, call the ``toValue`` method and pass a function as the ``toValuea`` argument for converting the field of type ``a`` to the respective Java Bindings `Value`_. The name of the parameter consists of ``toValue`` and the name of the type parameter, in this case ``a``, to form the name ``toValuea``.
@@ -404,7 +406,7 @@ See :ref:`Daml To Java Type Mapping <daml-codegen-java-primitive-types>` for an 
 
 Note: If the Daml type is a record or variant with more than one type parameter, you need to pass a conversion function to the ``toValue`` method for each type parameter.
 
-Create a value of a generated type from a Java Bindings value
+Create a Value of a Generated Type from a Java Bindings Value
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Analogous to the ``toValue`` method, to create a value of a generated type, call the method ``fromValue`` and pass conversion functions from a Java Bindings `Value`_ type to the expected Java type.
@@ -417,13 +419,13 @@ Analogous to the ``toValue`` method, to create a value of a generated type, call
 See Java Bindings `Value`_ class for the methods to transform the Java Bindings types into corresponding Java types.
 
 
-Non-exposed parameterized types
+Non-exposed Parameterized Types
 """""""""""""""""""""""""""""""
 
 If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the conversion methods of the enclosing type provides the required conversion function parameters automatically.
 
 
-Convert Optional values
+Convert Optional Values
 """""""""""""""""""""""
 
 The conversion of the Java ``Optional`` requires two steps. The
@@ -445,7 +447,7 @@ convert back the value possibly contains in the container.
   Attribute<Optional<Long>> idAttribute2 =
     serializedId.toOptional(v -> v.asInt64().orElseThrow(() -> new IllegalArgumentException("Expected Int64 element")));
 
-Convert Collection values
+Convert Collection Values
 """""""""""""""""""""""""
 
 `DamlCollectors`_ provides collectors to converted Java collection

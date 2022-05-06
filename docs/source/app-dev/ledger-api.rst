@@ -82,7 +82,7 @@ As a user, you don't need to interact with Daml-LF directly. But internally, it'
 
 .. Daml-LF content appears in the package service interactions. It is represented as opaque blobs that require a secondary decoding phase.
 
-When you need to know about Daml-LF
+When You Need to Know About Daml-LF
 ===================================
 
 Daml-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use any of the provided language bindings for the Ledger API, you don't need to know about Daml-LF at all, because this generates idiomatic representations of Daml for you.

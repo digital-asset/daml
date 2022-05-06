@@ -7,6 +7,12 @@ import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast.{Expr, Kind, Module, Type}
 import com.daml.lf.language.LanguageVersion
 
+/** The LF Parser library can be used to write Daml-LF Ast using a
+  * human-friendly syntax.
+  *
+  * It is designed for testing only and provided without any guarantee.
+  * In particular future version may introduce breaking change without notice.
+  */
 package object parser {
 
   val defaultPackageId = Ref.PackageId.assertFromString("-pkgId-")

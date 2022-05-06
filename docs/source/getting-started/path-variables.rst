@@ -8,8 +8,8 @@ Windows
 *******
 To set up ``JAVA_HOME`` and ``PATH`` variables on Windows:
 
-Setting the JAVA_HOME Variable
-==============================
+Set the JAVA_HOME Variable
+==========================
 
 1. Search for Advanced System Settings (open ``Search``, type "advanced system settings" and hit ``Enter``).
 2. Find the ``Advanced`` tab and click ``Environment Variables``.
@@ -18,8 +18,8 @@ Setting the JAVA_HOME Variable
 5. Click OK in the ``Variable name`` window.
 6. Click OK in the tab and click Apply to apply the changes.
 
-Setting the PATH Variable
-=========================
+Set the PATH Variable
+=====================
 The ``PATH`` variable is automatically set by the `Windows installer <https://github.com/digital-asset/daml/releases/latest>`_ .
 
 
@@ -73,24 +73,24 @@ Linux
 *****
 To set up ``JAVA_HOME`` and ``PATH`` variables on Linux for ``bash``:
 
-Setting the JAVA_HOME Variable
-==============================
+Set the JAVA_HOME Variable
+==========================
 
 Java is typically installed in a folder like ``/usr/lib/jvm/java-version``. Before running the following command
 make sure to change the ``java-version`` with the actual folder found on your computer::
 
         echo "export JAVA_HOME=/usr/lib/jvm/java-version" >> ~/.bash_profile
 
-Setting the PATH Variable
-=========================
+Set the PATH Variable
+=====================
 
 The installer will ask to set the ``PATH`` variable for you. If you want to set the ``PATH`` variable
 manually instead, run the following command::
 
         echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.bash_profile
 
-Verifying the Changes
-=====================
+Verify the Changes
+==================
 
 In order for the changes to take effect you will need to restart your computer. After the restart, verify that everything was set up correctly using the following steps:
 

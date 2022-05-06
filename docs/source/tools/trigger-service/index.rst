@@ -18,8 +18,8 @@ Complex workflows can require running many triggers for many parties and at a ce
 
 The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP service. All requests and responses use JSON to encode data.
 
-Starting the Trigger Service
-****************************
+Start the Trigger Service
+*************************
 
 In this example, it is assumed there is a Ledger API server running on port 6865 on `localhost`.
 
@@ -160,7 +160,7 @@ Although, as we'll see, the Trigger Service exposes an endpoint for end-users to
 Endpoints
 *********
 
-Start a trigger
+Start a Trigger
 ===============
 
 Start a trigger. In this example, ``alice`` starts the trigger called ``trigger`` in a module called ``TestTrigger`` of a package with ID ``312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14``.
@@ -204,7 +204,7 @@ HTTP Response
     }
 
 
-Stop a trigger
+Stop a Trigger
 ==============
 
 Stop a running trigger. In this example, the request asks to stop the trigger started above.
@@ -232,7 +232,7 @@ HTTP Response
 
 .. _list-running-triggers:
 
-List running triggers
+List Running Triggers
 =====================
 
 List the triggers running on behalf of a given party.
@@ -256,7 +256,7 @@ HTTP Response
       "status":200
     }
 
-Status of a trigger
+Status of a Trigger
 ===================
 
 This endpoint returns data about a trigger, including the party on behalf of which it is running, its identifier,
@@ -286,7 +286,7 @@ HTTP Response
       "status":200
     }
 
-Upload a new DAR
+Upload a New DAR
 ================
 
 Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect path/to/dar | head -1``).
@@ -314,7 +314,7 @@ HTTP Response
       "status": 200
     }
 
-Liveness check
+Liveness Check
 ==============
 
 This can be used as a liveness probe, e.g., in Kubernetes.

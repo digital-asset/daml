@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
+import com.daml.platform._
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
 

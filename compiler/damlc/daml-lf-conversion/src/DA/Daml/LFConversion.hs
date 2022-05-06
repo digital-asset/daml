@@ -504,18 +504,20 @@ convertModule
     -> Bool
     -> NormalizedFilePath
     -> CoreModule
-    -> [GHC.Module]
+    -> ModIface
+      -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file x modIface details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
-    depOrphanModules <- convertDepOrphanModules env depOrphanModules
+    depOrphanModules <- convertDepOrphanModules env (getDepOrphanModules modIface)
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
     interfaces <- convertInterfaces env binds
     exports <- convertExports env (md_exports details)
-    let defs =
+    let fixities = convertFixities (mi_fixities modIface)
+        defs =
             types
             ++ templates
             ++ exceptions
@@ -523,6 +525,7 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             ++ interfaces
             ++ depOrphanModules
             ++ exports
+            ++ fixities
     pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
     where
         envGHCModuleName = GHC.moduleName $ cm_module x
@@ -594,6 +597,9 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
         envTypeVarNames = S.empty
         envModInstanceInfo = modInstanceInfoFromDetails details
         env = Env {..}
+
+getDepOrphanModules :: ModIface -> [GHC.Module]
+getDepOrphanModules = dep_orphs . mi_deps
 
 data Consuming = PreConsuming
                | Consuming
@@ -758,6 +764,15 @@ convertDepOrphanModules env orphanModules = do
     let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
+
+convertFixities :: [(OccName, GHC.Fixity)] -> [Definition]
+convertFixities = zipWith mkFixityDef [0..]
+  where
+    mkFixityDef i fixityInfo =
+      DValue $
+        mkMetadataStub
+          (fixityName i)
+          (encodeFixityInfo fixityInfo)
 
 convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
 convertExports env availInfos = do

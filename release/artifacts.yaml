@@ -17,6 +17,8 @@
   type: jar-scala
 - target: //daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
+- target: //daml-lf/encoder:encoder
+  type: jar-scala
 - target: //daml-lf/engine:engine
   type: jar-scala
 - target: //daml-lf/interface:interface
@@ -26,6 +28,8 @@
 - target: //daml-lf/kv-support:kv-support
   type: jar-scala
 - target: //daml-lf/language:language
+  type: jar-scala
+- target: //daml-lf/parser:parser
   type: jar-scala
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
   type: jar-scala
@@ -250,6 +254,8 @@
 - target: //libs-scala/nameof:nameof
   type: jar-scala
 - target: //ledger/error:error
+  type: jar-scala
+- target: //ledger/error:error-test-lib
   type: jar-scala
 - target: //ledger/error/generator:lib
   type: jar-scala

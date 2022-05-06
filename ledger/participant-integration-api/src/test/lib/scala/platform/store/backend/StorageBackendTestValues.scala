@@ -184,7 +184,7 @@ private[backend] object StorageBackendTestValues {
       exercise_argument = Some(someSerializedDamlLfValue),
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Some(Set(actor)),
-      exercise_child_event_ids = Some(Set.empty),
+      exercise_child_event_ids = Some(Vector.empty),
       create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,

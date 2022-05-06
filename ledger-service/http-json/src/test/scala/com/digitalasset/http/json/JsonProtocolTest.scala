@@ -177,6 +177,34 @@ class JsonProtocolTest
     }
   }
 
+  "ErrorDetail" - {
+    "Encoding and decoding ResourceInfoDetail should result in the same object" in {
+      val resourceInfoDetail: domain.ErrorDetail = domain.ResourceInfoDetail("test", "test")
+      resourceInfoDetail shouldBe resourceInfoDetail.toJson.convertTo[domain.ErrorDetail]
+    }
+
+    "Encoding and decoding RetryInfoDetail should result in the same object" in {
+      val retryInfoDetail: domain.ErrorDetail =
+        domain.RetryInfoDetail(
+          domain.RetryInfoDetailDuration(
+            scala.concurrent.duration.Duration.Zero: scala.concurrent.duration.Duration
+          )
+        )
+      retryInfoDetail shouldBe retryInfoDetail.toJson.convertTo[domain.ErrorDetail]
+    }
+
+    "Encoding and decoding RequestInfoDetail should result in the same object" in {
+      val requestInfoDetail: domain.ErrorDetail = domain.RequestInfoDetail("test")
+      requestInfoDetail shouldBe requestInfoDetail.toJson.convertTo[domain.ErrorDetail]
+    }
+
+    "Encoding and decoding ErrorInfoDetail should result in the same object" in {
+      val errorInfoDetail: domain.ErrorDetail =
+        domain.ErrorInfoDetail("test", Map("test" -> "test1", "test2" -> "test3"))
+      errorInfoDetail shouldBe errorInfoDetail.toJson.convertTo[domain.ErrorDetail]
+    }
+  }
+
   "domain.ExerciseCommand" - {
     "should serialize to a JSON object with flattened reference fields" in forAll(exerciseCmdGen) {
       cmd =>

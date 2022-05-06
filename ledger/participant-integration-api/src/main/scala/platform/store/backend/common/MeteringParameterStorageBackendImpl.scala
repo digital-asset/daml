@@ -6,7 +6,7 @@ package daml.platform.store.backend.common
 
 import daml.ledger.offset.Offset
 import daml.logging.{ContextualizedLogger, LoggingContext}
-import daml.platform.store.Conversions.{offset, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{offset, timestampFromMicros}
 import daml.platform.store.backend.MeteringParameterStorageBackend
 import daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import daml.scalautil.Statement.discard
@@ -23,8 +23,8 @@ private[backend] object MeteringParameterStorageBackendImpl
   def initializeLedgerMeteringEnd(
       init: LedgerMeteringEnd
   )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    import com.daml.platform.store.Conversions.TimestampToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.TimestampToStatement
     ledgerMeteringEnd(connection) match {
       case None =>
         logger.info(s"Initializing ledger metering end to $init")
@@ -66,8 +66,8 @@ private[backend] object MeteringParameterStorageBackendImpl
   def updateLedgerMeteringEnd(
       ledgerMeteringEnd: LedgerMeteringEnd
   )(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    import com.daml.platform.store.Conversions.TimestampToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.TimestampToStatement
     SQL"""
         UPDATE
           metering_parameters
