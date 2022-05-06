@@ -169,12 +169,13 @@ genrule(
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
-    ] + glob(["theme/**"],
-            exclude = [
-                "theme/bower_components/**",
-                "theme/node_modules/**",
-                "theme/da_theme/**",
-            ],
+    ] + glob(
+        ["theme/**"],
+        exclude = [
+            "theme/bower_components/**",
+            "theme/node_modules/**",
+            "theme/da_theme/**",
+        ],
     ),
     outs = ["sphinx-source-tree-deps.tar.gz"],
     cmd = """
