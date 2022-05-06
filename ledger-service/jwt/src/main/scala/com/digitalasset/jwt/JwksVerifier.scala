@@ -31,6 +31,8 @@ import scalaz.syntax.show._
   */
 class JwksVerifier(
     url: URL,
+    // Large enough such that malicious users can't cycle through all keys from reasonably sized JWKS,
+    // forcing cache eviction and thus introducing additional latency.
     cacheMaxSize: Long = 1000,
     cacheExpirationTime: Long = 10,
     cacheExpirationUnit: TimeUnit = TimeUnit.HOURS,
