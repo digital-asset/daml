@@ -143,7 +143,7 @@ private[lf] final class ValueTranslator(
                     if (entries.isEmpty) {
                       SValue.SValue.EmptyGenMap
                     } else {
-                      SValue.SMap.fromOrderedEntries(
+                      SValue.SMap.from(
                         isTextMap = false,
                         entries = entries.toSeq.view.map { case (k, v) =>
                           go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)

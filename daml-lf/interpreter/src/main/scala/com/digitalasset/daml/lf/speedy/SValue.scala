@@ -200,12 +200,15 @@ object SValue {
       SMap(isTextMap, TreeMapFactory.fromOrderedEntries(entries))
     }
 
-    // O(n.log(n))
-    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
+    // O(n log(n))
+    def from(isTextMap: Boolean, entries: Iterable[(SValue, SValue)]): SMap =
       SMap(
         isTextMap,
         entries.iterator.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
+
+    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
+      from(isTextMap: Boolean, entries)
 
   }
   // represents Any And AnyException

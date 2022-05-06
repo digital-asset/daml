@@ -746,6 +746,7 @@ private[lf] object Speedy {
                 value match {
                   // genMap
                   case V.ValueGenMap(entries) =>
+                    // Normalized values are always sorted
                     SValue.SMap.fromOrderedEntries(
                       isTextMap = false,
                       entries = entries.toSeq.view.map { case (k, v) =>
