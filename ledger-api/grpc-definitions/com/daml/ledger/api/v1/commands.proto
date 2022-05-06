@@ -223,3 +223,16 @@ message DisclosedContract {
   // Required
   ContractMetadata metadata = 4;
 }
+
+// Contract metadata which can be used in DisclosedContract.
+message ContractMetadata {
+  // Ledger effective time of the transaction that created the contract.
+  // Required
+  google.protobuf.Timestamp created_at = 1;
+  // Hash of the contract key if defined.
+  // Optional
+  bytes contract_key_hash = 2;
+  // Driver-specific metadata. This is opaque and cannot be decoded.
+  // Required
+  bytes driver_metadata = 3;
+}
