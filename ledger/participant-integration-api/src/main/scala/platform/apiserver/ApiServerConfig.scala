@@ -11,6 +11,11 @@ import com.daml.platform.configuration.{
   InitialLedgerConfiguration,
   PartyConfiguration,
 }
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.usermanagement.UserManagementConfig

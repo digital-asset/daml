@@ -106,7 +106,7 @@ object StandaloneApiServer {
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagement,
-        apiStreamShutdownTimeout = config.apiStreamShutdownTimeout
+        apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

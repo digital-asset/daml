@@ -174,34 +174,26 @@ object PureConfigReaderWriter {
   implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
     deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
-  implicit val authServiceConfigJwtEs256CrtReader
-      : ConfigReader[AuthServiceConfig.JwtEs256Crt] =
+  implicit val authServiceConfigJwtEs256CrtReader: ConfigReader[AuthServiceConfig.JwtEs256Crt] =
     deriveReader[AuthServiceConfig.JwtEs256Crt]
-  implicit val authServiceConfigJwtEs512CrtReader
-      : ConfigReader[AuthServiceConfig.JwtEs512Crt] =
+  implicit val authServiceConfigJwtEs512CrtReader: ConfigReader[AuthServiceConfig.JwtEs512Crt] =
     deriveReader[AuthServiceConfig.JwtEs512Crt]
-  implicit val authServiceConfigJwtRs256CrtReader
-      : ConfigReader[AuthServiceConfig.JwtRs256Crt] =
+  implicit val authServiceConfigJwtRs256CrtReader: ConfigReader[AuthServiceConfig.JwtRs256Crt] =
     deriveReader[AuthServiceConfig.JwtRs256Crt]
-  implicit val authServiceConfigJwtRs256JwksReader
-      : ConfigReader[AuthServiceConfig.JwtRs256Jwks] =
+  implicit val authServiceConfigJwtRs256JwksReader: ConfigReader[AuthServiceConfig.JwtRs256Jwks] =
     deriveReader[AuthServiceConfig.JwtRs256Jwks]
   implicit val authServiceConfigWildcardReader: ConfigReader[AuthServiceConfig.Wildcard.type] =
     deriveReader[AuthServiceConfig.Wildcard.type]
   implicit val authServiceConfigReader: ConfigReader[AuthServiceConfig] =
     deriveReader[AuthServiceConfig]
 
-  implicit val authServiceConfigJwtEs256CrtWriter
-      : ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
+  implicit val authServiceConfigJwtEs256CrtWriter: ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
     deriveWriter[AuthServiceConfig.JwtEs256Crt]
-  implicit val authServiceConfigJwtEs512CrtWriter
-      : ConfigWriter[AuthServiceConfig.JwtEs512Crt] =
+  implicit val authServiceConfigJwtEs512CrtWriter: ConfigWriter[AuthServiceConfig.JwtEs512Crt] =
     deriveWriter[AuthServiceConfig.JwtEs512Crt]
-  implicit val authServiceConfigJwtRs256CrtWriter
-      : ConfigWriter[AuthServiceConfig.JwtRs256Crt] =
+  implicit val authServiceConfigJwtRs256CrtWriter: ConfigWriter[AuthServiceConfig.JwtRs256Crt] =
     deriveWriter[AuthServiceConfig.JwtRs256Crt]
-  implicit val authServiceConfigJwtRs256JwksWriter
-      : ConfigWriter[AuthServiceConfig.JwtRs256Jwks] =
+  implicit val authServiceConfigJwtRs256JwksWriter: ConfigWriter[AuthServiceConfig.JwtRs256Jwks] =
     deriveWriter[AuthServiceConfig.JwtRs256Jwks]
   implicit val authServiceConfigUnsafeJwtHmac256Writer
       : ConfigWriter[AuthServiceConfig.UnsafeJwtHmac256] =
