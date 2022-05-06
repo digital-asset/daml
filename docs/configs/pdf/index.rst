@@ -44,7 +44,7 @@ Deploying to Daml ledgers
    :titlesonly:
    :maxdepth: 2
 
-   deploying
+   deploy/generic_ledger
 
 Operating Daml
 --------------

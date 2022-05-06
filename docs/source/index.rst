@@ -47,7 +47,7 @@ Daml Documentation
    :hidden:
    :caption: Deploying to Daml ledgers
 
-   deploying
+   deploy/generic_ledger
 
 .. toctree::
    :titlesonly:
