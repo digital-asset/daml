@@ -157,14 +157,16 @@ final class EventsBuffer[E](
       }
       .mapConcat(_.iterator)
       .take(maxFetchSize.toLong)
-      .buffer(maxFetchSize, OverflowStrategy.backpressure)
+      .buffer(maxFetchSize, OverflowStrategy.dropNew)
+      .async
       .scan(BufferSlice.Zero: WrappedEntry[(Offset, API_RESPONSE)]) { case (scanned, response) =>
         val newIdx = scanned.idx + 1
         if (newIdx < maxFetchSize)
           BufferSlice.Scanned(newIdx, response)
-        else if (newIdx == maxFetchSize)
+        else if (newIdx == maxFetchSize) {
+          println(s"Emitted last: $maxFetchSize")
           BufferSlice.LastElement(maxFetchSize, response)
-        else throw new RuntimeException(s"Maximum $maxFetchSize elements expected")
+        } else throw new RuntimeException(s"Maximum $maxFetchSize elements expected")
       }
       .flatMapConcat {
         case BufferSlice.Zero => Source.empty
