@@ -171,44 +171,44 @@ object PureConfigReaderWriter {
   implicit val userManagementConfigWriter: ConfigWriter[UserManagementConfig] =
     deriveWriter[UserManagementConfig]
 
-  lazy implicit val authServiceConfigUnsafeJwtHmac256Reader
+  implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
     deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
-  lazy implicit val authServiceConfigJwtEs256CrtReader
+  implicit val authServiceConfigJwtEs256CrtReader
       : ConfigReader[AuthServiceConfig.JwtEs256Crt] =
     deriveReader[AuthServiceConfig.JwtEs256Crt]
-  lazy implicit val authServiceConfigJwtEs512CrtReader
+  implicit val authServiceConfigJwtEs512CrtReader
       : ConfigReader[AuthServiceConfig.JwtEs512Crt] =
     deriveReader[AuthServiceConfig.JwtEs512Crt]
-  lazy implicit val authServiceConfigJwtRs256CrtReader
+  implicit val authServiceConfigJwtRs256CrtReader
       : ConfigReader[AuthServiceConfig.JwtRs256Crt] =
     deriveReader[AuthServiceConfig.JwtRs256Crt]
-  lazy implicit val authServiceConfigJwtRs256JwksReader
+  implicit val authServiceConfigJwtRs256JwksReader
       : ConfigReader[AuthServiceConfig.JwtRs256Jwks] =
     deriveReader[AuthServiceConfig.JwtRs256Jwks]
-  lazy implicit val authServiceConfigWildcardReader: ConfigReader[AuthServiceConfig.Wildcard.type] =
+  implicit val authServiceConfigWildcardReader: ConfigReader[AuthServiceConfig.Wildcard.type] =
     deriveReader[AuthServiceConfig.Wildcard.type]
-  lazy implicit val authServiceConfigReader: ConfigReader[AuthServiceConfig] =
+  implicit val authServiceConfigReader: ConfigReader[AuthServiceConfig] =
     deriveReader[AuthServiceConfig]
 
-  lazy implicit val authServiceConfigJwtEs256CrtWriter
+  implicit val authServiceConfigJwtEs256CrtWriter
       : ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
     deriveWriter[AuthServiceConfig.JwtEs256Crt]
-  lazy implicit val authServiceConfigJwtEs512CrtWriter
+  implicit val authServiceConfigJwtEs512CrtWriter
       : ConfigWriter[AuthServiceConfig.JwtEs512Crt] =
     deriveWriter[AuthServiceConfig.JwtEs512Crt]
-  lazy implicit val authServiceConfigJwtRs256CrtWriter
+  implicit val authServiceConfigJwtRs256CrtWriter
       : ConfigWriter[AuthServiceConfig.JwtRs256Crt] =
     deriveWriter[AuthServiceConfig.JwtRs256Crt]
-  lazy implicit val authServiceConfigJwtRs256JwksWriter
+  implicit val authServiceConfigJwtRs256JwksWriter
       : ConfigWriter[AuthServiceConfig.JwtRs256Jwks] =
     deriveWriter[AuthServiceConfig.JwtRs256Jwks]
-  lazy implicit val authServiceConfigUnsafeJwtHmac256Writer
+  implicit val authServiceConfigUnsafeJwtHmac256Writer
       : ConfigWriter[AuthServiceConfig.UnsafeJwtHmac256] =
     deriveWriter[AuthServiceConfig.UnsafeJwtHmac256]
-  lazy implicit val authServiceConfigWildcardWriter: ConfigWriter[AuthServiceConfig.Wildcard.type] =
+  implicit val authServiceConfigWildcardWriter: ConfigWriter[AuthServiceConfig.Wildcard.type] =
     deriveWriter[AuthServiceConfig.Wildcard.type]
-  lazy implicit val authServiceConfigWriter: ConfigWriter[AuthServiceConfig] =
+  implicit val authServiceConfigWriter: ConfigWriter[AuthServiceConfig] =
     deriveWriter[AuthServiceConfig]
 
   implicit val partyConfigurationReader: ConfigReader[PartyConfiguration] =
