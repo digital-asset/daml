@@ -131,6 +131,30 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
   }
 
   @Explanation(
+    """This error occurs if one of the disclosed contracts supplied during command submission
+      |is invalid, either because the contract is not active anymore or because the supplied contract payload
+      |does not match the actual payload of the contract."""
+  )
+  @Resolution("Refresh the given disclosed contract and re-submit the command.")
+  object DisclosedContractInvalid
+      extends ErrorCode(
+        id = "DISCLOSED_CONTRACT_INVALID",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    case class Reject(cid: Value.ContractId)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"Invalid disclosed contract: ${cid.coid}"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        (ErrorResource.ContractId, cid.coid)
+      )
+    }
+
+  }
+
+  @Explanation(
     "An input contract key was re-assigned to a different contract by a concurrent transaction submission."
   )
   @Resolution("Retry the transaction submission.")
