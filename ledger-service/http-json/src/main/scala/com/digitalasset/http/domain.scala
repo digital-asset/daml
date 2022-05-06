@@ -17,20 +17,9 @@ import scalaz.std.vector._
 import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{
-  -\/,
-  @@,
-  Applicative,
-  Bitraverse,
-  Functor,
-  NonEmptyList,
-  OneAnd,
-  Tag,
-  Traverse,
-  \/,
-  \/-,
-}
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
 import spray.json.JsValue
+import scalaz.syntax.tag._
 
 import scala.annotation.tailrec
 
@@ -66,6 +55,9 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
   val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
 
+  type DeduplicationDurationTyp = java.time.Duration @@ DeduplicationDurationTag
+  val DeduplicationDurationTyp = Tag.of[DeduplicationDurationTag]
+
   type CompletionOffset = String @@ CompletionOffsetTag
   val CompletionOffset = Tag.of[CompletionOffsetTag]
 }
@@ -79,6 +71,8 @@ package domain {
   sealed trait SubmissionIdTag
 
   sealed trait CompletionOffsetTag
+
+  sealed trait DeduplicationDurationTag
 
   trait JwtPayloadTag
 
@@ -190,7 +184,6 @@ package domain {
     import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
     import scalaz.syntax.traverse._
     import scalaz.syntax.std.either._
-    import scalaz.syntax.tag._
 
     def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
       input.traverse {
@@ -245,15 +238,24 @@ package domain {
 
   sealed abstract class DeduplicationPeriod extends Product with Serializable
 
-  final case class DeduplicationDuration(duration: java.time.Duration)
-      extends domain.DeduplicationPeriod
+  final case class DeduplicationDuration(duration: DeduplicationDurationTyp)
+      extends domain.DeduplicationPeriod {
+    def toJDuration = duration.unwrap
+  }
+
+  object DeduplicationDuration {
+    def fromJDuration(duration: java.time.Duration) = DeduplicationDuration(
+      DeduplicationDurationTyp(duration)
+    )
+  }
 
   final case class DeduplicationOffset(offset: HexString) extends domain.DeduplicationPeriod
 
   object DeduplicationPeriod {
     def toProto(deduplicationPeriod: DeduplicationPeriod): Commands.DeduplicationPeriod =
       deduplicationPeriod match {
-        case DeduplicationDuration(duration) =>
+        case DeduplicationDuration(durationTyp) =>
+          val duration = durationTyp.unwrap
           Commands.DeduplicationPeriod.DeduplicationDuration(
             com.google.protobuf.duration.Duration.of(duration.getSeconds, duration.getNano)
           )

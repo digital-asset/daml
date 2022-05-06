@@ -679,7 +679,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 readAs = None,
                 submissionId = Some(submissionId),
                 deduplicationPeriod = Some(
-                  domain.DeduplicationDuration(
+                  domain.DeduplicationDuration.fromJDuration(
                     java.time.Duration.ofSeconds(10L)
                   ): domain.DeduplicationPeriod
                 ),

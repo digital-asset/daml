@@ -364,34 +364,27 @@ object JsonProtocol extends JsonProtocolLow {
       JsonWriter.func2Writer[HexString](StringJsonFormat.write(_)),
     )
 
-  object DeduplicationDurationFormats {
-    // VPRM: Duration is quite the mess to handle for serialization. I would have went with
-    // nanos here to be consistent with other serialization within this file however
-    // internally we expect that duration to be not nanos-accurate.
-    implicit val jDurationFormat: JsonFormat[java.time.Duration] =
-      jsonFormat[java.time.Duration](
-        JsonReader.func2Reader((LongJsonFormat.read _).andThen(java.time.Duration.ofMillis)),
-        JsonWriter.func2Writer[java.time.Duration](duration =>
-          LongJsonFormat.write(duration.toMillis)
-        ),
-      )
-  }
+  implicit val deduplicationDurationTypFormat: JsonFormat[domain.DeduplicationDurationTyp] =
+    jsonFormat[domain.DeduplicationDurationTyp](
+      JsonReader.func2Reader(
+        (LongJsonFormat.read _)
+          .andThen(java.time.Duration.ofMillis)
+          .andThen(domain.DeduplicationDurationTyp(_))
+      ),
+      JsonWriter.func2Writer[domain.DeduplicationDurationTyp](duration =>
+        LongJsonFormat.write(duration.unwrap.toMillis)
+      ),
+    )
 
-  implicit val DeduplicationDurationFormat: JsonFormat[domain.DeduplicationDuration] = {
-    import DeduplicationDurationFormats._
-    jsonFormat1(domain.DeduplicationDuration)
-  }
+  implicit val DeduplicationDurationFormat: JsonFormat[domain.DeduplicationDuration] =
+    jsonFormat1(domain.DeduplicationDuration(_))
 
   implicit val DeduplicationOffsetFormat: JsonFormat[domain.DeduplicationOffset] = {
     jsonFormat1(domain.DeduplicationOffset)
   }
 
-  implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] = {
-    // We need to reimport this here because otherwise
-    // the `deriveFormat` will not work.
-    import DeduplicationDurationFormats._
+  implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
     deriveFormat[domain.DeduplicationPeriod]
-  }
 
   implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] =
     jsonFormat[domain.SubmissionId](
