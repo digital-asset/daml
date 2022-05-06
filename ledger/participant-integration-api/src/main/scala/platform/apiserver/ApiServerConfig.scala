@@ -38,6 +38,7 @@ case class ApiServerConfig(
     timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
     database: DbConfig = ApiServerConfig.DefaultDatabase,
     rateLimitingConfig: Option[RateLimitingConfig] = ApiServerConfig.DefaultRateLimitingConfig,
+    apiStreamShutdownTimeout: Duration = ApiServerConfig.DefaultApiStreamShutdownTimeout,
 )
 
 object ApiServerConfig {
@@ -55,6 +56,7 @@ object ApiServerConfig {
   val DefaultParty: PartyConfiguration = PartyConfiguration.Default
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  val DefaultApiStreamShutdownTimeout = FiniteDuration(5, "seconds")
   val DefaultDatabase: DbConfig = DbConfig(
     jdbcUrl = "default-jdbc-url",
     connectionPool = ConnectionPoolConfig(

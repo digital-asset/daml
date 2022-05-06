@@ -27,7 +27,6 @@ import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
-import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 object StandaloneApiServer {
@@ -107,6 +106,7 @@ object StandaloneApiServer {
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagement,
+        apiStreamShutdownTimeout = config.apiStreamShutdownTimeout
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
