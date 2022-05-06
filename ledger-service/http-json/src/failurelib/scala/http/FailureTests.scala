@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import akka.http.javadsl.model.ws.PeerClosedConnectionException
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink}
@@ -11,7 +10,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.dbutils.ConnectionPool
 
 import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import scala.util.Success
 import com.daml.http.domain.Offset
 import com.daml.http.json.{JsonError, SprayJson}
 import com.daml.http.util.FutureUtil
@@ -390,9 +389,8 @@ abstract class FailureTests
         uri,
         query,
       ) via parseResp runWith respBefore(cid)).transform(x => Success(x))
-      _ = inside(r) { case Failure(e: PeerClosedConnectionException) =>
-        e.closeCode shouldBe 1011
-        e.closeReason shouldBe "internal error"
+      _ = inside(r) { case Success(_) =>
+        succeed
       }
       offset <- offset.future
       _ = proxy.enable()
