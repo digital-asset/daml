@@ -88,8 +88,8 @@ davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae1
 daml_cheat_sheet_version = "2710b8df28d97253b5487a68feb2d1452d29fc54"  # 2021-09-17
 daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82ecbe7c401315"
 
-platforms_version = "0.0.3"
-platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
+platforms_version = "0.0.4"
+platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
 
 rules_sh_version = "47b4d823128f484ec1b06aa20349c4898216f486"
 rules_sh_sha256 = "107d4312073d80a9977d3ccff236060d3906bda939fa2fbda4d724268c5b5383"
