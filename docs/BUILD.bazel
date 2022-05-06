@@ -151,6 +151,71 @@ genrule(
 )
 
 genrule(
+    name = "sphinx-source-tree-deps",
+    srcs = [
+        "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
+        "configs/html/conf.py",
+        "configs/pdf/conf.py",
+        "configs/pdf/logo.png",
+        "//templates:templates-tarball",
+        "//templates:create-daml-app-docs",
+        "//templates:create-daml-app-test-resources/index.test.ts",
+        ":generate-docs-error-codes-inventory-into-rst-file",
+        ":generate-docs-error-categories-inventory-into-rst-file",
+        "//compiler/damlc:daml-base-rst.tar.gz",
+        "//triggers/daml:daml-trigger-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
+        "//ledger-api/grpc-definitions:docs",
+        "//:LICENSE",
+        "//:NOTICES",
+    ] + glob(["theme/**"],
+            exclude = [
+                "theme/bower_components/**",
+                "theme/node_modules/**",
+                "theme/da_theme/**",
+            ],
+    ),
+    outs = ["sphinx-source-tree-deps.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+
+    mkdir -p $$DIR/deps/configs/{{static,pdf,html}}
+    cp $(location configs/static/pygments_daml_lexer.py) $$DIR/deps/configs/static
+    cp $(location configs/static/typescript.py) $$DIR/deps/configs/static
+    cp $(location configs/html/conf.py) $$DIR/deps/configs/html
+    cp $(location configs/pdf/conf.py) $$DIR/deps/configs/pdf
+    cp $(location configs/pdf/logo.png) $$DIR/deps/configs/pdf
+
+    mkdir -p $$DIR/deps/theme
+    cp -rL docs/theme/* $$DIR/deps/theme
+
+    cp $(location //templates:templates-tarball) $$DIR/deps/
+    cp $(location //templates:create-daml-app-docs) $$DIR/deps/
+    cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$DIR/deps/
+
+    cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file) $$DIR/deps/
+    cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) $$DIR/deps/
+    cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
+    cp  $(location //triggers/daml:daml-trigger-rst.tar.gz) $$DIR/deps/
+    cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
+    cp -L $(location //ledger-api/grpc-definitions:docs) $$DIR/deps/
+    cp -L $(location //:LICENSE) $$DIR/deps/
+    cp -L $(location //:NOTICES) $$DIR/deps/
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH deps
+  """.format(sdk = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+) if not is_windows else None
+
+genrule(
     name = "sphinx-source-tree",
     srcs = [
         "configs/static/pygments_daml_lexer.py",
