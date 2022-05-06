@@ -4,12 +4,14 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.syntax.std.option._
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -74,6 +76,7 @@ private[inner] object TemplateClass extends StrictLogging {
             .addGenerateFromMethods()
             .build()
         )
+        .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
         .build()
@@ -87,9 +90,10 @@ private[inner] object TemplateClass extends StrictLogging {
       .addModifiers(Modifier.PUBLIC)
       .returns(classOf[javaapi.data.CreateCommand])
       .addStatement(
-        "return new $T($T.TEMPLATE_ID, this.toValue())",
+        "return new $T($T.$N, this.toValue())",
         classOf[javaapi.data.CreateCommand],
         name,
+        templateIdFieldName,
       )
       .build()
 
@@ -172,9 +176,10 @@ private[inner] object TemplateClass extends StrictLogging {
       case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     exerciseByKeyBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, $L, $S, $L)",
+      "return new $T($T.$N, $L, $S, $L)",
       classOf[javaapi.data.ExerciseByKeyCommand],
       templateClassName,
+      templateIdFieldName,
       ToValueGenerator
         .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
       choiceName,
@@ -279,9 +284,10 @@ private[inner] object TemplateClass extends StrictLogging {
           )
     }
     createAndExerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, argValue)",
+      "return new $T($T.$N, this.toValue(), $S, argValue)",
       classOf[javaapi.data.CreateAndExerciseCommand],
       templateClassName,
+      templateIdFieldName,
       choiceName,
     )
     createAndExerciseChoiceBuilder.build()
@@ -308,4 +314,54 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext.name,
     )
 
+  private def generateCompanion(
+      templateClassName: ClassName,
+      maybeKey: Option[Type],
+      packagePrefixes: Map[PackageId, String],
+  ): FieldSpec = {
+    import scala.language.existentials
+    import javaapi.data.codegen.ContractCompanion
+    val (fieldClass, keyTypes, keyParams, keyArgs) = maybeKey.cata(
+      keyType =>
+        (
+          classOf[ContractCompanion.WithKey[_, _, _, _]],
+          Seq(toJavaTypeName(keyType, packagePrefixes)),
+          ",$We -> $L",
+          Seq(
+            FromValueGenerator
+              .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes)
+          ),
+        ),
+      (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),
+    )
+    val contractIdName = ClassName bestGuess "ContractId"
+    val contractName = ClassName bestGuess "Contract"
+    FieldSpec
+      .builder(
+        ParameterizedTypeName.get(
+          ClassName get fieldClass,
+          Seq(
+            contractName,
+            contractIdName,
+            templateClassName,
+          ) ++ keyTypes: _*
+        ),
+        companionFieldName,
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer(
+        "$Znew $T<>($>$Z$S,$W$N, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
+        Seq(
+          fieldClass,
+          templateClassName,
+          templateIdFieldName,
+          contractIdName,
+          templateClassName,
+          contractName,
+        ) ++ keyArgs: _*
+      )
+      .build()
+  }
 }

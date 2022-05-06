@@ -4,23 +4,11 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.codegen.backend.java.ObjectMethods
-import com.daml.lf.codegen.backend.java.inner.ClassGenUtils.{
-  emptyOptional,
-  emptySet,
-  getAgreementText,
-  getArguments,
-  getContractId,
-  getContractKey,
-  getObservers,
-  getSignatories,
-  optional,
-  optionalString,
-  setOfStrings,
-}
+import ClassGenUtils.{companionFieldName, optional, optionalString, setOfStrings}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Type
 import com.squareup.javapoet._
+import scalaz.syntax.std.option._
 
 import scala.jdk.CollectionConverters._
 import javax.lang.model.element.Modifier
@@ -47,25 +35,14 @@ object ContractClass {
         .addMethod(
           Builder.generateFromIdAndRecord(
             contractClassName,
-            templateClassName,
-            contractIdClassName,
             contractKeyClassName,
           )
         )
         .addMethod(
-          Builder.generateFromIdAndRecordDeprecated(
-            contractClassName,
-            templateClassName,
-            contractIdClassName,
-            contractKeyClassName,
-          )
+          Builder.generateFromIdAndRecordDeprecated(contractClassName)
         )
         .addMethod(
-          Builder.generateFromCreatedEvent(
-            contractClassName,
-            key,
-            packagePrefixes,
-          )
+          Builder.generateFromCreatedEvent(contractClassName)
         )
       this
     }
@@ -82,96 +59,85 @@ object ContractClass {
     private val observersFieldName = "observers"
 
     private def generateFromCreatedEvent(
-        className: ClassName,
-        maybeContractKeyType: Option[Type],
-        packagePrefixes: Map[PackageId, String],
-    ) = {
+        className: ClassName
+    ) =
+      generateCompanionForwarder(
+        "fromCreatedEvent",
+        className,
+        identity,
+        (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
+      )
 
-      val spec =
-        MethodSpec
-          .methodBuilder("fromCreatedEvent")
-          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(className)
-          .addParameter(classOf[javaapi.data.CreatedEvent], "event")
-
-      val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
-        .map(getContractKey(_, packagePrefixes))
-        .toList ++ Vector(getSignatories, getObservers)
-
-      spec.addStatement("return fromIdAndRecord($L)", CodeBlock.join(params.asJava, ", ")).build()
-    }
-
+    // XXX remove; see digital-asset/daml#13773
     private def generateFromIdAndRecordDeprecated(
-        className: ClassName,
-        templateClassName: ClassName,
-        idClassName: ClassName,
-        maybeContractKeyClassName: Option[TypeName],
-    ): MethodSpec = {
-      val spec =
-        MethodSpec
-          .methodBuilder("fromIdAndRecord")
-          .addAnnotation(classOf[Deprecated])
-          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(className)
-          .addParameter(classOf[String], "contractId")
-          .addParameter(classOf[javaapi.data.DamlRecord], "record$")
-          .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-          .addStatement(
-            "$T $L = $T.fromValue(record$$)",
-            templateClassName,
-            dataFieldName,
-            templateClassName,
-          )
-
-      val callParameters = Vector(
-        CodeBlock.of(idFieldName),
-        CodeBlock.of(dataFieldName),
-        emptyOptional,
-      ) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(emptySet, emptySet)
-
-      spec
-        .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))
-        .build()
-    }
+        className: ClassName
+    ): MethodSpec =
+      generateCompanionForwarder(
+        "fromIdAndRecord",
+        className,
+        _.addAnnotation(classOf[Deprecated]),
+        (ClassName get classOf[String], "contractId"),
+        (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
+      )
 
     private[inner] def generateFromIdAndRecord(
         className: ClassName,
-        templateClassName: ClassName,
-        idClassName: ClassName,
         maybeContractKeyClassName: Option[TypeName],
     ): MethodSpec = {
-
-      val methodParameters = Iterable(
-        ParameterSpec.builder(classOf[String], "contractId").build(),
-        ParameterSpec.builder(classOf[javaapi.data.DamlRecord], "record$").build(),
-        ParameterSpec.builder(optionalString, agreementFieldName).build(),
+      val methodParameters = Seq(
+        (ClassName get classOf[String], "contractId"),
+        (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
+        (optionalString, agreementFieldName),
       ) ++ maybeContractKeyClassName
-        .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
+        .map(name => (optional(name), contractKeyFieldName))
         .toList ++ Iterable(
-        ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(),
-        ParameterSpec.builder(setOfStrings, observersFieldName).build(),
+        (setOfStrings, signatoriesFieldName),
+        (setOfStrings, observersFieldName),
       )
 
-      val spec =
-        MethodSpec
-          .methodBuilder("fromIdAndRecord")
-          .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(className)
-          .addParameters(methodParameters.asJava)
-          .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-          .addStatement(
-            "$T $L = $T.fromValue(record$$)",
-            templateClassName,
-            dataFieldName,
+      generateCompanionForwarder("fromIdAndRecord", className, identity, methodParameters: _*)
+    }
+
+    private[this] def generateCompanionForwarder(
+        methodName: String,
+        returns: TypeName,
+        otherSettings: MethodSpec.Builder => MethodSpec.Builder,
+        parameters: (TypeName, String)*
+    ): MethodSpec = {
+      val methodParameters = parameters.map { case (t, n) => ParameterSpec.builder(t, n).build() }
+      val spec = MethodSpec
+        .methodBuilder(methodName)
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(returns)
+        .addParameters(methodParameters.asJava)
+        .addStatement(
+          "return $N.$N($L)",
+          companionFieldName,
+          methodName,
+          CodeBlock
+            .join(parameters.map { case (_, pName) => CodeBlock.of("$N", pName) }.asJava, ",$W"),
+        )
+      otherSettings(spec).build()
+    }
+
+    private[this] val contractIdClassName = ClassName bestGuess "ContractId"
+
+    private[this] def generateGetCompanion(templateClassName: ClassName): MethodSpec = {
+      val contractClassName = ClassName bestGuess "Contract"
+      MethodSpec
+        .methodBuilder("getCompanion")
+        .addModifiers(Modifier.PROTECTED)
+        .addAnnotation(classOf[Override])
+        .returns(
+          ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
+            contractClassName,
+            contractIdClassName,
             templateClassName,
           )
-
-      val callParameterNames =
-        Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
-          .map(_ => contractKeyFieldName)
-          .toList ++ Vector(signatoriesFieldName, observersFieldName).toList
-      val callParameters = CodeBlock.join(callParameterNames.map(CodeBlock.of(_)).asJava, ", ")
-      spec.addStatement("return new $T($L)", className, callParameters).build()
+        )
+        .addStatement("return $N", companionFieldName)
+        .build()
     }
 
     def create(
@@ -181,21 +147,19 @@ object ContractClass {
     ) = {
       val classBuilder =
         TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
-      val contractIdClassName = ClassName.bestGuess("ContractId")
       val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
 
-      classBuilder.addField(contractIdClassName, idFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
-
-      contractKeyClassName.foreach { name =>
-        classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      }
-
-      classBuilder.addField(setOfStrings, signatoriesFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      classBuilder.addField(setOfStrings, observersFieldName, Modifier.PUBLIC, Modifier.FINAL)
-
-      classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
+      import scala.language.existentials
+      val (contractSuperclass, keyTparams) = contractKeyClassName.cata(
+        kname => (classOf[javaapi.data.codegen.ContractWithKey[_, _, _]], Seq(kname)),
+        (classOf[javaapi.data.codegen.Contract[_, _]], Seq.empty),
+      )
+      classBuilder.superclass(
+        ParameterizedTypeName.get(
+          ClassName get contractSuperclass,
+          Seq(contractIdClassName, templateClassName) ++ keyTparams: _*
+        )
+      )
 
       val constructorBuilder = MethodSpec
         .constructorBuilder()
@@ -212,27 +176,24 @@ object ContractClass {
         .addParameter(setOfStrings, signatoriesFieldName)
         .addParameter(setOfStrings, observersFieldName)
 
-      constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
-      constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
-      constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
-      contractKeyClassName.foreach { _ =>
-        constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName)
-      }
-      constructorBuilder.addStatement("this.$L = $L", signatoriesFieldName, signatoriesFieldName)
-      constructorBuilder.addStatement("this.$L = $L", observersFieldName, observersFieldName)
+      val superCtorKeyArgs = contractKeyClassName.map(_ => contractKeyFieldName).toList
+      constructorBuilder.addStatement(
+        "super($L)",
+        CodeBlock.join(
+          (Seq(idFieldName, dataFieldName, agreementFieldName)
+            ++ superCtorKeyArgs
+            ++ Seq(signatoriesFieldName, observersFieldName)).map(CodeBlock.of("$L", _)).asJava,
+          ",$W",
+        ),
+      )
 
       val constructor = constructorBuilder.build()
 
       classBuilder.addMethod(constructor)
 
       val contractClassName = ClassName.bestGuess("Contract")
-      val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName
-        .map(_ => contractKeyFieldName)
-        .toList ++ Vector(signatoriesFieldName, observersFieldName)
       classBuilder
-        .addMethods(
-          ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava
-        )
+        .addMethod(generateGetCompanion(templateClassName))
       new Builder(
         classBuilder,
         contractClassName,
