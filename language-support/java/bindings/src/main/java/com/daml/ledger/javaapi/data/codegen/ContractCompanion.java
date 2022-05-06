@@ -19,9 +19,6 @@ public abstract class ContractCompanion<Ct, Id, Data> {
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
-  @Deprecated
-  public abstract Ct fromIdAndRecord(String contractId, DamlRecord record$);
-
   public abstract Ct fromCreatedEvent(CreatedEvent event);
 
   protected ContractCompanion(
@@ -59,8 +56,11 @@ public abstract class ContractCompanion<Ct, Id, Data> {
       return newContract.newContract(id, data, agreementText, signatories, observers);
     }
 
+    /**
+     * @deprecated since introduction; only exists to support generated method that has itself been
+     *     deprecated since v0.12.18
+     */
     @Deprecated
-    @Override
     public Ct fromIdAndRecord(String contractId, DamlRecord record$) {
       return fromIdAndRecord(
           contractId, record$, Optional.empty(), Collections.emptySet(), Collections.emptySet());
@@ -115,8 +115,11 @@ public abstract class ContractCompanion<Ct, Id, Data> {
       return newContract.newContract(id, data, agreementText, key, signatories, observers);
     }
 
+    /**
+     * @deprecated since introduction; only exists to support generated method that has itself been
+     *     deprecated since v0.12.18
+     */
     @Deprecated
-    @Override
     public Ct fromIdAndRecord(String contractId, DamlRecord record$) {
       return fromIdAndRecord(
           contractId,

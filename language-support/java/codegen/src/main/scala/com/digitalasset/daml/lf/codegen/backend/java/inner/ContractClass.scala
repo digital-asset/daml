@@ -68,6 +68,7 @@ object ContractClass {
         (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
       )
 
+    // XXX remove; see digital-asset/daml#13773
     private def generateFromIdAndRecordDeprecated(
         className: ClassName
     ): MethodSpec =
