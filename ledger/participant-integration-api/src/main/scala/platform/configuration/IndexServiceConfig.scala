@@ -7,26 +7,26 @@ import java.io.File
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-final case class IndexConfiguration(
-    archiveFiles: List[File] = IndexConfiguration.DefaultArchiveFiles,
-    eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
-    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
-    bufferedStreamsPageSize: Int = IndexConfiguration.DefaultBufferedStreamsPageSize,
-    acsIdPageSize: Int = IndexConfiguration.DefaultAcsIdPageSize,
+final case class IndexServiceConfig(
+    archiveFiles: List[File] = IndexServiceConfig.DefaultArchiveFiles,
+    eventsPageSize: Int = IndexServiceConfig.DefaultEventsPageSize,
+    eventsProcessingParallelism: Int = IndexServiceConfig.DefaultEventsProcessingParallelism,
+    bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
+    acsIdPageSize: Int = IndexServiceConfig.DefaultAcsIdPageSize,
     acsIdPageBufferSize: Int = IndexConfiguration.DefaultAcsIdPageBufferSize,
-    acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
-    acsContractFetchingParallelism: Int = IndexConfiguration.DefaultAcsContractFetchingParallelism,
-    acsGlobalParallelism: Int = IndexConfiguration.DefaultAcsGlobalParallelism,
-    maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
-    maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
+    acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
+    acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
+    acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
+    maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
+    maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
-      IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
+      IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
     enableInMemoryFanOutForLedgerApi: Boolean =
-      IndexConfiguration.DefaultEnableInMemoryFanOutForLedgerApi,
-    apiStreamShutdownTimeout: Duration = IndexConfiguration.DefaultApiStreamShutdownTimeout,
+      IndexServiceConfig.DefaultEnableInMemoryFanOutForLedgerApi,
+    apiStreamShutdownTimeout: Duration = IndexServiceConfig.DefaultApiStreamShutdownTimeout,
 )
 
-object IndexConfiguration {
+object IndexServiceConfig {
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
   val DefaultBufferedStreamsPageSize: Int = 100

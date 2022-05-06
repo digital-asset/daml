@@ -4,7 +4,7 @@
 package com.daml.ledger.runner.common
 
 import com.daml.lf.data.Ref
-import com.daml.platform.configuration.IndexConfiguration
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.ports.Port
 
@@ -26,10 +26,10 @@ final case class CliParticipantConfig(
       CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout: Duration =
       CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
-    maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
-    maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
+    maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
+    maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
-      IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
+      IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
 )
 
 object CliParticipantConfig {

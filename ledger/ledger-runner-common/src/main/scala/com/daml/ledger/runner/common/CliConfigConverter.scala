@@ -4,7 +4,7 @@
 package com.daml.ledger.runner.common
 
 import com.daml.platform.apiserver.ApiServerConfig
-import com.daml.platform.configuration.{IndexConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{IndexServiceConfig, PartyConfiguration}
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.LfValueTranslationCache
 
@@ -23,7 +23,7 @@ object CliConfigConverter {
     participantId = config.participantId,
     shardName = config.shardName,
     indexer = config.indexerConfig,
-    index = IndexConfiguration(
+    indexService = IndexServiceConfig(
       acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = cliConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = cliConfig.acsIdFetchingParallelism,
@@ -35,7 +35,7 @@ object CliConfigConverter {
       maxContractStateCacheSize = config.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
       maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
-      archiveFiles = IndexConfiguration.DefaultArchiveFiles,
+      archiveFiles = IndexServiceConfig.DefaultArchiveFiles,
     ),
     lfValueTranslationCache = LfValueTranslationCache.Config(
       contractsMaximumSize = cliConfig.lfValueTranslationContractCache,

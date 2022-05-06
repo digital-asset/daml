@@ -14,7 +14,7 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -78,15 +78,15 @@ object CliConfig {
         forbidV0ContractId = true,
       ),
       authService = AuthServiceConfig.Wildcard,
-      acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
-      acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
-      acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
-      acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
+      acsContractFetchingParallelism = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
+      acsGlobalParallelism = IndexServiceConfig.DefaultAcsGlobalParallelism,
+      acsIdFetchingParallelism = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
+      acsIdPageSize = IndexServiceConfig.DefaultAcsIdPageSize,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.Default,
       enableInMemoryFanOutForLedgerApi = false,
-      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
+      eventsPageSize = IndexServiceConfig.DefaultEventsPageSize,
+      eventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
       extra = extra,
       implicitPartyAllocation = false,
       ledgerId = UUID.randomUUID().toString,
@@ -268,15 +268,15 @@ object CliConfig {
             val maxContractStateCacheSize = kv
               .get("contract-state-cache-max-size")
               .map(_.toLong)
-              .getOrElse(IndexConfiguration.DefaultMaxContractStateCacheSize)
+              .getOrElse(IndexServiceConfig.DefaultMaxContractStateCacheSize)
             val maxContractKeyStateCacheSize = kv
               .get("contract-key-state-cache-max-size")
               .map(_.toLong)
-              .getOrElse(IndexConfiguration.DefaultMaxContractKeyStateCacheSize)
+              .getOrElse(IndexServiceConfig.DefaultMaxContractKeyStateCacheSize)
             val maxTransactionsInMemoryFanOutBufferSize = kv
               .get("ledger-api-transactions-buffer-max-size")
               .map(_.toLong)
-              .getOrElse(IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize)
+              .getOrElse(IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = CliParticipantConfig(
               mode = runMode,
               participantId = participantId,
@@ -441,7 +441,7 @@ object CliConfig {
         opt[Int]("events-page-size")
           .optional()
           .text(
-            s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
+            s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexServiceConfig.DefaultEventsPageSize}."
           )
           .validate { pageSize =>
             if (pageSize > 0) Right(())
@@ -452,7 +452,7 @@ object CliConfig {
         opt[Int]("buffers-prefetching-parallelism")
           .optional()
           .text(
-            s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
+            s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexServiceConfig.DefaultEventsProcessingParallelism}."
           )
           .validate { buffersPrefetchingParallelism =>
             if (buffersPrefetchingParallelism > 0) Right(())
@@ -465,7 +465,7 @@ object CliConfig {
         opt[Int]("acs-id-page-size")
           .optional()
           .text(
-            s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${IndexConfiguration.DefaultAcsIdPageSize}."
+            s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${IndexServiceConfig.DefaultAcsIdPageSize}."
           )
           .validate { acsIdPageSize =>
             if (acsIdPageSize > 0) Right(())
@@ -476,7 +476,7 @@ object CliConfig {
         opt[Int]("acs-id-fetching-parallelism")
           .optional()
           .text(
-            s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${IndexConfiguration.DefaultAcsIdFetchingParallelism}."
+            s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${IndexServiceConfig.DefaultAcsIdFetchingParallelism}."
           )
           .validate { acsIdFetchingParallelism =>
             if (acsIdFetchingParallelism > 0) Right(())
@@ -489,7 +489,7 @@ object CliConfig {
         opt[Int]("acs-contract-fetching-parallelism")
           .optional()
           .text(
-            s"Number of event pages fetched in parallel when serving ACS calls. Default is ${IndexConfiguration.DefaultAcsContractFetchingParallelism}."
+            s"Number of event pages fetched in parallel when serving ACS calls. Default is ${IndexServiceConfig.DefaultAcsContractFetchingParallelism}."
           )
           .validate { acsContractFetchingParallelism =>
             if (acsContractFetchingParallelism > 0) Right(())
@@ -502,7 +502,7 @@ object CliConfig {
         opt[Int]("acs-global-parallelism-limit")
           .optional()
           .text(
-            s"Maximum number of concurrent ACS queries to the index database. Default is ${IndexConfiguration.DefaultAcsGlobalParallelism}."
+            s"Maximum number of concurrent ACS queries to the index database. Default is ${IndexServiceConfig.DefaultAcsGlobalParallelism}."
           )
           .action((acsGlobalParallelism, config) =>
             config.copy(acsGlobalParallelism = acsGlobalParallelism)

@@ -16,7 +16,7 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.configuration.{
   CommandConfiguration,
-  IndexConfiguration,
+  IndexServiceConfig,
   InitialLedgerConfiguration,
   PartyConfiguration,
 }
@@ -299,10 +299,10 @@ object PureConfigReaderWriter {
   implicit val lfValueTranslationCacheWriter: ConfigWriter[LfValueTranslationCache.Config] =
     deriveWriter[LfValueTranslationCache.Config]
 
-  implicit val indexConfigurationReader: ConfigReader[IndexConfiguration] =
-    deriveReader[IndexConfiguration]
-  implicit val indexConfigurationWriter: ConfigWriter[IndexConfiguration] =
-    deriveWriter[IndexConfiguration]
+  implicit val indexConfigurationReader: ConfigReader[IndexServiceConfig] =
+    deriveReader[IndexServiceConfig]
+  implicit val indexConfigurationWriter: ConfigWriter[IndexServiceConfig] =
+    deriveWriter[IndexServiceConfig]
 
   implicit val participantConfigReader: ConfigReader[ParticipantConfig] =
     deriveReader[ParticipantConfig]

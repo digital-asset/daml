@@ -7,7 +7,7 @@ import com.daml.caching
 import com.daml.ledger.runner.common.ParticipantConfig._
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.ApiServerConfig
-import com.daml.platform.configuration.IndexConfiguration
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.platform.store.LfValueTranslationCache
 
@@ -17,7 +17,7 @@ final case class ParticipantConfig(
     shardName: Option[String] = DefaultShardName,
     runMode: ParticipantRunMode = DefaultRunMode,
     indexer: IndexerConfig = DefaultIndexerConfig,
-    index: IndexConfiguration = DefaultIndexConfig,
+    indexService: IndexServiceConfig = DefaultIndexConfig,
     lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
     apiServer: ApiServerConfig = DefaultApiServer,
 ) {
@@ -29,7 +29,7 @@ object ParticipantConfig {
   val DefaultShardName: Option[String] = None
   val DefaultRunMode: ParticipantRunMode = ParticipantRunMode.Combined
   val DefaultIndexerConfig: IndexerConfig = IndexerConfig()
-  val DefaultIndexConfig: IndexConfiguration = IndexConfiguration()
+  val DefaultIndexConfig: IndexServiceConfig = IndexServiceConfig()
   val DefaultLfValueTranslationCache: LfValueTranslationCache.Config =
     LfValueTranslationCache.Config(
       eventsMaximumSize = caching.SizedCache.Configuration.none,
