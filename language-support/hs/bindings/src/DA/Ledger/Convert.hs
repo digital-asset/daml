@@ -79,7 +79,26 @@ lowerCommands = \case
         commandsDeduplicationPeriod = fmap lowerDeduplicationPeriod dedupPeriod,
         commandsCommands = Vector.fromList $ map lowerCommand coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
-        commandsMinLedgerTimeRel = minLeTimeRel }
+        commandsMinLedgerTimeRel = minLeTimeRel,
+        commandsDisclosedContracts = Vector.fromList $ map lowerDisclosedContract disContracts }
+
+
+lowerContractMetadata :: ContractMetadata -> LL.ContractMetadata
+lowerContractMetadata = \case
+     ContractMetadata{..} ->
+         LL.ContractMetadata {
+         contractMetadataCreatedAt = Just (lowerTimestamp leTime),
+         contractMetadataContractKeyHash = keyHash,
+         contractMetadataDriverMetadata = driverMeta }
+
+lowerDisclosedContract :: DisclosedContract -> LL.DisclosedContract
+lowerDisclosedContract = \case
+     DisclosedContract{..} ->
+         LL.DisclosedContract {
+         disclosedContractTemplateId = Just (lowerTemplateId tid),
+         disclosedContractContractId = unContractId cid,
+         disclosedContractArguments = Just (lowerRecord args),
+         disclosedContractMetadata = fmap lowerContractMetadata metadata }
 
 lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPeriod
 lowerDeduplicationPeriod = \case

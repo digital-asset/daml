@@ -505,6 +505,7 @@ reset args = do
                     , minLeTimeAbs = Nothing
                     , minLeTimeRel = Nothing
                     , sid = Nothing
+                    , disContracts = []
                     }
             errOrEmpty <- L.submit cmds
             case errOrEmpty of
