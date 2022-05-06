@@ -72,10 +72,10 @@ _choice_AChoiceA :
    DA.Internal.Desugar.Optional (A
                                  -> ChoiceA -> [DA.Internal.Desugar.Party]))
 _choice_AChoiceA
-  = (\ this arg@ChoiceA
+  = (\ this arg@ChoiceA {}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
-     \ self this arg@ChoiceA
+     \ self this arg@ChoiceA {}
        -> let _ = self in let _ = this in let _ = arg in do pure 10, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
 data GHC.Types.DamlInterface => B = B GHC.Types.Opaque
@@ -152,10 +152,10 @@ _choice_BChoiceB :
    DA.Internal.Desugar.Optional (B
                                  -> ChoiceB -> [DA.Internal.Desugar.Party]))
 _choice_BChoiceB
-  = (\ this arg@ChoiceB
+  = (\ this arg@ChoiceB {}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
-     \ self this arg@ChoiceB
+     \ self this arg@ChoiceB {}
        -> let _ = self in
           let _ = this in let _ = arg in do pure (getCoolness this), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)

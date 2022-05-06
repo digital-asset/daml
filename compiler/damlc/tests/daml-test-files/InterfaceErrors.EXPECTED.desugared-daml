@@ -73,10 +73,10 @@ _choice_MyInterfaceMyVirtualChoice :
    DA.Internal.Desugar.Optional (MyInterface
                                  -> MyVirtualChoice -> [DA.Internal.Desugar.Party]))
 _choice_MyInterfaceMyVirtualChoice
-  = (\ this arg@MyVirtualChoice
+  = (\ this arg@MyVirtualChoice {}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties ([] : [Party]), 
-     \ self this arg@MyVirtualChoice
+     \ self this arg@MyVirtualChoice {}
        -> let _ = self in
           let _ = this in let _ = arg in do myVirtualChoiceImpl this, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)

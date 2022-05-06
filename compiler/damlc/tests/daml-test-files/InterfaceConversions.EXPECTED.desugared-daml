@@ -71,10 +71,10 @@ _choice_IfaceMyChoice :
    DA.Internal.Desugar.Optional (Iface
                                  -> MyChoice -> [DA.Internal.Desugar.Party]))
 _choice_IfaceMyChoice
-  = (\ this arg@MyChoice
+  = (\ this arg@MyChoice {}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
-     \ self this arg@MyChoice
+     \ self this arg@MyChoice {}
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 data GHC.Types.DamlTemplate => Template1

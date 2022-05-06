@@ -37,7 +37,7 @@ data DA.Internal.Desugar.DamlException => NoFieldsWhereMessage
   = NoFieldsWhereMessage {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 instance DA.Internal.Desugar.HasMessage NoFieldsWhereMessage where
-  message this@NoFieldsWhereMessage
+  message this@NoFieldsWhereMessage {}
     = "NoFieldsWhereMessage exception"
 instance DA.Internal.Desugar.HasThrow NoFieldsWhereMessage where
   throwPure = GHC.Types.primitive @"EThrow"

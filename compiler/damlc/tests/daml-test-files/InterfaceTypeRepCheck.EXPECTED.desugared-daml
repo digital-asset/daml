@@ -69,10 +69,10 @@ _choice_IMyArchive :
    DA.Internal.Desugar.Optional (I
                                  -> MyArchive -> [DA.Internal.Desugar.Party]))
 _choice_IMyArchive
-  = (\ this arg@MyArchive
+  = (\ this arg@MyArchive {}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
-     \ self this arg@MyArchive
+     \ self this arg@MyArchive {}
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 data GHC.Types.DamlTemplate => T1

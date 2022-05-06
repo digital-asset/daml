@@ -74,9 +74,9 @@ _choice_IfaceFooBar :
    DA.Internal.Desugar.Optional (Iface
                                  -> FooBar -> [DA.Internal.Desugar.Party]))
 _choice_IfaceFooBar
-  = (\ this arg@FooBar
+  = (\ this arg@FooBar {}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (owner this), 
-     \ self this arg@FooBar
+     \ self this arg@FooBar {}
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
