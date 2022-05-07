@@ -132,26 +132,25 @@ final class EventsBuffer[E](
               }
 
           val vectorSlice =
-            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx).take(2)
 
           if (vectorSlice.isEmpty) Empty
           else if (bufferStartInclusiveIdx == 0) {
             Prefix(
               vectorSlice.head._1,
-              source(filter, vectorSlice.tail.iterator, continue),
+              source(filter, vectorSlice.tail, continue),
             )
-          } else Inclusive(source(filter, vectorSlice.iterator, continue))
+          } else Inclusive(source(filter, vectorSlice, continue))
         }
       },
     )
 
   private def source[API_RESPONSE](
       filter: E => Future[Option[API_RESPONSE]],
-      inputSlice: Iterator[(Offset, E)],
+      inputSlice: Vector[(Offset, E)],
       continueFrom: Offset => () => Source[(Offset, API_RESPONSE), NotUsed],
   ): Source[(Offset, API_RESPONSE), NotUsed] =
-    Source
-      .fromIterator(() => inputSlice)
+    Source.lazySource(() => Source(inputSlice))
       .mapAsync(1) { case (offset, e) =>
         filter(e).map(_.map(offset -> _))(ExecutionContext.parasitic)
       }
@@ -173,7 +172,7 @@ final class EventsBuffer[E](
         case BufferSlice.Scanned(_, v) => Source.single(v)
         case BufferSlice.LastElement(_, v) =>
           Source.single(v).concatLazy(Source.lazySource(continueFrom(v._1)))
-      }
+      }.mapMaterializedValue(_ => NotUsed)
 
   /** Removes entries starting from the buffer tail up until `endInclusive`.
     *

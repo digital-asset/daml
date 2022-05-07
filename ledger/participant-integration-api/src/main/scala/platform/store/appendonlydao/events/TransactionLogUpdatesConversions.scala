@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.appendonlydao.events
 
+import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimestampConversion.fromInstant
-
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TransactionTree,
@@ -26,6 +26,55 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
+    def filterT(
+        tx: TransactionLogUpdate.TransactionAccepted,
+        wildcardParties: Set[Party],
+        templateSpecificParties: Map[events.Identifier, Set[Party]],
+    ): Option[Vector[TransactionLogUpdate.Event]] = {
+      val transactionEvents = tx.events
+      val visible = transactionEvents
+        .filter(FlatTransactionPredicate(_, wildcardParties, templateSpecificParties))
+      val r = visible.collect {
+        case createdEvent: TransactionLogUpdate.CreatedEvent => createdEvent
+        case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
+          exercisedEvent
+      }
+      if (r.nonEmpty && visible.head.commandId.nonEmpty) Some(r) else None
+    }
+
+    def flow(
+        wildcardParties: Set[Party],
+        templateSpecificParties: Map[events.Identifier, Set[Party]],
+        filter: FilterRelation,
+        verbose: Boolean,
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ) =
+      Flow[TransactionLogUpdate.TransactionAccepted]
+        .map(filterT(_, wildcardParties, templateSpecificParties))
+        .collect { case Some(value) =>
+          value
+        }
+        .collectType[Vector[TransactionLogUpdate.Event]]
+        .mapAsync(1) { events =>
+          val requestingParties = filter.keySet
+          val first = events.head
+          Future
+            .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
+            .map(flatEvents =>
+              FlatTransaction(
+                transactionId = first.transactionId,
+                commandId = getCommandId(events, requestingParties),
+                workflowId = first.workflowId,
+                effectiveAt = Some(timestampToTimestamp(first.ledgerEffectiveTime)),
+                events = flatEvents,
+                offset = ApiOffset.toApiString(tx.offset),
+              )
+            )
+        }
+
     def apply(
         transactionLogUpdate: TransactionLogUpdate,
         filter: FilterRelation,
@@ -38,19 +87,15 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): Future[Option[FlatTransaction]] = transactionLogUpdate match {
       case tx: TransactionLogUpdate.TransactionAccepted =>
-        val transactionEvents = tx.events
-        val filtered = transactionEvents.filter(
-          FlatTransactionPredicate(_, wildcardParties, templateSpecificParties)
-        )
+        val filtered = filterT(tx, wildcardParties, templateSpecificParties)
+        val events = removeTransient(filtered)
 
         filtered.headOption
           .map { first =>
-            val events = removeTransient(filtered)
             val requestingParties = filter.keySet
 
             Future
               .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
-              .map(_.collect { case Some(value) => value })
               .map { flatEvents =>
                 // Allows emitting flat transactions with no events, a use-case needed
                 // for the functioning of Daml triggers.
@@ -109,16 +154,15 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[apiEvent.Event]] =
+    ): Future[apiEvent.Event] =
       event match {
         case createdEvent: TransactionLogUpdate.CreatedEvent =>
           createdToFlatEvent(requestingParties, verbose, lfValueTranslation, createdEvent)
-            .map(Some(_))
 
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
-          Future.successful(Some(exercisedToFlatEvent(requestingParties, exercisedEvent)))
+          Future.successful(exercisedToFlatEvent(requestingParties, exercisedEvent))
 
-        case _ => Future.successful(None)
+        case _ => Future.failed(new RuntimeException("TODO LLP: Failed"))
       }
 
     private def createdToFlatEvent(
