@@ -21,8 +21,6 @@ case class IndexerConfig(
     batchingParallelism: Int = DefaultBatchingParallelism,
     ingestionParallelism: Int = DefaultIngestionParallelism,
     submissionBatchSize: Long = DefaultSubmissionBatchSize,
-    tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
-    batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
     haConfig: HaConfig = HaConfig(),
     // PostgresSQL specific configurations
@@ -44,8 +42,6 @@ object IndexerConfig {
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L
-  val DefaultTailingRateLimitPerSecond: Int = 20
-  val DefaultBatchWithinMillis: Long = 50L
   val DefaultEnableCompression: Boolean = false
 
 }

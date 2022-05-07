@@ -44,8 +44,6 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |  inputMappingParallelism:   ${config.indexerConfig.inputMappingParallelism}
        |  ingestionParallelism:      ${config.indexerConfig.ingestionParallelism}
        |  submissionBatchSize:       ${config.indexerConfig.submissionBatchSize}
-       |  batchWithinMillis:         ${config.indexerConfig.batchWithinMillis}
-       |  tailingRateLimitPerSecond: ${config.indexerConfig.tailingRateLimitPerSecond}
        |  full indexer config:       ${config.indexerConfig}
        |
        |Result:

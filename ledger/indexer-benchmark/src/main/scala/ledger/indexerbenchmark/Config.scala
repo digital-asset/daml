@@ -72,16 +72,6 @@ object Config {
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(submissionBatchSize = value))
         )
-      opt[Int]("indexer-tailing-rate-limit-per-second")
-        .text("Sets the value of IndexerConfig.tailingRateLimitPerSecond.")
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(tailingRateLimitPerSecond = value))
-        )
-      opt[Long]("indexer-batch-within-millis")
-        .text("Sets the value of IndexerConfig.batchWithinMillis.")
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(batchWithinMillis = value))
-        )
       opt[Boolean]("indexer-enable-compression")
         .text("Sets the value of IndexerConfig.enableCompression.")
         .action((value, config) =>
