@@ -132,7 +132,7 @@ final class EventsBuffer[E](
               }
 
           val vectorSlice =
-            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx).take(2)
+            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
 
           if (vectorSlice.isEmpty) Empty
           else if (bufferStartInclusiveIdx == 0) {
@@ -150,7 +150,8 @@ final class EventsBuffer[E](
       inputSlice: Vector[(Offset, E)],
       continueFrom: Offset => () => Source[(Offset, API_RESPONSE), NotUsed],
   ): Source[(Offset, API_RESPONSE), NotUsed] =
-    Source.lazySource(() => Source(inputSlice))
+    Source
+      .lazySource(() => Source(inputSlice))
       .mapAsync(1) { case (offset, e) =>
         filter(e).map(_.map(offset -> _))(ExecutionContext.parasitic)
       }
@@ -163,7 +164,6 @@ final class EventsBuffer[E](
         if (newIdx < maxFetchSize)
           BufferSlice.Scanned(newIdx, response)
         else if (newIdx == maxFetchSize) {
-          println(s"Emitted last: $maxFetchSize")
           BufferSlice.LastElement(maxFetchSize, response)
         } else throw new RuntimeException(s"Maximum $maxFetchSize elements expected")
       }
@@ -172,7 +172,8 @@ final class EventsBuffer[E](
         case BufferSlice.Scanned(_, v) => Source.single(v)
         case BufferSlice.LastElement(_, v) =>
           Source.single(v).concatLazy(Source.lazySource(continueFrom(v._1)))
-      }.mapMaterializedValue(_ => NotUsed)
+      }
+      .mapMaterializedValue(_ => NotUsed)
 
   /** Removes entries starting from the buffer tail up until `endInclusive`.
     *

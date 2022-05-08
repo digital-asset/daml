@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.transaction.{TransactionTree, Transaction => FlatTransaction}
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -32,17 +31,17 @@ private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
     toFlatTransaction: (
-        TransactionLogUpdate,
+        TransactionLogUpdate.TransactionAccepted,
         FilterRelation,
         Set[Party],
         Map[events.Identifier, Set[Party]],
         Boolean,
-    ) => Future[Option[FlatTransaction]],
+    ) => Future[Option[GetTransactionsResponse]],
     toTransactionTree: (
-        TransactionLogUpdate,
+        TransactionLogUpdate.TransactionAccepted,
         Set[Party],
         Boolean,
-    ) => Future[Option[TransactionTree]],
+    ) => Future[Option[GetTransactionTreesResponse]],
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
@@ -67,7 +66,6 @@ private[events] class BufferedTransactionsReader(
 
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, filter, verbose)(
       toApiTx = toFlatTransaction(_, _, wildcardParties, templatesParties, _),
-      apiResponseCtor = GetTransactionsResponse(_),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
       toApiTxTimer = flatTransactionsBufferMetrics.conversion,
       sourceTimer = flatTransactionsBufferMetrics.fetchTimer,
@@ -88,9 +86,9 @@ private[events] class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
-      toApiTx = (tx: TransactionLogUpdate, requestingParties: Set[Party], verbose) =>
-        toTransactionTree(tx, requestingParties, verbose),
-      apiResponseCtor = GetTransactionTreesResponse(_),
+      toApiTx =
+        (tx: TransactionLogUpdate.TransactionAccepted, requestingParties: Set[Party], verbose) =>
+          toTransactionTree(tx, requestingParties, verbose),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       toApiTxTimer = transactionTreesBufferMetrics.conversion,
       sourceTimer = transactionTreesBufferMetrics.fetchTimer,
@@ -171,7 +169,7 @@ private[platform] object BufferedTransactionsReader {
       metrics = metrics,
     )
 
-  private[events] def getTransactions[FILTER, API_TX, API_RESPONSE](
+  private[events] def getTransactions[FILTER, API_RESPONSE](
       transactionsBuffer: EventsBuffer[TransactionLogUpdate]
   )(
       startExclusive: Offset,
@@ -179,8 +177,11 @@ private[platform] object BufferedTransactionsReader {
       filter: FILTER,
       verbose: Boolean,
   )(
-      toApiTx: (TransactionLogUpdate, FILTER, Boolean) => Future[Option[API_TX]],
-      apiResponseCtor: Seq[API_TX] => API_RESPONSE,
+      toApiTx: (
+          TransactionLogUpdate.TransactionAccepted,
+          FILTER,
+          Boolean,
+      ) => Future[Option[API_RESPONSE]],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       sourceTimer: Timer,
       toApiTxTimer: Timer,
@@ -198,7 +199,6 @@ private[platform] object BufferedTransactionsReader {
         verbose,
       )(
         toApiTx,
-        apiResponseCtor,
         fetchTransactions,
         sourceTimer,
         toApiTxTimer,
@@ -214,7 +214,10 @@ private[platform] object BufferedTransactionsReader {
         transactionsBuffer.slice[API_RESPONSE](
           startExclusive,
           endInclusive,
-          toApiTx(_, filter, verbose).map(_.map(tx => apiResponseCtor(Seq(tx)))),
+          {
+            case tx: TransactionLogUpdate.TransactionAccepted => toApiTx(tx, filter, verbose)
+            case _ => Future.successful(None)
+          },
           getNextChunk,
         ) match {
           case BufferSlice.Empty =>
