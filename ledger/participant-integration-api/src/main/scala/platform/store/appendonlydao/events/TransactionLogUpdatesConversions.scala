@@ -29,12 +29,14 @@ import com.google.protobuf.timestamp.Timestamp
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
+  type FilterResult = (Vector[TransactionLogUpdate.Event], String, String, Time.Timestamp, Offset)
+  type Filter = TransactionLogUpdate.TransactionAccepted => Option[FilterResult]
+
   object ToFlatTransaction {
-    def filterT(
-        tx: TransactionLogUpdate.TransactionAccepted,
+    def filterT(tx: TransactionLogUpdate.TransactionAccepted)(
         wildcardParties: Set[Party],
         templateSpecificParties: Map[events.Identifier, Set[Party]],
-    ): Option[(Vector[TransactionLogUpdate.Event], Offset, String, Time.Timestamp, String)] = {
+    ): Option[FilterResult] = {
       val transactionEvents = tx.events
       // TODO LLP: Revisit filtering order
       val filtered = transactionEvents
@@ -52,49 +54,43 @@ private[events] object TransactionLogUpdatesConversions {
         Some(
           (
             filteredFlatEvents,
-            tx.offset,
             tx.transactionId,
-            tx.effectiveAt,
             tx.workflowId,
+            tx.effectiveAt,
+            tx.offset,
           )
         )
       else None
     }
 
-    def apply(
-        transactionLogUpdate: TransactionLogUpdate.TransactionAccepted,
+    def toApiTx(filterResult: FilterResult)(
         filter: FilterRelation,
-        wildcardParties: Set[Party],
-        templateSpecificParties: Map[events.Identifier, Set[Party]],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[GetTransactionsResponse]] =
-      filterT(transactionLogUpdate, wildcardParties, templateSpecificParties)
-        .map { case (filteredFlatEvents, offset, transactionId, effectiveAt, workflowId) =>
-          val nonTransient = removeTransient(filteredFlatEvents)
-          val requestingParties = filter.keySet
-          Future
-            .traverse(nonTransient)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
-            .map(flatEvents =>
-              GetTransactionsResponse(
-                Seq(
-                  FlatTransaction(
-                    transactionId = transactionId,
-                    commandId = getCommandId(filteredFlatEvents, requestingParties),
-                    workflowId = workflowId,
-                    effectiveAt = Some(timestampToTimestamp(effectiveAt)),
-                    events = flatEvents,
-                    offset = ApiOffset.toApiString(offset),
-                  )
+    ): Future[GetTransactionsResponse] = filterResult match {
+      case (filteredFlatEvents, transactionId, workflowId, effectiveAt, offset) =>
+        val nonTransient = removeTransient(filteredFlatEvents)
+        val requestingParties = filter.keySet
+        Future
+          .traverse(nonTransient)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
+          .map(flatEvents =>
+            GetTransactionsResponse(
+              Seq(
+                FlatTransaction(
+                  transactionId = transactionId,
+                  commandId = getCommandId(filteredFlatEvents, requestingParties),
+                  workflowId = workflowId,
+                  effectiveAt = Some(timestampToTimestamp(effectiveAt)),
+                  events = flatEvents,
+                  offset = ApiOffset.toApiString(offset),
                 )
               )
             )
-        }
-        .map(_.map(Some(_)))
-        .getOrElse(Future.successful(None))
+          )
+    }
 
     private def removeTransient(aux: Vector[TransactionLogUpdate.Event]) = {
       val permanent = aux.foldLeft(Set.empty[ContractId]) {
@@ -216,10 +212,9 @@ private[events] object TransactionLogUpdatesConversions {
   }
 
   object ToTransactionTree {
-    def filter(
-        tx: TransactionLogUpdate.TransactionAccepted,
-        requestingParties: Set[Party],
-    ): Option[(Vector[TransactionLogUpdate.Event], String, String, Time.Timestamp, Offset)] = {
+    def filter(tx: TransactionLogUpdate.TransactionAccepted)(
+        requestingParties: Set[Party]
+    ): Option[FilterResult] = {
       val filteredForVisibility = tx.events
         .filter(TransactionTreePredicate(requestingParties))
 
@@ -227,17 +222,16 @@ private[events] object TransactionLogUpdatesConversions {
       else Some((filteredForVisibility, tx.transactionId, tx.workflowId, tx.effectiveAt, tx.offset))
     }
 
-    def apply(
-        transactionLogUpdate: TransactionLogUpdate.TransactionAccepted,
+    def toApiTx(filterResult: FilterResult)(
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[GetTransactionTreesResponse]] =
-      filter(transactionLogUpdate, requestingParties)
-        .map { case (filteredForVisibility, transactionId, workflowId, effectiveAt, offset) =>
+    ): Future[GetTransactionTreesResponse] =
+      filterResult match {
+        case (filteredForVisibility, transactionId, workflowId, effectiveAt, offset) =>
           Future
             .traverse(filteredForVisibility)(
               toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
@@ -256,24 +250,21 @@ private[events] object TransactionLogUpdatesConversions {
               // that are not a child of some other visible item
               val rootEventIds = visible.filterNot(children)
 
-              Some(
-                GetTransactionTreesResponse(
-                  Seq(
-                    TransactionTree(
-                      transactionId = transactionId,
-                      commandId = getCommandId(filteredForVisibility, requestingParties),
-                      workflowId = workflowId,
-                      effectiveAt = Some(timestampToTimestamp(effectiveAt)),
-                      offset = ApiOffset.toApiString(offset),
-                      eventsById = eventsById,
-                      rootEventIds = rootEventIds,
-                    )
+              GetTransactionTreesResponse(
+                Seq(
+                  TransactionTree(
+                    transactionId = transactionId,
+                    commandId = getCommandId(filteredForVisibility, requestingParties),
+                    workflowId = workflowId,
+                    effectiveAt = Some(timestampToTimestamp(effectiveAt)),
+                    offset = ApiOffset.toApiString(offset),
+                    eventsById = eventsById,
+                    rootEventIds = rootEventIds,
                   )
                 )
               )
             }
-        }
-        .getOrElse(Future.successful(None))
+      }
 
     private def toTransactionTreeEvent(
         requestingParties: Set[Party],

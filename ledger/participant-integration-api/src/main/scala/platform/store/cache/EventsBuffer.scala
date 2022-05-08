@@ -3,19 +3,17 @@
 
 package com.daml.platform.store.cache
 
-import akka.NotUsed
-import akka.stream.OverflowStrategy
-import akka.stream.scaladsl.Source
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.offset.Offset
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.BufferSlice.{
   BufferSlice,
-  Empty,
+  EmptyBuffer,
+  EmptyPrefix,
+  EmptyResult,
   Inclusive,
   Prefix,
-  WrappedEntry,
 }
 import com.daml.platform.store.cache.EventsBuffer.{
   BufferStateRef,
@@ -25,7 +23,6 @@ import com.daml.platform.store.cache.EventsBuffer.{
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering
 
 /** An ordered-by-offset ring buffer.
@@ -56,7 +53,7 @@ final class EventsBuffer[E](
   private val pushTimer = bufferMetrics.push
   private val sliceTimer = bufferMetrics.slice
   private val pruneTimer = bufferMetrics.prune
-//  private val sliceSize = bufferMetrics.sliceSize
+  private val sliceSizeHistogram = bufferMetrics.sliceSize
 
   def flush(): Unit = _bufferStateRef = BufferStateRef[Offset, E]()
 
@@ -100,12 +97,11 @@ final class EventsBuffer[E](
     * @param endInclusive The end inclusive bound of the requested range.
     * @return The series of events as an ordered vector satisfying the input bounds.
     */
-  def slice[API_RESPONSE](
+  def slice[FILTER_RESULT](
       startExclusive: Offset,
       endInclusive: Offset,
-      filter: E => Future[Option[API_RESPONSE]],
-      continue: Offset => () => Source[(Offset, API_RESPONSE), NotUsed],
-  ): BufferSlice[(Offset, API_RESPONSE)] = if (lastPrunedOffset.exists(_ > startExclusive)) {
+      filter: E => Option[FILTER_RESULT],
+  ): BufferSlice[(Offset, FILTER_RESULT)] = if (lastPrunedOffset.exists(_ > startExclusive)) {
     throw LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
       .Reject(
         cause =
@@ -121,7 +117,7 @@ final class EventsBuffer[E](
         if (bufferSnapshot.rangeEnd.exists(_ < endInclusive)) {
           throw RequestOffBufferBounds(bufferSnapshot.vector.last._1, endInclusive)
         } else if (bufferSnapshot.vector.isEmpty)
-          Empty
+          EmptyBuffer
         else {
           val Seq(bufferStartInclusiveIdx, bufferEndExclusiveIdx) =
             Seq(startExclusive, endInclusive)
@@ -131,49 +127,40 @@ final class EventsBuffer[E](
                 case Found(foundIndex) => foundIndex + 1
               }
 
-          val vectorSlice =
-            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+          var lastOffset = Offset.beforeBegin
+          val vSlice = bufferSnapshot.vector
+            .slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+          val filteredSliced = vSlice.iterator
+            .map { case (offset, in) =>
+              lastOffset = offset
+              filter(in).map(offset -> _)
+            }
+            .collect { case Some(v) => v }
+            .take(maxFetchSize)
+            .toVector
 
-          if (vectorSlice.isEmpty) Empty
-          else if (bufferStartInclusiveIdx == 0) {
-            Prefix(
-              vectorSlice.head._1,
-              source(filter, vectorSlice.tail, continue),
-            )
-          } else Inclusive(source(filter, vectorSlice, continue))
+          val sliceSize = filteredSliced.size
+          sliceSizeHistogram.update(sliceSize)
+
+          if (filteredSliced.isEmpty) {
+            if (bufferStartInclusiveIdx == 0) {
+              if (vSlice.isEmpty) EmptyBuffer
+              else EmptyPrefix(vSlice.head._1)
+            } else EmptyResult
+          } else {
+            val continue = Option.when(sliceSize == maxFetchSize)(lastOffset)
+
+            if (bufferStartInclusiveIdx == 0)
+              Prefix(
+                filteredSliced.head._1,
+                filteredSliced.tail,
+                continue,
+              )
+            else Inclusive(filteredSliced, continue)
+          }
         }
       },
     )
-
-  private def source[API_RESPONSE](
-      filter: E => Future[Option[API_RESPONSE]],
-      inputSlice: Vector[(Offset, E)],
-      continueFrom: Offset => () => Source[(Offset, API_RESPONSE), NotUsed],
-  ): Source[(Offset, API_RESPONSE), NotUsed] =
-    Source
-      .lazySource(() => Source(inputSlice))
-      .mapAsync(1) { case (offset, e) =>
-        filter(e).map(_.map(offset -> _))(ExecutionContext.parasitic)
-      }
-      .mapConcat(_.iterator)
-      .take(maxFetchSize.toLong)
-      .buffer(maxFetchSize, OverflowStrategy.dropNew)
-      .async
-      .scan(BufferSlice.Zero: WrappedEntry[(Offset, API_RESPONSE)]) { case (scanned, response) =>
-        val newIdx = scanned.idx + 1
-        if (newIdx < maxFetchSize)
-          BufferSlice.Scanned(newIdx, response)
-        else if (newIdx == maxFetchSize) {
-          BufferSlice.LastElement(maxFetchSize, response)
-        } else throw new RuntimeException(s"Maximum $maxFetchSize elements expected")
-      }
-      .flatMapConcat {
-        case BufferSlice.Zero => Source.empty
-        case BufferSlice.Scanned(_, v) => Source.single(v)
-        case BufferSlice.LastElement(_, v) =>
-          Source.single(v).concatLazy(Source.lazySource(continueFrom(v._1)))
-      }
-      .mapMaterializedValue(_ => NotUsed)
 
   /** Removes entries starting from the buffer tail up until `endInclusive`.
     *
@@ -211,19 +198,30 @@ private[platform] object BufferSlice {
   private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable
 
   /** The source was empty */
-  private[platform] final case object Empty extends BufferSlice[Nothing]
+  private[platform] final case object EmptyBuffer extends BufferSlice[Nothing]
 
   /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq to 1) */
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  private[platform] final case class Inclusive[ELEM](slice: Source[ELEM, NotUsed])
-      extends BufferSlice[ELEM]
+  private[platform] final case class Inclusive[ELEM](
+      slice: Vector[ELEM],
+      continueFrom: Option[Offset],
+  ) extends BufferSlice[ELEM]
 
   /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   private[platform] final case class Prefix[ELEM](
       headOffset: Offset,
-      tail: Source[ELEM, NotUsed],
+      tail: Vector[ELEM],
+      continueFrom: Option[Offset],
   ) extends BufferSlice[ELEM]
+
+  /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  private[platform] final case object EmptyResult extends BufferSlice[Nothing]
+
+  /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  private[platform] final case class EmptyPrefix[ELEM](headOffset: Offset) extends BufferSlice[ELEM]
 }
 
 private[platform] object EventsBuffer {

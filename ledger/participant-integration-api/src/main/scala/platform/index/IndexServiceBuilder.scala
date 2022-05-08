@@ -76,7 +76,7 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
-      )(loggingContext, servicesExecutionContext)
+      )(servicesExecutionContext)
     } yield new IndexServiceImpl(
       ledgerId,
       participantId,

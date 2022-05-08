@@ -15,8 +15,6 @@ import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CompletionDetails, LedgerEndMarker}
 
-import scala.concurrent.Future
-
 class BufferedCommandCompletionsReader(
     completionsBuffer: EventsBuffer[TransactionLogUpdate],
     delegate: LedgerDaoCommandCompletionsReader,
@@ -48,18 +46,30 @@ class BufferedCommandCompletionsReader(
         completionsBuffer.slice[CompletionStreamResponse](
           startExclusive,
           endInclusive,
-          e => Future.successful(filterCompletions(e, parties, applicationId)),
-          getNextChunk,
+          filterCompletions(_, parties, applicationId),
         ) match {
-          case BufferSlice.Empty =>
+          case BufferSlice.EmptyBuffer =>
             delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
 
-          case BufferSlice.Prefix(headOffset, source) =>
+          case BufferSlice.EmptyPrefix(headOffset) =>
+            delegate.getCommandCompletions(startExclusive, headOffset, applicationId, parties)
+
+          case BufferSlice.EmptyResult => Source.empty
+
+          case BufferSlice.Prefix(headOffset, tail, continue) =>
             delegate
               .getCommandCompletions(startExclusive, headOffset, applicationId, parties)
-              .concat(source)
+              .concat(Source.fromIterator(() => tail.iterator))
+              .concatLazy(
+                continue.map(from => Source.lazySource(getNextChunk(from))).getOrElse(Source.empty)
+              )
 
-          case BufferSlice.Inclusive(source) => source
+          case BufferSlice.Inclusive(slice, continue) =>
+            Source
+              .fromIterator(() => slice.iterator)
+              .concatLazy(
+                continue.map(from => Source.lazySource(getNextChunk(from))).getOrElse(Source.empty)
+              )
         }
       }.map(tx => {
         completionsBufferMetrics.fetchedTotal.inc()

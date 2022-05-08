@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -18,8 +19,13 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao
+import com.daml.platform.store.appendonlydao.LedgerDaoTransactionsReader
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
-import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, events}
+import com.daml.platform.store.appendonlydao.events.TransactionLogUpdatesConversions.{
+  FilterResult,
+  ToFlatTransaction,
+  ToTransactionTree,
+}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -30,18 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
-    toFlatTransaction: (
-        TransactionLogUpdate.TransactionAccepted,
-        FilterRelation,
-        Set[Party],
-        Map[events.Identifier, Set[Party]],
-        Boolean,
-    ) => Future[Option[GetTransactionsResponse]],
-    toTransactionTree: (
-        TransactionLogUpdate.TransactionAccepted,
-        Set[Party],
-        Boolean,
-    ) => Future[Option[GetTransactionTreesResponse]],
+    lfValueTranslation: LfValueTranslation,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
@@ -65,7 +60,8 @@ private[events] class BufferedTransactionsReader(
     val templatesParties = invertMapping(partiesTemplates)
 
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, filter, verbose)(
-      toApiTx = toFlatTransaction(_, _, wildcardParties, templatesParties, _),
+      filterEvents = ToFlatTransaction.filterT(_)(wildcardParties, templatesParties),
+      toApiTx = ToFlatTransaction.toApiTx(_)(filter, verbose, lfValueTranslation),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
       toApiTxTimer = flatTransactionsBufferMetrics.conversion,
       sourceTimer = flatTransactionsBufferMetrics.fetchTimer,
@@ -86,9 +82,8 @@ private[events] class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
-      toApiTx =
-        (tx: TransactionLogUpdate.TransactionAccepted, requestingParties: Set[Party], verbose) =>
-          toTransactionTree(tx, requestingParties, verbose),
+      filterEvents = ToTransactionTree.filter(_)(requestingParties),
+      toApiTx = ToTransactionTree.toApiTx(_)(requestingParties, verbose, lfValueTranslation),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       toApiTxTimer = transactionTreesBufferMetrics.conversion,
       sourceTimer = transactionTreesBufferMetrics.fetchTimer,
@@ -156,17 +151,13 @@ private[platform] object BufferedTransactionsReader {
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
   )(implicit
-      loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
+      executionContext: ExecutionContext
   ): BufferedTransactionsReader =
     new BufferedTransactionsReader(
       delegate = delegate,
       transactionsBuffer = transactionsBuffer,
-      toFlatTransaction =
-        TransactionLogUpdatesConversions.ToFlatTransaction(_, _, _, _, _, lfValueTranslation),
-      toTransactionTree =
-        TransactionLogUpdatesConversions.ToTransactionTree(_, _, _, lfValueTranslation),
       metrics = metrics,
+      lfValueTranslation = lfValueTranslation,
     )
 
   private[events] def getTransactions[FILTER, API_RESPONSE](
@@ -177,11 +168,8 @@ private[platform] object BufferedTransactionsReader {
       filter: FILTER,
       verbose: Boolean,
   )(
-      toApiTx: (
-          TransactionLogUpdate.TransactionAccepted,
-          FILTER,
-          Boolean,
-      ) => Future[Option[API_RESPONSE]],
+      filterEvents: TransactionLogUpdatesConversions.Filter,
+      toApiTx: FilterResult => Future[API_RESPONSE],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       sourceTimer: Timer,
       toApiTxTimer: Timer,
@@ -198,6 +186,7 @@ private[platform] object BufferedTransactionsReader {
         filter,
         verbose,
       )(
+        filterEvents,
         toApiTx,
         fetchTransactions,
         sourceTimer,
@@ -211,22 +200,47 @@ private[platform] object BufferedTransactionsReader {
 
     val transactionsSource = Timed.source(
       sourceTimer, {
-        transactionsBuffer.slice[API_RESPONSE](
+        transactionsBuffer.slice(
           startExclusive,
           endInclusive,
           {
-            case tx: TransactionLogUpdate.TransactionAccepted => toApiTx(tx, filter, verbose)
-            case _ => Future.successful(None)
+            case tx: TransactionLogUpdate.TransactionAccepted => filterEvents(tx)
+            case _ => None
           },
-          getNextChunk,
         ) match {
-          case BufferSlice.Empty =>
+          case BufferSlice.EmptyBuffer =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          case BufferSlice.Prefix(headOffset, source) =>
-            fetchTransactions(startExclusive, headOffset, filter, verbose).concat(source)
+          case BufferSlice.EmptyPrefix(headOffset) =>
+            fetchTransactions(startExclusive, headOffset, filter, verbose)
 
-          case BufferSlice.Inclusive(source) => source
+          case BufferSlice.EmptyResult => Source.empty
+
+          case BufferSlice.Prefix(headOffset, tail, continue) =>
+            fetchTransactions(startExclusive, headOffset, filter, verbose)
+              .concat(
+                sliceSource(
+                  tail,
+                  toApiTx,
+                  toApiTxTimer,
+                  inStreamBufferLength,
+                  resolvedFromBufferCounter,
+                )
+              )
+              .concatLazy {
+                continue.map(from => Source.lazySource(getNextChunk(from))).getOrElse(Source.empty)
+              }
+
+          case BufferSlice.Inclusive(slice, continue) =>
+            sliceSource(
+              slice,
+              toApiTx,
+              toApiTxTimer,
+              inStreamBufferLength,
+              resolvedFromBufferCounter,
+            ).concatLazy {
+              continue.map(from => Source.lazySource(getNextChunk(from))).getOrElse(Source.empty)
+            }
         }
       }.map(tx => {
         totalRetrievedCounter.inc()
@@ -241,17 +255,33 @@ private[platform] object BufferedTransactionsReader {
     )
   }
 
-//  private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
-//    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Source[T, NotUsed] =
-//      source
-//        .map { in =>
-//          counter.inc()
-//          in
-//        }
-//        .buffer(bufferLength, OverflowStrategy.backpressure)
-//        .map { in =>
-//          counter.dec()
-//          in
-//        }
-//  }
+  private def sliceSource[API_RESPONSE, FILTER](
+      tail: Vector[(Offset, FilterResult)],
+      toApiTx: FilterResult => Future[API_RESPONSE],
+      toApiTxTimer: Timer,
+      inStreamBufferLength: Counter,
+      resolvedFromBufferCounter: Counter,
+  ) =
+    Source
+      .fromIterator(() => tail.iterator)
+      .async
+      .buffered(128)(inStreamBufferLength)
+      .mapAsync(4) { case (offset, payload) =>
+        resolvedFromBufferCounter.inc()
+        Timed.future(toApiTxTimer, toApiTx(payload).map(offset -> _)(ExecutionContext.parasitic))
+      }
+
+  private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
+    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Source[T, NotUsed] =
+      source
+        .map { in =>
+          counter.inc()
+          in
+        }
+        .buffer(bufferLength, OverflowStrategy.backpressure)
+        .map { in =>
+          counter.dec()
+          in
+        }
+  }
 }
