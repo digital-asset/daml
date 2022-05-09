@@ -8,8 +8,6 @@ import com.daml.ledger.client.binding
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Generates and submits Foo and related commands
-  */
 class FooSubmission(
     submitter: CommandSubmitter,
     maxInFlightCommands: Int,
@@ -17,23 +15,39 @@ class FooSubmission(
     submissionConfig: FooSubmissionConfig,
     signatory: binding.Primitive.Party,
     allObservers: List[binding.Primitive.Party],
+    allDivulgees: List[binding.Primitive.Party],
 ) {
 
   def performSubmission()(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    val generator = new FooCommandGenerator(
-      randomnessProvider = RandomnessProvider.Default,
-      signatory = signatory,
-      config = submissionConfig,
-      allObservers = allObservers,
-    )
+    val divulgenceGenerator = new FooDivulgerCommandGenerator()
+    val (divulgerCmds, divulgeesToDivulgerKeyMap) = divulgenceGenerator
+      .makeCreateDivulgerCommands(
+        divulgingParty = signatory,
+        allDivulgees = allDivulgees,
+      )
+
     for {
+      _ <- submitter.submitSingleBatch(
+        commandId = "divulgence-setup",
+        actAs = Seq(signatory) ++ allDivulgees,
+        commands = divulgerCmds,
+      )
+      generator: CommandGenerator = new FooCommandGenerator(
+        randomnessProvider = RandomnessProvider.Default,
+        signatory = signatory,
+        config = submissionConfig,
+        allObservers = allObservers,
+        allDivulgees = allDivulgees,
+        divulgeesToDivulgerKeyMap = divulgeesToDivulgerKeyMap,
+      )
       _ <- submitter
         .generateAndSubmit(
           generator = generator,
           config = submissionConfig,
           signatory = signatory,
+          divulgees = allDivulgees,
           maxInFlightCommands = maxInFlightCommands,
           submissionBatchSize = submissionBatchSize,
         )

@@ -229,6 +229,8 @@ class LedgerApiBenchTool(
           signatory = signatory,
           config = submissionConfig,
           allObservers = List.empty,
+          allDivulgees = List.empty,
+          divulgeesToDivulgerKeyMap = Map.empty,
         )
         for {
           metricsManager <- MetricsManager(
@@ -251,6 +253,7 @@ class LedgerApiBenchTool(
               signatory = signatory,
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
+              divulgees = List.empty,
             )
             .flatMap(_ => metricsManager.result())
             .map {
@@ -290,7 +293,7 @@ class LedgerApiBenchTool(
       metricsManager = NoOpMetricsManager(),
     )
     for {
-      (signatory, allObservers) <- submitter.prepare(
+      (signatory, allObservers, allDivulgees) <- submitter.prepare(
         submissionConfig
       )
       _ <-
@@ -303,6 +306,7 @@ class LedgerApiBenchTool(
               submissionConfig = submissionConfig,
               signatory = signatory,
               allObservers = allObservers,
+              allDivulgees = allDivulgees,
             ).performSubmission()
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
@@ -315,6 +319,7 @@ class LedgerApiBenchTool(
                   generator = generator,
                   config = submissionConfig,
                   signatory = signatory,
+                  divulgees = allDivulgees,
                   maxInFlightCommands = config.maxInFlightCommands,
                   submissionBatchSize = config.submissionBatchSize,
                 )

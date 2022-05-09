@@ -49,6 +49,7 @@ class FooCommandSubmitterITSpec
     val config = WorkflowConfig.FooSubmissionConfig(
       numberOfInstances = 10,
       numberOfObservers = 1,
+      numberOfDivulgees = 0,
       uniqueParties = false,
       instanceDistribution = List(
         foo1Config,
@@ -71,17 +72,21 @@ class FooCommandSubmitterITSpec
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, observers) <- tested.prepare(config)
+      (signatory, observers, divulgees) <- tested.prepare(config)
+      _ = divulgees shouldBe empty
       generator: CommandGenerator = new FooCommandGenerator(
         randomnessProvider = RandomnessProvider.Default,
         signatory = signatory,
         config = config,
         allObservers = observers,
+        allDivulgees = List.empty,
+        divulgeesToDivulgerKeyMap = Map.empty,
       )
       _ <- tested.generateAndSubmit(
         generator = generator,
         config = config,
         signatory = signatory,
+        divulgees = divulgees,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
       )

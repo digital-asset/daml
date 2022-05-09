@@ -40,20 +40,24 @@ case class CommandSubmitter(
     (
         client.binding.Primitive.Party,
         List[client.binding.Primitive.Party],
+        List[client.binding.Primitive.Party],
     )
   ] = {
     val observerPartyNames =
       names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
+    val divulgeePartyNames =
+      names.divulgeePartyNames(config.numberOfDivulgees, config.uniqueParties)
 
     logger.info("Generating contracts...")
     logger.info(s"Identifier suffix: ${names.identifierSuffix}")
     (for {
       signatory <- allocateSignatoryParty()
       observers <- allocateObserverParties(observerPartyNames)
+      divulgees <- allocateDivulgeeParties(divulgeePartyNames)
       _ <- uploadTestDars()
     } yield {
       logger.info("Prepared command submission.")
-      (signatory, observers)
+      (signatory, observers, divulgees)
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(
@@ -64,10 +68,25 @@ case class CommandSubmitter(
       }
   }
 
+  def submitSingleBatch(
+      commandId: String,
+      actAs: Seq[Primitive.Party],
+      commands: Seq[Command],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Unit] = {
+    submitAndWait(
+      id = commandId,
+      actAs = actAs,
+      commands = commands,
+    )
+  }
+
   def generateAndSubmit(
       generator: CommandGenerator,
       config: SubmissionConfig,
       signatory: client.binding.Primitive.Party,
+      divulgees: List[client.binding.Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -79,6 +98,7 @@ case class CommandSubmitter(
         signatory = signatory,
         maxInFlightCommands = maxInFlightCommands,
         submissionBatchSize = submissionBatchSize,
+        divulgees = divulgees,
       )
     } yield {
       logger.info("Commands submitted successfully.")
@@ -98,6 +118,14 @@ case class CommandSubmitter(
   ): Future[List[Primitive.Party]] = {
     Future.sequence(
       observerPartyNames.toList.map(adminServices.partyManagementService.allocateParty)
+    )
+  }
+
+  private def allocateDivulgeeParties(divulgeePartyNames: Seq[String])(implicit
+      ec: ExecutionContext
+  ): Future[List[Primitive.Party]] = {
+    Future.sequence(
+      divulgeePartyNames.toList.map(adminServices.partyManagementService.allocateParty)
     )
   }
 
@@ -146,6 +174,7 @@ case class CommandSubmitter(
       generator: CommandGenerator,
       config: SubmissionConfig,
       signatory: Primitive.Party,
+      divulgees: List[Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit
@@ -188,7 +217,7 @@ case class CommandSubmitter(
               timed(submitAndWaitTimer, metricsManager)(
                 submitAndWait(
                   id = names.commandId(index),
-                  actAs = Seq(signatory),
+                  actAs = signatory +: divulgees,
                   commands = commands.flatten,
                 )
               )

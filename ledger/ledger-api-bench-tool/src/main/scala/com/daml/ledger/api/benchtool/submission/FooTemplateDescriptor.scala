@@ -41,4 +41,7 @@ object FooTemplateDescriptor {
   def forName(templateName: String): FooTemplateDescriptor =
     all.getOrElse(templateName, sys.error(s"Invalid template: $templateName"))
 
+  val Divulger_templateId: Identifier =
+    com.daml.ledger.test.model.Foo.Divulger.id.asInstanceOf[Identifier]
+  val Divulger_DivulgeImmediate = "DivulgeImmediate"
 }

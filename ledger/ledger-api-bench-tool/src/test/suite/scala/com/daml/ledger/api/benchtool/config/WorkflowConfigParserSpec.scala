@@ -52,6 +52,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             WorkflowConfig.FooSubmissionConfig(
               numberOfInstances = 500,
               numberOfObservers = 4,
+              numberOfDivulgees = 0,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -119,6 +120,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             WorkflowConfig.FooSubmissionConfig(
               numberOfInstances = 500,
               numberOfObservers = 4,
+              numberOfDivulgees = 0,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
