@@ -48,11 +48,13 @@ final class ValueLimitsIT extends LedgerTestSuite {
     "VLLargeMapInContract",
     "Create a contract with a field containing large map",
     allocate(SingleParty),
+    8.0
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val elements = (1 to 10000).map(e => (f"element_$e%08d", alice)).toMap
     for {
       contract <- ledger.create(alice, WithMap(alice, elements))
-      _ <- ledger.exercise(alice, contract.exerciseWithMap_Noop)
+      //_ <- ledger.exercise(alice, contract.exerciseWithMap_Noop)
+      _ <- Future.traverse(1 to 40000)(d => Delayed.by((d*5).millis)(()).flatMap(_ => ledger.exercise(alice, contract.exerciseWithMap_Noop)))
     } yield {
       ()
     }
