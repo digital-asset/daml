@@ -570,7 +570,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   // TEST_EVIDENCE: Authorization: reject requests with missing auth header
   "create IOU should fail if authorization header is missing" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     val alice = getUniqueParty("Alice")
     val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
@@ -630,7 +630,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "exercise IOU_Transfer" in withHttpService { fixture =>
-    import fixture.{uri, encoder, decoder, ledgerId}
+    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
       postCreateCommand(create, encoder, uri, headers)
@@ -661,7 +661,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "create-and-exercise IOU_Transfer" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
         iouCreateAndExerciseTransferCommand(alice.unwrap)
@@ -731,7 +731,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.encoder
       val contractIdString = "0" * 66
       val contractId = lar.ContractId(contractIdString)
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
@@ -931,7 +931,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "parties endpoint should return all known parties" in withHttpService { fixture =>
-    import fixture.{uri, client}
+    import fixture.client
     val partyIds = Vector("P1", "P2", "P3", "P4")
     val partyManagement = client.partyManagementClient
 
@@ -963,7 +963,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "parties endpoint should return only requested parties, unknown parties returned as warnings" in withHttpService {
     fixture =>
-      import fixture.{uri, client}
+      import fixture.client
       val charlie = getUniqueParty("Charlie")
       val knownParties = Vector(getUniqueParty("Alice"), getUniqueParty("Bob")) :+ charlie
       val erin = getUniqueParty("Erin")
@@ -1275,7 +1275,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "fetch by key containing variant and record, encoded as array with number num" in withHttpService {
     fixture =>
-      import fixture.uri
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         testFetchByCompositeKey(
           fixture,
@@ -1295,7 +1294,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "fetch by key containing variant and record, encoded as record with string num" in withHttpService {
     fixture =>
-      import fixture.uri
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         testFetchByCompositeKey(
           fixture,
