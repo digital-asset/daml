@@ -162,10 +162,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   import AbstractHttpServiceIntegrationTestFuns.{ciouDar, VAx}
   import HttpServiceTestFixture.{
-    postJsonRequest => _,
-    postJsonStringRequest => _,
-    getRequest => _,
-    _,
+    UseTls,
+    accountCreateCommand,
+    getResult,
+    getContractId,
+    archiveCommand,
+    getChild,
+    jsonCodecs,
   }
   import json.JsonProtocol._
 
