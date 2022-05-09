@@ -5,6 +5,7 @@ package com.daml.platform.store.cache
 
 import com.codahale.metrics.Timer
 import com.daml.caching.Cache
+import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
@@ -18,13 +19,13 @@ import scala.concurrent.{ExecutionContext, Future}
   * concurrent updates for the same key.
   *
   * The [[StateCache]] tracks its own notion of logical time with the `cacheIndex`
-  * which evolves monotonically based on the index DB's event sequential id (updated by [[put]]).
+  * which evolves monotonically based on the index DB's offset (updated by [[putBatch]]).
   *
   * The cache's logical time (i.e. the `cacheIndex`) is used for establishing precedence of cache updates
   * stemming from read-throughs triggered from command interpretation on cache misses.
   */
 private[platform] case class StateCache[K, V](
-    initialCacheIndex: Long,
+    initialCacheIndex: Offset,
     cache: Cache[K, V],
     registerUpdateTimer: Timer,
 )(implicit ec: ExecutionContext) {
@@ -50,11 +51,10 @@ private[platform] case class StateCache[K, V](
   /** Synchronous cache updates evolve the cache ahead with the most recent Index DB entries.
     * This method increases the `cacheIndex` monotonically.
     *
-    * @param key the key at which to update the cache
     * @param validAt ordering discriminator for pending updates for the same key
-    * @param value the value to insert
+    * @param batch the batch of events updating the cache at `validAt`
     */
-  def put(key: K, validAt: Long, value: V)(implicit loggingContext: LoggingContext): Unit =
+  def putBatch(validAt: Offset, batch: Map[K, V])(implicit loggingContext: LoggingContext): Unit =
     Timed.value(
       registerUpdateTimer, {
         pendingUpdates.synchronized {
@@ -62,11 +62,18 @@ private[platform] case class StateCache[K, V](
           // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
           // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
           if (validAt > cacheIndex) {
-            pendingUpdates
-              .get(key)
-              .foreach(_.latestValidAt = validAt)
+            batch.keySet.foreach { key =>
+              pendingUpdates
+                .get(key)
+                .foreach(_.latestValidAt = validAt)
+            }
             cacheIndex = validAt
-            putInternal(key, value, validAt)
+            cache.putAll(batch)
+            logger.debug(
+              s"Updated cache with a batch of ${batch
+                  .map { case (k, v) => s"$k -> ${truncateValueForLogging(v)}" }
+                  .mkString("[", ", ", "]")} at $validAt"
+            )
           } else
             logger.warn(
               s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
@@ -85,7 +92,7 @@ private[platform] case class StateCache[K, V](
     * @param key the key at which to update the cache
     * @param fetchAsync fetches asynchronously the value for key `key` at the current cache index
     */
-  def putAsync(key: K, fetchAsync: Long => Future[V])(implicit
+  def putAsync(key: K, fetchAsync: Offset => Future[V])(implicit
       loggingContext: LoggingContext
   ): Future[V] = Timed.value(
     registerUpdateTimer,
@@ -102,17 +109,10 @@ private[platform] case class StateCache[K, V](
     },
   )
 
-  private def putInternal(key: K, value: V, validAt: Long)(implicit
-      loggingContext: LoggingContext
-  ): Unit = {
-    cache.put(key, value)
-    logger.debug(s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt")
-  }
-
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
-      validAt: Long,
+      validAt: Offset,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     eventualUpdate
       .map { (value: V) =>
@@ -125,7 +125,10 @@ private[platform] case class StateCache[K, V](
               // Otherwise we can assume that a more recent `putAsync` has an update in-flight
               // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
               if (pendingForKey.latestValidAt == validAt) {
-                putInternal(key, value, validAt)
+                cache.put(key, value)
+                logger.debug(
+                  s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt"
+                )
               }
               removeFromPending(key)
             }
@@ -181,12 +184,12 @@ object StateCache {
     */
   private[cache] case class PendingUpdatesState(
       var pendingCount: Long,
-      var latestValidAt: Long,
+      var latestValidAt: Offset,
   )
   private[cache] object PendingUpdatesState {
     def empty: PendingUpdatesState = PendingUpdatesState(
       0L,
-      Long.MinValue,
+      Offset.beforeBegin,
     )
   }
 }

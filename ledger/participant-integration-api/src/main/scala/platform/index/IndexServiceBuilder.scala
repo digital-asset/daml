@@ -154,7 +154,7 @@ private[platform] case class IndexServiceBuilder(
     MutableCacheBackedContractStore(
       ledgerDao.contractsReader,
       dispatcherLagMeter,
-      ledgerEnd.lastEventSeqId,
+      ledgerEnd.lastOffset,
       metrics,
       maxContractStateCacheSize,
       maxContractKeyStateCacheSize,

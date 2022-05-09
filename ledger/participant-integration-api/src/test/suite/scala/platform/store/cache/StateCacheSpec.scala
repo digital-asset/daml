@@ -5,6 +5,7 @@ package com.daml.platform.store.cache
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache}
+import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.github.benmanes.caffeine.cache.Caffeine
@@ -17,6 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.math.BigInt.long2bigInt
 import scala.util.Success
 
 class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with Eventually {
@@ -32,14 +34,22 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
 
   it should "asynchronously store the update" in {
     val cache = mock[ConcurrentCache[String, String]]
+    val someOffset = offset(0L)
     val stateCache = StateCache[String, String](
-      initialCacheIndex = 0L,
+      initialCacheIndex = someOffset,
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
     )
 
     val asyncUpdatePromise = Promise[String]()
-    val putAsyncResult = stateCache.putAsync("key", { case 0L => asyncUpdatePromise.future })
+    val putAsyncResult =
+      stateCache.putAsync(
+        "key",
+        {
+          case `someOffset` => asyncUpdatePromise.future
+          case _ => fail()
+        },
+      )
     asyncUpdatePromise.completeWith(Future.successful("value"))
 
     for {
@@ -100,21 +110,29 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
 
   it should "synchronously update the cache in front of older asynchronous updates" in {
     val cache = mock[ConcurrentCache[String, String]]
+    val initialOffset = offset(0L)
     val stateCache = StateCache[String, String](
-      initialCacheIndex = 0L,
+      initialCacheIndex = initialOffset,
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
     )
 
     val asyncUpdatePromise = Promise[String]()
-    val putAsyncResult = stateCache.putAsync("key", { case 0L => asyncUpdatePromise.future })
-    stateCache.put("key", 2L, "value")
+    val putAsyncResult =
+      stateCache.putAsync(
+        "key",
+        {
+          case `initialOffset` => asyncUpdatePromise.future
+          case _ => fail()
+        },
+      )
+    stateCache.putBatch(offset(2L), Map("key" -> "value", "key2" -> "value2"))
     asyncUpdatePromise.completeWith(Future.successful("should not update the cache"))
 
     for {
       _ <- putAsyncResult
     } yield {
-      verify(cache).put("key", "value")
+      verify(cache).putAll(Map("key" -> "value", "key2" -> "value2"))
       // Async update with older `validAt` should not insert in the cache
       verifyNoMoreInteractions(cache)
       succeed
@@ -123,21 +141,21 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
 
   it should "not update the cache if called with a non-increasing `validAt`" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](0L, cache, cacheUpdateTimer)
+    val stateCache = StateCache[String, String](offset(0L), cache, cacheUpdateTimer)
 
-    stateCache.put("key", 2L, "value")
+    stateCache.putBatch(offset(2L), Map("key" -> "value"))
     // `Put` at a decreasing validAt
-    stateCache.put("key", 1L, "earlier value")
-    stateCache.put("key", 2L, "value at same validAt")
+    stateCache.putBatch(offset(1L), Map("key" -> "earlier value"))
+    stateCache.putBatch(offset(2L), Map("key" -> "value at same validAt"))
 
-    verify(cache).put("key", "value")
+    verify(cache).putAll(Map("key" -> "value"))
     verifyNoMoreInteractions(cache)
     succeed
   }
 
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =
     StateCache[String, String](
-      initialCacheIndex = 0L,
+      initialCacheIndex = Offset.beforeBegin,
       cache = CaffeineCache[String, String](
         Caffeine
           .newBuilder()
@@ -176,11 +194,19 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
       insertions: Seq[(String, (Promise[String], String))]
   ): (Seq[Future[Unit]], FiniteDuration) =
     time {
+      var cacheIdx = 0L
       insertions.map { case (key, (promise, _)) =>
-        stateCache.cacheIndex += 1
+        cacheIdx += 1L
+        stateCache.cacheIndex = offset(cacheIdx)
         val validAt = stateCache.cacheIndex
         stateCache
-          .putAsync(key, { case `validAt` => promise.future })
+          .putAsync(
+            key,
+            {
+              case `validAt` => promise.future
+              case _ => fail()
+            },
+          )
           .map(_ => ())(scala.concurrent.ExecutionContext.global)
       }
     }
@@ -190,5 +216,10 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     val r = f
     val duration = FiniteDuration((System.nanoTime() - start) / 1000000L, TimeUnit.MILLISECONDS)
     (r, duration)
+  }
+
+  private def offset(idx: Long) = {
+    val base = BigInt(1L) << 32
+    Offset.fromByteArray((base + idx).toByteArray)
   }
 }

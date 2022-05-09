@@ -4,11 +4,11 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.platform.{ContractId, Key, Party}
 import com.daml.platform.store.backend.Conversions.{contractId, offset, timestampFromMicros}
+import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.ContractStorageBackend
@@ -28,7 +28,7 @@ class ContractStorageBackendTemplate(
 ) extends ContractStorageBackend {
   import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
-  override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState =
     contractKey(
       resultColumns = List("contract_id", "flat_event_witnesses"),
       resultParser = (
@@ -67,10 +67,11 @@ class ContractStorageBackendTemplate(
           )
       }
 
-  override def contractState(contractId: ContractId, before: Long)(
+  override def contractState(contractId: ContractId, before: Offset)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState] = {
     import com.daml.platform.store.backend.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
            (SELECT
              event_sequential_id,
@@ -83,7 +84,7 @@ class ContractStorageBackendTemplate(
            FROM participant_events_create
            WHERE
              contract_id = $contractId
-             AND event_sequential_id <= $before)
+             AND event_offset <= $before)
            UNION ALL
            (SELECT
              event_sequential_id,
@@ -96,7 +97,7 @@ class ContractStorageBackendTemplate(
            FROM participant_events_consuming_exercise
            WHERE
              contract_id = $contractId
-             AND event_sequential_id <= $before)
+             AND event_offset <= $before)
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
       .as(fullDetailsContractRowParser.singleOpt)(connection)
@@ -317,7 +318,7 @@ class ContractStorageBackendTemplate(
     )(
       readers = Some(readers),
       key = key,
-      validAt = ledgerEndCache()._2,
+      validAt = ledgerEndCache()._1,
     )(connection)
 
   private def contractKey[T](
@@ -326,7 +327,7 @@ class ContractStorageBackendTemplate(
   )(
       readers: Option[Set[Party]],
       key: Key,
-      validAt: Long,
+      validAt: Offset,
   )(
       connection: Connection
   ): Option[T] = {
@@ -364,13 +365,14 @@ class ContractStorageBackendTemplate(
         )
 
       import com.daml.platform.store.backend.Conversions.HashToStatement
+      import com.daml.platform.store.backend.Conversions.OffsetToStatement
       SQL"""
            WITH last_contract_key_create AS (
                   SELECT participant_events_create.*
                     FROM participant_events_create
                    WHERE create_key_hash = ${key.hash}
                          -- do NOT check visibility here, as otherwise we do not abort the scan early
-                     AND event_sequential_id <= $validAt
+                     AND event_offset <= $validAt
                    ORDER BY event_sequential_id DESC
                    FETCH NEXT 1 ROW ONLY
                 )
@@ -382,7 +384,7 @@ class ContractStorageBackendTemplate(
                      FROM participant_events_consuming_exercise
                     WHERE $participantEventsFlatEventWitnessesClause
                       contract_id = last_contract_key_create.contract_id
-                      AND event_sequential_id <= $validAt
+                      AND event_offset <= $validAt
                   )"""
         .as(resultParser.singleOpt)(connection)
     }

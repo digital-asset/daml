@@ -93,12 +93,9 @@ private[platform] trait LedgerDaoTransactionsReader {
     * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
     * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
     */
-  def getContractStateEvents(
-      startExclusive: (Offset, Long),
-      endInclusive: (Offset, Long),
-  )(implicit
+  def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(implicit
       loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed]
+  ): Source[((Offset, Long), Vector[ContractStateEvent]), NotUsed]
 }
 
 private[platform] trait LedgerDaoCommandCompletionsReader {

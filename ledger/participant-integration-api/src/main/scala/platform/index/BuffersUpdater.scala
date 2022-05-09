@@ -109,7 +109,7 @@ private[index] object BuffersUpdater {
   def apply(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
-      updateMutableCache: ContractStateEvent => Unit,
+      updateMutableCache: Vector[ContractStateEvent] => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
       executionContext: ExecutionContext,
@@ -122,7 +122,11 @@ private[index] object BuffersUpdater {
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
     updateCaches = (offset, transactionLogUpdate) => {
       updateTransactionsBuffer(offset, transactionLogUpdate)
-      toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
+
+      val contractStateEventsBatch = toContractStateEvents(transactionLogUpdate).toVector
+      if (contractStateEventsBatch.nonEmpty) {
+        updateMutableCache(contractStateEventsBatch)
+      }
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,

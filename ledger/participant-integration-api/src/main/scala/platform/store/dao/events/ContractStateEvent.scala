@@ -11,6 +11,7 @@ sealed trait ContractStateEvent extends Product with Serializable {
   def eventOffset: Offset
   def eventSequentialId: Long
 }
+
 object ContractStateEvent {
   final case class Created(
       contractId: ContractId,
