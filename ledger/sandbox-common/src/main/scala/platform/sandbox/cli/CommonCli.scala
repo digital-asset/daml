@@ -17,7 +17,7 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.sandbox.cli.CommonCliBase._
+import com.daml.platform.sandbox.cli.CommonCli._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -31,7 +31,7 @@ import scala.util.Try
 // [[SandboxConfig]] should not expose Options for mandatory fields as such validations should not
 // leave this class. Due to the limitations of scopt, we either use nulls or use the mutable builder
 // instead.
-class CommonCliBase(name: LedgerName) {
+class CommonCli(name: LedgerName) {
 
   // Def so we can override it
   def parser: OptionParser[SandboxConfig] =
@@ -434,7 +434,7 @@ class CommonCliBase(name: LedgerName) {
   def withContractIdSeeding(
       defaultConfig: SandboxConfig,
       seedingModes: Seeding*
-  ): CommonCliBase = {
+  ): CommonCli = {
     val seedingModesMap =
       seedingModes.map(mode => (mode.name, mode)).toMap
     val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
@@ -456,7 +456,7 @@ class CommonCliBase(name: LedgerName) {
     this
   }
 
-  def withEarlyAccess: CommonCliBase = {
+  def withEarlyAccess: CommonCli = {
     parser
       .opt[Unit]("early-access-unsafe")
       .optional()
@@ -473,7 +473,7 @@ class CommonCliBase(name: LedgerName) {
     this
   }
 
-  def withDevEngine: CommonCliBase = {
+  def withDevEngine: CommonCli = {
     parser
       .opt[Unit]("daml-lf-dev-mode-unsafe")
       .optional()
@@ -493,7 +493,7 @@ class CommonCliBase(name: LedgerName) {
 
 }
 
-object CommonCliBase {
+object CommonCli {
 
   private def setTimeProviderType(
       config: SandboxConfig,

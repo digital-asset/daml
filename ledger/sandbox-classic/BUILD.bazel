@@ -21,7 +21,7 @@ sandbox_classic_deps = [
     "//ledger/ledger-resources",
     "//ledger/metrics",
     "//ledger/participant-integration-api",
-    "//ledger/sandbox-common:sandbox-common-ce",
+    "//ledger/sandbox-common:sandbox-common",
     "//ledger/sandbox-on-x:sandbox-classic-server",
     "//ledger-service/cli-opts",
     "//libs-scala/contextualized-logging",
