@@ -85,6 +85,21 @@ object AbstractHttpServiceIntegrationTestFuns {
     // nest assertFromString into arbitrary VA structures
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
   }
+
+  private[http] trait UriFixture {
+    def uri: Uri
+  }
+
+  // TODO SC remove
+  private final case class MkUriFixture(uri: Uri) extends UriFixture
+
+  private[http] final case class HttpServiceTestFixtureData(
+      uri: Uri,
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      client: DamlLedgerClient,
+      ledgerId: LedgerId,
+  ) extends UriFixture
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -94,6 +109,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
+
   import AbstractHttpServiceIntegrationTestFuns._
   import HttpServiceTestFixture._
   import json.JsonProtocol._
@@ -118,30 +134,10 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   override def packageFiles = List(dar1, dar2, userDar)
 
-  protected def getUniquePartyAndAuthHeaders(uri: Uri)(
-      name: String
-  ): Future[(domain.Party, List[HttpHeader])] = {
-    val domain.Party(partyName) = getUniqueParty(name)
-    headersWithPartyAuth(uri)(List(partyName), List.empty, "").map(token =>
-      (domain.Party(partyName), token)
-    )
-  }
-
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = {
-    usingLedger[A](testId, Some(jwtAdminNoParty.value)) { case (ledgerPort, _, ledgerId) =>
-      HttpServiceTestFixture.withHttpService[A](
-        testId,
-        ledgerPort,
-        jdbcConfig,
-        staticContentConfig,
-        useTls = useTls,
-        wsConfig = wsConfig,
-        token = Some(jwtAdminNoParty),
-      )(testFn(_, _, _, _, ledgerId))
-    }
-  }
+  ): Future[A] =
+    withHttpServiceAndClient(jwtAdminNoParty)(testFn)
 
   protected def withHttpServiceAndClient[A](maxInboundMessageSize: Int)(
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
@@ -177,6 +173,8 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[A] =
     withHttpServiceAndClient((a, b, c, _, ledgerId) => f(a, b, c, ledgerId))
 
+  protected def withHttpService[A](f: HttpServiceTestFixtureData => Future[A]): Future[A]
+
   protected def withHttpServiceOnly[A](ledgerPort: Port)(
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]
   ): Future[A] =
@@ -195,49 +193,59 @@ trait AbstractHttpServiceIntegrationTestFuns
       testFn(client, ledgerId)
     }
 
-  protected def headersWithAuth(uri: Uri)(implicit
-      ec: ExecutionContext
-  ): Future[List[Authorization]] =
-    jwt(uri)(ec).map(authorizationHeader)
+  implicit protected final class `AHS Funs Uri functions`(private val self: UriFixture) {
 
-  protected def headersWithPartyAuth(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String] = List.empty,
-      ledgerId: String = "",
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
-    jwtForParties(uri)(actAs, readAs, ledgerId, withoutNamespace, admin)(ec)
-      .map(authorizationHeader)
+    import self.uri
 
-  protected def postJsonStringRequest(
-      uri: Uri,
-      jsonString: String,
-  ): Future[(StatusCode, JsValue)] =
-    headersWithAuth(uri).flatMap(
-      HttpServiceTestFixture.postJsonStringRequest(uri, jsonString, _)
-    )
+    def getUniquePartyAndAuthHeaders(
+        name: String
+    ): Future[(domain.Party, List[HttpHeader])] = {
+      val domain.Party(partyName) = getUniqueParty(name)
+      headersWithPartyAuth(List(partyName), List.empty, "").map(token =>
+        (domain.Party(partyName), token)
+      )
+    }
 
-  protected def postJsonRequest(
-      uri: Uri,
-      json: JsValue,
-      headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] =
-    HttpServiceTestFixture.postJsonRequest(uri, json, headers)
+    def headersWithAuth(implicit ec: ExecutionContext): Future[List[Authorization]] =
+      jwt(uri)(ec).map(authorizationHeader)
 
-  protected def postJsonRequestWithMinimumAuth(
-      uri: Uri,
-      json: JsValue,
-  ): Future[(StatusCode, JsValue)] =
-    headersWithAuth(uri).flatMap(postJsonRequest(uri, json, _))
+    def headersWithPartyAuth(
+        actAs: List[String],
+        readAs: List[String] = List.empty,
+        ledgerId: String = "",
+        withoutNamespace: Boolean = false,
+        admin: Boolean = false,
+    )(implicit ec: ExecutionContext): Future[List[Authorization]] =
+      jwtForParties(uri)(actAs, readAs, ledgerId, withoutNamespace, admin)(ec)
+        .map(authorizationHeader)
 
-  protected def getRequest(uri: Uri, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
-    HttpServiceTestFixture.getRequest(uri, headers)
+    def postJsonStringRequest(
+        path: Uri.Path,
+        jsonString: String,
+    ): Future[(StatusCode, JsValue)] =
+      headersWithAuth.flatMap(
+        HttpServiceTestFixture.postJsonStringRequest(uri withPath path, jsonString, _)
+      )
 
-  protected def getRequestWithMinimumAuth(
-      uri: Uri
-  ): Future[(StatusCode, JsValue)] =
-    headersWithAuth(uri).flatMap(getRequest(uri, _))
+    def postJsonRequest(
+        path: Uri.Path,
+        json: JsValue,
+        headers: List[HttpHeader],
+    ): Future[(StatusCode, JsValue)] =
+      HttpServiceTestFixture.postJsonRequest(uri withPath path, json, headers)
+
+    def postJsonRequestWithMinimumAuth(
+        path: Uri.Path,
+        json: JsValue,
+    ): Future[(StatusCode, JsValue)] =
+      headersWithAuth.flatMap(postJsonRequest(path, json, _))
+
+    def getRequest(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
+      HttpServiceTestFixture.getRequest(uri withPath path, headers)
+
+    def getRequestWithMinimumAuth(path: Uri.Path): Future[(StatusCode, JsValue)] =
+      headersWithAuth.flatMap(getRequest(uri withPath path, _))
+  }
 
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
@@ -252,7 +260,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       encoder: DomainJsonEncoder,
       uri: Uri,
   ): Future[(StatusCode, JsValue)] =
-    headersWithAuth(uri).flatMap(postCreateCommand(cmd, encoder, uri, _))
+    MkUriFixture(uri).headersWithAuth.flatMap(postCreateCommand(cmd, encoder, uri, _))
 
   protected def postArchiveCommand(
       templateId: OptionalPkg,
@@ -269,7 +277,9 @@ trait AbstractHttpServiceIntegrationTestFuns
       encoder: DomainJsonEncoder,
       uri: Uri,
   ): Future[(StatusCode, JsValue)] =
-    headersWithAuth(uri).flatMap(postArchiveCommand(templateId, contractId, encoder, uri, _))
+    MkUriFixture(uri).headersWithAuth.flatMap(
+      postArchiveCommand(templateId, contractId, encoder, uri, _)
+    )
 
   protected def lookupContractAndAssert(
       contractLocator: domain.ContractLocator[JsValue],
@@ -294,7 +304,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       encoder: DomainJsonEncoder,
       uri: Uri,
   ): Future[Assertion] =
-    headersWithAuth(uri).flatMap(it =>
+    MkUriFixture(uri).headersWithAuth.flatMap(it =>
       lookupContractAndAssert(contractLocator, contractId, create, encoder, uri, it)
     )
 
@@ -525,13 +535,13 @@ trait AbstractHttpServiceIntegrationTestFuns
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = postContractsLookup(cmd, uri, headers, None)
 
-  @deprecated("TODO SC unused", since = "2.2.0")
+  @deprecated("TODO SC unused?", since = "2.2.0")
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
       readAs: Option[List[domain.Party]] = None,
   ): Future[(StatusCode, JsValue)] =
-    headersWithAuth(uri).flatMap(headers =>
+    MkUriFixture(uri).headersWithAuth.flatMap(headers =>
       postContractsLookup(
         cmd,
         uri,
@@ -657,7 +667,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def getAllPackageIds(uri: Uri): Future[domain.OkResponse[List[String]]] =
-    getRequestWithMinimumAuth(uri = uri.withPath(Uri.Path("/v1/packages"))).map {
+    MkUriFixture(uri).getRequestWithMinimumAuth(Uri.Path("/v1/packages")).map {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
@@ -767,7 +777,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       encoder: DomainJsonEncoder,
   ): Future[
     domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
-  ] = headersWithAuth(uri).flatMap(search(commands, query, uri, encoder, _))
+  ] = MkUriFixture(uri).headersWithAuth.flatMap(search(commands, query, uri, encoder, _))
 
   private[http] def expectOk[R](resp: domain.SyncResponse[R]): R = resp match {
     case ok: domain.OkResponse[_] =>
