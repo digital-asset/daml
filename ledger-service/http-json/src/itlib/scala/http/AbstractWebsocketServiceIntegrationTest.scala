@@ -257,7 +257,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
-      _ <- initialAccountCreate(uri, encoder, alice, headers)
+      _ <- initialAccountCreate(fixture, alice, headers)
 
       clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(
         singleClientFetchStream(
@@ -390,112 +390,113 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
   }
 
-  "query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, _, _, _) =>
-      val getAliceHeaders = fixture.getUniquePartyAndAuthHeaders("Alice")
+  "query should receive deltas as contracts are archived/created" in withHttpService { fixture =>
+    import fixture.uri
+    val getAliceHeaders = fixture.getUniquePartyAndAuthHeaders("Alice")
 
-      @nowarn("msg=pattern var evtsWrapper .* is never used")
-      def resp(
-          iouCid: domain.ContractId,
-          kill: UniqueKillSwitch,
-      ): Sink[JsValue, Future[ShouldHaveEnded]] = {
-        val dslSyntax = Consume.syntax[JsValue]
-        import dslSyntax._
-        Consume
-          .interpret(
-            for {
-              ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
-              _ = (ctid: String) shouldBe (iouCid.unwrap: String)
-              _ <- liftF(
-                getAliceHeaders.flatMap { case (_, headers) =>
-                  postJsonRequest(
-                    uri.withPath(Uri.Path("/v1/exercise")),
-                    exercisePayload(domain.ContractId(ctid)),
-                    headers,
-                  ) map { case (statusCode, _) =>
-                    statusCode.isSuccess shouldBe true
-                  }
+    @nowarn("msg=pattern var evtsWrapper .* is never used")
+    def resp(
+        iouCid: domain.ContractId,
+        kill: UniqueKillSwitch,
+    ): Sink[JsValue, Future[ShouldHaveEnded]] = {
+      val dslSyntax = Consume.syntax[JsValue]
+      import dslSyntax._
+      Consume
+        .interpret(
+          for {
+            ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
+            _ = (ctid: String) shouldBe (iouCid.unwrap: String)
+            _ <- liftF(
+              getAliceHeaders.flatMap { case (_, headers) =>
+                fixture.postJsonRequest(
+                  Uri.Path("/v1/exercise"),
+                  exercisePayload(domain.ContractId(ctid)),
+                  headers,
+                ) map { case (statusCode, _) =>
+                  statusCode.isSuccess shouldBe true
                 }
-              )
-
-              ContractDelta(Vector(), _, Some(offset)) <- readOne
-
-              (preOffset, consumedCtid) = (offset, ctid)
-              evtsWrapper @ ContractDelta(
-                Vector((fstId, fst), (sndId, snd)),
-                Vector(observeConsumed),
-                Some(lastSeenOffset),
-              ) <- readOne
-              (liveStartOffset, msgCount) = {
-                observeConsumed.contractId should ===(consumedCtid)
-                Set(fstId, sndId, consumedCtid) should have size 3
-                inside(evtsWrapper) { case JsObject(obj) =>
-                  inside(obj get "events") {
-                    case Some(
-                          JsArray(
-                            Vector(
-                              Archived(_, _),
-                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)),
-                            )
-                          )
-                        ) =>
-                      Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                        Set(
-                          (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                          (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                        )
-                      )
-                  }
-                }
-                (preOffset, 2)
               }
-
-              _ = kill.shutdown()
-              heartbeats <- drain
-              hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
-            } yield
-            // don't count empty events block if lastSeenOffset does not change
-            ShouldHaveEnded(
-              liveStartOffset = liveStartOffset,
-              msgCount = msgCount + hbCount,
-              lastSeenOffset = lastSeenOffset,
             )
-          )
-      }
 
-      val query =
-        """[
+            ContractDelta(Vector(), _, Some(offset)) <- readOne
+
+            (preOffset, consumedCtid) = (offset, ctid)
+            evtsWrapper @ ContractDelta(
+              Vector((fstId, fst), (sndId, snd)),
+              Vector(observeConsumed),
+              Some(lastSeenOffset),
+            ) <- readOne
+            (liveStartOffset, msgCount) = {
+              observeConsumed.contractId should ===(consumedCtid)
+              Set(fstId, sndId, consumedCtid) should have size 3
+              inside(evtsWrapper) { case JsObject(obj) =>
+                inside(obj get "events") {
+                  case Some(
+                        JsArray(
+                          Vector(
+                            Archived(_, _),
+                            Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                            Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)),
+                          )
+                        )
+                      ) =>
+                    Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                      Set(
+                        (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                        (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                      )
+                    )
+                }
+              }
+              (preOffset, 2)
+            }
+
+            _ = kill.shutdown()
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
+          } yield
+          // don't count empty events block if lastSeenOffset does not change
+          ShouldHaveEnded(
+            liveStartOffset = liveStartOffset,
+            msgCount = msgCount + hbCount,
+            lastSeenOffset = lastSeenOffset,
+          )
+        )
+    }
+
+    val query =
+      """[
           {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
           {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
-      for {
-        aliceHeaders <- getAliceHeaders
-        (party, headers) = aliceHeaders
-        creation <- initialIouCreate(uri, party, headers)
-        _ = creation._1 shouldBe a[StatusCodes.Success]
-        iouCid = getContractId(getResult(creation._2))
-        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
-        (kill, source) = singleClientQueryStream(jwt, uri, query)
-          .viaMat(KillSwitches.single)(Keep.right)
-          .preMaterialize()
-        lastState <- source via parseResp runWith resp(iouCid, kill)
-        liveOffset = inside(lastState) { case ShouldHaveEnded(liveStart, 2, lastSeen) =>
-          lastSeen.unwrap should be > liveStart.unwrap
-          liveStart
-        }
-        rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
-          via parseResp).take(1) runWith remainingDeltas
-      } yield inside(rescan) {
-        case (Vector((fstId, fst @ _), (sndId, snd @ _)), Vector(observeConsumed), Some(_)) =>
-          Set(fstId, sndId, observeConsumed.contractId) should have size 3
+    for {
+      aliceHeaders <- getAliceHeaders
+      (party, headers) = aliceHeaders
+      creation <- initialIouCreate(uri, party, headers)
+      _ = creation._1 shouldBe a[StatusCodes.Success]
+      iouCid = getContractId(getResult(creation._2))
+      jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+      (kill, source) = singleClientQueryStream(jwt, uri, query)
+        .viaMat(KillSwitches.single)(Keep.right)
+        .preMaterialize()
+      lastState <- source via parseResp runWith resp(iouCid, kill)
+      liveOffset = inside(lastState) { case ShouldHaveEnded(liveStart, 2, lastSeen) =>
+        lastSeen.unwrap should be > liveStart.unwrap
+        liveStart
       }
+      rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
+        via parseResp).take(1) runWith remainingDeltas
+    } yield inside(rescan) {
+      case (Vector((fstId, fst @ _), (sndId, snd @ _)), Vector(observeConsumed), Some(_)) =>
+        Set(fstId, sndId, observeConsumed.contractId) should have size 3
+    }
   }
 
   "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, encoder, _, _) =>
+    fixture =>
+      import fixture.{uri, encoder}
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
@@ -612,7 +613,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
-    (uri, encoder, _, _) =>
+    fixture =>
+      import fixture.{uri, encoder}
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
@@ -729,7 +731,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
   }
 
-  "fetch multiple keys should work" in withHttpService { (uri, encoder, _, _) =>
+  "fetch multiple keys should work" in withHttpService { fixture =>
+    import fixture.{uri, encoder}
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
@@ -802,7 +805,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, encoder, _, _) =>
+    fixture =>
+      import fixture.{uri, encoder}
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
@@ -963,12 +967,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
+  "fail reading from a pruned offset" in withHttpService { fixture =>
     import fixture.{uri, encoder, client}
     for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
-      offsets <- offsetBeforeAfterArchival(alice, uri, encoder, aliceHeaders)
+      offsets <- offsetBeforeAfterArchival(alice, fixture, aliceHeaders)
       (offsetBeforeArchive, offsetAfterArchive) = offsets
 
       pruned <- PruneGrpc.ParticipantPruningServiceGrpc
@@ -1004,11 +1008,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
   private[this] def offsetBeforeAfterArchival(
       party: domain.Party,
       fixture: UriFixture with EncoderFixture,
-      uri: Uri,
-      encoder: json.DomainJsonEncoder,
       headers: List[HttpHeader],
   ): Future[(domain.Offset, domain.Offset)] = {
-    import json.JsonProtocol._
+    import json.JsonProtocol._, fixture.{uri, encoder}
     type In = JsValue // JsValue might not be the most convenient choice
     val syntax = Consume.syntax[In]
     import syntax._
