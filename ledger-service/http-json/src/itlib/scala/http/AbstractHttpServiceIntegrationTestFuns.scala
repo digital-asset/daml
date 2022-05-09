@@ -741,7 +741,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = {
     val command = accountCreateCommand(owner, "abc123")
-    postCreateCommand(command, encoder, serviceUri, headers)
+    postCreateCommand(command, fixture.encoder, fixture.uri, headers)
   }
 
   protected def jsObject(s: String): JsObject = {

@@ -253,7 +253,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch endpoint should warn on unknown template IDs" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.uri
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
@@ -968,7 +968,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fail reading from a pruned offset" in withHttpService { fixture =>
-    import fixture.{uri, encoder, client}
+    import fixture.{uri, client}
     for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
@@ -1074,7 +1074,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "query on a bunch of random splits should yield consistent results" in withHttpService {
-    (uri, _, _, _) =>
+    fixture =>
+      import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
@@ -1092,7 +1093,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .via(parseResp)
           .map(iouSplitResult)
           .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
-          .runWith(Consume.interpret(trialSplitSeq(uri, splitSample, kill, alice.unwrap, headers)))
+          .runWith(
+            Consume.interpret(trialSplitSeq(fixture, splitSample, kill, alice.unwrap, headers))
+          )
       } yield res
   }
 
