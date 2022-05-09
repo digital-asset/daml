@@ -524,6 +524,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = postContractsLookup(cmd, uri, headers, None)
+
+  @deprecated("TODO SC unused", since = "2.2.0")
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
