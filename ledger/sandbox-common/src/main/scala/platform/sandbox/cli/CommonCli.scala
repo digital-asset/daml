@@ -33,8 +33,7 @@ import scala.util.Try
 // instead.
 class CommonCli(name: LedgerName) {
 
-  // Def so we can override it
-  def parser: OptionParser[SandboxConfig] =
+  val parser: OptionParser[SandboxConfig] =
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
       head(s"$name version ${BuildInfo.Version}")
 

@@ -4,20 +4,20 @@
 package com.daml.sandbox
 
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
+import com.daml.platform.sandbox.cli.CommonCli
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import scopt.OptionParser
 
 import java.time.Duration
 
-object Cli extends SandboxCli {
+object Cli {
   private[sandbox] val Name = LedgerName("Sandbox")
 
-  override val defaultConfig: SandboxConfig = SandboxConfig.defaultConfig.copy(
+  val defaultConfig: SandboxConfig = SandboxConfig.defaultConfig.copy(
     delayBeforeSubmittingLedgerConfiguration = Duration.ZERO
   )
 
-  override protected val parser: OptionParser[SandboxConfig] = {
+  protected val parser: OptionParser[SandboxConfig] = {
     val parser = new CommonCli(Name).withEarlyAccess.withDevEngine
       .withContractIdSeeding(
         defaultConfig,
@@ -42,5 +42,8 @@ object Cli extends SandboxCli {
       )
     parser
   }
+
+  def parse(args: Array[String]): Option[SandboxConfig] =
+    parser.parse(args, defaultConfig)
 
 }
