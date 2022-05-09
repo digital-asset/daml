@@ -86,12 +86,26 @@ object AbstractHttpServiceIntegrationTestFuns {
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
   }
 
-  private[http] trait UriFixture {
+  private[http] sealed trait UriFixture {
     def uri: Uri
+  }
+  private[http] sealed trait EncoderFixture {
+    def encoder: DomainJsonEncoder
+  }
+  private[http] sealed trait DecoderFixture {
+    def decoder: DomainJsonDecoder
   }
 
   // TODO SC remove
   private final case class MkUriFixture(uri: Uri) extends UriFixture
+
+  private[http] final case class HttpServiceOnlyTestFixtureData(
+      uri: Uri,
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+  ) extends UriFixture
+      with EncoderFixture
+      with DecoderFixture
 
   private[http] final case class HttpServiceTestFixtureData(
       uri: Uri,
@@ -100,6 +114,8 @@ object AbstractHttpServiceIntegrationTestFuns {
       client: DamlLedgerClient,
       ledgerId: LedgerId,
   ) extends UriFixture
+      with EncoderFixture
+      with DecoderFixture
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -137,11 +153,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
   ): Future[A] =
-    withHttpServiceAndClient(jwtAdminNoParty)(testFn)
+    withHttpService()(testFn)
 
-  protected def withHttpServiceAndClient[A](maxInboundMessageSize: Int)(
-      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = usingLedger[A](testId) { case (ledgerPort, _, ledgerId) =>
+  protected def withHttpService[A](
+      token: Option[Jwt] = None,
+      maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
+  )(
+      testFn: HttpServiceTestFixtureData => Future[A]
+  ): Future[A] = usingLedger[A](testId, token map (_.value)) { case (ledgerPort, _, ledgerId) =>
     HttpServiceTestFixture.withHttpService[A](
       testId,
       ledgerPort,
@@ -150,8 +169,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       maxInboundMessageSize = maxInboundMessageSize,
-      token = Some(jwtAdminNoParty),
-    )(testFn(_, _, _, _, ledgerId))
+      token = token orElse Some(jwtAdminNoParty),
+    )((u, e, d, c) => testFn(HttpServiceTestFixtureData(u, e, d, c, ledgerId)))
   }
 
   protected def withHttpServiceAndClient[A](token: Jwt)(
@@ -173,10 +192,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[A] =
     withHttpServiceAndClient((a, b, c, _, ledgerId) => f(a, b, c, ledgerId))
 
-  protected def withHttpService[A](f: HttpServiceTestFixtureData => Future[A]): Future[A]
+  protected def withHttpService[A](f: HttpServiceTestFixtureData => Future[A]): Future[A] =
+    withHttpServiceAndClient(HttpServiceTestFixtureData andThen f)
 
   protected def withHttpServiceOnly[A](ledgerPort: Port)(
-      f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]
+      f: HttpServiceOnlyTestFixtureData => Future[A]
   ): Future[A] =
     HttpServiceTestFixture.withHttpService[A](
       testId,
@@ -186,7 +206,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       token = Some(jwtAdminNoParty),
-    )((uri, encoder, decoder, _) => f(uri, encoder, decoder))
+    )((uri, encoder, decoder, _) => f(HttpServiceOnlyTestFixtureData(uri, encoder, decoder)))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
     usingLedger[A](testId, token = Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
@@ -244,7 +264,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       HttpServiceTestFixture.getRequest(uri withPath path, headers)
 
     def getRequestWithMinimumAuth(path: Uri.Path): Future[(StatusCode, JsValue)] =
-      headersWithAuth.flatMap(getRequest(uri withPath path, _))
+      headersWithAuth.flatMap(getRequest(path, _))
   }
 
   protected def postCreateCommand(
@@ -666,21 +686,20 @@ trait AbstractHttpServiceIntegrationTestFuns
     actual.entityName shouldBe expected.entityName
   }
 
-  protected def getAllPackageIds(uri: Uri): Future[domain.OkResponse[List[String]]] =
-    MkUriFixture(uri).getRequestWithMinimumAuth(Uri.Path("/v1/packages")).map {
-      case (status, output) =>
-        status shouldBe StatusCodes.OK
-        inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
-          x
-        }
+  protected def getAllPackageIds(fixture: UriFixture): Future[domain.OkResponse[List[String]]] =
+    fixture.getRequestWithMinimumAuth(Uri.Path("/v1/packages")).map { case (status, output) =>
+      status shouldBe StatusCodes.OK
+      inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
+        x
+      }
     }
 
-  protected[this] def uploadPackage(uri: Uri)(newDar: java.io.File): Future[Unit] = for {
+  protected[this] def uploadPackage(fixture: UriFixture)(newDar: java.io.File): Future[Unit] = for {
     resp <- Http()
       .singleRequest(
         HttpRequest(
           method = HttpMethods.POST,
-          uri = uri.withPath(Uri.Path("/v1/packages")),
+          uri = fixture.uri.withPath(Uri.Path("/v1/packages")),
           headers = headersWithAdminAuth,
           entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar),
         )
@@ -717,8 +736,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def initialAccountCreate(
-      serviceUri: Uri,
-      encoder: DomainJsonEncoder,
+      fixture: UriFixture with EncoderFixture,
       owner: domain.Party,
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = {

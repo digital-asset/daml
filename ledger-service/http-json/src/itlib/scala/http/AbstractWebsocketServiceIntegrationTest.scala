@@ -188,9 +188,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "query endpoint should publish transactions when command create is completed" in withHttpService {
-    (uri, _, _, _) =>
+    fixture =>
+      import fixture.uri
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         _ <- initialIouCreate(uri, alice, headers)
         jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
@@ -208,11 +209,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch endpoint should publish transactions when command create is completed" in withHttpService {
-    (uri, encoder, _, _) =>
+    fixture =>
+      import fixture.uri
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
-        _ <- initialAccountCreate(uri, encoder, alice, headers)
+        _ <- initialAccountCreate(fixture, alice, headers)
         jwt <- jwtForParties(uri)(List(alice.unwrap), Nil, testId)
         fetchRequest = s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}]"""
         clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
@@ -226,9 +228,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
   }
 
-  "query endpoint should warn on unknown template IDs" in withHttpService { (uri, _, _, _) =>
+  "query endpoint should warn on unknown template IDs" in withHttpService { fixture =>
+    import fixture.uri
     for {
-      aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
       _ <- initialIouCreate(uri, alice, headers)
 
@@ -249,9 +252,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
   }
 
-  "fetch endpoint should warn on unknown template IDs" in withHttpService { (uri, encoder, _, _) =>
+  "fetch endpoint should warn on unknown template IDs" in withHttpService { fixture =>
+    import fixture.{uri, encoder}
     for {
-      aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
       _ <- initialAccountCreate(uri, encoder, alice, headers)
 
@@ -287,7 +291,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
-    (uri, _, _, _) =>
+    fixture =>
+      import fixture.uri
       val clientMsg = jwt(uri)
         .flatMap(
           singleClientFetchStream(_, uri, """[abcdefg!]""")
@@ -313,7 +318,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "matchedQueries should be correct for multiqueries with per-query offsets" in withHttpService {
-    (uri, _, _, _) =>
+    fixture =>
+      import fixture.uri
       @nowarn("msg=pattern var evtsWrapper .* is never used")
       def resp(
           iouCid: domain.ContractId,
@@ -357,7 +363,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         ]"""
 
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
         _ = creation._1 shouldBe a[StatusCodes.Success]
@@ -386,7 +392,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _, _) =>
-      val getAliceHeaders = getUniquePartyAndAuthHeaders(uri)("Alice")
+      val getAliceHeaders = fixture.getUniquePartyAndAuthHeaders("Alice")
 
       @nowarn("msg=pattern var evtsWrapper .* is never used")
       def resp(
@@ -491,9 +497,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, encoder, _, _) =>
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
-        bobHeaders <- getUniquePartyAndAuthHeaders(uri)("Bob")
+        bobHeaders <- fixture.getUniquePartyAndAuthHeaders("Bob")
         (bob, bobAuthHeaders) = bobHeaders
         f1 =
           postCreateCommand(
@@ -608,7 +614,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     (uri, encoder, _, _) =>
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         templateId = domain.TemplateId(None, "Account", "Account")
         fetchRequest = (contractIdAtOffset: Option[Option[domain.ContractId]]) => {
@@ -725,7 +731,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "fetch multiple keys should work" in withHttpService { (uri, encoder, _, _) =>
     for {
-      aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
       jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
       create = (account: String) =>
@@ -798,9 +804,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, encoder, _, _) =>
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
-        bobHeaders <- getUniquePartyAndAuthHeaders(uri)("Bob")
+        bobHeaders <- fixture.getUniquePartyAndAuthHeaders("Bob")
         (bob, bobAuthHeaders) = bobHeaders
         templateId = domain.TemplateId(None, "Account", "Account")
 
@@ -958,8 +964,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fail reading from a pruned offset" in withHttpServiceAndClient { (uri, encoder, _, client, _) =>
+    import fixture.{uri, encoder, client}
     for {
-      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
       offsets <- offsetBeforeAfterArchival(alice, uri, encoder, aliceHeaders)
       (offsetBeforeArchive, offsetAfterArchive) = offsets
@@ -992,8 +999,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
   }
 
+  import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
+
   private[this] def offsetBeforeAfterArchival(
       party: domain.Party,
+      fixture: UriFixture with EncoderFixture,
       uri: Uri,
       encoder: json.DomainJsonEncoder,
       headers: List[HttpHeader],
@@ -1064,7 +1074,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "query on a bunch of random splits should yield consistent results" in withHttpService {
     (uri, _, _, _) =>
       for {
-        aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         splitSample = SplitSeq.gen.map(_ map (BigDecimal(_))).sample.get
         query =
@@ -1085,7 +1095,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   private def trialSplitSeq(
-      serviceUri: Uri,
+      fixture: UriFixture,
       ss: SplitSeq[BigDecimal],
       kill: UniqueKillSwitch,
       partyName: String,
@@ -1103,8 +1113,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
       case Node(_, l, r) =>
         for {
           (StatusCodes.OK, _) <- liftF(
-            postJsonRequest(
-              serviceUri.withPath(Uri.Path("/v1/exercise")),
+            fixture.postJsonRequest(
+              Uri.Path("/v1/exercise"),
               exercisePayload(createdCid, l.x),
               headers,
             )
@@ -1137,8 +1147,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
     for {
       (StatusCodes.OK, _) <- liftF(
-        postJsonRequest(
-          serviceUri.withPath(Uri.Path("/v1/create")),
+        fixture.postJsonRequest(
+          Uri.Path("/v1/create"),
           initialPayload,
           headers,
         )
@@ -1163,7 +1173,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "no duplicates should be returned when retrieving contracts for multiple parties" in withHttpService {
-    (uri, encoder, _, _) =>
+    fixture =>
+      import fixture.{uri, encoder}
       val aliceAndBob = List("Alice", "Bob")
 
       def test(
@@ -1202,14 +1213,16 @@ abstract class AbstractWebsocketServiceIntegrationTest
         jwtForAliceAndBob <-
           jwtForParties(uri)(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
         (status, value) <-
-          headersWithPartyAuth(uri)(aliceAndBob).flatMap(headers =>
-            postCreateCommand(
-              cmd = sharedAccountCreateCommand(owners = aliceAndBob, "4444"),
-              encoder = encoder,
-              uri = uri,
-              headers = headers,
+          fixture
+            .headersWithPartyAuth(aliceAndBob)
+            .flatMap(headers =>
+              postCreateCommand(
+                cmd = sharedAccountCreateCommand(owners = aliceAndBob, "4444"),
+                encoder = encoder,
+                uri = uri,
+                headers = headers,
+              )
             )
-          )
         _ = status shouldBe a[StatusCodes.Success]
         expectedContractId = getContractId(getResult(value))
         (killSwitch, source) = singleClientQueryStream(
@@ -1225,11 +1238,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
   }
 
-  "Per-query offsets should work as expected" in withHttpService { (uri, _, _, _) =>
+  "Per-query offsets should work as expected" in withHttpService { fixture =>
+    import fixture.uri
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
     for {
-      aliceHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
       jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
       createIouCommand = (currency: String) => s"""{
