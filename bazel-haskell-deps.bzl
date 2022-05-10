@@ -688,3 +688,30 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "zip": "@zip//:zip",
         },
     ) if not is_windows else None
+
+    stack_snapshot(
+        name = "hls",
+        extra_deps = {
+            "zlib": ["@com_github_madler_zlib//:libz"],
+        },
+        haddock = False,
+        local_snapshot = "//:hls-snapshot.yaml",
+        stack_snapshot_json = "//:hls_snapshot.json",
+        packages = [
+            "haskell-language-server",
+        ],
+        components = {
+            "haskell-language-server": ["lib", "exe"],
+            "attoparsec": [
+                "lib:attoparsec",
+                "lib:attoparsec-internal",
+            ],
+        },
+        components_dependencies = {
+            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+        },
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
+        vendored_packages = {
+            "zip": "@zip//:zip",
+        },
+    ) if not is_windows else None
