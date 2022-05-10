@@ -23,7 +23,6 @@ object ConfigConverter {
 
   private[sandbox] def toSandboxOnXConfig(
       sandboxConfig: SandboxConfig,
-      maybeLedgerId: Option[String],
       ledgerName: LedgerName,
   ): Config[BridgeConfig] = {
     // When missing, sandbox-classic used an in-memory ledger.
@@ -80,8 +79,7 @@ object ConfigConverter {
       extra = extraBridgeConfig,
       ledgerId = sandboxConfig.ledgerIdMode match {
         case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
-        case LedgerIdMode.Dynamic =>
-          maybeLedgerId.getOrElse(LedgerIdGenerator.generateRandomId(ledgerName).unwrap)
+        case LedgerIdMode.Dynamic => LedgerIdGenerator.generateRandomId(ledgerName).unwrap
       },
       lfValueTranslationContractCache = sandboxConfig.lfValueTranslationContractCacheConfiguration,
       lfValueTranslationEventCache = sandboxConfig.lfValueTranslationEventCacheConfiguration,

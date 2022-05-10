@@ -17,19 +17,17 @@ import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.ApiServer
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging
-import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.{DbType, FlywayMigrations}
+import com.daml.platform.store.DbType
 import com.daml.ports.Port
 import com.daml.resources.AbstractResourceOwner
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
-import scalaz.Tag
 import scalaz.syntax.tag._
 
 import java.io.File
@@ -37,9 +35,8 @@ import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Failure, Success, Try}
-
 import scala.util.chaining._
+import scala.util.{Failure, Success}
 
 final class SandboxServer(
     config: SandboxConfig,
@@ -52,8 +49,7 @@ final class SandboxServer(
     this(config, new Metrics(new MetricRegistry))(materializer)
 
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
-    val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
-    val genericConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+    val genericConfig = ConfigConverter.toSandboxOnXConfig(config, DefaultName)
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
@@ -221,49 +217,4 @@ object SandboxServer {
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- new SandboxServer(config, metrics)(materializer)
     } yield server
-
-  // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
-  def migrateOnly(
-      config: SandboxConfig
-  )(implicit resourceContext: ResourceContext): Future[Unit] =
-    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
-      logger.info("Running only schema migration scripts")
-      new FlywayMigrations(config.jdbcUrl.get)
-        .migrate()
-    }
-
-  // Work-around to emulate the ledgerIdMode used in sandbox-classic.
-  // This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
-  private def getLedgerId(jdbcUrl: String): Option[String] =
-    newLoggingContext { implicit loggingContext: LoggingContext =>
-      Try {
-        val dbType = DbType.jdbcType(jdbcUrl)
-
-        // Creating storage backend and the data-source directly to avoid logging errors
-        // on new db when creating via `IndexMetadata.read`
-        val storageBackendFactory = StorageBackendFactory.of(dbType)
-        val dataSource =
-          storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl)
-
-        storageBackendFactory.createParameterStorageBackend
-          .ledgerIdentity(dataSource.getConnection)
-          .map(_.ledgerId)
-      } match {
-        case Failure(err) =>
-          logger.warn(
-            s"Failure encountered trying to retrieve ledger id: ${err.getMessage}. Assuming uninitialized index."
-          )
-          None
-        case Success(maybeLedgerId) =>
-          maybeLedgerId.map(Tag.unwrap).filter(_.nonEmpty) match {
-            case Some(someLedgerId) =>
-              if (true) {
-                sys.error(s"So really this feature is used and ledgerId=${someLedgerId}")
-              }
-              Some(someLedgerId)
-            case None =>
-              None
-          }
-      }
-    }
 }
