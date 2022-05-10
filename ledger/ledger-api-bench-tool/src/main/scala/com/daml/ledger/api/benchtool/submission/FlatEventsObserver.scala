@@ -32,14 +32,7 @@ class FlatEventsObserver(expectedTemplateNames: Set[String], logger: Logger)
       event <- transaction.events
       created <- event.event.created.toList
     } {
-      val argsSize = created.createArguments.fold(0)(_.serializedSize)
-      val templateName =
-        created.templateId.getOrElse(sys.error(s"Expected templateId in $created")).entityName
-      val observedCreateEvent = ObservedCreateEvent(
-        templateName = templateName,
-        createArgumentsSerializedSize = argsSize,
-      )
-      createEvents.addOne(observedCreateEvent)
+      createEvents.addOne(ObservedCreateEvent(created))
     }
 
   override def completeWith(): Future[ObservedEvents] = Future.successful(
