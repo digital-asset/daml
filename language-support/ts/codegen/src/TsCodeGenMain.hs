@@ -21,6 +21,8 @@ import qualified Data.Aeson.Key as Aeson
 import Data.Aeson.Encode.Pretty
 
 import Control.Exception
+import Control.Lens.MonoTraversal (monoTraverse)
+import Control.Lens.Traversal (Traversal')
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
@@ -818,7 +820,11 @@ genDefDataType curPkgId conName mod tpls def =
                                 ( Just $ DecoderRef typeRef
                                 , EncodeRef typeRef
                                 , Set.setOf typeModuleRef keyType)
-                        impls = [tycon | impl <- NM.names $ tplImplements tpl, let tycon = genTypeCon (moduleName mod) impl]
+                        (impls, implRefs) = unzip
+                            [(tycon, ifaceRefs)
+                            | impl <- NM.names $ tplImplements tpl
+                            , let tycon = genTypeCon (moduleName mod) impl
+                            , let ifaceRefs = Set.setOf qualifiedModuleRef impl]
                         dict = TemplateDef
                             { tplName = conName
                             , tplPkgId = curPkgId
@@ -835,10 +841,13 @@ genDefDataType curPkgId conName mod tpls def =
                           , tnsMbKeyDef = TypeRef (moduleName mod) . tplKeyType <$> tplKey tpl
                           }
                         registrations = TemplateRegistration conName
-                        refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
+                        refs = Set.unions (fieldRefs ++ keyRefs : implRefs ++ chcRefs)
                     in
                     ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
         DataInterface -> ([], Set.empty)
+
+qualifiedModuleRef :: Traversal' (Qualified a) ModuleRef
+qualifiedModuleRef = monoTraverse
 
 infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) :: T.Text -> T.Text -> T.Text
