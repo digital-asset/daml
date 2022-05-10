@@ -52,13 +52,6 @@ rules_haskell_patches = [
 rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
 rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
 rules_nixpkgs_patches = [
-    # On CI and locally we observe occasional segmantation faults
-    # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
-    # can cause such segmentation faults. Since Nix 2.3.2 it is
-    # possible to disable HTTP2 via a command-line flag, which
-    # reportedly solves the issue. See
-    # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
-    "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
 ]
 
 buildifier_version = "4.0.0"
