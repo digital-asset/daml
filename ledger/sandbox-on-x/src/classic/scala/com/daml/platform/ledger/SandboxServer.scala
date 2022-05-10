@@ -33,11 +33,9 @@ import scalaz.Tag
 import scalaz.syntax.tag._
 
 import java.io.File
-import java.nio.file.Files
 import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
