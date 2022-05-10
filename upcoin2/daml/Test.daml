@@ -14,21 +14,47 @@ script1 = do
   bank <- allocateParty "Bank"
   charlie <- allocateParty "Charlie"
 
-  -- coin1 is bank-issued and owned
-  coin1 <- submit bank do
-    createCmd BasicCoin with issuer = bank, owner = bank
+  -- coin1/2 are bank-issued and owned
+  coin1 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
+  coin2 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
 
   -- alice deposits real-money in the bank and issues an invoice for the bank to pay
   invoice1 <- submit alice do
     createCmd Invoice with
-      orderId = "deposit-#001"
+      orderId = "Alice-deposit-#001"
       seller = alice
       buyer = bank
-      price = 1
+      price = 2
 
   -- bank pays the invoice (transfering the coin to alice)
+  submitMustFail bank do
+    exerciseCmd invoice1 Pay with payment = [coin1] -- not enough coins
+
+  submitMustFail bank do
+    exerciseCmd invoice1 Pay with payment = [coin1,coin1] -- using same coin twice
+
   submit bank do
-    exerciseCmd invoice1 Pay with payment = [ coin1]
+    exerciseCmd invoice1 Pay with payment = [coin1,coin2]
+
+
+  -- Charlie deposits real-money in the bank and issues an invoice for the bank to pay
+  invoice2 <- submit charlie do
+    createCmd Invoice with
+      orderId = "Charlie-deposit-#001"
+      seller = charlie
+      buyer = bank
+      price = 2
+
+  -- coin3/4 are bank-issued and owned
+  coin3 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
+  coin4 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
+
+  submitMustFail bank do
+    exerciseCmd invoice2 Pay with payment = [coin3,coin2] -- attempt to pay with a spent coins
+
+  submit bank do
+    exerciseCmd invoice2 Pay with payment = [coin3,coin4]
+
 
 
   pure ()
