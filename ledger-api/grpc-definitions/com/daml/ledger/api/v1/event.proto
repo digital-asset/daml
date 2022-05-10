@@ -6,8 +6,8 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/value.proto";
+import "com/daml/ledger/api/v1/commands.proto";
 import "google/protobuf/wrappers.proto";
-
 
 option java_outer_classname = "EventOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -82,6 +82,10 @@ message CreatedEvent {
   // This means a newer client works with an older sandbox seamlessly.
   // Optional
   google.protobuf.StringValue agreement_text = 6;
+
+  // Metadata of the contract. Required for contracts created
+  // after the introduction of this feature.
+  ContractMetadata metadata = 10;
 }
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.
