@@ -846,6 +846,7 @@ genDefDataType curPkgId conName mod tpls def =
                     ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
         DataInterface -> ([], Set.empty)
 
+-- exactly like typeModuleRef; see https://github.com/digital-asset/daml/issues/13845
 qualifiedModuleRef :: Traversal' (Qualified a) ModuleRef
 qualifiedModuleRef = monoTraverse
 
