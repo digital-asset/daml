@@ -119,6 +119,10 @@ message Commands {
   // If omitted, the participant or the committer may set a value of their choice.
   // Optional
   string submission_id = 14;
+
+  // Additional contracts used to resolve contract & contract key lookups.
+  // Optional
+  repeated DisclosedContract disclosed_contracts = 17;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.
@@ -201,4 +205,34 @@ message CreateAndExerciseCommand {
   // The argument for this choice.
   // Required
   Value choice_argument = 4;
+}
+
+// An additional contract that is used to resolve
+// contract & contract key lookups.
+message DisclosedContract {
+  // The template id of the contract.
+  // Required
+  Identifier template_id = 1;
+  // The contract id
+  // Required
+  string contract_id = 2;
+  // The contract arguments
+  // Required
+  Record arguments = 3;
+  // The contract metadata from the create event.
+  // Required
+  ContractMetadata metadata = 4;
+}
+
+// Contract metadata which can be used in DisclosedContract.
+message ContractMetadata {
+  // Ledger effective time of the transaction that created the contract.
+  // Required
+  google.protobuf.Timestamp created_at = 1;
+  // Hash of the contract key if defined.
+  // Optional
+  bytes contract_key_hash = 2;
+  // Driver-specific metadata. This is opaque and cannot be decoded.
+  // Required
+  bytes driver_metadata = 3;
 }
