@@ -1,0 +1,19 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Test where
+
+import Daml.Script
+
+import BasicDesign
+
+script1 : Script ()
+script1 = do
+
+  bank <- allocateParty "Bank"
+
+  -- coin1 is bank-issued and owned
+  coin1 <- submit bank do
+    createCmd BasicCoin with issuer = bank, owner = bank
+
+  pure ()

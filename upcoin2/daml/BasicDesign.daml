@@ -1,0 +1,47 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module BasicDesign where
+
+template BasicCoin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory [issuer,owner]
+
+    preconsuming choice Transfer : ContractId BasicCoin
+      with newOwner: Party
+      controller owner
+      do
+        create BasicCoin with issuer, owner = newOwner
+
+
+template Invoice
+  with
+    orderId : Text
+    seller : Party
+    buyer : Party
+    price : Int
+  where
+    signatory [seller]
+    observer [buyer]
+
+    ensure (price >= 0)
+
+    nonconsuming choice Pay : ContractId Receipt
+      with payment: [ContractId BasicCoin]
+      controller buyer
+      do
+        assert (length payment == price)
+        sequence [ exercise p Transfer with newOwner = seller | p <- payment ]
+        create Receipt with orderId, seller, buyer
+
+
+template Receipt
+  with
+    orderId : Text
+    seller : Party
+    buyer : Party
+  where
+    signatory [seller,buyer]
