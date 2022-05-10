@@ -10,10 +10,25 @@ import BasicDesign
 script1 : Script ()
 script1 = do
 
+  alice <- allocateParty "Alice"
   bank <- allocateParty "Bank"
+  charlie <- allocateParty "Charlie"
 
   -- coin1 is bank-issued and owned
   coin1 <- submit bank do
     createCmd BasicCoin with issuer = bank, owner = bank
+
+  -- alice deposits real-money in the bank and issues an invoice for the bank to pay
+  invoice1 <- submit alice do
+    createCmd Invoice with
+      orderId = "deposit-#001"
+      seller = alice
+      buyer = bank
+      price = 1
+
+  -- bank pays the invoice (transfering the coin to alice)
+  submit bank do
+    exerciseCmd invoice1 Pay with payment = [ coin1]
+
 
   pure ()

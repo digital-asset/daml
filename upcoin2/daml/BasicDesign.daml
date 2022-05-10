@@ -12,7 +12,7 @@ template BasicCoin
 
     preconsuming choice Transfer : ContractId BasicCoin
       with newOwner: Party
-      controller owner
+      controller [owner,newOwner]
       do
         create BasicCoin with issuer, owner = newOwner
 
@@ -29,7 +29,7 @@ template Invoice
 
     ensure (price >= 0)
 
-    nonconsuming choice Pay : ContractId Receipt
+    choice Pay : ContractId Receipt
       with payment: [ContractId BasicCoin]
       controller buyer
       do
