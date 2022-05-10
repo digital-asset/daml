@@ -69,7 +69,6 @@ final class SandboxServer(
             Some(metrics),
           )
           .acquire()
-      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceContext.executionContext))
       _ <- newLoggingContextWith(logging.participantId(config.participantId)) {
         implicit loggingContext =>
           loadPackages(writeService, indexService)(
