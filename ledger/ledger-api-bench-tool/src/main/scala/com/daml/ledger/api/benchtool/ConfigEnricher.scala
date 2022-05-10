@@ -4,7 +4,6 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
 import scalaz.syntax.tag._
@@ -13,7 +12,7 @@ object ConfigEnricher {
 
   def enrichStreamConfig(
       streamConfig: StreamConfig,
-      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
+      submissionSummary: Option[SubmissionStepResult],
   ): StreamConfig = {
     streamConfig match {
       case config: StreamConfig.TransactionsStreamConfig =>
@@ -29,7 +28,7 @@ object ConfigEnricher {
 
   private def convertParty(
       party: String,
-      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
+      submissionSummary: Option[SubmissionStepResult],
   ): String =
     submissionSummary match {
       case None => party
@@ -42,7 +41,7 @@ object ConfigEnricher {
 
   private def enrichFilters(
       filters: List[StreamConfig.PartyFilter],
-      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
+      submissionSummary: Option[SubmissionStepResult],
   ): List[StreamConfig.PartyFilter] = {
     def identifierToFullyQualifiedString(id: Identifier) =
       s"${id.packageId}:${id.moduleName}:${id.entityName}"

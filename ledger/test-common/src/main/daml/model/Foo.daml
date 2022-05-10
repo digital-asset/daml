@@ -8,11 +8,11 @@ template Foo1
     signatory : Party
     observers : [Party]
     payload : Text
-    id: Int
+    keyId: Text
   where
     signatory signatory
     observer observers
-    key (signatory, id): (Party, Int)
+    key (signatory, keyId): (Party, Text)
     maintainer key._1
 
     nonconsuming choice Foo1_NonconsumingChoice: ()
@@ -34,11 +34,11 @@ template Foo2
     signatory : Party
     observers : [Party]
     payload : Text
-    id: Int
+    keyId: Text
   where
     signatory signatory
     observer observers
-    key (signatory, id): (Party, Int)
+    key (signatory, keyId): (Party, Text)
     maintainer key._1
 
     nonconsuming choice Foo2_NonconsumingChoice: ()
@@ -60,11 +60,11 @@ template Foo3
     signatory : Party
     observers : [Party]
     payload : Text
-    id: Int
+    keyId: Text
   where
     signatory signatory
     observer observers
-    key (signatory, id): (Party, Int)
+    key (signatory, keyId): (Party, Text)
     maintainer key._1
 
     nonconsuming choice Foo3_NonconsumingChoice: ()
