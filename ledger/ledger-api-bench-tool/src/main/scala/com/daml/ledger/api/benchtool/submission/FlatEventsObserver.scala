@@ -4,8 +4,6 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
-import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
-import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -28,24 +26,21 @@ class FlatEventsObserver(expectedTemplateNames: Set[String], logger: Logger)
 
   override def streamName: String = "dummy-stream-name"
 
-  override def onNext(value: GetTransactionsResponse): Unit = {
-    value.transactions.foreach { transaction: Transaction =>
-      val allEvents = transaction.events
-      allEvents.foreach { event: Event =>
-        event.event.created.foreach { created: CreatedEvent =>
-          val argsSize = created.createArguments.fold(0)(_.serializedSize)
-          val templateName =
-            created.templateId.getOrElse(sys.error(s"Expected templateId in $created")).entityName
-          createEvents.addOne(
-            ObservedCreateEvent(
-              templateName = templateName,
-              createArgumentsSerializedSize = argsSize,
-            )
-          )
-        }
-      }
+  override def onNext(value: GetTransactionsResponse): Unit =
+    for {
+      transaction <- value.transactions
+      event <- transaction.events
+      created <- event.event.created.toList
+    } {
+      val argsSize = created.createArguments.fold(0)(_.serializedSize)
+      val templateName =
+        created.templateId.getOrElse(sys.error(s"Expected templateId in $created")).entityName
+      val observedCreateEvent = ObservedCreateEvent(
+        templateName = templateName,
+        createArgumentsSerializedSize = argsSize,
+      )
+      createEvents.addOne(observedCreateEvent)
     }
-  }
 
   override def completeWith(): Future[ObservedEvents] = Future.successful(
     ObservedEvents(

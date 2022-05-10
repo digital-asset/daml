@@ -4,8 +4,6 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -17,8 +15,34 @@ case class ObservedExerciseEvent(
     choiceArgumentsSerializedSize: Int,
     consuming: Boolean,
 )
+object ObservedExerciseEvent {
+  def apply(exercised: com.daml.ledger.api.v1.event.ExercisedEvent): ObservedExerciseEvent = {
+    val argsSize = exercised.choiceArgument.fold(0)(_.serializedSize)
+    val templateName = exercised.templateId
+      .getOrElse(sys.error(s"Expected templateId in $exercised"))
+      .entityName
+    val choiceName = exercised.choice
+    ObservedExerciseEvent(
+      templateName = templateName,
+      choiceName = choiceName,
+      choiceArgumentsSerializedSize = argsSize,
+      consuming = exercised.consuming,
+    )
+  }
+}
 
 case class ObservedCreateEvent(templateName: String, createArgumentsSerializedSize: Int)
+object ObservedCreateEvent {
+  def apply(created: com.daml.ledger.api.v1.event.CreatedEvent): ObservedCreateEvent = {
+    val argsSize = created.createArguments.fold(0)(_.serializedSize)
+    val templateName =
+      created.templateId.getOrElse(sys.error(s"Expected templateId in $created")).entityName
+    ObservedCreateEvent(
+      templateName = templateName,
+      createArgumentsSerializedSize = argsSize,
+    )
+  }
+}
 
 case class ObservedEvents(
     expectedTemplateNames: Set[String],
@@ -85,36 +109,15 @@ class TreeEventsObserver(expectedTemplateNames: Set[String], logger: Logger)
   override def streamName: String = "dummy-stream-name"
 
   override def onNext(value: GetTransactionTreesResponse): Unit = {
-    value.transactions.foreach { transaction: TransactionTree =>
-      val allEvents = transaction.eventsById.values
-      allEvents.foreach { event: TreeEvent =>
-        event.kind.created.foreach { created: CreatedEvent =>
-          val argsSize = created.createArguments.fold(0)(_.serializedSize)
-          val templateName =
-            created.templateId.getOrElse(sys.error(s"Expected templateId in $created")).entityName
-          createEvents.addOne(
-            ObservedCreateEvent(
-              templateName = templateName,
-              createArgumentsSerializedSize = argsSize,
-            )
-          )
-        }
-        event.kind.exercised.foreach { exercised =>
-          val argsSize = exercised.choiceArgument.fold(0)(_.serializedSize)
-          val templateName = exercised.templateId
-            .getOrElse(sys.error(s"Expected templateId in $exercised"))
-            .entityName
-          val choiceName = exercised.choice
-          exerciseEvents.addOne(
-            ObservedExerciseEvent(
-              templateName = templateName,
-              choiceName = choiceName,
-              choiceArgumentsSerializedSize = argsSize,
-              consuming = exercised.consuming,
-            )
-          )
-        }
-      }
+    for {
+      transaction <- value.transactions
+      allEvents = transaction.eventsById.values
+      event <- allEvents
+    } {
+      event.kind.created.foreach(created => createEvents.addOne(ObservedCreateEvent(created)))
+      event.kind.exercised.foreach(exercised =>
+        exerciseEvents.addOne(ObservedExerciseEvent(exercised))
+      )
     }
   }
 
