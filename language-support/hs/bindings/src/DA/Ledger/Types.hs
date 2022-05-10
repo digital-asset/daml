@@ -58,8 +58,6 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     DeduplicationPeriod(..),
     ParticipantId(..),
     IsoTime(..),
-    DisclosedContract(..),
-    ContractMetadata(..),
     ) where
 
 import qualified Data.Aeson as A
@@ -74,7 +72,6 @@ import qualified Google.Rpc.Status as LL
 import qualified Data.Time.Format.ISO8601 as ISO8601
 import qualified Data.Time.Clock as Clock
 import qualified Text.ParserCombinators.ReadP as ReadP
-import Data.ByteString (ByteString)
 
 -- commands.proto
 
@@ -90,7 +87,6 @@ data Commands = Commands
     , minLeTimeAbs :: Maybe Timestamp
     , minLeTimeRel :: Maybe LL.Duration
     , sid          :: Maybe SubmissionId
-    , disContracts :: [DisclosedContract]
     }
 
 data Command
@@ -116,19 +112,6 @@ data DeduplicationPeriod
     = DeduplicationDuration LL.Duration
     | DeduplicationOffset AbsOffset
   deriving (Eq, Ord, Show)
-
-data DisclosedContract = DisclosedContract
-    { tid       :: TemplateId
-    , cid       :: ContractId
-    , args      :: Record
-    , metadata  :: Maybe ContractMetadata
-    }
-
-data ContractMetadata = ContractMetadata
-    { leTime     :: Timestamp
-    , keyHash    :: ByteString
-    , driverMeta :: ByteString
-    }
 
 -- ledger_offset.proto
 
