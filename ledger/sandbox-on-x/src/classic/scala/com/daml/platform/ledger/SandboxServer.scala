@@ -114,11 +114,6 @@ final class SandboxServer(
     }
   }
 
-  private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
-    config.portFile
-      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
-      .getOrElse(Future.unit)
-
   private def loadPackages(writeService: WriteService, indexService: IndexService)(implicit
       executionContext: ExecutionContext,
       system: ActorSystem,
