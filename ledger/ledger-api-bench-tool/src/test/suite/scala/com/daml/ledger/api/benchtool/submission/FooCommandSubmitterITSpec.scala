@@ -15,7 +15,6 @@ import com.daml.ledger.api.benchtool.submission.EventsObserver.ObservedEvents
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.platform.sandbox.fixture.SandboxFixture
-import org.scalactic.TripleEqualsSupport
 import org.scalatest.AppendedClues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -100,34 +99,19 @@ class FooCommandSubmitterITSpec
     } yield {
       observerResult.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
 
-      observerResult.avgSizeOfCreateEventPerTemplateName("Foo1") shouldBe roughly(
-        foo1Config.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      ) withClue ("payload size of create Foo1")
-      observerResult.avgSizeOfCreateEventPerTemplateName("Foo2") shouldBe roughly(
-        foo2Config.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      ) withClue ("payload size of create Foo2")
-      observerResult.avgSizeOfConsumingExercise shouldBe roughly(
-        consumingExercisesConfig.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      )
-      observerResult.avgSizeOfNonconsumingExercise shouldBe roughly(
-        nonConsumingExercisesConfig.payloadSizeBytes * 2,
-        toleranceMul = 0.5,
-      )
-
+      observerResult.avgSizeOfCreateEventPerTemplateName(
+        "Foo1"
+      ) shouldBe (foo1Config.payloadSizeBytes + 56) withClue ("payload size of create Foo1")
+      observerResult.avgSizeOfCreateEventPerTemplateName(
+        "Foo2"
+      ) shouldBe (foo2Config.payloadSizeBytes + 56) withClue ("payload size of create Foo2")
+      observerResult.avgSizeOfConsumingExercise shouldBe (consumingExercisesConfig.payloadSizeBytes + 8)
+      observerResult.avgSizeOfNonconsumingExercise shouldBe (nonConsumingExercisesConfig.payloadSizeBytes + 8)
       observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
       observerResult.nonConsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonConsumingExercisesConfig.probability) withClue ("number of non consuming exercises")
 
       succeed
     }
-  }
-
-  private def roughly(n: Int, toleranceMul: Double): TripleEqualsSupport.Spread[Int] = {
-    require(toleranceMul > 0.0)
-    val skew = Math.round(toleranceMul * n).toInt
-    n +- skew
   }
 
 }
