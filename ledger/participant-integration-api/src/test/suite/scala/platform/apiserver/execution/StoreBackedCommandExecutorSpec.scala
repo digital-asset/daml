@@ -70,6 +70,7 @@ class StoreBackedCommandExecutorSpec
           ledgerEffectiveTime = Time.Timestamp.Epoch,
           commandsReference = "",
         ),
+        disclosedContracts = Set.empty,
       )
       val submissionSeed = Hash.hashPrivateKey("a key")
       val configuration = Configuration(

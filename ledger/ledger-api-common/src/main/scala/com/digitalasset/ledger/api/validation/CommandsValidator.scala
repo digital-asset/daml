@@ -4,11 +4,10 @@
 package com.daml.ledger.api.validation
 
 import java.time.{Duration, Instant}
-
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
+import com.daml.ledger.api.domain.{DisclosedContract, LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
@@ -17,12 +16,19 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   Exercise => ProtoExercise,
   ExerciseByKey => ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.ledger.api.v1.commands.{
+  Command => ProtoCommand,
+  Commands => ProtoCommands,
+  DisclosedContract => ProtoDisclosedContract,
+}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data._
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, FieldValidations}
 import io.grpc.StatusRuntimeException
@@ -70,6 +76,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
+      disclosedContracts <- validateDisclosedContracts(
+        commands.disclosedContracts
+      )
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -85,6 +94,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
+      disclosedContracts = disclosedContracts,
     )
 
   private def validateLedgerTime(
@@ -211,6 +221,63 @@ final class CommandsValidator(ledgerId: LedgerId) {
       readAs <- requireParties(submitters.readAs)
       _ <- actAsMustNotBeEmpty(actAs)
     } yield Submitters(actAs, readAs)
+  }
+
+  private def validateDisclosedContracts(
+      disclosedContracts: Seq[ProtoDisclosedContract]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Set[DisclosedContract]] =
+    disclosedContracts.foldLeft[Either[StatusRuntimeException, Set[DisclosedContract]]](
+      Right(Set.empty[DisclosedContract])
+    )((contractz, contract) => {
+      for {
+        validatedContracts <- contractz
+        validatedContract <- validateDisclosedContract(contract)
+      } yield validatedContracts + validatedContract
+    })
+
+  private def validateDisclosedContract(
+      disclosedContract: ProtoDisclosedContract
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, DisclosedContract] = {
+    for {
+      templateId <- requirePresence(disclosedContract.templateId, "template_id")
+      validatedTemplateId <- validateIdentifier(templateId)
+      contractId <- requireContractId(disclosedContract.contractId, "contract_id")
+      createArguments <- requirePresence(disclosedContract.arguments, "arguments")
+      recordId <- validateOptionalIdentifier(createArguments.recordId)
+      validatedRecordField <- validateRecordFields(createArguments.fields)
+      // TODO DPP-1026 use correct metadata once the transaction stream actually outputs them
+      /*
+      metadata <- requirePresence(disclosedContract.metadata, "metadata")
+      createdAt <- requirePresence(metadata.createdAt, "created_at")
+      validatedCreatedAt = TimestampConversion.toLf(
+        createdAt,
+        TimestampConversion.ConversionMode.Exact,
+      )
+      keyHash <- validateHash(metadata.contractKeyHash, "contract_key_hash")
+       */
+    } yield DisclosedContract(
+      contractId = contractId,
+      contract = VersionedContractInstance(
+        template = validatedTemplateId,
+        arg = Versioned(
+          version = TransactionVersion.StableVersions.max, // TODO DPP-1026 what version to pick?
+          unversioned = Lf.ValueRecord(recordId, validatedRecordField),
+        ),
+        agreementText = "", // TODO DPP-1026 is this needed for anything?
+      ),
+      /*
+      ledgerTime = validatedCreatedAt,
+      keyHash = keyHash,
+      driverMetadata = Bytes.fromByteString(metadata.driverMetadata),
+       */
+      ledgerTime = Timestamp.Epoch,
+      keyHash = None,
+      driverMetadata = Bytes.Empty,
+    )
   }
 
   // TODO: Address usage of deprecated class DeduplicationTime

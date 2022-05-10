@@ -120,6 +120,7 @@ class LedgerTimeAwareCommandExecutorSpec
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         commandsReference = "",
       ),
+      disclosedContracts = Set.empty,
     )
 
     val instance = new LedgerTimeAwareCommandExecutor(
