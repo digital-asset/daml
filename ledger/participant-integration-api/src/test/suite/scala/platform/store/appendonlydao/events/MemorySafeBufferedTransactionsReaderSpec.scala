@@ -3,18 +3,23 @@
 
 package com.daml.platform.store.dao.events
 
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, Transaction => FlatTransaction}
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.EventsBuffer
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.{FilterRelation, Identifier}
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -25,6 +30,7 @@ class MemorySafeBufferedTransactionsReaderSpec
     extends AsyncFlatSpec
     with Matchers
     with AkkaBeforeAndAfterAll
+    with ArgumentMatchersSugar
     with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry())
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
@@ -37,10 +43,11 @@ class MemorySafeBufferedTransactionsReaderSpec
     val epochs = 10
 
     test(
-      bufferSize,
-      payloadSize,
-      epochs,
-      (_, _) => Future.unit,
+      bufferSize = bufferSize,
+      maxFetchSize = 3,
+      payloadSize = payloadSize,
+      epochs = epochs,
+      load = (_, _) => Future.unit,
     )
   }
 
@@ -50,10 +57,11 @@ class MemorySafeBufferedTransactionsReaderSpec
     val epochs = 10
 
     test(
-      bufferSize,
-      payloadSize,
-      epochs,
-      { case (epoch, transactionsReader) =>
+      bufferSize = bufferSize,
+      maxFetchSize = 3,
+      payloadSize = payloadSize,
+      epochs = epochs,
+      load = { case (epoch, transactionsReader) =>
         transactionsReader
           .getTransactionTrees(
             offset(epoch.toLong * bufferSize + 1L),
@@ -72,40 +80,43 @@ class MemorySafeBufferedTransactionsReaderSpec
 
   private def test(
       bufferSize: Long,
+      maxFetchSize: Int,
       payloadSize: Int,
       epochs: Int,
       load: (Int, BufferedTransactionsReader) => Future[_],
   ): Future[Assertion] = {
-    val buffer = new EventsBuffer[Offset, TransactionLogUpdate](
+    val buffer = new EventsBuffer[TransactionLogUpdate](
       maxBufferSize = bufferSize,
       metrics = metrics,
       bufferQualifier = "test",
       isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+      maxBufferedChunkSize = maxFetchSize,
     )
-    val toFlatTransaction: (
-        TransactionLogUpdate,
-        FilterRelation,
-        Set[String],
-        Map[Identifier, Set[String]],
-        Boolean,
-    ) => Future[Option[FlatTransaction]] = {
-      case (tx: TransactionLogUpdate.Transaction, _, _, _, _) =>
-        Future.successful(Some(FlatTransaction(transactionId = tx.transactionId)))
-      case _ => Future.successful(None)
-    }
-    val toTransactionTree
-        : (TransactionLogUpdate, Set[String], Boolean) => Future[Option[TransactionTree]] = {
-      case (tx: TransactionLogUpdate.Transaction, _, _) =>
-        Future.successful(Some(TransactionTree(transactionId = tx.transactionId)))
-      case _ => Future.successful(None)
-    }
+
+    val mockReader = mock[LedgerDaoTransactionsReader]
+    when(
+      mockReader.getTransactionTrees(any[Offset], any[Offset], any[Set[Party]], any[Boolean])(
+        any[LoggingContext]
+      )
+    )
+      .thenReturn(Source.empty)
 
     val bufferedReader = new BufferedTransactionsReader(
-      delegate = mock[LedgerDaoTransactionsReader],
-      buffer,
-      toFlatTransaction,
-      toTransactionTree,
-      metrics,
+      delegate = mockReader,
+      transactionsBuffer = buffer,
+      filterFlatTransactions = (_, _) => tx => Some(tx),
+      filterTransactionTrees = _ => tx => Some(tx),
+      flatToApiTransactions = (_, _, _) =>
+        tx =>
+          Future.successful(
+            GetTransactionsResponse(Seq(FlatTransaction(transactionId = tx.transactionId)))
+          ),
+      treesToApiTransactions = (_, _, _) =>
+        tx =>
+          Future.successful(
+            GetTransactionTreesResponse(Seq(TransactionTree(transactionId = tx.transactionId)))
+          ),
+      metrics = metrics,
     )
 
     Future

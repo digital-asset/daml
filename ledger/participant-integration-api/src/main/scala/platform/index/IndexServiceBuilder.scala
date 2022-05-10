@@ -44,6 +44,7 @@ private[platform] case class IndexServiceBuilder(
     initialLedgerId: LedgerId,
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
+    bufferedStreamsPageSize: Int,
     acsIdPageSize: Int,
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
@@ -184,11 +185,12 @@ private[platform] case class IndexServiceBuilder(
       ledgerEndCache: LedgerEndCache,
   ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] =
     if (enableInMemoryFanOutForLedgerApi) {
-      val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
+      val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
         isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+        maxBufferedChunkSize = bufferedStreamsPageSize,
       )
 
       val bufferedTransactionsReader = BufferedTransactionsReader(
@@ -202,7 +204,7 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
-      )(loggingContext, servicesExecutionContext)
+      )(servicesExecutionContext)
 
       for {
         _ <- ResourceOwner.forCloseable(() =>

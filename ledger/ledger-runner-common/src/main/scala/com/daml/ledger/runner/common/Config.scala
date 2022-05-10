@@ -38,6 +38,7 @@ final case class Config[Extra](
     commandConfig: CommandConfiguration,
     enableInMemoryFanOutForLedgerApi: Boolean,
     eventsPageSize: Int,
+    bufferedStreamsPageSize: Int,
     eventsProcessingParallelism: Int,
     extra: Extra,
     ledgerId: String,
@@ -86,6 +87,7 @@ object Config {
       commandConfig = CommandConfiguration.default,
       enableInMemoryFanOutForLedgerApi = false,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      bufferedStreamsPageSize = IndexConfiguration.DefaultBufferedStreamsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       extra = extra,
       ledgerId = UUID.randomUUID().toString,
@@ -432,6 +434,17 @@ object Config {
             else Left("events-page-size should be strictly positive")
           }
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+        opt[Int]("buffered-streams-page-size")
+          .optional()
+          .text(
+            s"Number of transactions fetched from the buffer when serving streaming calls. Default is ${IndexConfiguration.DefaultBufferedStreamsPageSize}."
+          )
+          .validate { pageSize =>
+            if (pageSize > 0) Right(())
+            else Left("buffered-streams-page-size should be strictly positive")
+          }
+          .action((pageSize, config) => config.copy(bufferedStreamsPageSize = pageSize))
 
         opt[Int]("buffers-prefetching-parallelism")
           .optional()

@@ -10,66 +10,82 @@ import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => FlatTransaction,
 }
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.api.v1.{event => apiEvent}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import com.daml.platform.{ApiOffset, ContractId, FilterRelation, Identifier, Value}
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
+import com.daml.platform.store.interfaces.{TransactionLogUpdate => TxUpdate}
+import com.daml.platform.{ApiOffset, FilterRelation, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
+  type Filter = TxUpdate.Transaction => Option[TxUpdate.Transaction]
+  type ToApi[API_TX] = TxUpdate.Transaction => Future[API_TX]
+
   object ToFlatTransaction {
-    def apply(
-        tx: TransactionLogUpdate.Transaction,
+    def filter(
+        wildcardParties: Set[Party],
+        templateSpecificParties: Map[Identifier, Set[Party]],
+    ): Filter =
+      transaction => {
+        val transactionEvents = transaction.events
+        val flatTransactionEvents = transactionEvents.collect {
+          case createdEvent: TxUpdate.CreatedEvent => createdEvent
+          case exercisedEvent: TxUpdate.ExercisedEvent if exercisedEvent.consuming =>
+            exercisedEvent
+        }
+        val filteredFlatEvents = flatTransactionEvents
+          .filter(FlatTransactionPredicate(_, wildcardParties, templateSpecificParties))
+        val commandIdO = filteredFlatEvents.collectFirst {
+          case event if event.commandId.nonEmpty => event.commandId
+        }
+        // Allows emitting flat transactions with no events, a use-case needed
+        // for the functioning of Daml triggers.
+        // (more details in https://github.com/digital-asset/daml/issues/6975)
+        Option.when(filteredFlatEvents.nonEmpty || commandIdO.nonEmpty)(
+          transaction.copy(events = filteredFlatEvents)
+        )
+      }
+
+    def toApiTransaction(
         filter: FilterRelation,
-        wildcardParties: Set[String],
-        templateSpecificParties: Map[Identifier, Set[String]],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[FlatTransaction]] = {
-      val transactionEvents = tx.events
-      val filtered = transactionEvents.filter(
-        FlatTransactionPredicate(_, wildcardParties, templateSpecificParties)
-      )
-
-      filtered.headOption
-        .map { first =>
-          val events = removeTransient(filtered)
-          val requestingParties = filter.keySet.map(_.toString)
-
-          Future
-            .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
-            .map(_.collect { case Some(value) => value })
-            .map { flatEvents =>
-              // Allows emitting flat transactions with no events, a use-case needed
-              // for the functioning of Daml triggers.
-              // (more details in https://github.com/digital-asset/daml/issues/6975)
-              if (flatEvents.nonEmpty || first.commandId.nonEmpty) {
-                Some(
-                  FlatTransaction(
-                    transactionId = first.transactionId,
-                    commandId = getCommandId(events, requestingParties),
-                    workflowId = first.workflowId,
-                    effectiveAt = Some(timestampToTimestamp(first.ledgerEffectiveTime)),
-                    events = flatEvents,
-                    offset = ApiOffset.toApiString(tx.offset),
-                  )
-                )
-              } else None
-            }
-        }
-        .getOrElse(Future.successful(None))
+    ): ToApi[GetTransactionsResponse] = { transaction =>
+      val nonTransient = removeTransient(transaction.events)
+      val requestingParties = filter.keySet
+      Future
+        .traverse(nonTransient)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
+        .map(flatEvents =>
+          GetTransactionsResponse(
+            Seq(
+              FlatTransaction(
+                transactionId = transaction.transactionId,
+                commandId = getCommandId(transaction.events, requestingParties),
+                workflowId = transaction.workflowId,
+                effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
+                events = flatEvents,
+                offset = ApiOffset.toApiString(transaction.offset),
+              )
+            )
+          )
+        )
     }
 
-    private def removeTransient(aux: Vector[TransactionLogUpdate.Event]) = {
+    private def removeTransient(aux: Vector[TxUpdate.Event]) = {
       val permanent = aux.foldLeft(Set.empty[ContractId]) {
         case (contractIds, event) if !contractIds(event.contractId) =>
           contractIds + event.contractId
@@ -84,9 +100,9 @@ private[events] object TransactionLogUpdatesConversions {
 
     private val FlatTransactionPredicate =
       (
-          event: TransactionLogUpdate.Event,
-          wildcardParties: Set[String],
-          templateSpecificParties: Map[Identifier, Set[String]],
+          event: TxUpdate.Event,
+          wildcardParties: Set[Party],
+          templateSpecificParties: Map[Identifier, Set[Party]],
       ) => {
 
         val stakeholdersMatchingParties =
@@ -98,27 +114,26 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def toFlatEvent(
-        event: TransactionLogUpdate.Event,
-        requestingParties: Set[String],
+        event: TxUpdate.Event,
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[apiEvent.Event]] =
+    ): Future[apiEvent.Event] =
       event match {
-        case createdEvent: TransactionLogUpdate.CreatedEvent =>
+        case createdEvent: TxUpdate.CreatedEvent =>
           createdToFlatEvent(requestingParties, verbose, lfValueTranslation, createdEvent)
-            .map(Some(_))
 
-        case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
-          Future.successful(Some(exercisedToFlatEvent(requestingParties, exercisedEvent)))
+        case exercisedEvent: TxUpdate.ExercisedEvent if exercisedEvent.consuming =>
+          Future.successful(exercisedToFlatEvent(requestingParties, exercisedEvent))
 
-        case _ => Future.successful(None)
+        case _ => Future.failed(new RuntimeException("Not a flat transaction event"))
       }
 
     private def createdToFlatEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
@@ -173,7 +188,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def exercisedToFlatEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         exercisedEvent: ExercisedEvent,
     ): apiEvent.Event =
       apiEvent.Event(
@@ -182,43 +197,40 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
-            witnessParties = requestingParties.view.filter(exercisedEvent.flatEventWitnesses).toSeq,
+            witnessParties =
+              requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
           )
         )
       )
   }
 
   object ToTransactionTree {
-    def apply(
-        tx: TransactionLogUpdate.Transaction,
-        requestingParties: Set[String],
+    def filter(requestingParties: Set[Party]): Filter = transaction => {
+      val filteredForVisibility =
+        transaction.events
+          .filter(TransactionTreePredicate(requestingParties))
+
+      Option.when(filteredForVisibility.nonEmpty)(transaction.copy(events = filteredForVisibility))
+    }
+
+    def toApiTransaction(
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[TransactionTree]] = {
-      val filteredForVisibility = tx.events
-        .filter(TransactionTreePredicate(requestingParties))
-
-      if (filteredForVisibility.isEmpty) Future.successful(None)
-      else
+    ): ToApi[GetTransactionTreesResponse] =
+      transaction =>
         Future
-          .traverse(filteredForVisibility)(
+          .traverse(transaction.events)(
             toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
           )
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)
-            val visibleOrder = visible.view.zipWithIndex.toMap
+            val visibleSet = visible.toSet
             val eventsById = treeEvents.iterator
-              .map(e =>
-                e.eventId -> e
-                  .filterChildEventIds(visibleOrder.contains)
-                  // childEventIds need to be returned in the event order in the original transaction.
-                  // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
-                  // The order is determined by the order of the events, which follows the event order of the original transaction.
-                  .sortChildEventIdsBy(visibleOrder)
-              )
+              .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
               .toMap
 
             // All event identifiers that appear as a child of another item in this response
@@ -228,37 +240,38 @@ private[events] object TransactionLogUpdatesConversions {
             // that are not a child of some other visible item
             val rootEventIds = visible.filterNot(children)
 
-            Some(
-              TransactionTree(
-                transactionId = tx.transactionId,
-                commandId = getCommandId(filteredForVisibility, requestingParties),
-                workflowId = tx.workflowId,
-                effectiveAt = Some(timestampToTimestamp(tx.effectiveAt)),
-                offset = ApiOffset.toApiString(tx.offset),
-                eventsById = eventsById,
-                rootEventIds = rootEventIds,
+            GetTransactionTreesResponse(
+              Seq(
+                TransactionTree(
+                  transactionId = transaction.transactionId,
+                  commandId = getCommandId(transaction.events, requestingParties),
+                  workflowId = transaction.workflowId,
+                  effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
+                  offset = ApiOffset.toApiString(transaction.offset),
+                  eventsById = eventsById,
+                  rootEventIds = rootEventIds,
+                )
               )
             )
           }
-    }
 
     private def toTransactionTreeEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
-    )(event: TransactionLogUpdate.Event)(implicit
+    )(event: TxUpdate.Event)(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): Future[TreeEvent] =
       event match {
-        case createdEvent: TransactionLogUpdate.CreatedEvent =>
+        case createdEvent: TxUpdate.CreatedEvent =>
           createdToTransactionTreeEvent(
             requestingParties,
             verbose,
             lfValueTranslation,
             createdEvent,
           )
-        case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
+        case exercisedEvent: TxUpdate.ExercisedEvent =>
           exercisedToTransactionTreeEvent(
             requestingParties,
             verbose,
@@ -268,7 +281,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def exercisedToTransactionTreeEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         exercisedEvent: ExercisedEvent,
@@ -335,7 +348,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def createdToTransactionTreeEvent(
-        requestingParties: Set[String],
+        requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
@@ -393,10 +406,11 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    private val TransactionTreePredicate: Set[String] => TransactionLogUpdate.Event => Boolean =
+    private val TransactionTreePredicate: Set[Party] => TxUpdate.Event => Boolean =
       requestingParties => {
         case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
         case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
+        case _ => false
       }
   }
 
@@ -404,8 +418,8 @@ private[events] object TransactionLogUpdatesConversions {
     fromInstant(t.toInstant)
 
   private def getCommandId(
-      flatTransactionEvents: Vector[TransactionLogUpdate.Event],
-      requestingParties: Set[String],
+      flatTransactionEvents: Vector[TxUpdate.Event],
+      requestingParties: Set[Party],
   ) =
     flatTransactionEvents
       .collectFirst {
