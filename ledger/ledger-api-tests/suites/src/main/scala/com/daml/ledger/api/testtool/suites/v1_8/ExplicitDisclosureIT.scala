@@ -25,7 +25,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     def fetchDelegatedRequest(
         delegationCid: binding.Primitive.ContractId[Delegation],
         delegatedCid: binding.Primitive.ContractId[Delegated],
-        disclosedContract: Option[DisclosedContract] = None,
+        disclosedContract: Option[DisclosedContract],
     ) = ledger
       .submitAndWaitRequest(
         delegate,
