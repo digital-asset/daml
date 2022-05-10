@@ -255,7 +255,15 @@ object SandboxServer {
           )
           None
         case Success(maybeLedgerId) =>
-          maybeLedgerId.map(Tag.unwrap).filter(_.nonEmpty)
+          maybeLedgerId.map(Tag.unwrap).filter(_.nonEmpty) match {
+            case Some(someLedgerId) =>
+              if (true) {
+                sys.error(s"So really this feature is used and ledgerId=${someLedgerId}")
+              }
+              Some(someLedgerId)
+            case None =>
+              None
+          }
       }
     }
 }
