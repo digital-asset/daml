@@ -38,7 +38,7 @@ object ConfigConverter {
       serverJdbcUrl = serverJdbcUrl,
       managementServiceTimeout = sandboxConfig.managementServiceTimeout.toScala,
       indexerConfig = IndexerConfig(
-        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = true),
+        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
         database = IndexerConfig.createDefaultDatabaseConfig(serverJdbcUrl),
