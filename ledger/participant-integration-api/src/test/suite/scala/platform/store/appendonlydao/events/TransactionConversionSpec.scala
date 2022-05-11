@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao.events
+package com.daml.platform.store.dao.events
 
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
@@ -14,8 +14,8 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
-import com.daml.platform.store.appendonlydao.events.TransactionConversion
-import com.daml.platform.store.appendonlydao.events.TransactionConversion.removeTransient
+import com.daml.platform.store.dao.events.TransactionConversion
+import com.daml.platform.store.dao.events.TransactionConversion.removeTransient
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

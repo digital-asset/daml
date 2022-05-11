@@ -16,7 +16,7 @@ COMMITS_IN_GIVEN_RANGE=$(git log --format=%H "$1")
 extract_changelog () {
     awk '
         # Skip empty lines.
-        /^$/ {next}
+        /^[[:space:]]*$/ {next}
 
         # Take entire line, uppercase, compare to CHANGELOG_END.
         # If it matches, set flag to 0 (false) and skip current line.
@@ -39,5 +39,11 @@ extract_changelog () {
 
 for SHA in $COMMITS_IN_GIVEN_RANGE; do
     COMMIT_MESSAGE_BODY=$(git show --quiet --format=%b "$SHA")
-    echo "$COMMIT_MESSAGE_BODY" | extract_changelog
+    COMMIT_CHANGELOG=$(echo "$COMMIT_MESSAGE_BODY" | extract_changelog)
+    if [[ ! -z "$COMMIT_CHANGELOG" ]]; then
+        COMMIT_AUTHOR_AND_SUBJECT=$(git show --quiet --format="* %s (committer: %an | hash: %h)" "$SHA")
+        echo "$COMMIT_AUTHOR_AND_SUBJECT"
+        echo "$COMMIT_CHANGELOG"
+        echo "----------------"
+    fi
 done

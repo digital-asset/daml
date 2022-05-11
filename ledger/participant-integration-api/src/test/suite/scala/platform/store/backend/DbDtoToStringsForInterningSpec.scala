@@ -131,7 +131,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       event_sequential_id = 1,
       exercise_choice = Some("60"),
       exercise_result = None,
-      exercise_child_event_ids = Some(Set("61", "62", "63")),
+      exercise_child_event_ids = Some(Vector("61", "62", "63")),
       exercise_result_compression = Some(1),
     ),
     DbDto.CommandCompletion(

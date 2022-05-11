@@ -3,4 +3,4 @@
 
 package com.daml.lf.codegen.dependencygraph
 
-final case class Node[+K, +A](content: A, dependencies: List[K], collectDepError: Boolean)
+final case class Node[+K, +A](content: A, dependencies: List[K])

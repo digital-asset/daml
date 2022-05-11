@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
+
 import akka.stream._
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
@@ -16,12 +17,8 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
-import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
-import com.daml.platform.store.appendonlydao.{
-  JdbcLedgerDao,
-  LedgerDaoTransactionsReader,
-  LedgerReadDao,
-}
+import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{
   EventsBuffer,
@@ -51,7 +48,6 @@ private[platform] case class IndexServiceBuilder(
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
-    acsIdQueueLimit: Int,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -61,6 +57,7 @@ private[platform] case class IndexServiceBuilder(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
+    apiStreamShutdownTimeout: Duration,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -157,7 +154,7 @@ private[platform] case class IndexServiceBuilder(
     MutableCacheBackedContractStore(
       ledgerDao.contractsReader,
       dispatcherLagMeter,
-      ledgerEnd.lastEventSeqId,
+      ledgerEnd.lastOffset,
       metrics,
       maxContractStateCacheSize,
       maxContractKeyStateCacheSize,
@@ -261,6 +258,11 @@ private[platform] case class IndexServiceBuilder(
       name = "sql-ledger",
       zeroIndex = Offset.beforeBegin,
       headAtInitialization = ledgerEnd,
+      shutdownTimeout = apiStreamShutdownTimeout,
+      onShutdownTimeout = () =>
+        logger.warn(
+          s"Shutdown of API streams did not finish in ${apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
+        ),
     )
 
   private def verifyLedgerId(
@@ -313,7 +315,6 @@ private[platform] case class IndexServiceBuilder(
       acsIdFetchingParallelism = acsIdFetchingParallelism,
       acsContractFetchingParallelism = acsContractFetchingParallelism,
       acsGlobalParallelism = acsGlobalParallelism,
-      acsIdQueueLimit = acsIdQueueLimit,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,

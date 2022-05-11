@@ -27,7 +27,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       .flatMap { case (_, token) => serviceCallWithoutApplicationId(token) }
 
   it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit an expired read-only token")
+    attackUnauthenticated(threat = "Present an expired read-only JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(canReadAsMainActorExpired))
   }
@@ -59,25 +59,27 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     )
   }
   it should "deny calls with 'participant_admin' user token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a 'participant_admin' user token")
+    attackPermissionDenied(threat = "Present a 'participant_admin' user JWT")
   ) in {
     expectPermissionDenied(serviceCallWithoutApplicationId(canReadAsAdminStandardJWT))
   }
   it should "deny calls with user token that cannot read as main actor" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a user token that cannot read as main actor")
+      attackPermissionDenied(threat =
+        "Present a user JWT with permission cannot read as main actor"
+      )
     ) in {
     expectPermissionDenied(serviceCallWithMainActorUser("u2", Vector.empty))
   }
   it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a non-expired 'unknown_user' user token")
+      attackPermissionDenied(threat = "Present a non-expired 'unknown_user' user JWT")
     ) in {
     expectPermissionDenied(serviceCallWithoutApplicationId(canReadAsUnknownUserStandardJWT))
   }
 
   it should "deny calls with an expired read/write token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit an expired read/write token")
+    attackUnauthenticated(threat = "Present an expired read/write JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(canActAsMainActorExpired))
   }
@@ -111,7 +113,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     successfulBehavior(serviceCallWithToken(canReadAsMainActorActualLedgerId))
   }
   it should "deny calls with a random ledger ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a random ledger ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown ledger ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomLedgerId))
   }
@@ -121,7 +123,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     successfulBehavior(serviceCallWithToken(canReadAsMainActorActualParticipantId))
   }
   it should "deny calls with a random participant ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a random participant ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown participant ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomParticipantId))
   }

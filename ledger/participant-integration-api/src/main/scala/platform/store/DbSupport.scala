@@ -8,7 +8,7 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.resources.{PureResource, Resource}
 

@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Overview: template structure
+Overview: Template Structure
 ############################
 
 This page covers what a template looks like: what parts of a template there are, and where they go.
@@ -10,7 +10,7 @@ For the structure of a Daml file *outside* a template, see :doc:`file-structure`
 
 .. _daml-ref-template-structure:
 
-Template outline structure
+Template Outline Structure
 **************************
 
 Here’s the structure of a Daml template:
@@ -76,7 +76,7 @@ template body
 
 .. _daml-ref-choice-structure:
 
-Choice structure
+Choice Structure
 ****************
 
 Here's the structure of a choice inside a template. There are two ways of specifying a choice:
@@ -126,7 +126,7 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
 .. _daml-ref-choice-body-structure:
 
-Choice body structure
+Choice Body Structure
 *********************
 
 A choice body contains ``Update`` expressions, wrapped in a :ref:`do <daml-ref-do>` block.

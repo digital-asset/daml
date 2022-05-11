@@ -139,7 +139,7 @@ private[lf] object Speedy {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
-    private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
+    private[lf] def ptxInternal: PartialTransaction = ptx // deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
 
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
@@ -482,7 +482,7 @@ private[lf] object Speedy {
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
-          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) //stop
+          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) // stop
       }
     }
 
@@ -764,14 +764,11 @@ private[lf] object Speedy {
                 val lookupResult =
                   assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
                 lazy val subst = lookupResult.subst(argTypes)
-                val n = fields.length
-                val values = new util.ArrayList[SValue](n)
-                (lookupResult.dataRecord.fields.iterator zip fields.iterator).foreach {
-                  case ((_, fieldType), (_, fieldValue)) =>
-                    discard[Boolean](
-                      values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
-                    )
-                }
+                val values = (lookupResult.dataRecord.fields.iterator zip fields.iterator)
+                  .map { case ((_, fieldType), (_, fieldValue)) =>
+                    go(AstUtil.substitute(fieldType, subst), fieldValue)
+                  }
+                  .to(ArrayList)
                 SValue.SRecord(tyCon, lookupResult.dataRecord.fields.map(_._1), values)
               case V.ValueVariant(_, constructor, value) =>
                 val info =

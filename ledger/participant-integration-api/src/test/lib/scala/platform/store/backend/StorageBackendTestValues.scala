@@ -14,7 +14,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.google.protobuf.ByteString
 
@@ -184,7 +184,7 @@ private[backend] object StorageBackendTestValues {
       exercise_argument = Some(someSerializedDamlLfValue),
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Some(Set(actor)),
-      exercise_child_event_ids = Some(Set.empty),
+      exercise_child_event_ids = Some(Vector.empty),
       create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,

@@ -36,6 +36,14 @@ def norm_qualified_module(pkg; f):
         )
     } + f;
 
+def norm_occ_name_0(pkg):
+    .struct.fields |
+    map(.type | norm_ty(pkg) | .struct.fields[0] | get_field(pkg)) |
+    { namespace: .[0], value: .[1]};
+
+def norm_occ_name(pkg):
+    .type | norm_ty(pkg) | norm_occ_name_0(pkg);
+
 # @SINCE-LF 1.7
 def norm_imports(pkg):
     .type | norm_ty(pkg) | .struct.fields |
@@ -44,9 +52,7 @@ def norm_imports(pkg):
 # @SINCE-LF 1.7
 def norm_qualified_module_name(pkg):
     norm_qualified_module(pkg;
-        .[2].struct.fields |
-        map(.type | norm_ty(pkg) | .struct.fields[0] | get_field(pkg)) |
-        { name: { namespace: .[0], value: .[1]}}
+        { name: .[2] | norm_occ_name_0(pkg) }
     );
 
 # @SINCE-LF 1.7
@@ -82,4 +88,17 @@ def norm_export_info(pkg):
             (try (.type | norm_ty(pkg) | .struct.fields |
             map(norm_field_label(pkg))) catch null)
         }
+    };
+
+def norm_fixity(pkg):
+    .type | norm_ty(pkg) | .struct.fields |
+    map(.type | norm_ty(pkg) | .struct.fields[0] | get_field(pkg)) |
+    { precedence: .[0] | ltrimstr("_") | tonumber
+    , direction: .[1]
+    };
+
+def norm_fixity_info(pkg):
+    .type | norm_ty(pkg) | .struct.fields |
+    { "name": .[0] | norm_occ_name(pkg)
+    , "fixity": .[1] | norm_fixity(pkg)
     };

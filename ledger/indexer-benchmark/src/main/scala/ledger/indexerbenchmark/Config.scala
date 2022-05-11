@@ -35,7 +35,7 @@ object Config {
     indexerConfig = IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       jdbcUrl = "",
-      startupMode = IndexerStartupMode.MigrateAndStart,
+      startupMode = IndexerStartupMode.MigrateAndStart(),
     ),
     waitForUserInput = false,
     minUpdateRate = None,
@@ -71,16 +71,6 @@ object Config {
         .text("Sets the value of IndexerConfig.submissionBatchSize.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(submissionBatchSize = value))
-        )
-      opt[Int]("indexer-tailing-rate-limit-per-second")
-        .text("Sets the value of IndexerConfig.tailingRateLimitPerSecond.")
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(tailingRateLimitPerSecond = value))
-        )
-      opt[Long]("indexer-batch-within-millis")
-        .text("Sets the value of IndexerConfig.batchWithinMillis.")
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(batchWithinMillis = value))
         )
       opt[Boolean]("indexer-enable-compression")
         .text("Sets the value of IndexerConfig.enableCompression.")

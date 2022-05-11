@@ -415,7 +415,7 @@ private[lf] object Anf {
   }
 
   private[this] def expandMultiLet(rhss: List[source.SExpr], body: source.SExpr): source.SExpr = {
-    //loop over rhss in reverse order
+    // loop over rhss in reverse order
     @tailrec
     def loop(acc: source.SExpr, xs: List[source.SExpr]): source.SExpr = {
       xs match {

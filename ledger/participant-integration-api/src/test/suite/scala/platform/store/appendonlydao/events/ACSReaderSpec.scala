@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.appendonlydao.events
+package com.daml.platform.store.dao.events
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -224,60 +224,56 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       _ <- puppetTask1.started
       _ <- puppetTask2.started
       _ <- puppetTask3.started
-      puppetTask10 = {
+      (puppetTask10, puppetTask5) = {
         stillRunning(streamResultsFuture)
         notStartedYet(puppetTask4, puppetTask6)
         info("The first three task started: Running: [1, 2, 3] Queueing: [4, 6]")
         info(
           "As 2 completes with continuation 10 -- completion inserts at the end of the queue case"
         )
-        puppetTask2.continueWith(10)(100)
-      }
-      _ <- puppetTask4.started
-      puppetTask5 = {
+        val task10 = puppetTask2.continueWith(10)(102)
         stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask6, puppetTask10)
-        info("4 started: Running: [1, 3, 4] Queueing: [6, 10]")
+        notStartedYet(puppetTask4, puppetTask6)
+        info("No new task started: Running: [1, 3] Queueing: [4, 6, 10]")
         info(
           "As 3 finishes with continuation 5 -- completion inserts at the beginning of the queue case"
         )
-        puppetTask3.continueWith(5)(101)
-      }
-      _ <- puppetTask5.started
-      _ = {
+        val task5 = puppetTask3.continueWith(5)(103)
         stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask6, puppetTask10)
-        info("5 started: Running: [1, 4, 5] Queueing: [6, 10]")
+        notStartedYet(puppetTask4, puppetTask6)
+        info("No new task started: Running: [1] Queueing: [4, 5, 6, 10]")
         info("As 1 finishes")
-        puppetTask1.finish(102)
+        puppetTask1.finish(101)
+        (task10, task5)
       }
+      _ <- puppetTask4.started
+      _ <- puppetTask5.started
       _ <- puppetTask6.started
       _ = {
         stillRunning(streamResultsFuture)
         notStartedYet(puppetTask10)
-        info("6 started: Running: [4, 5, 6] Queueing: [10]")
+        info("4, 5, 6 started: Running: [4, 5, 6] Queueing: [10]")
         info("As 5 finishes")
-        puppetTask5.finish(103)
+        puppetTask5.finish(105)
+        stillRunning(streamResultsFuture)
+        notStartedYet(puppetTask10)
+        info("No new task started: Running: [4, 6] Queueing: [10]")
+        info("As 4 finishes")
+        puppetTask4.finish(104)
       }
       _ <- puppetTask10.started
       _ = {
         stillRunning(streamResultsFuture)
-        info("10 started: Running: [4, 6, 10] Queueing: []")
-        info("As 10 finishes")
-        puppetTask10.finish(104)
-        stillRunning(streamResultsFuture)
-        info("Running: [4, 6] Queueing: []")
+        info("10 started: Running: [6, 10] Queueing: []")
         info("As 6 finishes")
-        puppetTask6.finish(105)
-        stillRunning(streamResultsFuture)
-        info("Running: [4] Queueing: []")
-        info("As 4 finishes")
-        puppetTask4.finish(106)
+        puppetTask6.finish(106)
+        info("As 10 finishes")
+        puppetTask10.finish(110)
       }
       streamResults <- streamResultsFuture
     } yield {
       streamResults.map(_._2) shouldBe List(
-        100, 101, 102, 103, 104, 105, 106,
+        101, 102, 103, 104, 105, 106, 110,
       )
       info("Stream is also finished, with the expected results")
       succeed
@@ -291,7 +287,6 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       tasks = List("a", "b", "c"),
       outputBatchSize = 3,
       inputBatchSize = 2,
-      idQueueLimit = 100,
       metrics = new Metrics(new MetricRegistry),
     )(implicitly)()
     mutableLogic("a" -> List(1, 3)) shouldBe Nil // a [1 3] b [] c []

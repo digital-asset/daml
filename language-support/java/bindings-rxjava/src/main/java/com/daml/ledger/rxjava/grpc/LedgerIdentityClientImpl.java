@@ -3,12 +3,10 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.LedgerIdentityServiceGrpc;
 import com.daml.ledger.api.v1.LedgerIdentityServiceOuterClass;
 import com.daml.ledger.rxjava.LedgerIdentityClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
-import com.daml.ledger.rxjava.util.CreateSingle;
 import io.grpc.Channel;
 import io.reactivex.Single;
 import java.util.Optional;
@@ -18,21 +16,16 @@ public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
   private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;
 
-  private final ExecutionSequencerFactory sequencerFactory;
-
-  public LedgerIdentityClientImpl(
-      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
+  public LedgerIdentityClientImpl(Channel channel, Optional<String> accessToken) {
     this.serviceStub =
         StubHelper.authenticating(LedgerIdentityServiceGrpc.newFutureStub(channel), accessToken);
-    this.sequencerFactory = sequencerFactory;
   }
 
   private Single<String> getLedgerIdentity(@NonNull Optional<String> accessToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken)
                 .getLedgerIdentity(
-                    LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()),
-            sequencerFactory)
+                    LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()))
         .map(LedgerIdentityServiceOuterClass.GetLedgerIdentityResponse::getLedgerId);
   }
 

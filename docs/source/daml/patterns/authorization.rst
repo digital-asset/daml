@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Authorization
-#############
+The Authorization Pattern
+#########################
 
 The Authorization pattern demonstrates how to make sure a controlling party is authorized before they take certain actions.
 
@@ -49,6 +49,7 @@ TransferProposal contract
         :end-before: -- END_ACCEPT_COIN_TRANSFER
 
 .. figure:: images/authorization.png
+   :alt: A diagram of the Authorization pattern, in which the CoinOwnerAuthorization contract ensures that owner is authorized to transfer the coin.
 
-  Authorization Diagram
+   Authorization Diagram
 

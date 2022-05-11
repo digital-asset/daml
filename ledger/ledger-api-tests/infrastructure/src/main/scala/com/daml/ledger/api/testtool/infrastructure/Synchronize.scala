@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.client.binding.Primitive
 
@@ -23,7 +24,7 @@ object Synchronize {
     */
   final def synchronize(alpha: ParticipantTestContext, beta: ParticipantTestContext)(implicit
       ec: ExecutionContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     for {
       alice <- alpha.allocateParty()
       bob <- beta.allocateParty()
@@ -34,14 +35,13 @@ object Synchronize {
       // the two participants are synchronized up to the
       // point before invoking this method
     }
-  }
 
   final def waitForContract[T](
       participant: ParticipantTestContext,
       party: Party,
       contractId: Primitive.ContractId[T],
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    Eventually.eventually {
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    eventually("Wait for contract to become active") {
       participant.activeContracts(party).map { events =>
         assert(
           events.exists(_.contractId == contractId.toString),
@@ -49,6 +49,5 @@ object Synchronize {
         )
       }
     }
-  }
 
 }

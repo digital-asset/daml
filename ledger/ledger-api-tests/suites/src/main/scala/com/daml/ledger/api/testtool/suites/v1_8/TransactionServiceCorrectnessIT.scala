@@ -316,7 +316,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
 }
 
 object TransactionServiceCorrectnessIT {
-  // Strip command id, offset, event id and transaction id to yield a transaction comparable across participant
+  // Strip command id, offset, event id and transaction id to yield a transaction comparable across participants
   // Furthermore, makes sure that the order is not relevant for witness parties
   // Sort by transactionId as on distributed ledgers updates can occur in different orders
   // Even if transactionIds are not the same across distributes ledgers, we still can use them for sorting
@@ -400,7 +400,7 @@ object TransactionServiceCorrectnessIT {
     assert(
       createdContracts == archivedContracts,
       s"$context: the contract identifiers for created and archived contracts differ: ${createdContracts
-        .diff(archivedContracts)}",
+          .diff(archivedContracts)}",
     )
     val sortedCreations = creations.sortBy(_._1)
     val sortedArchivals = archivals.sortBy(_._1)

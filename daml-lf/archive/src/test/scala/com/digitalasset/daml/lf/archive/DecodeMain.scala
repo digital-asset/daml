@@ -31,9 +31,9 @@ object DecodeMain extends App {
     println(s"parseFrom in ${toMillis(t0, t1)}ms, decoded in ${toMillis(t1, t2)}ms.")
 
     // Wait a while to allow for running e.g. jmap -heap etc.
-    //val pid = Integer.parseInt(new File("/proc/self").getCanonicalFile.getName)
-    //println(s"sleeping 5s, pid is $pid.")
-    //Thread.sleep(5000)
+    // val pid = Integer.parseInt(new File("/proc/self").getCanonicalFile.getName)
+    // println(s"sleeping 5s, pid is $pid.")
+    // Thread.sleep(5000)
 
     System.gc()
   }

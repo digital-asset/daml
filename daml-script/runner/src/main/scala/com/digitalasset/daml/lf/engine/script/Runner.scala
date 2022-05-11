@@ -38,6 +38,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{
+  ArrayList,
   Compiler,
   Pretty,
   SDefinition,
@@ -50,7 +51,7 @@ import com.daml.lf.speedy.{
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
-import com.daml.script.converter.Converter.{JavaList, unrollFree}
+import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
@@ -97,7 +98,7 @@ case class Participants[+T](
         } else {
           Left(
             s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
-              .zip(participants.toList)}"
+                .zip(participants.toList)}"
           )
         }
     } yield participant
@@ -227,13 +228,19 @@ object Runner {
     )
   }
 
+  val BLANK_APPLICATION_ID: ApplicationId = ApplicationId("")
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
   private def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int,
   )(implicit ec: ExecutionContext, seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
-    val applicationId = params.application_id.getOrElse(Runner.DEFAULT_APPLICATION_ID)
+    val applicationId = params.application_id.getOrElse(
+      // If an application id was not supplied, but an access token was,
+      // we leave the application id empty so that the ledger will
+      // determine it from the access token.
+      if (params.access_token.nonEmpty) BLANK_APPLICATION_ID else DEFAULT_APPLICATION_ID
+    )
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
@@ -459,7 +466,7 @@ private[lf] class Runner(
               .flatMap(run(_))
           case Left(v) =>
             v match {
-              case SRecord(_, _, JavaList(newState, _)) => {
+              case SRecord(_, _, ArrayList(newState, _)) => {
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Future { newState }
               }

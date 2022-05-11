@@ -512,10 +512,133 @@ jobs:
                                        --project daml
           fi
 
+  - job: bump_canton
+    timeoutInMinutes: 60
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        git fetch
+        git checkout origin/main
+
+        canton_version=$(curl -u $AUTH \
+                              --fail \
+                              --location \
+                              --silent \
+                              https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
+                         | jq -r '.children[].uri' \
+                         | sed -e 's/^\///' \
+                         | grep '^[0-9]\{8\}$' \
+                         | sort \
+                         | tail -1)
+        dir=$(pwd)
+        cd $(mktemp -d)
+        curl -u $AUTH \
+             --fail \
+             --location \
+             --silent \
+             https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton_version/canton-open-source-$canton_version.tar.gz \
+             > tarball.tar.gz
+        canton_sha=$(sha256sum tarball.tar.gz | awk '{print $1}')
+        tar xzf tarball.tar.gz
+        rm tarball.tar.gz
+        canton_prefix=$(ls)
+        mv $canton_prefix canton
+        canton_local_path=external/$(ls canton/lib/*.jar)
+        cd $dir
+
+        bad_file=daml-script/test/src/test-utils/com/daml/lf/engine/script/test/MultiParticipantFixture.scala
+
+        sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
+        cat <<EOF > canton_dep.bzl
+        # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+        # SPDX-License-Identifier: Apache-2.0
+
+        canton = {
+            "sha": "$canton_sha",
+            "prefix": "$canton_prefix",
+            "url": "https://www.canton.io/releases/canton-open-source-$canton_version.tar.gz",
+        }
+        EOF
+
+        branch="canton-update-$canton_version"
+
+        if git diff --exit-code -- canton_dep.bzl $bad_file; then
+            echo "Already up-to-date with latest Canton snapshot."
+            setvar need_to_build false
+        else
+            if [ "main" = "$(Build.SourceBranchName)" ]; then
+                git add canton_dep.bzl $bad_file
+                open_pr "$branch" "bump canton to $canton_version"
+                az extension add --name azure-devops
+                trap "az devops logout" EXIT
+                echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+                az pipelines build queue --branch "$branch" \
+                                         --definition-name "PRs" \
+                                         --org "https://dev.azure.com/digitalasset" \
+                                         --project daml
+            else
+                echo "Would open PR if this were running on main."
+            fi
+        fi
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+
+  - job: compat_versions_pr
+    condition: eq(variables['Build.SourceBranchName'], 'main')
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - bash: ci/dev-env-install.sh
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+
+        ## refresh tags, in case someone deleted one
+        git fetch --prune --prune-tags
+
+        ## get latest version, in case it's already up to date
+        git fetch origin
+        git merge origin/main
+
+        source $(bash_lib)
+
+        cp .bazelrc compatibility/
+        compatibility/update-versions.sh
+        git add compatibility/versions.bzl compatibility/maven_install.json
+
+
+        if ! git diff --cached --quiet; then
+          BRANCH=update-compat-versions-$(date -I)
+          TITLE="update compat versions ($(date -I))"
+          open_pr "$BRANCH" "$TITLE"
+          trigger_azure $(System.AccessToken) PRs --branch $BRANCH
+          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
+        else
+          echo "No changes"
+        fi
+
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
                 perf_speedy, perf_http_json, perf_http_json_querystore, check_releases,
-                blackduck_scan, run_notices_pr_build]
+                blackduck_scan, run_notices_pr_build, bump_canton, compat_versions_pr]
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
@@ -534,6 +657,8 @@ jobs:
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
+      bump_canton: $[ dependencies.bump_canton.result ]
+      compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
     steps:
     - template: ../bash-lib.yml
       parameters:
@@ -554,8 +679,11 @@ jobs:
            && "$(perf_http_json)" == "Succeeded"
            && "$(perf_http_json_querystore)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
+           && "$(bump_canton)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
-           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
+           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
+           && "$(compat_versions_pr)" == "Succeeded"
+           ]]; then
             MSG="Daily tests passed: $COMMIT_LINK"
             REPORT='```
         speedy_perf: $(speedy_perf)

@@ -83,7 +83,9 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
@@ -96,7 +98,7 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
-        "//ledger/sandbox-common:sandbox-common-ce",
+        "//ledger/sandbox-common",
         "//ledger/sandbox-on-x",
         "//libs-scala/build-info",
         "//libs-scala/contextualized-logging",
@@ -360,6 +362,7 @@ da_scala_library(
     deps = [
         ":sandbox-on-x",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
@@ -464,6 +467,27 @@ server_conformance_test(
     ],
 )
 
+# By default, participants are tuned for performance. The buffers and caches used by the participant
+# are by default so large that they are not filled by the small amount of data produced by the conformance test.
+# We run one conformance test with small buffer/cache sizes to make sure we cover cases where data doesn't fit
+# into a cache or where multiple buffers have to be combined.
+server_conformance_test(
+    name = "conformance-test-tiny-buffers",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865,contract-state-cache-max-size=2,contract-key-state-cache-max-size=2",
+        "--enable-user-management=true",
+        "--events-page-size=2",
+        "--acs-id-page-size=2",
+        "--user-management-max-cache-size=2",
+        # "--user-management-max-users-page-size=2" -- minimum size is 100 which is not tiny anymore
+    ],
+    servers = {"postgresql": SERVERS["postgresql"]},
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
 conformance_test(
     name = "conformance-test-static-time",
     ports = [6865],
@@ -480,6 +504,20 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-in-memory-fan-out",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=100000",
+        "--buffered-ledger-api-streams",
+    ],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-in-memory-fan-out-tiny-buffer",
     ports = [6865],
     server = ":app",
     server_args = [

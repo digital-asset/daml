@@ -34,6 +34,13 @@ object TestEntry {
       suite: Option[SecurityTestSuite],
   ) extends TestEntry[SecurityTest, SecurityTestSuite]
 
+  object SecurityTestEntry {
+    implicit val ordering: Ordering[SecurityTestEntry] =
+      Ordering[(String, String, Int)].on[SecurityTestEntry] { entry =>
+        (entry.suiteName, entry.tag.file, entry.tag.line)
+      }
+  }
+
   final case class ReliabilityTestEntry(
       suiteName: String,
       description: String,
@@ -41,4 +48,11 @@ object TestEntry {
       ignored: Boolean,
       suite: Option[ReliabilityTestSuite],
   ) extends TestEntry[ReliabilityTest, ReliabilityTestSuite]
+
+  object ReliabilityTestEntry {
+    implicit val ordering: Ordering[ReliabilityTestEntry] =
+      Ordering[(String, String, Int)].on[ReliabilityTestEntry] { entry =>
+        (entry.suiteName, entry.tag.file, entry.tag.line)
+      }
+  }
 }

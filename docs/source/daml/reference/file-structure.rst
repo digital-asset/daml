@@ -1,12 +1,12 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: Daml file structure
+Reference: Daml File Structure
 ##############################
 
 This page gives reference information on the structure of Daml files outside of :doc:`templates <templates>`.
 
-File structure
+File Structure
 **************
 
 - This file's module name (``module NameOfThisFile where``).
@@ -41,7 +41,7 @@ Use  ``--`` for a single line comment. Use ``{-`` and ``-}`` for a comment exten
 
 .. _daml-ref_contract-identifiers:
 
-Contract identifiers
+Contract Identifiers
 ********************
 
 When an instance of a template (that is, a contract) is added to the ledger, it's assigned a unique identifier, of type ``ContractId <name of template>``.

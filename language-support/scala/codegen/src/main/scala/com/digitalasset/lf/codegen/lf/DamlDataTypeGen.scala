@@ -159,8 +159,8 @@ object DamlDataTypeGen {
             object ${TermName(className)} extends
               ${tq"$domainApiAlias.EnumCompanion[$appliedValueType]"} {
               ..${constructors.zipWithIndex.map { case (c, i) =>
-              q"""case object ${TermName(c.capitalize)} extends $appliedValueType($c, $i) """
-            }}
+                q"""case object ${TermName(c.capitalize)} extends $appliedValueType($c, $i) """
+              }}
             
               val firstValue: $appliedValueType = ${TermName(firstValue.capitalize)}
               val otherValues:  $stdVectorType[$appliedValueType] =
@@ -196,7 +196,9 @@ object DamlDataTypeGen {
       lazy val damlVariantZeroFields =
         (
           q"""
-          sealed abstract class ${TypeName(damlScalaName.name)}[..$covariantTypeParams] extends $domainApiAlias.VoidValueRef {
+          sealed abstract class ${TypeName(
+              damlScalaName.name
+            )}[..$covariantTypeParams] extends $domainApiAlias.VoidValueRef {
             ..$rootClassChildren
           }""",
           q"""object ${TermName(damlScalaName.name)} extends $companionParent {
@@ -214,7 +216,9 @@ object DamlDataTypeGen {
         )
         (
           q"""
-          sealed abstract class ${TypeName(damlScalaName.name)}[..$covariantTypeParams] extends $typeParent {
+          sealed abstract class ${TypeName(
+              damlScalaName.name
+            )}[..$covariantTypeParams] extends $typeParent {
             ..$rootClassChildren
           }""",
           q"""object ${TermName(damlScalaName.name)} extends $companionParent {
@@ -346,7 +350,9 @@ object DamlDataTypeGen {
           else companionParent
         (
           q"""
-          final case class ${TypeName(damlScalaName.name)}[..$covariantTypeParams](..$argsWithTypes) extends $typeParent {
+          final case class ${TypeName(
+              damlScalaName.name
+            )}[..$covariantTypeParams](..$argsWithTypes) extends $typeParent {
             ..$rootClassChildren
           }""",
           q"""object ${TermName(damlScalaName.name)} extends $companionParentInter {
@@ -456,18 +462,18 @@ object DamlDataTypeGen {
             def encoding(lte: $domainApiAlias.encoding.LfTypeEncoding): lte.Out[$appliedValueType] = {
               ..${generateViewDefList(viewsByName, recordFieldDefsByName)}
               ..${generateRecordFieldsDefList(
-        typeArgs,
-        viewsByName,
-        recordFieldsByName,
-        recordFieldDefsByName,
-      )}
+          typeArgs,
+          viewsByName,
+          recordFieldsByName,
+          recordFieldDefsByName,
+        )}
               lte.variantAll(` dataTypeId`,
                 ..${generateVariantCaseDefList(util)(
-        appliedValueType,
-        typeArgs,
-        fields,
-        recordFieldsByName,
-      )}
+          appliedValueType,
+          typeArgs,
+          fields,
+          recordFieldsByName,
+        )}
               )
             }
           }
@@ -494,12 +500,12 @@ object DamlDataTypeGen {
         } else {
           q"""
             ${generateRecordFieldsDef(
-            view,
-            recordFields,
-            appliedValueType,
-            damlScalaName.qualifiedTermName,
-            fieldDefs,
-          )}
+              view,
+              recordFields,
+              appliedValueType,
+              damlScalaName.qualifiedTermName,
+              fieldDefs,
+            )}
             lte.record(` dataTypeId`, $recordFields)
           """
         }

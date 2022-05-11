@@ -21,6 +21,7 @@ import com.daml.ledger.test.model.Iou.IouTransfer._
 import com.daml.ledger.test.model.IouTrade.IouTrade
 import com.daml.ledger.test.model.IouTrade.IouTrade._
 import com.daml.ledger.test.model.Test._
+import com.daml.lf.ledger.EventId
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
@@ -59,37 +60,36 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         dkkTransfer <-
           delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
 
-        aliceIou1 <- eventually {
+        aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
           alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
         }
-        aliceIou <- eventually {
+        aliceIou <- eventually("exerciseIou_AddObserver") {
           alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
         }
-        bobIou <- eventually {
+        bobIou <- eventually("exerciseIouTransfer_Accept") {
           beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
         }
 
-        trade <- eventually {
+        trade <- eventually("create") {
           alpha.create(
             alice,
             IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
           )
         }
-        tree <- eventually {
+        tree <- eventually("exerciseIouTrade_Accept") {
           beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
         }
 
-        aliceTree <- eventually {
+        aliceTree <- eventually("transactionTreeById1") {
           alpha.transactionTreeById(tree.transactionId, alice)
         }
         bobTree <- beta.transactionTreeById(tree.transactionId, bob)
-        gbpTree <- eventually {
+        gbpTree <- eventually("transactionTreeById2") {
           alpha.transactionTreeById(tree.transactionId, gbp_bank)
         }
-        dkkTree <- eventually {
+        dkkTree <- eventually("transactionTreeById3") {
           delta.transactionTreeById(tree.transactionId, dkk_bank)
         }
-
       } yield {
         def treeIsWellformed(tree: TransactionTree): Unit = {
           val eventsToObserve = mutable.Map.empty[String, TreeEvent] ++= tree.eventsById
@@ -138,6 +138,110 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         assert(gbpTree.rootEventIds.size == 2)
         assert(dkkTree.rootEventIds.size == 2)
 
+      }
+  })
+
+  test(
+    "TXTreeChildOrder",
+    "Trees formed by childEventIds should be maintaining Transaction event order",
+    allocate(TwoParties, SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
+    tags = privacyHappyCase(
+      asset = "Transaction Tree",
+      happyCase = "Trees formed by childEventIds should be maintaining Transaction event order",
+    ),
+  )(implicit ec => {
+    case Participants(
+          Participant(alpha, alice, gbp_bank),
+          Participant(beta, bob),
+          Participant(delta, dkk_bank),
+        ) =>
+      for {
+        gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
+        gbpTransfer <-
+          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(_, alice))
+        dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
+        dkkTransfer <-
+          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
+
+        aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
+          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
+        }
+        aliceIou <- eventually("exerciseIou_AddObserver") {
+          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
+        }
+        bobIou <- eventually("exerciseIouTransfer_Accept") {
+          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+        }
+
+        trade <- eventually("create") {
+          alpha.create(
+            alice,
+            IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
+          )
+        }
+        tree <- eventually("exerciseIouTrade_Accept") {
+          beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
+        }
+
+        aliceTree <- eventually("transactionTreeById1") {
+          alpha.transactionTreeById(tree.transactionId, alice)
+        }
+        bobTree <- beta.transactionTreeById(tree.transactionId, bob)
+        gbpTree <- eventually("transactionTreeById2") {
+          alpha.transactionTreeById(tree.transactionId, gbp_bank)
+        }
+        dkkTree <- eventually("transactionTreeById3") {
+          delta.transactionTreeById(tree.transactionId, dkk_bank)
+        }
+        aliceTrees <- alpha.transactionTrees(alice)
+        bobTrees <- alpha.transactionTrees(bob)
+        gbpTrees <- alpha.transactionTrees(gbp_bank)
+        dkkTrees <- alpha.transactionTrees(dkk_bank)
+      } yield {
+        def treeIsWellformed(tree: TransactionTree): Unit = {
+          val eventsToObserve = mutable.Map.empty[String, TreeEvent] ++= tree.eventsById
+
+          def go(eventId: String): Unit = {
+            eventsToObserve.remove(eventId) match {
+              case Some(TreeEvent(Exercised(exercisedEvent))) =>
+                val expected = exercisedEvent.childEventIds.sortBy(stringEventId =>
+                  EventId.assertFromString(stringEventId).nodeId.index
+                )
+                val actual = exercisedEvent.childEventIds
+                assertEquals(
+                  context = s"childEventIds are out of order. Expected: $expected, actual: $actual",
+                  actual = actual,
+                  expected = expected,
+                )
+                exercisedEvent.childEventIds.foreach(go)
+              case Some(TreeEvent(_)) =>
+                ()
+              case None =>
+                throw new AssertionError(
+                  s"Referenced eventId $eventId is not available as node in the transaction."
+                )
+            }
+          }
+
+          tree.rootEventIds.foreach(go)
+          assert(
+            eventsToObserve.isEmpty,
+            s"After traversing the transaction, there are still unvisited nodes: $eventsToObserve",
+          )
+        }
+
+        treeIsWellformed(aliceTree)
+        treeIsWellformed(bobTree)
+        treeIsWellformed(gbpTree)
+        treeIsWellformed(dkkTree)
+
+        Iterator(
+          aliceTrees,
+          bobTrees,
+          gbpTrees,
+          dkkTrees,
+        ).flatten.foreach(treeIsWellformed)
       }
   })
 
@@ -282,7 +386,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       BranchingControllers(giver = alice, whichCtrl = true, ctrlTrue = bob, ctrlFalse = eve)
     for {
       _ <- alpha.create(alice, template)
-      _ <- eventually {
+      _ <- eventually("flatTransactions") {
         for {
           aliceView <- alpha.flatTransactions(alice)
           bobView <- beta.flatTransactions(bob)
@@ -351,7 +455,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
         transactionId <- alpha.submitAndWaitForTransactionId(create).map(_.transactionId)
-        _ <- eventually {
+        _ <- eventually("flatTransactions") {
           for {
             transactions <- beta.flatTransactions(observers: _*)
           } yield {

@@ -23,10 +23,10 @@ import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.transaction.{GlobalKey => LfGlobalKey, Transaction => LfTransaction}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
 import com.daml.metrics.Timed
-import com.daml.platform.store.appendonlydao.events._
 
 import java.time.Duration
 import scala.util.chaining._
@@ -199,7 +199,7 @@ private[validate] class SequenceImpl(
       .fold(_.toCommandRejectedUpdate(recordTime), identity)
 
   private def conflictCheckWithInFlight(
-      keysState: Map[Key, (Option[ContractId], LastUpdatedAt)],
+      keysState: Map[LfGlobalKey, (Option[ContractId], LastUpdatedAt)],
       consumedContractsState: Set[ContractId],
       keyInputs: KeyInputs,
       inputContracts: Set[ContractId],

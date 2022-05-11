@@ -9,17 +9,13 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.{Value => LfValue}
-import com.daml.platform.store.appendonlydao.events.{Contract, ContractId, ContractStateEvent}
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent.{
-  Archived,
-  Created,
-  LedgerEndMarker,
-}
+import com.daml.platform.{Contract, ContractId}
+import com.daml.platform.store.dao.events.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEvent.{Archived, Created, LedgerEndMarker}
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.immutable
 import scala.concurrent.Future
 
 /** This test can only be run successfully against the append-only schema on PostgreSQL.
@@ -80,79 +76,91 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement {
       )
     } yield {
       val first = contractStateEvents.head
-      val sequentialIdState = new AtomicLong(first.eventSequentialId)
+      val sequentialIdState = new AtomicLong(first._2.head.eventSequentialId)
 
       contractStateEvents should contain theSameElementsInOrderAs Seq(
-        Created(
-          nonTransient(t1).loneElement,
-          contract(created(t1).loneElement, contractArg("t1")),
-          None,
-          t1.ledgerEffectiveTime,
-          Set(alice, bob),
-          offset1,
-          sequentialIdState.getAndIncrement(),
+        offset1 -> Vector(
+          Created(
+            nonTransient(t1).loneElement,
+            contract(created(t1).loneElement, contractArg("t1")),
+            None,
+            t1.ledgerEffectiveTime,
+            Set(alice, bob),
+            offset1,
+            sequentialIdState.getAndIncrement(),
+          )
         ),
-        Created(
-          nonTransient(t2).loneElement,
-          contract(created(t2).loneElement, contractArg("t2")),
-          Some(globalKey2),
-          t2.ledgerEffectiveTime,
-          Set(alice, bob),
-          offset2,
-          sequentialIdState.getAndIncrement(),
+        offset2 -> Vector(
+          Created(
+            nonTransient(t2).loneElement,
+            contract(created(t2).loneElement, contractArg("t2")),
+            Some(globalKey2),
+            t2.ledgerEffectiveTime,
+            Set(alice, bob),
+            offset2,
+            sequentialIdState.getAndIncrement(),
+          )
         ),
-        Archived(
-          nonTransient(t2).loneElement,
-          Some(globalKey2),
-          Set(alice, bob),
-          offset3,
-          sequentialIdState.getAndIncrement(),
+        offset3 -> Vector(
+          Archived(
+            nonTransient(t2).loneElement,
+            Some(globalKey2),
+            Set(alice, bob),
+            offset3,
+            sequentialIdState.getAndIncrement(),
+          )
         ),
-        Created(
-          created(t4).loneElement,
-          contract(created(t4).loneElement, contractArg("t4")),
-          None,
-          t4.ledgerEffectiveTime,
-          Set(alice, bob),
-          offset4,
-          sequentialIdState.getAndIncrement(),
+        offset4 -> Vector(
+          Created(
+            created(t4).loneElement,
+            contract(created(t4).loneElement, contractArg("t4")),
+            None,
+            t4.ledgerEffectiveTime,
+            Set(alice, bob),
+            offset4,
+            sequentialIdState.getAndIncrement(),
+          ),
+          Archived(
+            created(t4).loneElement,
+            None,
+            Set(alice, bob),
+            offset4,
+            sequentialIdState.getAndIncrement(),
+          ),
         ),
-        Archived(
-          created(t4).loneElement,
-          None,
-          Set(alice, bob),
-          offset4,
-          sequentialIdState.getAndIncrement(),
+        offset5 -> Vector(
+          Created(
+            nonTransient(t5).loneElement,
+            contract(created(t5).loneElement, contractArg("t5")),
+            None,
+            t5.ledgerEffectiveTime,
+            Set(alice, bob),
+            offset5,
+            sequentialIdState.getAndIncrement(),
+          )
         ),
-        Created(
-          nonTransient(t5).loneElement,
-          contract(created(t5).loneElement, contractArg("t5")),
-          None,
-          t5.ledgerEffectiveTime,
-          Set(alice, bob),
-          offset5,
-          sequentialIdState.getAndIncrement(),
+        offset6 -> Vector(
+          Created(
+            nonTransient(t6).loneElement,
+            contract(created(t6).loneElement, contractArg("t6")),
+            None,
+            t6.ledgerEffectiveTime,
+            Set(alice, bob),
+            offset6,
+            sequentialIdState.get(),
+          )
         ),
-        Created(
-          nonTransient(t6).loneElement,
-          contract(created(t6).loneElement, contractArg("t6")),
-          None,
-          t6.ledgerEffectiveTime,
-          Set(alice, bob),
-          offset6,
-          sequentialIdState.get(),
-        ),
-        LedgerEndMarker(offset6, sequentialIdState.get()),
+        offset6 -> Vector(LedgerEndMarker(offset6, sequentialIdState.get())),
       )
     }
   }
 
   private def contractEventsOf(
-      source: Source[((Offset, Long), ContractStateEvent), NotUsed]
-  ): Future[immutable.Seq[ContractStateEvent]] =
+      source: Source[((Offset, Long), Vector[ContractStateEvent]), NotUsed]
+  ): Future[Seq[(Offset, Vector[ContractStateEvent])]] =
     source
       .runWith(Sink.seq)
-      .map(_.map(_._2))
+      .map(_.map { case ((offset, _), events) => offset -> events })
 
   private def contract(cid: ContractId, contractArgument: LfValue): Contract =
     createNode(cid, Set.empty, Set.empty, contractArgument = contractArgument)

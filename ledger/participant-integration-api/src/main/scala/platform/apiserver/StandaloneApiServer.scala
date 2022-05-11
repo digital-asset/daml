@@ -30,6 +30,7 @@ import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 object StandaloneApiServer {
@@ -55,6 +56,7 @@ object StandaloneApiServer {
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
+      apiStreamShutdownTimeout: Duration,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -112,6 +114,7 @@ object StandaloneApiServer {
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagementConfig,
+        apiStreamShutdownTimeout = apiStreamShutdownTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -131,7 +134,7 @@ object StandaloneApiServer {
       _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
     } yield {
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}"
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.indexConfiguration.archiveFiles}"
       )
       apiServer
     }

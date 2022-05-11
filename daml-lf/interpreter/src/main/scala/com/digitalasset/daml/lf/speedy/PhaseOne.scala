@@ -4,8 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.language.Ast._
@@ -349,10 +347,12 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBFromRequiredInterface(requiringIfaceId)(exp))
         }
-      case EUnsafeFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, cidExp, ifaceExp) =>
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cidExp, ifaceExp) =>
         compileExp(env, cidExp) { cidExp =>
           compileExp(env, ifaceExp) { ifaceExp =>
-            Return(SBUnsafeFromRequiredInterface(requiringIfaceId)(cidExp, ifaceExp))
+            Return(
+              SBUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId)(cidExp, ifaceExp)
+            )
           }
         }
       case EInterfaceTemplateTypeRep(ifaceId, exp) =>
@@ -547,7 +547,7 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private def noArgs = new util.ArrayList[SValue](0)
+  private def noArgs = ArrayList.empty[SValue]
 
   private[this] def compileERecCon(
       env: Env,
@@ -675,7 +675,7 @@ private[lf] final class PhaseOne(
           val env1 = env0.pushExprVar(binder)
           body match {
             case eLet1: ELet =>
-              compileELet(env1, eLet1, bounds) //recursive call in compileExp is stack-safe
+              compileELet(env1, eLet1, bounds) // recursive call in compileExp is stack-safe
             case _ =>
               compileExp(env1, body) {
                 case SELet(bounds1, body1) =>
@@ -715,7 +715,7 @@ private[lf] final class PhaseOne(
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            Return(t.ChoiceDefRef(tmplId, chId)(cid, arg))
+            Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
       case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
@@ -723,10 +723,10 @@ private[lf] final class PhaseOne(
           compileExp(env, arg) { arg =>
             compileExp(env, guard) { guard =>
               Return(
-                t.GuardedChoiceDefRef(ifaceId, chId)(
+                t.InterfaceChoiceDefRef(ifaceId, chId)(
+                  guard,
                   cid,
                   arg,
-                  guard,
                 )
               )
             }
@@ -792,7 +792,7 @@ private[lf] final class PhaseOne(
     exp match {
       case EApp(fun, arg) =>
         compileExp(env, arg) { arg =>
-          compileAppsX(env, fun, arg :: args) //recursive call in compileExp is stack-safe
+          compileAppsX(env, fun, arg :: args) // recursive call in compileExp is stack-safe
         }
       case ETyApp(fun, arg) =>
         compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))

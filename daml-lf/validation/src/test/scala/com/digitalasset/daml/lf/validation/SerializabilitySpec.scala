@@ -37,7 +37,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
+          .Env(LanguageVersion.default, defaultInterface, Context.None, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -66,7 +66,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
+            .Env(LanguageVersion.default, defaultInterface, Context.None, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -157,8 +157,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType, controllers ${partiesAlice(
-          "NegativeTestCase:SerializableRecord"
-        )} to upure @Mod:SerializableType (Mod:SerializableType {});
+            "NegativeTestCase:SerializableRecord"
+          )} to upure @Mod:SerializableType (Mod:SerializableType {});
             } ;
           }
 
@@ -172,8 +172,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:SerializableType, controllers ${partiesAlice(
-          "PositiveTestCase1:UnserializableRecord"
-        )}
+            "PositiveTestCase1:UnserializableRecord"
+          )}
                   to upure @Mod:SerializableType (Mod:SerializableType {});
             } ;
           }
@@ -202,8 +202,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:UnserializableType, controllers ${partiesAlice(
-          "PositiveTestCase3:SerializableRecord"
-        )} to       // disallowed unserializable type
+            "PositiveTestCase3:SerializableRecord"
+          )} to       // disallowed unserializable type
                    upure @Mod:UnserializableType (Mod:UnserializableType {});
             } ;
           }

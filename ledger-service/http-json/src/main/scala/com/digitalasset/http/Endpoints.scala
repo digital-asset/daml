@@ -522,7 +522,7 @@ object Endpoints {
           )
         )
       case CommandService.GrpcError(status) =>
-        ParticipantServerError(status.getCode, Option(status.getDescription))
+        ParticipantServerError(status)
       case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
         Unauthorized(message)
       case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>

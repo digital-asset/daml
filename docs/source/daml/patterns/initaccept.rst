@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Initiate and Accept
-###################
+The Initiate and Accept Pattern
+###############################
 
 The Initiate and Accept pattern demonstrates how to start a bilateral workflow. One party initiates by creating a proposal or an invite contract. This gives another party the chance to accept, reject or renegotiate.
 
@@ -47,8 +47,9 @@ Result contract
     :end-before: -- END_COIN_ISSUE_AGREEMENT
 
 .. figure:: images/initiateaccept.png
+   :alt: The Intiate and Accept Pattern, showing how the CoinIssueProposal contract (an initiate contract), when accepted, returns the resulting CoinIssueAgreement contract.
 
-  Initiate and Accept pattern diagram
+   Initiate and Accept pattern diagram
 
 Trade-offs
 **********

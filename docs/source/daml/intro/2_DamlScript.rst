@@ -3,8 +3,8 @@
 
 .. _testing-using-script:
 
-2 Testing templates using Daml Script
-=====================================
+Test Templates using Daml Script
+================================
 
 In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <script-results>`. You'll learn about the basic features of :
 
@@ -17,12 +17,12 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using the 
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``daml-intro-2`` by running ``daml new daml-intro-2 --template daml-intro-2``
+  Remember that you can load all the code for this section into a folder called ``daml-intro-2`` by running ``daml new intro2 --template daml-intro-2``
 
 .. script_basics:
 
-Script basics
----------------
+Script Basics
+-------------
 
 A ``Script`` is like a recipe for a test, where you can script different parties submitting a series of transactions, to check that your templates behave as you'd expect. You can also script some external information like party identities, and ledger time.
 
@@ -55,7 +55,7 @@ You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
 You could write this as ``submit alice (createCmd Token with owner = alice)``, but just like scripts, you can assemble commands using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the commands above gives the same result, whilst being easier to read. Note however, that the commands submitted as part of a transaction are not allowed to depend on each other.
 
-Running scripts
+Run the Scripts
 ---------------
 
 There are a few ways to run Daml Scripts:
@@ -68,10 +68,12 @@ There are a few ways to run Daml Scripts:
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on it to display the outcome of the script.
 
 .. figure:: images/2_Scenario/scenario_results1.png
+   :alt: Script results indicating that a token has been created for Alice.
 
 This opens the script view in a separate column in VS Code. The default view is a tabular representation of the final state of the ledger:
 
 .. figure:: images/2_Scenario/tabular_view1.png
+   :alt: The script view as a separate column, with a table that shows Alice's token. Full display explained immediately below.
 
 What this display means:
 
@@ -89,8 +91,8 @@ To run the same test from the command line, save your module in a file ``Token_T
 
 .. _intro_2_failure:
 
-Testing for failure
--------------------
+Test for Failure
+----------------
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
 
@@ -102,6 +104,7 @@ In :doc:`1_Token` you learned that creating a ``Token`` requires the authority o
 However, if you open the script view for that script, you see the following message:
 
 .. figure:: images/2_Scenario/failure.png
+   :alt: Script failure message indicating that the script failed due to a missing authorization from Bob.
 
 The script failed, as expected, but scripts abort at the first failure. This means that it only tested that Alice can't create a token for Bob, and the second ``submit`` statement was never reached.
 
@@ -116,8 +119,8 @@ To test for failing submits and keep the script running thereafter, or fail if t
 
 .. _archiving:
 
-Archiving contracts
--------------------
+Archive Contracts
+-----------------
 
 Archiving contracts works just like creating them, but using ``archiveCmd`` instead of ``createCmd``. Where ``createCmd`` takes an instance of a template, ``archiveCmd`` takes a reference to a contract.
 
@@ -132,18 +135,20 @@ This script first checks that Bob cannot archive Alice's Token and then Alice su
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
 
-Exploring the ledger
---------------------
+Explore the Ledger
+------------------
 
 The resulting script view is empty, because there are no contracts left on the ledger. However, if you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
 .. figure:: images/2_Scenario/archived.png
+   :alt: The script view as a separate column, with the Show Archived checkbox selected.
 
 You can see that there was a ``Token`` contract, which is now archived, indicated both by the "archived" value in the ``status`` column as well as by a strikethrough.
 
 Click on the adjacent "Show transaction view" button to see the entire transaction graph:
 
 .. figure:: images/2_Scenario/tx_graph.png
+   :alt: The transaction view with the transaction's information from the point of its creation to exercise.
 
 In the Daml Studio script runner, committed transactions are numbered sequentially. The lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
 
@@ -153,7 +158,7 @@ The lines above and below ``create Token_Test:Token`` give additional informatio
 
 - ``consumed by: #2:0`` tells you that the contract is archived in sub-transaction ``0`` of commit ``2``.
 - ``referenced by #2:0`` tells you that the contract was used in other transactions, and lists their IDs.
-- ``known to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to a ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
+- ``disclosed to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to an ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
 - Everything following ``with`` shows the create arguments.
 
 Exercises
@@ -169,7 +174,7 @@ To get a better understanding of script, try the following exercises:
 
     Remember that in :ref:`intro_2_failure` we saw a proper error message for a failing submit.
 
-Next up
-----------
+Next Up
+-------
 
 In :doc:`3_Data` you will learn about Daml's type system, and how you can think of templates as tables and contracts as database rows.

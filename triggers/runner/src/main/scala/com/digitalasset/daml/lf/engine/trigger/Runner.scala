@@ -478,7 +478,7 @@ class Runner(
       acs: Seq[CreatedEvent],
   ): Flow[TriggerMsg, SubmitRequest, Future[SValue]] = {
     logger.info(s"""Trigger ${name} is running as ${parties.actAs} with readAs=[${parties.readAs
-      .mkString(", ")}]""")
+        .mkString(", ")}]""")
 
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)

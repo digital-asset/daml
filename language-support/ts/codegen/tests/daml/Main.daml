@@ -6,6 +6,7 @@ module Main where
 import DA.TextMap
 import qualified DA.Map
 import Lib.Mod
+import Lib.ModIfaceOnly
 
 import T
 
@@ -181,14 +182,6 @@ interface Token where
     do
       transferImpl this newOwner
 
-interface Other where
-  getOtherOwner : Party
-  somethingImpl : Update ()
-  choice Something : ()
-    controller getOtherOwner this
-    do
-      somethingImpl this
-
 template Asset with
     issuer: Party
     owner: Party
@@ -201,6 +194,10 @@ template Asset with
         cid <- create Asset with issuer = issuer, owner = newOwner
         pure (toInterfaceContractId @Token cid)
     implements Other where
+      getOtherOwner = owner
+      somethingImpl = do
+        pure ()
+    implements YetAnother where
       getOtherOwner = owner
       somethingImpl = do
         pure ()

@@ -17,7 +17,7 @@ For this reason for production setups at a minimum we recommend to use a databas
 as a query store, this will allow for more efficient caching of the data to improve
 query performance. Details for enabling a query store are highlighted below.
 
-Query store
+Query Store
 ***********
 
 .. note:: Daml Open Source only supports PostgreSQL backends for the *HTTP JSON API* server, but Daml Enterprise also supports Oracle backends.
@@ -84,7 +84,7 @@ created, it's safe to always use ``start-mode=start-only``.
 
 .. note:: The full list of query store configuration flags supported can be seen by running ``daml json-api --help``.
 
-Data continuity
+Data Continuity
 ---------------
 
 The query store is a cache, which means that it's perfectly fine to drop it as
@@ -107,7 +107,7 @@ start the server using either ``start-mode=create-only`` and ``start-mode=start-
 or ``start-mode=create-and-start`` as described above, depending on your preferred
 production setup.
 
-Security and privacy
+Security and Privacy
 ********************
 
 For an *HTTP JSON API* server, all data is maintained by the operator of the deployment.
@@ -247,7 +247,7 @@ The default log encoder used is the plaintext one for traditional logging target
 Metrics
 *******
 
-Enable and configure reporting
+Enable and Configure Reporting
 ------------------------------
 
 
@@ -284,7 +284,7 @@ or the two following CLI options (deprecated):
   on the ISO 8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
   The default interval is 10 seconds.
 
-Types of metrics
+Types of Metrics
 ================
 
 This is a list of type of metrics with all data points recorded for each.
@@ -314,7 +314,7 @@ A timer records all metrics registered by a meter and by a histogram, where
 the histogram records the time necessary to execute a given operation (
 in fractional milliseconds).
 
-List of metrics
+List of Metrics
 ===============
 
 The following is a list of selected metrics that can be particularly

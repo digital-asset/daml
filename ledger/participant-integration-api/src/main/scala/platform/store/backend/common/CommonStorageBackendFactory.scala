@@ -9,19 +9,19 @@ import com.daml.platform.store.cache.LedgerEndCache
 trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createParameterStorageBackend: ParameterStorageBackend =
-    ParameterStorageBackendTemplate
+    ParameterStorageBackendImpl
 
   override val createMeteringParameterStorageBackend: MeteringParameterStorageBackend =
-    MeteringParameterStorageBackendTemplate
+    MeteringParameterStorageBackendImpl
 
   override val createIntegrityStorageBackend: IntegrityStorageBackend =
-    IntegrityStorageBackendTemplate
+    IntegrityStorageBackendImpl
 
   override val createStringInterningStorageBackend: StringInterningStorageBackend =
-    StringInterningStorageBackendTemplate
+    StringInterningStorageBackendImpl
 
   override val createUserManagementStorageBackend: UserManagementStorageBackend =
-    UserManagementStorageBackendTemplate
+    UserManagementStorageBackendImpl
 
   override def createMeteringStorageReadBackend(
       ledgerEndCache: LedgerEndCache

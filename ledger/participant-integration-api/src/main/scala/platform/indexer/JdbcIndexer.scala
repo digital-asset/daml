@@ -18,7 +18,7 @@ import com.daml.platform.store.DbType.{
   LocalSynchronousCommit,
   SynchronousCommit,
 }
-import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
+import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
@@ -89,8 +89,6 @@ object JdbcIndexer {
           batchingParallelism = config.batchingParallelism,
           ingestionParallelism = config.ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
-          tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
-          batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
         ),
         stringInterningStorageBackend = stringInterningStorageBackend,

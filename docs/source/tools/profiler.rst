@@ -75,6 +75,7 @@ Let’s open the first exercise profile above ``2021-03-17T12:32:17.361596Z-exer
    .. image:: profiler/images/speedscope.png
       :align: center
       :width: 100%
+      :alt: Speedscope results for the first exercise profile. The first activity is just after the 4.00 ms mark.
 
 You can see the exercise as the root of the profile. Below that there
 are a few expressions to calculate signatories, observer and

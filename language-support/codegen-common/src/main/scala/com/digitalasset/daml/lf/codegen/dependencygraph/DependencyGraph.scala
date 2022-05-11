@@ -3,47 +3,50 @@
 
 package com.daml.lf.codegen.dependencygraph
 
-import com.daml.lf.codegen.Util
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.codegen.lf.DefTemplateWithRecord
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.iface.{InterfaceType, DefDataType}
-import scalaz.std.either._
+import com.daml.lf.iface.{InterfaceType, DefInterface}
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
-import scalaz.syntax.bifunctor._
 import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
-  def orderedDependencies(
-      decls: Map[Identifier, InterfaceType]
-  ): OrderedDependencies[Identifier, Either[DefTemplateWithRecord, DefDataType.FWT]] = {
-    // invariant: no type decl name equals any template alias
-    val typeDeclNodes =
-      decls.to(ImmArraySeq).collect { case (qualName, InterfaceType.Normal(typeDecl)) =>
-        (
-          qualName,
-          Node(
-            Right(typeDecl),
-            typeDecl.bifoldMap(Util.genTypeTopLevelDeclNames)(Util.genTypeTopLevelDeclNames),
-            collectDepError = false,
-          ),
+
+  import com.daml.lf.codegen.Util.genTypeTopLevelDeclNames
+
+  private def toNode(namedInterfaceType: (Identifier, InterfaceType)) =
+    namedInterfaceType match {
+      case id -> InterfaceType.Normal(t) =>
+        Left(
+          id -> Node(
+            NodeType.Internal(t),
+            t.bifoldMap(genTypeTopLevelDeclNames)(genTypeTopLevelDeclNames),
+          )
         )
-      }
-    val templateNodes =
-      decls.to(ImmArraySeq).collect { case (qualName, InterfaceType.Template(typ, tpl)) =>
-        val recDeps = typ.foldMap(Util.genTypeTopLevelDeclNames)
-        val choiceAndKeyDeps = tpl.foldMap(Util.genTypeTopLevelDeclNames)
-        (
-          qualName,
-          Node(
-            Left(DefTemplateWithRecord(typ, tpl)),
+      case id -> InterfaceType.Template(rec, template) =>
+        val recDeps = rec.foldMap(genTypeTopLevelDeclNames)
+        val choiceAndKeyDeps = template.foldMap(genTypeTopLevelDeclNames)
+        Right(
+          id -> Node(
+            NodeType.Root.Template(rec, template),
             recDeps ++ choiceAndKeyDeps,
-            collectDepError = true,
-          ),
+          )
         )
-      }
-    Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes)
+    }
+
+  private def toNode(interface: DefInterface.FWT) =
+    Node(
+      NodeType.Root.Interface(interface),
+      interface.foldMap(genTypeTopLevelDeclNames),
+    )
+
+  def orderedDependencies(
+      serializableTypes: Map[Identifier, InterfaceType],
+      interfaces: Map[Identifier, DefInterface.FWT],
+  ): OrderedDependencies[Identifier, NodeType] = {
+    // invariant: no type decl name equals any template alias
+    val (typeDeclNodes, templateNodes) = serializableTypes.view.partitionMap(toNode)
+    val interfaceNodes = interfaces.view.mapValues(toNode)
+    Graph.cyclicDependencies(internalNodes = typeDeclNodes, roots = templateNodes ++ interfaceNodes)
   }
 
   /** Computes the collection of templates in the `library` and
@@ -52,18 +55,10 @@ private[codegen] object DependencyGraph {
     * targeting template definitions that can be observed through
     * the Ledger API.
     */
-  def transitiveClosure(decls: Map[Identifier, InterfaceType]): TransitiveClosure = {
-    val dependencies = orderedDependencies(decls)
-    val (templateIds, typeDeclarations) =
-      dependencies.deps
-        .partitionMap { case (templateId, Node(content, _, _)) =>
-          content.bimap((templateId, _), (templateId, _))
-        }
-    TransitiveClosure(
-      templateIds = templateIds,
-      typeDeclarations = typeDeclarations,
-      errors = dependencies.errors,
-    )
-  }
+  def transitiveClosure(
+      serializableTypes: Map[Identifier, InterfaceType],
+      interfaces: Map[Identifier, DefInterface.FWT],
+  ): TransitiveClosure =
+    TransitiveClosure.from(orderedDependencies(serializableTypes, interfaces))
 
 }

@@ -55,18 +55,14 @@ final class ContractClassBuilderSpec
   }
 
   private[this] val className = ClassName.bestGuess("Test")
-  private[this] val templateClassName = ClassName.bestGuess("Template")
-  private[this] val idClassName = ClassName.bestGuess("Id")
   private[this] val ckClassName = ClassName.bestGuess("Ck")
   private[this] val fromIdAndRecord =
     ContractClass.Builder.generateFromIdAndRecord(
       className,
-      templateClassName,
-      idClassName,
       Some(ckClassName),
     )
   private[this] val fromIdAndRecordWithoutKey =
-    ContractClass.Builder.generateFromIdAndRecord(className, templateClassName, idClassName, None)
+    ContractClass.Builder.generateFromIdAndRecord(className, None)
   private[this] val string = TypeName.get(classOf[String])
   private[this] val record = TypeName.get(classOf[javaapi.data.DamlRecord])
   private[this] val optionalString =

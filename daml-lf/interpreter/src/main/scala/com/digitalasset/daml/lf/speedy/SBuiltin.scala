@@ -11,6 +11,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -297,7 +298,7 @@ private[lf] object SBuiltin {
     private[speedy] def buildException(args: util.ArrayList[SValue]) =
       SArithmeticError(
         name,
-        args.iterator.asScala.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
+        args.view.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
       )
 
     override private[speedy] def execute(
@@ -711,7 +712,7 @@ private[lf] object SBuiltin {
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(args.subList(0, n).asScala.to(ImmArray) ++: getSList(args, n))
+      SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
   }
 
   /** $cons :: a -> List a -> List a */
@@ -974,6 +975,7 @@ private[lf] object SBuiltin {
     */
   final case class SBUBeginExercise(
       templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
@@ -1005,6 +1007,7 @@ private[lf] object SBuiltin {
           auth = auth,
           targetId = coid,
           templateId = templateId,
+          interfaceId = interfaceId,
           choiceId = choiceId,
           optLocation = machine.lastLocation,
           consuming = consuming,
@@ -1136,16 +1139,46 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBGuardRequiredInterfaceId(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ) = {
+      val contractId = getSContractId(args, 0)
+      val (actualTmplId, record @ _) = getSAnyContract(args, 1)
+      if (
+        machine.compiledPackages
+          .getDefinition(ImplementsDefRef(actualTmplId, requiringIfaceId))
+          .isEmpty
+      )
+        throw SErrorDamlException(
+          IE.ContractDoesNotImplementRequiringInterface(
+            requiringIfaceId,
+            requiredIfaceId,
+            contractId,
+            actualTmplId,
+          )
+        )
+      machine.returnValue = SBool(true)
+    }
+  }
+
   final case class SBResolveSBUBeginExercise(
+      interfaceId: TypeConName,
       choiceName: ChoiceName,
       consuming: Boolean,
+      byKey: Boolean,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
         SBUBeginExercise(
-          getSAnyContract(args, 0)._1,
-          choiceName,
-          consuming,
+          templateId = getSAnyContract(args, 0)._1,
+          interfaceId = Some(interfaceId),
+          choiceId = choiceName,
+          consuming = consuming,
           byKey = false,
         )
       )
@@ -1217,10 +1250,10 @@ private[lf] object SBuiltin {
     }
   }
 
-  // Convert an interface `requiredIface` to another interface `requiringIface`, if
-  // the `requiringIface` implements `requiredIface`.
+  // Convert an interface value to another interface `requiringIfaceId`, if
+  // the underlying template implements `requiringIfaceId`. Else return `None`.
   final case class SBFromRequiredInterface(
-      requiringIface: TypeConName
+      requiringIfaceId: TypeConName
   ) extends SBuiltin(1) {
 
     override private[speedy] def execute(
@@ -1228,22 +1261,22 @@ private[lf] object SBuiltin {
         machine: Machine,
     ) = {
       val (tyCon, record) = getSAnyContract(args, 0)
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      // TODO https://github.com/digital-asset/daml/issues/11345
-      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
-          SOptional(Some(SAnyContract(tyCon, record)))
-        case _ =>
+      machine.returnValue =
+        if (
+          machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty
+        )
           SOptional(None)
-      }
+        else
+          SOptional(Some(SAnyContract(tyCon, record)))
     }
   }
 
-  // Convert an interface `requiredIface` to another interface `requiringIface`, if
-  // the `requiringIface` implements `requiredIface`.
+  // Convert an interface `requiredIfaceId`  to another interface `requiringIfaceId`, if
+  // the underlying template implements `requiringIfaceId`. Else throw a fatal
+  // `ContractDoesNotImplementRequiringInterface` exception.
   final case class SBUnsafeFromRequiredInterface(
-      requiringIface: TypeConName
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
   ) extends SBuiltin(2) {
 
     override private[speedy] def execute(
@@ -1252,15 +1285,16 @@ private[lf] object SBuiltin {
     ) = {
       val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      // TODO https://github.com/digital-asset/daml/issues/11345
-      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
-          SAnyContract(tyCon, record)
-        case _ =>
-          throw SErrorDamlException(IE.WronglyTypedContract(coid, requiringIface, tyCon))
-      }
+      if (machine.compiledPackages.getDefinition(ImplementsDefRef(tyCon, requiringIfaceId)).isEmpty)
+        throw SErrorDamlException(
+          IE.ContractDoesNotImplementRequiringInterface(
+            requiringIfaceId,
+            requiredIfaceId,
+            coid,
+            tyCon,
+          )
+        )
+      machine.returnValue = SAnyContract(tyCon, record)
     }
   }
 
@@ -1607,7 +1641,7 @@ private[lf] object SBuiltin {
         opt match {
           case None =>
             onLedger.ptx = onLedger.ptx.abortTry
-            unwindToHandler(machine, excep) //re-throw
+            unwindToHandler(machine, excep) // re-throw
           case Some(handler) =>
             onLedger.ptx = onLedger.ptx.rollbackTry(excep)
             machine.enterApplication(handler, Array(SEValue(SToken)))
@@ -1828,7 +1862,7 @@ private[lf] object SBuiltin {
                         SCaseAlt(
                           SCPPrimCon(Ast.PCTrue), // True ->
                           SEAppAtomicGeneral(
-                            SEBuiltin(SBEqualList), //single recursive occurrence
+                            SEBuiltin(SBEqualList), // single recursive occurrence
                             Array(
                               SELocA(0), // f
                               SELocS(2), // yss
@@ -1850,7 +1884,7 @@ private[lf] object SBuiltin {
     private val closure: SValue = {
       val frame = Array.ofDim[SValue](0) // no free vars
       val arity = 3
-      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), new util.ArrayList[SValue](), arity)
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArrayList.empty, arity)
     }
 
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
@@ -1872,7 +1906,7 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
-    //TODO: move this into the speedy compiler code
+    // TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer

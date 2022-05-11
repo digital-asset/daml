@@ -89,6 +89,7 @@ private[daml] object ApiServices {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
+      apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -177,7 +178,7 @@ private[daml] object ApiServices {
       val apiTimeServiceOpt =
         optTimeServiceBackend.map(tsb =>
           new TimeServiceAuthorization(
-            ApiTimeService.create(ledgerId, tsb),
+            ApiTimeService.create(ledgerId, tsb, apiStreamShutdownTimeout),
             authorizer,
           )
         )

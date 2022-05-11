@@ -7,8 +7,6 @@ import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
-import scalaz.Liskov
-import Liskov.<~<
 
 import scala.annotation.nowarn
 
@@ -18,7 +16,7 @@ import scala.annotation.nowarn
   *           not for [[ValueRefCompanion]], because templates' associated
   *           types are guaranteed to have zero tparams.
   */
-abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
+abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
     extends ValueRefCompanion
     with LfEncodable.ViaFields[T] {
 
@@ -46,7 +44,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
   /** Proof that T <: Template[T].  Expressed here instead of as a type parameter
     * bound because the latter is much more inconvenient in practice.
     */
-  val describesTemplate: T <~< Template[T] = isTemplate
+  val describesTemplate: T <:< Template[T] = isTemplate
 
   def toNamedArguments(associatedType: T): rpcvalue.Record
 
@@ -76,7 +74,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
   private[binding] final def decoderEntry
       : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
     type K[+A] = (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[A])
-    Liskov.co[K, T, Template[T]](describesTemplate)(
+    describesTemplate.substituteCo[K](
       (id, _.createArguments flatMap fromNamedArguments)
     )
   }
@@ -95,7 +93,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
 }
 
 object TemplateCompanion {
-  abstract class Empty[T](implicit isTemplate: T <~< Template[T]) extends TemplateCompanion[T] {
+  abstract class Empty[T](implicit isTemplate: T <:< Template[T]) extends TemplateCompanion[T] {
     protected def onlyInstance: T
     override type key = Nothing
     type view[C[_]] = RecordView.Empty[C]

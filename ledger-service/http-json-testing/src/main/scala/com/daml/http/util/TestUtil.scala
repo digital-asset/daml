@@ -11,7 +11,6 @@ import akka.util.ByteString
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.io.Source
 import scala.util.{Failure, Success, Try, Using}
 
 object TestUtil extends LazyLogging {
@@ -27,20 +26,6 @@ object TestUtil extends LazyLogging {
     Using(new BufferedWriter(new FileWriter(file))) { bw =>
       bw.write(text)
       file
-    }
-
-  def readFile(resourcePath: String): String =
-    Try {
-      val source = Source.fromResource(resourcePath)
-      val content = source.getLines().mkString
-      source.close
-      content
-    } match {
-      case Success(value) => value
-      // only needed for Scala 2.12; 2.13 does this itself
-      case Failure(_: NullPointerException) =>
-        throw new java.io.FileNotFoundException(s"resource '$resourcePath' not found in classpath")
-      case Failure(ex) => throw ex
     }
 
   def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)(implicit

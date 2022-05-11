@@ -25,7 +25,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.PersistenceResponse
+import com.daml.platform.store.dao.PersistenceResponse
 import com.daml.platform.store.dao.JdbcLedgerDaoSuite._
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -221,6 +221,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     Node.Exercise(
       targetCoid = targetCid,
       templateId = someTemplateId,
+      interfaceId = None,
       choiceId = someChoiceName,
       consuming = true,
       actingParties = Set(alice),
@@ -377,6 +378,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       Node.Exercise(
         targetCoid = id,
         templateId = someTemplateId,
+        interfaceId = None,
         choiceId = someChoiceName,
         consuming = false,
         actingParties = Set(alice),
@@ -750,6 +752,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       Node.Exercise(
         targetCoid = contractId,
         templateId = someTemplateId,
+        interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
         consuming = true,
         actingParties = Set(party),

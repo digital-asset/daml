@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
+
 import java.util.UUID
 
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}

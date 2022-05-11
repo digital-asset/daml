@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.crypto
+
 import org.openjdk.jmh.annotations._
 
 import java.nio.charset.StandardCharsets

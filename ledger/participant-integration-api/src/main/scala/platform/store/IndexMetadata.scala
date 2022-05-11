@@ -14,7 +14,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
 import scalaz.Tag
@@ -68,7 +68,6 @@ object IndexMetadata {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          acsIdQueueLimit = 1000000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,

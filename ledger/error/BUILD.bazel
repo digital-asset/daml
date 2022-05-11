@@ -41,7 +41,6 @@ da_scala_library(
     name = "error-test-utils",
     srcs = glob(["src/test/utils/**/*.scala"]),
     scala_deps = [],
-    tags = ["maven_coordinates=com.daml:error-test-package:__VERSION__"],
     visibility = ["//:__subpackages__"],
     deps = [
         ":error",
@@ -62,6 +61,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
+    tags = ["maven_coordinates=com.daml:error-test-lib:__VERSION__"],
     visibility = ["//ledger:__subpackages__"],
     deps = [
         "//ledger/error",

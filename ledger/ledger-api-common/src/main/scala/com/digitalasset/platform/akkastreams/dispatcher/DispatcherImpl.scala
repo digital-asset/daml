@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Source
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
+import scala.concurrent.Future
 
 final class DispatcherImpl[Index: Ordering](
     name: String,
@@ -77,7 +78,7 @@ final class DispatcherImpl[Index: Ordering](
     else {
       val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
-        // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
+          // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
           .map(_ => getHead())
       )
 
@@ -121,15 +122,15 @@ final class DispatcherImpl[Index: Ordering](
   private def indexIsBeforeZero(checkedIndex: Index): Boolean =
     Ordering[Index].gt(zeroIndex, checkedIndex)
 
-  def close(): Unit =
+  override def shutdown(): Future[Unit] =
     state.getAndUpdate {
       case Running(idx, _) => Closed(idx)
       case c: Closed => c
     } match {
       case Running(_, disp) =>
         disp.signal()
-        disp.close()
-      case _: Closed => ()
+        disp.shutdown()
+      case _: Closed => Future.unit
     }
 
   private def closedError: IllegalStateException =

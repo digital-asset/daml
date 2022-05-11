@@ -32,7 +32,7 @@ Ledger API
 
 .. _runtime-components:
 
-Runtime components
+Runtime Components
 ******************
 
 .. list-table::

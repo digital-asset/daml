@@ -16,8 +16,8 @@ You can generate visual graphs for the contracts in your Daml project. To do thi
 
 You can of course choose different names for the files, as long as you're consistent between file creation and point of use.
 
-Example: Visualizing the Quickstart project
-===========================================
+Example: Visualize the Quickstart Project
+=========================================
 
 Here's an example visualization based on the :doc:`quickstart </app-dev/bindings-java/quickstart>`. You'll need to `install Graphviz <http://www.graphviz.org/download/>`_ to try this out.
 
@@ -32,19 +32,20 @@ Running the above should produce an image which looks something like this:
 .. image:: images/quickstart.png
   :width: 30%
   :align: center
+  :alt: A visualization based on a a simple Iou transfer workflow, in the form of a flowchart.
 
 
 
-Visualizing Daml Contracts - Within IDE
-=======================================
+Visualize Daml Contracts - Within IDE
+=====================================
 
 You can generate visual graphs from VS Code IDE. Open the daml project in VS Code and use `command palette <https://code.visualstudio.com/docs/getstarted/tips-and-tricks#_command-palette/>`_. Should reveal a new window pane with dot image. Also visual generates only the currently open daml file and its imports.
 
 Note: You will need to install the Graphviz/dot packages as mentioned above.
 
 
-Visualizing Daml Contracts - Interactive Graphs
-===============================================
+Visualize Daml Contracts - Interactive Graphs
+=============================================
 
 This does not require any packages installed. You can generate `D3 <https://d3js.org/>`_ graphs for the contracts in your Daml project. To do this
 
@@ -57,3 +58,4 @@ Running the above should produce an image which looks something like this:
 .. image:: images/d3-visual.png
   :width: 30%
   :align: center
+  :alt: A visualization of a contract as a circular graph.

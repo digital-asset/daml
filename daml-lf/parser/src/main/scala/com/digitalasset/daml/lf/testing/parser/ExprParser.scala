@@ -188,7 +188,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private def binding(sep: Token): Parser[Binding] =
     id ~ (`:` ~> typ) ~ (sep ~> expr) ^^ { case vName ~ t ~ value =>
       Binding(Some(vName), t, value)
-    }
+    } |
+      `_` ~> (`:` ~> typ) ~ (sep ~> expr) ^^ { case t ~ value =>
+        Binding(None, t, value)
+      }
 
   private lazy val eLet: Parser[Expr] =
     `let` ~>! binding(`=`) ~ (`in` ~> expr) ^^ { case b ~ body =>

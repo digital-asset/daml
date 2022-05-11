@@ -14,8 +14,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.indexer.ha.Handle
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
+import com.daml.platform.store.dao.DbDispatcher
+import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend._
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
@@ -34,8 +34,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     batchingParallelism: Int,
     ingestionParallelism: Int,
     submissionBatchSize: Long,
-    tailingRateLimitPerSecond: Int,
-    batchWithinMillis: Long,
     metrics: Metrics,
 ) {
   import ParallelIndexerSubscription._
@@ -50,7 +48,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     initialized =>
       val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
         submissionBatchSize = submissionBatchSize,
-        batchWithinMillis = batchWithinMillis,
         inputMappingParallelism = inputMappingParallelism,
         inputMapper = inputMapperExecutor.execute(
           inputMapper(
@@ -76,7 +73,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
-        tailingRateLimitPerSecond = tailingRateLimitPerSecond,
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(

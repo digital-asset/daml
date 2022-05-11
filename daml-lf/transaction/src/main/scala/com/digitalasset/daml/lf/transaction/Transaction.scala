@@ -151,9 +151,9 @@ final case class Transaction(
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case nr1: Node.Rollback => //TODO: can this be Node.Rollback ?
+            case nr1: Node.Rollback => // TODO: can this be Node.Rollback ?
               node2 match {
-                case nr2: Node.Rollback => //TODO: and here
+                case nr2: Node.Rollback => // TODO: and here
                   val blankedNr1: Node.Rollback =
                     nr1.copy(children = ImmArray.Empty)
                   val blankedNr2: Node.Rollback =
@@ -438,7 +438,7 @@ sealed abstract class HasTxNodes {
     */
   final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _))) =>
         acc + coid
@@ -770,9 +770,9 @@ object Transaction {
       node match {
         case Node.Create(_, tmplId, _, _, _, _, Some(key), _) =>
           state.created(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
+        case Node.Exercise(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.consumed(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
+        case Node.Exercise(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.referenced(globalKey(tmplId, key.key))
         case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _) =>
           state.referenced(globalKey(tmplId, key.key))

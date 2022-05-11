@@ -56,6 +56,7 @@ data DamlEnv = DamlEnv
   , envSkipScenarioValidation :: SkipScenarioValidation
   , envIsGenerated :: Bool
   , envEnableScenarios :: EnableScenarios
+  , envTestFilter :: T.Text -> Bool
   }
 
 instance IsIdeGlobal DamlEnv
@@ -74,6 +75,7 @@ mkDamlEnv opts scenarioService = do
         , envSkipScenarioValidation = optSkipScenarioValidation opts
         , envIsGenerated = optIsGenerated opts
         , envEnableScenarios = optEnableScenarios opts
+        , envTestFilter = optTestFilter opts
         }
 
 getDamlServiceEnv :: Action DamlEnv

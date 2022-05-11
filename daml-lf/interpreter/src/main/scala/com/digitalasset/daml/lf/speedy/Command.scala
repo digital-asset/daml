@@ -20,7 +20,7 @@ private[lf] object Command {
   ) extends Command
 
   /** Exercise a template choice, not by interface */
-  final case class Exercise(
+  final case class ExerciseTemplate(
       templateId: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
@@ -41,6 +41,14 @@ private[lf] object Command {
     */
   final case class ExerciseInterface(
       interfaceId: Identifier,
+      contractId: SContractId,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ) extends Command
+
+  final case class ExerciseByInheritedInterface(
+      requiredIface: Identifier,
+      requiringIface: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,

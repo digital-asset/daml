@@ -8,7 +8,7 @@ import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
-import com.daml.platform.store.appendonlydao.events.{ContractId, Identifier}
+import com.daml.platform.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 
 /** Generic ledger update event.

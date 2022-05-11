@@ -9,8 +9,9 @@ import akka.stream._
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.{Contract, Key, Party}
 import com.daml.platform.index.BuffersUpdater._
-import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
@@ -108,7 +109,7 @@ private[index] object BuffersUpdater {
   def apply(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
-      updateMutableCache: ContractStateEvent => Unit,
+      updateMutableCache: Vector[ContractStateEvent] => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
       executionContext: ExecutionContext,
@@ -121,7 +122,11 @@ private[index] object BuffersUpdater {
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
     updateCaches = (offset, transactionLogUpdate) => {
       updateTransactionsBuffer(offset, transactionLogUpdate)
-      toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
+
+      val contractStateEventsBatch = toContractStateEvents(transactionLogUpdate).toVector
+      if (contractStateEventsBatch.nonEmpty) {
+        updateMutableCache(contractStateEventsBatch)
+      }
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,

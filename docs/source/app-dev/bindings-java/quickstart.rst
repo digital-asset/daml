@@ -3,8 +3,8 @@
 
 .. _quickstart:
 
-IOU Quickstart Tutorial
-#######################
+Daml IOU Quickstart Tutorial
+############################
 
 In this guide, you will learn about developer tools and Daml applications by:
 
@@ -18,7 +18,7 @@ Prerequisites:
 
 .. _quickstart-download:
 
-Download the quickstart application
+Download the Quickstart Application
 ***********************************
 
 You can get the quickstart application using the Daml assistant (``daml``):
@@ -28,7 +28,7 @@ You can get the quickstart application using the Daml assistant (``daml``):
    This creates the ``quickstart-java`` application into a new folder called ``quickstart``.
 #. Run ``cd quickstart`` to change into the new directory.
 
-Folder structure
+Folder Structure
 ================
 
 The project contains the following files:
@@ -68,8 +68,8 @@ You will explore these in more detail through the rest of this guide.
 
 .. _tutorials-iou-overview:
 
-Overview of what an IOU is
-**************************
+Understand IOUs
+***************
 
 To run through this guide, you will need to understand what an IOU is. This section describes the properties of an IOU like a bank bill that make it useful as a representation and transfer of value.
 
@@ -78,6 +78,7 @@ A bank bill represents a contract between the owner of the bill and its issuer, 
 To do this, the note must have certain properties. In particular, the British pound note shown below illustrates the key elements that are needed to describe money in Daml:
 
 .. figure:: quickstart/images/poundNote.jpg
+   :alt: A British five pound note with sections labelled as described below.
    :align: center
 
 **1) The Legal Agreement**
@@ -106,7 +107,7 @@ The note itself is printed on paper, and its legal owner is the person holding i
 
 .. _quickstart-start:
 
-Run the application using prototyping tools
+Run the Application Using Prototyping Tools
 *******************************************
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping Daml:
@@ -150,8 +151,8 @@ In this section, you will run the quickstart application and get introduced to t
 
 .. _quickstart-work:
 
-Try out the application
-***********************
+Try the Application
+*******************
 
 Now everything is running, you can try out the quickstart application:
 
@@ -163,6 +164,7 @@ Now everything is running, you can try out the quickstart application:
    This takes you to the contracts view:
 
    .. figure:: quickstart/images/contracts.png
+      :alt: The Contracts view in the Navigator, showing one existing contract.
 
    This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, in our case with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
@@ -190,6 +192,7 @@ Now everything is running, you can try out the quickstart application:
 #. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
    .. figure:: quickstart/images/createIou.png
+      :alt: Fill out the form by entering Alice as the Issuer and as the Owner, AliceCoin as the Currency, and 1.0 as the Amount.
 
 #. On the left-hand side, click **Issued Ious** to go to that page. You can see the Iou you just issued yourself.
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
@@ -209,6 +212,7 @@ Now everything is running, you can try out the quickstart application:
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
+      :alt: Fill out the form by entering Alice as the buyer, Bob as the seller, #13:1 as the baseIouCid, EUR_Bank as the baseIssuer, EUR as the baseCurrency, 100.00 as the baseAmount, USD_Bank as the quote_Issuer, USD as the quoteCurrency, and 110.0 as the quoteAmount.
 
 #. Go to the **Trades** page. It shows the just-proposed trade.
 #. You are now going to switch user to Bob, so you can accept the trades you have just proposed. Start by clicking on the logout button next to the username, at the top of the screen. On the login page, select **Bob** from the dropdown.
@@ -248,7 +252,7 @@ Now everything is running, you can try out the quickstart application:
 
 .. _quickstart-daml:
 
-Get started with Daml
+Get Started with Daml
 *********************
 
 The *contract model* specifies the possible contracts, as well as the allowed transactions on the ledger, and is written in Daml.
@@ -356,7 +360,7 @@ For a deeper introduction to Daml, consult the :doc:`Daml Reference </daml/refer
 
 .. _quickstart-scripts:
 
-Test using Daml Script
+Test Using Daml Script
 ======================
 
 You can check the correct authorization and privacy of a contract model using *scripts*: tests that are written in Daml.
@@ -379,30 +383,31 @@ Compare the script with the ``initialize`` script in ``daml/Main.daml``. You wil
 After a short time, the text *Script results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
 
 .. figure:: quickstart/images/ledger.png
+   :alt: The Script Results view showing two subtransactions: one with Issuer USD_Bank and Owner Alice, the other with Issuer EUR_Bank and Owner Bob.
 
 Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
-In the transaction view, transaction ``6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
+In the transaction view, transaction ``6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``disclosed to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 
   TX 6 1970-01-01T00:00:00Z (Tests.Trade:70:14)
   #6:0
-  │   known to (since): 'Alice' (6), 'Bob' (6)
+  │   disclosed to (since): 'Alice' (6), 'Bob' (6)
   └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
             with
               quoteIouCid = #3:1
       children:
       #6:1
-      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> fetch #4:1 (Iou:Iou)
 
       #6:2
-      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> fetch #3:1 (Iou:Iou)
 
       #6:3
-      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
                 with
                   newOwner = 'Alice'
@@ -410,7 +415,7 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
           #6:4
           │   consumed by: #6:5
           │   referenced by #6:5
-          │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
           └─> create Iou:IouTransfer
               with
                 iou =
@@ -423,12 +428,12 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
                 newOwner = 'Alice'
 
       #6:5
-      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
                   with
           children:
           #6:6
-          │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
           └─> create Iou:Iou
               with
                 issuer = 'USD_Bank';
@@ -438,7 +443,7 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
                 observers = []
 
       #6:7
-      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
                   with
                     newOwner = 'Bob'
@@ -446,7 +451,7 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
           #6:8
           │   consumed by: #6:9
           │   referenced by #6:9
-          │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
           └─> create Iou:IouTransfer
               with
                 iou =
@@ -459,12 +464,12 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
                 newOwner = 'Bob'
 
       #6:9
-      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
                 with
           children:
           #6:10
-          │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
           └─> create Iou:Iou
               with
                 issuer = 'EUR_Bank';
@@ -475,7 +480,7 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
 
 The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
-..  Interact with the ledger through the command line
+..  Interact With the Ledger Through the Command Line
     *************************************************
 
     All interaction with a Daml ledger, be it sandbox or any other implementation, happens via the :doc:`Ledger API </app-dev/ledger-api>`. It is based on `gRPC <https://grpc.io/>`_.
@@ -492,7 +497,7 @@ The ``submit`` function used in this script tries to perform a transaction and f
 
 .. _quickstart-application:
 
-Integrate with the ledger
+Integrate With the Ledger
 *************************
 
 A distributed ledger only forms the core of a full Daml application.
@@ -604,7 +609,7 @@ The rest of the application sets up the REST services using `Spark Java <http://
 
 For a discussion of ledger application design and architecture, take a look at :doc:`Application Architecture Guide </app-dev/app-arch>`.
 
-Next steps
+Next Steps
 **********
 
 Great - you've completed the quickstart guide!

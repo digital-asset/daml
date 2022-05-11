@@ -12,6 +12,6 @@ object Statement {
     */
   @specialized def discard[A](evaluateForSideEffectOnly: A): Unit = {
     val _ = evaluateForSideEffectOnly
-    () //Return unit to prevent warning due to discarding value
+    () // Return unit to prevent warning due to discarding value
   }
 }

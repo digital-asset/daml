@@ -13,12 +13,12 @@ object DbDtoEq extends Matchers {
   val DbDtoEq: org.scalactic.Equality[DbDto] = {
     case (a: DbDto, b: DbDto) =>
       (a.productPrefix === b.productPrefix) &&
-        (a.productArity == b.productArity) &&
-        (a.productIterator zip b.productIterator).forall {
-          case (x: Array[_], y: Array[_]) => x sameElements y
-          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
-          case (x, y) => x === y
-        }
+      (a.productArity == b.productArity) &&
+      (a.productIterator zip b.productIterator).forall {
+        case (x: Array[_], y: Array[_]) => x sameElements y
+        case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+        case (x, y) => x === y
+      }
     case (_, _) => false
   }
 

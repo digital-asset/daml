@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.javaapi.data.{codegen => jcg}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
@@ -33,6 +34,7 @@ import org.scalatest.{Assertion, Suite}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
+import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
 
 trait SandboxTestLedger extends SandboxFixture {
@@ -137,7 +139,23 @@ object TestUtil {
       )
   }
 
+  def readActiveContractKeys[K, C <: jcg.ContractWithKey[_, _, K]](
+      companion: jcg.ContractCompanion.WithKey[C, _, _, K]
+  )(channel: Channel, partyName: String): List[Optional[K]] =
+    readActiveContracts(companion.fromCreatedEvent)(channel, partyName).map(_.key)
+
+  def readActiveContractPayloads[T, C <: jcg.Contract[_, T]](
+      companion: jcg.ContractCompanion[C, _, T]
+  )(channel: Channel, partyName: String): List[T] =
+    readActiveContracts(companion.fromCreatedEvent)(channel, partyName).map(_.data)
+
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
+      channel: Channel,
+      partyName: String,
+  ): List[C] =
+    readActiveContractsSafe(PartialFunction.fromFunction(fromCreatedEvent))(channel, partyName)
+
+  def readActiveContractsSafe[C <: Contract](fromCreatedEvent: PartialFunction[CreatedEvent, C])(
       channel: Channel,
       partyName: String,
   ): List[C] = {
@@ -160,7 +178,12 @@ object TestUtil {
           .getCreatedEvents
           .stream()
       )
-      .map[C]((e: CreatedEvent) => fromCreatedEvent(e))
+      .flatMap { createdEvent =>
+        val res = fromCreatedEvent.lift(createdEvent)
+        OptionConverters
+          .toJava(res)
+          .stream(): java.util.stream.Stream[C]
+      }
       .collect(Collectors.toList[C])
       .asScala
       .toList

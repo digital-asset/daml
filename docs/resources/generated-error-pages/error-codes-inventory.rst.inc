@@ -1,13 +1,29 @@
-1. KVErrors
+1. KvErrors
 ===================================================================================================================
 
 Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC.
 
 
-1.1. KVErrors / Consistency
+1.1. KvErrors / Consistency
 ===================================================================================================================
 
 Errors that highlight transaction consistency issues in the committer context.
+
+
+
+.. _error_code_INCONSISTENT_INPUT:
+
+INCONSISTENT_INPUT
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: At least one input has been altered by a concurrent transaction submission.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without an archived contract as an input, or the transaction submission may be retried to load the up-to-date value of a contract key.
+
 
 
 
@@ -26,7 +42,7 @@ VALIDATION_FAILURE
 
 
 
-1.2. KVErrors / Internal
+1.2. KvErrors / Internal
 ===================================================================================================================
 
 Errors that arise from an internal system misbehavior.
@@ -96,7 +112,7 @@ SUBMISSION_FAILED
 
 
 
-1.3. KVErrors / Resources
+1.3. KvErrors / Resources
 ===================================================================================================================
 
 Errors that relate to system resources.
@@ -118,7 +134,7 @@ RESOURCE_EXHAUSTED
 
 
 
-1.4. KVErrors / Time
+1.4. KvErrors / Time
 ===================================================================================================================
 
 Errors that relate to the Daml concepts of time.
@@ -151,6 +167,22 @@ INVALID_RECORD_TIME
     **Category**: InvalidGivenCurrentSystemStateOther
 
     **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+
+    **Resolution**: Retry the submission or contact the participant operator.
+
+
+
+
+.. _error_code_RECORD_TIME_OUT_OF_BOUNDS:
+
+RECORD_TIME_OUT_OF_BOUNDS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The record time is not within bounds for reasons such as excessive latency, excessive clock skew between the participant and the committer or a time model that is too restrictive.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
     **Resolution**: Retry the submission or contact the participant operator.
 
@@ -270,7 +302,7 @@ PARTICIPANT_BACKPRESSURE
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
 
     **Resolution**: Wait a bit and retry, preferably with some backoff factor. If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit.
 

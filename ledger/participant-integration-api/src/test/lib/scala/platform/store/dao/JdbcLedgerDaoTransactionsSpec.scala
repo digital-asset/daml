@@ -15,10 +15,10 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
-import com.daml.platform.ApiOffset
+import com.daml.platform.{ApiOffset, FilterRelation}
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.appendonlydao._
+import com.daml.platform.store.dao._
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -507,7 +507,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
         acsGlobalParallelism = 10,
-        acsIdQueueLimit = 1000000,
       ).use(
         _.transactionsReader
           .getFlatTransactions(
@@ -527,7 +526,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  //TODO need to find out why this is so slow to execute on Oracle
+  // TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(
@@ -645,7 +644,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      acsIdQueueLimit: Int,
   ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
@@ -655,7 +653,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = acsIdFetchingParallelism,
         acsContractFetchingParallelism = acsContractFetchingParallelism,
         acsGlobalParallelism = acsGlobalParallelism,
-        acsIdQueueLimit = acsIdQueueLimit,
       )
     }
 
@@ -719,7 +716,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 private[dao] object JdbcLedgerDaoTransactionsSpec {
   private final case class FlatTransactionCodePath(
       label: String,
-      filter: events.FilterRelation,
+      filter: FilterRelation,
       makeMatching: () => (Offset, LedgerEntry.Transaction),
       makeNonMatching: () => (Offset, LedgerEntry.Transaction),
       // XXX SC we don't need discriminate unless we test the event contents

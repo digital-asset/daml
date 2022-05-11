@@ -12,7 +12,7 @@ class GraphSpec extends AnyFlatSpec with Matchers {
       contentAndId: Int,
       deps: List[Int] = List.empty[Int],
   ): (Int, Node[Int, Int]) =
-    contentAndId -> Node(contentAndId, deps, collectDepError = true)
+    contentAndId -> Node(contentAndId, deps)
 
   private[this] def orderedDependencies[K, A](
       nodes: Iterable[(K, Node[K, A])]

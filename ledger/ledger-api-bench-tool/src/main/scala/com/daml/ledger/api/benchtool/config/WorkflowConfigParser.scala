@@ -97,21 +97,50 @@ object WorkflowConfigParser {
           case invalid => Decoder.failedWithMessage(s"Invalid stream type: $invalid")
         }
 
-    implicit val contractDescriptionDecoder: Decoder[SubmissionConfig.ContractDescription] =
-      Decoder.forProduct4(
+    implicit val contractDescriptionDecoder: Decoder[FooSubmissionConfig.ContractDescription] =
+      Decoder.forProduct3(
         "template",
         "weight",
         "payload_size_bytes",
-        "archive_probability",
-      )(SubmissionConfig.ContractDescription.apply)
+      )(FooSubmissionConfig.ContractDescription.apply)
 
-    implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
-      Decoder.forProduct4(
+    implicit val nonconsumingExercisesDecoder: Decoder[FooSubmissionConfig.NonconsumingExercises] =
+      Decoder.forProduct2(
+        "probability",
+        "payload_size_bytes",
+      )(FooSubmissionConfig.NonconsumingExercises.apply)
+
+    implicit val consumingExercisesDecoder: Decoder[FooSubmissionConfig.ConsumingExercises] =
+      Decoder.forProduct2(
+        "probability",
+        "payload_size_bytes",
+      )(FooSubmissionConfig.ConsumingExercises.apply)
+
+    implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
+      Decoder.forProduct6(
         "num_instances",
         "num_observers",
         "unique_parties",
         "instance_distribution",
-      )(SubmissionConfig.apply)
+        "nonconsuming_exercises",
+        "consuming_exercises",
+      )(FooSubmissionConfig.apply)
+
+    implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =
+      Decoder.forProduct3(
+        "num_instances",
+        "unique_parties",
+        "value",
+      )(FibonacciSubmissionConfig.apply)
+
+    implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
+      Decoder
+        .forProduct1[String, String]("type")(identity)
+        .flatMap[SubmissionConfig] {
+          case "foo" => fooSubmissionConfigDecoder.widen
+          case "fibonacci" => fibonacciSubmissionConfigDecoder.widen
+          case invalid => Decoder.failedWithMessage(s"Invalid submission type: $invalid")
+        }
 
     implicit val workflowConfigDecoder: Decoder[WorkflowConfig] =
       (c: HCursor) =>

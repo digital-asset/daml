@@ -33,6 +33,11 @@ module DA.Daml.LFConversion.MetadataEncoding
     , QualName (..)
     , encodeExportInfo
     , decodeExportInfo
+    -- * Fixities
+    , fixityName
+    , unFixityName
+    , encodeFixityInfo
+    , decodeFixityInfo
     -- * Type Synonyms
     , encodeTypeSynonym
     , decodeTypeSynonym
@@ -457,6 +462,68 @@ natSynTCon = LF.Qualified
         packageId = "38e6274601b21d7202bb995bc5ec147decda5a01b68d57dda422425038772af7"
         moduleName = ["DA", "Internal", "NatSyn"]
         tconName = "NatSyn"
+
+
+------------
+-- Fixity --
+------------
+fixityName :: Integer -> LF.ExprValName
+fixityName i = LF.ExprValName $ "$$fixity" <> T.pack (show i)
+
+unFixityName :: LF.ExprValName -> Maybe Integer
+unFixityName (LF.ExprValName name) = do
+    suffix <- T.stripPrefix "$$fixity" name
+    readMay (T.unpack suffix)
+
+encodeFixityInfo :: (GHC.OccName, GHC.Fixity) -> LF.Type
+encodeFixityInfo (occName, fixity) =
+  encodeTypeList id
+    [ encodeOccName occName
+    , encodeFixity fixity
+    ]
+
+encodeFixity :: GHC.Fixity -> LF.Type
+encodeFixity (GHC.Fixity _sourceText precedence direction) =
+  encodeTypeList id
+    [ encodeInt precedence
+    , encodeFixityDirection direction
+    ]
+
+encodeInt :: Int -> LF.Type
+encodeInt n = TEncodedStr ("_" <> T.pack (show n))
+
+encodeFixityDirection :: GHC.FixityDirection -> LF.Type
+encodeFixityDirection = TEncodedStr . \case
+  GHC.InfixL -> "L"
+  GHC.InfixR -> "R"
+  GHC.InfixN -> "N"
+
+decodeFixityInfo :: LF.Type -> Maybe (GHC.OccName, GHC.Fixity)
+decodeFixityInfo x = do
+  [name, fixity] <- decodeTypeList Just x
+  name <- decodeOccName name
+  fixity <- decodeFixity fixity
+  pure (name, fixity)
+
+decodeFixity :: LF.Type -> Maybe GHC.Fixity
+decodeFixity x = do
+  [precedence, direction] <- decodeTypeList Just x
+  precedence <- decodeInt precedence
+  direction <- decodeDirection direction
+  pure $ GHC.Fixity GHC.NoSourceText precedence direction
+
+decodeInt :: LF.Type -> Maybe Int
+decodeInt t = do
+  TEncodedStr s <- pure t
+  suffix <- T.stripPrefix "_" s
+  readMay (T.unpack suffix)
+
+decodeDirection :: LF.Type -> Maybe GHC.FixityDirection
+decodeDirection = \case
+    TEncodedStr "L" -> Just GHC.InfixL
+    TEncodedStr "R" -> Just GHC.InfixR
+    TEncodedStr "N" -> Just GHC.InfixN
+    _ -> Nothing
 
 ---------------------
 -- STUB GENERATION --

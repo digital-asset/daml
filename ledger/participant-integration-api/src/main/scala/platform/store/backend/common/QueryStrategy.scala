@@ -61,7 +61,10 @@ trait QueryStrategy {
   def isTrue(booleanColumnName: String): String
 
   /** Constant boolean to be used in a SELECT clause */
-  def constBoolean(value: Boolean): String
+  def constBooleanSelect(value: Boolean): String
+
+  /** Constant boolean to be used in a WHERE clause */
+  def constBooleanWhere(value: Boolean): String
 
   /** ANY SQL clause generation for a number of Long values
     */
@@ -76,14 +79,30 @@ trait QueryStrategy {
     *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
     */
   def offsetIsSmallerOrEqual(nonNullableColumn: String, endInclusive: Offset): CompositeSql = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     // Note: there are two reasons for special casing Offset.beforeBegin:
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
     if (endInclusive == Offset.beforeBegin) {
-      cSQL"#${constBoolean(false)}"
+      cSQL"#${constBooleanWhere(false)}"
     } else {
       cSQL"#$nonNullableColumn <= $endInclusive"
+    }
+  }
+
+  /** Expression for `(offset > startExclusive)`
+    *
+    *  The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
+    */
+  def offsetIsGreater(nonNullableColumn: String, startExclusive: Offset): CompositeSql = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    // Note: there are two reasons for special casing Offset.beforeBegin:
+    // 1. simpler query
+    // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
+    if (startExclusive == Offset.beforeBegin) {
+      cSQL"#${constBooleanWhere(true)}"
+    } else {
+      cSQL"#$nonNullableColumn > $startExclusive"
     }
   }
 
@@ -96,12 +115,12 @@ trait QueryStrategy {
       startExclusive: Offset,
       endInclusive: Offset,
   ): CompositeSql = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     // Note: there are two reasons for special casing Offset.beforeBegin:
     // 1. simpler query
     // 2. on Oracle, Offset.beforeBegin is equivalent to NULL and cannot be compared with
     if (endInclusive == Offset.beforeBegin) {
-      cSQL"#${constBoolean(false)}"
+      cSQL"#${constBooleanWhere(false)}"
     } else if (startExclusive == Offset.beforeBegin) {
       cSQL"#$nonNullableColumn <= $endInclusive"
     } else {

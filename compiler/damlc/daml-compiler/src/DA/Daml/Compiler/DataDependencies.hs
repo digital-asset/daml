@@ -8,10 +8,11 @@ module DA.Daml.Compiler.DataDependencies
     , prefixDependencyModule
     ) where
 
-import DA.Pretty
+import DA.Pretty hiding (first)
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
+import Data.Bifunctor (first)
 import Data.Char (isDigit)
 import qualified Data.DList as DL
 import Data.Foldable (fold)
@@ -26,6 +27,7 @@ import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
+import Data.Tuple.Extra (fst3, snd3, thd3)
 import Development.IDE.Types.Location
 import GHC.Generics (Generic)
 import GHC.Stack
@@ -37,6 +39,7 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
 import "ghc-lib-parser" FieldLabel (FieldLbl (..))
 import "ghc-lib" GHC
+import qualified "ghc-lib-parser" GHC.Lexeme
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (ppr, showSDocForUser)
@@ -334,6 +337,7 @@ generateSrcFromLf env = noLoc mod
             , dataTypeDecls
             , valueDecls
             , interfaceDecls
+            , fixityDecls
             ]
         instDecls <- sequence instanceDecls
         pure $ decls <> catMaybes instDecls
@@ -386,24 +390,34 @@ generateSrcFromLf env = noLoc mod
         IEModuleContents noExt (noLoc ghcModName)
 
     classReexports :: [Gen (LIE GhcPs)]
-    classReexports = map snd (MS.elems classReexportMap)
+    classReexports = map snd3 (MS.elems classReexportMap)
 
-    classReexportMap :: MS.Map LF.TypeSynName (LF.PackageId, Gen (LIE GhcPs))
+    classReexportMap ::
+      MS.Map
+        LF.TypeSynName    -- Class name
+        ( LF.PackageId    -- Package that defined it
+        , Gen (LIE GhcPs) -- Reexport entry
+        , [T.Text]        -- Class methods
+        )
     classReexportMap = MS.fromList $ do
         synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        guard $ isJust (getTypeClassFields synType)
+        Just fields <- [getTypeClassFields synType]
+        let methods = catMaybes (getClassMethodName . fst <$> fields)
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
         let occName = mkOccName clsName (T.unpack name)
-        pure . (\x -> (synName,(pkgId, x))) $ do
+        pure . (\x -> (synName,(pkgId, x, methods))) $ do
             ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
             pure . noLoc . IEThingAll noExt
                 . noLoc . IEName . noLoc
                 $ mkOrig ghcMod occName
 
     reexportedClasses :: MS.Map LF.TypeSynName LF.PackageId
-    reexportedClasses = MS.map fst classReexportMap
+    reexportedClasses = MS.map fst3 classReexportMap
+
+    reexportedClassMethods :: Set T.Text
+    reexportedClassMethods = Set.fromList $ thd3 =<< MS.elems classReexportMap
 
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
@@ -628,6 +642,40 @@ generateSrcFromLf env = noLoc mod
                 , cid_overlap_mode = Nothing
                 }
 
+    fixityDecls :: [Gen (LHsDecl GhcPs)]
+    fixityDecls = do
+      (name, fixity) <- fixityDefs
+      pure $ pure $
+        noLoc $
+          SigD NoExt $
+            FixSig NoExt $
+              FixitySig NoExt [mkRdrName name] fixity
+      where
+        -- NOTE(MA): An OccName is just a string and a namespace. However, in the surface
+        -- language, there's no way to specify a fixity for a particular namespace;
+        -- e.g. given
+        --   data Pair a b = Pair a b
+        --   infixr 5 `Pair`
+        -- the fixity declaration applies to _both_ the type constructor `Pair`
+        -- and the data constructor `Pair`, and there's no way to specify their
+        -- fixities separately.
+        -- Thus, we discard the namespace information and only keep the string.
+        -- The nubbing step is necessary because `mi_fixities` does keep one entry
+        -- per name, per namespace, so there will be "duplicates" in the metadata.
+        fixityDefs :: [(T.Text, Fixity)]
+        fixityDefs
+          = filter (shouldExposeFixityDef . fst)
+          $ nubOrdOn fst
+          $ fmap (first (T.pack . occNameString))
+          $ do
+            LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
+            Just _ <- [LFC.unFixityName name] -- We don't care about the indices
+            Just fixity <- [LFC.decodeFixityInfo ty]
+            pure fixity
+
+        shouldExposeFixityDef :: T.Text -> Bool
+        shouldExposeFixityDef t = t `Set.notMember` reexportedClassMethods
+
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
 
@@ -657,10 +705,15 @@ generateSrcFromLf env = noLoc mod
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
-        = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
+        = not (isInternalName (LF.unExprValName lfName))
         && not (any isHidden (DL.toList (refsFromType lfType)))
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
+
+    isInternalName :: T.Text -> Bool
+    isInternalName t = case T.stripPrefix "$" t of
+      Nothing -> False
+      Just s -> T.any (not . GHC.Lexeme.isVarSymChar) s
 
     shouldExposeInstance :: LF.DefValue -> Bool
     shouldExposeInstance LF.DefValue{..}

@@ -105,7 +105,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 } else {
                   logger.info(
                     s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
-                      .mkString("[", ", ", "]")}."
+                        .mkString("[", ", ", "]")}."
                   )
                   failed
                 }
@@ -115,7 +115,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
               case Failure(error) =>
                 logger.info(
                   s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
-                    .mkString("[", ", ", "]")}. Details: $error"
+                      .mkString("[", ", ", "]")}. Details: $error"
                 )
                 failed
             }

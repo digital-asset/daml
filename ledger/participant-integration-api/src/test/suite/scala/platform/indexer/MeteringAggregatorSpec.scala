@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{

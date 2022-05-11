@@ -18,7 +18,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       .flatMap { case (_, token) => serviceCallWithoutApplicationId(token) }
 
   it should "deny calls with an expired read/write token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit an expired read/write token")
+    attackUnauthenticated(threat = "Present an expired read/write JWT")
   ) in {
     expectUnauthenticated(serviceCallWithToken(canActAsMainActorExpired))
   }
@@ -44,7 +44,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
   it should "deny calls with user token that can-read-as main actor" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a user token that can-read-as main actor")
+      attackPermissionDenied(threat = "Present a user JWT that can-read-as main actor")
     ) in {
     expectPermissionDenied(
       serviceCallWithMainActorUser(
@@ -54,24 +54,24 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     )
   }
   it should "deny calls with 'participant_admin' user token" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a 'participant_admin' user token")
+    attackPermissionDenied(threat = "Present a 'participant_admin' user JWT")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a non-expired 'unknown_user' user token")
+      attackPermissionDenied(threat = "Present a non-expired 'unknown_user' user JWT")
     ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
   it should "deny calls with explicitly non-expired read-only token" taggedAs securityAsset
     .setAttack(
-      attack(threat = "Exploit a explicitly non-expired read-only token")
+      attackPermissionDenied(threat = "Present a explicitly non-expired read-only JWT")
     ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActorExpiresTomorrow))
   }
   it should "deny calls with read-only token without expiration" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a read-only token without expiration")
+    attackPermissionDenied(threat = "Present a read-only JWT without expiration")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActor))
   }
@@ -82,7 +82,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     expectSuccess(serviceCallWithToken(canActAsMainActorActualLedgerId))
   }
   it should "deny calls with a random ledger ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a random ledger ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown ledger ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomLedgerId))
   }
@@ -93,7 +93,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     expectSuccess(serviceCallWithToken(canActAsMainActorActualParticipantId))
   }
   it should "deny calls with a random participant ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a random participant ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown participant ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomParticipantId))
   }
@@ -104,7 +104,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     expectSuccess(serviceCallWithToken(canActAsMainActorActualApplicationId))
   }
   it should "deny calls with a random application ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a random application ID")
+    attackPermissionDenied(threat = "Present a JWT with an unknown application ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomApplicationId))
   }
@@ -116,8 +116,8 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
   it should "deny calls with an application ID present in the message and a token without an application id" taggedAs securityAsset
     .setAttack(
-      attack(threat =
-        "Exploit a call with an application ID present in the message and a token without application ID"
+      attackInvalidArgument(threat =
+        "Present a JWT without application ID but call does not contain application ID"
       )
     ) in {
     expectInvalidArgument(serviceCallWithoutApplicationId(canActAsMainActor))

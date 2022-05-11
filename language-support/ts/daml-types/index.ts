@@ -166,7 +166,7 @@ export interface Unit {
 }
 
 /**
- * Companion obect of the [[Unit]] type.
+ * Companion object of the [[Unit]] type.
  */
 export const Unit: Serializable<Unit> = {
   decoder: jtv.object({}),

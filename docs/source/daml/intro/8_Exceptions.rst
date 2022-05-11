@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-8 Exception Handling
-====================
+Exception Handling
+==================
 
 The default behavior in Daml is to abort the transaction on any error
 and roll back all changes that have happened until then. However, this
@@ -36,7 +36,7 @@ outside of Daml.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``8_Exceptions`` by running ``daml new 8_Exceptions --template daml-intro-8``
+  Remember that you can load all the code for this section into a folder called ``intro8`` by running ``daml new intro8 --template daml-intro-8``
 
 Our example for the use of exceptions will be a simple shop
 template. Users can order items by calling a choice and transfer money
@@ -154,7 +154,7 @@ For more information on exceptions, take a look at the
 :ref:`language reference <exceptions>`.
 
 
-Next up
+Next Up
 -------
 
 We have now seen how to develop safe models and how we can handle

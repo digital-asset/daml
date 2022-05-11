@@ -3,11 +3,12 @@
 
 package com.daml.platform.store.interfaces
 
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
+import com.daml.platform.Party
+import com.daml.ledger.offset.Offset
 
 import scala.concurrent.Future
 
@@ -42,20 +43,20 @@ private[platform] trait LedgerDaoContractsReader {
   /** Looks up the contract by id at a specific ledger event sequential id.
     *
     * @param contractId the contract id to query
-    * @param validAt the event sequential id at which to resolve the contract state
+    * @param validAt the offset at which to resolve the contract state
     * @return the optional [[ContractState]]
     */
-  def lookupContractState(contractId: ContractId, validAt: Long)(implicit
+  def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractState]]
 
   /** Looks up the state of a contract key at a specific event sequential id.
     *
     * @param key the contract key to query
-    * @param validAt the event sequential id at which to resolve the key state
+    * @param validAt the offset at which to resolve the key state
     * @return the [[KeyState]]
     */
-  def lookupKeyState(key: GlobalKey, validAt: Long)(implicit
+  def lookupKeyState(key: GlobalKey, validAt: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[KeyState]
 }

@@ -9,6 +9,7 @@ import com.github.benmanes.caffeine.{cache => caffeine}
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 object CaffeineCache {
 
@@ -27,6 +28,9 @@ object CaffeineCache {
       cache: caffeine.Cache[Key, Value]
   ) extends ConcurrentCache[Key, Value] {
     override def put(key: Key, value: Value): Unit = cache.put(key, value)
+
+    override def putAll(mappings: Map[Key, Value]): Unit =
+      cache.putAll(mappings.asJava)
 
     override def getIfPresent(key: Key): Option[Value] =
       Option(cache.getIfPresent(key))
@@ -56,6 +60,9 @@ object CaffeineCache {
 
     override def put(key: Key, value: Value): Unit =
       delegate.put(key, value)
+
+    override def putAll(mappings: Map[Key, Value]): Unit =
+      delegate.putAll(mappings)
 
     override def getIfPresent(key: Key): Option[Value] =
       delegate.getIfPresent(key)

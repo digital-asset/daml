@@ -9,9 +9,9 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
 import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
-import lf.data.Time.Timestamp
-import lf.transaction.GlobalKey
-import platform.store.appendonlydao.events.ContractId
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.ContractId
 import com.google.rpc.status.Status
 import java.time.Duration
 

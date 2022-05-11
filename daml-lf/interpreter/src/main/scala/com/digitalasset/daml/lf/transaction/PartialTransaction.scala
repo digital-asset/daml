@@ -122,6 +122,7 @@ private[lf] object PartialTransaction {
     *                  which we are exercising a choice.
     *  @param templateId Template-id referencing the template of the
     *                    contract on which we are exercising a choice.
+    *  @param interfaceId The interface where the choice is defined if inherited.
     *  @param contractKey Optional contract key, if defined for the
     *                     contract on which we are exercising a choice.
     *  @param choiceId Label of the choice that we are exercising.
@@ -139,6 +140,7 @@ private[lf] object PartialTransaction {
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       contractKey: Option[Node.KeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
@@ -533,6 +535,7 @@ private[speedy] case class PartialTransaction(
       auth: Authorize,
       targetId: Value.ContractId,
       templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
@@ -550,6 +553,7 @@ private[speedy] case class PartialTransaction(
       ExercisesContextInfo(
         targetId = targetId,
         templateId = templateId,
+        interfaceId = interfaceId,
         contractKey = mbKey,
         choiceId = choiceId,
         consuming = consuming,
@@ -631,7 +635,7 @@ private[speedy] case class PartialTransaction(
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds =
-            actionNodeSeeds :+ actionNodeSeed, //(NC) pushed by 'beginExercises'; why push again?
+            actionNodeSeeds :+ actionNodeSeed, // (NC) pushed by 'beginExercises'; why push again?
         )
       case _ =>
         InternalError.runtimeException(
@@ -644,6 +648,7 @@ private[speedy] case class PartialTransaction(
     Node.Exercise(
       targetCoid = ec.targetId,
       templateId = ec.templateId,
+      interfaceId = ec.interfaceId,
       choiceId = ec.choiceId,
       consuming = ec.consuming,
       actingParties = ec.actingParties,

@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-4 Transforming data using choices
-=================================
+Transform Data Using Choices
+============================
 
 In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
 
@@ -12,9 +12,9 @@ In this section you will learn about how to define simple data transformations u
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``4_Transformations`` by running ``daml new 4_Transformations --template daml-intro-4``
+  Remember that you can load all the code for this section into a folder called ``intro4`` by running ``daml new intro4 --template daml-intro-4``
 
-Choices as methods
+Choices as Methods
 ------------------
 
 If you think of templates as classes and contracts as objects, where are the methods?
@@ -77,7 +77,7 @@ contract with the given arguments and immediately exercise a choice on
 it. For a consuming choice, this archives the contract so the contract
 is created and archived within the same transaction.
 
-Choices as delegation
+Choices as Delegation
 ---------------------
 
 Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``.
@@ -98,7 +98,7 @@ If you open the script view in the IDE, you will notice that Bob sees the ``Cont
 
 .. _choices:
 
-Choices in the Ledger Model
+Choices In the Ledger Model
 ---------------------------
 
 In :doc:`1_Token` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
@@ -115,47 +115,42 @@ Each action can be visualized as a tree, where the action is the root node, and 
 .. code-block:: none
 
   Transactions:
-    TX #0 1970-01-01T00:00:00Z (Contact:43:17)
+    TX 0 1970-01-01T00:00:00Z (Contact:46:17)
     #0:0
     │   consumed by: #2:0
     │   referenced by #2:0
-    │   known to (since): 'Alice' (#0), 'Bob' (#0)
+    │   disclosed to (since): 'Alice' (0), 'Bob' (0)
     └─> create Contact:Contact
         with
           owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "012 345 6789"
 
-    TX #1 1970-01-01T00:00:00Z
-      mustFailAt 'Bob' (Contact:52:3)
+    TX 1 1970-01-01T00:00:00Z
+      mustFailAt actAs: {'Bob'} readAs: {} (Contact:55:3)
 
-    TX #2 1970-01-01T00:00:00Z (Contact:56:22)
+    TX 2 1970-01-01T00:00:00Z (Contact:59:20)
     #2:0
-    │   known to (since): 'Alice' (#2), 'Bob' (#2)
+    │   disclosed to (since): 'Alice' (2), 'Bob' (2)
     └─> 'Alice' exercises UpdateTelephone on #0:0 (Contact:Contact)
                 with
                   newTelephone = "098 7654 321"
         children:
         #2:1
-        │   consumed by: #4:0
-        │   referenced by #3:0, #4:0
-        │   known to (since): 'Alice' (#2), 'Bob' (#2)
+        │   consumed by: #3:0
+        │   referenced by #3:0
+        │   disclosed to (since): 'Alice' (2), 'Bob' (2)
         └─> create Contact:Contact
             with
               owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "098 7654 321"
 
-    TX #3 1970-01-01T00:00:00Z (Contact:60:3)
+    TX 3 1970-01-01T00:00:00Z (Contact:69:20)
     #3:0
-    └─> fetch #2:1 (Contact:Contact)
-
-    TX #4 1970-01-01T00:00:00Z (Contact:66:22)
-    #4:0
-    │   known to (since): 'Alice' (#4), 'Bob' (#4)
+    │   disclosed to (since): 'Alice' (3), 'Bob' (3)
     └─> 'Bob' exercises UpdateAddress on #2:1 (Contact:Contact)
               with
                 newAddress = "1-10 Bobstreet"
         children:
-        #4:1
-        │   referenced by #5:0
-        │   known to (since): 'Alice' (#4), 'Bob' (#4)
+        #3:1
+        │   disclosed to (since): 'Alice' (3), 'Bob' (3)
         └─> create Contact:Contact
             with
               owner = 'Alice';
@@ -163,26 +158,22 @@ Each action can be visualized as a tree, where the action is the root node, and 
               address = "1-10 Bobstreet";
               telephone = "098 7654 321"
 
-    TX #5 1970-01-01T00:00:00Z (Contact:70:3)
-    #5:0
-    └─> fetch #4:1 (Contact:Contact)
-
-  Active contracts:  #4:1
+  Active contracts:  #3:1
 
   Return value: {}
 
 There are four commits corresponding to the four ``submit`` statements in the script. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
 
-So commits ``#2`` and ``#4`` contain ``exercise`` actions with IDs ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
+So commits ``#2`` and ``#3`` contain ``exercise`` actions with IDs ``#2:0`` and ``#3:0``. The ``create`` actions of the updated ``Contact`` contracts,  ``#2:1`` and ``#3:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
-The Archive choice
+The Archive Choice
 ~~~~~~~~~~~~~~~~~~
 
 You may have noticed that there is no archive action. That's because ``archive cid`` is just shorthand for ``exercise cid Archive``, where ``Archive`` is a choice implicitly added to every template, with the signatories as controllers.
 
 .. _simple_iou:
 
-A simple cash model
+A Simple Cash Model
 -------------------
 
 With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities:
@@ -192,7 +183,7 @@ With the power of choices, you can build your first interesting model: issuance 
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
 
-Next up
+Next Up
 -------
 
 You can now store and transform data on the ledger, even giving other parties specific write access through choices.

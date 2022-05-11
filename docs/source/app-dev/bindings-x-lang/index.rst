@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Creating your own bindings
-##########################
+Create Your Own Bindings
+########################
 
 This page gets you started with creating custom bindings for a Daml Ledger.
 
@@ -22,8 +22,8 @@ Note that for different reasons we chose codegen, but that is not the only optio
 
 - `Template Haskell <https://wiki.haskell.org/Template_Haskell>`_
 
-Building Ledger Commands
-========================
+Build Ledger Commands
+=====================
 
 No matter what approach you take, either manually building commands or writing a codegen to do this, you need to understand how ledger commands are structured. This section demonstrates how to build create and exercise commands manually and how it can be done using contract classes.
 

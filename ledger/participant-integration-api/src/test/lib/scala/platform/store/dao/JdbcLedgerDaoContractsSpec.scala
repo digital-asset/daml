@@ -3,7 +3,10 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.lf.value.Value.VersionedContractInstance
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.value.Value.{ValueText, VersionedContractInstance}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -106,5 +109,67 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
 
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
+  }
+
+  it should "present the contract state at a specific event sequential id" in {
+    for {
+      (_, tx) <- store(singleCreate(create(_, signatories = Set(alice))))
+      contractId = nonTransient(tx).loneElement
+      _ <- store(singleNonConsumingExercise(contractId))
+      ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
+      _ <- store(txArchiveContract(alice, (contractId, None)))
+      ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
+      queryAfterCreate <- contractsReader.lookupContractState(
+        contractId,
+        ledgerEndAtCreate.lastOffset,
+      )
+      queryAfterArchive <- contractsReader.lookupContractState(
+        contractId,
+        ledgerEndAfterArchive.lastOffset,
+      )
+    } yield {
+      queryAfterCreate.value match {
+        case LedgerDaoContractsReader.ActiveContract(contract, stakeholders, _) =>
+          contract shouldBe someVersionedContractInstance.map(_.copy(agreementText = ""))
+          stakeholders should contain theSameElementsAs Set(alice)
+        case LedgerDaoContractsReader.ArchivedContract(_) =>
+          fail("Contract should appear as active")
+      }
+      queryAfterArchive.value match {
+        case _: LedgerDaoContractsReader.ActiveContract =>
+          fail("Contract should appear as archived")
+        case LedgerDaoContractsReader.ArchivedContract(stakeholders) =>
+          stakeholders should contain theSameElementsAs Set(alice)
+      }
+    }
+  }
+
+  it should "present the contract key state at a specific event sequential id" in {
+    val aTextValue = ValueText(scala.util.Random.nextString(10))
+
+    for {
+      (_, tx) <- createAndStoreContract(
+        submittingParties = Set(alice),
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob),
+        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
+      )
+      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
+      contractId = nonTransient(tx).loneElement
+      _ <- store(singleNonConsumingExercise(contractId))
+      ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
+      _ <- store(txArchiveContract(alice, (contractId, None)))
+      ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
+      queryAfterCreate <- contractsReader.lookupKeyState(key, ledgerEndAtCreate.lastOffset)
+      queryAfterArchive <- contractsReader.lookupKeyState(key, ledgerEndAfterArchive.lastOffset)
+    } yield {
+      queryAfterCreate match {
+        case LedgerDaoContractsReader.KeyAssigned(fetchedContractId, stakeholders) =>
+          fetchedContractId shouldBe contractId
+          stakeholders shouldBe Set(alice, bob)
+        case _ => fail("Key should be assigned")
+      }
+      queryAfterArchive shouldBe LedgerDaoContractsReader.KeyUnassigned
+    }
   }
 }

@@ -59,8 +59,8 @@ final class CompletionStreamAuthIT
     expectSuccess(serviceCallWithToken(canReadAsMainActorActualApplicationId))
   }
 
-  it should "deny calls with a random application ID" taggedAs securityAsset.setAttack(
-    attack(threat = "Exploit a call with a random application ID")
+  it should "deny calls with an unknown application ID" taggedAs securityAsset.setAttack(
+    attackPermissionDenied(threat = "Present a JWT with an unknown application ID")
   ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomApplicationId))
   }
@@ -74,7 +74,7 @@ final class CompletionStreamAuthIT
 
   it should "deny calls with an application ID present in the message and a token without application ID" taggedAs securityAsset
     .setAttack(
-      attack(threat =
+      attackInvalidArgument(threat =
         "Exploit a call with an application ID present in the message and a token without application ID"
       )
     ) in {

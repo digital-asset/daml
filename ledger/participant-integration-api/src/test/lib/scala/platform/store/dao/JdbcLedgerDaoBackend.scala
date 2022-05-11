@@ -13,8 +13,8 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
-import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
+import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
@@ -52,7 +52,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      acsIdQueueLimit: Int,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
@@ -86,7 +85,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
           acsGlobalParallelism = acsGlobalParallelism,
-          acsIdQueueLimit = acsIdQueueLimit,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -115,13 +113,12 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     resource = newLoggingContext { implicit loggingContext =>
       for {
         dao <- daoOwner(
-          eventsPageSize = 100,
+          eventsPageSize = 4,
           eventsProcessingParallelism = 4,
-          acsIdPageSize = 2000,
+          acsIdPageSize = 4,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          acsIdQueueLimit = 1000000,
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())

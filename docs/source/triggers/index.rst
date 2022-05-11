@@ -157,8 +157,8 @@ not be using heartbeats in this example.
 
 .. _running-a-no-op-trigger:
 
-Running a No-Op Trigger
-=======================
+Run a No-Op Trigger
+===================
 
 To implement a no-op trigger, one could write the following in a separate
 ``daml/ChatBot.daml`` file:
@@ -391,7 +391,7 @@ If you plan to run more than one trigger at a time, or triggers for more than
 one party at a time, you may be interested in the
 :doc:`/tools/trigger-service/index`.
 
-When not to use Daml triggers
+When Not to Use Daml Triggers
 =============================
 
 Daml triggers deliberately only allow you to express automation that

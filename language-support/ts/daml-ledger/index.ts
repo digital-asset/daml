@@ -748,7 +748,6 @@ class QueryStreamsManager {
           }
           manager.request = newRequests;
           manager.matchIndexLookupTable = newMatchIndexLookupTable;
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
           manager.ws?.send(
             JSON.stringify(Array.from(manager.request.values())),
           );

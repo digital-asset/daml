@@ -47,7 +47,7 @@ Daml Documentation
    :hidden:
    :caption: Deploying to Daml ledgers
 
-   deploying
+   deploy/generic_ledger
 
 .. toctree::
    :titlesonly:
@@ -76,6 +76,7 @@ Daml Documentation
    concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
+   concepts/test-evidence
 
 
 .. toctree::
@@ -96,7 +97,8 @@ Daml Documentation
    tools/visual
    concepts/interoperability
    tools/non-repudiation
-   ops/connect/index
+   ops/connect/helm
+   ops/connect/auth0
 
 .. toctree::
    :titlesonly:

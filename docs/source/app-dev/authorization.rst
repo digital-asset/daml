@@ -10,7 +10,7 @@ When developing Daml applications using SDK tools,
 your local setup will most likely not perform any Ledger API request authorization --
 by default, any valid Ledger API request will be accepted by the sandbox.
 
-This is not the case for participant nodes of :doc:`deployed ledgers </deploying>`.
+This is not the case for participant nodes of deployed ledgers.
 They check for every Ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
 You thus need to add support for authorization using access token to your application to run it against a deployed ledger.
 
@@ -37,8 +37,8 @@ whether the request is valid according to the :ref:`Daml Ledger Model <da-ledger
 Whether a participant node *will* serve such a request to a Daml application depends on whether the
 request includes an access token that is valid and sufficient to authorize the request for this participant node.
 
-Acquiring and using access tokens
-*********************************
+Acquire and Use Access Tokens
+*****************************
 
 How an application should acquire access tokens depends on the participant node it talks to and is ultimately setup by the participant node operator.
 Many setups use a flow in the style of `OAuth 2.0 <https://oauth.net/2/>`_:
@@ -52,6 +52,7 @@ The Daml ledger verifies the signature of the token to make sure it has not been
 and then checks that the token has not yet expired and that the privileges described in the token authorize the given Ledger API request.
 
 .. image:: ./images/Authentication.svg
+   :alt: A flowchart illustrating the process of authentication described in the two paragraphs immediately above.
 
 As shown above, using access tokens requires your application to attach them to every request.
 How to do that depends on the tool or library you use to interact with the Ledger API.
@@ -63,7 +64,7 @@ and the :ref:`JSON API <json-api-access-tokens>`.
 
 .. _authorization-claims:
 
-Access tokens and rights
+Access Tokens and Rights
 ************************
 
 Access tokens contain information about the rights granted to the bearer of the token. These rights are specific to the API being accessed.
@@ -128,7 +129,7 @@ The following table summarizes the rights required to access each Ledger API end
 
 .. _access-token-formats:
 
-Access token formats
+Access Token Formats
 ********************
 
 Applications should treat access tokens as opaque blobs.
@@ -140,7 +141,7 @@ and there are two formats of the JSON payload in use by Daml ledgers.
 .. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
 
 
-User access tokens
+User Access Tokens
 ==================
 
 Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
@@ -176,7 +177,7 @@ The above notations are explained below:
   that must contain the ``"daml_ledger_api"`` scope
 
 
-Custom Daml claims access tokens
+Custom Daml Claims Access Tokens
 ================================
 
 This format represents the :ref:`rights <authorization-claims>` granted by the access token as custom claims in the JWT's payload, like so:

@@ -14,9 +14,9 @@ import com.daml.ledger.sandbox.domain.Submission.Transaction
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
-import com.daml.platform.store.appendonlydao.events._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

@@ -13,8 +13,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent
-import com.daml.platform.store.appendonlydao.events.ContractStateEvent.LedgerEndMarker
+import com.daml.platform.store.dao.events.ContractStateEvent
+import com.daml.platform.store.dao.events.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -42,10 +42,10 @@ private[platform] class MutableCacheBackedContractStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  def push(event: ContractStateEvent): Unit = {
-    debugEvents(event)
-    updateCaches(event)
-    updateOffsets(event)
+  def push(eventsBatch: Vector[ContractStateEvent]): Unit = {
+    debugEvents(eventsBatch)
+    updateCaches(eventsBatch)
+    updateOffsets(eventsBatch)
   }
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
@@ -115,9 +115,9 @@ private[platform] class MutableCacheBackedContractStore(
   )(implicit
       loggingContext: LoggingContext
   ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
-    val cacheQueried = ids.map(id => id -> contractsCache.get(id))
+    val cacheQueried = ids.view.map(id => id -> contractsCache.get(id)).toVector
 
-    val cached = cacheQueried.view
+    val cached = cacheQueried
       .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
         // successful lookups
         case (Right(timestamps), (_, Some(active: Active))) =>
@@ -133,7 +133,7 @@ private[platform] class MutableCacheBackedContractStore(
 
     cached
       .map { cached =>
-        val missing = cacheQueried.collect { case (id, None) => id }
+        val missing = cacheQueried.view.collect { case (id, None) => id }.toSet
         (cached, missing)
       }
   }
@@ -142,7 +142,7 @@ private[platform] class MutableCacheBackedContractStore(
       loggingContext: LoggingContext
   ): Future[ContractStateValue] = {
     val readThroughRequest =
-      (validAt: Long) =>
+      (validAt: Offset) =>
         contractsReader
           .lookupContractState(contractId, validAt)
           .map(toContractCacheValue)
@@ -235,7 +235,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext): Future[ContractKeyStateValue] = {
-    val readThroughRequest = (validAt: Long) =>
+    val readThroughRequest = (validAt: Offset) =>
       contractsReader.lookupKeyState(key, validAt).map(toKeyCacheValue)
     keyCache.putAsync(key, readThroughRequest)
   }
@@ -243,54 +243,51 @@ private[platform] class MutableCacheBackedContractStore(
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty
 
-  private def updateOffsets(event: ContractStateEvent): Unit = {
-    metrics.daml.execution.cache.indexSequentialId
-      .updateValue(event.eventSequentialId)
-    event match {
+  private def updateOffsets(eventsBatch: Seq[ContractStateEvent]): Unit =
+    eventsBatch.foreach {
       case LedgerEndMarker(eventOffset, eventSequentialId) =>
+        metrics.daml.execution.cache.indexSequentialId
+          .updateValue(eventSequentialId)
         signalNewLedgerHead(eventOffset, eventSequentialId)
       case _ => ()
     }
-  }
 
-  private val updateCaches: ContractStateEvent => Unit = {
-    case ContractStateEvent.Created(
-          contractId,
-          contract,
-          globalKey,
-          createLedgerEffectiveTime,
-          flatEventWitnesses,
-          _,
-          eventSequentialId,
-        ) =>
-      globalKey.foreach(
-        keyCache.put(_, eventSequentialId, Assigned(contractId, flatEventWitnesses))
-      )
-      contractsCache.put(
-        contractId,
-        eventSequentialId,
-        Active(contract, flatEventWitnesses, createLedgerEffectiveTime),
-      )
-    case ContractStateEvent.Archived(
-          contractId,
-          globalKey,
-          stakeholders,
-          _,
-          eventSequentialId,
-        ) =>
-      globalKey.foreach(keyCache.put(_, eventSequentialId, Unassigned))
-      contractsCache.put(
-        contractId,
-        eventSequentialId,
-        Archived(stakeholders),
-      )
-    case _: LedgerEndMarker => ()
-  }
+  private def updateCaches(eventsBatch: Vector[ContractStateEvent]): Unit =
+    if (eventsBatch.isEmpty) {
+      logger.error("updateCaches triggered with empty events batch")
+    } else {
+      val keyMappingsBuilder = Map.newBuilder[Key, ContractKeyStateValue]
+      val contractMappingsBuilder = Map.newBuilder[ContractId, ExistingContractValue]
+
+      eventsBatch.foreach {
+        case created: ContractStateEvent.Created =>
+          created.globalKey.foreach { key =>
+            keyMappingsBuilder.addOne(key -> Assigned(created.contractId, created.stakeholders))
+          }
+          contractMappingsBuilder.addOne(
+            created.contractId,
+            Active(created.contract, created.stakeholders, created.ledgerEffectiveTime),
+          )
+        case archived: ContractStateEvent.Archived =>
+          archived.globalKey.foreach { key =>
+            keyMappingsBuilder.addOne(key -> Unassigned)
+          }
+          contractMappingsBuilder.addOne(archived.contractId, Archived(archived.stakeholders))
+        case _: LedgerEndMarker => ()
+      }
+
+      val keyMappings = keyMappingsBuilder.result()
+      val contractMappings = contractMappingsBuilder.result()
+
+      val validAt = eventsBatch.last.eventOffset
+      if (keyMappings.nonEmpty) keyCache.putBatch(validAt, keyMappings)
+      if (contractMappings.nonEmpty) contractsCache.putBatch(validAt, contractMappings)
+    }
 
   private def debugEvents(
-      event: ContractStateEvent
+      eventsBatch: Seq[ContractStateEvent]
   )(implicit loggingContext: LoggingContext): Unit =
-    event match {
+    eventsBatch.foreach {
       case ContractStateEvent.Created(
             contractId,
             _,
@@ -324,14 +321,13 @@ private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
   // Signal externally that the cache has caught up until the provided ledger head offset
   type SignalNewLedgerHead = (Offset, Long) => Unit
-  // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
-  type SubscribeToContractStateEvents =
-    () => Source[ContractStateEvent, NotUsed]
+  // Subscribe to the contract state events stream
+  type SubscribeToContractStateEvents = () => Source[Vector[ContractStateEvent], NotUsed]
 
   def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
-      startIndexExclusive: Long,
+      startIndexExclusive: Offset,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,

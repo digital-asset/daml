@@ -9,7 +9,7 @@ import com.daml.lf.language.Ast
 import com.daml.scalautil.Statement.discard
 import java.lang.System
 import java.nio.file.{Files, Path}
-import java.util.ArrayList
+import java.util
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
@@ -41,7 +41,7 @@ import scala.jdk.CollectionConverters._
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
-  private[lf] val events: ArrayList[Event] = new ArrayList()
+  private[lf] val events: util.ArrayList[Event] = ArrayList.empty
   var name: String = "Daml Engine profile"
 
   def addOpenEvent(label: Label): Unit = {
@@ -154,8 +154,8 @@ object Profile {
       def fromProfile(profile: Profile) = {
         import scala.collection.mutable.HashMap
 
-        val frames = new ArrayList[FrameJson]()
-        val frameIndices = new HashMap[String, Int]()
+        val frames = ArrayList.empty[FrameJson]
+        val frameIndices = HashMap.empty[String, Int]
         var endValue = 0L
         val events = profile.events.asScala.toList.map { event =>
           val eventType = if (event.open) "O" else "C"
@@ -241,8 +241,8 @@ object Profile {
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
-      implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
-      implicit val guardedChoiceDefRef: Allowed[GuardedChoiceDefRef] = allowAll
+      implicit val choiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
+      implicit val guardedChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
@@ -266,9 +266,10 @@ object Profile {
           case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
           case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>
             s"implementsMethod @${tmplRef.qualifiedName} @${ifaceId.qualifiedName} ${methodName}"
-          case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
-          case GuardedChoiceDefRef(tmplRef, name) =>
-            s"guarded exercise @${tmplRef.qualifiedName} ${name}"
+          case TemplateChoiceDefRef(tmplRef, name) =>
+            s"exercise @${tmplRef.qualifiedName} ${name}"
+          case InterfaceChoiceDefRef(ifaceRef, name) =>
+            s"exercise @${ifaceRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"

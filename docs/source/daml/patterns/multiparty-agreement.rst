@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Multiple party agreement
-########################
+The Multiple Party Agreement Pattern
+####################################
 
 The Multiple Party Agreement pattern uses a Pending contract as a wrapper for the Agreement contract. Any one of the signatory parties can kick off the workflow by creating a Pending contract on the ledger, filling in themselves in all the signatory fields. The Agreement contract is not created on the ledger until all parties have agreed to the Pending contract, and replaced the initiator's signature with their own.
 
@@ -71,5 +71,6 @@ Collecting the signatures in practice
 
 .. figure:: images/multiplepartyAgreement.png
   :figwidth: 80%
+  :alt: The Multiparty Agreement pattern, in which the Pending contract recreates itself each time a party signs until all have signed and one exercises the Finalize choice to create the Agreement contract. 
 
   Multiple Party Agreement Diagram

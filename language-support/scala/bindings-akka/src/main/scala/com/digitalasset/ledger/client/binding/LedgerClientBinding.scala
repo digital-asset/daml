@@ -81,12 +81,12 @@ class LedgerClientBinding(
           s"tx $party",
           tx =>
             s"CID ${tx.commandId} TX ${tx.transactionId} CONTAINS ${tx.events
-              .map {
-                case Event(Event.Event.Created(value)) => s"C ${value.contractId}"
-                case Event(Event.Event.Archived(value)) => s"A ${value.contractId}"
-                case other => sys.error(s"Expected Created or Archived, got $other"): String
-              }
-              .mkString("[", ",", "]")}",
+                .map {
+                  case Event(Event.Event.Created(value)) => s"C ${value.contractId}"
+                  case Event(Event.Event.Archived(value)) => s"A ${value.contractId}"
+                  case other => sys.error(s"Expected Created or Archived, got $other"): String
+                }
+                .mkString("[", ",", "]")}",
         )
       )
       .via(DomainTransactionMapper(decoder))

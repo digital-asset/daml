@@ -6,6 +6,7 @@ load(
     "da_scala_benchmark_jmh",
     "da_scala_library",
     "da_scala_test",
+    "da_scala_test_suite",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
@@ -30,13 +31,31 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
-    name = "validation-test",
+da_scala_library(
+    name = "validation-test-lib",
+    srcs = glob(["src/test/**/SpecUtil.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    deps = [
+        ":validation",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+    ],
+)
+
+da_scala_test_suite(
+    name = "tests",
     size = "small",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = ["src/test/**/*SpecUtil.scala"],
+    ),
     scalacopts = lf_scalacopts,
     deps = [
         ":validation",
+        ":validation-test-lib",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",

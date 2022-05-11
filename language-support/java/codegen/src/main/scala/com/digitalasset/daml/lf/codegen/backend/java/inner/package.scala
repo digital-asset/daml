@@ -12,6 +12,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
+import javax.lang.model.element.Modifier
 
 import scala.jdk.CollectionConverters._
 
@@ -131,7 +132,10 @@ package object inner {
   ): String =
     fullyQualifiedName(identifier.qualifiedName, Some(identifier.packageId, packagePrefixes))
 
-  def fullyQualifiedName(
+  def fullyQualifiedName(qualifiedName: QualifiedName): String =
+    fullyQualifiedName(qualifiedName, None)
+
+  private def fullyQualifiedName(
       qualifiedName: QualifiedName,
       packageIdAndPackagePrefixesOpt: Option[(PackageId, Map[PackageId, String])],
   ): String = {
@@ -188,10 +192,17 @@ package object inner {
         case TypeVar(x) => typeParams + JavaEscaper.escapeString(x)
         case TypePrim(_, args) => args.foldLeft(typeParams)(go)
         case TypeCon(_, args) => args.foldLeft(typeParams)(go)
-        case TypeNumeric(_) => Set.empty
+        case TypeNumeric(_) => typeParams
       }
     }
     go(Set.empty, tpe).toVector
+  }
+
+  def createPackageIdField(packageId: PackageId): FieldSpec = {
+    FieldSpec
+      .builder(classOf[String], "_packageId", Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
+      .initializer("$S", packageId)
+      .build()
   }
 
   implicit class TypeNameExtensions(name: TypeName) {

@@ -9,8 +9,6 @@ import java.util.TimeZone
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import com.daml.ledger.client.binding.encoding.ExerciseOn
-import scalaz.Id.Id
-import scalaz.Leibniz.===
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
@@ -77,10 +75,12 @@ sealed abstract class Primitive extends PrimitiveInstances {
     def apply[V](elems: (String, V)*): TextMap[V]
     def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
     implicit def factory[V]: Factory[(String, V), TextMap[V]]
-    final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V].subst[Id](map)
+    final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V](map)
     def subst[F[_[_]]](fa: F[imm.Map[String, *]]): F[TextMap]
-    final def leibniz[V]: imm.Map[String, V] === TextMap[V] =
-      subst[Lambda[g[_] => imm.Map[String, V] === g[V]]](scalaz.Leibniz.refl)
+    final def leibniz[V]: imm.Map[String, V] =:= TextMap[V] =
+      subst[Lambda[g[_] => imm.Map[String, V] =:= g[V]]](
+        implicitly[imm.Map[String, V] =:= imm.Map[String, V]]
+      )
   }
 
   sealed abstract class DateApi {

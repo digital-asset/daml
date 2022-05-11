@@ -18,6 +18,10 @@ abstract class Cache[Key, Value] {
     */
   def put(key: Key, value: Value): Unit
 
+  /** Put all the entries of `mappings` into the cache.
+    */
+  def putAll(mappings: Map[Key, Value]): Unit
+
   /** Retrieve a value by key, if it's present.
     */
   def getIfPresent(key: Key): Option[Value]

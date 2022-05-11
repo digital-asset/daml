@@ -77,7 +77,9 @@ object DamlContractTemplateGen {
 
     def templateObjectMembers = Seq(
       q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",
-      q"""implicit final class ${TypeName(s"${templateName.name} syntax")}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
+      q"""implicit final class ${TypeName(
+          s"${templateName.name} syntax"
+        )}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
             ..$templateChoiceMethods
           }""",
       q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",

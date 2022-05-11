@@ -116,10 +116,14 @@ case class CommandSubmitter(
       }
     } yield ()
 
-  private def submitAndWait(id: String, party: Primitive.Party, commands: List[Command])(implicit
+  private def submitAndWait(
+      id: String,
+      party: Primitive.Party,
+      commands: Seq[Command],
+  )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    val result = new Commands(
+    def makeCommands(commands: Seq[Command]) = new Commands(
       ledgerId = benchtoolUserServices.ledgerId,
       applicationId = names.benchtoolApplicationId,
       commandId = id,
@@ -127,7 +131,11 @@ case class CommandSubmitter(
       commands = commands,
       workflowId = names.workflowId,
     )
-    benchtoolUserServices.commandService.submitAndWait(result).map(_ => ())
+
+    for {
+      _ <- benchtoolUserServices.commandService
+        .submitAndWait(makeCommands(commands))
+    } yield ()
   }
 
   private def submitCommands(
@@ -143,7 +151,7 @@ case class CommandSubmitter(
 
     val numBatches: Int = config.numberOfInstances / submissionBatchSize
     val progressMeter = CommandSubmitter.ProgressMeter(config.numberOfInstances)
-    // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
+    // Output a log line roughly once per 10% progress, or once every 10000 submissions (whichever comes first)
     val progressLogInterval = math.min(config.numberOfInstances / 10 + 1, 10000)
     val progressLoggingSink = {
       var lastInterval = 0
@@ -156,7 +164,7 @@ case class CommandSubmitter(
 
     }
 
-    val generator = new CommandGenerator(
+    val generator = CommandGenerator(
       randomnessProvider = RandomnessProvider.Default,
       signatory = signatory,
       config = config,
@@ -185,7 +193,7 @@ case class CommandSubmitter(
                 submitAndWait(
                   id = names.commandId(index),
                   party = signatory,
-                  commands = commands,
+                  commands = commands.flatten,
                 )
               )
                 .map(_ => index + commands.length - 1)

@@ -34,7 +34,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
       assert(
         exercised.head.getExercised.contractId == Tag.unwrap(dummyFactory),
         s"The identifier of the exercised contract should have been ${Tag
-          .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
+            .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
       )
     }
   })
@@ -77,7 +77,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
     for {
       agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-      _ <- eventually {
+      _ <- eventually("exerciseCreateAgreement") {
         alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
       }
       _ <- synchronize(alpha, beta)

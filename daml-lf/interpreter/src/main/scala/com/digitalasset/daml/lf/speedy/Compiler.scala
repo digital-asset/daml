@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
@@ -149,12 +149,12 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileModule( //called by scenario-service
+  def unsafeCompileModule( // called by scenario-service
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
 
-  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -329,7 +329,7 @@ private[lf] final class Compiler(
         )
       }
 
-      tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))
+      tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(identifier, tmpl, x)))
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileFetchByKey(identifier, tmpl, tmplKey))
@@ -344,7 +344,6 @@ private[lf] final class Compiler(
       addDef(compileInterfacePrecond(identifier, iface.param, iface.precond))
       iface.fixedChoices.values.foreach { choice =>
         addDef(compileInterfaceChoice(identifier, iface.param, choice))
-        addDef(compileInterfaceGuardedChoice(identifier, iface.param, choice))
       }
     }
 
@@ -407,7 +406,7 @@ private[lf] final class Compiler(
 
   private[this] def translateChoiceBody(
       env: Env,
-      tmplId: TypeConName,
+      typeId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
   )(
@@ -418,7 +417,7 @@ private[lf] final class Compiler(
   ) =
     let(
       env,
-      SBCastAnyContract(tmplId)(
+      SBCastAnyContract(typeId)(
         env.toSEVar(cidPos),
         SBFetchAny(
           env.toSEVar(cidPos),
@@ -432,9 +431,10 @@ private[lf] final class Compiler(
       let(
         env,
         SBUBeginExercise(
-          tmplId,
-          choice.name,
-          choice.consuming,
+          templateId = typeId,
+          interfaceId = None,
+          choiceId = choice.name,
+          consuming = choice.consuming,
           byKey = mbKey.isDefined,
         )(
           env.toSEVar(choiceArgPos),
@@ -461,10 +461,10 @@ private[lf] final class Compiler(
       param: ExprVarName,
       choice: TemplateChoice,
   )(
-      choiceArgPos: Position,
-      cidPos: Position,
-      tokenPos: Position,
       guardPos: Position,
+      cidPos: Position,
+      choiceArgPos: Position,
+      tokenPos: Position,
   ) =
     let(
       env,
@@ -485,8 +485,10 @@ private[lf] final class Compiler(
         let(
           env,
           SBResolveSBUBeginExercise(
+            interfaceId = ifaceId,
             choiceName = choice.name,
             consuming = choice.consuming,
+            byKey = false,
           )(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),
@@ -509,34 +511,17 @@ private[lf] final class Compiler(
       param: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction3(t.ChoiceDefRef(ifaceId, choice.name)) {
-      (cidPos, choiceArgPos, tokenPos, env) =>
-        let(env, s.SEBuiltin(SBGuardConstTrue)) { (guardPos, env) =>
-          translateInterfaceChoiceBody(env, ifaceId, param, choice)(
-            choiceArgPos,
-            cidPos,
-            tokenPos,
-            guardPos,
-          )
-        }
-    }
-
-  private[this] def compileInterfaceGuardedChoice(
-      ifaceId: TypeConName,
-      param: ExprVarName,
-      choice: TemplateChoice,
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction4(t.GuardedChoiceDefRef(ifaceId, choice.name)) {
-      (cidPos, choiceArgPos, guardPos, tokenPos, env) =>
+    topLevelFunction4(t.InterfaceChoiceDefRef(ifaceId, choice.name)) {
+      (guardPos, cidPos, choiceArgPos, tokenPos, env) =>
         translateInterfaceChoiceBody(env, ifaceId, param, choice)(
-          choiceArgPos,
-          cidPos,
-          tokenPos,
           guardPos,
+          cidPos,
+          choiceArgPos,
+          tokenPos,
         )
     }
 
-  private[this] def compileChoice(
+  private[this] def compileTemplateChoice(
       tmplId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
@@ -548,7 +533,7 @@ private[lf] final class Compiler(
     //       <retValue> = [update] <token>
     //       _ = $endExercise[tmplId] <retValue>
     //   in <retValue>
-    topLevelFunction3(t.ChoiceDefRef(tmplId, choice.name)) {
+    topLevelFunction3(t.TemplateChoiceDefRef(tmplId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
         translateChoiceBody(env, tmplId, tmpl, choice)(
           choiceArgPos,
@@ -591,7 +576,7 @@ private[lf] final class Compiler(
   @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
   private[this] def compileFetchBody(env: Env, tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
-      mbKey: Option[Position], //defined for byKey operation
+      mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
   ) =
     let(
@@ -784,7 +769,7 @@ private[lf] final class Compiler(
     labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), env) { (tokenPos, env) =>
       let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
         (cidPos, env) =>
-          t.ChoiceDefRef(tmplId, choiceId)(
+          t.TemplateChoiceDefRef(tmplId, choiceId)(
             env.toSEVar(cidPos),
             s.SEValue(choiceArg),
             env.toSEVar(tokenPos),
@@ -851,10 +836,30 @@ private[lf] final class Compiler(
       argument: SValue,
   ): s.SExpr =
     unaryFunction(env) { (tokenPos, env) =>
-      t.GuardedChoiceDefRef(interfaceId, choiceId)(
+      t.InterfaceChoiceDefRef(interfaceId, choiceId)(
+        s.SEApp(s.SEBuiltin(SBGuardMatchTemplateId(templateId)), List(s.SEValue(contractId))),
         s.SEValue(contractId),
         s.SEValue(argument),
-        s.SEApp(s.SEBuiltin(SBGuardMatchTemplateId(templateId)), List(s.SEValue(contractId))),
+        env.toSEVar(tokenPos),
+      )
+    }
+
+  private[this] def compileExerciseByInheritedInterface(
+      env: Env,
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      contractId: SValue,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ): s.SExpr =
+    unaryFunction(env) { (tokenPos, env) =>
+      t.InterfaceChoiceDefRef(requiredIfaceId, choiceId)(
+        s.SEApp(
+          s.SEBuiltin(SBGuardRequiredInterfaceId(requiredIfaceId, requiringIfaceId)),
+          List(s.SEValue(contractId)),
+        ),
+        s.SEValue(contractId),
+        s.SEValue(argument),
         env.toSEVar(tokenPos),
       )
     }
@@ -874,12 +879,31 @@ private[lf] final class Compiler(
   private[this] def translateCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
-    case Command.Exercise(templateId, contractId, choiceId, argument) =>
-      t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
+      t.TemplateChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
       compileExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
-      t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+      t.InterfaceChoiceDefRef(interfaceId, choiceId)(
+        s.SEBuiltin(SBGuardConstTrue),
+        s.SEValue(contractId),
+        s.SEValue(argument),
+      )
+    case Command.ExerciseByInheritedInterface(
+          requiredIfaceId,
+          requiringIfaceId,
+          contractId,
+          choiceId,
+          argument,
+        ) =>
+      compileExerciseByInheritedInterface(
+        env,
+        requiredIfaceId,
+        requiringIfaceId,
+        contractId,
+        choiceId,
+        argument,
+      )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.Fetch(templateId, coid) =>

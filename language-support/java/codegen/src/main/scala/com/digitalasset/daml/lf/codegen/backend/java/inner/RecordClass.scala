@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
+
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.Record
 import com.squareup.javapoet.{ClassName, TypeSpec, TypeVariableName}
@@ -13,6 +14,7 @@ import scala.jdk.CollectionConverters._
 private[inner] object RecordClass extends StrictLogging {
 
   def generate(
+      packageId: PackageId,
       className: ClassName,
       typeParameters: IndexedSeq[String],
       record: Record.FWT,
@@ -26,6 +28,7 @@ private[inner] object RecordClass extends StrictLogging {
         .addModifiers(Modifier.PUBLIC)
         .addTypeVariables(typeParameters.map(TypeVariableName.get).asJava)
         .addFields(RecordFields(fields).asJava)
+        .addField(createPackageIdField(packageId))
         .addMethods(RecordMethods(fields, className, typeParameters, packagePrefixes).asJava)
         .build()
       logger.debug("End")

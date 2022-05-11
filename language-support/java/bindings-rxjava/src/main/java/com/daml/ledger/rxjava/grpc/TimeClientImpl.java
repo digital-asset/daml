@@ -9,7 +9,6 @@ import com.daml.ledger.api.v1.testing.TimeServiceOuterClass;
 import com.daml.ledger.rxjava.TimeClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
-import com.daml.ledger.rxjava.util.CreateSingle;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
 import io.grpc.Channel;
@@ -55,9 +54,8 @@ public final class TimeClientImpl implements TimeClient {
                     .setSeconds(newTime.getEpochSecond())
                     .setNanos(newTime.getNano()))
             .build();
-    return CreateSingle.fromFuture(
-        StubHelper.authenticating(this.serviceFutureStub, accessToken).setTime(request),
-        sequencerFactory);
+    return Single.fromFuture(
+        StubHelper.authenticating(this.serviceFutureStub, accessToken).setTime(request));
   }
 
   @Override

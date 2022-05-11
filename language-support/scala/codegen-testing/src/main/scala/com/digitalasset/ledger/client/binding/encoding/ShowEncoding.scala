@@ -121,7 +121,8 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
-    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = P.TextMap.leibniz[A].subst(mapShow)
+    override def valueTextMap[A: Show]: Show[P.TextMap[A]] =
+      P.TextMap.leibniz[A].substituteCo(mapShow)
 
     override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = {
       type SM[M[_, _]] = Show[M[K, V]]
