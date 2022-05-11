@@ -88,6 +88,7 @@ private[inner] object TemplateClass extends StrictLogging {
     MethodSpec
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
+      .addAnnotation(classOf[Override])
       .returns(classOf[javaapi.data.CreateCommand])
       .addStatement(
         "return new $T($T.$N, this.toValue())",
