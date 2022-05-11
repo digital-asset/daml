@@ -1,0 +1,15 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Lib.ModIfaceOnly where
+
+-- this module must contain _nothing_ but this interface
+-- to ensure integrity of the test for #13754
+
+interface YetAnother where
+  getOtherOwner : Party
+  somethingImpl : Update ()
+  choice SomethingElse : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this
