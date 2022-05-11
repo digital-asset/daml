@@ -254,5 +254,6 @@ object ConflictCheckWithCommittedSpec {
     submissionId = Some(Ref.SubmissionId.assertFromString("some-submission-id")),
     ledgerConfiguration =
       Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
+    explicitDisclosure = Set.empty,
   )
 }

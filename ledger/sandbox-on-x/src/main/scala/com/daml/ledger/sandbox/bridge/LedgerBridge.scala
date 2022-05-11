@@ -148,6 +148,7 @@ object LedgerBridge {
       recordTime = currentTimestamp,
       divulgedContracts = Nil,
       blindingInfo = None,
+      contractMetadata = Map.empty,
     )
   }
 
