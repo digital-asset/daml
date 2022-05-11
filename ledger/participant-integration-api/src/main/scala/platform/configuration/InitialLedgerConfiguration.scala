@@ -22,7 +22,6 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
   * @param delayBeforeSubmitting The delay until the participant tries to submit a configuration.
   */
 final case class InitialLedgerConfiguration(
-    generation: Long,
     maxDeduplicationDuration: Duration,
     avgTransactionLatency: Duration,
     minSkew: Duration,
@@ -30,8 +29,10 @@ final case class InitialLedgerConfiguration(
     delayBeforeSubmitting: Duration,
 ) {
   def toConfiguration = Configuration(
-    generation = generation,
+    generation = 1L,
     timeModel = LedgerTimeModel.apply(avgTransactionLatency, minSkew, maxSkew).get,
     maxDeduplicationDuration = maxDeduplicationDuration,
   )
 }
+
+object InitialLedgerConfiguration {}
