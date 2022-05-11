@@ -23,7 +23,6 @@ class ConfigAdaptor {
       avgTransactionLatency = conf.timeModel.avgTransactionLatency,
       minSkew = conf.timeModel.minSkew,
       maxSkew = conf.timeModel.maxSkew,
-      generation = conf.generation,
       // If a new index database is added to an already existing ledger,
       // a zero delay will likely produce a "configuration rejected" ledger entry,
       // because at startup the indexer hasn't ingested any configuration change yet.
