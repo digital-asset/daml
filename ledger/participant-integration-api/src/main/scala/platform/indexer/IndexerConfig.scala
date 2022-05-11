@@ -11,16 +11,16 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
-    startupMode: IndexerStartupMode = DefaultIndexerStartupMode,
-    restartDelay: FiniteDuration = DefaultRestartDelay,
-    maxInputBufferSize: Int = DefaultMaxInputBufferSize,
-    inputMappingParallelism: Int = DefaultInputMappingParallelism,
     batchingParallelism: Int = DefaultBatchingParallelism,
-    ingestionParallelism: Int = DefaultIngestionParallelism,
-    submissionBatchSize: Long = DefaultSubmissionBatchSize,
+    database: DbConfig = DefaultDatabase,
     enableCompression: Boolean = DefaultEnableCompression,
     highAvailability: HaConfig = DefaultHaConfig,
-    database: DbConfig = DefaultDatabase,
+    ingestionParallelism: Int = DefaultIngestionParallelism,
+    inputMappingParallelism: Int = DefaultInputMappingParallelism,
+    maxInputBufferSize: Int = DefaultMaxInputBufferSize,
+    restartDelay: FiniteDuration = DefaultRestartDelay,
+    startupMode: IndexerStartupMode = DefaultIndexerStartupMode,
+    submissionBatchSize: Long = DefaultSubmissionBatchSize,
 )
 
 object IndexerConfig {

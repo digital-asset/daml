@@ -25,25 +25,25 @@ import java.nio.file.Path
 import scala.concurrent.duration._
 
 case class ApiServerConfig(
-    port: Port = ApiServerConfig.DefaultPort,
     address: Option[String] =
       ApiServerConfig.DefaultAddress, // This defaults to "localhost" when set to `None`.
-    tls: Option[TlsConfiguration] = ApiServerConfig.DefaultTls,
-    maxInboundMessageSize: Int = ApiServerConfig.DefaultMaxInboundMessageSize,
+    apiStreamShutdownTimeout: Duration = ApiServerConfig.DefaultApiStreamShutdownTimeout,
+    authentication: AuthServiceConfig = ApiServerConfig.DefaultAuthentication,
+    command: CommandConfiguration = ApiServerConfig.DefaultCommand,
+    configurationLoadTimeout: Duration = ApiServerConfig.DefaultConfigurationLoadTimeout,
+    database: DbConfig = ApiServerConfig.DefaultDatabase,
     initialLedgerConfiguration: Option[InitialLedgerConfiguration] =
       ApiServerConfig.DefaultInitialLedgerConfiguration,
-    configurationLoadTimeout: Duration = ApiServerConfig.DefaultConfigurationLoadTimeout,
-    portFile: Option[Path] = ApiServerConfig.DefaultPortFile,
-    seeding: Seeding = ApiServerConfig.DefaultSeeding,
     managementServiceTimeout: FiniteDuration = ApiServerConfig.DefaultManagementServiceTimeout,
-    userManagement: UserManagementConfig = ApiServerConfig.DefaultUserManagement,
-    authentication: AuthServiceConfig = ApiServerConfig.DefaultAuthentication,
+    maxInboundMessageSize: Int = ApiServerConfig.DefaultMaxInboundMessageSize,
     party: PartyConfiguration = ApiServerConfig.DefaultParty,
-    command: CommandConfiguration = ApiServerConfig.DefaultCommand,
-    timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
-    database: DbConfig = ApiServerConfig.DefaultDatabase,
+    port: Port = ApiServerConfig.DefaultPort,
+    portFile: Option[Path] = ApiServerConfig.DefaultPortFile,
     rateLimitingConfig: Option[RateLimitingConfig] = ApiServerConfig.DefaultRateLimitingConfig,
-    apiStreamShutdownTimeout: Duration = ApiServerConfig.DefaultApiStreamShutdownTimeout,
+    seeding: Seeding = ApiServerConfig.DefaultSeeding,
+    timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
+    tls: Option[TlsConfiguration] = ApiServerConfig.DefaultTls,
+    userManagement: UserManagementConfig = ApiServerConfig.DefaultUserManagement,
 )
 
 object ApiServerConfig {

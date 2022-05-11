@@ -12,14 +12,14 @@ import com.daml.platform.indexer.IndexerConfig
 import com.daml.platform.store.LfValueTranslationCache
 
 final case class ParticipantConfig(
-    participantId: Ref.ParticipantId = DefaultParticipantId,
-    // A name of the participant shard in a horizontally scaled participant.
-    shardName: Option[String] = DefaultShardName,
-    runMode: ParticipantRunMode = DefaultRunMode,
-    indexer: IndexerConfig = DefaultIndexerConfig,
-    indexService: IndexServiceConfig = DefaultIndexConfig,
-    lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
     apiServer: ApiServerConfig = DefaultApiServer,
+    indexService: IndexServiceConfig = DefaultIndexConfig,
+    indexer: IndexerConfig = DefaultIndexerConfig,
+    lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
+    participantId: Ref.ParticipantId = DefaultParticipantId,
+    runMode: ParticipantRunMode = DefaultRunMode,
+    shardName: Option[String] =
+      DefaultShardName, // A name of the participant shard in a horizontally scaled participant.
 ) {
   def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
 }

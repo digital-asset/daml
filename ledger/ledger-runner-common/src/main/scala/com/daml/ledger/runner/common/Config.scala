@@ -13,8 +13,8 @@ import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 
 final case class Config(
-    ledgerId: String = DefaultLedgerId,
     engine: EngineConfig = DefaultEngineConfig,
+    ledgerId: String = DefaultLedgerId,
     metrics: MetricsConfig = DefaultMetricsConfig,
     participants: Map[ParticipantName, ParticipantConfig] = DefaultParticipants,
 )
