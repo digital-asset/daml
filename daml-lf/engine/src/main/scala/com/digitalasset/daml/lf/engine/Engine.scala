@@ -363,7 +363,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           return Result.needContract(
             contractId,
             { coinst =>
-              callback(coinst)
+              callback(coinst.unversioned)
               interpretLoop(machine, time)
             },
           )

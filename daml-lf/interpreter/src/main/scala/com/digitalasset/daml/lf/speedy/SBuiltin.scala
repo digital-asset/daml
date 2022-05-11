@@ -20,13 +20,7 @@ import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  Versioned,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
@@ -1080,7 +1074,7 @@ private[lf] object SBuiltin {
             SResultNeedContract(
               coid,
               onLedger.committers,
-              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
+              { case V.ContractInstance(actualTmplId, arg, _) =>
                 machine.pushKont(KCacheContract(machine, coid))
                 machine.ctrl = SEApp(
                   // The call to ToCachedContractDefRef(actualTmplId) will query package

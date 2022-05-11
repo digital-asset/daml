@@ -10,7 +10,7 @@ import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultErro
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
@@ -177,7 +177,7 @@ object ScenarioRunner {
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbPresent: VersionedContractInstance => Unit,
+        cbPresent: ContractInstance => Unit,
     ): Either[Error, Unit]
     def lookupKey(
         machine: Speedy.Machine,
@@ -203,7 +203,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: VersionedContractInstance => Unit,
+        callback: ContractInstance => Unit,
     ): Either[Error, Unit] =
       handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
 
@@ -211,7 +211,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: VersionedContractInstance => Unit,
+        callback: ContractInstance => Unit,
     ) = {
 
       val effectiveAt = ledger.currentTime
@@ -222,7 +222,7 @@ object ScenarioRunner {
         acoid,
       ) match {
         case ScenarioLedger.LookupOk(_, coinst, _) =>
-          callback(coinst)
+          callback(coinst.unversioned)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific

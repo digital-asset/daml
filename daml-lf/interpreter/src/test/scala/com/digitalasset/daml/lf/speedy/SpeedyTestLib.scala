@@ -57,7 +57,7 @@ private[speedy] object SpeedyTestLib {
         case SResultNeedContract(contractId, _, callback) =>
           getContract.lift(contractId) match {
             case Some(value) =>
-              callback(value)
+              callback(value.unversioned)
               loop
             case None =>
               throw UnknownContract(contractId)
