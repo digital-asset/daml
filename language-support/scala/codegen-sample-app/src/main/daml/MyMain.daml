@@ -596,18 +596,18 @@ interface InterfaceToMix where
   choice InheritedOnly: () with
     controller getOwner this
     do return ()
+{- TODO(#13349) uncomment when overloaded choices compile
   choice OverloadedInTemplate: () with
     controller getOwner this
     do return ()
+-}
 
 template InterfaceMixer with
     party: Party
   where
     signatory party
-{- TODO(#13349) uncomment when overloaded choices compile
     choice OverloadedInTemplate: () with
-      controller getOwner this
+      controller party
       do return ()
--}
     implements InterfaceToMix where
       getOwner = party
