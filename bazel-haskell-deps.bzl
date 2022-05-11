@@ -663,33 +663,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     )
 
     stack_snapshot(
-        name = "ghcide",
-        extra_deps = {
-            "zlib": ["@com_github_madler_zlib//:libz"],
-        },
-        haddock = False,
-        local_snapshot = "//:ghcide-snapshot.yaml",
-        stack_snapshot_json = "//:ghcide_snapshot.json",
-        packages = [
-            "ghcide",
-        ],
-        components = {
-            "ghcide": ["lib", "exe"],
-            "attoparsec": [
-                "lib:attoparsec",
-                "lib:attoparsec-internal",
-            ],
-        },
-        components_dependencies = {
-            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
-        },
-        stack = "@stack_windows//:stack.exe" if is_windows else None,
-        vendored_packages = {
-            "zip": "@zip//:zip",
-        },
-    ) if not is_windows else None
-
-    stack_snapshot(
         name = "hls",
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
