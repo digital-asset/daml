@@ -39,6 +39,17 @@ trait ContractStore {
   def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[MaximumLedgerTime]
+
+  // TODO DPP-1026: Check whether this should move to a new trait. ContractStore is meant to be used for command interpretation, not transaction validation.
+  /** Look up an active contract, ignoring contract visibility.
+    *  This lookup will not return contracts that have only been divulged to this store.
+    *  This is useful for validating transactions after submission.
+    */
+  def lookupContractAfterInterpretation(
+      contractId: ContractId
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]]
 }
 
 /** The outcome of determining the maximum ledger time of a set of contracts.

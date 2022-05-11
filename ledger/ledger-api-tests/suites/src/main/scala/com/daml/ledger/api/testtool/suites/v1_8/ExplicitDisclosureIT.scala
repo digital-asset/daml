@@ -38,15 +38,16 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       // Contract is visible both to owner (as signatory) and delegate (as observer)
       delegationCid <- ledger.create(owner, Delegation(owner, delegate))
 
-      // Create Delegated contract, and get the contract payload
+      // Create Delegated contract
       // This contract is only visible to the owner
-      createDelegatedRequest = ledger.submitAndWaitRequest(
-        owner,
-        Delegated(owner, contractKey).create.command,
-      )
-      createDelegatedResponse <- ledger.submitAndWaitForTransaction(createDelegatedRequest)
-      createDelegatedEvent = createdEvents(createDelegatedResponse.getTransaction).head
-      delegatedCid = binding.Primitive.ContractId[Delegated](createDelegatedEvent.contractId)
+      delegatedCid <- ledger.create(owner, Delegated(owner, contractKey))
+
+      // Get the contract payload, using verbose mode
+      getDelegatedRequest = ledger
+        .getTransactionsRequest(Seq(owner), Seq(Delegated.id))
+        .update(_.verbose := true)
+      delegatedTx <- ledger.flatTransactions(getDelegatedRequest)
+      createDelegatedEvent = createdEvents(delegatedTx.head).head
 
       // Copy the actual Delegated contract (from the transaction stream of the owner) to a disclosed contract.
       // Pretend we then send the disclosed contract to the delegate out of band.
