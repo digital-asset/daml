@@ -590,3 +590,24 @@ template JustMapUser
        aMap: JustMap Int Int
     where
       signatory party
+
+interface InterfaceToMix where
+  getOwner: Party
+  choice InheritedOnly: () with
+    controller getOwner this
+    do return ()
+  choice OverloadedInTemplate: () with
+    controller getOwner this
+    do return ()
+
+template InterfaceMixer with
+    party: Party
+  where
+    signatory party
+{- TODO(#13349) uncomment when overloaded choices compile
+    choice OverloadedInTemplate: () with
+      controller getOwner this
+      do return ()
+-}
+    implements InterfaceToMix where
+      getOwner = party
