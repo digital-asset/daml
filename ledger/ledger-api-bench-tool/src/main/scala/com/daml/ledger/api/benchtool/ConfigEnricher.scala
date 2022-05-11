@@ -12,25 +12,25 @@ object ConfigEnricher {
 
   def enrichStreamConfig(
       streamConfig: StreamConfig,
-      submissionSummary: Option[SubmissionStepResult],
+      submissionResult: Option[SubmissionStepResult],
   ): StreamConfig = {
     streamConfig match {
       case config: StreamConfig.TransactionsStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionSummary))
+        config.copy(filters = enrichFilters(config.filters, submissionResult))
       case config: StreamConfig.TransactionTreesStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionSummary))
+        config.copy(filters = enrichFilters(config.filters, submissionResult))
       case config: StreamConfig.ActiveContractsStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionSummary))
+        config.copy(filters = enrichFilters(config.filters, submissionResult))
       case config: StreamConfig.CompletionsStreamConfig =>
-        config.copy(party = convertParty(config.party, submissionSummary))
+        config.copy(party = convertParty(config.party, submissionResult))
     }
   }
 
   private def convertParty(
       party: String,
-      submissionSummary: Option[SubmissionStepResult],
+      submissionResult: Option[SubmissionStepResult],
   ): String =
-    submissionSummary match {
+    submissionResult match {
       case None => party
       case Some(summary) =>
         summary.observers
@@ -41,7 +41,7 @@ object ConfigEnricher {
 
   private def enrichFilters(
       filters: List[StreamConfig.PartyFilter],
-      submissionSummary: Option[SubmissionStepResult],
+      submissionResult: Option[SubmissionStepResult],
   ): List[StreamConfig.PartyFilter] = {
     def identifierToFullyQualifiedString(id: Identifier) =
       s"${id.packageId}:${id.moduleName}:${id.entityName}"
@@ -55,7 +55,7 @@ object ConfigEnricher {
 
     filters.map { filter =>
       StreamConfig.PartyFilter(
-        party = convertParty(filter.party, submissionSummary),
+        party = convertParty(filter.party, submissionResult),
         templates = filter.templates.map(fullyQualifiedTemplateId),
       )
     }
