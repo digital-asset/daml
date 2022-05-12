@@ -36,7 +36,12 @@ case class CommandSubmitter(
 
   def prepare(config: SubmissionConfig)(implicit
       ec: ExecutionContext
-  ): Future[(client.binding.Primitive.Party, List[client.binding.Primitive.Party])] = {
+  ): Future[
+    (
+        client.binding.Primitive.Party,
+        List[client.binding.Primitive.Party],
+    )
+  ] = {
     val observerPartyNames =
       names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
 
@@ -48,7 +53,7 @@ case class CommandSubmitter(
       _ <- uploadTestDars()
     } yield {
       logger.info("Prepared command submission.")
-      signatory -> observers
+      (signatory, observers)
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(
@@ -59,26 +64,25 @@ case class CommandSubmitter(
       }
   }
 
-  def submit(
+  def generateAndSubmit(
+      generator: CommandGenerator,
       config: SubmissionConfig,
       signatory: client.binding.Primitive.Party,
-      observers: List[client.binding.Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
-  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] = {
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Generating contracts...")
     (for {
       _ <- submitCommands(
-        config,
-        signatory,
-        observers,
-        maxInFlightCommands,
-        submissionBatchSize,
+        generator = generator,
+        config = config,
+        signatory = signatory,
+        maxInFlightCommands = maxInFlightCommands,
+        submissionBatchSize = submissionBatchSize,
       )
     } yield {
       logger.info("Commands submitted successfully.")
-      // TODO Refactor: Extract the SubmissionSummery construction out of this method
-      CommandSubmitter.SubmissionSummary(observers = observers)
+      ()
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
@@ -118,7 +122,7 @@ case class CommandSubmitter(
 
   private def submitAndWait(
       id: String,
-      party: Primitive.Party,
+      actAs: Seq[Primitive.Party],
       commands: Seq[Command],
   )(implicit
       ec: ExecutionContext
@@ -127,7 +131,7 @@ case class CommandSubmitter(
       ledgerId = benchtoolUserServices.ledgerId,
       applicationId = names.benchtoolApplicationId,
       commandId = id,
-      party = party.unwrap,
+      actAs = actAs.map(_.unwrap),
       commands = commands,
       workflowId = names.workflowId,
     )
@@ -139,9 +143,9 @@ case class CommandSubmitter(
   }
 
   private def submitCommands(
+      generator: CommandGenerator,
       config: SubmissionConfig,
       signatory: Primitive.Party,
-      observers: List[Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit
@@ -163,14 +167,6 @@ case class CommandSubmitter(
       )
 
     }
-
-    val generator = CommandGenerator(
-      randomnessProvider = RandomnessProvider.Default,
-      signatory = signatory,
-      config = config,
-      observers = observers,
-    )
-
     logger.info(
       s"Submitting commands ($numBatches commands, $submissionBatchSize contracts per command)..."
     )
@@ -192,7 +188,7 @@ case class CommandSubmitter(
               timed(submitAndWaitTimer, metricsManager)(
                 submitAndWait(
                   id = names.commandId(index),
-                  party = signatory,
+                  actAs = Seq(signatory),
                   commands = commands.flatten,
                 )
               )

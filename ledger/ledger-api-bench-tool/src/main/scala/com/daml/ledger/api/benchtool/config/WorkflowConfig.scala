@@ -27,7 +27,7 @@ object WorkflowConfig {
       uniqueParties: Boolean,
       value: Int,
   ) extends SubmissionConfig {
-    def numberOfObservers = 0
+    override val numberOfObservers = 0
   }
 
   final case class FooSubmissionConfig(

@@ -3,8 +3,14 @@
 
 package com.daml.ledger.api.benchtool
 
+import java.util.concurrent._
+
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.{
+  FibonacciSubmissionConfig,
+  FooSubmissionConfig,
+}
 import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.metrics.{
@@ -14,7 +20,7 @@ import com.daml.ledger.api.benchtool.metrics.{
   MetricsManager,
 }
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.submission.{CommandSubmitter, Names}
+import com.daml.ledger.api.benchtool.submission._
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client
@@ -25,7 +31,6 @@ import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
 
-import java.util.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -36,6 +41,11 @@ import scala.util.control.NonFatal
   * Uses "benchtool" ([[Names.benchtoolApplicationId]]) applicationId for both steps.
   */
 object LedgerApiBenchTool {
+  private val printer = pprint.PPrinter.BlackWhite
+
+  private[benchtool] val logger: Logger = LoggerFactory.getLogger(getClass)
+  private[benchtool] def prettyPrint(x: Any): String = printer(x).toString()
+
   def main(args: Array[String]): Unit = {
     import scala.concurrent.ExecutionContext.Implicits.global
     ConfigMaker.make(args) match {
@@ -43,7 +53,8 @@ object LedgerApiBenchTool {
         logger.error(s"Configuration error: ${error.details}")
       case Right(config) =>
         logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
-        val result = run(config)(ExecutionContext.Implicits.global)
+        val result = LedgerApiBenchTool(config)
+          .run()(ExecutionContext.Implicits.global)
           .map {
             case Right(()) =>
               logger.info(s"Benchmark finished successfully.")
@@ -59,139 +70,39 @@ object LedgerApiBenchTool {
     }
   }
 
-  private def run(config: Config)(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
+  def apply(config: Config): LedgerApiBenchTool = {
+    new LedgerApiBenchTool(
+      names = new Names,
+      authorizationHelper = config.authorizationTokenSecret.map(new AuthorizationHelper(_)),
+      config = config,
+    )
+  }
+
+}
+
+case class SubmissionStepResult(
+    signatory: Primitive.Party,
+    observers: List[Primitive.Party],
+)
+
+class LedgerApiBenchTool(
+    names: Names,
+    authorizationHelper: Option[AuthorizationHelper],
+    config: Config,
+) {
+
+  import LedgerApiBenchTool.{logger, prettyPrint}
+
+  def run()(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
-    val names = new Names
-    val authorizationHelper = config.authorizationTokenSecret.map(new AuthorizationHelper(_))
-
-    def regularUserSetupStep(adminServices: LedgerApiServices): Future[Unit] =
-      (config.authorizationTokenSecret, config.workflow.submission) match {
-        case (Some(_), Some(submissionConfig)) =>
-          // We only need to setup the user when the UserManagementService is used and we're going to submit transactions
-          // The submission config is necessary to establish a set of rights that will be granted to the user.
-          logger.info(
-            s"Setting up the regular '${names.benchtoolUserId}' user prior to the submission phase."
-          )
-          adminServices.userManagementService.createUserOrGrantRightsToExisting(
-            userId = names.benchtoolUserId,
-            observerPartyNames = names.observerPartyNames(
-              submissionConfig.numberOfObservers,
-              submissionConfig.uniqueParties,
-            ),
-            signatoryPartyName = names.signatoryPartyName,
-          )
-        case _ =>
-          Future.successful(
-            logger.info(
-              s"The '${names.benchtoolUserId}' user is going to be used for authentication."
-            )
-          )
-      }
-
-    def benchmarkStreams(
-        regularUserServices: LedgerApiServices,
-        streamConfigs: List[WorkflowConfig.StreamConfig],
-        metricRegistry: MetricRegistry,
-        actorSystem: ActorSystem[SpawnProtocol.Command],
-    ): Future[Either[String, Unit]] =
-      if (streamConfigs.isEmpty) {
-        logger.info(s"No streams defined. Skipping the benchmark step.")
-        Future.successful(Right(()))
-      } else
-        Benchmark
-          .run(
-            streamConfigs = streamConfigs,
-            reportingPeriod = config.reportingPeriod,
-            apiServices = regularUserServices,
-            metricRegistry = metricRegistry,
-            system = actorSystem,
-          )
-
-    def benchmarkLatency(
-        regularUserServices: LedgerApiServices,
-        adminServices: LedgerApiServices,
-        submissionConfigO: Option[WorkflowConfig.SubmissionConfig],
-        metricRegistry: MetricRegistry,
-        signatory: client.binding.Primitive.Party,
-        actorSystem: ActorSystem[SpawnProtocol.Command],
-        maxLatencyObjectiveMillis: Long,
-    ): Future[Either[String, Unit]] =
-      submissionConfigO match {
-        case Some(submissionConfig) =>
-          for {
-            metricsManager <- MetricsManager(
-              observedMetric = "submit-and-wait-latency",
-              logInterval = config.reportingPeriod,
-              metrics = List(LatencyMetric.empty(maxLatencyObjectiveMillis)),
-              exposedMetrics = None,
-            )(actorSystem, ec)
-            submitter = CommandSubmitter(
-              names = names,
-              benchtoolUserServices = regularUserServices,
-              adminServices = adminServices,
-              metricRegistry = metricRegistry,
-              metricsManager = metricsManager,
-            )
-            result <- submitter
-              .submit(
-                config = submissionConfig,
-                signatory = signatory,
-                observers = Nil,
-                maxInFlightCommands = config.maxInFlightCommands,
-                submissionBatchSize = config.submissionBatchSize,
-              )
-              .flatMap(_ => metricsManager.result())
-              .map {
-                case BenchmarkResult.ObjectivesViolated =>
-                  Left("Metrics objectives not met.")
-                case BenchmarkResult.Ok =>
-                  Right(())
-              }
-              .recoverWith { case NonFatal(e) =>
-                Future.successful(Left(e.getMessage))
-              }
-          } yield result
-        case None =>
-          Future.failed(
-            new RuntimeException("Submission config cannot be empty for latency benchmarking")
-          )
-      }
-
-    def submissionStep(
-        regularUserServices: LedgerApiServices,
-        adminServices: LedgerApiServices,
-        submissionConfig: Option[WorkflowConfig.SubmissionConfig],
-        metricRegistry: MetricRegistry,
-    )(implicit ec: ExecutionContext): Future[
-      Option[(Primitive.Party, CommandSubmitter.SubmissionSummary)]
-    ] =
-      submissionConfig match {
-        case None =>
-          logger.info(s"No submission defined. Skipping.")
-          Future.successful(None)
-        case Some(submissionConfig) =>
-          val submitter = CommandSubmitter(
-            names = names,
-            benchtoolUserServices = regularUserServices,
-            adminServices = adminServices,
-            metricRegistry = metricRegistry,
-            metricsManager = NoOpMetricsManager(),
-          )
-          for {
-            (signatory, observers) <- submitter.prepare(submissionConfig)
-            result <- submitter
-              .submit(
-                config = submissionConfig,
-                signatory = signatory,
-                observers = observers,
-                maxInFlightCommands = config.maxInFlightCommands,
-                submissionBatchSize = config.submissionBatchSize,
-              )
-          } yield Some((signatory, result))
-      }
-
-    val resources = for {
+    val resources: ResourceOwner[
+      (
+          String => LedgerApiServices,
+          ActorSystem[SpawnProtocol.Command],
+          MetricRegistry,
+      )
+    ] = for {
       servicesForUserId <- apiServicesOwner(config, authorizationHelper)
       system <- TypedActorSystemResourceOwner.owner()
       metricRegistry <- new MetricRegistryOwner(
@@ -207,37 +118,212 @@ object LedgerApiBenchTool {
 
       for {
         _ <- regularUserSetupStep(adminServices)
-        submissionStepProducts <- submissionStep(
-          regularUserServices = regularUserServices,
-          adminServices = adminServices,
-          submissionConfig = config.workflow.submission,
-          metricRegistry = metricRegistry,
+        submissionStepResultO: Option[SubmissionStepResult] <- {
+          config.workflow.submission match {
+            case None =>
+              logger.info(s"No submission defined. Skipping.")
+              Future.successful(None)
+            case Some(submissionConfig) =>
+              submissionStep(
+                regularUserServices = regularUserServices,
+                adminServices = adminServices,
+                submissionConfig = submissionConfig,
+                metricRegistry = metricRegistry,
+              ).map(Some(_))
+          }
+        }
+
+        updatedStreamConfigs = config.workflow.streams.map(streamsConfig =>
+          ConfigEnricher.enrichStreamConfig(streamsConfig, submissionStepResultO)
         )
-        streams = config.workflow.streams.map(
-          ConfigEnricher.enrichStreamConfig(_, submissionStepProducts.map(_._2))
-        )
+
         _ = logger.info(
-          s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
+          s"Stream configs adapted after the submission step: ${prettyPrint(updatedStreamConfigs)}"
         )
         benchmarkResult <-
           if (config.latencyTest) {
-            val signatory = submissionStepProducts
-              .map(_._1)
+            val signatory = submissionStepResultO
+              .map(_.signatory)
               .getOrElse(
                 throw new RuntimeException("Signatory cannot be empty for latency benchmark")
               )
             benchmarkLatency(
-              regularUserServices,
-              adminServices,
-              config.workflow.submission,
-              metricRegistry,
-              signatory,
-              actorSystem,
-              config.maxLatencyObjectiveMillis,
+              regularUserServices = regularUserServices,
+              adminServices = adminServices,
+              submissionConfigO = config.workflow.submission,
+              metricRegistry = metricRegistry,
+              signatory = signatory,
+              actorSystem = actorSystem,
+              maxLatencyObjectiveMillis = config.maxLatencyObjectiveMillis,
             )
-          } else benchmarkStreams(regularUserServices, streams, metricRegistry, actorSystem)
+          } else {
+            benchmarkStreams(
+              regularUserServices = regularUserServices,
+              streamConfigs = updatedStreamConfigs,
+              metricRegistry = metricRegistry,
+              actorSystem = actorSystem,
+            )
+          }
       } yield benchmarkResult
     }
+  }
+
+  private def regularUserSetupStep(
+      adminServices: LedgerApiServices
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    (config.authorizationTokenSecret, config.workflow.submission) match {
+      case (Some(_), Some(submissionConfig)) =>
+        // We only need to setup the user when the UserManagementService is used and we're going to submit transactions
+        // The submission config is necessary to establish a set of rights that will be granted to the user.
+        logger.info(
+          s"Setting up the regular '${names.benchtoolUserId}' user prior to the submission phase."
+        )
+        adminServices.userManagementService.createUserOrGrantRightsToExisting(
+          userId = names.benchtoolUserId,
+          observerPartyNames = names.observerPartyNames(
+            submissionConfig.numberOfObservers,
+            submissionConfig.uniqueParties,
+          ),
+          signatoryPartyName = names.signatoryPartyName,
+        )
+      case _ =>
+        Future.successful(
+          logger.info(
+            s"The '${names.benchtoolUserId}' user is going to be used for authentication."
+          )
+        )
+    }
+
+  private def benchmarkStreams(
+      regularUserServices: LedgerApiServices,
+      streamConfigs: List[WorkflowConfig.StreamConfig],
+      metricRegistry: MetricRegistry,
+      actorSystem: ActorSystem[SpawnProtocol.Command],
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+    if (streamConfigs.isEmpty) {
+      logger.info(s"No streams defined. Skipping the benchmark step.")
+      Future.successful(Right(()))
+    } else
+      Benchmark
+        .run(
+          streamConfigs = streamConfigs,
+          reportingPeriod = config.reportingPeriod,
+          apiServices = regularUserServices,
+          metricRegistry = metricRegistry,
+          system = actorSystem,
+        )
+
+  private def benchmarkLatency(
+      regularUserServices: LedgerApiServices,
+      adminServices: LedgerApiServices,
+      submissionConfigO: Option[WorkflowConfig.SubmissionConfig],
+      metricRegistry: MetricRegistry,
+      signatory: client.binding.Primitive.Party,
+      actorSystem: ActorSystem[SpawnProtocol.Command],
+      maxLatencyObjectiveMillis: Long,
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+    submissionConfigO match {
+      case Some(submissionConfig: FooSubmissionConfig) =>
+        val generator: CommandGenerator = new FooCommandGenerator(
+          randomnessProvider = RandomnessProvider.Default,
+          signatory = signatory,
+          config = submissionConfig,
+          allObservers = List.empty,
+        )
+        for {
+          metricsManager <- MetricsManager(
+            observedMetric = "submit-and-wait-latency",
+            logInterval = config.reportingPeriod,
+            metrics = List(LatencyMetric.empty(maxLatencyObjectiveMillis)),
+            exposedMetrics = None,
+          )(actorSystem, ec)
+          submitter = CommandSubmitter(
+            names = names,
+            benchtoolUserServices = regularUserServices,
+            adminServices = adminServices,
+            metricRegistry = metricRegistry,
+            metricsManager = metricsManager,
+          )
+          result <- submitter
+            .generateAndSubmit(
+              generator = generator,
+              config = submissionConfig,
+              signatory = signatory,
+              maxInFlightCommands = config.maxInFlightCommands,
+              submissionBatchSize = config.submissionBatchSize,
+            )
+            .flatMap(_ => metricsManager.result())
+            .map {
+              case BenchmarkResult.ObjectivesViolated =>
+                Left("Metrics objectives not met.")
+              case BenchmarkResult.Ok =>
+                Right(())
+            }
+            .recoverWith { case NonFatal(e) =>
+              Future.successful(Left(e.getMessage))
+            }
+        } yield result
+      case Some(other) =>
+        Future.failed(
+          new RuntimeException(s"Unsupported submission config for latency benchmarking: $other")
+        )
+      case None =>
+        Future.failed(
+          new RuntimeException("Submission config cannot be empty for latency benchmarking")
+        )
+    }
+
+  def submissionStep(
+      regularUserServices: LedgerApiServices,
+      adminServices: LedgerApiServices,
+      submissionConfig: WorkflowConfig.SubmissionConfig,
+      metricRegistry: MetricRegistry,
+  )(implicit
+      ec: ExecutionContext
+  ): Future[SubmissionStepResult] = {
+
+    val submitter = CommandSubmitter(
+      names = names,
+      benchtoolUserServices = regularUserServices,
+      adminServices = adminServices,
+      metricRegistry = metricRegistry,
+      metricsManager = NoOpMetricsManager(),
+    )
+    for {
+      (signatory, allObservers) <- submitter.prepare(
+        submissionConfig
+      )
+      _ <-
+        submissionConfig match {
+          case submissionConfig: FooSubmissionConfig =>
+            new FooSubmission(
+              submitter = submitter,
+              maxInFlightCommands = config.maxInFlightCommands,
+              submissionBatchSize = config.submissionBatchSize,
+              submissionConfig = submissionConfig,
+              signatory = signatory,
+              allObservers = allObservers,
+            ).performSubmission()
+          case submissionConfig: FibonacciSubmissionConfig =>
+            val generator: CommandGenerator = new FibonacciCommandGenerator(
+              signatory = signatory,
+              config = submissionConfig,
+            )
+            for {
+              _ <- submitter
+                .generateAndSubmit(
+                  generator = generator,
+                  config = submissionConfig,
+                  signatory = signatory,
+                  maxInFlightCommands = config.maxInFlightCommands,
+                  submissionBatchSize = config.submissionBatchSize,
+                )
+            } yield ()
+        }
+    } yield SubmissionStepResult(
+      signatory = signatory,
+      observers = allObservers,
+    )
   }
 
   private def apiServicesOwner(
@@ -298,8 +384,4 @@ object LedgerApiBenchTool {
         else new ArrayBlockingQueue[Runnable](config.maxQueueLength),
       )
     )
-
-  private val logger: Logger = LoggerFactory.getLogger(getClass)
-  private val printer = pprint.PPrinter.BlackWhite
-  private def prettyPrint(x: Any): String = printer(x).toString()
 }
