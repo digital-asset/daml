@@ -78,7 +78,6 @@ final class FooCommandGenerator(
         case (party, unlikelihood) if randomDraw(unlikelihood) => party
       }
 
-
   private def randomDraw(unlikelihood: Int): Boolean =
     randomnessProvider.randomNatural(unlikelihood) == 0
 

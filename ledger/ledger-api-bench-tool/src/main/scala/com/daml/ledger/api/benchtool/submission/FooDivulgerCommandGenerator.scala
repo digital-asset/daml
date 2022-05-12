@@ -40,7 +40,7 @@ final class FooDivulgerCommandGenerator {
       import scalaz.syntax.tag._
       iter(divulgees)
         .collect {
-          case parties if parties.nonEmpty=> parties.sortBy(_.unwrap) 
+          case parties if parties.nonEmpty => parties.sortBy(_.unwrap)
         }
     }
 
