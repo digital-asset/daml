@@ -250,10 +250,9 @@ class LedgerApiBenchTool(
             .generateAndSubmit(
               generator = generator,
               config = submissionConfig,
-              signatory = signatory,
+              actAs = List(signatory),
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
-              divulgees = List.empty,
             )
             .flatMap(_ => metricsManager.result())
             .map {
@@ -318,8 +317,7 @@ class LedgerApiBenchTool(
                 .generateAndSubmit(
                   generator = generator,
                   config = submissionConfig,
-                  signatory = signatory,
-                  divulgees = allDivulgees,
+                  actAs = List(signatory) ++ allDivulgees,
                   maxInFlightCommands = config.maxInFlightCommands,
                   submissionBatchSize = config.submissionBatchSize,
                 )

@@ -65,31 +65,25 @@ class FooCommandSubmitterITSpec
         authorizationHelper = None,
       )
       apiServices = ledgerApiServicesF("someUser")
-      tested = CommandSubmitter(
+      submitter = CommandSubmitter(
         names = new Names(),
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, observers, divulgees) <- tested.prepare(config)
+      (signatory, observers, divulgees) <- submitter.prepare(config)
       _ = divulgees shouldBe empty
-      generator: CommandGenerator = new FooCommandGenerator(
-        randomnessProvider = RandomnessProvider.Default,
-        signatory = signatory,
-        config = config,
-        allObservers = observers,
-        allDivulgees = List.empty,
-        divulgeesToDivulgerKeyMap = Map.empty,
-      )
-      _ <- tested.generateAndSubmit(
-        generator = generator,
-        config = config,
-        signatory = signatory,
-        divulgees = divulgees,
+      tested = new FooSubmission(
+        submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
+        submissionConfig = config,
+        signatory = signatory,
+        allObservers = observers,
+        allDivulgees = divulgees,
       )
+      _ <- tested.performSubmission()
       eventsObserver = TreeEventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
       _ <- apiServices.transactionService.transactionTrees(
         config = WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(

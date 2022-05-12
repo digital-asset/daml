@@ -85,8 +85,7 @@ case class CommandSubmitter(
   def generateAndSubmit(
       generator: CommandGenerator,
       config: SubmissionConfig,
-      signatory: client.binding.Primitive.Party,
-      divulgees: List[client.binding.Primitive.Party],
+      actAs: List[client.binding.Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -95,10 +94,9 @@ case class CommandSubmitter(
       _ <- submitCommands(
         generator = generator,
         config = config,
-        signatory = signatory,
         maxInFlightCommands = maxInFlightCommands,
         submissionBatchSize = submissionBatchSize,
-        divulgees = divulgees,
+        actAs = actAs,
       )
     } yield {
       logger.info("Commands submitted successfully.")
@@ -173,8 +171,7 @@ case class CommandSubmitter(
   private def submitCommands(
       generator: CommandGenerator,
       config: SubmissionConfig,
-      signatory: Primitive.Party,
-      divulgees: List[Primitive.Party],
+      actAs: List[Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit
@@ -217,7 +214,7 @@ case class CommandSubmitter(
               timed(submitAndWaitTimer, metricsManager)(
                 submitAndWait(
                   id = names.commandId(index),
-                  actAs = signatory +: divulgees,
+                  actAs = actAs,
                   commands = commands.flatten,
                 )
               )

@@ -51,8 +51,7 @@ class FibonacciCommandSubmitterITSpec
       _ <- tested.generateAndSubmit(
         generator = generator,
         config = config,
-        signatory = signatory,
-        divulgees = divulgees,
+        actAs = List(signatory) ++ divulgees,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
       )

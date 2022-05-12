@@ -29,11 +29,16 @@ class FooSubmission(
       )
 
     for {
-      _ <- submitter.submitSingleBatch(
-        commandId = "divulgence-setup",
-        actAs = Seq(signatory) ++ allDivulgees,
-        commands = divulgerCmds,
-      )
+      _ <-
+        if (divulgeesToDivulgerKeyMap.nonEmpty) {
+          submitter.submitSingleBatch(
+            commandId = "divulgence-setup",
+            actAs = Seq(signatory) ++ allDivulgees,
+            commands = divulgerCmds,
+          )
+        } else {
+          Future.unit
+        }
       generator: CommandGenerator = new FooCommandGenerator(
         randomnessProvider = RandomnessProvider.Default,
         signatory = signatory,
@@ -46,12 +51,10 @@ class FooSubmission(
         .generateAndSubmit(
           generator = generator,
           config = submissionConfig,
-          signatory = signatory,
-          divulgees = allDivulgees,
+          actAs = List(signatory) ++ allDivulgees,
           maxInFlightCommands = maxInFlightCommands,
           submissionBatchSize = submissionBatchSize,
         )
     } yield ()
   }
-
 }
