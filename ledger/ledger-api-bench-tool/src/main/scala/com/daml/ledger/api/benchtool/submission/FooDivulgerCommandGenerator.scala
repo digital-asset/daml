@@ -39,8 +39,9 @@ final class FooDivulgerCommandGenerator {
       }
       import scalaz.syntax.tag._
       iter(divulgees)
-        .filter(_.nonEmpty)
-        .map(_.sortBy(_.unwrap))
+        .collect {
+          case parties if parties.nonEmpty=> parties.sortBy(_.unwrap) 
+        }
     }
 
     def createDivulgerFor(divulgees: List[Primitive.Party]): (Command, Value) = {
