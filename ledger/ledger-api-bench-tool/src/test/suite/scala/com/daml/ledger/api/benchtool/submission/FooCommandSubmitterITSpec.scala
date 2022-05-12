@@ -11,7 +11,6 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
 }
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.submission.EventsObserver.ObservedEvents
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -72,14 +71,20 @@ class FooCommandSubmitterITSpec
         metricsManager = NoOpMetricsManager(),
       )
       (signatory, observers) <- tested.prepare(config)
-      _ <- tested.submit(
+      generator: CommandGenerator = new FooCommandGenerator(
+        randomnessProvider = RandomnessProvider.Default,
+        signatory = signatory,
+        config = config,
+        allObservers = observers,
+      )
+      _ <- tested.generateAndSubmit(
+        generator = generator,
         config = config,
         signatory = signatory,
-        observers = observers,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
       )
-      eventsObserver = EventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
+      eventsObserver = TreeEventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
       _ <- apiServices.transactionService.transactionTrees(
         config = WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
           name = "dummy-name",

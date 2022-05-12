@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
+import com.daml.ledger.api.testtool.infrastructure.future.FutureUtil
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
@@ -143,6 +144,28 @@ final class LedgerTestCasesRunner(
   )(implicit executionContext: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
     result(createTestContextAndStart(test, session))
 
+  private def uploadDarsIfRequired(
+      sessions: Vector[ParticipantSession]
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
+    if (uploadDars) {
+      FutureUtil
+        .sequential(sessions) { session =>
+          logger.info(s"Uploading DAR files for session $session")
+          for {
+            context <- session.createInitContext(
+              applicationId = "upload-dars",
+              identifierSuffix = identifierSuffix,
+              features = session.features,
+            )
+            // upload the dars sequentially to avoid conflicts
+            _ <- FutureUtil.sequential(Dars.resources)(uploadDar(context, _))
+          } yield ()
+        }
+        .map(_ => ())
+    } else {
+      Future.successful(logger.info("DAR files upload skipped."))
+    }
+
   private def uploadDar(
       context: ParticipantTestContext,
       name: String,
@@ -157,29 +180,6 @@ final class LedgerTestCasesRunner(
         throw new Errors.DarUploadException(name, exception)
       }
   }
-
-  private def uploadDarsIfRequired(
-      sessions: Vector[ParticipantSession]
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
-    if (uploadDars) {
-      Future
-        .sequence(sessions.map { session =>
-          for {
-            context <- session.createInitContext(
-              applicationId = "upload-dars",
-              identifierSuffix = identifierSuffix,
-              features = session.features,
-            )
-            // upload the dars sequentially to avoid conflicts
-            _ <- Dars.resources.foldLeft(Future.unit) { case (result, newResource) =>
-              result.flatMap(_ => uploadDar(context, newResource))
-            }
-          } yield ()
-        })
-        .map(_ => ())
-    } else {
-      Future.successful(logger.info("DAR files upload skipped."))
-    }
 
   private def createActorSystem(): ActorSystem =
     ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)

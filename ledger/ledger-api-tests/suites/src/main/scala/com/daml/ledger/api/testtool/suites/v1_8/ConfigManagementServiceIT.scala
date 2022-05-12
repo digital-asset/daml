@@ -4,20 +4,14 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.v1.admin.config_management_service.{
-  SetTimeModelRequest,
-  SetTimeModelResponse,
-  TimeModel,
-}
+import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
 import com.daml.ledger.error.definitions.kv.KvErrors
 import com.google.protobuf.duration.Duration
-import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -155,9 +149,12 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         newTimeModel = oldTimeModel,
       )
 
-      failure <- f1
-        .flatMap(_ => f2)
-        .mustFail("setting Time Model with an outdated generation")
+      failure <- f1.transformWith {
+        case Failure(ex) =>
+          f2.map(_ => ex)
+        case Success(_) =>
+          f2.mustFail("setting Time Model with an outdated generation")
+      }
 
       // Check if generation got updated (meaning, one of the above succeeded)
       postUpdateTimeModelResponse <- ledger.getTimeModel()
@@ -189,9 +186,9 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         r -> r
           .update(_.configurationGeneration := r.configurationGeneration + 1)
       )
-      _ <- ignoreNotAuthorized(alpha.setTimeModel(req1))
+      _ <- alpha.setTimeModel(req1)
       _ <- synchronize(alpha, beta)
-      _ <- ignoreNotAuthorized(beta.setTimeModel(req2))
+      _ <- beta.setTimeModel(req2)
     } yield ()
 
   })
@@ -211,24 +208,6 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         newTimeModel = oldTimeModel,
       )
     } yield req
-
-  private val notAuthorizedPattern = "not authorized".r.pattern
-
-  // On some ledger implementations only one participant is allowed to modify config, others will
-  // fail with an authorization failure.
-  def ignoreNotAuthorized(
-      call: Future[SetTimeModelResponse]
-  )(implicit executionContext: ExecutionContext): Future[Option[SetTimeModelResponse]] =
-    call.transform {
-      case Success(value: SetTimeModelResponse) =>
-        Success(Some(value))
-      case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-          if notAuthorizedPattern.matcher(msg).find() =>
-        Success(None)
-      case Failure(failure) =>
-        Failure(failure)
-
-    }
 
   // Stabilize the ledger by writing a new element and observing it in the indexDb.
   // The allocateParty method fits the bill.

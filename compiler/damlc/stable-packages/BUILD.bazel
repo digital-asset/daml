@@ -12,6 +12,7 @@ da_haskell_library(
         "containers",
         "text",
     ],
+    src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
@@ -32,6 +33,7 @@ da_haskell_binary(
         "text",
     ],
     main_function = "GenerateStablePackage.main",
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         ":stable-packages-lib",

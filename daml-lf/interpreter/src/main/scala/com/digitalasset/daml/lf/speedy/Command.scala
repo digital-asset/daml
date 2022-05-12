@@ -20,7 +20,7 @@ private[lf] object Command {
   ) extends Command
 
   /** Exercise a template choice, not by interface */
-  final case class Exercise(
+  final case class ExerciseTemplate(
       templateId: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
