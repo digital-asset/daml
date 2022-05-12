@@ -3,7 +3,9 @@
 
 package com.daml.codegen
 
-import com.daml.sample.MyMain.{Increment, KeyedNumber, SimpleListExample}
+import com.daml.sample.MyMain
+import MyMain.{KeyedNumber, Increment, SimpleListExample}
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd}
 import com.daml.ledger.client.binding.{Primitive => P}
 
@@ -29,6 +31,42 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command
               .CreateAndExercise(rpccmd.CreateAndExerciseCommand(_, _, _, _)) =>
           ()
+      }
+    }
+  }
+
+  "exercise" should {
+    import com.daml.ledger.client.binding.Value.encode
+    val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
+    val DirectTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceMixer.id
+
+    "invoke directly-defined choices" in {
+      inside(imId.exerciseOverloadedInTemplate(alice).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId),
+                cid,
+                "OverloadedInTemplate",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.OverloadedInTemplate()))
+      }
+    }
+
+    "invoke interface-inherited choices, directly from template" in {
+      inside(imId.exerciseInheritedOnly(alice).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(DirectTemplateId), // TODO(#13349, #13668) must be interface ID
+                cid,
+                "InheritedOnly",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(imId)
+          choiceArg should ===(encode(MyMain.InheritedOnly()))
       }
     }
   }
