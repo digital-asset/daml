@@ -65,8 +65,7 @@ object ApiServerConfig {
   val DefaultDatabase: DbConfig = DbConfig(
     jdbcUrl = "default-jdbc-url",
     connectionPool = ConnectionPoolConfig(
-      minimumIdle = 16,
-      maxPoolSize = 16,
+      connectionPoolSize = 16,
       connectionTimeout = 250.millis,
     ),
   )

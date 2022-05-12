@@ -65,8 +65,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         dbConfig = DbConfig(
           jdbcUrl,
           connectionPool = ConnectionPoolConfig(
-            minimumIdle = dbType.maxSupportedWriteConnections(16),
-            maxPoolSize = dbType.maxSupportedWriteConnections(16),
+            connectionPoolSize = dbType.maxSupportedWriteConnections(16),
             connectionTimeout = 250.millis,
           ),
         ),

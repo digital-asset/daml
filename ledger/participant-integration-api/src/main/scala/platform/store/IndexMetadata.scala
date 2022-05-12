@@ -56,8 +56,7 @@ object IndexMetadata {
         dbConfig = DbConfig(
           jdbcUrl = jdbcUrl,
           connectionPool = ConnectionPoolConfig(
-            minimumIdle = 1,
-            maxPoolSize = 1,
+            connectionPoolSize = 1,
             connectionTimeout = 250.millis,
           ),
         ),

@@ -102,8 +102,8 @@ object ParallelIndexerFactory {
                   connectionInitHook = Some(connectionInitializer.initialize),
                 ),
                 serverRole = ServerRole.Indexer,
-                minimumIdle = dbConfig.connectionPool.minimumIdle,
-                maxPoolSize = dbConfig.connectionPool.maxPoolSize,
+                minimumIdle = dbConfig.connectionPool.connectionPoolSize,
+                maxPoolSize = dbConfig.connectionPool.connectionPoolSize,
                 connectionTimeout = dbConfig.connectionPool.connectionTimeout,
                 metrics = metrics,
               )

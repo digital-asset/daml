@@ -243,8 +243,7 @@ class RecoveringIndexerIntegrationSpec
         dbConfig = DbConfig(
           jdbcUrl,
           connectionPool = ConnectionPoolConfig(
-            minimumIdle = 16,
-            maxPoolSize = 16,
+            connectionPoolSize = 16,
             connectionTimeout = 250.millis,
           ),
         ),

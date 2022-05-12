@@ -383,7 +383,8 @@ trait DataSourceStorageBackend {
 
 object DataSourceStorageBackend {
 
-  /** @param postgresConfig configurations which apply only for the PostgresSQL backend
+  /** @param jdbcUrl JDBC URL of the database, parameter to establish the connection between the application and the database
+    * @param postgresConfig configurations which apply only for the PostgresSQL backend
     */
   case class DataSourceConfig(
       jdbcUrl: String,

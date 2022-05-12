@@ -37,8 +37,8 @@ object IndexerConfig {
       tcpKeepalivesCount = Some(5),
     ),
     connectionPool = ConnectionPoolConfig(
-      minimumIdle = DefaultIngestionParallelism + 1, // + 1 for the tailing ledger_end updates
-      maxPoolSize = DefaultIngestionParallelism + 1, // + 1 for the tailing ledger_end updates
+      connectionPoolSize =
+        DefaultIngestionParallelism + 1, // + 1 for the tailing ledger_end updates
       // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
       connectionTimeout = FiniteDuration(
         250,
@@ -61,8 +61,7 @@ object IndexerConfig {
   val DefaultDatabase: DbConfig = DbConfig(
     jdbcUrl = "default-jdbc-url",
     connectionPool = ConnectionPoolConfig(
-      minimumIdle = 16,
-      maxPoolSize = 16,
+      connectionPoolSize = 16,
       connectionTimeout = 250.millis,
     ),
   )
