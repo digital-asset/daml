@@ -23,6 +23,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  type: foo
           |  num_instances: 500
           |  num_observers: 4
+          |  num_divulgees: 5
           |  unique_parties: true
           |  instance_distribution:
           |    - template: Foo1
@@ -52,7 +53,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             WorkflowConfig.FooSubmissionConfig(
               numberOfInstances = 500,
               numberOfObservers = 4,
-              numberOfDivulgees = 0,
+              numberOfDivulgees = 5,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -102,6 +103,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |  type: foo
         |  num_instances: 500
         |  num_observers: 4
+        |  num_divulgees: 5
         |  unique_parties: true
         |  instance_distribution:
         |    - template: Foo1
@@ -120,7 +122,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             WorkflowConfig.FooSubmissionConfig(
               numberOfInstances = 500,
               numberOfObservers = 4,
-              numberOfDivulgees = 0,
+              numberOfDivulgees = 5,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
