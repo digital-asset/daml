@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.event.{
   ExercisedEvent => PbExercisedEvent,
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.Identifier
@@ -80,9 +81,9 @@ object Raw {
         createObservers: ArraySeq[String],
         createAgreementText: Option[String],
         eventWitnesses: ArraySeq[String],
-        createKeyHash: Option[Array[Byte]],
+        createKeyHash: Option[Hash],
         ledgerEffectiveTime: Timestamp,
-    ): PbCreatedEvent =
+    ): PbCreatedEvent = {
       PbCreatedEvent(
         eventId = eventId,
         contractId = contractId,
@@ -96,11 +97,12 @@ object Raw {
         metadata = Some(
           PbContractMetadata(
             createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
-            contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(ByteString.copyFrom),
+            contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
             driverMetadata = ByteString.EMPTY,
           )
         ),
       )
+    }
   }
 
   sealed trait FlatEvent extends Raw[PbFlatEvent]
@@ -137,7 +139,7 @@ object Raw {
           createAgreementText: Option[String],
           createKeyValue: Option[Array[Byte]],
           createKeyValueCompression: Option[Int],
-          createKeyHash: Option[Array[Byte]],
+          createKeyHash: Option[Hash],
           eventWitnesses: ArraySeq[String],
           ledgerEffectiveTime: Timestamp,
       ): Raw.FlatEvent.Created =
@@ -229,7 +231,7 @@ object Raw {
           createAgreementText: Option[String],
           createKeyValue: Option[Array[Byte]],
           createKeyValueCompression: Option[Int],
-          createKeyHash: Option[Array[Byte]],
+          createKeyHash: Option[Hash],
           eventWitnesses: ArraySeq[String],
           ledgerEffectiveTime: Timestamp,
       ): Raw.TreeEvent.Created =

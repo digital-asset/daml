@@ -7,12 +7,14 @@ import java.sql.Connection
 import anorm.SqlParser.{array, bool, byteArray, get, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.Conversions.{
   contractId,
   eventId,
+  hashFromHexString,
   offset,
   timestampFromMicros,
 }
@@ -58,6 +60,7 @@ abstract class EventStorageBackendTemplate(
       "create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
+      "create_key_hash",
       "submitters",
     )
 
@@ -79,6 +82,7 @@ abstract class EventStorageBackendTemplate(
       "NULL as create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
+      "NULL as create_key_hash",
       "submitters",
     )
 
@@ -111,7 +115,7 @@ abstract class EventStorageBackendTemplate(
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
-      Option[Array[Byte]] ~ Option[Int] ~ Option[Array[Byte]]
+      Option[Array[Byte]] ~ Option[Int] ~ Option[Hash]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -122,7 +126,7 @@ abstract class EventStorageBackendTemplate(
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
-      byteArray("create_key_hash").?
+      hashFromHexString("create_key_hash").?
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -342,6 +346,7 @@ abstract class EventStorageBackendTemplate(
     "create_agreement_text",
     "create_key_value",
     "create_key_value_compression",
+    "create_key_hash",
     "NULL as exercise_choice",
     "NULL as exercise_argument",
     "NULL as exercise_argument_compression",
@@ -369,6 +374,7 @@ abstract class EventStorageBackendTemplate(
     "NULL as create_agreement_text",
     "create_key_value",
     "create_key_value_compression",
+    "NULL as create_key_hash",
     "exercise_choice",
     "exercise_argument",
     "exercise_argument_compression",
