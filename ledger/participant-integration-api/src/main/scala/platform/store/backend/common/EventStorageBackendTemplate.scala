@@ -111,7 +111,7 @@ abstract class EventStorageBackendTemplate(
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
-      Option[Array[Byte]] ~ Option[Int]
+      Option[Array[Byte]] ~ Option[Int] ~ Option[Array[Byte]]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -121,7 +121,8 @@ abstract class EventStorageBackendTemplate(
       array[Int]("create_observers") ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
-      int("create_key_value_compression").?
+      int("create_key_value_compression").? ~
+      byteArray("create_key_hash").?
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -150,7 +151,7 @@ abstract class EventStorageBackendTemplate(
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~
-          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression ~ createKeyHash =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -180,6 +181,8 @@ abstract class EventStorageBackendTemplate(
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
                 .filter(allQueryingParties)
@@ -232,7 +235,7 @@ abstract class EventStorageBackendTemplate(
       allQueryingParties: Set[Int]
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression ~ createKeyHash =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -262,6 +265,8 @@ abstract class EventStorageBackendTemplate(
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
                 .filter(allQueryingParties)
