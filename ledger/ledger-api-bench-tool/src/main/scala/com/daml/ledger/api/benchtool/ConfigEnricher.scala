@@ -33,7 +33,7 @@ object ConfigEnricher {
     submissionResult match {
       case None => party
       case Some(summary) =>
-        summary.observers
+        summary.allocatedParties
           .map(_.unwrap)
           .find(_.contains(party))
           .getOrElse(throw new RuntimeException(s"Observer not found: $party"))

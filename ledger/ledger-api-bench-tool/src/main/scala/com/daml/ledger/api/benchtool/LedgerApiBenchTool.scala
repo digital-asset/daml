@@ -83,7 +83,10 @@ object LedgerApiBenchTool {
 case class SubmissionStepResult(
     signatory: Primitive.Party,
     observers: List[Primitive.Party],
-)
+    divulgees: List[Primitive.Party],
+) {
+  val allocatedParties: List[Primitive.Party] = List(signatory) ++ observers ++ divulgees
+}
 
 class LedgerApiBenchTool(
     names: Names,
@@ -326,6 +329,7 @@ class LedgerApiBenchTool(
     } yield SubmissionStepResult(
       signatory = signatory,
       observers = allObservers,
+      divulgees = allDivulgees,
     )
   }
 
