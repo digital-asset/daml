@@ -74,8 +74,10 @@ final class FooCommandGenerator(
 
   private def pickDivulgeesSorted(): List[Primitive.Party] =
     divulgeesWithUnlikelihood
-      .filter { case (_, unlikelihood) => randomDraw(unlikelihood) }
-      .map(_._1)
+      .collect {
+        case (party, unlikelihood) if randomDraw(unlikelihood) => party
+      }
+
 
   private def randomDraw(unlikelihood: Int): Boolean =
     randomnessProvider.randomNatural(unlikelihood) == 0
