@@ -137,6 +137,3 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
-
-# Get some info from git available to rules with stamp=1
-build --workspace_status_command "bash workspace_status.sh"
