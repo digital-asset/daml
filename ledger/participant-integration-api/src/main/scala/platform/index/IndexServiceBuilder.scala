@@ -17,6 +17,7 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -40,26 +41,14 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] case class IndexServiceBuilder(
+    config: IndexServiceConfig,
     dbSupport: DbSupport,
     initialLedgerId: LedgerId,
-    eventsPageSize: Int,
-    eventsProcessingParallelism: Int,
-    bufferedStreamsPageSize: Int,
-    acsIdPageSize: Int,
-    acsIdPageBufferSize: Int,
-    acsIdFetchingParallelism: Int,
-    acsContractFetchingParallelism: Int,
-    acsGlobalParallelism: Int,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
-    maxContractStateCacheSize: Long,
-    maxContractKeyStateCacheSize: Long,
-    maxTransactionsInMemoryFanOutBufferSize: Long,
-    enableInMemoryFanOutForLedgerApi: Boolean,
     participantId: Ref.ParticipantId,
-    apiStreamShutdownTimeout: Duration,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -159,8 +148,8 @@ private[platform] case class IndexServiceBuilder(
       dispatcherLagMeter,
       ledgerEnd.lastOffset,
       metrics,
-      maxContractStateCacheSize,
-      maxContractKeyStateCacheSize,
+      config.maxContractStateCacheSize,
+      config.maxContractKeyStateCacheSize,
     )(servicesExecutionContext, loggingContext)
 
   private def createStringInterningView() = {
@@ -186,13 +175,13 @@ private[platform] case class IndexServiceBuilder(
       startExclusive: (Offset, Long),
       ledgerEndCache: LedgerEndCache,
   ): ResourceOwner[(LedgerDaoTransactionsReader, PruneBuffers)] =
-    if (enableInMemoryFanOutForLedgerApi) {
+    if (config.enableInMemoryFanOutForLedgerApi) {
       val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
-        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
+        maxBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
         isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
-        maxBufferedChunkSize = bufferedStreamsPageSize,
+        maxBufferedChunkSize = config.bufferedStreamsPageSize,
       )
 
       val bufferedTransactionsReader = BufferedTransactionsReader(
@@ -261,10 +250,10 @@ private[platform] case class IndexServiceBuilder(
       name = "sql-ledger",
       zeroIndex = Offset.beforeBegin,
       headAtInitialization = ledgerEnd,
-      shutdownTimeout = apiStreamShutdownTimeout,
+      shutdownTimeout = config.apiStreamShutdownTimeout,
       onShutdownTimeout = () =>
         logger.warn(
-          s"Shutdown of API streams did not finish in ${apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
+          s"Shutdown of API streams did not finish in ${config.apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
         ),
     )
 
@@ -312,13 +301,13 @@ private[platform] case class IndexServiceBuilder(
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      eventsPageSize = eventsPageSize,
-      eventsProcessingParallelism = eventsProcessingParallelism,
-      acsIdPageSize = acsIdPageSize,
-      acsIdPageBufferSize = acsIdPageBufferSize,
-      acsIdFetchingParallelism = acsIdFetchingParallelism,
-      acsContractFetchingParallelism = acsContractFetchingParallelism,
-      acsGlobalParallelism = acsGlobalParallelism,
+      eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
+      acsIdPageSize = config.acsIdPageSize,
+      acsIdPageBufferSize = config.acsIdPageBufferSize,
+      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+      acsGlobalParallelism = config.acsGlobalParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,

@@ -3,12 +3,9 @@
 
 package com.daml.platform.configuration
 
-import java.io.File
-
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 final case class IndexServiceConfig(
-    archiveFiles: List[File] = IndexServiceConfig.DefaultArchiveFiles,
     eventsPageSize: Int = IndexServiceConfig.DefaultEventsPageSize,
     eventsProcessingParallelism: Int = IndexServiceConfig.DefaultEventsProcessingParallelism,
     bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
@@ -39,6 +36,5 @@ object IndexServiceConfig {
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L
   val DefaultEnableInMemoryFanOutForLedgerApi = false
-  val DefaultArchiveFiles = List.empty[File]
   val DefaultApiStreamShutdownTimeout: Duration = FiniteDuration(5, "seconds")
 }
