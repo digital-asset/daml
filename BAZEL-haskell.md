@@ -254,6 +254,11 @@ Note, `hls` itself is built by Bazel and to load a target into the editor
 some of its dependencies have to be built by Bazel. This means that start-up
 may take some time if the required artifacts are not built or cached already.
 
+Also note that the current setup works for modules in the bazel target
+`//compiler/damlc:damlc` or in its dependencies. To work on other modules, it
+should be enough to replace `//compiler/damlc:damlc` in `.hie-bios` with the
+appropriate bazel target and restart the language server.
+
 [hls]: https://github.com/haskell/haskell-language-server
 [hls_setup]: https://haskell-language-server.readthedocs.io/en/latest/configuration.html#vs-code
 
