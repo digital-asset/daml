@@ -17,6 +17,7 @@ da_haskell_library(
         "either",
         "text",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
@@ -43,6 +44,7 @@ da_haskell_library(
         "text",
         "vector",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-lf-util",
@@ -73,6 +75,7 @@ da_haskell_library(
         "proto3-suite",
         "unordered-containers",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-lf-util",

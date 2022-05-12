@@ -91,8 +91,8 @@ if [[ "$(uname)" != "Darwin" ]]; then
   da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
 fi
 
-# Test that ghcide at least builds starts, we don’t run it since it
+# Test that hls at least builds, we don’t run it since it
 # adds 2-5 minutes to each CI run with relatively little benefit. If
 # you want to test it manually on upgrades, run
-# ghcide compiler/damlc/exe/Main.hs.
-ghcide --help
+# da-hls compiler/damlc/exe/Main.hs.
+da-hls --help

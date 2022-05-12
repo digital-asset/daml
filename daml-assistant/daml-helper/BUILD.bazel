@@ -46,6 +46,7 @@ da_haskell_library(
         "aeson-pretty",
         "time",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
@@ -74,6 +75,7 @@ da_haskell_binary(
         "text",
     ],
     main_function = "DA.Daml.Helper.Main.main",
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-helper-lib",
