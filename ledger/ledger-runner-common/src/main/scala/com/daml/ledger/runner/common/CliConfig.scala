@@ -542,16 +542,19 @@ object CliConfig {
         checkConfig(c => {
           val participantIds = c.participants
             .map(pc => pc.participantId)
+            .toList
 
-          def filterDuplicates[A](items: Seq[A]): List[A] = {
+          def filterDuplicates[A](items: List[A]): Set[A] = {
             @tailrec
-            def filterDuplicates(remaining: Seq[A], acc: List[A]): List[A] =
+            def filterDuplicates(remaining: List[A], unique: Set[A], duplicates: Set[A]): Set[A] =
               remaining match {
-                case Nil => acc
-                case head :: _ if acc.contains(head) => acc
-                case head :: tail => filterDuplicates(tail, head :: acc)
+                case Nil => duplicates
+                case element :: rest if unique.contains(element) =>
+                  filterDuplicates(rest, unique, duplicates + element)
+                case element :: rest => filterDuplicates(rest, unique + element, duplicates)
+                case _ => duplicates
               }
-            filterDuplicates(items, Nil)
+            filterDuplicates(items, Set(), Set())
           }
 
           val participantIdDuplicates = filterDuplicates(participantIds)
