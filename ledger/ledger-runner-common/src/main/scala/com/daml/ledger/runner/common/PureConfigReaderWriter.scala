@@ -33,7 +33,7 @@ import io.netty.handler.ssl.ClientAuth
 import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert
 import pureconfig.generic.semiauto._
-import pureconfig.{ConfigReader, ConfigWriter, ConvertHelpers}
+import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter, ConvertHelpers}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
@@ -74,18 +74,13 @@ object PureConfigReaderWriter {
       case other => sys.error(s"Could not find $other in the list of LanguageVersion")
     }
 
-  implicit val interpretationLimitsReader: ConfigReader[interpretation.Limits] =
-    deriveReader[interpretation.Limits]
-  implicit val interpretationLimitsWriter: ConfigWriter[interpretation.Limits] =
-    deriveWriter[interpretation.Limits]
+  implicit val interpretationLimitsConvert: ConfigConvert[interpretation.Limits] =
+    deriveConvert[interpretation.Limits]
 
-  implicit val contractKeyUniquenessModeReader: ConfigReader[ContractKeyUniquenessMode] =
-    deriveEnumerationReader[ContractKeyUniquenessMode]
-  implicit val contractKeyUniquenessModeWriter: ConfigWriter[ContractKeyUniquenessMode] =
-    deriveEnumerationWriter[ContractKeyUniquenessMode]
+  implicit val contractKeyUniquenessModeConvert: ConfigConvert[ContractKeyUniquenessMode] =
+    deriveEnumerationConvert[ContractKeyUniquenessMode]
 
-  implicit val engineReader: ConfigReader[EngineConfig] = deriveReader[EngineConfig]
-  implicit val engineWriter: ConfigWriter[EngineConfig] = deriveWriter[EngineConfig]
+  implicit val engineConvert: ConfigConvert[EngineConfig] = deriveConvert[EngineConfig]
 
   implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
     ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
@@ -100,8 +95,7 @@ object PureConfigReaderWriter {
       case MetricsReporter.Prometheus(address) => s"prometheus://${address.toString}"
     }
 
-  implicit val metricsReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]
-  implicit val metricsWriter: ConfigWriter[MetricsConfig] = deriveWriter[MetricsConfig]
+  implicit val metricsConvert: ConfigConvert[MetricsConfig] = deriveConvert[MetricsConfig]
 
   implicit val secretsUrlReader: ConfigReader[SecretsUrl] =
     ConfigReader.fromString[SecretsUrl] { url =>
@@ -128,20 +122,16 @@ object PureConfigReaderWriter {
   implicit val tlsVersionWriter: ConfigWriter[TlsVersion] =
     ConfigWriter.toString(tlsVersion => tlsVersion.version)
 
-  implicit val tlsConfigurationReader: ConfigReader[TlsConfiguration] =
-    deriveReader[TlsConfiguration]
-  implicit val tlsConfigurationWriter: ConfigWriter[TlsConfiguration] =
-    deriveWriter[TlsConfiguration]
+  implicit val tlsConfigurationConvert: ConfigConvert[TlsConfiguration] =
+    deriveConvert[TlsConfiguration]
 
   implicit val portReader: ConfigReader[Port] = ConfigReader.intConfigReader.map(Port.apply)
   implicit val portWriter: ConfigWriter[Port] = ConfigWriter.intConfigWriter.contramap[Port] {
     port: Port => port.value
   }
 
-  implicit val initialLedgerConfigurationReader: ConfigReader[InitialLedgerConfiguration] =
-    deriveReader[InitialLedgerConfiguration]
-  implicit val initialLedgerConfigurationWriter: ConfigWriter[InitialLedgerConfiguration] =
-    deriveWriter[InitialLedgerConfiguration]
+  implicit val initialLedgerConfigurationConvert: ConfigConvert[InitialLedgerConfiguration] =
+    deriveConvert[InitialLedgerConfiguration]
 
   implicit val contractIdSeedingReader: ConfigReader[Seeding] =
     // Not using deriveEnumerationReader[Seeding] as we prefer "testing-static" over static (that appears
@@ -166,113 +156,68 @@ object PureConfigReaderWriter {
 
   implicit val contractIdSeedingWriter: ConfigWriter[Seeding] = ConfigWriter.toString(_.name)
 
-  implicit val userManagementConfigReader: ConfigReader[UserManagementConfig] =
-    deriveReader[UserManagementConfig]
-  implicit val userManagementConfigWriter: ConfigWriter[UserManagementConfig] =
-    deriveWriter[UserManagementConfig]
+  implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
+    deriveConvert[UserManagementConfig]
 
   implicit val authServiceConfigUnsafeJwtHmac256Reader
-      : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
-    deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
-  implicit val authServiceConfigJwtEs256CrtReader: ConfigReader[AuthServiceConfig.JwtEs256Crt] =
-    deriveReader[AuthServiceConfig.JwtEs256Crt]
-  implicit val authServiceConfigJwtEs512CrtReader: ConfigReader[AuthServiceConfig.JwtEs512Crt] =
-    deriveReader[AuthServiceConfig.JwtEs512Crt]
-  implicit val authServiceConfigJwtRs256CrtReader: ConfigReader[AuthServiceConfig.JwtRs256Crt] =
-    deriveReader[AuthServiceConfig.JwtRs256Crt]
-  implicit val authServiceConfigJwtRs256JwksReader: ConfigReader[AuthServiceConfig.JwtRs256Jwks] =
-    deriveReader[AuthServiceConfig.JwtRs256Jwks]
-  implicit val authServiceConfigWildcardReader: ConfigReader[AuthServiceConfig.Wildcard.type] =
-    deriveReader[AuthServiceConfig.Wildcard.type]
-  implicit val authServiceConfigReader: ConfigReader[AuthServiceConfig] =
-    deriveReader[AuthServiceConfig]
+      : ConfigConvert[AuthServiceConfig.UnsafeJwtHmac256] =
+    deriveConvert[AuthServiceConfig.UnsafeJwtHmac256]
+  implicit val authServiceConfigJwtEs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtEs256Crt] =
+    deriveConvert[AuthServiceConfig.JwtEs256Crt]
+  implicit val authServiceConfigJwtEs512CrtConvert: ConfigConvert[AuthServiceConfig.JwtEs512Crt] =
+    deriveConvert[AuthServiceConfig.JwtEs512Crt]
+  implicit val authServiceConfigJwtRs256CrtConvert: ConfigConvert[AuthServiceConfig.JwtRs256Crt] =
+    deriveConvert[AuthServiceConfig.JwtRs256Crt]
+  implicit val authServiceConfigJwtRs256JwksConvert: ConfigConvert[AuthServiceConfig.JwtRs256Jwks] =
+    deriveConvert[AuthServiceConfig.JwtRs256Jwks]
+  implicit val authServiceConfigWildcardConvert: ConfigConvert[AuthServiceConfig.Wildcard.type] =
+    deriveConvert[AuthServiceConfig.Wildcard.type]
+  implicit val authServiceConfigConvert: ConfigConvert[AuthServiceConfig] =
+    deriveConvert[AuthServiceConfig]
 
-  implicit val authServiceConfigJwtEs256CrtWriter: ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
-    deriveWriter[AuthServiceConfig.JwtEs256Crt]
-  implicit val authServiceConfigJwtEs512CrtWriter: ConfigWriter[AuthServiceConfig.JwtEs512Crt] =
-    deriveWriter[AuthServiceConfig.JwtEs512Crt]
-  implicit val authServiceConfigJwtRs256CrtWriter: ConfigWriter[AuthServiceConfig.JwtRs256Crt] =
-    deriveWriter[AuthServiceConfig.JwtRs256Crt]
-  implicit val authServiceConfigJwtRs256JwksWriter: ConfigWriter[AuthServiceConfig.JwtRs256Jwks] =
-    deriveWriter[AuthServiceConfig.JwtRs256Jwks]
-  implicit val authServiceConfigUnsafeJwtHmac256Writer
-      : ConfigWriter[AuthServiceConfig.UnsafeJwtHmac256] =
-    deriveWriter[AuthServiceConfig.UnsafeJwtHmac256]
-  implicit val authServiceConfigWildcardWriter: ConfigWriter[AuthServiceConfig.Wildcard.type] =
-    deriveWriter[AuthServiceConfig.Wildcard.type]
-  implicit val authServiceConfigWriter: ConfigWriter[AuthServiceConfig] =
-    deriveWriter[AuthServiceConfig]
+  implicit val partyConfigurationConvert: ConfigConvert[PartyConfiguration] =
+    deriveConvert[PartyConfiguration]
 
-  implicit val partyConfigurationReader: ConfigReader[PartyConfiguration] =
-    deriveReader[PartyConfiguration]
-  implicit val partyConfigurationWriter: ConfigWriter[PartyConfiguration] =
-    deriveWriter[PartyConfiguration]
+  implicit val commandConfigurationConvert: ConfigConvert[CommandConfiguration] =
+    deriveConvert[CommandConfiguration]
 
-  implicit val commandConfigurationReader: ConfigReader[CommandConfiguration] =
-    deriveReader[CommandConfiguration]
-  implicit val commandConfigurationWriter: ConfigWriter[CommandConfiguration] =
-    deriveWriter[CommandConfiguration]
+  implicit val timeProviderTypeConvert: ConfigConvert[TimeProviderType] =
+    deriveEnumerationConvert[TimeProviderType]
 
-  implicit val timeProviderTypeReader: ConfigReader[TimeProviderType] =
-    deriveEnumerationReader[TimeProviderType]
-  implicit val timeProviderTypeWriter: ConfigWriter[TimeProviderType] =
-    deriveEnumerationWriter[TimeProviderType]
+  implicit val dbConfigSynchronousCommitValueConvert: ConfigConvert[SynchronousCommitValue] =
+    deriveEnumerationConvert[SynchronousCommitValue]
 
-  implicit val dbConfigSynchronousCommitValueReader: ConfigReader[SynchronousCommitValue] =
-    deriveEnumerationReader[SynchronousCommitValue]
-  implicit val dbConfigSynchronousCommitValueWriter: ConfigWriter[SynchronousCommitValue] =
-    deriveEnumerationWriter[SynchronousCommitValue]
+  implicit val dbConfigConnectionPoolConfigConvert: ConfigConvert[ConnectionPoolConfig] =
+    deriveConvert[ConnectionPoolConfig]
 
-  implicit val dbConfigConnectionPoolConfigReader: ConfigReader[ConnectionPoolConfig] =
-    deriveReader[ConnectionPoolConfig]
-  implicit val dbConfigConnectionPoolConfigWriter: ConfigWriter[ConnectionPoolConfig] =
-    deriveWriter[ConnectionPoolConfig]
+  implicit val dbConfigPostgresDataSourceConfigConvert: ConfigConvert[PostgresDataSourceConfig] =
+    deriveConvert[PostgresDataSourceConfig]
 
-  implicit val dbConfigPostgresDataSourceConfigReader: ConfigReader[PostgresDataSourceConfig] =
-    deriveReader[PostgresDataSourceConfig]
-  implicit val dbConfigPostgresDataSourceConfigWriter: ConfigWriter[PostgresDataSourceConfig] =
-    deriveWriter[PostgresDataSourceConfig]
+  implicit val dbConfigConvert: ConfigConvert[DbConfig] = deriveConvert[DbConfig]
 
-  implicit val dbConfigReader: ConfigReader[DbConfig] = deriveReader[DbConfig]
-  implicit val dbConfigWriter: ConfigWriter[DbConfig] = deriveWriter[DbConfig]
+  implicit val apiServerConfigConvert: ConfigConvert[ApiServerConfig] =
+    deriveConvert[ApiServerConfig]
 
-  implicit val apiServerConfigReader: ConfigReader[ApiServerConfig] = deriveReader[ApiServerConfig]
-  implicit val apiServerConfigWriter: ConfigWriter[ApiServerConfig] = deriveWriter[ApiServerConfig]
+  implicit val participantRunModeConvert: ConfigConvert[ParticipantRunMode] =
+    deriveEnumerationConvert[ParticipantRunMode]
 
-  implicit val participantRunModeReader: ConfigReader[ParticipantRunMode] =
-    deriveEnumerationReader[ParticipantRunMode]
-  implicit val participantRunModeWriter: ConfigWriter[ParticipantRunMode] =
-    deriveEnumerationWriter[ParticipantRunMode]
-
-  implicit val validateAndStartReader: ConfigReader[IndexerStartupMode.ValidateAndStart.type] =
-    deriveReader[IndexerStartupMode.ValidateAndStart.type]
-  implicit val validateAndStartWriter: ConfigWriter[IndexerStartupMode.ValidateAndStart.type] =
-    deriveWriter[IndexerStartupMode.ValidateAndStart.type]
+  implicit val validateAndStartConvert: ConfigConvert[IndexerStartupMode.ValidateAndStart.type] =
+    deriveConvert[IndexerStartupMode.ValidateAndStart.type]
 
   implicit val MigrateOnEmptySchemaAndStartReader
-      : ConfigReader[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
-    deriveReader[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
-  implicit val MigrateOnEmptySchemaAndStartWriter
-      : ConfigWriter[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
-    deriveWriter[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
+      : ConfigConvert[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
+    deriveConvert[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
 
-  implicit val migrateAndStartReader: ConfigReader[IndexerStartupMode.MigrateAndStart] =
-    deriveReader[IndexerStartupMode.MigrateAndStart]
-  implicit val migrateAndStartWriter: ConfigWriter[IndexerStartupMode.MigrateAndStart] =
-    deriveWriter[IndexerStartupMode.MigrateAndStart]
+  implicit val migrateAndStartConvert: ConfigConvert[IndexerStartupMode.MigrateAndStart] =
+    deriveConvert[IndexerStartupMode.MigrateAndStart]
 
-  implicit val validateAndWaitOnlyReader: ConfigReader[IndexerStartupMode.ValidateAndWaitOnly] =
-    deriveReader[IndexerStartupMode.ValidateAndWaitOnly]
-  implicit val validateAndWaitOnlyWriter: ConfigWriter[IndexerStartupMode.ValidateAndWaitOnly] =
-    deriveWriter[IndexerStartupMode.ValidateAndWaitOnly]
+  implicit val validateAndWaitOnlyConvert: ConfigConvert[IndexerStartupMode.ValidateAndWaitOnly] =
+    deriveConvert[IndexerStartupMode.ValidateAndWaitOnly]
 
-  implicit val indexerStartupModeReader: ConfigReader[IndexerStartupMode] =
-    deriveReader[IndexerStartupMode]
-  implicit val indexerStartupModeWriter: ConfigWriter[IndexerStartupMode] =
-    deriveWriter[IndexerStartupMode]
+  implicit val indexerStartupModeConvert: ConfigConvert[IndexerStartupMode] =
+    deriveConvert[IndexerStartupMode]
 
-  implicit val haConfigReader: ConfigReader[HaConfig] = deriveReader[HaConfig]
-  implicit val haConfigWriter: ConfigWriter[HaConfig] = deriveWriter[HaConfig]
+  implicit val haConfigConvert: ConfigConvert[HaConfig] = deriveConvert[HaConfig]
 
   private def createParticipantId(participantId: String) =
     Ref.ParticipantId
@@ -286,34 +231,24 @@ object PureConfigReaderWriter {
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
 
-  implicit val indexerConfigReader: ConfigReader[IndexerConfig] = deriveReader[IndexerConfig]
-  implicit val indexerConfigWriter: ConfigWriter[IndexerConfig] = deriveWriter[IndexerConfig]
+  implicit val indexerConfigConvert: ConfigConvert[IndexerConfig] = deriveConvert[IndexerConfig]
 
-  implicit val sizedCacheReader: ConfigReader[SizedCache.Configuration] =
-    deriveReader[SizedCache.Configuration]
-  implicit val sizedCacheWriter: ConfigWriter[SizedCache.Configuration] =
-    deriveWriter[SizedCache.Configuration]
+  implicit val sizedCacheConvert: ConfigConvert[SizedCache.Configuration] =
+    deriveConvert[SizedCache.Configuration]
 
-  implicit val lfValueTranslationCacheReader: ConfigReader[LfValueTranslationCache.Config] =
-    deriveReader[LfValueTranslationCache.Config]
-  implicit val lfValueTranslationCacheWriter: ConfigWriter[LfValueTranslationCache.Config] =
-    deriveWriter[LfValueTranslationCache.Config]
+  implicit val lfValueTranslationCacheConvert: ConfigConvert[LfValueTranslationCache.Config] =
+    deriveConvert[LfValueTranslationCache.Config]
 
-  implicit val indexConfigurationReader: ConfigReader[IndexServiceConfig] =
-    deriveReader[IndexServiceConfig]
-  implicit val indexConfigurationWriter: ConfigWriter[IndexServiceConfig] =
-    deriveWriter[IndexServiceConfig]
+  implicit val indexConfigurationConvert: ConfigConvert[IndexServiceConfig] =
+    deriveConvert[IndexServiceConfig]
 
-  implicit val participantConfigReader: ConfigReader[ParticipantConfig] =
-    deriveReader[ParticipantConfig]
-  implicit val participantConfigWriter: ConfigWriter[ParticipantConfig] =
-    deriveWriter[ParticipantConfig]
+  implicit val participantConfigConvert: ConfigConvert[ParticipantConfig] =
+    deriveConvert[ParticipantConfig]
 
-  implicit def participantNameKeyReader: ConfigReader[Map[ParticipantName, ParticipantConfig]] =
+  implicit val participantNameKeyReader: ConfigReader[Map[ParticipantName, ParticipantConfig]] =
     genericMapReader[ParticipantName, ParticipantConfig]((s: String) => Right(ParticipantName(s)))
-  implicit def participantNameKeyWriter: ConfigWriter[Map[ParticipantName, ParticipantConfig]] =
+  implicit val participantNameKeyWriter: ConfigWriter[Map[ParticipantName, ParticipantConfig]] =
     genericMapWriter[ParticipantName, ParticipantConfig](_.value)
 
-  implicit val reader: ConfigReader[Config] = deriveReader[Config]
-  implicit val writer: ConfigWriter[Config] = deriveWriter[Config]
+  implicit val convert: ConfigConvert[Config] = deriveConvert[Config]
 }
