@@ -17,12 +17,7 @@ final case class ParticipantConfig(
     indexer: IndexerConfig = DefaultIndexerConfig,
     lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
     runMode: ParticipantRunMode = DefaultRunMode,
-    shardName: Option[String] =
-      DefaultShardName, // A name of the participant shard in a horizontally scaled participant.
-) {
-  def metricsRegistryName(participantId: Ref.ParticipantId): String =
-    participantId + shardName.map("-" + _).getOrElse("")
-}
+)
 
 object ParticipantConfig {
   val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("default")

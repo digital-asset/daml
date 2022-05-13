@@ -20,7 +20,6 @@ object CliConfigConverter {
       config: CliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
     runMode = config.mode,
-    shardName = config.shardName,
     indexer = config.indexerConfig,
     indexService = IndexServiceConfig(
       acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,

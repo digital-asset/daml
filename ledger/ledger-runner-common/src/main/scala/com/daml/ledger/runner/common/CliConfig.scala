@@ -25,6 +25,7 @@ import scopt.OptionParser
 import java.io.File
 import java.time.Duration
 import java.util.UUID
+import scala.annotation.tailrec
 import scala.jdk.DurationConverters.JavaDurationOps
 
 final case class CliConfig[Extra](
@@ -177,7 +178,6 @@ object CliConfig {
               "api-server-connection-timeout" +
               "management-service-timeout, " +
               "run-mode, " +
-              "shard-name, " +
               "indexer-connection-timeout, " +
               "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +
@@ -255,7 +255,6 @@ object CliConfig {
               .map(Duration.parse)
               .map(_.toScala)
               .getOrElse(CliParticipantConfig.DefaultManagementServiceTimeout)
-            val shardName = kv.get("shard-name")
             val maxContractStateCacheSize = kv
               .get("contract-state-cache-max-size")
               .map(_.toLong)
@@ -271,7 +270,6 @@ object CliConfig {
             val partConfig = CliParticipantConfig(
               mode = runMode,
               participantId = participantId,
-              shardName = shardName,
               address = address,
               port = port,
               portFile = portFile,
@@ -542,18 +540,28 @@ object CliConfig {
           .action((interval, config) => config.copy(metricsReportingInterval = interval))
 
         checkConfig(c => {
-          val participantsIdsWithNonUniqueShardNames = c.participants
-            .map(pc => pc.participantId -> pc.shardName)
-            .groupBy(_._1)
-            .map { case (k, v) => (k, v.map(_._2)) }
-            .filter { case (_, v) => v.length != v.distinct.length }
-            .keys
-          if (participantsIdsWithNonUniqueShardNames.nonEmpty)
+          val participantIds = c.participants
+            .map(pc => pc.participantId)
+
+          def filterDuplicates[A](items: Seq[A]): List[A] = {
+            @tailrec
+            def filterDuplicates(remaining: Seq[A], acc: List[A]): List[A] =
+              remaining match {
+                case Nil => acc
+                case head :: _ if acc.contains(head) => acc
+                case head :: tail => filterDuplicates(tail, head :: acc)
+              }
+            filterDuplicates(items, Nil)
+          }
+
+          val participantIdDuplicates = filterDuplicates(participantIds)
+
+          if (participantIdDuplicates.nonEmpty)
             failure(
-              participantsIdsWithNonUniqueShardNames.mkString(
-                "The following participant IDs are duplicate, but the individual shards don't have unique names: ",
+              participantIdDuplicates.mkString(
+                "The following participant IDs are duplicate: ",
                 ",",
-                ". Use the optional 'shard-name' key when specifying horizontally scaled participants.",
+                "",
               )
             )
           else

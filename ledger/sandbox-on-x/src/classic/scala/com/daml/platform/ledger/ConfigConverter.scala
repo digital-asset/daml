@@ -31,7 +31,6 @@ object ConfigConverter {
     val singleCombinedParticipant = CliParticipantConfig(
       mode = ParticipantRunMode.Combined,
       participantId = sandboxConfig.participantId,
-      shardName = None,
       address = sandboxConfig.address,
       port = sandboxConfig.port,
       portFile = sandboxConfig.portFile,

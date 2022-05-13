@@ -127,7 +127,6 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
-    val apiServerConfig: ApiServerConfig = participantConfig.apiServer
     val sharedEngine = new Engine(config.engine)
 
     newLoggingContextWith("participantId" -> participantId) { implicit loggingContext =>
@@ -164,7 +163,7 @@ object SandboxOnXRunner {
           .owner(
             serverRole = ServerRole.ApiServer,
             metrics = metrics,
-            dbConfig = apiServerConfig.database,
+            dbConfig = participantConfig.apiServer.database,
           )
 
         indexService <- StandaloneIndexService(
@@ -178,7 +177,7 @@ object SandboxOnXRunner {
           participantId = participantId,
         )
 
-        timeServiceBackend = configAdaptor.timeServiceBackend(apiServerConfig)
+        timeServiceBackend = configAdaptor.timeServiceBackend(participantConfig.apiServer)
 
         writeService <- buildWriteService(
           participantId,
@@ -202,7 +201,7 @@ object SandboxOnXRunner {
           timeServiceBackend,
           dbSupport,
           config.ledgerId,
-          apiServerConfig,
+          participantConfig.apiServer,
           participantId,
           configAdaptor,
         )
@@ -305,11 +304,10 @@ object SandboxOnXRunner {
       .map(ExecutionContext.fromExecutorService)
 
   private def buildMetrics(participantId: Ref.ParticipantId)(implicit
-      participantConfig: ParticipantConfig,
-      config: Config,
+      config: Config
   ): ResourceOwner[Metrics] =
     Metrics
-      .fromSharedMetricRegistries(participantConfig.metricsRegistryName(participantId))
+      .fromSharedMetricRegistries(participantId)
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
         config.metrics.reporter
