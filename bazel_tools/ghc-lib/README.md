@@ -58,19 +58,5 @@ so, see below for updating the checked in Cabal files.
 
 ## Patches
 
-- `ghc-daml-prim.patch` rename `ghc-prim` to `daml-prim`
-    Patch generated with
-    ```
-    BASE=da-master-8.8.1
-    git clone https://github.com/digital-asset/ghc.git
-    cd ghc
-    git checkout $BASE
-    git merge --no-edit 833ca63be2ab14871874ccb6974921e8952802e
-    git diff $BASE
-    ```
-- `ghc-hadrian.patch` patch Hadrian to build with the more recent GHC version
-    used by the Daml repository. The patch is generated manually be removing
-    all version constraints from Hadrian's Cabal file and changing the
-    implementation to fix any GHC compiler errors.
 - `ghc-lib-no-stack.patch` patch `ghc-lib-gen` to use a prebuilt Hadrian binary.
     With this change `ghc-lib-gen` no longer requires `stack`.

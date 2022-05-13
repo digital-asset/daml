@@ -27,11 +27,6 @@ git checkout da-master-8.8.1
 git submodule update --init --recursive
 ```
 
-4. Make initial build (takes about 15 mins)
-```
-hadrian/build.sh --configure --flavour=quickest -j
-```
-
 ### Iterating on parser/desugaring in `ghc`
 
 Working locally in a branch from `da-master-8.8.1`, there are two files which generally need changing to update syntax and desugaring:
@@ -39,15 +34,6 @@ Working locally in a branch from `da-master-8.8.1`, there are two files which ge
 - [`compiler/parser/Parser.y`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/compiler/parser/Parser.y)
 
 - [`compiler/parser/RdrHsSyn.hs`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/compiler/parser/RdrHsSyn.hs)
-
-
-The quickest way to build and test is:
-
-1. `hadrian/build.sh --configure --flavour=quickest -j`
-
-2. `./_build/stage1/bin/ghc ./Example.hs -ddump-parsed | tee desugar.out`
-
-Step 1 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 2 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`
 
 
 ### Interactive development workflow
@@ -78,15 +64,9 @@ While working on GHC, you can integrate your changes directly into the `daml` pr
    touch WORKSPACE
    ```
 
-5. Apply the patches (in `GHC_PATCHES` from [`/bazel_tools/ghc-lib/version.bzl`]):
-   ```
-   git apply ../daml/bazel_tools/ghc-lib/ghc-daml-prim.patch
-   git apply ../daml/bazel_tools/ghc-lib/ghc-hadrian.patch
-   ```
+5. Make changes...  
 
-6. Make additional changes...  
-
-7. Build from your local checkout of GHC:
+6. Build referencing your local checkout of GHC:
    ```
    cd ../daml
    bazel build --override_repository=da-ghc="$( cd ../ghc ; pwd )" //...

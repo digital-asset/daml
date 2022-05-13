@@ -9,10 +9,8 @@ GHC_LIB_PATCHES = [
 ]
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
-GHC_REV = "d222347e5f29f6fa540ca695fa64a92ef89fe789"
+GHC_REV = "e782ba91ad9007c5ac341676e3526f34e4e3e404"
 GHC_PATCHES = [
-    "@//bazel_tools/ghc-lib:ghc-daml-prim.patch",
-    "@//bazel_tools/ghc-lib:ghc-hadrian.patch",
 ]
 
 GHC_FLAVOR = "da-ghc-8.8.1"
