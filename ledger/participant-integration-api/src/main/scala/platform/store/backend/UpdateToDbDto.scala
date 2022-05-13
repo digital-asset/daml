@@ -125,6 +125,7 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
+        assert(u.contractMetadata.isEmpty, "Persisting driver contract metadata is not implemented")
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(

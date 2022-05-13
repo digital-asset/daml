@@ -206,6 +206,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       recordTime = someRecordTime,
       divulgedContracts = List.empty,
       blindingInfo = None,
+      contractMetadata = Map.empty,
     )
 
     val expected: Vector[DbDto.TransactionMetering] = Vector(
