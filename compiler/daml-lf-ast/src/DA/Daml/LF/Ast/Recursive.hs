@@ -54,6 +54,8 @@ data ExprF expr
   | EFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EUnsafeFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr !expr
   | ECallInterfaceF !(Qualified TypeConName) !MethodName !expr
+  | EInterfaceFieldProjectF !(Qualified TypeConName) !FieldName !expr
+  | EInterfaceFieldUpdateF !(Qualified TypeConName) !FieldName !expr !expr
   | EToRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EUnsafeFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr !expr
@@ -215,6 +217,8 @@ instance Recursive Expr where
     EFromInterface a b c -> EFromInterfaceF a b c
     EUnsafeFromInterface a b c d -> EUnsafeFromInterfaceF a b c d
     ECallInterface a b c -> ECallInterfaceF a b c
+    EInterfaceFieldProject a b c -> EInterfaceFieldProjectF a b c
+    EInterfaceFieldUpdate a b c d -> EInterfaceFieldUpdateF a b c d
     EToRequiredInterface a b c -> EToRequiredInterfaceF a b c
     EFromRequiredInterface a b c -> EFromRequiredInterfaceF a b c
     EUnsafeFromRequiredInterface a b c d -> EUnsafeFromRequiredInterfaceF a b c d
@@ -259,6 +263,8 @@ instance Corecursive Expr where
     EFromInterfaceF a b c -> EFromInterface a b c
     EUnsafeFromInterfaceF a b c d -> EUnsafeFromInterface a b c d
     ECallInterfaceF a b c -> ECallInterface a b c
+    EInterfaceFieldProjectF a b c -> EInterfaceFieldProject a b c
+    EInterfaceFieldUpdateF a b c d -> EInterfaceFieldUpdate a b c d
     EToRequiredInterfaceF a b c -> EToRequiredInterface a b c
     EFromRequiredInterfaceF a b c -> EFromRequiredInterface a b c
     EUnsafeFromRequiredInterfaceF a b c d -> EUnsafeFromRequiredInterface a b c d

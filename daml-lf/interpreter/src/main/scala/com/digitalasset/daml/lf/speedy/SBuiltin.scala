@@ -11,6 +11,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.FieldName
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -1306,6 +1307,28 @@ private[lf] object SBuiltin {
       val (tyCon, record) = getSAnyContract(args, 0)
       machine.ctrl =
         SEApp(SEVal(ImplementsMethodDefRef(tyCon, ifaceId, methodName)), Array(SEValue(record)))
+    }
+  }
+
+  final case class SBInterfaceFieldProject(
+      ifaceId: TypeConName,
+      fieldName: FieldName,
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val (tyCon, record) = getSAnyContract(args, 0)
+      machine.ctrl =
+        SEApp(SEVal(ImplementsFieldProjectDefRef(tyCon, ifaceId, fieldName)), Array(SEValue(record)))
+    }
+  }
+
+  final case class SBInterfaceFieldUpdate(
+      ifaceId: TypeConName,
+      fieldName: FieldName,
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val (tyCon, record) = getSAnyContract(args, 0)
+      machine.ctrl =
+        SEApp(SEVal(ImplementsFieldUpdateDefRef(tyCon, ifaceId, fieldName)), Array(SEValue(record)))
     }
   }
 

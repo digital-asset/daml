@@ -322,6 +322,7 @@ private[lf] final class Compiler(
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
       addDef(compileToCachedContract(identifier, tmpl))
+      // FIXME! compileFields
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(identifier, impl.interfaceId))
         impl.methods.values.foreach(method =>
@@ -697,6 +698,7 @@ private[lf] final class Compiler(
 
   private[this] val IdentityDef = SDefinition(pipeline(fun1((pos, env) => env.toSEVar(pos))))
 
+  // FIXME! this isn't true anymore; the actual value is never used, only its presence is checked.
   // Turn a template value into an interface value. Since interfaces have a
   // toll-free representation (for now), this is just the identity function.
   // But the existence of ImplementsDefRef implies that the template implements

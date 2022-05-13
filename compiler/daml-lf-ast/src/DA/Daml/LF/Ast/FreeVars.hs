@@ -108,6 +108,8 @@ freeVarsStep = \case
     EFromInterfaceF _ _ e -> e
     EUnsafeFromInterfaceF _ _ e1 e2 -> e1 <> e2
     ECallInterfaceF _ _ e -> e
+    EInterfaceFieldProjectF _ _ e -> e
+    EInterfaceFieldUpdateF _ _ e1 e2 -> e1 <> e2
     EToRequiredInterfaceF _ _ e -> e
     EFromRequiredInterfaceF _ _ e -> e
     EUnsafeFromRequiredInterfaceF _ _ e1 e2 -> e1 <> e2

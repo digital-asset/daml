@@ -563,6 +563,19 @@ data Expr
     , callInterfaceMethod :: !MethodName
     , callInterfaceExpr :: !Expr
     }
+  -- | Obtain the value of an interface field
+  | EInterfaceFieldProject
+    { ifpInterface :: !(Qualified TypeConName)
+    , ifpField :: !FieldName
+    , ifpPayload :: !Expr
+    }
+  -- | Update the value of an interface field
+  | EInterfaceFieldUpdate
+    { ifuInterface :: !(Qualified TypeConName)
+    , ifuField :: !FieldName
+    , ifuPayload :: !Expr
+    , ifuValue :: !Expr
+    }
   -- | Upcast interface
   | EToRequiredInterface
     { triRequiredInterface :: !(Qualified TypeConName)
@@ -961,8 +974,16 @@ data DefInterface = DefInterface
   , intRequires :: !(S.Set (Qualified TypeConName))
   , intParam :: !ExprVarName
   , intChoices :: !(NM.NameMap TemplateChoice)
+  , intFields :: !(NM.NameMap InterfaceField)
   , intMethods :: !(NM.NameMap InterfaceMethod)
   , intPrecondition :: !Expr
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+data InterfaceField = InterfaceField
+  { iffLocation :: !(Maybe SourceLoc)
+  , iffName :: !FieldName
+  , iffType :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1058,6 +1079,10 @@ instance Hashable a => Hashable (Qualified a)
 instance NM.Named TemplateChoice where
   type Name TemplateChoice = ChoiceName
   name = chcName
+
+instance NM.Named InterfaceField where
+  type Name InterfaceField = FieldName
+  name = iffName
 
 instance NM.Named InterfaceMethod where
   type Name InterfaceMethod = MethodName

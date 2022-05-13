@@ -1046,11 +1046,12 @@ class DecodeV1Spec
           Map(
             Ref.DottedName.assertFromString("Mod.I") ->
               GenDefInterface(
-                Set.empty,
-                Ref.IdString.Name.assertFromString("test"),
-                Map(),
-                Map(),
-                EPrimCon(PCUnit),
+                requires = Set.empty,
+                param = Ref.IdString.Name.assertFromString("test"),
+                choices = Map(),
+                fields = Map(),
+                methods = Map(),
+                precond = EPrimCon(PCUnit),
               )
           ),
           FeatureFlags(),

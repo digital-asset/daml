@@ -201,6 +201,11 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e2)
     ECallInterface t m e -> ECallInterface t m
         (applySubstInExpr subst e)
+    EInterfaceFieldProject t f r -> EInterfaceFieldProject t f
+        (applySubstInExpr subst r)
+    EInterfaceFieldUpdate t f r v -> EInterfaceFieldUpdate t f
+        (applySubstInExpr subst r)
+        (applySubstInExpr subst v)
     EToRequiredInterface t1 t2 e -> EToRequiredInterface t1 t2
         (applySubstInExpr subst e)
     EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2

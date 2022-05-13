@@ -211,6 +211,8 @@ safetyStep = \case
   EFromInterfaceF _ _ s -> s <> Safe 0
   EUnsafeFromInterfaceF _ _ _ _ -> Unsafe
   ECallInterfaceF _ _ _ -> Unsafe
+  EInterfaceFieldProjectF _ _ s -> s <> Safe 0
+  EInterfaceFieldUpdateF _ _ s1 s2 -> s1 <> s2 <> Safe 0
   EToRequiredInterfaceF _ _ s -> s <> Safe 0
   EFromRequiredInterfaceF _ _ s -> s <> Safe 0
   EUnsafeFromRequiredInterfaceF _ _ _ _ -> Unsafe

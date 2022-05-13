@@ -454,6 +454,24 @@ object SExpr {
       methodName: MethodName,
   ) extends SDefinitionRef
 
+  /** ImplementsFieldProjectDefRef(ref=templateId, ifaceId, field) invokes the template's
+    * implementation of an interface field projection.
+    */
+  final case class ImplementsFieldProjectDefRef(
+      ref: DefinitionRef,
+      ifaceId: TypeConName,
+      fieldName: FieldName,
+  ) extends SDefinitionRef
+
+  /** ImplementsFieldUpdateDefRef(ref=templateId, ifaceId, field) invokes the template's
+    * implementation of an interface field update.
+    */
+  final case class ImplementsFieldUpdateDefRef(
+      ref: DefinitionRef,
+      ifaceId: TypeConName,
+      fieldName: FieldName,
+  ) extends SDefinitionRef
+
   final case object AnonymousClosure
 
   private def prettyPrint(x: Any): String =

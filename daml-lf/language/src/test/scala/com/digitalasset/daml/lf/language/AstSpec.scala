@@ -65,6 +65,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       param = Name.assertFromString("x"),
       precond = ETrue,
       choices = Map.empty,
+      fields = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
     )
@@ -379,6 +380,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           choiceBuilder(choice2, TBool, ETrue),
           choiceBuilder(choice3, TText, eText),
         ),
+        fields = List.empty,
         methods = List(ifaceMethod1, ifaceMethod2),
         precond = ETrue,
       )
@@ -394,6 +396,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             choiceBuilder(choice2, TBool, ETrue),
             choiceBuilder(choice1, TText, eText),
           ),
+          fields = List.empty,
           methods = List.empty,
           precond = ETrue,
         )
@@ -406,6 +409,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           requires = List.empty,
           param = Name.assertFromString("x"),
           choices = List.empty,
+          fields = List.empty,
           methods = List(ifaceMethod1, ifaceMethod1),
           precond = ETrue,
         )

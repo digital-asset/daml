@@ -668,8 +668,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         requires = lfInterface.getRequiresList.asScala.view.map(decodeTypeConName),
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
         choices = lfInterface.getChoicesList.asScala.view.map(decodeChoice(id, _)),
+        fields = lfInterface.getFieldsList.asScala.view.map(decodeInterfaceField),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
+      )
+
+    private[this] def decodeInterfaceField(
+        lfField: PLF.InterfaceField
+    ): InterfaceField =
+      InterfaceField(
+        name = getInternedName(lfField.getFieldInternedName, "InterfaceField.name"),
+        fieldType = decodeType(lfField.getType),
       )
 
     private[this] def decodeInterfaceMethod(
@@ -1140,6 +1149,25 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             templateId = decodeTypeConName(unsafeFromInterface.getTemplateType),
             contractIdExpr = decodeExpr(unsafeFromInterface.getContractIdExpr, definition),
             ifaceExpr = decodeExpr(unsafeFromInterface.getInterfaceExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.INTERFACE_FIELD_PROJECT =>
+          assertSince(LV.Features.interfaces, "Expr.interface_field_project")
+          val interfaceFieldProject = lfExpr.getInterfaceFieldProject
+          EInterfaceFieldProject(
+            ifaceId = decodeTypeConName(interfaceFieldProject.getInterface),
+            field = getInternedName(interfaceFieldProject.getFieldInternedStr, "EInterfaceFieldProject.field"),
+            payload = decodeExpr(interfaceFieldProject.getPayload, definition),
+          )
+
+        case PLF.Expr.SumCase.INTERFACE_FIELD_UPDATE =>
+          assertSince(LV.Features.interfaces, "Expr.interface_field_update")
+          val interfaceFieldUpdate = lfExpr.getInterfaceFieldUpdate
+          EInterfaceFieldUpdate(
+            ifaceId = decodeTypeConName(interfaceFieldUpdate.getInterface),
+            field = getInternedName(interfaceFieldUpdate.getFieldInternedStr, "EInterfaceFieldUpdate.field"),
+            payload = decodeExpr(interfaceFieldUpdate.getPayload, definition),
+            value = decodeExpr(interfaceFieldUpdate.getValue, definition),
           )
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>

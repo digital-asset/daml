@@ -374,6 +374,9 @@ interfaceArg tpl = TyArg (TCon tpl)
 methodArg :: MethodName -> Arg
 methodArg = TmArg . EVar . ExprVarName . unMethodName
 
+fieldArg :: FieldName -> Arg
+fieldArg = TmArg . EVar . ExprVarName . unFieldName
+
 instance Pretty Arg where
   pPrintPrec lvl _prec = \case
     TmArg e -> pPrintTmArg lvl e
@@ -541,6 +544,10 @@ instance Pretty Expr where
         [interfaceArg ty1, tplArg ty2, TmArg expr1, TmArg expr2]
     ECallInterface ty mth expr -> pPrintAppKeyword lvl prec "call_interface"
         [interfaceArg ty, methodArg mth, TmArg expr]
+    EInterfaceFieldProject ty mth payload -> pPrintAppKeyword lvl prec "interface_field_project"
+        [interfaceArg ty, fieldArg mth, TmArg payload]
+    EInterfaceFieldUpdate ty mth payload value -> pPrintAppKeyword lvl prec "interface_field_update"
+        [interfaceArg ty, fieldArg mth, TmArg payload, TmArg value]
     EToRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "to_required_interface"
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
     EFromRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_required_interface"

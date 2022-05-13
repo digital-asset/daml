@@ -188,6 +188,7 @@ instance MonoTraversable ModuleRef DefDataType
 instance MonoTraversable ModuleRef DefTypeSyn
 instance MonoTraversable ModuleRef DefException
 
+instance MonoTraversable ModuleRef InterfaceField
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
 

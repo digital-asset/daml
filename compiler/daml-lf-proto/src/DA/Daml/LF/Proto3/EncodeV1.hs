@@ -204,6 +204,11 @@ encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
             then P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
             else pure $ P.PackageRefSumPackageIdStr $ encodeString pkgId
 
+-- | Interface field names are always interned, since interfaces were
+-- introduced after name interning.
+encodeFieldName :: FieldName -> Encode Int32
+encodeFieldName = encodeNameId unFieldName
+
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
 encodeMethodName :: MethodName -> Encode Int32
@@ -708,6 +713,17 @@ encodeExpr' = \case
         expr_CallInterfaceMethodInternedName <- encodeMethodName mth
         expr_CallInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumCallInterface P.Expr_CallInterface{..}
+    EInterfaceFieldProject ty field payload -> do
+        expr_InterfaceFieldProjectInterface <- encodeQualTypeConName ty
+        expr_InterfaceFieldProjectFieldInternedStr <- encodeFieldName field
+        expr_InterfaceFieldProjectPayload <- encodeExpr payload
+        pureExpr $ P.ExprSumInterfaceFieldProject P.Expr_InterfaceFieldProject{..}
+    EInterfaceFieldUpdate ty field payload value -> do
+        expr_InterfaceFieldUpdateInterface <- encodeQualTypeConName ty
+        expr_InterfaceFieldUpdateFieldInternedStr <- encodeFieldName field
+        expr_InterfaceFieldUpdatePayload <- encodeExpr payload
+        expr_InterfaceFieldUpdateValue <- encodeExpr value
+        pureExpr $ P.ExprSumInterfaceFieldUpdate P.Expr_InterfaceFieldUpdate{..}
     EToRequiredInterface ty1 ty2 val -> do
         expr_ToRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
         expr_ToRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
@@ -1017,11 +1033,19 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
     defInterfaceRequires <- encodeSet encodeQualTypeConName' intRequires
+    defInterfaceFields <- encodeNameMap encodeInterfaceField intFields
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfacePrecond <- encodeExpr intPrecondition
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
     pure $ P.DefInterface{..}
+
+encodeInterfaceField :: InterfaceField -> Encode P.InterfaceField
+encodeInterfaceField InterfaceField {..} = do
+    interfaceFieldLocation <- traverse encodeSourceLoc iffLocation
+    interfaceFieldFieldInternedName <- encodeFieldName iffName
+    interfaceFieldType <- encodeType iffType
+    pure $ P.InterfaceField{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
 encodeInterfaceMethod InterfaceMethod {..} = do

@@ -715,7 +715,7 @@ object Ast {
       requires: Set[TypeConName],
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
-      fields: Map[MethodName, InterfaceField],
+      fields: Map[FieldName, InterfaceField],
       methods: Map[MethodName, InterfaceMethod],
       precond: E, // Interface creation precondition.
   )

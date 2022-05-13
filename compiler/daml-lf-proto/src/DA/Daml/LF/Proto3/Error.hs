@@ -20,6 +20,7 @@ data Error
   | DuplicateValue ExprValName
   | EDuplicateTemplate TypeConName
   | DuplicateChoice ChoiceName
+  | DuplicateInterfaceField FieldName
   | DuplicateMethod MethodName
   | DuplicateException TypeConName
   | DuplicateInterface TypeConName

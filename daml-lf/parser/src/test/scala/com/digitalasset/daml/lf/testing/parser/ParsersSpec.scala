@@ -809,6 +809,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           requires = Set.empty,
           param = n"this",
           precond = e"False",
+          fields = Map(), // FIXME!
           methods = Map(
             n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
             n"getName" -> InterfaceMethod(n"getName", t"Text"),

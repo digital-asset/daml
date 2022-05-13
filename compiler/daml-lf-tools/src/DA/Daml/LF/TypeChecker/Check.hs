@@ -759,6 +759,15 @@ typeOf' = \case
     method <- inWorld (lookupInterfaceMethod (iface, method))
     checkExpr val (TCon iface)
     pure (ifmType method)
+  EInterfaceFieldProject iface field payload -> do
+    field <- inWorld (lookupInterfaceField (iface, field))
+    checkExpr payload (TCon iface)
+    pure (iffType field)
+  EInterfaceFieldUpdate iface field payload value -> do
+    field <- inWorld (lookupInterfaceField (iface, field))
+    checkExpr payload (TCon iface)
+    checkExpr value (iffType field)
+    pure (TCon iface)
   EToRequiredInterface requiredIface requiringIface expr -> do
     allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
     unless (S.member requiredIface allRequiredIfaces) $ do

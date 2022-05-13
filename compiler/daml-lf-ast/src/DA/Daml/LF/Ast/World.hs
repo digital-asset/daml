@@ -19,6 +19,7 @@ module DA.Daml.LF.Ast.World(
     lookupDataType,
     lookupChoice,
     lookupInterfaceChoice,
+    lookupInterfaceField,
     lookupInterfaceMethod,
     lookupValue,
     lookupModule,
@@ -103,6 +104,7 @@ data LookupError
   | LEChoice !(Qualified TypeConName) !ChoiceName
   | LEInterface !(Qualified TypeConName)
   | LEInterfaceMethod !(Qualified TypeConName) !MethodName
+  | LEInterfaceField !(Qualified TypeConName) !FieldName
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -168,6 +170,13 @@ lookupInterfaceMethod (ifaceRef, methodName) world = do
   maybeToEither (LEInterfaceMethod ifaceRef methodName) $
       NM.lookup methodName (intMethods iface)
 
+lookupInterfaceField :: (Qualified TypeConName, FieldName) -> World -> Either LookupError InterfaceField
+lookupInterfaceField (ifaceRef, fieldName) world = do
+  iface <- lookupInterface ifaceRef world
+  maybeToEither (LEInterfaceField ifaceRef fieldName) $
+      NM.lookup fieldName (intFields iface)
+
+
 instance Pretty LookupError where
   pPrint = \case
     LEPackage pkgId -> "unknown package:" <-> pretty pkgId
@@ -181,3 +190,4 @@ instance Pretty LookupError where
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
     LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
     LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName
+    LEInterfaceField ifaceRef fieldName -> "unknown interface field:" <-> pretty ifaceRef <> "." <> pretty fieldName

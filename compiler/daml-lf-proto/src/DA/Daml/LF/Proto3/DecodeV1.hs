@@ -239,9 +239,19 @@ decodeDefInterface LF1.DefInterface {..} = do
   intRequires <- decodeSet DuplicateRequires decodeTypeConName defInterfaceRequires
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
+  intFields <- decodeNM DuplicateInterfaceField decodeInterfaceField defInterfaceFields
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
   intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
   pure DefInterface {..}
+
+decodeInterfaceField :: LF1.InterfaceField -> Decode InterfaceField
+decodeInterfaceField LF1.InterfaceField {..} = InterfaceField
+  <$> traverse decodeLocation interfaceFieldLocation
+  <*> decodeFieldName interfaceFieldFieldInternedName
+  <*> mayDecode "interfaceFieldType" interfaceFieldType decodeType
+
+decodeFieldName :: Int32 -> Decode FieldName
+decodeFieldName = decodeNameId FieldName
 
 decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
 decodeInterfaceMethod LF1.InterfaceMethod {..} = InterfaceMethod
@@ -674,6 +684,15 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
     <*> decodeMethodName expr_CallInterfaceMethodInternedName
     <*> mayDecode "expr_CallInterfaceInterfaceExpr" expr_CallInterfaceInterfaceExpr decodeExpr
+  LF1.ExprSumInterfaceFieldProject LF1.Expr_InterfaceFieldProject {..} -> EInterfaceFieldProject
+    <$> mayDecode "expr_InterfaceFieldProjectInterface" expr_InterfaceFieldProjectInterface decodeTypeConName
+    <*> decodeFieldName expr_InterfaceFieldProjectFieldInternedStr
+    <*> mayDecode "expr_InterfaceFieldProjectPayload" expr_InterfaceFieldProjectPayload decodeExpr
+  LF1.ExprSumInterfaceFieldUpdate LF1.Expr_InterfaceFieldUpdate {..} -> EInterfaceFieldUpdate
+    <$> mayDecode "expr_InterfaceFieldUpdateInterface" expr_InterfaceFieldUpdateInterface decodeTypeConName
+    <*> decodeFieldName expr_InterfaceFieldUpdateFieldInternedStr
+    <*> mayDecode "expr_InterfaceFieldUpdatePayload" expr_InterfaceFieldUpdatePayload decodeExpr
+    <*> mayDecode "expr_InterfaceFieldUpdateValue" expr_InterfaceFieldUpdateValue decodeExpr
   LF1.ExprSumToRequiredInterface LF1.Expr_ToRequiredInterface {..} -> EToRequiredInterface
     <$> mayDecode "expr_ToRequiredInterfaceRequiredInterface" expr_ToRequiredInterfaceRequiredInterface decodeTypeConName
     <*> mayDecode "expr_ToRequiredInterfaceRequiringInterface" expr_ToRequiredInterfaceRequiringInterface decodeTypeConName

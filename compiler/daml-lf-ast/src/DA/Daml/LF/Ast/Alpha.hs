@@ -71,6 +71,10 @@ alphaTypeCon = (==)
 alphaMethod :: MethodName -> MethodName -> Bool
 alphaMethod = (==)
 
+-- | Strongly typed version of (==) for field names.
+alphaField :: FieldName -> FieldName -> Bool
+alphaField = (==)
+
 alphaType' :: AlphaEnv -> Type -> Type -> Bool
 alphaType' env = \case
     TVar x1 -> \case
@@ -240,6 +244,19 @@ alphaExpr' env = \case
             -> alphaTypeCon t1 t2
             && alphaMethod m1 m2
             && alphaExpr' env e1 e2
+        _ -> False
+    EInterfaceFieldProject t1 f1 r1 -> \case
+        EInterfaceFieldProject t2 f2 r2
+            -> alphaTypeCon t1 t2
+            && alphaField f1 f2
+            && alphaExpr' env r1 r2
+        _ -> False
+    EInterfaceFieldUpdate t1 f1 r1 v1 -> \case
+        EInterfaceFieldUpdate t2 f2 r2 v2
+            -> alphaTypeCon t1 t2
+            && alphaField f1 f2
+            && alphaExpr' env r1 r2
+            && alphaExpr' env v1 v2
         _ -> False
     EToRequiredInterface t1a t1b e1 -> \case
         EToRequiredInterface t2a t2b e2

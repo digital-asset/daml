@@ -150,6 +150,10 @@ private[daml] class AstRewriter(
           ESignatoryInterface(apply(ifaceId), apply(body))
         case EObserverInterface(ifaceId, body) =>
           EObserverInterface(apply(ifaceId), apply(body))
+        case EInterfaceFieldProject(ifaceId, fieldName, payload) =>
+          EInterfaceFieldProject(apply(ifaceId), fieldName, apply(payload))
+        case EInterfaceFieldUpdate(ifaceId, fieldName, payload, value) =>
+          EInterfaceFieldUpdate(apply(ifaceId), fieldName, apply(payload), apply(value))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -338,6 +342,12 @@ private[daml] class AstRewriter(
       case DefException(message) => DefException(apply(message))
     }
 
+  def apply(x: InterfaceField): InterfaceField =
+    x match {
+      case InterfaceField(name, fieldType) =>
+        InterfaceField(name, apply(fieldType))
+    }
+
   def apply(x: InterfaceMethod): InterfaceMethod =
     x match {
       case InterfaceMethod(name, returnType) =>
@@ -346,11 +356,12 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(requires, param, choices, methods, precond) =>
+      case DefInterface(requires, param, choices, fields, methods, precond) =>
         DefInterface(
           requires.map(apply(_)),
           param,
           choices.transform((_, v) => apply(v)),
+          fields.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
           apply(precond),
         )
