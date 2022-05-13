@@ -16,12 +16,12 @@ final case class ParticipantConfig(
     indexService: IndexServiceConfig = DefaultIndexConfig,
     indexer: IndexerConfig = DefaultIndexerConfig,
     lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
-    participantId: Ref.ParticipantId = DefaultParticipantId,
     runMode: ParticipantRunMode = DefaultRunMode,
     shardName: Option[String] =
       DefaultShardName, // A name of the participant shard in a horizontally scaled participant.
 ) {
-  def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
+  def metricsRegistryName(participantId: Ref.ParticipantId): String =
+    participantId + shardName.map("-" + _).getOrElse("")
 }
 
 object ParticipantConfig {

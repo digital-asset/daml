@@ -30,6 +30,7 @@ trait LedgerBridge {
 
 object LedgerBridge {
   def owner(
+      participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
       bridgeConfig: BridgeConfig,
       indexService: IndexService,
@@ -42,7 +43,7 @@ object LedgerBridge {
   ): ResourceOwner[LedgerBridge] =
     if (bridgeConfig.conflictCheckingEnabled)
       buildConfigCheckingLedgerBridge(
-        participantConfig,
+        participantId,
         participantConfig.apiServer.party,
         indexService,
         bridgeMetrics,
@@ -50,12 +51,10 @@ object LedgerBridge {
         timeProvider,
       )
     else
-      ResourceOwner.forValue(() =>
-        new PassThroughLedgerBridge(participantConfig.participantId, timeProvider)
-      )
+      ResourceOwner.forValue(() => new PassThroughLedgerBridge(participantId, timeProvider))
 
   private def buildConfigCheckingLedgerBridge(
-      participantConfig: ParticipantConfig,
+      participantId: Ref.ParticipantId,
       partyConfig: PartyConfiguration,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
@@ -74,7 +73,7 @@ object LedgerBridge {
         indexService.listKnownParties().map(_.map(_.party).toSet)
       )
     } yield ConflictCheckingLedgerBridge(
-      participantId = participantConfig.participantId,
+      participantId = participantId,
       indexService = indexService,
       timeProvider = timeProvider,
       initialLedgerEnd =

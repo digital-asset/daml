@@ -47,6 +47,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 import PureConfigReaderWriter._
+import com.daml.ledger.configuration.LedgerId
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
@@ -88,8 +89,9 @@ object SandboxOnXRunner {
       _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
       // Start the ledger
-      participantConfig <- validateCombinedParticipantMode(config)
+      (participantId, participantConfig) <- validateCombinedParticipantMode(config)
       _ <- buildLedger(
+        participantId,
         config,
         participantConfig,
         bridgeConfig,
@@ -97,16 +99,16 @@ object SandboxOnXRunner {
         actorSystem,
         configAdaptor,
       ).acquire()
-    } yield logInitializationHeader(config, participantConfig, bridgeConfig)
+    } yield logInitializationHeader(config, participantId, participantConfig, bridgeConfig)
   }
 
   def validateCombinedParticipantMode(
       config: Config
-  ): Resource[ParticipantConfig] =
+  ): Resource[(Ref.ParticipantId, ParticipantConfig)] =
     config.participants.toList match {
-      case (_, participantConfig) :: Nil
+      case (participantId, participantConfig) :: Nil
           if participantConfig.runMode == ParticipantRunMode.Combined =>
-        Resource.successful(participantConfig)
+        Resource.successful((participantId, participantConfig))
       case _ =>
         Resource.failed {
           val loggingMessage = "Sandbox-on-X can only be run in a single COMBINED participant mode."
@@ -116,6 +118,7 @@ object SandboxOnXRunner {
     }
 
   def buildLedger(implicit
+      participantId: Ref.ParticipantId,
       config: Config,
       participantConfig: ParticipantConfig,
       bridgeConfig: BridgeConfig,
@@ -127,82 +130,83 @@ object SandboxOnXRunner {
     val apiServerConfig: ApiServerConfig = participantConfig.apiServer
     val sharedEngine = new Engine(config.engine)
 
-    newLoggingContextWith("participantId" -> participantConfig.participantId) {
-      implicit loggingContext =>
-        for {
-          metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
-          translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-            config = participantConfig.lfValueTranslationCache,
+    newLoggingContextWith("participantId" -> participantId) { implicit loggingContext =>
+      for {
+        metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics(participantId))
+        translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
+          config = participantConfig.lfValueTranslationCache,
+          metrics = metrics,
+        )
+
+        (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
+
+        servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
+        servicesExecutionContext <- buildServicesExecutionContext(
+          metrics,
+          servicesThreadPoolSize,
+        )
+
+        readServiceWithSubscriber = new BridgeReadService(
+          ledgerId = config.ledgerId,
+          maximumDeduplicationDuration = bridgeConfig.maxDeduplicationDuration,
+          stateUpdatesSource,
+        )
+
+        indexerHealthChecks <- buildIndexerServer(
+          metrics,
+          new TimedReadService(readServiceWithSubscriber, metrics),
+          translationCache,
+          participantId,
+          participantConfig,
+        )
+
+        dbSupport <- DbSupport
+          .owner(
+            serverRole = ServerRole.ApiServer,
             metrics = metrics,
+            dbConfig = apiServerConfig.database,
           )
 
-          (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
+        indexService <- StandaloneIndexService(
+          ledgerId = config.ledgerId,
+          config = participantConfig.indexService,
+          metrics = metrics,
+          engine = sharedEngine,
+          servicesExecutionContext = servicesExecutionContext,
+          lfValueTranslationCache = translationCache,
+          dbSupport = dbSupport,
+          participantId = participantId,
+        )
 
-          servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
-          servicesExecutionContext <- buildServicesExecutionContext(
-            metrics,
-            servicesThreadPoolSize,
-          )
+        timeServiceBackend = configAdaptor.timeServiceBackend(apiServerConfig)
 
-          readServiceWithSubscriber = new BridgeReadService(
-            ledgerId = config.ledgerId,
-            maximumDeduplicationDuration = bridgeConfig.maxDeduplicationDuration,
-            stateUpdatesSource,
-          )
+        writeService <- buildWriteService(
+          participantId,
+          stateUpdatesFeedSink,
+          indexService,
+          metrics,
+          servicesExecutionContext,
+          servicesThreadPoolSize,
+          timeServiceBackend,
+          participantConfig,
+          bridgeConfig,
+        )
 
-          indexerHealthChecks <- buildIndexerServer(
-            metrics,
-            new TimedReadService(readServiceWithSubscriber, metrics),
-            translationCache,
-            participantConfig,
-          )
-
-          dbSupport <- DbSupport
-            .owner(
-              serverRole = ServerRole.ApiServer,
-              metrics = metrics,
-              dbConfig = apiServerConfig.database,
-            )
-
-          indexService <- StandaloneIndexService(
-            ledgerId = config.ledgerId,
-            config = participantConfig.indexService,
-            metrics = metrics,
-            engine = sharedEngine,
-            servicesExecutionContext = servicesExecutionContext,
-            lfValueTranslationCache = translationCache,
-            dbSupport = dbSupport,
-            participantId = participantConfig.participantId,
-          )
-
-          timeServiceBackend = configAdaptor.timeServiceBackend(apiServerConfig)
-
-          writeService <- buildWriteService(
-            stateUpdatesFeedSink,
-            indexService,
-            metrics,
-            servicesExecutionContext,
-            servicesThreadPoolSize,
-            timeServiceBackend,
-            participantConfig,
-            bridgeConfig,
-          )
-
-          apiServer <- buildStandaloneApiServer(
-            sharedEngine,
-            indexService,
-            metrics,
-            servicesExecutionContext,
-            new TimedWriteService(writeService, metrics),
-            indexerHealthChecks,
-            timeServiceBackend,
-            dbSupport,
-            config,
-            apiServerConfig,
-            participantConfig.participantId,
-            configAdaptor,
-          )
-        } yield (apiServer, writeService, indexService)
+        apiServer <- buildStandaloneApiServer(
+          sharedEngine,
+          indexService,
+          metrics,
+          servicesExecutionContext,
+          new TimedWriteService(writeService, metrics),
+          indexerHealthChecks,
+          timeServiceBackend,
+          dbSupport,
+          config.ledgerId,
+          apiServerConfig,
+          participantId,
+          configAdaptor,
+        )
+      } yield (apiServer, writeService, indexService)
     }
   }
 
@@ -215,7 +219,7 @@ object SandboxOnXRunner {
       healthChecksWithIndexer: HealthChecks,
       timeServiceBackend: Option[TimeServiceBackend],
       dbSupport: DbSupport,
-      config: Config,
+      ledgerId: LedgerId,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
       configAdaptor: BridgeConfigAdaptor,
@@ -225,7 +229,7 @@ object SandboxOnXRunner {
   ): ResourceOwner[ApiServer] =
     StandaloneApiServer(
       indexService = indexService,
-      ledgerId = config.ledgerId,
+      ledgerId = ledgerId,
       config = apiServerConfig,
       optWriteService = Some(writeService),
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
@@ -267,6 +271,7 @@ object SandboxOnXRunner {
       metrics: Metrics,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
+      participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
   )(implicit
       loggingContext: LoggingContext,
@@ -274,7 +279,7 @@ object SandboxOnXRunner {
   ): ResourceOwner[HealthChecks] =
     for {
       indexerHealth <- new StandaloneIndexerServer(
-        participantId = participantConfig.participantId,
+        participantId = participantId,
         readService = readService,
         config = participantConfig.indexer,
         metrics = metrics,
@@ -299,12 +304,12 @@ object SandboxOnXRunner {
       )
       .map(ExecutionContext.fromExecutorService)
 
-  private def buildMetrics(implicit
+  private def buildMetrics(participantId: Ref.ParticipantId)(implicit
       participantConfig: ParticipantConfig,
       config: Config,
   ): ResourceOwner[Metrics] =
     Metrics
-      .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
+      .fromSharedMetricRegistries(participantConfig.metricsRegistryName(participantId))
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
         config.metrics.reporter
@@ -318,6 +323,7 @@ object SandboxOnXRunner {
 
   // Builds the write service and uploads the initialization DARs
   private def buildWriteService(
+      participantId: Ref.ParticipantId,
       feedSink: Sink[(Offset, Update), NotUsed],
       indexService: IndexService,
       metrics: Metrics,
@@ -334,6 +340,7 @@ object SandboxOnXRunner {
     val bridgeMetrics = new BridgeMetrics(metrics)
     for {
       ledgerBridge <- LedgerBridge.owner(
+        participantId,
         participantConfig,
         bridgeConfig,
         indexService,
@@ -354,6 +361,7 @@ object SandboxOnXRunner {
 
   private def logInitializationHeader(
       config: Config,
+      participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
   ): Unit = {
@@ -372,7 +380,7 @@ object SandboxOnXRunner {
         "index DB backend" -> DbType
           .jdbcType(apiServerConfig.database.jdbcUrl)
           .name,
-        "participant-id" -> participantConfig.participantId,
+        "participant-id" -> participantId,
         "ledger-id" -> config.ledgerId,
         "port" -> apiServerConfig.port.toString,
         "time mode" -> apiServerConfig.timeProviderType.description,

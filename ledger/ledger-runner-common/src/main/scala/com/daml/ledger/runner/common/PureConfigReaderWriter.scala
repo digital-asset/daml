@@ -245,10 +245,10 @@ object PureConfigReaderWriter {
   implicit val participantConfigConvert: ConfigConvert[ParticipantConfig] =
     deriveConvert[ParticipantConfig]
 
-  implicit val participantNameKeyReader: ConfigReader[Map[ParticipantName, ParticipantConfig]] =
-    genericMapReader[ParticipantName, ParticipantConfig]((s: String) => Right(ParticipantName(s)))
-  implicit val participantNameKeyWriter: ConfigWriter[Map[ParticipantName, ParticipantConfig]] =
-    genericMapWriter[ParticipantName, ParticipantConfig](_.value)
+  implicit val participantNameKeyReader: ConfigReader[Map[Ref.ParticipantId, ParticipantConfig]] =
+    genericMapReader[Ref.ParticipantId, ParticipantConfig]((s: String) => createParticipantId(s))
+  implicit val participantNameKeyWriter: ConfigWriter[Map[Ref.ParticipantId, ParticipantConfig]] =
+    genericMapWriter[Ref.ParticipantId, ParticipantConfig](_.toString)
 
   implicit val convert: ConfigConvert[Config] = deriveConvert[Config]
 }

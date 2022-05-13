@@ -62,11 +62,12 @@ final class SandboxServer(
     }
     val genericConfig = CliConfigConverter.toConfig(bridgeConfigAdaptor, genericCliConfig)
     for {
-      participantConfig <-
+      (participantId, participantConfig) <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
       (apiServer, writeService, indexService) <-
         SandboxOnXRunner
           .buildLedger(
+            participantId,
             genericConfig,
             participantConfig,
             genericCliConfig.extra,
