@@ -3,8 +3,8 @@
 
 package com.daml.ledger.sandbox
 
-import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
-import pureconfig.{ConfigReader, ConfigWriter}
+import pureconfig.generic.semiauto.deriveConvert
+import pureconfig.ConfigConvert
 import com.daml.ledger.runner.common.PureConfigReaderWriter._
 import com.daml.ledger.sandbox.BridgeConfig.DefaultMaximumDeduplicationDuration
 
@@ -20,6 +20,5 @@ object BridgeConfig {
   val DefaultMaximumDeduplicationDuration: Duration = Duration.ofMinutes(30L)
   val Default: BridgeConfig = BridgeConfig()
 
-  implicit val bridgeConfigReader: ConfigReader[BridgeConfig] = deriveReader[BridgeConfig]
-  implicit val bridgeConfigWriter: ConfigWriter[BridgeConfig] = deriveWriter[BridgeConfig]
+  implicit val convert: ConfigConvert[BridgeConfig] = deriveConvert[BridgeConfig]
 }
