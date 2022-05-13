@@ -533,6 +533,7 @@ private class JdbcLedgerDao(
               recordTime = recordTime,
               divulgedContracts = divulgedContracts.toList,
               blindingInfo = blindingInfo,
+              contractMetadata = Map.empty,
             )
           ),
         )

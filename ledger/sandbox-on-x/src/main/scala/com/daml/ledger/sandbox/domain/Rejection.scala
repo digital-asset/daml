@@ -198,4 +198,16 @@ private[sandbox] object Rejection {
         .rpcStatus()
     }
   }
+
+  final case class DisclosedContractInvalid(
+      contractId: ContractId,
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status =
+      LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid
+        .Reject(contractId)
+        .rpcStatus()
+  }
 }
