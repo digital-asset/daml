@@ -106,12 +106,12 @@ class FooCommandSubmitterITSpec
 
       observerResult.avgSizeOfCreateEventPerTemplateName(
         "Foo1"
-      ) shouldBe (foo1Config.payloadSizeBytes + 56) withClue ("payload size of create Foo1")
+      ) shouldBe (foo1Config.payloadSizeBytes + 60) +- 20 withClue ("payload size of create Foo1")
       observerResult.avgSizeOfCreateEventPerTemplateName(
         "Foo2"
-      ) shouldBe (foo2Config.payloadSizeBytes + 56) withClue ("payload size of create Foo2")
-      observerResult.avgSizeOfConsumingExercise shouldBe (consumingExercisesConfig.payloadSizeBytes + 8)
-      observerResult.avgSizeOfNonconsumingExercise shouldBe (nonConsumingExercisesConfig.payloadSizeBytes + 8)
+      ) shouldBe (foo2Config.payloadSizeBytes + 60) +- 20 withClue ("payload size of create Foo2")
+      observerResult.avgSizeOfConsumingExercise shouldBe (consumingExercisesConfig.payloadSizeBytes + 10) +- 5
+      observerResult.avgSizeOfNonconsumingExercise shouldBe (nonConsumingExercisesConfig.payloadSizeBytes + 10) +- 5
       observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
       observerResult.nonConsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonConsumingExercisesConfig.probability) withClue ("number of non consuming exercises")
 
