@@ -98,6 +98,7 @@ object Raw {
           PbContractMetadata(
             createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
             contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+            // TODO DPP-1026: Store driver metadata in the database
             driverMetadata = ByteString.EMPTY,
           )
         ),
