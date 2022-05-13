@@ -363,6 +363,7 @@ class SequenceSpec
       submissionId = Some(submissionId),
       ledgerConfiguration =
         Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
+      explicitDisclosure = Set.empty,
     )
     val txLedgerEffectiveTime: Timestamp = currentRecordTime
     val transactionMeta: TransactionMeta = TransactionMeta(
@@ -539,6 +540,7 @@ class SequenceSpec
         recordTime = recordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
+        contractMetadata = Map.empty,
       )
 
     def assertCommandRejected(

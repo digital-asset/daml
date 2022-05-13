@@ -98,6 +98,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.deduplicationPeriod,
         commands.submissionId.map(_.unwrap),
         ledgerConfiguration,
+        commands.disclosedContracts.map(disclosedContract),
       ),
       transactionMeta = state.TransactionMeta(
         commands.commands.ledgerEffectiveTime,
@@ -117,6 +118,16 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos = interpretationTimeNanos,
     )
   }
+
+  // TODO DPP-1026: domain.DisclosedContract and state.DisclosedContract are really the same
+  // Do we need two classes? So far, domain types were independent of the participant state API types.
+  private def disclosedContract(dd: DisclosedContract): state.DisclosedContract =
+    state.DisclosedContract(
+      contractId = dd.contractId,
+      contractInst = dd.contract,
+      ledgerEffectiveTime = dd.ledgerTime,
+      driverMetadata = dd.driverMetadata,
+    )
 
   private def submitToEngine(
       commands: ApiCommands,
