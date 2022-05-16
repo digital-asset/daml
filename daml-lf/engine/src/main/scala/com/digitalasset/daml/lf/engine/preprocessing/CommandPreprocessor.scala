@@ -6,11 +6,11 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 
 private[lf] final class CommandPreprocessor(
     interface: language.PackageInterface,
@@ -35,53 +35,74 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.Create(templateId, arg)
   }
 
-  def unsafePreprocessExercise(
-      identifier: Ref.Identifier,
+  // TODO: https://github.com/digital-asset/daml/issues/12051
+  //  Drop this once Canton support ambiguous choices properly
+  @throws[Error.Preprocessing.Error]
+  @deprecated
+  private def unsafePreprocessLenientExercise(
+      templateId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command = {
-    import language.PackageInterface.ChoiceInfo
-
-    val cid = valueTranslator.unsafeTranslateCid(contractId)
-    def command(
-        choice: Ast.TemplateChoiceSignature,
-        toSpeedyCommand: speedy.SValue => speedy.Command,
-    ) = {
-      val arg = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument)
-      toSpeedyCommand(arg)
-    }
-
-    handleLookup(interface.lookupChoice(identifier, choiceId)) match {
-      case ChoiceInfo.Template(choice) =>
-        command(choice, speedy.Command.Exercise(identifier, cid, choiceId, _))
-      case ChoiceInfo.Interface(choice) =>
-        command(choice, speedy.Command.ExerciseInterface(identifier, cid, choiceId, _))
-      case ChoiceInfo.Inherited(ifaceId, choice) =>
-        command(choice, speedy.Command.ExerciseByInterface(ifaceId, identifier, cid, choiceId, _))
-      case ChoiceInfo.InterfaceInherited(ifaceId, choice) =>
-        command(
-          choice,
-          speedy.Command
-            .ExerciseByInheritedInterface(ifaceId, identifier, cid, choiceId, _),
+  ): speedy.Command =
+    handleLookup(interface.lookupLenientChoice(templateId, choiceId)) match {
+      case PackageInterface.ChoiceInfo.Template(choice) =>
+        speedy.Command.ExerciseTemplate(
+          templateId = templateId,
+          contractId = valueTranslator.unsafeTranslateCid(contractId),
+          choiceId = choiceId,
+          argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
+        )
+      case PackageInterface.ChoiceInfo.Inherited(ifaceId, choice) =>
+        speedy.Command.ExerciseInterface(
+          interfaceId = ifaceId,
+          contractId = valueTranslator.unsafeTranslateCid(contractId),
+          choiceId = choiceId,
+          argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
         )
     }
-  }
 
-  /* Like unsafePreprocessExercise, but expects the choice to come from the template specifically, not inherited from an interface. */
-  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessExercise(
+      typeId: Ref.Identifier,
+      contractId: Value.ContractId,
+      choiceId: Ref.ChoiceName,
+      argument: Value,
+  ): speedy.Command =
+    handleLookup(interface.lookupTemplateOrInterface(typeId)) match {
+      case Left(_) =>
+        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
+      case Right(_) =>
+        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
+    }
+
   def unsafePreprocessExerciseTemplate(
       templateId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command.Exercise = {
-    val cid = valueTranslator.unsafeTranslateCid(contractId)
-    val choiceArgType = handleLookup(
-      interface.lookupTemplateChoice(templateId, choiceId)
-    ).argBinder._2
-    val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    speedy.Command.Exercise(templateId, cid, choiceId, arg)
+  ): speedy.Command = {
+    val choice = handleLookup(interface.lookupTemplateChoice(templateId, choiceId))
+    speedy.Command.ExerciseTemplate(
+      templateId = templateId,
+      contractId = valueTranslator.unsafeTranslateCid(contractId),
+      choiceId = choiceId,
+      argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
+    )
+  }
+
+  def unsafePreprocessExerciseInterface(
+      ifaceId: Ref.Identifier,
+      contractId: Value.ContractId,
+      choiceId: Ref.ChoiceName,
+      argument: Value,
+  ): speedy.Command = {
+    val choice = handleLookup(interface.lookupInterfaceChoice(ifaceId, choiceId))
+    speedy.Command.ExerciseInterface(
+      interfaceId = ifaceId,
+      contractId = valueTranslator.unsafeTranslateCid(contractId),
+      choiceId = choiceId,
+      argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
+    )
   }
 
   @throws[Error.Preprocessing.Error]
@@ -161,14 +182,22 @@ private[lf] final class CommandPreprocessor(
 
   // returns the speedy translation of an Replay command.
   @throws[Error.Preprocessing.Error]
+  @nowarn("msg=deprecated")
   private[preprocessing] def unsafePreprocessReplayCommand(
       cmd: command.ReplayCommand
   ): speedy.Command =
     cmd match {
       case command.ReplayCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.ReplayCommand.Exercise(templateId, coid, choiceId, argument) =>
-        unsafePreprocessExercise(templateId, coid, choiceId, argument)
+      case command.ReplayCommand.LenientExercise(typeId, coid, choiceId, argument) =>
+        unsafePreprocessLenientExercise(typeId, coid, choiceId, argument)
+      case command.ReplayCommand.Exercise(templateId, mbIfaceId, coid, choiceId, argument) =>
+        mbIfaceId match {
+          case Some(ifaceId) =>
+            unsafePreprocessExerciseInterface(ifaceId, coid, choiceId, argument)
+          case None =>
+            unsafePreprocessExerciseTemplate(templateId, coid, choiceId, argument)
+        }
       case command.ReplayCommand.ExerciseByKey(
             templateId,
             contractKey,

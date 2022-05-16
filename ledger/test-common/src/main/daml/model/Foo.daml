@@ -3,16 +3,60 @@
 
 module Foo where
 
+import DA.Functor (void)
+
+
+template Divulger
+  with
+    divulgees: [Party] -- Parties to whom something is divulged
+    divulger: Party -- Party who divulges something
+    keyId: Text
+  where
+    signatory [divulger] <> divulgees
+
+    key (divulger, keyId): (Party, Text)
+    maintainer key._1
+
+    nonconsuming choice DivulgeImmediate: ()
+      with
+          fooObservers : [Party]
+          fooPayload : Text
+          fooKeyId: Text
+          fooTemplateName: Text
+      controller divulger
+      do
+        -- Party 'divulgee' sees the creation of Foo even though she is not a stakeholder i.e. immediate divulgence occurs.
+        if fooTemplateName == "Foo1" then
+            void $ create Foo1 with
+                signatory = divulger
+                observers = fooObservers
+                payload = fooPayload
+                keyId = fooKeyId
+        else if fooTemplateName == "Foo2" then
+            void $ create Foo2 with
+                signatory = divulger
+                observers = fooObservers
+                payload = fooPayload
+                keyId = fooKeyId
+        else if fooTemplateName == "Foo3" then
+            void $ create Foo3 with
+                signatory = divulger
+                observers = fooObservers
+                payload = fooPayload
+                keyId = fooKeyId
+        else
+            return ()
+
 template Foo1
   with
     signatory : Party
     observers : [Party]
     payload : Text
-    id: Int
+    keyId: Text
   where
     signatory signatory
     observer observers
-    key (signatory, id): (Party, Int)
+    key (signatory, keyId): (Party, Text)
     maintainer key._1
 
     nonconsuming choice Foo1_NonconsumingChoice: ()
@@ -34,11 +78,11 @@ template Foo2
     signatory : Party
     observers : [Party]
     payload : Text
-    id: Int
+    keyId: Text
   where
     signatory signatory
     observer observers
-    key (signatory, id): (Party, Int)
+    key (signatory, keyId): (Party, Text)
     maintainer key._1
 
     nonconsuming choice Foo2_NonconsumingChoice: ()
@@ -60,11 +104,11 @@ template Foo3
     signatory : Party
     observers : [Party]
     payload : Text
-    id: Int
+    keyId: Text
   where
     signatory signatory
     observer observers
-    key (signatory, id): (Party, Int)
+    key (signatory, keyId): (Party, Text)
     maintainer key._1
 
     nonconsuming choice Foo3_NonconsumingChoice: ()

@@ -1,0 +1,11 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash ../../shell.nix
+
+set -euo pipefail
+
+DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd $DADE_CURRENT_SCRIPT_DIR
+cd ../..
+
+bazel build @hls-exe//haskell-language-server
+exec ./bazel-bin/external/hls/haskell-language-server-1.7.0.0/_install/bin/haskell-language-server "$@"

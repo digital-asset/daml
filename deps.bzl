@@ -49,18 +49,9 @@ rules_haskell_patches = [
     # This should be upstreamed
     "@com_github_digital_asset_daml//bazel_tools:haskell-arm-m1.patch",
 ]
-rules_nixpkgs_version = "b39b20edc4637032bc65f6a93af888463027767c"
-rules_nixpkgs_sha256 = "69bbc7aceaeab20693ae8bdc46b7d7a208ef3d3f1e5c295bef474d9b2e6aa39f"
+rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
+rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
 rules_nixpkgs_patches = [
-    # On CI and locally we observe occasional segmantation faults
-    # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
-    # can cause such segmentation faults. Since Nix 2.3.2 it is
-    # possible to disable HTTP2 via a command-line flag, which
-    # reportedly solves the issue. See
-    # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
-    "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-arm.patch",
 ]
 
 buildifier_version = "4.0.0"
@@ -90,8 +81,8 @@ davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae1
 daml_cheat_sheet_version = "2710b8df28d97253b5487a68feb2d1452d29fc54"  # 2021-09-17
 daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82ecbe7c401315"
 
-platforms_version = "0.0.3"
-platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
+platforms_version = "0.0.4"
+platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
 
 rules_sh_version = "47b4d823128f484ec1b06aa20349c4898216f486"
 rules_sh_sha256 = "107d4312073d80a9977d3ccff236060d3906bda939fa2fbda4d724268c5b5383"
@@ -124,14 +115,37 @@ def daml_deps():
         )
 
     if "io_tweag_rules_nixpkgs" not in native.existing_rules():
+        # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
+        #
+        # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
+
+        strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
+
         http_archive(
             name = "io_tweag_rules_nixpkgs",
-            strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
+            strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
         )
+
+        http_archive(
+            name = "rules_nixpkgs_core",
+            strip_prefix = strip_prefix + "/core",
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+            sha256 = rules_nixpkgs_sha256,
+            patches = rules_nixpkgs_patches,
+            patch_args = ["-p2"],
+        )
+
+        for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
+            http_archive(
+                name = "rules_nixpkgs_" + toolchain,
+                strip_prefix = strip_prefix + "/toolchains/" + toolchain,
+                urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+                sha256 = rules_nixpkgs_sha256,
+            )
 
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(

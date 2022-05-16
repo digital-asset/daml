@@ -9,7 +9,6 @@ import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.value.Identifier
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.AppendedClues
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -43,19 +42,23 @@ class FibonacciCommandSubmitterITSpec
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, observers) <- tested.prepare(config)
-      _ <- tested.submit(
-        config = config,
+      (signatory, _, divulgees) <- tested.prepare(config)
+      _ = divulgees shouldBe empty
+      generator = new FibonacciCommandGenerator(
         signatory = signatory,
-        observers = observers,
+        config = config,
+      )
+      _ <- tested.generateAndSubmit(
+        generator = generator,
+        config = config,
+        actAs = List(signatory) ++ divulgees,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
       )
-      eventsObserver = EventsObserver(expectedTemplateNames =
+      eventsObserver = TreeEventsObserver(expectedTemplateNames =
         Set(
-          com.daml.ledger.test.model.Bench.InefficientFibonacci.id
-            .asInstanceOf[Identifier]
-            .entityName
+          "InefficientFibonacci",
+          "InefficientFibonacciResult",
         )
       )
       _ <- apiServices.transactionService.transactionTrees(
@@ -75,7 +78,9 @@ class FibonacciCommandSubmitterITSpec
       )
       observerResult <- eventsObserver.result
     } yield {
-      observerResult.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
+      observerResult.numberOfCreatesPerTemplateName(
+        "InefficientFibonacci"
+      ) shouldBe config.numberOfInstances withClue ("number of create events")
       succeed
     }
   }

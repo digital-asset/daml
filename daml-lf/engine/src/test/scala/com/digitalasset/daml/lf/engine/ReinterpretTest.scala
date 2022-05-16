@@ -117,6 +117,7 @@ class ReinterpretTest
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
+          None,
           cid,
           choiceName,
           ValueRecord(Some(r), ImmArray.Empty),
@@ -134,6 +135,7 @@ class ReinterpretTest
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
+          None,
           cid,
           choiceName,
           ValueRecord(Some(r), ImmArray.Empty),
@@ -151,6 +153,7 @@ class ReinterpretTest
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
+          None,
           cid,
           choiceName,
           ValueRecord(Some(r), ImmArray.Empty),
@@ -168,6 +171,7 @@ class ReinterpretTest
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
+          None,
           cid,
           choiceName,
           ValueRecord(Some(r), ImmArray.Empty),
@@ -185,6 +189,7 @@ class ReinterpretTest
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
+          None,
           cid,
           choiceName,
           ValueRecord(Some(r), ImmArray.Empty),

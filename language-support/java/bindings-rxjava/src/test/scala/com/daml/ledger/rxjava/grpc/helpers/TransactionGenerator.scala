@@ -227,6 +227,9 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
+    mbInterfaceId <- Gen.option(identifierGen)
+    scalaInterfaceId = mbInterfaceId.map(_._1)
+    javaInterfaceId = mbInterfaceId.map(_._2)
     choice <- nonEmptyId
     (scalaChoiceArgument, javaChoiceArgument) <- Gen.sized(valueGen)
     actingParties <- Gen.listOf(nonEmptyId)
@@ -240,6 +243,7 @@ object TransactionGenerator {
         eventId,
         contractId,
         Some(scalaTemplateId),
+        scalaInterfaceId,
         choice,
         Some(scalaChoiceArgument),
         actingParties,
@@ -253,6 +257,7 @@ object TransactionGenerator {
       witnessParties.asJava,
       eventId,
       javaTemplateId,
+      javaInterfaceId.orNull,
       contractId,
       choice,
       javaChoiceArgument,

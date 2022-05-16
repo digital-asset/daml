@@ -10,6 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.backend.Conversions.{
   contractId,
   eventId,
@@ -25,6 +26,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, Sql
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 
 abstract class EventStorageBackendTemplate(
@@ -277,6 +279,8 @@ abstract class EventStorageBackendTemplate(
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
+        val (interfaceId, choiceName) =
+          ChoiceCoder.decode(exerciseChoice): @nowarn("msg=deprecated")
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -295,8 +299,9 @@ abstract class EventStorageBackendTemplate(
             eventId = eventId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
+            interfaceId = interfaceId,
             exerciseConsuming = exerciseConsuming,
-            exerciseChoice = exerciseChoice,
+            exerciseChoice = choiceName,
             exerciseArgument = exerciseArgument,
             exerciseArgumentCompression = exerciseArgumentCompression,
             exerciseResult = exerciseResult,
@@ -779,6 +784,8 @@ abstract class EventStorageBackendTemplate(
           createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
+        val decodedExerciseChoice =
+          exerciseChoice.map(ChoiceCoder.decode): @nowarn("msg=deprecated")
         RawTransactionEvent(
           eventKind,
           transactionId,
@@ -788,6 +795,7 @@ abstract class EventStorageBackendTemplate(
           eventId,
           contractId,
           templateId.map(stringInterning.templateId.externalize),
+          decodedExerciseChoice.flatMap(_._1),
           ledgerEffectiveTime,
           createSignatories.map(_.map(stringInterning.party.unsafe.externalize)),
           createObservers.map(_.map(stringInterning.party.unsafe.externalize)),
@@ -801,7 +809,7 @@ abstract class EventStorageBackendTemplate(
           submitters
             .map(_.view.map(stringInterning.party.unsafe.externalize).toSet)
             .getOrElse(Set.empty),
-          exerciseChoice,
+          decodedExerciseChoice.map(_._2),
           exerciseArgument,
           exerciseArgumentCompression,
           exerciseResult,

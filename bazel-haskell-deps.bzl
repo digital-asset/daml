@@ -663,18 +663,18 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     )
 
     stack_snapshot(
-        name = "ghcide",
+        name = "hls",
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
         haddock = False,
-        local_snapshot = "//:ghcide-snapshot.yaml",
-        stack_snapshot_json = "//:ghcide_snapshot.json",
+        local_snapshot = "//:hls-snapshot.yaml",
+        stack_snapshot_json = "//:hls_snapshot.json",
         packages = [
-            "ghcide",
+            "haskell-language-server",
         ],
         components = {
-            "ghcide": ["lib", "exe"],
+            "haskell-language-server": ["lib", "exe"],
             "attoparsec": [
                 "lib:attoparsec",
                 "lib:attoparsec-internal",

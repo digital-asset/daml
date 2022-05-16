@@ -95,6 +95,7 @@ object TransactionLogUpdate {
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       commandId: String,
       workflowId: String,
       contractKey: Option[LfValue.VersionedValue],

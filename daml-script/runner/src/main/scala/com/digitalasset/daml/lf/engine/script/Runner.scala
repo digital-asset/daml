@@ -31,7 +31,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{PackageInterface, LanguageVersion}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
@@ -64,6 +64,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -420,7 +421,14 @@ private[lf] class Runner(
         .flatMap {
           case Right((vv, v)) =>
             Converter
-              .toFuture(ScriptF.parse(ScriptF.Ctx(knownPackages, extendedCompiledPackages), vv, v))
+              .toFuture(
+                ScriptF.parse(
+                  ScriptF.Ctx(knownPackages, extendedCompiledPackages),
+                  vv,
+                  v,
+                  env.lookupChoiceByArgType: @nowarn("msg=deprecated"),
+                )
+              )
               .flatMap { scriptF =>
                 scriptF match {
                   case ScriptF.Catch(act, handle) =>

@@ -16,7 +16,7 @@ COMMITS_IN_GIVEN_RANGE=$(git log --format=%H "$1")
 extract_changelog () {
     awk '
         # Skip empty lines.
-        /^$/ {next}
+        /^[[:space:]]*$/ {next}
 
         # Take entire line, uppercase, compare to CHANGELOG_END.
         # If it matches, set flag to 0 (false) and skip current line.

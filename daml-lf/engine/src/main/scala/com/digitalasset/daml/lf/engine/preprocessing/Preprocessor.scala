@@ -134,7 +134,7 @@ private[engine] final class Preprocessor(
   private[engine] def preprocessApiCommand(
       cmd: command.ApiCommand
   ): Result[speedy.Command] =
-    safelyRun(pullTemplatePackage(List(cmd.templateId))) {
+    safelyRun(pullTemplatePackage(List(cmd.typeId))) {
       commandPreprocessor.unsafePreprocessApiCommand(cmd)
     }
 
@@ -143,7 +143,7 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.templateId))) {
+    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId))) {
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 

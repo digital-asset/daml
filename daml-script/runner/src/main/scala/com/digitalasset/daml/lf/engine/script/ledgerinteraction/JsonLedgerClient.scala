@@ -383,6 +383,7 @@ class JsonLedgerClient(
         List(
           ScriptLedgerClient.ExerciseResult(
             tplId,
+            None,
             choice,
             result.convertTo[Value](
               LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
@@ -414,6 +415,7 @@ class JsonLedgerClient(
       List(
         ScriptLedgerClient.ExerciseResult(
           tplId,
+          None,
           choice,
           result.convertTo[Value](
             LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
@@ -448,6 +450,7 @@ class JsonLedgerClient(
             .CreateResult(ContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
           ScriptLedgerClient.ExerciseResult(
             tplId,
+            None,
             choice,
             result.convertTo[Value](
               LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))

@@ -19,6 +19,7 @@ object WorkflowConfig {
   sealed trait SubmissionConfig extends Product with Serializable {
     def numberOfInstances: Int
     def numberOfObservers: Int
+    def numberOfDivulgees: Int
     def uniqueParties: Boolean
   }
 
@@ -27,12 +28,14 @@ object WorkflowConfig {
       uniqueParties: Boolean,
       value: Int,
   ) extends SubmissionConfig {
-    def numberOfObservers = 0
+    override val numberOfObservers = 0
+    override val numberOfDivulgees = 0
   }
 
   final case class FooSubmissionConfig(
       numberOfInstances: Int,
       numberOfObservers: Int,
+      numberOfDivulgees: Int,
       uniqueParties: Boolean,
       instanceDistribution: List[WorkflowConfig.FooSubmissionConfig.ContractDescription],
       nonConsumingExercises: Option[NonconsumingExercises],

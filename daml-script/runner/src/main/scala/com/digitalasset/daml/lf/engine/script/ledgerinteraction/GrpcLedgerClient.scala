@@ -323,7 +323,9 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         )
     }
 
-  private def fromTreeEvent(ev: TreeEvent): Either[String, ScriptLedgerClient.CommandResult] =
+  private def fromTreeEvent(ev: TreeEvent): Either[String, ScriptLedgerClient.CommandResult] = {
+    import scalaz.std.option._
+    import scalaz.syntax.traverse._
     ev match {
       case TreeEvent(TreeEvent.Kind.Created(created)) =>
         for {
@@ -336,11 +338,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
             .left
             .map(_.toString)
           templateId <- Converter.fromApiIdentifier(exercised.getTemplateId)
+          ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
           choice <- ChoiceName.fromString(exercised.choice)
-        } yield ScriptLedgerClient.ExerciseResult(templateId, choice, result)
+        } yield ScriptLedgerClient.ExerciseResult(templateId, ifaceId, choice, result)
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
+  }
 
   override def createUser(
       user: User,

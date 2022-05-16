@@ -74,7 +74,7 @@ object CodeGen {
       roots: Seq[String],
   ): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { interfaces: NonEmptyList[EnvironmentInterface] =>
-      val combined = interfaces.suml1
+      val combined = interfaces.suml1.resolveChoices
       val interface = combined.copy(
         typeDecls = Util.filterTemplatesBy(roots.map(_.r))(combined.typeDecls)
       )
@@ -134,7 +134,7 @@ object CodeGen {
     val typeDeclarationsToGenerate =
       DependencyGraph.transitiveClosure(
         serializableTypes = util.iface.typeDecls,
-        interfaces = Map.empty, // TODO(#13349)
+        interfaces = util.iface.astInterfaces,
       )
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
@@ -164,6 +164,7 @@ object CodeGen {
     // 1. collect records, search variants and splat/filter
     val (unassociatedRecords, splattedVariants, enums) = splatVariants(definitions)
 
+    // TODO(#13349) include interfaces as well
     // 2. put templates/types into single Namespace.fromHierarchy
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
       Namespace.fromHierarchy {

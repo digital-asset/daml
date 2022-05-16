@@ -210,6 +210,7 @@ class IdeLedgerClient(
             case exercise: Node.Exercise =>
               ScriptLedgerClient.ExerciseResult(
                 exercise.templateId,
+                exercise.interfaceId,
                 exercise.choiceId,
                 exercise.exerciseResult.get,
               )
@@ -263,6 +264,7 @@ class IdeLedgerClient(
               Some(
                 ScriptLedgerClient.Exercised(
                   exercise.templateId,
+                  exercise.interfaceId,
                   exercise.targetCoid,
                   exercise.choiceId,
                   exercise.chosenValue,

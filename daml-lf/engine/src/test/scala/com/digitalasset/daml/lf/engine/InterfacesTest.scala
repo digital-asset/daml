@@ -58,8 +58,6 @@ class InterfacesTest
     val lookupPackage = allInterfacesPkgs.get(_)
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
-    val idI3 = Identifier(interfacesPkgId, "Interfaces:I3")
-    val idI4 = Identifier(interfacesPkgId, "Interfaces:I4")
     val idT1 = Identifier(interfacesPkgId, "Interfaces:T1")
     val idT2 = Identifier(interfacesPkgId, "Interfaces:T2")
     val let = Time.Timestamp.now()
@@ -130,55 +128,21 @@ class InterfacesTest
         )
       }
     }
-    "be unable to exercise an interface I4 choice via I3 on a T1 contract" in {
-      val command = ApiCommand.Exercise(idI3, cid2, "C4", ValueRecord(None, ImmArray.empty))
-      inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe Error.Interpretation.DamlException(
-          IE.ContractDoesNotImplementRequiringInterface(idI3, idI4, cid2, idT2)
-        )
-      }
-    }
-
     "be able to exercise T1 by interface I1" in {
-      val command = ApiCommand.Exercise(idT1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I1" in {
-      val command = ApiCommand.Exercise(idT2, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(idI1, cid2, "C1", ValueRecord(None, ImmArray.empty))
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I2" in {
-      val command = ApiCommand.Exercise(idT2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command = ApiCommand.Exercise(idI2, cid2, "C2", ValueRecord(None, ImmArray.empty))
       runApi(command) shouldBe a[Right[_, _]]
     }
     "be unable to exercise T1 by interface I2 (stopped in preprocessor)" in {
       val command = ApiCommand.Exercise(idT1, cid1, "C2", ValueRecord(None, ImmArray.empty))
       preprocessApi(command) shouldBe a[Left[_, _]]
-    }
-
-    "be unable to exercise T1 (disguised as T2) by interface I1" in {
-      val command = ApiCommand.Exercise(idT2, cid1, "C1", ValueRecord(None, ImmArray.empty))
-      inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
-      }
-    }
-    "be unable to exercise T2 (disguised as T1) by interface I1" in {
-      val command = ApiCommand.Exercise(idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
-      inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
-      }
-    }
-    "be unable to exercise T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
-      val command = ApiCommand.Exercise(idT1, cid2, "C2", ValueRecord(None, ImmArray.empty))
-      preprocessApi(command) shouldBe a[Left[_, _]]
-    }
-    "be unable to exercise T1 (disguised as T2) by interface I2 " in {
-      val command = ApiCommand.Exercise(idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
-      inside(runApi(command)) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe Error.Interpretation.DamlException(
-          IE.ContractDoesNotImplementInterface(idI2, cid1, idT1)
-        )
-      }
     }
   }
 }

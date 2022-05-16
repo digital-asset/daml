@@ -13,13 +13,19 @@ class Names {
   val workflowId = s"$benchtoolApplicationId-$identifierSuffix"
   val signatoryPartyName = s"signatory-$identifierSuffix"
 
-  def observerPartyName(index: Int, uniqueParties: Boolean): String = {
+  def observerPartyName(index: Int, uniqueParties: Boolean): String =
     if (uniqueParties) s"Obs-$index-$identifierSuffix"
     else s"Obs-$index"
-  }
+
+  def divulgeePartyName(index: Int, uniqueParties: Boolean): String =
+    if (uniqueParties) s"Div-$index-$identifierSuffix"
+    else s"Div-$index"
 
   def observerPartyNames(numberOfObservers: Int, uniqueParties: Boolean): Seq[String] =
     (0 until numberOfObservers).map(i => observerPartyName(i, uniqueParties))
+
+  def divulgeePartyNames(numberOfDivulgees: Int, uniqueParties: Boolean): Seq[String] =
+    (0 until numberOfDivulgees).map(i => divulgeePartyName(i, uniqueParties))
 
   def commandId(index: Int): String = s"command-$index-$identifierSuffix"
 

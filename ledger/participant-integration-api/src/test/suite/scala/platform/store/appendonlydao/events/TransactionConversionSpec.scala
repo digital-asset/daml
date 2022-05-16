@@ -106,6 +106,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
             eventId = s"#transactionId:$evId",
             contractId = contractId,
             templateId = Some(v.Identifier(defaultPackageId, "M", "T")),
+            interfaceId = None,
             choice = "C",
             choiceArgument = Some(v.Value(v.Value.Sum.Record(v.Record(None, Vector())))),
             actingParties = Vector(party),

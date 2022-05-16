@@ -81,20 +81,22 @@ final class ValueEnricher(
   }
 
   def enrichChoiceArgument(
-      tyCon: Identifier,
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName))
-      .flatMap(choiceInfo => enrichValue(choiceInfo.choice.argBinder._2, value))
+    handleLookup(interface.lookupChoice(templateId, interfaceId, choiceName))
+      .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
-      tyCon: Identifier,
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName))
-      .flatMap(choiceInfo => enrichValue(choiceInfo.choice.returnType, value))
+    handleLookup(interface.lookupChoice(templateId, interfaceId, choiceName))
+      .flatMap(choice => enrichValue(choice.returnType, value))
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
     handleLookup(interface.lookupTemplateKey(tyCon))
@@ -155,10 +157,17 @@ final class ValueEnricher(
         } yield lookup.copy(key = key)
       case exe: Node.Exercise =>
         for {
-          choiceArg <- enrichChoiceArgument(exe.templateId, exe.choiceId, exe.chosenValue)
+          choiceArg <- enrichChoiceArgument(
+            exe.templateId,
+            exe.interfaceId,
+            exe.choiceId,
+            exe.chosenValue,
+          )
           result <- exe.exerciseResult match {
             case Some(exeResult) =>
-              enrichChoiceResult(exe.templateId, exe.choiceId, exeResult).map(Some(_))
+              enrichChoiceResult(exe.templateId, exe.interfaceId, exe.choiceId, exeResult).map(
+                Some(_)
+              )
             case None =>
               ResultNone
           }
