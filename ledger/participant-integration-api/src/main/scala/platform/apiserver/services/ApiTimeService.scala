@@ -28,7 +28,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import com.daml.timer.Timeout._
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.Duration
 
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
@@ -150,7 +150,7 @@ private[apiserver] final class ApiTimeService private (
             s"Shutdown of TimeService API streams did not finish in ${apiStreamShutdownTimeout.toSeconds} seconds. System shutdown continues."
           )
         ),
-      apiStreamShutdownTimeout.plus(FiniteDuration(2, "seconds")),
+      Duration.Inf, // .withTimeout above will make sure it completes in apiStreamShutdownTimeout already
     )
   }
 }
