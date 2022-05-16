@@ -305,27 +305,26 @@ trait AbstractHttpServiceIntegrationTestFuns
       contractLocator: domain.ContractLocator[JsValue],
       contractId: ContractId,
       create: domain.CreateCommand[v.Record, OptionalPkg],
-      encoder: DomainJsonEncoder,
-      uri: Uri,
+      fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[Assertion] =
-    postContractsLookup(contractLocator, uri, headers).flatMap { case (status, output) =>
+    postContractsLookup(contractLocator, fixture.uri, headers).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
       assertStatus(output, StatusCodes.OK)
       val result = getResult(output)
       contractId shouldBe getContractId(result)
-      assertActiveContract(result)(create, encoder)
+      assertActiveContract(result)(create, fixture.encoder)
     }
 
+  @deprecated("TODO SC used?", since = "2.3.0")
   protected def lookupContractAndAssert(
       contractLocator: domain.ContractLocator[JsValue],
       contractId: ContractId,
       create: domain.CreateCommand[v.Record, OptionalPkg],
-      encoder: DomainJsonEncoder,
-      uri: Uri,
+      fixture: UriFixture with EncoderFixture,
   ): Future[Assertion] =
-    MkUriFixture(uri).headersWithAuth.flatMap(it =>
-      lookupContractAndAssert(contractLocator, contractId, create, encoder, uri, it)
+    fixture.headersWithAuth.flatMap(it =>
+      lookupContractAndAssert(contractLocator, contractId, create, fixture, it)
     )
 
   protected def removeRecordId(a: v.Value): v.Value = a match {

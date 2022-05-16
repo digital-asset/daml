@@ -1156,7 +1156,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
         val locator = domain.EnrichedContractId(None, contractId)
-        lookupContractAndAssert(locator, contractId, command, encoder, uri, headers)
+        lookupContractAndAssert(locator, contractId, command, fixture, headers)
       }: Future[Assertion]
     }
   }
@@ -1199,7 +1199,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         }
         locator = domain.EnrichedContractId(None, contractId)
         // will cache if DB configured
-        _ <- lookupContractAndAssert(locator, contractId, command, encoder, uri, aliceHeaders)
+        _ <- lookupContractAndAssert(locator, contractId, command, fixture, aliceHeaders)
         charlie = getUniqueParty("Charlie")
         badLookup <- postContractsLookup(
           locator,
@@ -1234,7 +1234,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           TpId.Account.Account,
           JsArray(JsString(alice.unwrap), JsString(accountNumber)),
         )
-        lookupContractAndAssert(locator, contractId, command, encoder, uri, headers)
+        lookupContractAndAssert(locator, contractId, command, fixture, headers)
       }: Future[Assertion]
     }
   }
