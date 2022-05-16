@@ -83,7 +83,10 @@ object LedgerApiBenchTool {
 case class SubmissionStepResult(
     signatory: Primitive.Party,
     observers: List[Primitive.Party],
-)
+    divulgees: List[Primitive.Party],
+) {
+  val allocatedParties: List[Primitive.Party] = List(signatory) ++ observers ++ divulgees
+}
 
 class LedgerApiBenchTool(
     names: Names,
@@ -229,6 +232,8 @@ class LedgerApiBenchTool(
           signatory = signatory,
           config = submissionConfig,
           allObservers = List.empty,
+          allDivulgees = List.empty,
+          divulgeesToDivulgerKeyMap = Map.empty,
         )
         for {
           metricsManager <- MetricsManager(
@@ -248,7 +253,7 @@ class LedgerApiBenchTool(
             .generateAndSubmit(
               generator = generator,
               config = submissionConfig,
-              signatory = signatory,
+              actAs = List(signatory),
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
             )
@@ -290,7 +295,7 @@ class LedgerApiBenchTool(
       metricsManager = NoOpMetricsManager(),
     )
     for {
-      (signatory, allObservers) <- submitter.prepare(
+      (signatory, allObservers, allDivulgees) <- submitter.prepare(
         submissionConfig
       )
       _ <-
@@ -303,6 +308,7 @@ class LedgerApiBenchTool(
               submissionConfig = submissionConfig,
               signatory = signatory,
               allObservers = allObservers,
+              allDivulgees = allDivulgees,
             ).performSubmission()
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
@@ -314,7 +320,7 @@ class LedgerApiBenchTool(
                 .generateAndSubmit(
                   generator = generator,
                   config = submissionConfig,
-                  signatory = signatory,
+                  actAs = List(signatory) ++ allDivulgees,
                   maxInFlightCommands = config.maxInFlightCommands,
                   submissionBatchSize = config.submissionBatchSize,
                 )
@@ -323,6 +329,7 @@ class LedgerApiBenchTool(
     } yield SubmissionStepResult(
       signatory = signatory,
       observers = allObservers,
+      divulgees = allDivulgees,
     )
   }
 

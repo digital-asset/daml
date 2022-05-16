@@ -42,7 +42,8 @@ class FibonacciCommandSubmitterITSpec
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, _) <- tested.prepare(config)
+      (signatory, _, divulgees) <- tested.prepare(config)
+      _ = divulgees shouldBe empty
       generator = new FibonacciCommandGenerator(
         signatory = signatory,
         config = config,
@@ -50,7 +51,7 @@ class FibonacciCommandSubmitterITSpec
       _ <- tested.generateAndSubmit(
         generator = generator,
         config = config,
-        signatory = signatory,
+        actAs = List(signatory) ++ divulgees,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
       )

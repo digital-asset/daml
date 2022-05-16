@@ -117,9 +117,10 @@ object WorkflowConfigParser {
       )(FooSubmissionConfig.ConsumingExercises.apply)
 
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
-      Decoder.forProduct6(
+      Decoder.forProduct7(
         "num_instances",
         "num_observers",
+        "num_divulgees",
         "unique_parties",
         "instance_distribution",
         "nonconsuming_exercises",
