@@ -153,7 +153,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
   ): Future[A] =
-    withHttpService()(testFn)
+    withHttpService() { case HttpServiceTestFixtureData(a, b, c, d, e) => testFn(a, b, c, d, e) }
 
   protected def withHttpService[A](
       token: Option[Jwt] = None,
@@ -193,7 +193,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     withHttpServiceAndClient((a, b, c, _, ledgerId) => f(a, b, c, ledgerId))
 
   protected def withHttpService[A](f: HttpServiceTestFixtureData => Future[A]): Future[A] =
-    withHttpServiceAndClient(HttpServiceTestFixtureData andThen f)
+    withHttpService()(f)
 
   protected def withHttpServiceOnly[A](ledgerPort: Port)(
       f: HttpServiceOnlyTestFixtureData => Future[A]
@@ -768,7 +768,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       encoder: DomainJsonEncoder,
   ): Future[List[domain.ActiveContract[JsValue]]] =
-    headersWithAuth(uri).flatMap(searchExpectOk(commands, query, uri, encoder, _))
+    MkUriFixture(uri).headersWithAuth.flatMap(searchExpectOk(commands, query, uri, encoder, _))
 
   protected def search(
       commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
@@ -788,6 +788,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       }
     }
   }
+
   protected def search(
       commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
