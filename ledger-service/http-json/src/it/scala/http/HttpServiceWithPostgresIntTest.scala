@@ -19,8 +19,9 @@ abstract class HttpServiceWithPostgresIntTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  "query persists all active contracts" in withHttpService { (uri, encoder, _, _) =>
-    getUniquePartyAndAuthHeaders(uri)("Alice").flatMap { case (party, headers) =>
+  "query persists all active contracts" in withHttpService { fixture =>
+    import fixture.{uri, encoder}
+    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (party, headers) =>
       val searchDataSet = genSearchDataSet(party)
       searchExpectOk(
         searchDataSet,
