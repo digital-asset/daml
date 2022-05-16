@@ -28,6 +28,7 @@ versions = {
         "srcs": glob([
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev/**/*",
         ]),
         "entrypoints": [
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
