@@ -780,8 +780,12 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[
     domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
   ] = {
-    @annotation.nowarn("msg=dead code")
-    val fixture: UriFixture with EncoderFixture = sys.error(s"TODO SC $uri $encoder")
+    val uri0 = uri; val encoder0 = encoder
+    // TODO SC fixturize search
+    object fixture extends UriFixture with EncoderFixture {
+      val uri = uri0
+      val encoder = encoder0
+    }
     commands.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
       fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).flatMap { case (_, output) =>
