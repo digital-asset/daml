@@ -84,3 +84,29 @@ case class ApiCommands(
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
 )
+
+/** An additional contract that is used to resolve contract id and contract key lookups during interpretation.
+  *
+  * @param   templateId   identifier of the template of disclosed contract
+  * @param   contractId   the contract id of the disclosed contract
+  * @param   argument     the payload of the disclosed contract
+  * @param   metadata     metatdata attached to this disclosure. See [ContractMetadata].
+  */
+final case class DisclosedContract(
+    templateId: Identifier,
+    contractId: Value.ContractId,
+    argument: Value.VersionedContractInstance,
+    metadata: ContractMetadata,
+)
+
+/** Contract metadata attached to disclosed contracts.
+  *
+  * @param createdAt   ledger effective time of the transaction that created the contract
+  * @param keyHash     hash of the contract key, if present
+  * @param driverMeta  opaque bytestring used by the underlying ledger implementation
+  */
+final case class ContractMetadata(
+    createdAt: Time.Timestamp,
+    keyHash: Option[crypto.Hash],
+    driverMetadata: ImmArray[Byte],
+)

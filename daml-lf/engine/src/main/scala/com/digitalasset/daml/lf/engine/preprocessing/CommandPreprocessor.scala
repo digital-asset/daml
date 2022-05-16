@@ -238,5 +238,4 @@ private[lf] final class CommandPreprocessor(
 
     go(cmds.toFrontStack, BackStack.empty)
   }
-
 }

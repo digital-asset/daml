@@ -100,6 +100,7 @@ class InterfacesTest
             submitters = Set(party),
             readAs = Set.empty,
             commands = ImmArray(speedyCmd),
+            disclosures = ImmArray.empty,
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,

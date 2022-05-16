@@ -14,6 +14,7 @@ import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
 import java.nio.file.Files
+import com.daml.lf.value.Value.{VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
@@ -96,9 +97,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
+      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+
+    assert(disclosures.isEmpty || config.allowedLanguageVersions.contains(LanguageVersion.v1_dev))
+
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessApiCommands(cmds.commands)
@@ -108,6 +113,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
+          disclosures = disclosures,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
@@ -147,6 +153,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         validating = true,
         submitters = submitters,
         readAs = Set.empty,
+        disclosures = ImmArray.empty,
         sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -169,6 +176,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submitters = submitters,
         readAs = Set.empty,
         commands = commands,
+        disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
@@ -255,6 +263,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
+      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -269,6 +278,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submitters,
         readAs,
         sexpr,
+        disclosures,
         ledgerTime,
         submissionTime,
         seeding,
@@ -288,6 +298,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       sexpr: SExpr,
+      disclosures: ImmArray[DisclosedContract],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -303,7 +314,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
     )
-    interpretLoop(machine, ledgerTime)
+
+    // TODO (drsk) normalize and typecheck disclosures. https://github.com/digital-asset/daml/issues/13864.
+    val discTable = Engine.buildDiscTable(disclosures)
+    interpretLoop(machine, discTable, ledgerTime)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -330,6 +344,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
+      disclosures: Engine.DisclosureTable,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
@@ -354,31 +369,44 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             pkg => {
               compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
-                interpretLoop(machine, time)
+                interpretLoop(machine, disclosures, time)
               }
             },
           )
 
-        case SResultNeedContract(contractId, _, callback) =>
-          return Result.needContract(
-            contractId,
-            { coinst =>
-              callback(coinst)
-              interpretLoop(machine, time)
-            },
-          )
+        case SResultNeedContract(contractId, _, callback) => {
+          def continueWithContract = (coinst: VersionedContractInstance) => {
+            callback(coinst)
+            interpretLoop(machine, disclosures, time)
+          }
+          disclosures.contractById.get(contractId) match {
+            case None =>
+              return Result.needContract(
+                contractId,
+                continueWithContract,
+              )
+            case Some(coinst) => return continueWithContract(coinst)
+          }
+        }
 
         case SResultNeedTime(callback) =>
           callback(time)
 
         case SResultNeedKey(gk, _, cb) =>
-          return ResultNeedKey(
-            gk,
-            { result =>
-              discard[Boolean](cb(result))
-              interpretLoop(machine, time)
-            },
-          )
+          def continueWithCoid = (result: Option[ContractId]) => {
+            discard[Boolean](cb(result))
+            interpretLoop(machine, disclosures, time)
+          }
+
+          disclosures.contractIdByKey.get(gk.globalKey.hash) match {
+            case None =>
+              return ResultNeedKey(
+                gk,
+                continueWithCoid,
+              )
+            // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
+            case Some(coid) => return continueWithCoid(Some(coid))
+          }
 
         case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
             _: SResultScenarioGetParty) =>
@@ -401,6 +429,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             usedPackages = deps,
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
+            disclosures = disclosures.allDisclosures,
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
@@ -522,4 +551,22 @@ object Engine {
     StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
   )
 
+  private[engine] case class DisclosureTable(
+      allDisclosures: ImmArray[DisclosedContract],
+      contractIdByKey: Map[crypto.Hash, ContractId],
+      contractById: Map[ContractId, VersionedContractInstance],
+  )
+
+  private[engine] def buildDiscTable(disclosures: ImmArray[DisclosedContract]): DisclosureTable = {
+    val maps = disclosures.foldLeft(
+      (Map.empty[ContractId, VersionedContractInstance], Map.empty[crypto.Hash, ContractId])
+    ) { case ((m1, m2), d) =>
+      val m1_prime = m1 + (d.contractId -> d.argument)
+      d.metadata.keyHash match {
+        case Some(hash) => (m1_prime, m2 + (hash -> d.contractId))
+        case None => (m1_prime, m2)
+      }
+    }
+    DisclosureTable(allDisclosures = disclosures, contractById = maps._1, contractIdByKey = maps._2)
+  }
 }

@@ -35,6 +35,7 @@ class StoreBackedCommandExecutorSpec
     usedPackages = Set.empty,
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
+    disclosures = ImmArray.Empty,
   )
 
   "execute" should {
@@ -45,6 +46,7 @@ class StoreBackedCommandExecutorSpec
           any[Set[Ref.Party]],
           any[Set[Ref.Party]],
           any[com.daml.lf.command.ApiCommands],
+          ImmArray.empty,
           any[ParticipantId],
           any[Hash],
         )(any[LoggingContext])
