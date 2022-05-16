@@ -85,6 +85,7 @@ class ReplayCommandPreprocessorSpec
       // TEST_EVIDENCE: Input Validation: well formed exercise replay command is accepted
       val validExe = ReplayCommand.Exercise(
         "Mod:Record",
+        "",
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
@@ -199,12 +200,14 @@ class ReplayCommandPreprocessorSpec
       ),
       ReplayCommand.Exercise(
         "Mod:RecordRef",
+        "",
         innocentCid,
         "Change",
         ValueContractId(culpritCid),
       ),
       ReplayCommand.Exercise(
         "Mod:RecordRef",
+        "",
         culpritCid,
         "Change",
         ValueContractId(innocentCid),

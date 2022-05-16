@@ -2320,6 +2320,7 @@ object EngineTest {
               case exe: Node.Exercise =>
                 ReplayCommand.Exercise(
                   exe.templateId,
+                  exe.interfaceId,
                   exe.targetCoid,
                   exe.choiceId,
                   exe.chosenValue,

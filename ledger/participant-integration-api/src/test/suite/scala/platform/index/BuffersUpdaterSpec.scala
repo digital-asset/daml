@@ -221,6 +221,7 @@ final class BuffersUpdaterSpec
         contractId = exercisedCid,
         contractKey = Some(exercisedKey),
         templateId = exercisedTemplateId,
+        interfaceId = None,
         flatEventWitnesses = exercisedFlatEventWitnesses,
         eventOffset = exercisedOffset,
         eventSequentialId = exercisedEventSequentialId,

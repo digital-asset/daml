@@ -4,11 +4,13 @@
 package com.daml.platform.store.dao.events
 
 import java.io.ByteArrayInputStream
-
 import com.daml.lf.data.Ref
+import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
+
+import scala.annotation.nowarn
 
 object TransactionLogUpdatesReader {
   def toTransactionEvent(
@@ -16,6 +18,10 @@ object TransactionLogUpdatesReader {
   ): TransactionLogUpdate.Event =
     raw.eventKind match {
       case EventKind.NonConsumingExercise | EventKind.ConsumingExercise =>
+        val (interfaceId, choiceName) =
+          ChoiceCoder.decode(raw.exerciseChoice.mandatory("exercise_choice")): @nowarn(
+            "msg=deprecated"
+          )
         TransactionLogUpdate.ExercisedEvent(
           eventOffset = raw.offset,
           transactionId = raw.transactionId,
@@ -26,6 +32,7 @@ object TransactionLogUpdatesReader {
           ledgerEffectiveTime = raw.ledgerEffectiveTime
             .mandatory("ledgerEffectiveTime"),
           templateId = raw.templateId.mandatory("template_id"),
+          interfaceId = interfaceId,
           commandId = raw.commandId.getOrElse(""),
           workflowId = raw.workflowId.getOrElse(""),
           contractKey = raw.createKeyValue.map(
@@ -37,7 +44,7 @@ object TransactionLogUpdatesReader {
           treeEventWitnesses = raw.treeEventWitnesses,
           flatEventWitnesses = raw.flatEventWitnesses,
           submitters = raw.submitters,
-          choice = raw.exerciseChoice.mandatory("exercise_choice"),
+          choice = choiceName,
           actingParties = raw.exerciseActors
             .mandatory("exercise_actors")
             .iterator

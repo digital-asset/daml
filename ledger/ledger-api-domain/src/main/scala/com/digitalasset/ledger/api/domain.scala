@@ -113,6 +113,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
+        interfaceId: Option[Ref.Identifier],
         choice: Ref.ChoiceName,
         choiceArgument: Value,
         actingParties: immutable.Set[Ref.Party],

@@ -333,6 +333,7 @@ object EventStorageBackend {
       eventId: EventId,
       contractId: ContractId,
       templateId: Option[Identifier],
+      interfaceId: Option[Identifier],
       ledgerEffectiveTime: Option[Timestamp],
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],

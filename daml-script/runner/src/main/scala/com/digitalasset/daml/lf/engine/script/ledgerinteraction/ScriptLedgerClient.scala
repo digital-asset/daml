@@ -32,6 +32,7 @@ object ScriptLedgerClient {
   final case class CreateResult(contractId: ContractId) extends CommandResult
   final case class ExerciseResult(
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       choice: ChoiceName,
       result: Value,
   ) extends CommandResult
@@ -46,6 +47,7 @@ object ScriptLedgerClient {
   sealed trait TreeEvent
   final case class Exercised(
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
