@@ -189,7 +189,7 @@ checkInterface :: MonadGamma m => Module -> DefInterface -> m ()
 checkInterface _mod0 iface = do
   -- TODO https://github.com/digital-asset/daml/issues/12051
   -- Add per interface choice context.
-  for_ (intFixedChoices iface) $ \ch -> do
+  for_ (intChoices iface) $ \ch -> do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
 

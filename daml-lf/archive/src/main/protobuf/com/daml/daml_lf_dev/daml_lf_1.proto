@@ -1616,7 +1616,7 @@ message DefInterface {
   // Binder for interface value ("this") in precond and fixed choices.
   int32 param_interned_str = 5;
   Expr precond = 6;
-  repeated TemplateChoice fixed_choices = 7;
+  repeated TemplateChoice choices = 7;
 }
 
 // Exception definition

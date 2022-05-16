@@ -813,7 +813,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
             n"getName" -> InterfaceMethod(n"getName", t"Text"),
           ),
-          fixedChoices = Map(
+          choices = Map(
             n"Sleep" -> TemplateChoice(
               name = n"Sleep",
               consuming = true,

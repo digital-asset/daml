@@ -218,11 +218,11 @@ private[validation] object ExprIterable {
       case DefInterface(
             requires @ _,
             param @ _,
-            fixedChoices,
+            choices,
             methods @ _,
             precond,
           ) =>
-        Iterator(precond) ++ fixedChoices.values.iterator.flatMap(iterator(_))
+        Iterator(precond) ++ choices.values.iterator.flatMap(iterator(_))
     }
 
   def apply(expr: Expr): Iterable[Expr] =

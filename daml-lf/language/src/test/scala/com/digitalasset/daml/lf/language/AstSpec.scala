@@ -64,7 +64,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     def interface = DefInterface(
       param = Name.assertFromString("x"),
       precond = ETrue,
-      fixedChoices = Map.empty,
+      choices = Map.empty,
       methods = Map.empty,
       requires = Set.empty,
     )
@@ -374,7 +374,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       DefInterface.build(
         requires = List.empty,
         param = Name.assertFromString("x"),
-        fixedChoices = List(
+        choices = List(
           choiceBuilder(choice1, TUnit, EUnit),
           choiceBuilder(choice2, TBool, ETrue),
           choiceBuilder(choice3, TText, eText),
@@ -389,7 +389,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         DefInterface.build(
           requires = List.empty,
           param = Name.assertFromString("x"),
-          fixedChoices = List(
+          choices = List(
             choiceBuilder(choice1, TUnit, EUnit),
             choiceBuilder(choice2, TBool, ETrue),
             choiceBuilder(choice1, TText, eText),
@@ -405,7 +405,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         DefInterface.build(
           requires = List.empty,
           param = Name.assertFromString("x"),
-          fixedChoices = List.empty,
+          choices = List.empty,
           methods = List(ifaceMethod1, ifaceMethod1),
           precond = ETrue,
         )

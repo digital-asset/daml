@@ -960,7 +960,7 @@ data DefInterface = DefInterface
   , intName :: !TypeConName
   , intRequires :: !(S.Set (Qualified TypeConName))
   , intParam :: !ExprVarName
-  , intFixedChoices :: !(NM.NameMap TemplateChoice)
+  , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
   , intPrecondition :: !Expr
   }

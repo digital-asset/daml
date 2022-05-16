@@ -160,7 +160,7 @@ lookupInterfaceChoice :: (Qualified TypeConName, ChoiceName) -> World ->
 lookupInterfaceChoice (ifaceRef, chName) world = do
   DefInterface{..} <- lookupInterface ifaceRef world
   maybeToEither (LEChoice ifaceRef chName) $
-    NM.lookup chName intFixedChoices
+    NM.lookup chName intChoices
 
 lookupInterfaceMethod :: (Qualified TypeConName, MethodName) -> World -> Either LookupError InterfaceMethod
 lookupInterfaceMethod (ifaceRef, methodName) world = do
