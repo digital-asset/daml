@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Foo.Divulger
 
-final class FooDivulgerCommandGenerator {
+object FooDivulgerCommandGenerator {
 
   /** Builds a create Divulger command for each non-empty subset of divulgees
     * such that the created Divulger contract can be used to divulge (by immediate divulgence) Foo1, Foo2 or Foo3 contracts
@@ -17,12 +17,12 @@ final class FooDivulgerCommandGenerator {
     * @param allDivulgees - Small number of divulgees. At most 5.
     * @return A tuple of:
     *          - a sequence of create Divulger commands,
-    *          - a map from sorted divulgees lists (all non-empty subsets of all divulgees) to corresponding contract keys,
+    *          - a map from sets of divulgees (all non-empty subsets of all divulgees) to corresponding contract keys,
     */
   def makeCreateDivulgerCommands(
       divulgingParty: Primitive.Party,
       allDivulgees: List[Primitive.Party],
-  ): (List[Command], Map[List[Primitive.Party], Value]) = {
+  ): (List[Command], Map[Set[Primitive.Party], Value]) = {
     require(
       allDivulgees.size <= 5,
       s"Number of divulgee parties must be at most 5, was: ${allDivulgees.size}.",
@@ -58,10 +58,10 @@ final class FooDivulgerCommandGenerator {
     val allSubsets = allNonEmptySubsets(allDivulgees)
     val (commands, keys, divulgeeSets) = allSubsets.map { divulgees: List[Primitive.Party] =>
       val (cmd, key) = createDivulgerFor(divulgees)
-      (cmd, key, divulgees)
+      (cmd, key, divulgees.toSet)
     }.unzip3
-    val divulgeesToContrackKeysMap = divulgeeSets.zip(keys).toMap
-    (commands, divulgeesToContrackKeysMap)
+    val divulgeesToContractKeysMap = divulgeeSets.zip(keys).toMap
+    (commands, divulgeesToContractKeysMap)
   }
 
 }

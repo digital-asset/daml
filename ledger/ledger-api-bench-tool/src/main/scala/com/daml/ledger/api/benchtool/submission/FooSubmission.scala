@@ -21,8 +21,7 @@ class FooSubmission(
   def performSubmission()(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    val divulgenceGenerator = new FooDivulgerCommandGenerator()
-    val (divulgerCmds, divulgeesToDivulgerKeyMap) = divulgenceGenerator
+    val (divulgerCmds, divulgeesToDivulgerKeyMap) = FooDivulgerCommandGenerator
       .makeCreateDivulgerCommands(
         divulgingParty = signatory,
         allDivulgees = allDivulgees,
@@ -30,7 +29,11 @@ class FooSubmission(
 
     for {
       _ <-
-        if (divulgeesToDivulgerKeyMap.nonEmpty) {
+        if (divulgerCmds.nonEmpty) {
+          require(
+            divulgeesToDivulgerKeyMap.nonEmpty,
+            "Map from divulgees to Divulger contract keys must be non empty.",
+          )
           submitter.submitSingleBatch(
             commandId = "divulgence-setup",
             actAs = Seq(signatory) ++ allDivulgees,

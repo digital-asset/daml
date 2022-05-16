@@ -52,8 +52,8 @@ case class CommandSubmitter(
     logger.info(s"Identifier suffix: ${names.identifierSuffix}")
     (for {
       signatory <- allocateSignatoryParty()
-      observers <- allocateObserverParties(observerPartyNames)
-      divulgees <- allocateDivulgeeParties(divulgeePartyNames)
+      observers <- allocateParties(observerPartyNames)
+      divulgees <- allocateParties(divulgeePartyNames)
       _ <- uploadTestDars()
     } yield {
       logger.info("Prepared command submission.")
@@ -111,15 +111,7 @@ case class CommandSubmitter(
   private def allocateSignatoryParty()(implicit ec: ExecutionContext): Future[Primitive.Party] =
     adminServices.partyManagementService.allocateParty(names.signatoryPartyName)
 
-  private def allocateObserverParties(observerPartyNames: Seq[String])(implicit
-      ec: ExecutionContext
-  ): Future[List[Primitive.Party]] = {
-    Future.sequence(
-      observerPartyNames.toList.map(adminServices.partyManagementService.allocateParty)
-    )
-  }
-
-  private def allocateDivulgeeParties(divulgeePartyNames: Seq[String])(implicit
+  private def allocateParties(divulgeePartyNames: Seq[String])(implicit
       ec: ExecutionContext
   ): Future[List[Primitive.Party]] = {
     Future.sequence(

@@ -25,7 +25,7 @@ final class FooCommandGenerator(
     signatory: Primitive.Party,
     allObservers: List[Primitive.Party],
     allDivulgees: List[Primitive.Party],
-    divulgeesToDivulgerKeyMap: Map[List[Primitive.Party], Value],
+    divulgeesToDivulgerKeyMap: Map[Set[Primitive.Party], Value],
 ) extends CommandGenerator {
   private val distribution = new Distribution(config.instanceDistribution.map(_.weight))
   private val descriptionMapping: Map[Int, FooSubmissionConfig.ContractDescription] =
@@ -34,7 +34,7 @@ final class FooCommandGenerator(
       .toMap
   private val observersWithUnlikelihood: List[(Primitive.Party, Int)] =
     allObservers.zipWithIndex.toMap.view.mapValues(unlikelihood).toList
-  private val sortedDivulgeesWithUnlikelihood: List[(Primitive.Party, Int)] =
+  private val divulgeesWithUnlikelihood: List[(Primitive.Party, Int)] =
     allDivulgees.zipWithIndex.toMap.view.mapValues(unlikelihood).toList.sortBy { case (party, _) =>
       party.toString
     }
@@ -46,7 +46,7 @@ final class FooCommandGenerator(
   def next(): Try[Seq[Command]] =
     (for {
       (description, observers, divulgees) <- Try(
-        (pickDescription(), pickObservers(), pickDivulgeesSorted())
+        (pickDescription(), pickObservers(), pickDivulgees())
       )
       createContractPayload <- Try(randomPayload(description.payloadSizeBytes))
       command = createCommands(
@@ -74,11 +74,10 @@ final class FooCommandGenerator(
       .filter { case (_, unlikelihood) => randomDraw(unlikelihood) }
       .map(_._1)
 
-  private def pickDivulgeesSorted(): List[Primitive.Party] =
-    sortedDivulgeesWithUnlikelihood
-      .collect {
-        case (party, unlikelihood) if randomDraw(unlikelihood) => party
-      }
+  private def pickDivulgees(): Set[Primitive.Party] =
+    divulgeesWithUnlikelihood.view.collect {
+      case (party, unlikelihood) if randomDraw(unlikelihood) => party
+    }.toSet
 
   private def randomDraw(unlikelihood: Int): Boolean =
     randomnessProvider.randomNatural(unlikelihood) == 0
