@@ -35,23 +35,24 @@ class FibonacciCommandSubmitterITSpec
         authorizationHelper = None,
       )
       apiServices = ledgerApiServicesF("someUser")
+      names = new Names()
       tested = CommandSubmitter(
-        names = new Names(),
+        names = names,
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, _, divulgees) <- tested.prepare(config)
-      _ = divulgees shouldBe empty
+      allocatedParties <- tested.prepare(config)
+      _ = allocatedParties.divulgees shouldBe empty
       generator = new FibonacciCommandGenerator(
-        signatory = signatory,
+        signatory = allocatedParties.signatory,
         config = config,
       )
       _ <- tested.generateAndSubmit(
         generator = generator,
         config = config,
-        actAs = List(signatory) ++ divulgees,
+        baseActAs = List(allocatedParties.signatory) ++ allocatedParties.divulgees,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
       )
@@ -66,7 +67,7 @@ class FibonacciCommandSubmitterITSpec
           name = "dummy-name",
           filters = List(
             WorkflowConfig.StreamConfig.PartyFilter(
-              party = signatory.toString,
+              party = allocatedParties.signatory.toString,
               templates = List.empty,
             )
           ),

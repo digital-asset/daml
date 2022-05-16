@@ -23,8 +23,6 @@ import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission._
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client
-import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
@@ -80,13 +78,7 @@ object LedgerApiBenchTool {
 
 }
 
-case class SubmissionStepResult(
-    signatory: Primitive.Party,
-    observers: List[Primitive.Party],
-    divulgees: List[Primitive.Party],
-) {
-  val allocatedParties: List[Primitive.Party] = List(signatory) ++ observers ++ divulgees
-}
+case class SubmissionStepResult(val allocatedParties: AllocatedParties)
 
 class LedgerApiBenchTool(
     names: Names,
@@ -145,17 +137,19 @@ class LedgerApiBenchTool(
         )
         benchmarkResult <-
           if (config.latencyTest) {
-            val signatory = submissionStepResultO
-              .map(_.signatory)
+            val allocatedParties = submissionStepResultO
+              .map(_.allocatedParties)
               .getOrElse(
-                throw new RuntimeException("Signatory cannot be empty for latency benchmark")
+                throw new RuntimeException(
+                  "Signatory (which is part of allocated parties) cannot be empty for latency benchmark"
+                )
               )
             benchmarkLatency(
               regularUserServices = regularUserServices,
               adminServices = adminServices,
               submissionConfigO = config.workflow.submission,
               metricRegistry = metricRegistry,
-              signatory = signatory,
+              allocatedParties = allocatedParties,
               actorSystem = actorSystem,
               maxLatencyObjectiveMillis = config.maxLatencyObjectiveMillis,
             )
@@ -221,7 +215,7 @@ class LedgerApiBenchTool(
       adminServices: LedgerApiServices,
       submissionConfigO: Option[WorkflowConfig.SubmissionConfig],
       metricRegistry: MetricRegistry,
-      signatory: client.binding.Primitive.Party,
+      allocatedParties: AllocatedParties,
       actorSystem: ActorSystem[SpawnProtocol.Command],
       maxLatencyObjectiveMillis: Long,
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
@@ -229,11 +223,9 @@ class LedgerApiBenchTool(
       case Some(submissionConfig: FooSubmissionConfig) =>
         val generator: CommandGenerator = new FooCommandGenerator(
           randomnessProvider = RandomnessProvider.Default,
-          signatory = signatory,
           config = submissionConfig,
-          allObservers = List.empty,
-          allDivulgees = List.empty,
           divulgeesToDivulgerKeyMap = Map.empty,
+          allocatedParties = allocatedParties,
         )
         for {
           metricsManager <- MetricsManager(
@@ -253,7 +245,7 @@ class LedgerApiBenchTool(
             .generateAndSubmit(
               generator = generator,
               config = submissionConfig,
-              actAs = List(signatory),
+              baseActAs = List(allocatedParties.signatory),
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
             )
@@ -295,7 +287,7 @@ class LedgerApiBenchTool(
       metricsManager = NoOpMetricsManager(),
     )
     for {
-      (signatory, allObservers, allDivulgees) <- submitter.prepare(
+      allocatedParties <- submitter.prepare(
         submissionConfig
       )
       _ <-
@@ -306,13 +298,11 @@ class LedgerApiBenchTool(
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
               submissionConfig = submissionConfig,
-              signatory = signatory,
-              allObservers = allObservers,
-              allDivulgees = allDivulgees,
+              allocatedParties = allocatedParties,
             ).performSubmission()
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
-              signatory = signatory,
+              signatory = allocatedParties.signatory,
               config = submissionConfig,
             )
             for {
@@ -320,16 +310,14 @@ class LedgerApiBenchTool(
                 .generateAndSubmit(
                   generator = generator,
                   config = submissionConfig,
-                  actAs = List(signatory) ++ allDivulgees,
+                  baseActAs = List(allocatedParties.signatory) ++ allocatedParties.divulgees,
                   maxInFlightCommands = config.maxInFlightCommands,
                   submissionBatchSize = config.submissionBatchSize,
                 )
             } yield ()
         }
     } yield SubmissionStepResult(
-      signatory = signatory,
-      observers = allObservers,
-      divulgees = allDivulgees,
+      allocatedParties = allocatedParties
     )
   }
 

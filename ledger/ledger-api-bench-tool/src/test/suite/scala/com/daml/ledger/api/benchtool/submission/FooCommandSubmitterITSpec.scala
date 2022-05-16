@@ -64,23 +64,22 @@ class FooCommandSubmitterITSpec
         authorizationHelper = None,
       )
       apiServices = ledgerApiServicesF("someUser")
+      names = new Names()
       submitter = CommandSubmitter(
-        names = new Names(),
+        names = names,
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, observers, divulgees) <- submitter.prepare(config)
-      _ = divulgees shouldBe empty
+      allocatedParties <- submitter.prepare(config)
+      _ = allocatedParties.divulgees shouldBe empty
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
         submissionConfig = config,
-        signatory = signatory,
-        allObservers = observers,
-        allDivulgees = divulgees,
+        allocatedParties = allocatedParties,
       )
       _ <- tested.performSubmission()
       eventsObserver = TreeEventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
@@ -89,7 +88,7 @@ class FooCommandSubmitterITSpec
           name = "dummy-name",
           filters = List(
             WorkflowConfig.StreamConfig.PartyFilter(
-              party = signatory.toString,
+              party = allocatedParties.signatory.toString,
               templates = List.empty,
             )
           ),
