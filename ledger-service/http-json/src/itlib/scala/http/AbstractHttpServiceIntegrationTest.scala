@@ -246,7 +246,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query POST with empty query" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
       searchExpectOk(
@@ -261,7 +260,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "multi-party query POST with empty query" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     for {
       res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
       res2 <- fixture.getUniquePartyAndAuthHeaders("Bob")
@@ -310,7 +308,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query with query, one field" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
       searchExpectOk(
@@ -328,7 +325,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query returns unknown Template IDs as warnings" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     val query =
       jsObject(
         """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
@@ -352,7 +348,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query returns unknown Template IDs as warnings and error" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       search(
         genSearchDataSet(alice),
@@ -422,7 +417,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     "5kb of data" -> randomTextN(5000),
   ).foreach { case (testLbl, testCurrency) =>
     s"query record contains handles '$testLbl' strings properly" in withHttpService { fixture =>
-      import fixture.{uri, encoder}
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         searchExpectOk(
           genSearchDataSet(alice) :+ iouCreateCommand(
@@ -442,7 +436,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query with query, two fields" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
       searchExpectOk(
@@ -461,7 +454,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query with query, no results" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
       searchExpectOk(
@@ -487,7 +479,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "fail to query by interface ID" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     for {
       _ <- uploadPackage(fixture)(ciouDar)
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
