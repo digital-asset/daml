@@ -513,7 +513,7 @@ genrule(
     ],
     outs = ["html.tar.gz"],
     cmd = """
-        VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
+        VERSION_DATE=1970-01-01
         tar -zxf $(location :docs-no-pdf)
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
@@ -537,7 +537,6 @@ genrule(
         foot = """</urlset>""",
         version = sdk_version,
     ),
-    stamp = 1,
     tags = ["pdfdocs"],
     tools = ["//bazel_tools/sh:mktgz"],
 ) if not is_windows else None
