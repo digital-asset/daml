@@ -200,10 +200,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query GET" in withHttpService { fixture =>
-    import fixture.{encoder, uri}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
-      searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
+      searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
         rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
         fixture
@@ -222,7 +221,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "multi-party query GET" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     for {
       res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = res1
@@ -230,14 +228,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       (bob, bobHeaders) = res2
       _ <- postCreateCommand(
         accountCreateCommand(owner = alice, number = "42"),
-        encoder,
-        uri,
+        fixture,
         headers = aliceHeaders,
       ).map(r => r._1 shouldBe StatusCodes.OK)
       _ <- postCreateCommand(
         accountCreateCommand(owner = bob, number = "23"),
-        encoder,
-        uri,
+        fixture,
         headers = bobHeaders,
       ).map(r => r._1 shouldBe StatusCodes.OK)
       _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
@@ -274,15 +270,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       (bob, bobHeaders) = res2
       aliceAccountResp <- postCreateCommand(
         accountCreateCommand(owner = alice, number = "42"),
-        encoder,
-        uri,
+        fixture,
         aliceHeaders,
       )
       _ = aliceAccountResp._1 shouldBe StatusCodes.OK
       bobAccountResp <- postCreateCommand(
         accountCreateCommand(owner = bob, number = "23"),
-        encoder,
-        uri,
+        fixture,
         bobHeaders,
       )
       _ = bobAccountResp._1 shouldBe StatusCodes.OK
@@ -386,10 +380,9 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query with query, can use number or string for numeric field" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val searchDataSet = genSearchDataSet(alice)
-      searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap {
+      searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap {
         rs: List[(StatusCode, JsValue)] =>
           rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
@@ -555,11 +548,11 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "create IOU" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
-      postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
+      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val activeContract = getResult(output)
@@ -630,10 +623,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "exercise IOU_Transfer" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
-      postCreateCommand(create, encoder, uri, headers)
+      postCreateCommand(create, fixture, headers)
         .flatMap { case (createStatus, createOutput) =>
           createStatus shouldBe StatusCodes.OK
           assertStatus(createOutput, StatusCodes.OK)
@@ -769,10 +762,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "exercise Archive" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
-      postCreateCommand(create, encoder, uri, headers)
+      postCreateCommand(create, fixture, headers)
         .flatMap { case (createStatus, createOutput) =>
           createStatus shouldBe StatusCodes.OK
           assertStatus(createOutput, StatusCodes.OK)
@@ -795,13 +788,13 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "should support multi-party command submissions" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     for {
       // multi-party actAs on create
       cid <- fixture
         .headersWithPartyAuth(List("Alice", "Bob"))
         .flatMap(
-          postCreateCommand(multiPartyCreateCommand(List("Alice", "Bob"), ""), encoder, uri, _)
+          postCreateCommand(multiPartyCreateCommand(List("Alice", "Bob"), ""), fixture, _)
         )
         .map { case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -829,8 +822,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .flatMap(
           postCreateCommand(
             multiPartyCreateCommand(List("Alice"), ""),
-            encoder,
-            uri,
+            fixture,
             _,
           )
         )
@@ -1147,11 +1139,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "fetch by contractId" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
-      postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
+      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
@@ -1185,12 +1176,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   // TEST_EVIDENCE: Authorization: fetch fails when readAs not authed, even if prior fetch succeeded
   "fetch fails when readAs not authed, even if prior fetch succeeded" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.uri
       for {
         res <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceHeaders) = res
         command = iouCreateCommand(alice.unwrap)
-        createStatusOutput <- postCreateCommand(command, encoder, uri, aliceHeaders)
+        createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
         contractId = {
           val (status, output) = createStatusOutput
           status shouldBe StatusCodes.OK
@@ -1220,13 +1211,12 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "fetch by key" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val accountNumber = "abc123"
       val command: domain.CreateCommand[v.Record, OptionalPkg] =
         accountCreateCommand(alice, accountNumber)
 
-      postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
+      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
@@ -1240,7 +1230,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "commands/exercise Archive by key" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val accountNumber = "abc123"
       val create: domain.CreateCommand[v.Record, OptionalPkg] =
@@ -1260,7 +1250,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         archiveCommand(locator)
       val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
-      postCreateCommand(create, encoder, uri, headers).flatMap { case (status, output) =>
+      postCreateCommand(create, fixture, headers).flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
 
@@ -1343,7 +1333,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
   "query by a variant field" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       val accountNumber = "abc123"
       val now = TimestampConversion.roundInstantToMicros(Instant.now)
@@ -1357,7 +1346,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         .map(_._1)
         .getOrElse(fail(s"Cannot retrieve packageId"))
 
-      postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
+      postCreateCommand(command, fixture, headers).flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
@@ -1450,9 +1439,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           alicePartyAndAuthHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
           (alice, headers) = alicePartyAndAuthHeaders
           _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
-            import innerFixture.{encoder, uri}
             val searchDataSet = genSearchDataSet(alice)
-            searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
+            searchDataSet.traverse(c => postCreateCommand(c, innerFixture, headers)).flatMap { rs =>
               rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
             }
           }
@@ -1558,7 +1546,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "Should ignore conflicts on contract key hash constraint violation" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.encoder
       import com.daml.ledger.api.refinements.{ApiTypes => lar}
       import shapeless.record.{Record => ShRecord}
 
@@ -1640,8 +1628,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
             .flatMap(headers =>
               postCreateCommand(
                 command,
-                encoder,
-                uri,
+                fixture,
                 headers,
               )
             )

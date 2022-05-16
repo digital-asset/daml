@@ -75,7 +75,7 @@ abstract class HttpServiceIntegrationTest
 
   // TODO(#13668) Redesign the test once the issue is fixed
   "pick up new package's inherited interfaces" ignore withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
         initialTplId: domain.TemplateId.OptionalPkg,
@@ -85,8 +85,7 @@ abstract class HttpServiceIntegrationTest
       (alice, aliceHeaders) = aliceH
       createTest <- postCreateCommand(
         iouCommand(alice, initialTplId),
-        encoder,
-        uri,
+        fixture,
         aliceHeaders,
       )
       testIIouID = {
@@ -126,7 +125,7 @@ abstract class HttpServiceIntegrationTest
   }
 
   "fail to exercise by key with interface ID" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.encoder
     import json.JsonProtocol._
     for {
       _ <- uploadPackage(fixture)(ciouDar)
@@ -134,8 +133,7 @@ abstract class HttpServiceIntegrationTest
       (alice, aliceHeaders) = aliceH
       createTest <- postCreateCommand(
         iouCommand(alice, domain.TemplateId(None, "CIou", "CIou")),
-        encoder,
-        uri,
+        fixture,
         aliceHeaders,
       )
       _ = createTest._1 should ===(StatusCodes.OK)

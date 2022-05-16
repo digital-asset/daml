@@ -496,7 +496,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
@@ -505,15 +505,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
         f1 =
           postCreateCommand(
             accountCreateCommand(alice, "abc123"),
-            encoder,
-            uri,
+            fixture,
             headers = aliceAuthHeaders,
           )
         f2 =
           postCreateCommand(
             accountCreateCommand(bob, "def456"),
-            encoder,
-            uri,
+            fixture,
             headers = bobAuthHeaders,
           )
 
@@ -536,8 +534,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
               _ <- liftF(
                 postCreateCommand(
                   accountCreateCommand(alice, "abc234"),
-                  encoder,
-                  uri,
+                  fixture,
                   headers = aliceAuthHeaders,
                 )
               )
@@ -552,8 +549,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
               _ <- liftF(
                 postCreateCommand(
                   accountCreateCommand(bob, "def567"),
-                  encoder,
-                  uri,
+                  fixture,
                   headers = bobAuthHeaders,
                 )
               )
@@ -614,7 +610,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
@@ -634,15 +630,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
         f1 =
           postCreateCommand(
             accountCreateCommand(alice, "abc123"),
-            encoder,
-            uri,
+            fixture,
             headers,
           )
         f2 =
           postCreateCommand(
             accountCreateCommand(alice, "def456"),
-            encoder,
-            uri,
+            fixture,
             headers,
           )
 
@@ -657,10 +651,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
             for {
               ContractDelta(Vector((cid, c)), Vector(), None) <- readOne
               _ = (cid: String) shouldBe (cid1.unwrap: String)
-              ctid <- liftF(postArchiveCommand(templateId, cid2, encoder, uri, headers).flatMap {
+              ctid <- liftF(postArchiveCommand(templateId, cid2, fixture, headers).flatMap {
                 case (statusCode, _) =>
                   statusCode.isSuccess shouldBe true
-                  postArchiveCommand(templateId, cid1, encoder, uri, headers).map {
+                  postArchiveCommand(templateId, cid1, fixture, headers).map {
                     case (statusCode, _) =>
                       statusCode.isSuccess shouldBe true
                       cid
@@ -732,7 +726,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch multiple keys should work" in withHttpService { fixture =>
-    import fixture.{uri, encoder}
+    import fixture.uri
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
@@ -741,8 +735,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         for {
           r <- postCreateCommand(
             accountCreateCommand(alice, account),
-            encoder,
-            uri,
+            fixture,
             headers,
           )
         } yield {
@@ -754,8 +747,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           r <- postArchiveCommand(
             domain.TemplateId(None, "Account", "Account"),
             id,
-            encoder,
-            uri,
+            fixture,
             headers,
           )
         } yield {
@@ -806,7 +798,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.uri
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, aliceAuthHeaders) = aliceHeaders
@@ -817,15 +809,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
         f1 =
           postCreateCommand(
             accountCreateCommand(alice, "abc123"),
-            encoder,
-            uri,
+            fixture,
             headers = aliceAuthHeaders,
           )
         f2 =
           postCreateCommand(
             accountCreateCommand(bob, "def456"),
-            encoder,
-            uri,
+            fixture,
             headers = bobAuthHeaders,
           )
 
@@ -847,15 +837,14 @@ abstract class AbstractWebsocketServiceIntegrationTest
               Vector((account1, _), (account2, _)) <- readAcsN(2)
               _ = Seq(account1, account2) should contain theSameElementsAs Seq(cid1, cid2)
               ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
-              _ <- liftF(postArchiveCommand(templateId, cid1, encoder, uri, aliceAuthHeaders))
+              _ <- liftF(postArchiveCommand(templateId, cid1, fixture, aliceAuthHeaders))
               ContractDelta(Vector(), Vector(archivedCid1), Some(_)) <- readOne
               _ = archivedCid1.contractId shouldBe cid1
               _ <- liftF(
                 postArchiveCommand(
                   templateId,
                   cid2,
-                  encoder,
-                  uri,
+                  fixture,
                   headers = bobAuthHeaders,
                 )
               )
@@ -1010,7 +999,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[(domain.Offset, domain.Offset)] = {
-    import json.JsonProtocol._, fixture.{uri, encoder}
+    import json.JsonProtocol._, fixture.uri
     type In = JsValue // JsValue might not be the most convenient choice
     val syntax = Consume.syntax[In]
     import syntax._
@@ -1020,8 +1009,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       create <- liftF(
         postCreateCommand(
           iouCreateCommand(domain.Party unwrap party),
-          encoder,
-          uri,
+          fixture,
           headers,
         )
       )
@@ -1047,7 +1035,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       // make a contract and fetch the offset after it
       (cid, betweenOffset) <- offsetAfterCreate()
       // archive it
-      archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, encoder, uri, headers))
+      archive <- liftF(postArchiveCommand(TpId.Iou.Iou, cid, fixture, headers))
       _ = archive._1 should ===(StatusCodes.OK)
       // wait for the archival offset
       afterOffset <- readUntil[In] {
@@ -1179,7 +1167,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "no duplicates should be returned when retrieving contracts for multiple parties" in withHttpService {
     fixture =>
-      import fixture.{uri, encoder}
+      import fixture.uri
       val aliceAndBob = List("Alice", "Bob")
 
       def test(
@@ -1223,8 +1211,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             .flatMap(headers =>
               postCreateCommand(
                 cmd = sharedAccountCreateCommand(owners = aliceAndBob, "4444"),
-                encoder = encoder,
-                uri = uri,
+                fixture = fixture,
                 headers = headers,
               )
             )

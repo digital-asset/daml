@@ -16,7 +16,8 @@ final class NonRepudiationTest
 
   import HttpServiceTestFixture._
 
-  "correctly sign a command" in withSetup { (db, uri, encoder) =>
+  "correctly sign a command" in withSetup { fixture =>
+    import fixture.db
     val expectedParty = "Alice"
     val expectedNumber = "abc123"
     val expectedCommandId = UUID.randomUUID.toString
@@ -29,7 +30,7 @@ final class NonRepudiationTest
     )
     val domainParty = domain.Party(expectedParty)
     val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
-    postCreateCommand(command, encoder, uri)
+    postCreateCommand(command, fixture)
       .flatMap { case (status, _) =>
         status shouldBe StatusCodes.OK
         val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))

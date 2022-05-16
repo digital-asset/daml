@@ -86,10 +86,10 @@ object AbstractHttpServiceIntegrationTestFuns {
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
   }
 
-  private[http] sealed trait UriFixture {
+  private[http] trait UriFixture {
     def uri: Uri
   }
-  private[http] sealed trait EncoderFixture {
+  private[http] trait EncoderFixture {
     def encoder: DomainJsonEncoder
   }
   private[http] sealed trait DecoderFixture {
@@ -269,36 +269,38 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
-      encoder: DomainJsonEncoder,
-      uri: Uri,
+      fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] =
-    HttpServiceTestFixture.postCreateCommand(cmd, encoder, uri, headers)
+    HttpServiceTestFixture.postCreateCommand(cmd, fixture.encoder, fixture.uri, headers)
 
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record, OptionalPkg],
-      encoder: DomainJsonEncoder,
-      uri: Uri,
+      fixture: UriFixture with EncoderFixture,
   ): Future[(StatusCode, JsValue)] =
-    MkUriFixture(uri).headersWithAuth.flatMap(postCreateCommand(cmd, encoder, uri, _))
+    fixture.headersWithAuth.flatMap(postCreateCommand(cmd, fixture, _))
 
   protected def postArchiveCommand(
       templateId: OptionalPkg,
       contractId: domain.ContractId,
-      encoder: DomainJsonEncoder,
-      uri: Uri,
+      fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] =
-    HttpServiceTestFixture.postArchiveCommand(templateId, contractId, encoder, uri, headers)
+    HttpServiceTestFixture.postArchiveCommand(
+      templateId,
+      contractId,
+      fixture.encoder,
+      fixture.uri,
+      headers,
+    )
 
   protected def postArchiveCommand(
       templateId: OptionalPkg,
       contractId: domain.ContractId,
-      encoder: DomainJsonEncoder,
-      uri: Uri,
+      fixture: UriFixture with EncoderFixture,
   ): Future[(StatusCode, JsValue)] =
-    MkUriFixture(uri).headersWithAuth.flatMap(
-      postArchiveCommand(templateId, contractId, encoder, uri, _)
+    fixture.headersWithAuth.flatMap(
+      postArchiveCommand(templateId, contractId, fixture, _)
     )
 
   protected def lookupContractAndAssert(
@@ -740,7 +742,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = {
     val command = accountCreateCommand(owner, "abc123")
-    postCreateCommand(command, fixture.encoder, fixture.uri, headers)
+    postCreateCommand(command, fixture, headers)
   }
 
   protected def jsObject(s: String): JsObject = {
@@ -778,12 +780,13 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[
     domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
   ] = {
-    commands.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
+    @annotation.nowarn("msg=dead code")
+    val fixture: UriFixture with EncoderFixture = sys.error(s"TODO SC $uri $encoder")
+    commands.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
-      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query, headers).flatMap {
-        case (_, output) =>
-          FutureUtil
-            .toFuture(decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
+      fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).flatMap { case (_, output) =>
+        FutureUtil
+          .toFuture(decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
       }
     }
   }
