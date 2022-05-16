@@ -34,8 +34,10 @@ final class FooCommandGenerator(
       .toMap
   private val observersWithUnlikelihood: List[(Primitive.Party, Int)] =
     allObservers.zipWithIndex.toMap.view.mapValues(unlikelihood).toList
-  private val divulgeesWithUnlikelihood: List[(Primitive.Party, Int)] =
-    allDivulgees.zipWithIndex.toMap.view.mapValues(unlikelihood).toList
+  private val sortedDivulgeesWithUnlikelihood: List[(Primitive.Party, Int)] =
+    allDivulgees.zipWithIndex.toMap.view.mapValues(unlikelihood).toList.sortBy { case (party, _) =>
+      party.toString
+    }
 
   /** @return denominator of a 1/(10**i) likelihood
     */
@@ -73,7 +75,7 @@ final class FooCommandGenerator(
       .map(_._1)
 
   private def pickDivulgeesSorted(): List[Primitive.Party] =
-    divulgeesWithUnlikelihood
+    sortedDivulgeesWithUnlikelihood
       .collect {
         case (party, unlikelihood) if randomDraw(unlikelihood) => party
       }
