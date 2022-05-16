@@ -756,36 +756,27 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def searchExpectOk(
       commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
-      uri: Uri,
-      encoder: DomainJsonEncoder,
+      fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[List[domain.ActiveContract[JsValue]]] = {
-    search(commands, query, uri, encoder, headers).map(expectOk(_))
+    search(commands, query, fixture, headers).map(expectOk(_))
   }
 
   protected def searchExpectOk(
       commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
-      uri: Uri,
-      encoder: DomainJsonEncoder,
+      fixture: UriFixture with EncoderFixture,
   ): Future[List[domain.ActiveContract[JsValue]]] =
-    MkUriFixture(uri).headersWithAuth.flatMap(searchExpectOk(commands, query, uri, encoder, _))
+    fixture.headersWithAuth.flatMap(searchExpectOk(commands, query, fixture, _))
 
   protected def search(
       commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
-      uri: Uri,
-      encoder: DomainJsonEncoder,
+      fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[
     domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
   ] = {
-    val uri0 = uri; val encoder0 = encoder
-    // TODO SC fixturize search
-    object fixture extends UriFixture with EncoderFixture {
-      val uri = uri0
-      val encoder = encoder0
-    }
     commands.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
       fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).flatMap { case (_, output) =>
@@ -795,14 +786,14 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
   }
 
+  @deprecated("TODO SC unused?", since = "2.3.0")
   protected def search(
       commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
-      uri: Uri,
-      encoder: DomainJsonEncoder,
+      fixture: UriFixture with EncoderFixture,
   ): Future[
     domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
-  ] = MkUriFixture(uri).headersWithAuth.flatMap(search(commands, query, uri, encoder, _))
+  ] = fixture.headersWithAuth.flatMap(search(commands, query, fixture, _))
 
   private[http] def expectOk[R](resp: domain.SyncResponse[R]): R = resp match {
     case ok: domain.OkResponse[_] =>

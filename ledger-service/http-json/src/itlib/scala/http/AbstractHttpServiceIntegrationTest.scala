@@ -252,8 +252,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       searchExpectOk(
         searchDataSet,
         jsObject("""{"templateIds": ["Iou:Iou"]}"""),
-        uri,
-        encoder,
+        fixture,
         headers,
       ).map { acl: List[domain.ActiveContract[JsValue]] =>
         acl.size shouldBe searchDataSet.size
@@ -283,16 +282,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       _ <- searchExpectOk(
         List(),
         jsObject("""{"templateIds": ["Account:Account"]}"""),
-        uri,
-        encoder,
+        fixture,
         aliceHeaders,
       )
         .map(acl => acl.size shouldBe 1)
       _ <- searchExpectOk(
         List(),
         jsObject("""{"templateIds": ["Account:Account"]}"""),
-        uri,
-        encoder,
+        fixture,
         bobHeaders,
       )
         .map(acl => acl.size shouldBe 1)
@@ -302,8 +299,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           searchExpectOk(
             List(),
             jsObject("""{"templateIds": ["Account:Account"]}"""),
-            uri,
-            encoder,
+            fixture,
             headers,
           )
         )
@@ -320,8 +316,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       searchExpectOk(
         searchDataSet,
         jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
-        uri,
-        encoder,
+        fixture,
         headers,
       ).map { acl: List[domain.ActiveContract[JsValue]] =>
         acl.size shouldBe 2
@@ -343,7 +338,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture
       .headersWithPartyAuth(List("UnknownParty"))
       .flatMap(headers =>
-        search(List(), query, uri, encoder, headers).map { response =>
+        search(List(), query, fixture, headers).map { response =>
           inside(response) { case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
             acl.size shouldBe 0
             warnings shouldBe Some(
@@ -362,8 +357,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       search(
         genSearchDataSet(alice),
         jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
-        uri,
-        encoder,
+        fixture,
         headers,
       ).map { response =>
         inside(response) { case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest, _) =>
@@ -438,8 +432,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           jsObject(
             s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
           ),
-          uri,
-          encoder,
+          fixture,
           headers,
         ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
           fields.get("currency") should ===(Some(JsString(testCurrency)))
@@ -457,8 +450,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         jsObject(
           """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""
         ),
-        uri,
-        encoder,
+        fixture,
         headers,
       ).map { acl: List[domain.ActiveContract[JsValue]] =>
         acl.size shouldBe 1
@@ -477,8 +469,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         jsObject(
           """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""
         ),
-        uri,
-        encoder,
+        fixture,
         headers,
       ).map { acl: List[domain.ActiveContract[JsValue]] =>
         acl.size shouldBe 0
@@ -507,8 +498,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           "templateIds" -> Seq(TpId.IIou.IIou).toJson,
           "query" -> spray.json.JsObject(),
         ).toJson.asJsObject,
-        uri,
-        encoder,
+        fixture,
         aliceHeaders,
       )
     } yield inside(searchResp) {

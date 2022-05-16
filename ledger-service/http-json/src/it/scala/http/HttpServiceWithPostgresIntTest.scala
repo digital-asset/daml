@@ -26,8 +26,7 @@ abstract class HttpServiceWithPostgresIntTest
       searchExpectOk(
         searchDataSet,
         jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
-        uri,
-        encoder,
+        fixture,
         headers,
       ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
         discard { searchResult should have size 2 }
