@@ -1282,19 +1282,7 @@ glob-stream@^6.1.0:
     to-absolute-glob "^2.0.0"
     unique-stream "^2.0.2"
 
-glob@^7.1.0, glob@^7.1.2, glob@^7.1.3, glob@~7.1.1:
-  version "7.1.6"
-  resolved "https://registry.yarnpkg.com/glob/-/glob-7.1.6.tgz#141f33b81a7c2492e125594307480c46679278a6"
-  integrity sha512-LwaxwyZ72Lk7vZINtNNrywX0ZuLyStrdDtabefZKAY5ZGJhVtgdznluResxNmPitE0SAO+O26sWTHeKSI2wMBA==
-  dependencies:
-    fs.realpath "^1.0.0"
-    inflight "^1.0.4"
-    inherits "2"
-    minimatch "^3.0.4"
-    once "^1.3.0"
-    path-is-absolute "^1.0.0"
-
-glob@^7.1.1:
+glob@^7.1.0, glob@^7.1.1, glob@^7.1.2, glob@^7.1.3:
   version "7.2.0"
   resolved "https://registry.yarnpkg.com/glob/-/glob-7.2.0.tgz#d15535af7732e02e948f4c41628bd910293f6023"
   integrity sha512-lmLf6gtyrPq8tTjSmrO94wBeQbFR3HbLHbuyD69wuyQkImp2hWqMGB47OX65FBkPffO641IP9jWa1z4ivqG26Q==
@@ -1317,7 +1305,7 @@ glob@~5.0.0:
     once "^1.3.0"
     path-is-absolute "^1.0.0"
 
-glob@~7.1.6:
+glob@~7.1.1, glob@~7.1.6:
   version "7.1.7"
   resolved "https://registry.yarnpkg.com/glob/-/glob-7.1.7.tgz#3b193e9233f01d42d0b3f78294bbeeb418f94a90"
   integrity sha512-OvD9ENzPLbegENnYP5UUfJIirTg4+XwMWGaQfQTY0JenxNvvIKP3U3/tAQSPIu/lHxXYSZmpXlUHeqAIdKzBLQ==
@@ -1383,23 +1371,12 @@ grunt-browserify@6.0.0:
     resolve "^1.1.6"
     watchify "^4.0.0"
 
-grunt-cli@^1.4.3:
+grunt-cli@^1.4.3, grunt-cli@~1.4.3:
   version "1.4.3"
   resolved "https://registry.yarnpkg.com/grunt-cli/-/grunt-cli-1.4.3.tgz#22c9f1a3d2780bf9b0d206e832e40f8f499175ff"
   integrity sha512-9Dtx/AhVeB4LYzsViCjUQkd0Kw0McN2gYpdmGYKtE2a5Yt7v1Q+HYZVWhqXc/kGnxlMtqKDxSwotiGeFmkrCoQ==
   dependencies:
     grunt-known-options "~2.0.0"
-    interpret "~1.1.0"
-    liftup "~3.0.1"
-    nopt "~4.0.1"
-    v8flags "~3.2.0"
-
-grunt-cli@~1.4.2:
-  version "1.4.2"
-  resolved "https://registry.yarnpkg.com/grunt-cli/-/grunt-cli-1.4.2.tgz#8a83dcc89ebd92d278ccd6014105011cffc71165"
-  integrity sha512-wsu6BZh7KCnfeaSkDrKIAvOlqGKxNRTZjc8xfZlvxCByQIqUfZ31kh5uHpPnhQ4NdVgvaWaVxa1LUbVU80nACw==
-  dependencies:
-    grunt-known-options "~1.1.1"
     interpret "~1.1.0"
     liftup "~3.0.1"
     nopt "~4.0.1"
@@ -1472,11 +1449,6 @@ grunt-exec@3.0.0:
   resolved "https://registry.yarnpkg.com/grunt-exec/-/grunt-exec-3.0.0.tgz#881f868d64098788fddaf22fa25d8572a9d64dc7"
   integrity sha512-cgAlreXf3muSYS5LzW0Cc4xHK03BjFOYk0MqCQ/MZ3k1Xz2GU7D+IAJg4UKicxpO+XdONJdx/NJ6kpy2wI+uHg==
 
-grunt-known-options@~1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/grunt-known-options/-/grunt-known-options-1.1.1.tgz#6cc088107bd0219dc5d3e57d91923f469059804d"
-  integrity sha512-cHwsLqoighpu7TuYj5RonnEuxGVFnztcUqTqp5rXFGYL4OuPFofwC4Ycg7n9fYwvK6F5WbYgeVOwph9Crs2fsQ==
-
 grunt-known-options@~2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/grunt-known-options/-/grunt-known-options-2.0.0.tgz#cac641e897f9a0a680b8c9839803d35f3325103c"
@@ -1520,18 +1492,18 @@ grunt-open@0.2.4:
   dependencies:
     opn "^5.4.0"
 
-grunt@^1.4.0:
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/grunt/-/grunt-1.4.0.tgz#235219cf922cf5f249809d60722442bb8247eff7"
-  integrity sha512-yRFc0GVCDu9yxqOFzpuXQ2pEdgtLDnFv5Qz54jfIcNnpJ8Z7B7P7kPkT4VMuRvm+N+QOsI8C4v/Q0DSaoj3LgQ==
+grunt@^1.5.2:
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/grunt/-/grunt-1.5.2.tgz#46b014e28d17c85baac19d5e891bb3f04923c098"
+  integrity sha512-XCtfaIu72OyDqK24MjWiGC9SwlkuhkS1mrULr1xzuJ2XqAFhP3ZAchZGHJeSCY6mkaOXU4F7SbmmCF7xIVoC9w==
   dependencies:
     dateformat "~3.0.3"
     eventemitter2 "~0.4.13"
     exit "~0.1.2"
     findup-sync "~0.3.0"
     glob "~7.1.6"
-    grunt-cli "~1.4.2"
-    grunt-known-options "~1.1.1"
+    grunt-cli "~1.4.3"
+    grunt-known-options "~2.0.0"
     grunt-legacy-log "~3.0.0"
     grunt-legacy-util "~2.0.1"
     iconv-lite "~0.4.13"
