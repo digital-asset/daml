@@ -101,6 +101,7 @@ object TreeEventsObserver {
 /** Collects information about create and exercise events.
   */
 class TreeEventsObserver(expectedTemplateNames: Set[String], logger: Logger)
+//    extends ObserverWithResult[GetTransactionTreesRequest, GetTransactionTreesResponse, ObservedEvents](logger) {
     extends ObserverWithResult[GetTransactionTreesResponse, ObservedEvents](logger) {
 
   private val createEvents = collection.mutable.ArrayBuffer[ObservedCreateEvent]()

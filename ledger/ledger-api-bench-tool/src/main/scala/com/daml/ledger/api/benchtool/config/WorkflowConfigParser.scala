@@ -80,7 +80,7 @@ object WorkflowConfigParser {
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
       Decoder.forProduct5(
         "name",
-        "party",
+        "parties",
         "application_id",
         "begin_offset",
         "objectives",
@@ -116,15 +116,23 @@ object WorkflowConfigParser {
         "payload_size_bytes",
       )(FooSubmissionConfig.ConsumingExercises.apply)
 
+    implicit val applicationIdConfigDecoder: Decoder[FooSubmissionConfig.ApplicationId] =
+      Decoder.forProduct2(
+        "id",
+        "weight",
+      )(FooSubmissionConfig.ApplicationId.apply)
+
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
-      Decoder.forProduct7(
+      Decoder.forProduct9(
         "num_instances",
         "num_observers",
         "num_divulgees",
+        "num_extra_submitters",
         "unique_parties",
         "instance_distribution",
         "nonconsuming_exercises",
         "consuming_exercises",
+        "application_ids",
       )(FooSubmissionConfig.apply)
 
     implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =

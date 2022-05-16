@@ -24,17 +24,29 @@ final class FooCommandGenerator(
     config: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     divulgeesToDivulgerKeyMap: Map[Set[Primitive.Party], Value],
+    names: Names,
 ) extends CommandGenerator {
   private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),
     items = config.instanceDistribution.toIndexedSeq,
   )
 
+  private val applicationIdsDistributionO: Option[Distribution[FooSubmissionConfig.ApplicationId]] =
+    Option.when(config.applicationIds.nonEmpty)(
+      new Distribution(
+        weights = config.applicationIds.map(_.weight),
+        items = config.applicationIds.toIndexedSeq,
+      )
+    )
+
   private val observersWithUnlikelihood: List[(Primitive.Party, Int)] = unlikelihoods(
     allocatedParties.observers
   )
   private val divulgeesWithUnlikelihood: List[(Primitive.Party, Int)] = unlikelihoods(
     allocatedParties.divulgees
+  )
+  private val extraSubmittersWithUnlikelihood: List[(Primitive.Party, Int)] = unlikelihoods(
+    allocatedParties.extraSubmitters
   )
 
   override def next(): Try[Seq[Command]] =
@@ -63,6 +75,18 @@ final class FooCommandGenerator(
         )
       )
     }
+
+  override def nextApplicationId(): String = {
+    applicationIdsDistributionO.fold(
+      names.benchtoolApplicationId
+    )(applicationIdsDistribution =>
+      applicationIdsDistribution.choose(randomnessProvider.randomDouble()).applicationId
+    )
+  }
+
+  override def nextExtraCommandSubmitters(): List[Primitive.Party] = {
+    pickParties(extraSubmittersWithUnlikelihood)
+  }
 
   private def pickContractDescription(): FooSubmissionConfig.ContractDescription =
     contractDescriptions.choose(randomnessProvider.randomDouble())

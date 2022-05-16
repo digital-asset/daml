@@ -19,6 +19,9 @@ class Names {
   def divulgeePartyNames(numberOfDivulgees: Int, uniqueParties: Boolean): Seq[String] =
     partyNames("Div", numberOfDivulgees, uniqueParties)
 
+  def extraSubmitterPartyNames(numberOfExtraSubmitters: Int, uniqueParties: Boolean): Seq[String] =
+    partyNames("Sub", numberOfExtraSubmitters, uniqueParties)
+
   def commandId(index: Int): String = s"command-$index-$identifierSuffix"
 
   def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"

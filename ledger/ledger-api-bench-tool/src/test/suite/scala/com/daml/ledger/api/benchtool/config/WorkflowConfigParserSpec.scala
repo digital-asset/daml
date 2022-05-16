@@ -6,8 +6,9 @@ package com.daml.ledger.api.benchtool.config
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.io.StringReader
+
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
@@ -24,6 +25,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_instances: 500
           |  num_observers: 4
           |  num_divulgees: 5
+          |  num_extra_submitters: 6
           |  unique_parties: true
           |  instance_distribution:
           |    - template: Foo1
@@ -35,6 +37,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  consuming_exercises:
           |      probability: 0.5
           |      payload_size_bytes: 200
+          |  application_ids:
+          |       - id: App-1
+          |         weight: 100
+          |       - id: App-2
+          |         weight: 102
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -54,6 +61,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfInstances = 500,
               numberOfObservers = 4,
               numberOfDivulgees = 5,
+              numberOfExtraSubmitters = 6,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -73,6 +81,16 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   probability = 0.5,
                   payloadSizeBytes = 200,
                 )
+              ),
+              applicationIds = List(
+                FooSubmissionConfig.ApplicationId(
+                  applicationId = "App-1",
+                  weight = 100,
+                ),
+                FooSubmissionConfig.ApplicationId(
+                  applicationId = "App-2",
+                  weight = 102,
+                ),
               ),
             )
           ),
@@ -102,8 +120,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         """submission:
         |  type: foo
         |  num_instances: 500
+        |  num_divulgees: 1
         |  num_observers: 4
         |  num_divulgees: 5
+        |  num_extra_submitters: 6
         |  unique_parties: true
         |  instance_distribution:
         |    - template: Foo1
@@ -114,7 +134,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |      payload_size_bytes: 35
         |    - template: Foo3
         |      weight: 10
-        |      payload_size_bytes: 25""".stripMargin
+        |      payload_size_bytes: 25
+        |  application_ids: []
+""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -123,6 +145,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfInstances = 500,
               numberOfObservers = 4,
               numberOfDivulgees = 5,
+              numberOfExtraSubmitters = 6,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -143,6 +166,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               nonConsumingExercises = None,
               consumingExercises = None,
+              applicationIds = List.empty,
             )
           ),
           streams = Nil,
@@ -382,7 +406,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         """streams:
           |  - type: completions
           |    name: stream-1
-          |    party: Obs-2
+          |    parties: [Obs-2]
           |    begin_offset: foo
           |    application_id: foobar
           |    objectives:
@@ -394,7 +418,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           streams = List(
             WorkflowConfig.StreamConfig.CompletionsStreamConfig(
               name = "stream-1",
-              party = "Obs-2",
+              parties = List("Obs-2"),
               beginOffset = Some(offset("foo")),
               applicationId = "foobar",
               objectives = Some(

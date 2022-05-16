@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool.services
 import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
+//import com.daml.ledger.api.messages.transaction.GetTransactionTreesRequest
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
@@ -29,6 +30,7 @@ final class TransactionService(
 
   def transactions[Result](
       config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,
+//      observer: ObserverWithResult[GetTransactionsRequest, GetTransactionsResponse, Result],
       observer: ObserverWithResult[GetTransactionsResponse, Result],
   ): Future[Result] =
     getTransactionsRequest(
@@ -48,6 +50,7 @@ final class TransactionService(
   def transactionTrees[Result](
       config: WorkflowConfig.StreamConfig.TransactionTreesStreamConfig,
       observer: ObserverWithResult[
+//        GetTransactionTreesRequest,
         GetTransactionTreesResponse,
         Result,
       ],

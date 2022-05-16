@@ -295,14 +295,14 @@ object Cli {
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
           for {
             name <- stringField("name")
-            party <- stringField("party")
+            partiesString <- stringField("parties").map(parseParties)
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
-            party = party,
+            parties = partiesString,
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
@@ -318,6 +318,10 @@ object Cli {
 
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
+
+    // Parse strings like: "", "party1" or "party1+party2+party3"
+    private def parseParties(raw: String): List[String] =
+      raw.split('+').toList
 
     private def parseFilters(
         listOfIds: String

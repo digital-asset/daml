@@ -20,6 +20,7 @@ object WorkflowConfig {
     def numberOfInstances: Int
     def numberOfObservers: Int
     def numberOfDivulgees: Int
+    def numberOfExtraSubmitters: Int
     def uniqueParties: Boolean
   }
 
@@ -30,16 +31,19 @@ object WorkflowConfig {
   ) extends SubmissionConfig {
     override val numberOfObservers = 0
     override val numberOfDivulgees = 0
+    override val numberOfExtraSubmitters = 0
   }
 
   final case class FooSubmissionConfig(
       numberOfInstances: Int,
       numberOfObservers: Int,
       numberOfDivulgees: Int,
+      numberOfExtraSubmitters: Int,
       uniqueParties: Boolean,
       instanceDistribution: List[FooSubmissionConfig.ContractDescription],
       nonConsumingExercises: Option[NonconsumingExercises],
       consumingExercises: Option[ConsumingExercises],
+      applicationIds: List[FooSubmissionConfig.ApplicationId],
   ) extends SubmissionConfig
 
   object FooSubmissionConfig {
@@ -57,6 +61,11 @@ object WorkflowConfig {
     case class ConsumingExercises(
         probability: Double,
         payloadSizeBytes: Int,
+    )
+
+    final case class ApplicationId(
+        applicationId: String,
+        weight: Int,
     )
 
   }
@@ -90,7 +99,7 @@ object WorkflowConfig {
 
     final case class CompletionsStreamConfig(
         name: String,
-        party: String,
+        parties: List[String],
         applicationId: String,
         beginOffset: Option[LedgerOffset],
         objectives: Option[StreamConfig.RateObjectives],

@@ -225,6 +225,7 @@ class LedgerApiBenchTool(
           randomnessProvider = RandomnessProvider.Default,
           config = submissionConfig,
           divulgeesToDivulgerKeyMap = Map.empty,
+          names = names,
           allocatedParties = allocatedParties,
         )
         for {
@@ -299,11 +300,13 @@ class LedgerApiBenchTool(
               submissionBatchSize = config.submissionBatchSize,
               submissionConfig = submissionConfig,
               allocatedParties = allocatedParties,
+              names = names,
             ).performSubmission()
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
               signatory = allocatedParties.signatory,
               config = submissionConfig,
+              names = names,
             )
             for {
               _ <- submitter
