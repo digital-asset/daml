@@ -205,6 +205,7 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
+        eventProcessingParallelism = eventsProcessingParallelism,
       )(servicesExecutionContext)
 
       for {
@@ -227,12 +228,14 @@ private[platform] case class IndexServiceBuilder(
             updateTransactionsBuffer = transactionsBuffer.push,
             updateMutableCache = contractStore.push,
             executionContext = servicesExecutionContext,
+            metrics = metrics,
           )
         )
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
     } else
       new MutableCacheBackedContractStore.CacheUpdateSubscription(
         contractStore = contractStore,
+        metrics = metrics,
         subscribeToContractStateEvents = () => {
           val subscriptionStartExclusive = ledgerEndCache()
           logger.info(s"Subscribing to contract state events after $subscriptionStartExclusive")

@@ -95,6 +95,7 @@ class BufferedTransactionsReaderSpec
           filter = filter,
           verbose = false,
           metrics,
+          eventProcessingParallelism = 2,
         )(
           filterEvents = filterEvents,
           toApiTx = toApiTx,

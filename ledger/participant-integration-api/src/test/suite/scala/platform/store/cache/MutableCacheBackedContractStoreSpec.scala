@@ -492,11 +492,13 @@ object MutableCacheBackedContractStoreSpec {
       scala.concurrent.ExecutionContext.global
     )
 
+    val metrics = new Metrics(new MetricRegistry)
+
     val contractStore = MutableCacheBackedContractStore(
       readerFixture,
       signalNewLedgerHead,
       startIndexExclusive,
-      new Metrics(new MetricRegistry),
+      metrics,
       cachesSize,
       cachesSize,
     )(scala.concurrent.ExecutionContext.global, loggingContext)
@@ -505,6 +507,7 @@ object MutableCacheBackedContractStoreSpec {
       contractStore = contractStore,
       subscribeToContractStateEvents = sourceSubscriber,
       minBackoffStreamRestart = 10.millis,
+      metrics = metrics,
     ).acquire()
       .map(_ => contractStore)
   }

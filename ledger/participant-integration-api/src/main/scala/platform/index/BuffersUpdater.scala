@@ -9,12 +9,14 @@ import akka.stream._
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.{Contract, Key, Party}
 import com.daml.platform.index.BuffersUpdater._
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
+import java.util.concurrent.Executors
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -38,12 +40,15 @@ import scala.util.control.NonFatal
 private[index] class BuffersUpdater(
     subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
     updateCaches: (Offset, TransactionLogUpdate) => Unit,
+    metrics: Metrics,
     minBackoffStreamRestart: FiniteDuration,
     sysExitWithCode: Int => Unit,
 )(implicit mat: Materializer, loggingContext: LoggingContext, executionContext: ExecutionContext)
     extends AutoCloseable {
 
   private val logger = ContextualizedLogger.get(getClass)
+  private val cachesUpdaterExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
 
   private[index] val updaterIndex: AtomicReference[Option[(Offset, Long)]] =
     new AtomicReference(None)
@@ -57,9 +62,15 @@ private[index] class BuffersUpdater(
           randomFactor = 0.0,
         )
       )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
-      .map { case ((offset, eventSequentialId), update) =>
-        updateCaches(offset, update)
-        updaterIndex.set(Some(offset -> eventSequentialId))
+      .async
+      .mapAsync(1) { case ((offset, eventSequentialId), update) =>
+        Timed.future(
+          metrics.daml.index.updateCaches,
+          Future {
+            updateCaches(offset, update)
+            updaterIndex.set(Some(offset -> eventSequentialId))
+          }(cachesUpdaterExecutionContext),
+        )
       }
       .mapError { case NonFatal(e) =>
         logger.error("Error encountered when updating caches", e)
@@ -113,6 +124,7 @@ private[index] object BuffersUpdater {
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
       executionContext: ExecutionContext,
+      metrics: Metrics,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
@@ -128,6 +140,7 @@ private[index] object BuffersUpdater {
         updateMutableCache(contractStateEventsBatch)
       }
     },
+    metrics = metrics,
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,
   )(mat, loggingContext, executionContext)
