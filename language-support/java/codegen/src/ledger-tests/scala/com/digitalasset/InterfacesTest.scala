@@ -20,8 +20,7 @@ class Interfaces
 
   behavior of "Generated Java code"
 
-  // TODO: https://github.com/digital-asset/daml/issues/13653
-  //  redesigne the test
+  // TODO(#13668) Redesign the test once the issue is fixed
   it should "contain all choices of an interface in templates implementing it" ignore withClient {
     client =>
       def checkTemplateId[T](

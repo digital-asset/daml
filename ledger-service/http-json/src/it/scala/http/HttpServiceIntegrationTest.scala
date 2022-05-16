@@ -73,8 +73,7 @@ abstract class HttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  // TODO: https://github.com/digital-asset/daml/issues/13653
-  //  enable the test
+  // TODO(#13668) Redesign the test once the issue is fixed
   "pick up new package's inherited interfaces" ignore withHttpService { (uri, encoder, _, _) =>
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
