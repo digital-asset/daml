@@ -114,6 +114,7 @@ da_scala_test_suite(
         ":ledger-api-bench-tool-test-lib",
         "//ledger/test-common",
         "//libs-scala/postgresql-testing",
+        "//libs-scala/timer-utils",
         "//ledger/test-common:model-tests-%s.scala" % "1.14",
         "//ledger/test-common:dar-files-%s-lib" % "1.14",
         "//daml-script/runner:script-runner-lib",

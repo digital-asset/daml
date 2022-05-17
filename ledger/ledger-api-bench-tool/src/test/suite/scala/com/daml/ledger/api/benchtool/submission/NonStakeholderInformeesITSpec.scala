@@ -48,41 +48,40 @@ class NonStakeholderInformeesITSpec
         authorizationHelper = None,
       )
       apiServices: LedgerApiServices = ledgerApiServicesF("someUser")
+      names = new Names()
       submitter = CommandSubmitter(
-        names = new Names(),
+        names = names,
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
       )
-      (signatory, observers, divulgees) <- submitter.prepare(submissionConfig)
+      allocatedParties <- submitter.prepare(submissionConfig)
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
         submissionConfig = submissionConfig,
-        signatory = signatory,
-        allObservers = observers,
-        allDivulgees = divulgees,
+        allocatedParties = allocatedParties,
       )
       _ <- tested.performSubmission()
       (treeResults_divulgee0, flatResults_divulgee0) <- observeAllTemplatesForParty(
-        party = divulgees(0),
+        party = allocatedParties.divulgees(0),
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
       (treeResults_divulgee1, flatResults_divulgee1) <- observeAllTemplatesForParty(
-        party = divulgees(1),
+        party = allocatedParties.divulgees(1),
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
       (treeResults_observer0, flatResults_observer0) <- observeAllTemplatesForParty(
-        party = observers(0),
+        party = allocatedParties.observers(0),
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
       (treeResults_signatory, _) <- observeAllTemplatesForParty(
-        party = signatory,
+        party = allocatedParties.signatory,
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
@@ -107,7 +106,6 @@ class NonStakeholderInformeesITSpec
         // because for 100 instances and 10% chance of divulging to divulgee1, divulgee1 won't be disclosed any contracts once in 1/(0.9**100) ~= 37649
         treeFoo1 should ((be > 0) and (be < submissionConfig.numberOfInstances / 5))
         flatFoo1 shouldBe 0
-
         val divulger = treeResults_divulgee1.numberOfCreatesPerTemplateName("Divulger")
         divulger shouldBe 4
       }
@@ -117,7 +115,6 @@ class NonStakeholderInformeesITSpec
         val flatFoo1 = treeResults_observer0.numberOfCreatesPerTemplateName("Foo1")
         flatFoo1 shouldBe 100
         flatFoo1 shouldBe treeFoo1
-
         val divulger = treeResults_observer0.numberOfCreatesPerTemplateName("Divulger")
         divulger shouldBe 0
       }
