@@ -71,6 +71,18 @@ da_scala_library(
     ],
 )
 
+da_scala_library(
+    name = "ledger-api-bench-tool-test-lib",
+    srcs = glob(["src/test/lib/**/*.scala"]),
+    scala_deps = [],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ledger-api-bench-tool-lib",
+        "//language-support/scala/bindings",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
 da_scala_test_suite(
     name = "ledger-api-bench-tool-tests",
     size = "medium",
@@ -98,11 +110,12 @@ da_scala_test_suite(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        ":ledger-api-bench-tool-lib",
+        ":ledger-api-bench-tool-test-lib",
         "//ledger/test-common",
         "//libs-scala/postgresql-testing",
         "//ledger/test-common:model-tests-%s.scala" % "1.14",
         "//ledger/test-common:dar-files-%s-lib" % "1.14",
-        ":ledger-api-bench-tool-lib",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
