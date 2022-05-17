@@ -875,9 +875,9 @@ checkIface m iface = do
   forM_ (intMethods iface) checkIfaceMethod
 
   -- check choices
-  checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intFixedChoices iface)
+  checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intChoices iface)
   introExprVar (intParam iface) (TCon tcon) $ do
-    forM_ (intFixedChoices iface) (checkTemplateChoice tcon)
+    forM_ (intChoices iface) (checkTemplateChoice tcon)
     checkExpr (intPrecondition iface) TBool
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
@@ -943,7 +943,7 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkIfaceImplementation :: MonadGamma m => Template -> TemplateImplements -> m ()
 checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{..} = do
-  DefInterface {intFixedChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
@@ -951,7 +951,7 @@ checkIfaceImplementation Template{tplTypeCon, tplImplements} TemplateImplements{
     throwWithContext (EMissingRequiredInterface tplTypeCon tpiInterface missingInterface)
 
   -- check fixed choices
-  let inheritedChoices = S.fromList (NM.names intFixedChoices)
+  let inheritedChoices = S.fromList (NM.names intChoices)
   unless (inheritedChoices == tpiInheritedChoiceNames) $
     throwWithContext $ EBadInheritedChoices tpiInterface (S.toList inheritedChoices) (S.toList tpiInheritedChoiceNames)
 

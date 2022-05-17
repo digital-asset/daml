@@ -342,7 +342,7 @@ private[lf] final class Compiler(
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileFetchInterface(identifier))
       addDef(compileInterfacePrecond(identifier, iface.param, iface.precond))
-      iface.fixedChoices.values.foreach { choice =>
+      iface.choices.values.foreach { choice =>
         addDef(compileInterfaceChoice(identifier, iface.param, choice))
       }
     }

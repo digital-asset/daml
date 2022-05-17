@@ -10,7 +10,7 @@ import org.slf4j.Logger
 
 import scala.concurrent.{Future, Promise}
 
-abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObserver[T] {
+abstract class ObserverWithResult[RespT, Result](logger: Logger) extends StreamObserver[RespT] {
 
   def streamName: String
 
@@ -18,7 +18,7 @@ abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObser
 
   def completeWith(): Future[Result]
 
-  override def onNext(value: T): Unit = ()
+  override def onNext(value: RespT): Unit = ()
 
   override def onError(t: Throwable): Unit = {
     logger.error(withStreamName(s"Received error: $t"))

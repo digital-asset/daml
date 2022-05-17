@@ -465,7 +465,7 @@ convertInterfaces env binds = interfaceDefs
             intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env) $
                 MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
-            intFixedChoices <- convertChoices env intName emptyTemplateBinds
+            intChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             pure DefInterface {..}
 

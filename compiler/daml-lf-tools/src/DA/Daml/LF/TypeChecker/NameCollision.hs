@@ -212,7 +212,7 @@ checkSynonym moduleName DefTypeSyn{..} =
 
 checkInterface :: ModuleName -> DefInterface -> NCMonad ()
 checkInterface moduleName DefInterface{..} = do
-    forM_ intFixedChoices $ \TemplateChoice{..} ->
+    forM_ intChoices $ \TemplateChoice{..} ->
         checkName (NInterfaceChoice moduleName intName chcName)
     forM_ intMethods $ \InterfaceMethod{..} ->
         checkName (NInterfaceMethod moduleName intName ifmName)

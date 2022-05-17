@@ -37,7 +37,7 @@ object WorkflowConfig {
       numberOfObservers: Int,
       numberOfDivulgees: Int,
       uniqueParties: Boolean,
-      instanceDistribution: List[WorkflowConfig.FooSubmissionConfig.ContractDescription],
+      instanceDistribution: List[FooSubmissionConfig.ContractDescription],
       nonConsumingExercises: Option[NonconsumingExercises],
       consumingExercises: Option[ConsumingExercises],
   ) extends SubmissionConfig

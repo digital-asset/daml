@@ -237,7 +237,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterface(ifaceName, context).flatMap(
-      _.fixedChoices
+      _.choices
         .get(chName)
         .toRight(LookupError(Reference.TemplateChoice(ifaceName, chName), context))
     )

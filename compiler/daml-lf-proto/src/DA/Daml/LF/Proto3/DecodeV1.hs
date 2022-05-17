@@ -238,7 +238,7 @@ decodeDefInterface LF1.DefInterface {..} = do
   intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
   intRequires <- decodeSet DuplicateRequires decodeTypeConName defInterfaceRequires
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
-  intFixedChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
+  intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
   intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
   pure DefInterface {..}

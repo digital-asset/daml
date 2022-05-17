@@ -104,8 +104,7 @@ object ScriptF {
           .left
           .map(_.pretty)
           .flatMap(mod =>
-            (mod.templates.view.mapValues(_.choices) ++
-              mod.interfaces.view.mapValues(_.fixedChoices))
+            (mod.templates.view.mapValues(_.choices) ++ mod.interfaces.view.mapValues(_.choices))
               .collectFirst {
                 case (typeName, choices)
                     if choices.get(choiceName).exists(_.argBinder._2 == argTyp) =>

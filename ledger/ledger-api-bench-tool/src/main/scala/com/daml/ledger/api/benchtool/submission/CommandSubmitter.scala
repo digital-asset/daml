@@ -24,6 +24,15 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 import scala.util.control.NonFatal
 
+case class AllocatedParties(
+    signatory: client.binding.Primitive.Party,
+    observers: List[client.binding.Primitive.Party],
+    divulgees: List[client.binding.Primitive.Party],
+) {
+  val allAllocatedParties: List[Primitive.Party] =
+    List(signatory) ++ observers ++ divulgees
+}
+
 case class CommandSubmitter(
     names: Names,
     benchtoolUserServices: LedgerApiServices,
@@ -36,13 +45,7 @@ case class CommandSubmitter(
 
   def prepare(config: SubmissionConfig)(implicit
       ec: ExecutionContext
-  ): Future[
-    (
-        client.binding.Primitive.Party,
-        List[client.binding.Primitive.Party],
-        List[client.binding.Primitive.Party],
-    )
-  ] = {
+  ): Future[AllocatedParties] = {
     val observerPartyNames =
       names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
     val divulgeePartyNames =
@@ -57,7 +60,11 @@ case class CommandSubmitter(
       _ <- uploadTestDars()
     } yield {
       logger.info("Prepared command submission.")
-      (signatory, observers, divulgees)
+      AllocatedParties(
+        signatory = signatory,
+        observers = observers,
+        divulgees = divulgees,
+      )
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(
@@ -85,7 +92,7 @@ case class CommandSubmitter(
   def generateAndSubmit(
       generator: CommandGenerator,
       config: SubmissionConfig,
-      actAs: List[client.binding.Primitive.Party],
+      baseActAs: List[client.binding.Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -96,7 +103,7 @@ case class CommandSubmitter(
         config = config,
         maxInFlightCommands = maxInFlightCommands,
         submissionBatchSize = submissionBatchSize,
-        actAs = actAs,
+        baseActAs = baseActAs,
       )
     } yield {
       logger.info("Commands submitted successfully.")
@@ -163,7 +170,7 @@ case class CommandSubmitter(
   private def submitCommands(
       generator: CommandGenerator,
       config: SubmissionConfig,
-      actAs: List[Primitive.Party],
+      baseActAs: List[Primitive.Party],
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit
@@ -206,7 +213,7 @@ case class CommandSubmitter(
               timed(submitAndWaitTimer, metricsManager)(
                 submitAndWait(
                   id = names.commandId(index),
-                  actAs = actAs,
+                  actAs = baseActAs,
                   commands = commands.flatten,
                 )
               )

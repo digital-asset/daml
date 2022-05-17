@@ -229,7 +229,7 @@ object Cli {
         def transactionsConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
-          filters <- stringField("filters").flatMap(filters)
+          filters <- stringField("filters").flatMap(parseFilters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
@@ -249,7 +249,7 @@ object Cli {
             : Either[String, WorkflowConfig.StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
-            filters <- stringField("filters").flatMap(filters)
+            filters <- stringField("filters").flatMap(parseFilters)
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
@@ -283,7 +283,7 @@ object Cli {
         def activeContractsConfig
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
-          filters <- stringField("filters").flatMap(filters)
+          filters <- stringField("filters").flatMap(parseFilters)
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
@@ -319,13 +319,13 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(
+    private def parseFilters(
         listOfIds: String
     ): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
       listOfIds
         .split('+')
         .toList
-        .map(filter)
+        .map(parseFilter)
         .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](
           Right(List.empty)
         ) { case (acc, next) =>
@@ -335,7 +335,7 @@ object Cli {
           } yield filters :+ filter
         }
 
-    private def filter(
+    private def parseFilter(
         filterString: String
     ): Either[String, WorkflowConfig.StreamConfig.PartyFilter] = {
       filterString

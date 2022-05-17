@@ -233,7 +233,7 @@ object InterfaceReader {
       name: QualifiedName,
       astIf: Ast.DefInterface,
   ): InterfaceReaderError \/ (QualifiedName, DefInterface.FWT) = for {
-    choices <- astIf.fixedChoices.traverse(visitChoice(name, _))
+    choices <- astIf.choices.traverse(visitChoice(name, _))
   } yield name -> iface.DefInterface(choices)
 
   private[lf] def toIfaceType(

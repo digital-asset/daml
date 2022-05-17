@@ -798,7 +798,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
       builder.setParamInternedStr(stringsTable.insert(interface.param))
-      builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
+      builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       builder.accumulateLeft(interface.requires)(_ addRequires _)
       builder.setPrecond(interface.precond)
