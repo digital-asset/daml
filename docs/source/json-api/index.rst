@@ -2188,6 +2188,6 @@ Readiness Check
 
 A status code of ``200`` indicates a successful readiness check.
 
-This is an unauthenticated endpoint intended to be used as a liveness
+This is an unauthenticated endpoint intended to be used as a readiness
 probe. It validates both the ledger connection as well as the database
 connection.
