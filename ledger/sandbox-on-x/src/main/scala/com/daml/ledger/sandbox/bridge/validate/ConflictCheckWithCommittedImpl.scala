@@ -168,8 +168,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     val actualTemplate = actual._1.unversioned.template
     val providedTemplate = provided.contractInst.unversioned.template
 
-    // TODO DPP-1026: Do we need the user to provide verbose arguments?
-    // Or can we pass around explicit disclosure contract payloads without type information?
+    // TODO DPP-1026: Once the engine properly normalizes disclosed contracats, compare the payloads without transformation
     val actualArgument = removeTypeInfo(actual._1.unversioned.arg)
     val providedArgument = removeTypeInfo(provided.contractInst.unversioned.arg)
 
@@ -188,7 +187,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     }
   }
 
-  // TODO DPP-1026: Move to package com.daml.lf
+  // TODO DPP-1026: Remove once the engine normalizes arguments
   def removeTypeInfo(a: Value): Value = {
     a match {
       case Value.ValueInt64(_) => a
