@@ -207,7 +207,6 @@ class RecoveringIndexerIntegrationSpec
         config = IndexerConfig(
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
-          dataSourceProperties = IndexerConfig.createDataSourceProperties(),
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,

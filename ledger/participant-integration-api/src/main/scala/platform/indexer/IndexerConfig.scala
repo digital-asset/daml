@@ -12,7 +12,8 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
     batchingParallelism: Int = DefaultBatchingParallelism,
-    dataSourceProperties: DataSourceProperties = DefaultDataSourceProperties,
+    // By default `dataSourceProperties` are implied from the configuration of Indexer (look at `createDataSourceProperties`).
+    dataSourceProperties: Option[DataSourceProperties] = None,
     enableCompression: Boolean = DefaultEnableCompression,
     highAvailability: HaConfig = DefaultHaConfig,
     ingestionParallelism: Int = DefaultIngestionParallelism,
@@ -25,8 +26,11 @@ case class IndexerConfig(
 
 object IndexerConfig {
 
-  def createDataSourceProperties(
-      ingestionParallelism: Int = DefaultIngestionParallelism
+  def dataSourceProperties(config: IndexerConfig): DataSourceProperties =
+    config.dataSourceProperties.getOrElse(createDataSourceProperties(config.ingestionParallelism))
+
+  private def createDataSourceProperties(
+      ingestionParallelism: Int
   ): DataSourceProperties = DataSourceProperties(
     // PostgresSQL specific configurations
     // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.

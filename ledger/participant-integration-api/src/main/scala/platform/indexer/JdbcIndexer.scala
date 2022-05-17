@@ -40,10 +40,11 @@ object JdbcIndexer {
       val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
+      val dbConfig = IndexerConfig.dataSourceProperties(config)
       val indexer = ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        dbConfig = config.dataSourceProperties.createDbConfig(participantDataSourceConfig),
+        dbConfig = dbConfig.createDbConfig(participantDataSourceConfig),
         haConfig = config.highAvailability,
         metrics = metrics,
         dbLockStorageBackend = DBLockStorageBackend,

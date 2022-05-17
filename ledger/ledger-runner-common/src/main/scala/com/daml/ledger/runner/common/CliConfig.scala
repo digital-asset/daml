@@ -282,8 +282,6 @@ object CliConfig {
                 ingestionParallelism = indexerIngestionParallelism,
                 submissionBatchSize = indexerSubmissionBatchSize,
                 enableCompression = indexerEnableCompression,
-                dataSourceProperties =
-                  IndexerConfig.createDataSourceProperties(indexerIngestionParallelism),
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,

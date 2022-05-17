@@ -65,7 +65,6 @@ object IndexerStabilityTestFixture {
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
-      dataSourceProperties = IndexerConfig.createDataSourceProperties(),
     )
 
     newLoggingContext { implicit loggingContext =>

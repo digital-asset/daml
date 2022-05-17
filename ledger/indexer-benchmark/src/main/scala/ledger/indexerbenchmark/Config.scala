@@ -36,8 +36,7 @@ object Config {
     metricsReporter = None,
     metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
-      startupMode = IndexerStartupMode.MigrateAndStart(),
-      dataSourceProperties = IndexerConfig.createDataSourceProperties(),
+      startupMode = IndexerStartupMode.MigrateAndStart()
     ),
     waitForUserInput = false,
     minUpdateRate = None,
