@@ -1,17 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool
+package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.testkit.typed.scaladsl.{BehaviorTestKit, ScalaTestWithActorTestKit}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.clock.AdjustableClock
-import com.daml.ledger.api.benchtool.metrics.{
-  Metric,
-  MetricValue,
-  MetricsCollector,
-  ServiceLevelObjective,
-}
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.{Clock, Duration, Instant, ZoneId}
