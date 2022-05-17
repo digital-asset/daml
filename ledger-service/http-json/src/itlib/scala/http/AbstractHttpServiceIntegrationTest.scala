@@ -24,7 +24,6 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.service.MetadataReader
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.ledger.api.domain.LedgerId
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -173,7 +172,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     getContractId,
     archiveCommand,
     getChild,
-    jsonCodecs,
   }
   import json.JsonProtocol._
 
@@ -841,25 +839,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "should be able to serialize and deserialize domain commands" in withHttpServiceAndClient {
-    (uri, _, _, client, ledgerId) =>
-      instanceUUIDLogCtx(implicit lc =>
-        jsonCodecs(client, ledgerId, Some(jwtAdminNoParty)).flatMap { case (encoder, decoder) =>
-          testCreateCommandEncodingDecoding(uri)(encoder, decoder, ledgerId) *>
-            testExerciseCommandEncodingDecoding(uri)(
-              encoder,
-              decoder,
-              ledgerId,
-            )
-        }: Future[Assertion]
-      )
+  "should be able to serialize and deserialize domain commands" in withHttpService { fixture =>
+    (testCreateCommandEncodingDecoding(fixture) *>
+      testExerciseCommandEncodingDecoding(fixture)): Future[Assertion]
   }
 
-  private def testCreateCommandEncodingDecoding(uri: Uri)(
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      ledgerId: LedgerId,
+  private def testCreateCommandEncodingDecoding(
+      fixture: HttpServiceTestFixtureData
   ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
+    import fixture.{uri, encoder, decoder}
     import json.JsonProtocol._
     import util.ErrorOps._
 
@@ -871,21 +859,20 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         encoder.encodeCreateCommand(command0).liftErr(JsonError)
       ): F[JsValue]
       command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
-        .flatMap(decoder.decodeCreateCommand(jsVal, _, ledgerId))
+        .flatMap(decoder.decodeCreateCommand(jsVal, _, fixture.ledgerId))
     } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
 
     (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
   }
 
-  private def testExerciseCommandEncodingDecoding(uri: Uri)(
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      ledgerId: LedgerId,
+  private def testExerciseCommandEncodingDecoding(
+      fixture: HttpServiceTestFixtureData
   ): Future[Assertion] = {
+    import fixture.{uri, encoder, decoder}
     val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
     val jsVal: JsValue = encodeExercise(encoder)(command0)
     val command1 =
-      jwt(uri).flatMap(decodeExercise(decoder, _, ledgerId)(jsVal))
+      jwt(uri).flatMap(decodeExercise(decoder, _, fixture.ledgerId)(jsVal))
     command1.map(_.bimap(removeRecordId, identity) should ===(command0))
   }
 
