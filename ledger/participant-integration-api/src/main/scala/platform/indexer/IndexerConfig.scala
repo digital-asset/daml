@@ -12,7 +12,10 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
     batchingParallelism: Int = DefaultBatchingParallelism,
-    // By default `dataSourceProperties` are implied from the configuration of Indexer (look at `createDataSourceProperties`).
+    /*
+     * If properties are provided - they are going to be used, otherwise - defaults are provided.
+     * By default `dataSourceProperties` are implied from the configuration of Indexer (look at `createDataSourceProperties`).
+     */
     dataSourceProperties: Option[DataSourceProperties] = None,
     enableCompression: Boolean = DefaultEnableCompression,
     highAvailability: HaConfig = DefaultHaConfig,
