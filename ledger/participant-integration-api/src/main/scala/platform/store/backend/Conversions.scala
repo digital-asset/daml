@@ -235,4 +235,7 @@ private[backend] object Conversions {
     override def set(s: PreparedStatement, i: Int, v: Hash): Unit =
       s.setString(i, v.bytes.toHexString)
   }
+
+  def hashFromHexString(name: String): RowParser[Hash] =
+    SqlParser.get[String](name).map(Hash.assertFromString)
 }
