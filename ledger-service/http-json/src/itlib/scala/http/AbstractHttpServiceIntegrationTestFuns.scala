@@ -315,17 +315,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       assertActiveContract(result)(create, fixture.encoder)
     }
 
-  @deprecated("TODO SC used?", since = "2.3.0")
-  protected def lookupContractAndAssert(
-      contractLocator: domain.ContractLocator[JsValue],
-      contractId: ContractId,
-      create: domain.CreateCommand[v.Record, OptionalPkg],
-      fixture: UriFixture with EncoderFixture,
-  ): Future[Assertion] =
-    fixture.headersWithAuth.flatMap(it =>
-      lookupContractAndAssert(contractLocator, contractId, create, fixture, it)
-    )
-
   protected def removeRecordId(a: v.Value): v.Value = a match {
     case v.Value(v.Value.Sum.Record(r)) if r.recordId.isDefined =>
       v.Value(v.Value.Sum.Record(removeRecordId(r)))
@@ -767,15 +756,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       }
     }
   }
-
-  @deprecated("TODO SC unused?", since = "2.3.0")
-  protected def search(
-      commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
-      query: JsObject,
-      fixture: UriFixture with EncoderFixture,
-  ): Future[
-    domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
-  ] = fixture.headersWithAuth.flatMap(search(commands, query, fixture, _))
 
   private[http] def expectOk[R](resp: domain.SyncResponse[R]): R = resp match {
     case ok: domain.OkResponse[_] =>
