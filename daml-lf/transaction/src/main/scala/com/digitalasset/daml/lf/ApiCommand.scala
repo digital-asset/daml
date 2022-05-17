@@ -95,7 +95,7 @@ case class ApiCommands(
 final case class DisclosedContract(
     templateId: Identifier,
     contractId: Value.ContractId,
-    argument: Value.VersionedContractInstance,
+    argument: Value,
     metadata: ContractMetadata,
 )
 
