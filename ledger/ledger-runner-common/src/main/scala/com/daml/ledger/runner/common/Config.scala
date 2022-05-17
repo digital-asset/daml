@@ -7,16 +7,21 @@ import com.daml.ledger.runner.common.Config.{
   DefaultEngineConfig,
   DefaultLedgerId,
   DefaultParticipants,
+  DefaultParticipantsDatasourceConfig,
 }
 import com.daml.ledger.runner.common.MetricsConfig.DefaultMetricsConfig
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 final case class Config(
     engine: EngineConfig = DefaultEngineConfig,
     ledgerId: String = DefaultLedgerId,
     metrics: MetricsConfig = DefaultMetricsConfig,
+    dataSource: Map[Ref.ParticipantId, ParticipantDataSourceConfig] =
+      DefaultParticipantsDatasourceConfig,
     participants: Map[Ref.ParticipantId, ParticipantConfig] = DefaultParticipants,
 )
 
@@ -30,6 +35,9 @@ object Config {
   )
   val DefaultParticipants: Map[Ref.ParticipantId, ParticipantConfig] = Map(
     ParticipantConfig.DefaultParticipantId -> ParticipantConfig()
+  )
+  val DefaultParticipantsDatasourceConfig: Map[ParticipantId, ParticipantDataSourceConfig] = Map(
+    ParticipantConfig.DefaultParticipantId -> ParticipantDataSourceConfig("default-jdbc-url")
   )
   val Default: Config = Config()
 }

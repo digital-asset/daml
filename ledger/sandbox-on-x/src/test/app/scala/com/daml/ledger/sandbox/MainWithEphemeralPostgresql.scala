@@ -19,10 +19,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
           originalConfig.copy(
             participants = originalConfig.participants.map(p =>
               p.copy(
-                serverJdbcUrl = database.url,
-                indexerConfig = p.indexerConfig.copy(database =
-                  p.indexerConfig.database.copy(jdbcUrl = database.url)
-                ),
+                serverJdbcUrl = database.url
               )
             )
           ),

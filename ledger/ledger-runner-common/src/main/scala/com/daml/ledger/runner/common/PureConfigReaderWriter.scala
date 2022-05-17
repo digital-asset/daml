@@ -23,7 +23,11 @@ import com.daml.platform.configuration.{
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
+import com.daml.platform.store.DbSupport.{
+  ConnectionPoolConfig,
+  DataSourceProperties,
+  ParticipantDataSourceConfig,
+}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
@@ -193,7 +197,8 @@ object PureConfigReaderWriter {
   implicit val dbConfigPostgresDataSourceConfigConvert: ConfigConvert[PostgresDataSourceConfig] =
     deriveConvert[PostgresDataSourceConfig]
 
-  implicit val dbConfigConvert: ConfigConvert[DbConfig] = deriveConvert[DbConfig]
+  implicit val dataSourcePropertiesConvert: ConfigConvert[DataSourceProperties] =
+    deriveConvert[DataSourceProperties]
 
   implicit val apiServerConfigConvert: ConfigConvert[ApiServerConfig] =
     deriveConvert[ApiServerConfig]
@@ -245,9 +250,21 @@ object PureConfigReaderWriter {
   implicit val participantConfigConvert: ConfigConvert[ParticipantConfig] =
     deriveConvert[ParticipantConfig]
 
-  implicit val participantNameKeyReader: ConfigReader[Map[Ref.ParticipantId, ParticipantConfig]] =
+  implicit val participantDataSourceConfigConvert: ConfigConvert[ParticipantDataSourceConfig] =
+    deriveConvert[ParticipantDataSourceConfig]
+
+  implicit val participantDataSourceConfigMapReader
+      : ConfigReader[Map[Ref.ParticipantId, ParticipantDataSourceConfig]] =
+    genericMapReader[Ref.ParticipantId, ParticipantDataSourceConfig]((s: String) =>
+      createParticipantId(s)
+    )
+  implicit val participantDataSourceConfigMapWriter
+      : ConfigWriter[Map[Ref.ParticipantId, ParticipantDataSourceConfig]] =
+    genericMapWriter[Ref.ParticipantId, ParticipantDataSourceConfig](_.toString)
+
+  implicit val participantConfigMapReader: ConfigReader[Map[Ref.ParticipantId, ParticipantConfig]] =
     genericMapReader[Ref.ParticipantId, ParticipantConfig]((s: String) => createParticipantId(s))
-  implicit val participantNameKeyWriter: ConfigWriter[Map[Ref.ParticipantId, ParticipantConfig]] =
+  implicit val participantConfigMapWriter: ConfigWriter[Map[Ref.ParticipantId, ParticipantConfig]] =
     genericMapWriter[Ref.ParticipantId, ParticipantConfig](_.toString)
 
   implicit val convert: ConfigConvert[Config] = deriveConvert[Config]

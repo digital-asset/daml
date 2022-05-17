@@ -10,8 +10,7 @@ object HoconMainWithEphemeralOracleUser {
   def main(args: Array[String]): Unit = {
     val user = OracleAround.createNewUniqueRandomUser()
     sys.addShutdownHook(user.drop())
-    System.setProperty("API_SERVER_DATABASE_JDBC_URL", user.jdbcUrl)
-    System.setProperty("INDEXER_DATABASE_JDBC_URL", user.jdbcUrl)
+    System.setProperty("DEFAULT_PARTICIPANT_DATABASE_JDBC_URL", user.jdbcUrl)
     System.setProperty("INDEXER_HIGH_AVAILABILITY_LOCK_ID", (user.lockIdSeed).toString)
     System.setProperty("INDEXER_HIGH_AVAILABILITY_WORKER_LOCK_ID", (user.lockIdSeed + 1).toString)
     SandboxOnXRunner.run(HoconCli.loadConfigWithOverrides(SandboxOnXRunner.RunnerName, args))

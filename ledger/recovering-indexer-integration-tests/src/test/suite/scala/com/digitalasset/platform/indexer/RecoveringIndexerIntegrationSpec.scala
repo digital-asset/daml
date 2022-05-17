@@ -31,7 +31,11 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
+import com.daml.platform.store.DbSupport.{
+  ConnectionPoolConfig,
+  DbConfig,
+  ParticipantDataSourceConfig,
+}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
@@ -203,10 +207,11 @@ class RecoveringIndexerIntegrationSpec
         config = IndexerConfig(
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
-          database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
+          dataSourceProperties = IndexerConfig.createDataSourceProperties(),
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+        participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
       )(materializer, loggingContext)
     } yield participantState._2
   }

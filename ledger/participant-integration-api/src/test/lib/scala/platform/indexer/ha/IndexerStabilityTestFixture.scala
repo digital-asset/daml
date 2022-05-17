@@ -11,6 +11,7 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
 
 import java.util.concurrent.Executors
@@ -64,7 +65,7 @@ object IndexerStabilityTestFixture {
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
-      database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
+      dataSourceProperties = IndexerConfig.createDataSourceProperties(),
     )
 
     newLoggingContext { implicit loggingContext =>
@@ -96,6 +97,7 @@ object IndexerStabilityTestFixture {
                   // Create an indexer and immediately start it
                   indexing <- new StandaloneIndexerServer(
                     participantId = EndlessReadService.participantId,
+                    participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,

@@ -37,7 +37,7 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |  source:   ${config.updateSource}
        |  count:    ${config.updateCount}
        |  required updates/sec: ${config.minUpdateRate.getOrElse("-")}
-       |  jdbcUrl:  ${config.indexerConfig.database.jdbcUrl}
+       |  jdbcUrl:  ${config.dataSource.jdbcUrl}
        |
        |Indexer parameters:
        |  maxInputBufferSize:        ${config.indexerConfig.maxInputBufferSize}

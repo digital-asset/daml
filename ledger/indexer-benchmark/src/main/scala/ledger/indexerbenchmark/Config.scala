@@ -7,6 +7,7 @@ import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import scopt.OptionParser
 
 import java.time.Duration
@@ -25,6 +26,7 @@ case class Config(
     waitForUserInput: Boolean,
     minUpdateRate: Option[Long],
     participantId: Ref.ParticipantId,
+    dataSource: ParticipantDataSourceConfig,
 )
 
 object Config {
@@ -35,11 +37,12 @@ object Config {
     metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
       startupMode = IndexerStartupMode.MigrateAndStart(),
-      database = IndexerConfig.createDefaultDatabaseConfig(""),
+      dataSourceProperties = IndexerConfig.createDataSourceProperties(),
     ),
     waitForUserInput = false,
     minUpdateRate = None,
     participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
+    dataSource = ParticipantDataSourceConfig(""),
   )
 
   private[this] val Parser: OptionParser[Config] =
@@ -88,12 +91,7 @@ object Config {
         .text(
           "The JDBC URL of the index database. Default: the benchmark will run against an ephemeral Postgres database."
         )
-        .action((value, config) =>
-          config.copy(indexerConfig =
-            config.indexerConfig
-              .copy(database = config.indexerConfig.database.copy(jdbcUrl = value))
-          )
-        )
+        .action((value, config) => config.copy(dataSource = ParticipantDataSourceConfig(value)))
 
       opt[Long]("update-count")
         .text(

@@ -5,7 +5,11 @@ package com.daml.ledger.runner.common
 
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.configuration.{IndexServiceConfig, PartyConfiguration}
-import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
+import com.daml.platform.store.DbSupport.{
+  ConnectionPoolConfig,
+  DataSourceProperties,
+  ParticipantDataSourceConfig,
+}
 import com.daml.platform.store.LfValueTranslationCache
 
 import java.util.concurrent.TimeUnit
@@ -38,6 +42,15 @@ object CliConfigConverter {
       contractsMaximumSize = cliConfig.lfValueTranslationContractCache,
       eventsMaximumSize = cliConfig.lfValueTranslationEventCache,
     ),
+    dataSourceProperties = DataSourceProperties(
+      connectionPool = ConnectionPoolConfig(
+        connectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
+        connectionTimeout = FiniteDuration(
+          config.apiServerDatabaseConnectionTimeout.toMillis,
+          TimeUnit.MILLISECONDS,
+        ),
+      )
+    ),
     apiServer = ApiServerConfig(
       port = config.port,
       address = config.address,
@@ -61,16 +74,6 @@ object CliConfigConverter {
       party = PartyConfiguration.Default
         .copy(implicitPartyAllocation = cliConfig.implicitPartyAllocation),
       timeProviderType = cliConfig.timeProviderType,
-      database = DbConfig(
-        jdbcUrl = config.serverJdbcUrl,
-        connectionPool = ConnectionPoolConfig(
-          connectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
-          connectionTimeout = FiniteDuration(
-            config.apiServerDatabaseConnectionTimeout.toMillis,
-            TimeUnit.MILLISECONDS,
-          ),
-        ),
-      ),
     ),
   )
 
@@ -82,6 +85,11 @@ object CliConfigConverter {
         reporter = config.metricsReporter,
         reportingInterval = config.metricsReportingInterval.toScala,
       ),
+      dataSource = config.participants.map { participantConfig =>
+        participantConfig.participantId -> ParticipantDataSourceConfig(
+          participantConfig.serverJdbcUrl
+        )
+      }.toMap,
       participants = config.participants.map { participantConfig =>
         participantConfig.participantId -> toParticipantConfig(
           configAdaptor,

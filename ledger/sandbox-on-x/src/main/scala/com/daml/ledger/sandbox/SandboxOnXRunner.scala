@@ -48,6 +48,9 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 import PureConfigReaderWriter._
 import com.daml.ledger.configuration.LedgerId
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+
+import scala.util.Try
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
@@ -68,9 +71,8 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
   ): AbstractResourceOwner[ResourceContext, Unit] = {
     new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
         SandboxOnXRunner.run(configAdaptor, config, bridgeConfig)
-      }
     }
   }
 
@@ -90,17 +92,40 @@ object SandboxOnXRunner {
 
       // Start the ledger
       (participantId, participantConfig) <- validateCombinedParticipantMode(config)
+      dataSource <- validateDataSource(config, participantId)
       _ <- buildLedger(
         participantId,
         config,
         participantConfig,
+        dataSource,
         bridgeConfig,
         materializer,
         actorSystem,
         configAdaptor,
       ).acquire()
-    } yield logInitializationHeader(config, participantId, participantConfig, bridgeConfig)
+    } yield logInitializationHeader(
+      config,
+      participantId,
+      participantConfig,
+      dataSource,
+      bridgeConfig,
+    )
   }
+
+  def validateDataSource(
+      config: Config,
+      participantId: Ref.ParticipantId,
+  ): Resource[ParticipantDataSourceConfig] =
+    Resource.fromTry(
+      Try(
+        config.dataSource.getOrElse(
+          participantId,
+          throw new IllegalArgumentException(
+            s"Data Source has not been provided for participantId=$participantId"
+          ),
+        )
+      )
+    )
 
   def validateCombinedParticipantMode(
       config: Config
@@ -121,6 +146,7 @@ object SandboxOnXRunner {
       participantId: Ref.ParticipantId,
       config: Config,
       participantConfig: ParticipantConfig,
+      participantDataSourceConfig: ParticipantDataSourceConfig,
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
@@ -157,13 +183,16 @@ object SandboxOnXRunner {
           translationCache,
           participantId,
           participantConfig,
+          participantDataSourceConfig,
         )
 
         dbSupport <- DbSupport
           .owner(
             serverRole = ServerRole.ApiServer,
             metrics = metrics,
-            dbConfig = participantConfig.apiServer.database,
+            dbConfig = participantConfig.dataSourceProperties.createDbConfig(
+              participantDataSourceConfig
+            ),
           )
 
         indexService <- StandaloneIndexService(
@@ -272,6 +301,7 @@ object SandboxOnXRunner {
       translationCache: LfValueTranslationCache.Cache,
       participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
+      participantDataSourceConfig: ParticipantDataSourceConfig,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
@@ -279,6 +309,7 @@ object SandboxOnXRunner {
     for {
       indexerHealth <- new StandaloneIndexerServer(
         participantId = participantId,
+        participantDataSourceConfig = participantDataSourceConfig,
         readService = readService,
         config = participantConfig.indexer,
         metrics = metrics,
@@ -361,6 +392,7 @@ object SandboxOnXRunner {
       config: Config,
       participantId: Ref.ParticipantId,
       participantConfig: ParticipantConfig,
+      participantDataSourceConfig: ParticipantDataSourceConfig,
       extra: BridgeConfig,
   ): Unit = {
     val apiServerConfig = participantConfig.apiServer
@@ -376,7 +408,7 @@ object SandboxOnXRunner {
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.runMode} participant",
         "index DB backend" -> DbType
-          .jdbcType(apiServerConfig.database.jdbcUrl)
+          .jdbcType(participantDataSourceConfig.jdbcUrl)
           .name,
         "participant-id" -> participantId,
         "ledger-id" -> config.ledgerId,

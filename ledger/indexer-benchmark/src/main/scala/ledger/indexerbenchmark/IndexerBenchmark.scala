@@ -18,6 +18,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.indexer.{Indexer, JdbcIndexer, StandaloneIndexerServer}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.resources
 import com.daml.testing.postgresql.PostgresResource
@@ -44,10 +45,7 @@ class IndexerBenchmark() {
         println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
         run(
           createUpdates,
-          config.copy(indexerConfig =
-            config.indexerConfig
-              .copy(database = config.indexerConfig.database.copy(jdbcUrl = db.url))
-          ),
+          config.copy(dataSource = ParticipantDataSourceConfig(db.url)),
         )
       })(ExecutionContext.parasitic)
 
@@ -73,6 +71,7 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
       val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
         config.participantId,
+        config.dataSource,
         config.indexerConfig,
         readService,
         metrics,
@@ -99,7 +98,7 @@ class IndexerBenchmark() {
         // Note: this allows the user to inpsect the contents of an ephemeral database
         if (config.waitForUserInput) {
           println(
-            s"Index database is still running at ${config.indexerConfig.database.jdbcUrl}."
+            s"Index database is still running at ${config.dataSource.jdbcUrl}."
           )
           StdIn.readLine("Press <enter> to terminate this process.")
         }
@@ -122,7 +121,11 @@ class IndexerBenchmark() {
     Await
       .result(
         StandaloneIndexerServer
-          .migrateOnly(dataSourceConfig = config.indexerConfig.database.dataSourceConfig)
+          .migrateOnly(dataSourceConfig =
+            config.indexerConfig.dataSourceProperties
+              .createDbConfig(config.dataSource)
+              .dataSourceConfig
+          )
           .map(_ => indexerFactory.initialized())(indexerExecutionContext),
         Duration(5, "minute"),
       )
@@ -174,7 +177,7 @@ object IndexerBenchmark {
       updates: () => Future[Source[(Offset, Update), NotUsed]],
   ): Unit = {
     val result: Future[Unit] =
-      (if (config.indexerConfig.database.jdbcUrl.isEmpty) {
+      (if (config.dataSource.jdbcUrl.isEmpty) {
          new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
        } else {
          new IndexerBenchmark().run(updates, config)

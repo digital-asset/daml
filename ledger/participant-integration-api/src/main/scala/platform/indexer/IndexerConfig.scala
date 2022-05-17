@@ -5,14 +5,14 @@ package com.daml.platform.indexer
 
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DataSourceProperties}
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
     batchingParallelism: Int = DefaultBatchingParallelism,
-    database: DbConfig = DefaultDatabase,
+    dataSourceProperties: DataSourceProperties = DefaultDataSourceProperties,
     enableCompression: Boolean = DefaultEnableCompression,
     highAvailability: HaConfig = DefaultHaConfig,
     ingestionParallelism: Int = DefaultIngestionParallelism,
@@ -25,11 +25,9 @@ case class IndexerConfig(
 
 object IndexerConfig {
 
-  def createDefaultDatabaseConfig(
-      jdbcUrl: String,
-      ingestionParallelism: Int = DefaultIngestionParallelism,
-  ): DbConfig = DbConfig(
-    jdbcUrl = jdbcUrl,
+  def createDataSourceProperties(
+      ingestionParallelism: Int = DefaultIngestionParallelism
+  ): DataSourceProperties = DataSourceProperties(
     // PostgresSQL specific configurations
     // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
     // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
@@ -60,11 +58,10 @@ object IndexerConfig {
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L
   val DefaultEnableCompression: Boolean = false
-  val DefaultDatabase: DbConfig = DbConfig(
-    jdbcUrl = "default-jdbc-url",
+  val DefaultDataSourceProperties: DataSourceProperties = DataSourceProperties(
     connectionPool = ConnectionPoolConfig(
       connectionPoolSize = 16,
       connectionTimeout = 250.millis,
-    ),
+    )
   )
 }

@@ -21,6 +21,20 @@ case class DbSupport(
 )
 
 object DbSupport {
+
+  case class ParticipantDataSourceConfig(jdbcUrl: String)
+
+  case class DataSourceProperties(
+      connectionPool: ConnectionPoolConfig,
+      postgres: PostgresDataSourceConfig = PostgresDataSourceConfig(),
+  ) {
+    def createDbConfig(config: ParticipantDataSourceConfig): DbConfig = DbConfig(
+      jdbcUrl = config.jdbcUrl,
+      connectionPool = connectionPool,
+      postgres = postgres,
+    )
+  }
+
   case class ConnectionPoolConfig(
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,

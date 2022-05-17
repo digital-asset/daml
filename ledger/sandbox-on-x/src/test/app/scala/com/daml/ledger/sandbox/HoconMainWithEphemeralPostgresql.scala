@@ -12,8 +12,7 @@ object HoconMainWithEphemeralPostgresql extends PostgresAround {
     connectToPostgresqlServer()
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
-    System.setProperty("API_SERVER_DATABASE_JDBC_URL", database.url)
-    System.setProperty("INDEXER_DATABASE_JDBC_URL", database.url)
+    System.setProperty("DEFAULT_PARTICIPANT_DATABASE_JDBC_URL", database.url)
     SandboxOnXRunner.run(HoconCli.loadConfigWithOverrides(SandboxOnXRunner.RunnerName, args))
   }
 }

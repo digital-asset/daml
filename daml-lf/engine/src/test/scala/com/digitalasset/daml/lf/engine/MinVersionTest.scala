@@ -26,6 +26,7 @@ import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.language.LanguageVersion.v1_14
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
@@ -128,17 +129,17 @@ final class MinVersionTest
     val config = Config.Default.copy(
       engine = Config.DefaultEngineConfig
         .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
+      dataSource = Config.Default.participants.map { case (key, _) =>
+        key -> ParticipantDataSourceConfig(jdbcUrl)
+      },
       participants = Config.Default.participants.map { case (key, value) =>
         key -> value.copy(
           apiServer = value.apiServer.copy(
-            database = value.apiServer.database
-              .copy(jdbcUrl = jdbcUrl),
             portFile = Some(portfile),
             port = Port.Dynamic,
             address = Some("localhost"),
             initialLedgerConfiguration = Some(configAdaptor.initialLedgerConfig(None)),
-          ),
-          indexer = value.indexer.copy(database = value.indexer.database.copy(jdbcUrl = jdbcUrl)),
+          )
         )
       },
     )

@@ -23,8 +23,7 @@ object MainWithEphemeralOracleUser {
                   highAvailability = participantConfig.indexerConfig.highAvailability.copy(
                     indexerLockId = user.lockIdSeed,
                     indexerWorkerLockId = user.lockIdSeed + 1,
-                  ),
-                  database = participantConfig.indexerConfig.database.copy(jdbcUrl = user.jdbcUrl),
+                  )
                 ),
               )
             )

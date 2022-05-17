@@ -14,6 +14,7 @@ import com.daml.platform.indexer.parallel.{
   ParallelIndexerFactory,
   ParallelIndexerSubscription,
 }
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
@@ -23,6 +24,7 @@ import scala.concurrent.Future
 object JdbcIndexer {
   private[daml] final class Factory(
       participantId: Ref.ParticipantId,
+      participantDataSourceConfig: ParticipantDataSourceConfig,
       config: IndexerConfig,
       readService: state.ReadService,
       metrics: Metrics,
@@ -30,7 +32,7 @@ object JdbcIndexer {
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
-      val factory = StorageBackendFactory.of(DbType.jdbcType(config.database.jdbcUrl))
+      val factory = StorageBackendFactory.of(DbType.jdbcType(participantDataSourceConfig.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val meteringStoreBackend = factory.createMeteringStorageWriteBackend
@@ -41,7 +43,7 @@ object JdbcIndexer {
       val indexer = ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        dbConfig = config.database,
+        dbConfig = config.dataSourceProperties.createDbConfig(participantDataSourceConfig),
         haConfig = config.highAvailability,
         metrics = metrics,
         dbLockStorageBackend = DBLockStorageBackend,
