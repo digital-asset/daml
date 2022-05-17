@@ -27,6 +27,7 @@ import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
@@ -136,6 +137,16 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     Timed.future(
       metrics.daml.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),
+    )
+
+  override def lookupContractAfterInterpretation(
+      contractId: Value.ContractId
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    Timed.future(
+      metrics.daml.services.index.lookupActiveContract, // TODO DPP-1026: introduce a new metric for this
+      delegate.lookupContractAfterInterpretation(contractId),
     )
 
   override def lookupContractKey(
