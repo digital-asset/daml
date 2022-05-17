@@ -25,7 +25,6 @@ import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSu
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data._
 import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value.VersionedContractInstance
@@ -251,8 +250,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
       createArguments <- requirePresence(disclosedContract.arguments, "arguments")
       recordId <- validateOptionalIdentifier(createArguments.recordId)
       validatedRecordField <- validateRecordFields(createArguments.fields)
-      // TODO DPP-1026 use correct metadata once the transaction stream actually outputs them
-      /*
       metadata <- requirePresence(disclosedContract.metadata, "metadata")
       createdAt <- requirePresence(metadata.createdAt, "created_at")
       validatedCreatedAt = TimestampConversion.toLf(
@@ -260,7 +257,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
         TimestampConversion.ConversionMode.Exact,
       )
       keyHash <- validateHash(metadata.contractKeyHash, "contract_key_hash")
-       */
     } yield DisclosedContract(
       contractId = contractId,
       contract = VersionedContractInstance(
@@ -271,14 +267,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
         ),
         agreementText = "", // TODO DPP-1026 is this needed for anything?
       ),
-      /*
       ledgerTime = validatedCreatedAt,
       keyHash = keyHash,
       driverMetadata = Bytes.fromByteString(metadata.driverMetadata),
-       */
-      ledgerTime = Timestamp.Epoch,
-      keyHash = None,
-      driverMetadata = Bytes.Empty,
     )
   }
 

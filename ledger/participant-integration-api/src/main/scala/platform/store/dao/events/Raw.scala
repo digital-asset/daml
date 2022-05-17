@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao.events
 
+import com.daml.api.util.TimestampConversion
+import com.daml.ledger.api.v1.commands.{ContractMetadata => PbContractMetadata}
 import com.daml.ledger.api.v1.event.{
   ArchivedEvent => PbArchivedEvent,
   CreatedEvent => PbCreatedEvent,
@@ -10,10 +12,13 @@ import com.daml.ledger.api.v1.event.{
   ExercisedEvent => PbExercisedEvent,
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.Identifier
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.Compression
+import com.google.protobuf.ByteString
 
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
@@ -76,7 +81,9 @@ object Raw {
         createObservers: ArraySeq[String],
         createAgreementText: Option[String],
         eventWitnesses: ArraySeq[String],
-    ): PbCreatedEvent =
+        createKeyHash: Option[Hash],
+        ledgerEffectiveTime: Timestamp,
+    ): PbCreatedEvent = {
       PbCreatedEvent(
         eventId = eventId,
         contractId = contractId,
@@ -87,7 +94,16 @@ object Raw {
         signatories = createSignatories,
         observers = createObservers,
         agreementText = createAgreementText.orElse(Some("")),
+        metadata = Some(
+          PbContractMetadata(
+            createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
+            contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+            // TODO DPP-1026: Store driver metadata in the database
+            driverMetadata = ByteString.EMPTY,
+          )
+        ),
       )
+    }
   }
 
   sealed trait FlatEvent extends Raw[PbFlatEvent]
@@ -124,7 +140,9 @@ object Raw {
           createAgreementText: Option[String],
           createKeyValue: Option[Array[Byte]],
           createKeyValueCompression: Option[Int],
+          createKeyHash: Option[Hash],
           eventWitnesses: ArraySeq[String],
+          ledgerEffectiveTime: Timestamp,
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -135,6 +153,8 @@ object Raw {
             createObservers = createObservers,
             createAgreementText = createAgreementText,
             eventWitnesses = eventWitnesses,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
@@ -212,7 +232,9 @@ object Raw {
           createAgreementText: Option[String],
           createKeyValue: Option[Array[Byte]],
           createKeyValueCompression: Option[Int],
+          createKeyHash: Option[Hash],
           eventWitnesses: ArraySeq[String],
+          ledgerEffectiveTime: Timestamp,
       ): Raw.TreeEvent.Created =
         new Raw.TreeEvent.Created(
           raw = Raw.Created(
@@ -223,6 +245,8 @@ object Raw {
             createObservers = createObservers,
             createAgreementText = createAgreementText,
             eventWitnesses = eventWitnesses,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
