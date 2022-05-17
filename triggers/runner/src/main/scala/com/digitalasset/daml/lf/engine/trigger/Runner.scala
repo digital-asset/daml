@@ -140,39 +140,39 @@ object Trigger extends StrictLogging {
     // Given an identifier to a high- or lowlevel trigger,
     // return an expression that will run the corresponding trigger
     // as a low-level trigger (by applying runTrigger) and the type of that expression.
-    def detectTriggerType(tyCon: TypeConName, tyArg: Type): Either[String, TypedExpr] = {
-      val triggerIds = TriggerIds(tyCon.packageId)
-      if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
-        logger.debug("Running low-level trigger")
-        val expr = EVal(triggerId)
-        val ty = TypeConApp(tyCon, ImmArray(tyArg))
-        Right(TypedExpr(expr, ty))
-      } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
-        logger.debug("Running high-level trigger")
+    def detectTriggerType(tiggerId: Identifier): Either[String, TypedExpr] = {
+      def error = Left(s"unknown trigger $triggerId")
+      compiledPackages.interface.lookupDefinition(triggerId) match {
+        case Right(GenDValue(TApp(TTyCon(tyCon), tyArg), _, _)) =>
+          val triggerIds = TriggerIds(tyCon.packageId)
+          if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+            logger.debug("Running low-level trigger")
+            val expr = EVal(triggerId)
+            val ty = TypeConApp(tyCon, ImmArray(tyArg))
+            Right(TypedExpr(expr, ty))
+          } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
+            logger.debug("Running high-level trigger")
 
-        val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
-        val expr = EApp(runTrigger, EVal(triggerId))
+            val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+            val expr = EApp(runTrigger, EVal(triggerId))
 
-        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
-        val stateTy = TApp(triggerState, tyArg)
-        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
-        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+            val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+            val stateTy = TApp(triggerState, tyArg)
+            val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+            val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
 
-        Right(TypedExpr(expr, ty))
-      } else {
-        Left(s"Unexpected trigger type constructor $tyCon")
+            Right(TypedExpr(expr, ty))
+          } else {
+            error
+          }
+        case _ =>
+          error
       }
     }
 
     val compiler = compiledPackages.compiler
     for {
-      definition <- compiledPackages.interface.lookupDefinition(triggerId).left.map(_.pretty)
-      expr <- definition match {
-        case GenDValue(TApp(TTyCon(tcon), stateTy), _, _) =>
-          detectTriggerType(tcon, stateTy)
-        case GenDValue(ty, _, _) => Left(s"$ty is not a valid type for a trigger")
-        case _ => Left(s"Trigger must points to a value but points to $definition")
-      }
+      expr <- detectTriggerType(triggerId)
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
       hasReadAs <- detectHasReadAs(compiledPackages.interface, triggerIds)
       converter: Converter = Converter(compiledPackages, triggerIds)
