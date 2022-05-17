@@ -32,7 +32,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
     with AppendedClues
     with OptionValues {
 
-  it should "divulge events" in {
+  it should "populate participant with contracts using specified application-ids and submitters" in {
     val submissionConfig = WorkflowConfig.FooSubmissionConfig(
       numberOfInstances = 100,
       numberOfObservers = 1,

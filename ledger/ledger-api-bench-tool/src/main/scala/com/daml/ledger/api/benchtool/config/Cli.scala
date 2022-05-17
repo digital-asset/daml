@@ -295,14 +295,14 @@ object Cli {
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
           for {
             name <- stringField("name")
-            partiesString <- stringField("parties").map(parseParties)
+            parties <- stringField("parties").map(parseParties)
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
-            parties = partiesString,
+            parties = parties,
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
