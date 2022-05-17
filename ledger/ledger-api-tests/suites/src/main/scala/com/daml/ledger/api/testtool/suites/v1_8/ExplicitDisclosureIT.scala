@@ -81,8 +81,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         delegatedCid,
         Some(malformedDisclosedContract),
       )
-      // TODO DPP-1026: right now this fails with INCONSISTENT_CONTRACT_KEY because the ledger doesn't do any extra
-      // validation of explicit disclosure. The bad contract key is caught as part of already existing transaction validation.
       exerciseFetchRequestWithBadDisclosureError <- ledger
         .submitAndWait(exerciseFetchRequestWithBadDisclosure)
         .failed
@@ -92,7 +90,13 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         None,
         checkDefiniteAnswerMetadata = true,
       )
-    } yield ()
+    } yield {
+      assert(disclosedContract.metadata.isDefined, "Create event has no metadata")
+      assert(
+        !disclosedContract.metadata.get.contractKeyHash.isEmpty,
+        "Create event metadata key hash is empty",
+      )
+    }
   })
 
   private def createEventToDisclosedContract(ev: CreatedEvent) = DisclosedContract(
