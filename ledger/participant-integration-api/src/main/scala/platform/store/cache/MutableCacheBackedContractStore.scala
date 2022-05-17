@@ -11,8 +11,10 @@ import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerT
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.store.cache
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.cache.ContractKeyStateValue._
@@ -56,6 +58,21 @@ private[platform] class MutableCacheBackedContractStore(
       .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))
       .flatMap(contractStateToResponse(readers, contractId))
+
+  override def lookupContractAfterInterpretation(
+      contractId: cache.ContractId
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+    contractsCache
+      .get(contractId)
+      .map(Future.successful)
+      .getOrElse(readThroughContractsCache(contractId))
+      .map {
+        case NotFound => None
+        case Active(contract, _, let) => Some(contract -> let)
+        case Archived(_) => None
+      }
 
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
