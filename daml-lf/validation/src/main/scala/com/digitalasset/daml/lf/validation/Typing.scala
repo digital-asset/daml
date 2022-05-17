@@ -458,7 +458,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, fixedChoices, methods, precond) =>
+        case DefInterface(requires, param, choices, methods, precond) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -469,7 +469,7 @@ private[validation] object Typing {
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
-          fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
+          choices.values.foreach(env.checkChoice(ifaceName, _))
       }
 
     private def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -486,20 +486,20 @@ private[validation] object Typing {
     ): Unit = {
 
       impls.foreach { case (iface, impl) =>
-        val DefInterfaceSignature(requires, _, fixedChoices, methods, _) =
+        val DefInterfaceSignature(requires, _, choices, methods, _) =
           handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
 
         requires
           .filterNot(impls.contains)
           .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, iface, required))
 
-        val fixedChoiceSet = fixedChoices.keySet
-        if (impl.inheritedChoices != fixedChoiceSet) {
+        val choicesSet = choices.keySet
+        if (impl.inheritedChoices != choicesSet) {
           throw EBadInheritedChoices(
             ctx,
             impl.interfaceId,
             tplTcon,
-            fixedChoiceSet,
+            choicesSet,
             impl.inheritedChoices,
           )
         }

@@ -294,7 +294,7 @@ genDataDef curPkgId mod tpls def = case unTypeConName (dataTypeCon def) of
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intFixedChoices} =
+genIfaceDecl pkgId mod DefInterface {intName, intChoices} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
@@ -310,7 +310,7 @@ genIfaceDecl pkgId mod DefInterface {intName, intFixedChoices} =
     (choices, choiceRefs) =
       unzip $
       [ (ChoiceDef (unChoiceName (chcName chc)) argTy rTy, Set.union argRefs retRefs)
-      | chc <- NM.toList intFixedChoices
+      | chc <- NM.toList intChoices
       , let argTy = TypeRef (moduleName mod) (snd (chcArgBinder chc))
       , let rTy = TypeRef (moduleName mod) (chcReturnType chc)
       , let argRefs = Set.setOf typeModuleRef (refType argTy)
