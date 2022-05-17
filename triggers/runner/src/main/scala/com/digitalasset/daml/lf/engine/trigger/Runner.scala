@@ -140,7 +140,7 @@ object Trigger extends StrictLogging {
     // Given an identifier to a high- or lowlevel trigger,
     // return an expression that will run the corresponding trigger
     // as a low-level trigger (by applying runTrigger) and the type of that expression.
-    val detectTriggerType: Either[String, TypedExpr] = {
+    def detectTriggerType(triggerId: Identifier): Either[String, TypedExpr] = {
       def error = Left(s"unknown trigger $triggerId")
       compiledPackages.interface.lookupDefinition(triggerId) match {
         case Right(GenDValue(TApp(TTyCon(tyCon), tyArg), _, _)) =>
@@ -172,7 +172,7 @@ object Trigger extends StrictLogging {
 
     val compiler = compiledPackages.compiler
     for {
-      expr <- detectTriggerType
+      expr <- detectTriggerType(triggerId)
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
       hasReadAs <- detectHasReadAs(compiledPackages.interface, triggerIds)
       converter: Converter = Converter(compiledPackages, triggerIds)
