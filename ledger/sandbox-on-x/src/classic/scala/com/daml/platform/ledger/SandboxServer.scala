@@ -252,7 +252,7 @@ object SandboxServer {
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
-      new FlywayMigrations(DataSourceStorageBackend.DataSourceConfig(config.jdbcUrl.get))
+      new FlywayMigrations(config.jdbcUrl.get)
         .migrate()
     }
 

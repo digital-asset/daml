@@ -6,7 +6,6 @@ package com.daml.platform.store.migration.postgres
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.FlywayMigrations
-import com.daml.platform.store.backend.DataSourceStorageBackend
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -25,7 +24,7 @@ class PostgresRemovalOfJavaMigrations
 
   it should "migrate an empty database to the latest schema" in {
     val migration =
-      new FlywayMigrations(DataSourceStorageBackend.DataSourceConfig(postgresDatabase.url))
+      new FlywayMigrations(postgresDatabase.url)
     for {
       _ <- migration.migrate()
     } yield {
@@ -36,7 +35,7 @@ class PostgresRemovalOfJavaMigrations
   // Last version before the last Java migration
   it should "fail to migration from V37 to the latest schema" in {
     val migration =
-      new FlywayMigrations(DataSourceStorageBackend.DataSourceConfig(postgresDatabase.url))
+      new FlywayMigrations(postgresDatabase.url)
     for {
       _ <- Future(migrateTo("37"))
       err <- migration.migrate().failed
@@ -48,7 +47,7 @@ class PostgresRemovalOfJavaMigrations
   // Version of the last Java migration
   it should "migrate from V38 to the latest schema" in {
     val migration =
-      new FlywayMigrations(DataSourceStorageBackend.DataSourceConfig(postgresDatabase.url))
+      new FlywayMigrations(postgresDatabase.url)
     for {
       _ <- Future(migrateTo("38"))
       _ <- migration.migrate()
@@ -60,7 +59,7 @@ class PostgresRemovalOfJavaMigrations
   // First version after the last Java migration
   it should "migrate from V39 to the latest schema" in {
     val migration =
-      new FlywayMigrations(DataSourceStorageBackend.DataSourceConfig(postgresDatabase.url))
+      new FlywayMigrations(postgresDatabase.url)
     for {
       _ <- Future(migrateTo("39"))
       _ <- migration.migrate()

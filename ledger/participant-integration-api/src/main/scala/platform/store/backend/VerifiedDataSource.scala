@@ -19,13 +19,13 @@ object VerifiedDataSource {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  def apply(dataSourceConfig: DataSourceStorageBackend.DataSourceConfig)(implicit
+  def apply(jdbcUrl: String)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[DataSource] = {
     val dataSourceStorageBackend =
       StorageBackendFactory
-        .of(DbType.jdbcType(dataSourceConfig.jdbcUrl))
+        .of(DbType.jdbcType(jdbcUrl))
         .createDataSourceStorageBackend
     for {
       dataSource <- RetryStrategy.constant(
@@ -33,7 +33,9 @@ object VerifiedDataSource {
         waitTime = 1.second,
       ) { (i, _) =>
         Future {
-          val createdDatasource = dataSourceStorageBackend.createDataSource(dataSourceConfig)
+          val createdDatasource = dataSourceStorageBackend.createDataSource(
+            DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+          )
           logger.info(
             s"Attempting to connect to the database (attempt $i/$MaxInitialConnectRetryAttempts)"
           )

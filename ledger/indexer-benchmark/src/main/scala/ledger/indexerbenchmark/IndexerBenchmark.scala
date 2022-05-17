@@ -121,11 +121,7 @@ class IndexerBenchmark() {
     Await
       .result(
         StandaloneIndexerServer
-          .migrateOnly(dataSourceConfig =
-            config.indexerConfig.dataSourceProperties
-              .createDbConfig(config.dataSource)
-              .dataSourceConfig
-          )
+          .migrateOnly(config.dataSource.jdbcUrl)
           .map(_ => indexerFactory.initialized())(indexerExecutionContext),
         Duration(5, "minute"),
       )

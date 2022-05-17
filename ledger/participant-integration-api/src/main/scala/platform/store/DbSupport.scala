@@ -45,10 +45,11 @@ object DbSupport {
       connectionPool: ConnectionPoolConfig,
       postgres: PostgresDataSourceConfig = PostgresDataSourceConfig(),
   ) {
-    def dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
-      jdbcUrl = jdbcUrl,
-      postgresConfig = postgres,
-    )
+    def dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
+      DataSourceStorageBackend.DataSourceConfig(
+        jdbcUrl = jdbcUrl,
+        postgresConfig = postgres,
+      )
   }
 
   def owner(
@@ -83,7 +84,7 @@ object DbSupport {
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
     val migrationOwner = new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[ResourceContext, Unit] =
-        PureResource(new FlywayMigrations(dbConfig.dataSourceConfig).migrate())
+        PureResource(new FlywayMigrations(dbConfig.jdbcUrl).migrate())
     }
 
     for {
