@@ -96,9 +96,6 @@ object AbstractHttpServiceIntegrationTestFuns {
     def decoder: DomainJsonDecoder
   }
 
-  // TODO SC remove
-  private final case class MkUriFixture(uri: Uri) extends UriFixture
-
   private[http] final case class HttpServiceOnlyTestFixtureData(
       uri: Uri,
       encoder: DomainJsonEncoder,
@@ -555,21 +552,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = postContractsLookup(cmd, uri, headers, None)
-
-  @deprecated("TODO SC unused?", since = "2.3.0")
-  protected def postContractsLookup(
-      cmd: domain.ContractLocator[JsValue],
-      uri: Uri,
-      readAs: Option[List[domain.Party]] = None,
-  ): Future[(StatusCode, JsValue)] =
-    MkUriFixture(uri).headersWithAuth.flatMap(headers =>
-      postContractsLookup(
-        cmd,
-        uri,
-        headers,
-        readAs,
-      )
-    )
 
   protected def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
     val result = getResult(output)
