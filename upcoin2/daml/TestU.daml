@@ -1,0 +1,37 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestU where
+
+import Daml.Script
+
+import UpgradableDesign
+
+script1 : Script ()
+script1 = do
+
+  alice <- allocateParty "Alice"
+  bank <- allocateParty "Bank"
+  --charlie <- allocateParty "Charlie"
+
+  -- bank administered rules
+  rules1 <- submit bank do createCmd RulesT with admin = bank
+
+  -- bank created/owned coins
+  coin1 <- submit bank do createCmd UnitCoinT with issuer = bank, owner = bank
+
+  -- transfer coin1 to Alice (as coin2). Need authority from both bank & alice
+  coin2 <- submitMulti [alice,bank] [] do -- TODO: what is 2nd set of parties for?
+    exerciseCmd rules1 RulesT_Transfer with
+      coin = toInterfaceContractId coin1
+      owner = bank
+      newOwner = alice
+
+  -- trying to transfer the same coin again must fail
+  _ <- submitMultiMustFail [alice,bank] [] do -- TODO: what is 2nd set of parties for?
+    exerciseCmd rules1 RulesT_Transfer with
+      coin = toInterfaceContractId coin1
+      owner = bank
+      newOwner = alice
+
+  pure ()

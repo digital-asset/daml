@@ -1,0 +1,62 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module UpgradableDesign where
+
+interface CoinI where
+
+  getIssuer : Party
+
+  transferImpl : Party -> Update (ContractId CoinI)
+
+  nonconsuming choice CoinI_Duplicate : ContractId CoinI -- TODO: nothing calls this!
+    with
+      newOwner : Party
+    controller (signatory this)
+    do transferImpl this newOwner -- delegate to data template
+
+  choice CoinI_Archive : ()
+    controller (signatory this)
+    do pure ()
+
+
+template RulesT -- TODO: RulesI
+  with
+    admin : Party
+  where
+    signatory [admin]
+
+    nonconsuming choice RulesT_Transfer : (ContractId CoinI)
+      with
+        coin : ContractId CoinI
+        owner : Party -- TODO: can we get from coin?
+        newOwner : Party
+      controller [owner,newOwner]
+      do
+        -- TODO: need to assert the owner passed is the coin owner?
+        -- Here we do the actual archive/create for the old/new coins
+        old : CoinI <- fetch coin
+        exercise coin CoinI_Archive
+        -- TODO: use duplicate instaed of create, dispatching to coin interface
+        new : ContractId UnitCoinT <- create UnitCoinT with issuer = getIssuer old, owner = newOwner
+        let newAsInterface : ContractId CoinI = toInterfaceContractId new
+        pure newAsInterface
+
+
+
+template UnitCoinT
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory [issuer,owner]
+
+    implements CoinI where
+
+      getIssuer : Party = do
+        issuer
+
+      transferImpl : Party -> Update (ContractId CoinI) = do
+        \(_:Party) -> do
+          -- TODO: dispatch to rules choice, via ??
+           undefined
