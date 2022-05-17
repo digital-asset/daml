@@ -255,7 +255,7 @@ trait AbstractTriggerServiceTest
       JsObject(fields) = body.parseJson
       _ <- fields.get("status") shouldBe Some(JsNumber(expectedError.intValue))
       _ <- fields.get("errors") shouldBe
-        Some(JsArray(JsString(s"unknown definition $testPkgId:TestTrigger:foobar")))
+        Some(JsArray(JsString(s"unknown trigger $testPkgId:TestTrigger:foobar")))
     } yield succeed
   }
 
