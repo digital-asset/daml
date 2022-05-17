@@ -119,6 +119,20 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       }
     }
 
+    "called with endInclusive lteq startExclusive" should {
+      "return an empty Inclusive slice if startExclusive is gteq buffer start" in withBuffer() {
+        buffer =>
+          buffer.slice(offset1, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty, None)
+          buffer.slice(offset2, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty, None)
+      }
+      "return an empty Suffix slice if startExclusive is before buffer start" in withBuffer(
+        maxBufferSize = 2L
+      ) { buffer =>
+        buffer.slice(offset1, offset1, IdentityFilter) shouldBe Suffix(offset1, Vector.empty, None)
+        buffer.slice(offset2, offset1, IdentityFilter) shouldBe Suffix(offset1, Vector.empty, None)
+      }
+    }
+
     "called with startExclusive before the buffer start" should {
       "return a Suffix slice" in withBuffer() { buffer =>
         buffer.slice(Offset.beforeBegin, offset3, IdentityFilter) shouldBe Suffix(

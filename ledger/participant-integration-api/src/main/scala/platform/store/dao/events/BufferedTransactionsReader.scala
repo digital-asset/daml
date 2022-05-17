@@ -6,7 +6,6 @@ package com.daml.platform.store.dao.events
 import akka.NotUsed
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -53,8 +52,6 @@ private[events] class BufferedTransactionsReader(
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
-  private val outputStreamBufferSize = 128
-
   private val flatTransactionsBufferMetrics =
     metrics.daml.services.index.BufferedReader("flat_transactions")
   private val transactionTreesBufferMetrics =
@@ -82,7 +79,6 @@ private[events] class BufferedTransactionsReader(
       toApiTx = flatToApiTransactions(filter, verbose, loggingContext),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
       bufferReaderMetrics = flatTransactionsBufferMetrics,
-      outputStreamBufferSize = outputStreamBufferSize,
     )
   }
 
@@ -105,7 +101,6 @@ private[events] class BufferedTransactionsReader(
       toApiTx = treesToApiTransactions(requestingParties, verbose, loggingContext),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       bufferReaderMetrics = transactionTreesBufferMetrics,
-      outputStreamBufferSize = outputStreamBufferSize,
     )
 
   override def lookupFlatTransactionById(
@@ -155,6 +150,9 @@ private[events] class BufferedTransactionsReader(
 }
 
 private[platform] object BufferedTransactionsReader {
+  private val outputStreamBufferSize = 128
+  private val maxInStreamBufferSize = 128
+
   type FetchTransactions[FILTER, API_RESPONSE] =
     (Offset, Offset, FILTER, Boolean) => Source[(Offset, API_RESPONSE), NotUsed]
 
@@ -191,7 +189,6 @@ private[platform] object BufferedTransactionsReader {
       toApiTx: ToApi[API_RESPONSE],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
-      outputStreamBufferSize: Int,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
     def getNextChunk(startExclusive: Offset): () => Source[(Offset, API_RESPONSE), NotUsed] = () =>
       getTransactions(transactionsBuffer)(
@@ -205,74 +202,60 @@ private[platform] object BufferedTransactionsReader {
         toApiTx,
         fetchTransactions,
         bufferReaderMetrics,
-        outputStreamBufferSize,
       )
+
+    def sourceFromBufferAndContinuation(
+        bufferSlice: Vector[(Offset, TransactionLogUpdate.Transaction)],
+        continue: Option[Offset],
+    ) = {
+      val bufferSource =
+        if (bufferSlice.isEmpty) Source.empty
+        else
+          Source
+            .fromIterator(() => bufferSlice.iterator)
+            .async
+            .buffered(maxInStreamBufferSize)(bufferReaderMetrics.inStreamBufferLength)
+            .mapAsync(1) { case (offset, payload) =>
+              bufferReaderMetrics.fetchedBuffered.inc()
+              Timed.future(
+                bufferReaderMetrics.conversion,
+                toApiTx(payload).map(offset -> _)(ExecutionContext.parasitic),
+              )
+            }
+
+      bufferSource.concatLazy {
+        continue
+          .map(from => Source.lazySource(getNextChunk(from)))
+          .getOrElse(Source.empty)
+      }
+    }
+
+    val bufferSlice = transactionsBuffer.slice(
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      filter = {
+        case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
+        case _ => None
+      },
+    )
+
+    val source = bufferSlice match {
+      case BufferSlice.Suffix(headOffset, tail, continue) =>
+        fetchTransactions(startExclusive, headOffset, filter, verbose)
+          .concat(sourceFromBufferAndContinuation(tail, continue))
+
+      case BufferSlice.Inclusive(slice, continue) =>
+        sourceFromBufferAndContinuation(slice, continue)
+    }
 
     Timed
-      .source(
-        bufferReaderMetrics.fetchTimer, {
-          transactionsBuffer.slice(
-            startExclusive,
-            endInclusive,
-            {
-              case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
-              case _ => None
-            },
-          ) match {
-            case BufferSlice.Suffix(headOffset, tail, continue) =>
-              fetchTransactions(startExclusive, headOffset, filter, verbose)
-                .concat(
-                  sliceSource(
-                    tail,
-                    toApiTx,
-                    bufferReaderMetrics.conversion,
-                    bufferReaderMetrics.inStreamBufferLength,
-                    bufferReaderMetrics.fetchedBuffered,
-                  )
-                )
-                .concatLazy {
-                  continue
-                    .map(from => Source.lazySource(getNextChunk(from)))
-                    .getOrElse(Source.empty)
-                }
-
-            case BufferSlice.Inclusive(slice, continue) =>
-              sliceSource(
-                slice,
-                toApiTx,
-                bufferReaderMetrics.conversion,
-                bufferReaderMetrics.inStreamBufferLength,
-                bufferReaderMetrics.fetchedBuffered,
-              ).concatLazy {
-                continue.map(from => Source.lazySource(getNextChunk(from))).getOrElse(Source.empty)
-              }
-          }
-        }.map(tx => {
-          bufferReaderMetrics.fetchedTotal.inc()
-          tx
-        }),
-      )
+      .source(bufferReaderMetrics.fetchTimer, source)
+      .map { tx =>
+        bufferReaderMetrics.fetchedTotal.inc()
+        tx
+      }
       .buffered(outputStreamBufferSize)(bufferReaderMetrics.bufferSize)
   }
-
-  private def sliceSource[API_RESPONSE, FILTER](
-      bufferSlice: Vector[(Offset, TransactionLogUpdate.Transaction)],
-      toApiTx: TransactionLogUpdate.Transaction => Future[API_RESPONSE],
-      toApiTxTimer: Timer,
-      inStreamBufferLength: Counter,
-      resolvedFromBuffer: Counter,
-  ) =
-    if (bufferSlice.isEmpty) Source.empty
-    else {
-      Source
-        .fromIterator(() => bufferSlice.iterator)
-        .async
-        .buffered(128)(inStreamBufferLength)
-        .mapAsync(1) { case (offset, payload) =>
-          resolvedFromBuffer.inc()
-          Timed.future(toApiTxTimer, toApiTx(payload).map(offset -> _)(ExecutionContext.parasitic))
-        }
-    }
 
   // TODO LLP: Consider merging with InstrumentedSource.bufferedSource
   private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {

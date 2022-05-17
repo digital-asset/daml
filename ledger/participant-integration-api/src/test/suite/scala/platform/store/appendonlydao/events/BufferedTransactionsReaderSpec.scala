@@ -96,7 +96,6 @@ class BufferedTransactionsReaderSpec
           toApiTx = toApiTx,
           fetchTransactions = fetchTransactions,
           bufferReaderMetrics = metrics.daml.services.index.BufferedReader("some_tx_stream"),
-          outputStreamBufferSize = 128,
         )
         .runWith(Sink.seq)
 

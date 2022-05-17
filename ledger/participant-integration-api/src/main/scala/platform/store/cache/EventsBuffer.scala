@@ -102,29 +102,55 @@ final class EventsBuffer[ENTRY](
         if (bufferSnapshot.rangeEnd.exists(_ < endInclusive)) {
           throw RequestOffBufferBounds(bufferSnapshot.rangeEnd.get, endInclusive)
         } else {
-          val bufferStartInclusiveIdx = searchByOffset(vectorSnapshot, startExclusive)
-          val bufferEndExclusiveIdx = searchByOffset(vectorSnapshot, endInclusive)
+          val bufferStartSearchResult = vectorSnapshot.searchBy(startExclusive, _._1)
+          val bufferEndSearchResult = vectorSnapshot.searchBy(endInclusive, _._1)
+
+          val bufferStartInclusiveIdx = indexAfter(bufferStartSearchResult)
+          val bufferEndExclusiveIdx = indexAfter(bufferEndSearchResult)
+
           val bufferSlice = vectorSnapshot.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
 
-          if (bufferStartInclusiveIdx == 0) {
-            // The buffer is potentially a suffix of the fetched window
-            if (bufferSlice.isEmpty) {
-              // If the slice is empty, the entire window is before the buffer bounds
+          bufferStartSearchResult match {
+            case InsertionPoint(0) if bufferSlice.isEmpty =>
               Suffix(endInclusive, Vector.empty, None)
-            } else {
+            case InsertionPoint(0) =>
               val (filteredSlice, continueFrom) = filterAndChunkSlice(bufferSlice.tail, filter)
               // We "waste" the first element of the slice in order to provide
               // a buffered start exclusive offset that can be used in the caller as an endInclusive
               // for back-filling the window elements that are before the buffer's bounds.
               Suffix(bufferSlice.head._1, filteredSlice, continueFrom)
-            }
-          } else {
-            val (filteredSlice, continueFrom) = filterAndChunkSlice(bufferSlice, filter)
-            Inclusive(filteredSlice, continueFrom)
+            case InsertionPoint(_) | Found(_) =>
+              val (filteredSlice, continueFrom) = filterAndChunkSlice(bufferSlice, filter)
+              Inclusive(filteredSlice, continueFrom)
           }
         }
       },
     )
+
+  /** Removes entries starting from the buffer tail up until `endInclusive`.
+    *
+    * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
+    */
+  def prune(endInclusive: Offset): Unit =
+    Timed.value(
+      pruneTimer,
+      synchronized {
+        _bufferStateRef.vector.searchBy(endInclusive, _._1) match {
+          case Found(foundIndex) =>
+            _bufferStateRef =
+              _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(foundIndex + 1))
+          case InsertionPoint(insertionPoint) =>
+            _bufferStateRef =
+              _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(insertionPoint))
+        }
+      },
+    )
+
+  private def indexAfter(bufferStartInclusiveSearchResult: SearchResult) =
+    bufferStartInclusiveSearchResult match {
+      case InsertionPoint(insertionPoint) => insertionPoint
+      case Found(foundIndex) => foundIndex + 1
+    }
 
   private def filterAndChunkSlice[FILTER_RESULT](
       bufferSlice: Vector[(Offset, ENTRY)],
@@ -151,30 +177,6 @@ final class EventsBuffer[ENTRY](
     (filteredEntries, Option.when(it.hasNext)(lastScannedOffset))
   }
 
-  private def searchByOffset(buffer: Vector[(Offset, ENTRY)], offset: Offset) =
-    buffer.searchBy(offset, _._1) match {
-      case InsertionPoint(insertionPoint) => insertionPoint
-      case Found(foundIndex) => foundIndex + 1
-    }
-
-  /** Removes entries starting from the buffer tail up until `endInclusive`.
-    *
-    * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
-    */
-  def prune(endInclusive: Offset): Unit =
-    Timed.value(
-      pruneTimer,
-      synchronized {
-        _bufferStateRef.vector.searchBy(endInclusive, _._1) match {
-          case Found(foundIndex) =>
-            _bufferStateRef =
-              _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(foundIndex + 1))
-          case InsertionPoint(insertionPoint) =>
-            _bufferStateRef =
-              _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(insertionPoint))
-        }
-      },
-    )
 }
 
 private[platform] object BufferSlice {

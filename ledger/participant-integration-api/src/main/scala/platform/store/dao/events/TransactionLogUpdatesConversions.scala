@@ -45,7 +45,7 @@ private[events] object TransactionLogUpdatesConversions {
             exercisedEvent
         }
         val filteredFlatEvents = flatTransactionEvents
-          .filter(FlatTransactionPredicate(_, wildcardParties, templateSpecificParties))
+          .filter(flatTransactionPredicate(wildcardParties, templateSpecificParties))
         val commandIdO = filteredFlatEvents.collectFirst {
           case event if event.commandId.nonEmpty => event.commandId
         }
@@ -98,20 +98,17 @@ private[events] object TransactionLogUpdatesConversions {
       aux.filter(ev => permanent(ev.contractId))
     }
 
-    private val FlatTransactionPredicate =
-      (
-          event: TxUpdate.Event,
-          wildcardParties: Set[Party],
-          templateSpecificParties: Map[Identifier, Set[Party]],
-      ) => {
+    private def flatTransactionPredicate(
+        wildcardParties: Set[Party],
+        templateSpecificParties: Map[Identifier, Set[Party]],
+    )(event: TxUpdate.Event) = {
+      val stakeholdersMatchingParties =
+        event.flatEventWitnesses.exists(wildcardParties)
 
-        val stakeholdersMatchingParties =
-          event.flatEventWitnesses.exists(wildcardParties)
-
-        stakeholdersMatchingParties || templateSpecificParties
-          .get(event.templateId)
-          .exists(_.exists(event.flatEventWitnesses))
-      }
+      stakeholdersMatchingParties || templateSpecificParties
+        .get(event.templateId)
+        .exists(_.exists(event.flatEventWitnesses))
+    }
 
     private def toFlatEvent(
         event: TxUpdate.Event,
@@ -208,7 +205,7 @@ private[events] object TransactionLogUpdatesConversions {
     def filter(requestingParties: Set[Party]): Filter = transaction => {
       val filteredForVisibility =
         transaction.events
-          .filter(TransactionTreePredicate(requestingParties))
+          .filter(transactionTreePredicate(requestingParties))
 
       Option.when(filteredForVisibility.nonEmpty)(transaction.copy(events = filteredForVisibility))
     }
@@ -406,12 +403,13 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    private val TransactionTreePredicate: Set[Party] => TxUpdate.Event => Boolean =
-      requestingParties => {
-        case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
-        case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
-        case _ => false
-      }
+    private def transactionTreePredicate(
+        requestingParties: Set[Party]
+    ): TxUpdate.Event => Boolean = {
+      case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
+      case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
+      case _ => false
+    }
   }
 
   private def timestampToTimestamp(t: com.daml.lf.data.Time.Timestamp): Timestamp =
