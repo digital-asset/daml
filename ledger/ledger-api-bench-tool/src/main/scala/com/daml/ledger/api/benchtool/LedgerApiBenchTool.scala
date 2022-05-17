@@ -78,7 +78,7 @@ object LedgerApiBenchTool {
 
 }
 
-case class SubmissionStepResult(val allocatedParties: AllocatedParties)
+case class SubmissionStepResult(allocatedParties: AllocatedParties)
 
 class LedgerApiBenchTool(
     names: Names,

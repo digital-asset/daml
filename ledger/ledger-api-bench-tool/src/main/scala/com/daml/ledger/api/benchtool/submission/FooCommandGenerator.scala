@@ -25,7 +25,7 @@ final class FooCommandGenerator(
     allocatedParties: AllocatedParties,
     divulgeesToDivulgerKeyMap: Map[Set[Primitive.Party], Value],
 ) extends CommandGenerator {
-  private val templateDistribution = new Distribution[FooSubmissionConfig.ContractDescription](
+  private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),
     items = config.instanceDistribution.toIndexedSeq,
   )
@@ -41,7 +41,7 @@ final class FooCommandGenerator(
     (for {
       (contractDescription, observers, divulgees) <- Try(
         (
-          pickContractDescriptor(),
+          pickContractDescription(),
           pickParties(observersWithUnlikelihood),
           pickParties(divulgeesWithUnlikelihood).toSet,
         )
@@ -64,8 +64,8 @@ final class FooCommandGenerator(
       )
     }
 
-  private def pickContractDescriptor(): FooSubmissionConfig.ContractDescription =
-    templateDistribution.choose(randomnessProvider.randomDouble())
+  private def pickContractDescription(): FooSubmissionConfig.ContractDescription =
+    contractDescriptions.choose(randomnessProvider.randomDouble())
 
   private def pickParties(unlikelihoods: List[(Primitive.Party, Int)]): List[Primitive.Party] =
     unlikelihoods

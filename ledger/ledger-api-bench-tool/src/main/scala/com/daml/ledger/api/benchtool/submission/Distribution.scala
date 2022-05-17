@@ -9,8 +9,8 @@ class Distribution[T](weights: List[Int], items: IndexedSeq[T]) {
   assert(weights.size == items.size, "The number of weights and items must be the same.")
   assert(!weights.exists(_ < 1), "Weights must be strictly positive.")
 
-  private lazy val totalWeight: Long = weights.map(_.toLong).sum
-  private lazy val distribution: List[Double] =
+  private val totalWeight: Long = weights.map(_.toLong).sum
+  private val distribution: List[Double] =
     weights.scanLeft(0)((sum, weight) => sum + weight).map(_.toDouble / totalWeight).tail
 
   def choose(randomDouble: Double): T = items(index(randomDouble))
