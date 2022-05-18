@@ -13,11 +13,11 @@ interface CoinI where
 
   nonconsuming choice CoinI_Transfer : ContractId CoinI
     with
-      rules : ContractId RulesT
+      rules : ContractId RulesI
       newOwner : Party
     controller [(_view this).owner, newOwner]
     do
-      exercise rules RulesT_Transfer_Impl with
+      exercise rules RulesI_Transfer_Impl with
         coin = self
         view = _view this
         authority = signatory this ++ [newOwner]
@@ -28,7 +28,24 @@ interface CoinI where
     do pure ()
 
 
-template RulesT -- TODO: eventually go via a rules interface
+interface RulesI where
+
+  -- Core Transfer logic. The coin delegates back here.
+  -- The collected authority is passed explicitly.
+  nonconsuming choice RulesI_Transfer_Impl : (ContractId CoinI)
+    with
+      coin : ContractId CoinI
+      view : CoinView
+      authority : [Party]
+      newOwner : Party
+    controller authority
+    do
+      new <- create UnitCoinT with issuer = view.issuer, owner = newOwner
+      exercise coin CoinI_Archive
+      pure $ toInterfaceContractId new
+
+
+template RulesT
   with
     admin : Party
     obs : [Party]
@@ -36,7 +53,9 @@ template RulesT -- TODO: eventually go via a rules interface
     signatory [admin]
     observer obs
 
-    -- The rules choose what kind of coin to mint.
+    implements RulesI
+
+    -- The Mint entry point.
     nonconsuming choice RulesT_Mint : (ContractId CoinI)
       with issuer : Party
       controller [issuer]
@@ -44,28 +63,14 @@ template RulesT -- TODO: eventually go via a rules interface
         new <- create UnitCoinT with issuer, owner = issuer
         pure $ toInterfaceContractId new
 
-    -- The Transfer entry point. This delegates via the coin to collect (issuer) authority.
+    -- The Transfer entry point. Delegates to the coin to collect (issuer) authority.
     nonconsuming choice RulesT_Transfer : (ContractId CoinI)
       with
         coin : ContractId CoinI
         owner : Party
         newOwner : Party
       controller [owner,newOwner]
-      do exercise coin CoinI_Transfer with rules = self, newOwner
-
-    -- The core Transfer logic. (The coin delegates back to here.)
-    -- Authority is passed explicitly.
-    nonconsuming choice RulesT_Transfer_Impl : (ContractId CoinI)
-      with
-        coin : ContractId CoinI
-        view : CoinView
-        authority : [Party]
-        newOwner : Party
-      controller authority
-      do
-        new <- create UnitCoinT with issuer = view.issuer, owner = newOwner
-        exercise coin CoinI_Archive
-        pure $ toInterfaceContractId new
+      do exercise coin CoinI_Transfer with rules = toInterfaceContractId self, newOwner
 
 
 template UnitCoinT
