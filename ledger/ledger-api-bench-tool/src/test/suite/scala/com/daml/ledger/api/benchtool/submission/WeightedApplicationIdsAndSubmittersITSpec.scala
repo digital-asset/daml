@@ -13,7 +13,6 @@ import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding
-import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.timer.Delayed
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -26,7 +25,6 @@ import scala.concurrent.duration.Duration
 class WeightedApplicationIdsAndSubmittersITSpec
     extends AsyncFlatSpec
     with SandboxFixture
-    with SandboxBackend.Postgresql
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues
@@ -129,6 +127,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
         applicationId = applicationId,
         beginOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
         objectives = None,
+        timeoutInSeconds = 0,
       ),
       observer = observer,
     )

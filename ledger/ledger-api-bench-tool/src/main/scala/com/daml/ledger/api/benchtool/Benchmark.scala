@@ -3,14 +3,17 @@
 
 package com.daml.ledger.api.benchtool
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.benchtool.metrics.{MetricsSet, StreamMetrics, BenchmarkResult}
+import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, MetricsSet, StreamMetrics}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
+import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 object Benchmark {
@@ -89,6 +92,9 @@ object Benchmark {
               ),
             )(system, ec)
             .flatMap { observer =>
+              Delayed.by(t = Duration(streamConfig.timeoutInSeconds, TimeUnit.SECONDS))(
+                observer.cancel()
+              )
               apiServices.commandCompletionService.completions(streamConfig, observer)
             }
       }

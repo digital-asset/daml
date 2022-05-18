@@ -105,12 +105,13 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           filters = List(PartyFilter(party1, Nil)),
           objectives = None,
         ),
-        s"stream-type=completions,name=$name,parties=$party1+$party2,application-id=$appId" -> CompletionsStreamConfig(
+        s"stream-type=completions,name=$name,parties=$party1+$party2,application-id=$appId,timeout=123" -> CompletionsStreamConfig(
           name = name,
           parties = List(party1, party2),
           applicationId = appId,
           beginOffset = None,
           objectives = None,
+          timeoutInSeconds = 123,
         ),
       )
       forAll(cases) { (argument, config) =>

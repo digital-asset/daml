@@ -181,6 +181,9 @@ object Cli {
             case None => Left(s"Missing field: '$fieldName'")
           }
 
+        def longField(fieldName: String): Either[String, Long] =
+          stringField(fieldName).map(_.toLong)
+
         def optionalStringField(fieldName: String): Either[String, Option[String]] =
           Right(m.get(fieldName))
 
@@ -300,12 +303,14 @@ object Cli {
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            timeoutInSeconds <- longField("timeout")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
             parties = parties,
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
+            timeoutInSeconds = timeoutInSeconds,
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {

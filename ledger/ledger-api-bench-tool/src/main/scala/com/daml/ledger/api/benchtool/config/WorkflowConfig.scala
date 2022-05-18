@@ -102,6 +102,7 @@ object WorkflowConfig {
         parties: List[String],
         applicationId: String,
         beginOffset: Option[LedgerOffset],
+        timeoutInSeconds: Long,
         objectives: Option[StreamConfig.RateObjectives],
     ) extends StreamConfig
 
