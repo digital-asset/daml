@@ -42,7 +42,7 @@ object Features {
       optionalLedgerId = experimental.optionalLedgerId.isDefined,
       contractIds = experimental.getContractIds,
       committerEventLog = experimental.getCommitterEventLog,
-      explicitDisclosure = experimental.explicitDisclosure.isDefined,
+      explicitDisclosure = experimental.explicitDisclosure.exists(_.supported),
     )
   }
 }
