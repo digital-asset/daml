@@ -223,6 +223,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): AsyncValidation[Unit] = {
+    // Note that the validation fails fast on the first unknown/invalid contract.
     disclosedContracts.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
       case (f, provided) =>
         f.flatMap {
@@ -233,14 +234,11 @@ private[validate] class ConflictCheckWithCommittedImpl(
                 case None =>
                   Left(
                     // Disclosed contract was archived or never existed
-                    // This has intentionally the same error code as the cases below,
-                    // to make sure malicious users cannot learn about the activeness of a third party contract
-                    // by faking the contract stakeholders to get around Daml authorization rules.
-                    DisclosedContractInvalid(provided.contractId, completionInfo)
+                    UnknownContracts(Set(provided.contractId))(completionInfo)
                   )
                 case Some(actual) if !sameContractData(actual, provided)(loggingContext) =>
                   Left(
-                    // Disclosed contract has a bad payload, most likely submitted by a malicious user
+                    // Disclosed contract has a bad payload, someone has attempted to tamper with it
                     DisclosedContractInvalid(provided.contractId, completionInfo)
                   )
                 case _ => Right(())
