@@ -19,8 +19,8 @@ object LfValueTranslationCache {
   type ContractCache = caching.Cache[ContractCache.Key, ContractCache.Value]
 
   final case class Config(
-      eventsMaximumSize: caching.SizedCache.Configuration,
-      contractsMaximumSize: caching.SizedCache.Configuration,
+      eventsMaximumSize: caching.SizedCache.Configuration = caching.SizedCache.Configuration.none,
+      contractsMaximumSize: caching.SizedCache.Configuration = caching.SizedCache.Configuration.none,
   )
 
   object Cache {

@@ -7,6 +7,10 @@ import java.nio.file.Paths
 
 import scala.util.Try
 
+/*
+This class is copying `JwtVerifierConfigurationCli`, but sets `AuthServiceConfig` instead of `JwtVerifierBase`.
+This will have to be cleaned up, as soon as Cli for SoX will be switched over HOCON configuration.
+ */
 object AuthServiceConfigCli {
   def parse[C](parser: scopt.OptionParser[C])(setter: (AuthServiceConfig, C) => C): Unit = {
     def setAuthServiceConfig(authServiceConfig: AuthServiceConfig, c: C): C =

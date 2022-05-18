@@ -198,7 +198,7 @@ final class CliConfigSpec
   }
 
   it should "return the default when env variable not provided" in {
-    val defaultJdbc = CliParticipantConfig.defaultIndexJdbcUrl(participantId)
+    val defaultJdbc = ParticipantConfig.defaultIndexJdbcUrl(participantId)
     val config = configParser(
       Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
     ).getOrElse(parsingFailure())

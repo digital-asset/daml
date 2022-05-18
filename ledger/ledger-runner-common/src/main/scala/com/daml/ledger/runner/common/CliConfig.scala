@@ -213,7 +213,7 @@ object CliConfig {
               kv.getOrElse(
                 "server-jdbc-url",
                 jdbcUrlFromEnv
-                  .getOrElse(CliParticipantConfig.defaultIndexJdbcUrl(participantId)),
+                  .getOrElse(ParticipantConfig.defaultIndexJdbcUrl(participantId)),
               )
             val apiServerConnectionPoolSize = kv
               .get("api-server-connection-pool-size")

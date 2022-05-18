@@ -3,8 +3,6 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.caching
-import com.daml.ledger.runner.common.ParticipantConfig._
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.configuration.IndexServiceConfig
@@ -14,30 +12,21 @@ import com.daml.platform.store.LfValueTranslationCache
 import scala.concurrent.duration._
 
 final case class ParticipantConfig(
-    apiServer: ApiServerConfig = DefaultApiServer,
-    dataSourceProperties: DataSourceProperties = DefaultDataSourceProperties,
-    indexService: IndexServiceConfig = DefaultIndexConfig,
-    indexer: IndexerConfig = DefaultIndexerConfig,
-    lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
-    runMode: ParticipantRunMode = DefaultRunMode,
+    apiServer: ApiServerConfig = ApiServerConfig(),
+    dataSourceProperties: DataSourceProperties = DataSourceProperties(
+      connectionPool = ConnectionPoolConfig(
+        connectionPoolSize = 16,
+        connectionTimeout = 250.millis,
+      )
+    ),
+    indexService: IndexServiceConfig = IndexServiceConfig(),
+    indexer: IndexerConfig = IndexerConfig(),
+    lfValueTranslationCache: LfValueTranslationCache.Config = LfValueTranslationCache.Config(),
+    runMode: ParticipantRunMode = ParticipantRunMode.Combined,
 )
 
 object ParticipantConfig {
+  def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
+    s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
   val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("default")
-  val DefaultShardName: Option[String] = None
-  val DefaultRunMode: ParticipantRunMode = ParticipantRunMode.Combined
-  val DefaultIndexerConfig: IndexerConfig = IndexerConfig()
-  val DefaultIndexConfig: IndexServiceConfig = IndexServiceConfig()
-  val DefaultLfValueTranslationCache: LfValueTranslationCache.Config =
-    LfValueTranslationCache.Config(
-      eventsMaximumSize = caching.SizedCache.Configuration.none,
-      contractsMaximumSize = caching.SizedCache.Configuration.none,
-    )
-  val DefaultDataSourceProperties: DataSourceProperties = DataSourceProperties(
-    connectionPool = ConnectionPoolConfig(
-      connectionPoolSize = 16,
-      connectionTimeout = 250.millis,
-    )
-  )
-  val DefaultApiServer: ApiServerConfig = ApiServerConfig()
 }

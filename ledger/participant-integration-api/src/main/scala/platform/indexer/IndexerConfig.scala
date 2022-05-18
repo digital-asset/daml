@@ -57,7 +57,6 @@ object IndexerConfig {
   val DefaultIndexerStartupMode: IndexerStartupMode.MigrateAndStart =
     IndexerStartupMode.MigrateAndStart(allowExistingSchema = false)
   val DefaultHaConfig: HaConfig = HaConfig()
-  val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
   val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
@@ -65,10 +64,4 @@ object IndexerConfig {
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L
   val DefaultEnableCompression: Boolean = false
-  val DefaultDataSourceProperties: DataSourceProperties = DataSourceProperties(
-    connectionPool = ConnectionPoolConfig(
-      connectionPoolSize = 16,
-      connectionTimeout = 250.millis,
-    )
-  )
 }

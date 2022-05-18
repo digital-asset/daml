@@ -31,9 +31,6 @@ final case class CliParticipantConfig(
 )
 
 object CliParticipantConfig {
-  def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
-    s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
-
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultApiServerDatabaseConnectionTimeout: Duration = 250.millis
 
