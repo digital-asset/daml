@@ -112,6 +112,7 @@ object TransactionLogUpdatesReader {
             .map(Ref.Party.assertFromString)
             .toSet,
           createAgreementText = raw.createAgreementText,
+          createKeyHash = raw.createKeyHash,
         )
       case unknownKind =>
         throw InvalidEventKind(unknownKind)
