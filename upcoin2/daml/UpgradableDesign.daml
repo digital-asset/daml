@@ -3,23 +3,25 @@
 
 module UpgradableDesign where
 
+data CoinView = CoinView with
+  issuer : Party
+  owner : Party
+    deriving (Eq,Show)
 
 interface CoinI where
-  getIssuer : Party
-  getOwner : Party
+  _view : CoinView
 
-  -- TODO: maybe split Transfer choice into separate Mint and Archive components
   nonconsuming choice CoinI_Transfer : ContractId CoinI
     with
       rules : ContractId RulesT
       newOwner : Party
-    controller [getOwner this, newOwner]
+    controller [(_view this).owner, newOwner]
     do
-      -- TODO: too much logic here?
-      let coin : ContractId CoinI = self
-      let issuer = getIssuer this
-      let owner = getOwner this
-      exercise rules RulesT_Transfer_Impl with coin, issuer, owner, newOwner
+      exercise rules RulesT_Transfer_Impl with
+        coin = self
+        view = _view this
+        authority = signatory this ++ [newOwner]
+        newOwner
 
   choice CoinI_Archive : ()
     controller (signatory this)
@@ -46,25 +48,22 @@ template RulesT -- TODO: eventually go via a rules interface
     nonconsuming choice RulesT_Transfer : (ContractId CoinI)
       with
         coin : ContractId CoinI
-        owner : Party -- TODO: do we really have to pass?
+        owner : Party
         newOwner : Party
       controller [owner,newOwner]
-      do
-      -- TODO: should we assert the owner passed is the coin owner?
-        exercise coin CoinI_Transfer with rules = self, newOwner
+      do exercise coin CoinI_Transfer with rules = self, newOwner
 
-    -- The core logic of Transfer. The coin delegate back to here.
-    -- everything is passed in explicitly for auth -- TODO: maybe can do via a singe arg
+    -- The core Transfer logic. (The coin delegates back to here.)
+    -- Authority is passed explicitly.
     nonconsuming choice RulesT_Transfer_Impl : (ContractId CoinI)
       with
         coin : ContractId CoinI
-        issuer : Party
-        owner : Party
+        view : CoinView
+        authority : [Party]
         newOwner : Party
-      controller [issuer,owner,newOwner]
+      controller authority
       do
-        -- we choose here what kinds of coin to create. TODO: could the coin decide?
-        new <- create UnitCoinT with issuer, owner = newOwner
+        new <- create UnitCoinT with issuer = view.issuer, owner = newOwner
         exercise coin CoinI_Archive
         pure $ toInterfaceContractId new
 
@@ -77,6 +76,4 @@ template UnitCoinT
     signatory [issuer,owner]
 
     implements CoinI where
-
-      getIssuer : Party = do issuer
-      getOwner : Party = do owner
+      _view : CoinView =  CoinView with issuer, owner

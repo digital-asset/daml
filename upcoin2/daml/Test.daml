@@ -40,7 +40,7 @@ script1 = do
   coin3 <- submitMulti [alice,charlie] [] $ do
     exerciseCmd rules1 RulesT_Transfer with
       coin = coin2
-      owner = alice -- TODO: can we avoid having to pass?
+      owner = alice
       newOwner = charlie
 
   pure ()
