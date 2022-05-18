@@ -137,13 +137,25 @@ object Trigger extends StrictLogging {
       triggerId: Identifier,
   )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Trigger] = {
 
+    def error(triggerId: Identifier, ty: Type): Left[String, Nothing] = {
+      val triggerIds = TriggerIds(Ref.PackageId.assertFromString("-"))
+      val lowLevelTrigger = TTyCon(triggerIds.damlTriggerLowLevel("Trigger"))
+      val highLevelTrigger = TTyCon(triggerIds.damlTriggerLowLevel("Trigger"))
+      val a = TVar(Name.assertFromString("a"))
+      Left(
+        s"the definition $triggerId has not a valid trigger type: " +
+          "expected a type of the form " +
+          s"(${TApp(lowLevelTrigger, a).pretty}) or (${TApp(highLevelTrigger, a).pretty}) " +
+          s"but get (${ty.pretty})"
+      )
+    }
+
     // Given an identifier to a high- or lowlevel trigger,
     // return an expression that will run the corresponding trigger
     // as a low-level trigger (by applying runTrigger) and the type of that expression.
-    def detectTriggerType(triggerId: Identifier): Either[String, TypedExpr] = {
-      def error = Left(s"unknown trigger $triggerId")
-      compiledPackages.interface.lookupDefinition(triggerId) match {
-        case Right(GenDValue(TApp(TTyCon(tyCon), tyArg), _, _)) =>
+    def detectTriggerType(triggerId: Identifier, ty: Type): Either[String, TypedExpr] = {
+      ty match {
+        case TApp(TTyCon(tyCon), tyArg) =>
           val triggerIds = TriggerIds(tyCon.packageId)
           if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
             logger.debug("Running low-level trigger")
@@ -152,7 +164,6 @@ object Trigger extends StrictLogging {
             Right(TypedExpr(expr, ty))
           } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
             logger.debug("Running high-level trigger")
-
             val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
             val expr = EApp(runTrigger, EVal(triggerId))
 
@@ -163,16 +174,17 @@ object Trigger extends StrictLogging {
 
             Right(TypedExpr(expr, ty))
           } else {
-            error
+            error(triggerId, ty)
           }
         case _ =>
-          error
+          error(triggerId, ty)
       }
     }
 
     val compiler = compiledPackages.compiler
     for {
-      expr <- detectTriggerType(triggerId)
+      definition <- compiledPackages.interface.lookupValue(triggerId).left.map(_.pretty)
+      expr <- detectTriggerType(triggerId, definition.typ)
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
       hasReadAs <- detectHasReadAs(compiledPackages.interface, triggerIds)
       converter: Converter = Converter(compiledPackages, triggerIds)
