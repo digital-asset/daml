@@ -258,6 +258,7 @@ final class BuffersUpdaterSpec
         createSignatories = null,
         createObservers = null,
         createAgreementText = Some(createAgreement),
+        createKeyHash = null,
       )
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
