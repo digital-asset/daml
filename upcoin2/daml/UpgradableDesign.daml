@@ -19,7 +19,7 @@ interface CoinI where
       let coin : ContractId CoinI = self
       let issuer = getIssuer this
       let owner = getOwner this
-      exercise rules RulesT_Transfer_Impl_3way with coin, issuer, owner, newOwner
+      exercise rules RulesT_Transfer_Impl with coin, issuer, owner, newOwner
 
   choice CoinI_Archive : ()
     controller (signatory this)
@@ -55,7 +55,7 @@ template RulesT -- TODO: eventually go via a rules interface
 
     -- The core logic of Transfer. The coin delegate back to here.
     -- everything is passed in explicitly for auth -- TODO: maybe can do via a singe arg
-    nonconsuming choice RulesT_Transfer_Impl_3way : (ContractId CoinI)
+    nonconsuming choice RulesT_Transfer_Impl : (ContractId CoinI)
       with
         coin : ContractId CoinI
         issuer : Party
