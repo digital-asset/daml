@@ -47,12 +47,18 @@ final case class CountRateMetric[T](
         (objective, finalValue(totalDuration))
     }
 
+  /** @return rate per second
+    */
   private def periodicRate(periodDuration: Duration): Double =
     (counter - lastCount) * 1000.0 / periodDuration.toMillis
 
+  /** @return rate per second
+    */
   private def totalRate(totalDuration: Duration): Double =
     counter / totalDuration.toMillis.toDouble * 1000.0
 
+  /** @return a list of: an objective and the smallest value that violates that objective
+    */
   private def updatedPeriodicObjectives(
       newValue: Value
   ): List[(RateObjective, Option[Value])] = {
