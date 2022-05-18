@@ -776,6 +776,7 @@ abstract class EventStorageBackendTemplate(
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
+      hashFromHexString("create_key_hash").? ~
       byteArray("create_argument").? ~
       int("create_argument_compression").? ~
       array[Int]("tree_event_witnesses") ~
@@ -791,7 +792,7 @@ abstract class EventStorageBackendTemplate(
       long("event_sequential_id") ~
       offset("event_offset")).map {
       case eventKind ~ transactionId ~ nodeIndex ~ commandId ~ workflowId ~ eventId ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createSignatories ~
-          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~
+          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~ createKeyHash ~
           createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
@@ -813,6 +814,7 @@ abstract class EventStorageBackendTemplate(
           createAgreementText,
           createKeyValue,
           createKeyCompression,
+          createKeyHash,
           createArgument,
           createArgumentCompression,
           treeEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
@@ -852,6 +854,7 @@ abstract class EventStorageBackendTemplate(
            create_agreement_text,
            create_key_value,
            create_key_value_compression,
+           create_key_hash,
            create_argument,
            create_argument_compression,
            tree_event_witnesses,
@@ -887,6 +890,7 @@ abstract class EventStorageBackendTemplate(
            NULL as create_agreement_text,
            create_key_value,
            create_key_value_compression,
+           NULL as create_key_hash,
            NULL as create_argument,
            NULL as create_argument_compression,
            tree_event_witnesses,
@@ -922,6 +926,7 @@ abstract class EventStorageBackendTemplate(
            NULL as create_agreement_text,
            create_key_value,
            create_key_value_compression,
+           NULL as create_key_hash,
            NULL as create_argument,
            NULL as create_argument_compression,
            tree_event_witnesses,
