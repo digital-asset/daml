@@ -10,28 +10,37 @@ import UpgradableDesign
 script1 : Script ()
 script1 = do
 
+  admin <- allocateParty "Administrator"
   alice <- allocateParty "Alice"
   bank <- allocateParty "Bank"
-  --charlie <- allocateParty "Charlie"
+  charlie <- allocateParty "Charlie"
 
-  -- bank administered rules
-  rules1 <- submit bank do createCmd RulesT with admin = bank
+  -- Admin administrated rules.
+  rules1 <- submit admin do createCmd RulesT with admin, obs = [bank,alice,charlie]
 
-  -- bank created/owned coins
-  coin1 <- submit bank do createCmd UnitCoinT with issuer = bank, owner = bank
+  -- Bank issued coin.
+  coin1 <- submit bank do exerciseCmd rules1 RulesT_Mint with issuer = bank
 
-  -- transfer coin1 to Alice (as coin2). Need authority from both bank & alice
-  coin2 <- submitMulti [alice,bank] [] do -- TODO: what is 2nd set of parties for?
+  -- Transfer coin to Alice.
+  coin2 <- submitMulti [bank,alice] [] $ do
     exerciseCmd rules1 RulesT_Transfer with
-      coin = toInterfaceContractId coin1
+      coin = coin1
       owner = bank
       newOwner = alice
 
-  -- trying to transfer the same coin again must fail
-  _ <- submitMultiMustFail [alice,bank] [] do -- TODO: what is 2nd set of parties for?
+  -- The original coin is dead; it cannot be transfered again.
+  submitMultiMustFail [bank,alice] [] $ do
     exerciseCmd rules1 RulesT_Transfer with
-      coin = toInterfaceContractId coin1
+      coin = coin1
       owner = bank
       newOwner = alice
+
+  -- Transfer coin from Alice to Charlie.
+  -- Note: We do not require submit-authority from the issuing Bank.
+  coin3 <- submitMulti [alice,charlie] [] $ do
+    exerciseCmd rules1 RulesT_Transfer with
+      coin = coin2
+      owner = alice -- TODO: can we avoid having to pass?
+      newOwner = charlie
 
   pure ()

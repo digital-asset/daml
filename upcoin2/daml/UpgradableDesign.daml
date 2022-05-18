@@ -3,45 +3,70 @@
 
 module UpgradableDesign where
 
+
 interface CoinI where
-
   getIssuer : Party
+  getOwner : Party
 
-  transferImpl : Party -> Update (ContractId CoinI)
-
-  nonconsuming choice CoinI_Duplicate : ContractId CoinI -- TODO: nothing calls this!
+  -- TODO: maybe split Transfer choice into separate Mint and Archive components
+  nonconsuming choice CoinI_Transfer : ContractId CoinI
     with
+      rules : ContractId RulesT
       newOwner : Party
-    controller (signatory this)
-    do transferImpl this newOwner -- delegate to data template
+    controller [getOwner this, newOwner]
+    do
+      -- TODO: too much logic here?
+      let coin : ContractId CoinI = self
+      let issuer = getIssuer this
+      let owner = getOwner this
+      exercise rules RulesT_Transfer_Impl_3way with coin, issuer, owner, newOwner
 
   choice CoinI_Archive : ()
     controller (signatory this)
     do pure ()
 
 
-template RulesT -- TODO: RulesI
+template RulesT -- TODO: eventually go via a rules interface
   with
     admin : Party
+    obs : [Party]
   where
     signatory [admin]
+    observer obs
 
+    -- The rules choose what kind of coin to mint.
+    nonconsuming choice RulesT_Mint : (ContractId CoinI)
+      with issuer : Party
+      controller [issuer]
+      do
+        new <- create UnitCoinT with issuer, owner = issuer
+        pure $ toInterfaceContractId new
+
+    -- The Transfer entry point. This delegates via the coin to collect (issuer) authority.
     nonconsuming choice RulesT_Transfer : (ContractId CoinI)
       with
         coin : ContractId CoinI
-        owner : Party -- TODO: can we get from coin?
+        owner : Party -- TODO: do we really have to pass?
         newOwner : Party
       controller [owner,newOwner]
       do
-        -- TODO: need to assert the owner passed is the coin owner?
-        -- Here we do the actual archive/create for the old/new coins
-        old : CoinI <- fetch coin
-        exercise coin CoinI_Archive
-        -- TODO: use duplicate instaed of create, dispatching to coin interface
-        new : ContractId UnitCoinT <- create UnitCoinT with issuer = getIssuer old, owner = newOwner
-        let newAsInterface : ContractId CoinI = toInterfaceContractId new
-        pure newAsInterface
+      -- TODO: should we assert the owner passed is the coin owner?
+        exercise coin CoinI_Transfer with rules = self, newOwner
 
+    -- The core logic of Transfer. The coin delegate back to here.
+    -- everything is passed in explicitly for auth -- TODO: maybe can do via a singe arg
+    nonconsuming choice RulesT_Transfer_Impl_3way : (ContractId CoinI)
+      with
+        coin : ContractId CoinI
+        issuer : Party
+        owner : Party
+        newOwner : Party
+      controller [issuer,owner,newOwner]
+      do
+        -- we choose here what kinds of coin to create. TODO: could the coin decide?
+        new <- create UnitCoinT with issuer, owner = newOwner
+        exercise coin CoinI_Archive
+        pure $ toInterfaceContractId new
 
 
 template UnitCoinT
@@ -53,10 +78,5 @@ template UnitCoinT
 
     implements CoinI where
 
-      getIssuer : Party = do
-        issuer
-
-      transferImpl : Party -> Update (ContractId CoinI) = do
-        \(_:Party) -> do
-          -- TODO: dispatch to rules choice, via ??
-           undefined
+      getIssuer : Party = do issuer
+      getOwner : Party = do owner

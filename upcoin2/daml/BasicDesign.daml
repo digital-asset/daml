@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module BasicDesign where
+module BasicDesign where -- TODO: remove this when I have the UpgradableDesign to same point
 
 template BasicCoin
   with
