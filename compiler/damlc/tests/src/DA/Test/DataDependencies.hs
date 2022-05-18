@@ -1584,6 +1584,26 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
         , "x = e"
         ]
 
+    , simpleImportTest "Constraint synonym context on class"
+        [ "module Lib where"
+
+        , "class A x where a : x"
+        , "class B x where b : x"
+
+        , "type AB x = (A x, B x)"
+
+        , "class AB x => C x"
+        ]
+        [ "module Main where"
+        , "import Lib"
+
+        , "useAfromC : C x => x"
+        , "useAfromC = a"
+
+        , "useBfromC : C x => x"
+        , "useBfromC = b"
+        ]
+
     , simpleImportTest "Fixities are preserved"
         [ "module Lib where"
 

@@ -429,7 +429,7 @@ generateSrcFromLf env = noLoc mod
         let occName = mkOccName clsName (T.unpack name)
         pure $ do
             supers <- sequence
-                [ convType env reexportedClasses fieldType
+                [ convTypeLiftingConstraintTuples env reexportedClasses fieldType
                 | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , isSuperClassField fieldName
                 ]
