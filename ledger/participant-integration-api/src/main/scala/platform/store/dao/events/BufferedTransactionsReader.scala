@@ -49,8 +49,7 @@ private[events] class BufferedTransactionsReader(
         LoggingContext,
     ) => ToApi[GetTransactionTreesResponse],
     metrics: Metrics,
-)(implicit executionContext: ExecutionContext)
-    extends LedgerDaoTransactionsReader {
+) extends LedgerDaoTransactionsReader {
 
   private val flatTransactionsBufferMetrics =
     metrics.daml.services.index.BufferedReader("flat_transactions")
@@ -189,64 +188,50 @@ private[platform] object BufferedTransactionsReader {
       toApiTx: ToApi[API_RESPONSE],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
-  )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
-    def getNextChunk(startExclusive: Offset): () => Source[(Offset, API_RESPONSE), NotUsed] = () =>
-      getTransactions(transactionsBuffer)(
-        startExclusive,
-        endInclusive,
-        filter,
-        verbose,
-        metrics,
-      )(
-        filterEvents,
-        toApiTx,
-        fetchTransactions,
-        bufferReaderMetrics,
-      )
+  ): Source[(Offset, API_RESPONSE), NotUsed] = {
+    def bufferSource(
+        bufferSlice: Vector[(Offset, TransactionLogUpdate.Transaction)]
+    ) =
+      if (bufferSlice.isEmpty) Source.empty
+      else
+        Source
+          .fromIterator(() => bufferSlice.iterator)
+          .async
+          .buffered(maxInStreamBufferSize)(bufferReaderMetrics.inStreamBufferLength)
+          .mapAsync(1) { case (offset, payload) =>
+            bufferReaderMetrics.fetchedBuffered.inc()
+            Timed.future(
+              bufferReaderMetrics.conversion,
+              toApiTx(payload).map(offset -> _)(ExecutionContext.parasitic),
+            )
+          }
 
-    def sourceFromBufferAndContinuation(
-        bufferSlice: Vector[(Offset, TransactionLogUpdate.Transaction)],
-        continue: Option[Offset],
-    ) = {
-      val bufferSource =
-        if (bufferSlice.isEmpty) Source.empty
-        else
-          Source
-            .fromIterator(() => bufferSlice.iterator)
-            .async
-            .buffered(maxInStreamBufferSize)(bufferReaderMetrics.inStreamBufferLength)
-            .mapAsync(1) { case (offset, payload) =>
-              bufferReaderMetrics.fetchedBuffered.inc()
-              Timed.future(
-                bufferReaderMetrics.conversion,
-                toApiTx(payload).map(offset -> _)(ExecutionContext.parasitic),
-              )
-            }
+    val source = Source
+      .unfold(startExclusive) {
+        case scannedToInclusive if scannedToInclusive < endInclusive =>
+          val bufferSlice = transactionsBuffer.slice(
+            scannedToInclusive,
+            endInclusive,
+            {
+              case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
+              case _ => None
+            },
+          )
 
-      bufferSource.concatLazy {
-        continue
-          .map(from => Source.lazySource(getNextChunk(from)))
-          .getOrElse(Source.empty)
-      }
-    }
-
-    val bufferSlice = transactionsBuffer.slice(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      filter = {
-        case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
+          bufferSlice match {
+            case BufferSlice.Inclusive(slice, continueFrom) =>
+              val source = bufferSource(slice)
+              Some(continueFrom.map(_ -> source).getOrElse(endInclusive -> source))
+            case BufferSlice.Suffix(bufferedStartExclusive, slice, continueFrom) =>
+              val source =
+                fetchTransactions(startExclusive, bufferedStartExclusive, filter, verbose).concat(
+                  bufferSource(slice)
+                )
+              Some(continueFrom.map(_ -> source).getOrElse(endInclusive -> source))
+          }
         case _ => None
-      },
-    )
-
-    val source = bufferSlice match {
-      case BufferSlice.Suffix(headOffset, tail, continue) =>
-        fetchTransactions(startExclusive, headOffset, filter, verbose)
-          .concat(sourceFromBufferAndContinuation(tail, continue))
-
-      case BufferSlice.Inclusive(slice, continue) =>
-        sourceFromBufferAndContinuation(slice, continue)
-    }
+      }
+      .flatMapConcat(identity)
 
     Timed
       .source(bufferReaderMetrics.fetchTimer, source)
