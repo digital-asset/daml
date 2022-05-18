@@ -4,11 +4,12 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.error.definitions.ErrorCause
-import com.daml.ledger.api.domain.Commands
+import com.daml.ledger.api.domain.{Commands, DisclosedContract}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -62,6 +63,11 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           val usedContractIds: Set[ContractId] = cer.transaction
             .inputContracts[ContractId]
             .collect { case id: ContractId => id }
+          // TODO DPP-1026: Adapt to the output of the engine if necessary
+          val usedDisclosedContracts =
+            commands.disclosedContracts.filter(c => usedContractIds.contains(c.contractId))
+          val usedDisclosedContractIds = usedDisclosedContracts.map(_.contractId)
+          val usedLocalContractIds = usedContractIds -- usedDisclosedContractIds
 
           def failed = Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
           def success(c: CommandExecutionResult) = Future.successful(Right(c))
@@ -71,7 +77,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           }
 
           contractStore
-            .lookupMaximumLedgerTimeAfterInterpretation(usedContractIds)
+            .lookupMaximumLedgerTimeAfterInterpretation(usedLocalContractIds)
+            .map(adjustTimeForDisclosedContracts(_, usedDisclosedContracts))
             .transformWith {
               case Success(MaximumLedgerTime.NotAvailable) =>
                 success(cer)
@@ -120,6 +127,26 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 failed
             }
       }
+
+  private[this] def adjustTimeForDisclosedContracts(
+      result: MaximumLedgerTime,
+      disclosedContracts: Set[DisclosedContract],
+  ): MaximumLedgerTime = {
+    if (disclosedContracts.isEmpty) {
+      result
+    } else {
+      val maxDisclosedContractTime = disclosedContracts.map(_.ledgerTime).max
+      result match {
+        case MaximumLedgerTime.Max(maxUsedTime) =>
+          MaximumLedgerTime.Max(
+            implicitly[Ordering[Timestamp]].max(maxDisclosedContractTime, maxUsedTime)
+          )
+        case MaximumLedgerTime.NotAvailable =>
+          MaximumLedgerTime.Max(maxDisclosedContractTime)
+        case other => other
+      }
+    }
+  }
 
   private[this] def advanceOutputTime(
       res: CommandExecutionResult,
