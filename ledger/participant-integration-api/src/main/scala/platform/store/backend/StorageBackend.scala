@@ -9,6 +9,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{ParticipantMetering, ReportData}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
@@ -339,6 +340,7 @@ object EventStorageBackend {
       createAgreementText: Option[String],
       createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
+      createKeyHash: Option[Hash],
       createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       treeEventWitnesses: Set[String],

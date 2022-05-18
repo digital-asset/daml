@@ -97,6 +97,7 @@ object TransactionLogUpdatesReader {
           createSignatories = raw.createSignatories.mandatory("create_signatories").toSet,
           createObservers = raw.createObservers.mandatory("create_observers").toSet,
           createAgreementText = raw.createAgreementText,
+          createKeyHash = raw.createKeyHash,
         )
       case unknownKind =>
         throw InvalidEventKind(unknownKind)
