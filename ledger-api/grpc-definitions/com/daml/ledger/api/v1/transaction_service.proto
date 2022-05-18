@@ -39,6 +39,11 @@ service TransactionService {
   // - ``OUT_OF_RANGE``: if the ``begin`` parameter value is not before the end of the ledger
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
+
+  // Read the ldeger’s filtered transaction tree stream and emit the flat exercise events for a set of parties.
+  // Emits only exercise events.
+  rpc GetExerciseEvents (GetExerciseEventsRequest) returns (stream GetExerciseEventsResponse);
+
   // Lookup a transaction tree by the ID of an event that appears within it.
   // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionByEventId
   // Errors:
@@ -178,3 +183,33 @@ message GetLedgerEndResponse {
   LedgerOffset offset = 1;
 }
 
+message GetExerciseEventsRequest {
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string ledger_id = 1;
+
+  // Beginning of the requested ledger section.
+  // This offset is exclusive: the response will only contain transactions whose offset is strictly greater than this.
+  // Required
+  LedgerOffset begin = 2;
+
+  // End of the requested ledger section.
+  // This offset is inclusive: the response will only contain transactions whose offset is less than or equal to this.
+  // Optional, if not set, the stream will not terminate.
+  LedgerOffset end = 3;
+
+  // Requesting parties with template filters.
+  // Template filters must be empty for GetTransactionTrees requests.
+  // Required
+  TransactionExerciseFilter filter = 4;
+
+  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+  // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+  // Optional
+  bool verbose = 5;
+}
+
+message GetExerciseEventsResponse {
+  TransactionExercises exercises = 1;
+}

@@ -24,6 +24,18 @@ message TransactionFilter {
   map<string, Filters> filters_by_party = 1;
 }
 
+// Used for filtering Transaction and Active Contract Set streams.
+// Determines which on-ledger events will be served to the client.
+message TransactionExerciseFilter {
+
+  map<string, ExerciseFilters> filters_by_party = 1;
+}
+
+message ExerciseFilters {
+  // Required
+  InclusiveExerciseFilters inclusive = 1;
+}
+
 message Filters {
 
   // If not set, no filters will be applied.
@@ -31,11 +43,65 @@ message Filters {
   InclusiveFilters inclusive = 1;
 }
 
+message FilterSelector {
+  oneof {
+    // Include events for this template id.
+    Identifier template_id = 1;
+    // Include events for templates which implement this interface id.
+    Identifier interface_id = 1;
+  }
+}
+
+// The values included for events matching the filter.
+message FilterValue {
+  oneof {
+    // Include create_arguments in CreateEvent
+    boolean create_arguments = 1;
+    // Include create_arguments_blob in CreateEvent
+    boolean create_arguments_blob = 2;
+    // Include interface view if the interface is implemented by the template.
+    InterfaceView interface_view = 3;
+  }
+}
+
+
+// A filter on the transaction & ACS stream.
+message Filter {
+  // The criteria by which events should be filtered.
+  // Required
+  FilterSelector selector = 1;
+  // The values included for the events matching the filter.
+  // Required
+  repeated FilterValue values = 2;
+}
+
 // If no internal fields are set, no filters will be applied.
 message InclusiveFilters {
 
-  // A collection of templates.
+  // A collection of templates for which the payload will be included in the create_arguments of CreatedEvents.
   // SHOULD NOT contain duplicates.
-  // Required
+  // Including a template here is equivalent to including a filter with the selector of that template and
+  // create_arguments set to true.
+  // Optional
   repeated Identifier template_ids = 1;
+
+  // Collection of filters and the values that should be included for events matching the filter.
+  // Optional
+  repeated Filter filters = 4;
+}
+
+// Filter of a choice defined in either a template or an interface.
+message ChoiceFilter {
+        // Required if interface_id is not set.
+        Identifier template_id = 1;
+        // Required if template_id is not set.
+        Identifier interface_id = 2;
+        // Optional, if not set all choices of the given template/interface
+        // are included.
+        string choice = 3;
+}
+
+// A filter on the exercise stream.
+message InclusiveExerciseFilters {
+        repeated ChoiceFilter choices = 1;
 }

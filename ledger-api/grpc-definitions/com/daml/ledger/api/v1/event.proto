@@ -32,6 +32,21 @@ message Event {
   reserved "exercised";
 }
 
+// Result of evaluating an interface view consisting of the view definition
+// and the resulting value.
+message InterfaceViewResult {
+  InterfaceView view = 1;
+  Record value = 2;
+}
+
+// The 0-based index of the filters that matched the request. This is useful for
+// demultiplexing streams on the client side. This is only set for
+// the transaction stream & the ACS stream but not for the
+// transaction tree stream.
+message FilterIndices {
+  repeated uint32 indices = 1;
+}
+
 // Records that a contract has been created, and choices may now be exercised on it.
 message CreatedEvent {
 
@@ -54,8 +69,26 @@ message CreatedEvent {
   Value contract_key = 7;
 
   // The arguments that have been used to create the contract.
-  // Required
+  // Optional
   Record create_arguments = 4;
+
+  // Opaque representation of contract payload. This cannot be decoded by the client.
+  // Optional
+  bytes create_arguments_blob = 10;
+
+  // Interface views specified in the transaction filter. Only contains entries
+  // for the intersection of interfaces implemented by the template
+  // and the interfaces specified in the transaction filter.
+  // Optional
+  repeated InterfaceViewResult interface_views = 11;
+
+  // Map from parties to the indices of filters that matched the event
+  // for easy demultiplexing.
+  // This is only set for
+  // the transaction stream & the ACS stream but not for the
+  // transaction tree stream.
+  // Optional
+  map<string, FilterIndices> repeated uint32 matched_filter_indices = 12;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
@@ -100,6 +133,14 @@ message ArchivedEvent {
   // The template of the archived contract.
   // Required
   Identifier template_id = 3;
+
+  // Map from parties to the indices of filters that matched the event
+  // for easy demultiplexing.
+  // This is only set for
+  // the transaction stream & the ACS stream but not for the
+  // transaction tree stream.
+  // Optional
+  map<string, FilterIndices> repeated uint32 matched_filter_indices = 12;
 
   // The parties that are notified of this event. For ``ArchivedEvent``s,
   // these are the intersection of the stakeholders of the contract in
@@ -179,5 +220,4 @@ message ExercisedEvent {
   // The result of exercising the choice
   // Required
   Value exercise_result = 12;
-
 }
