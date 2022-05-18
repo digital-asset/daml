@@ -1,61 +1,46 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Test where -- TODO: remove this when I have the UpgradableDesign to same point
+module Test where
 
 import Daml.Script
 
-import BasicDesign
+import UpgradableDesign
 
 script1 : Script ()
 script1 = do
 
+  admin <- allocateParty "Administrator"
   alice <- allocateParty "Alice"
   bank <- allocateParty "Bank"
   charlie <- allocateParty "Charlie"
 
-  -- coin1/2 are bank-issued and owned
-  coin1 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
-  coin2 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
+  -- Admin administrated rules.
+  rules1 <- submit admin do createCmd RulesT with admin, obs = [bank,alice,charlie]
 
-  -- alice deposits real-money in the bank and issues an invoice for the bank to pay
-  invoice1 <- submit alice do
-    createCmd Invoice with
-      orderId = "Alice-deposit-#001"
-      seller = alice
-      buyer = bank
-      price = 2
+  -- Bank issued coin.
+  coin1 <- submit bank do exerciseCmd rules1 RulesT_Mint with issuer = bank
 
-  -- bank pays the invoice (transfering the coin to alice)
-  submitMustFail bank do
-    exerciseCmd invoice1 Pay with payment = [coin1] -- not enough coins
+  -- Transfer coin to Alice.
+  coin2 <- submitMulti [bank,alice] [] $ do
+    exerciseCmd rules1 RulesT_Transfer with
+      coin = coin1
+      owner = bank
+      newOwner = alice
 
-  submitMustFail bank do
-    exerciseCmd invoice1 Pay with payment = [coin1,coin1] -- using same coin twice
+  -- The original coin is dead; it cannot be transfered again.
+  submitMultiMustFail [bank,alice] [] $ do
+    exerciseCmd rules1 RulesT_Transfer with
+      coin = coin1
+      owner = bank
+      newOwner = alice
 
-  submit bank do
-    exerciseCmd invoice1 Pay with payment = [coin1,coin2]
-
-
-  -- Charlie deposits real-money in the bank and issues an invoice for the bank to pay
-  invoice2 <- submit charlie do
-    createCmd Invoice with
-      orderId = "Charlie-deposit-#001"
-      seller = charlie
-      buyer = bank
-      price = 2
-
-  -- coin3/4 are bank-issued and owned
-  coin3 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
-  coin4 <- submit bank do createCmd BasicCoin with issuer = bank, owner = bank
-
-  submitMustFail bank do
-    exerciseCmd invoice2 Pay with payment = [coin3,coin2] -- attempt to pay with a spent coins
-
-  submit bank do
-    exerciseCmd invoice2 Pay with payment = [coin3,coin4]
-
-
+  -- Transfer coin from Alice to Charlie.
+  -- Note: We do not require submit-authority from the issuing Bank.
+  coin3 <- submitMulti [alice,charlie] [] $ do
+    exerciseCmd rules1 RulesT_Transfer with
+      coin = coin2
+      owner = alice -- TODO: can we avoid having to pass?
+      newOwner = charlie
 
   pure ()
-
