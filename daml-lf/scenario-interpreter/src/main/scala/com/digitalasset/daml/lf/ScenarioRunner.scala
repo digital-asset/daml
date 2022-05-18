@@ -71,6 +71,7 @@ final class ScenarioRunner private (
             committers,
             Set.empty,
             SEValue(commands),
+            ImmArray.empty,
             location,
             nextSeed(),
             machine.traceLog,
@@ -381,6 +382,7 @@ object ScenarioRunner {
       committers: Set[Party],
       readAs: Set[Party],
       commands: SExpr,
+      disclosures: ImmArray[speedy.DisclosedContract],
       location: Option[Location],
       seed: crypto.Hash,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -399,6 +401,7 @@ object ScenarioRunner {
       commitLocation = location,
       limits = interpretation.Limits.Lenient,
     )
+    assert(disclosures.isEmpty, "Disclosed contracts are not supported in scenarios.")
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._

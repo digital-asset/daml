@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.daml.lf.crypto
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -74,6 +75,8 @@ object AnyChoice {
   final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
 }
 final case class AnyContractKey(key: SValue)
+final case class AnyContractId(ty: Identifier, coid: ContractId)
+
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
   // Return the most recent frame
@@ -400,6 +403,46 @@ object Converter {
       }
     }
     iter(freeAp, List())
+  }
+
+  def toDisclosedContract(
+      v: SValue
+  ): Either[String, command.DisclosedContract] =
+    v match {
+      case SRecord(_, _, vals) if vals.size == 3 => {
+        for {
+          cid <- toAnyContractId(vals.get(0))
+          anyKeyM <- toOptional(vals.get(1), toAnyContractKey)
+          anyTemplate <- toAnyTemplate(vals.get(2))
+          keyHashM <- anyKeyM match {
+            case Some(k) =>
+              crypto.Hash.hashContractKey(anyTemplate.ty, k.key.toUnnormalizedValue).map(Some(_))
+            case None => Right(None)
+          }
+        } yield command.DisclosedContract(
+          contractId = cid.coid,
+          templateId = anyTemplate.ty,
+          argument = anyTemplate.arg.toUnnormalizedValue,
+          metadata = command.ContractMetadata(
+            keyHash = keyHashM,
+            createdAt = Time.Timestamp.Epoch, // TODO (drsk) do something better?
+            driverMetadata = ImmArray.empty,
+          ),
+        )
+      }
+      case _ => Left(s"Expected SRecord but got $v")
+    }
+
+  def toAnyContractId(
+      v: SValue
+  ): Either[String, AnyContractId] = v match {
+    case SRecord(_, _, vals) if vals.size == 2 => {
+      for {
+        tplId <- typeRepToIdentifier(vals.get(0))
+        cid <- toContractId(vals.get(1))
+      } yield AnyContractId(tplId, cid)
+    }
+    case _ => Left(s"Expected AnyContractId but got $v")
   }
 
   def translateExerciseResult(

@@ -23,6 +23,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Bytes
 import com.daml.lf.engine.script.Converter
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
@@ -32,6 +33,8 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier,
 }
+
+import com.google.protobuf.ByteString
 import com.daml.script.converter.ConverterException
 import io.grpc.{Status, StatusRuntimeException}
 import scalaz.OneAnd
@@ -164,6 +167,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosedContracts: List[command.DisclosedContract],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     import scalaz.syntax.traverse._
@@ -171,11 +175,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
     }
+    val ledgerDisclosedContracts = disclosedContracts.traverse(toDisclosedContract(_)) match {
+      case Left(err) => throw new ConverterException(err)
+      case Right(discs) => discs
+    }
     val apiCommands = Commands(
       party = actAs.head,
       actAs = actAs.toList,
       readAs = readAs.toList,
       commands = ledgerCommands,
+      disclosedContracts = ledgerDisclosedContracts,
       ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = UUID.randomUUID.toString,
@@ -208,7 +217,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, commands, List.empty, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -232,6 +241,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         actAs = actAs.toList,
         readAs = readAs.toList,
         commands = ledgerCommands,
+        disclosedContracts = List.empty,
         ledgerId = grpcClient.ledgerId.unwrap,
         applicationId = applicationId.unwrap,
         commandId = UUID.randomUUID.toString,
@@ -322,6 +332,26 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
           )
         )
     }
+
+  private def toDisclosedContract(
+      disc: command.DisclosedContract
+  ): Either[String, DisclosedContract] = {
+    val meta = disc.metadata
+    for {
+      arg <- lfValueToApiRecord(true, disc.argument)
+    } yield DisclosedContract(
+      templateId = Some(toApiIdentifier(disc.templateId)),
+      contractId = disc.contractId.coid,
+      arguments = Some(arg),
+      metadata = Some(
+        ContractMetadata(
+          createdAt = Some(TimestampConversion.fromLf(meta.createdAt)),
+          contractKeyHash = meta.keyHash.map(_.bytes.toByteString).getOrElse(ByteString.EMPTY),
+          driverMetadata = Bytes.fromByteArray(meta.driverMetadata.toArray).toByteString,
+        )
+      ),
+    )
+  }
 
   private def fromTreeEvent(ev: TreeEvent): Either[String, ScriptLedgerClient.CommandResult] = {
     import scalaz.std.option._

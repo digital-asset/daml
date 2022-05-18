@@ -25,6 +25,9 @@ module Daml.Script
   , listKnownParties
   , listKnownPartiesOn
   , Commands
+  , DisclosedContract
+  , toDisclosedContract
+  , toDisclosedContractWithKey
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
@@ -120,6 +123,24 @@ data CommandsF a
 -- must be of the form ``return expr`` or ``pure expr``.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
+
+data DisclosedContract = DisclosedContract
+  with
+    contractId : AnyContractId
+    contractKey : Optional AnyContractKey
+    argument : AnyTemplate
+
+toDisclosedContract : Template t => ContractId t -> t -> DisclosedContract 
+toDisclosedContract coid arg =  DisclosedContract with
+    contractId = toAnyContractId coid
+    argument = toAnyTemplate arg
+    contractKey = None
+
+toDisclosedContractWithKey : forall t k. TemplateKey t k => ContractId t -> t -> DisclosedContract
+toDisclosedContractWithKey coid arg = DisclosedContract with
+    contractId = toAnyContractId coid
+    contractKey = Some (toAnyContractKey @t (Prelude.key arg))
+    argument = toAnyTemplate arg
 
 data ScriptF a
   = Submit (SubmitCmd a)
@@ -403,6 +424,7 @@ data SubmitCmd a = SubmitCmd
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
+    disclosedContracts : [DisclosedContract]
     handleFailure : ()
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -413,6 +435,7 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
+    disclosedContracts : [DisclosedContract]
     continue : () -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -421,20 +444,31 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
 
 -- This will error if the submission fails.
 
-instance HasSubmit Script Commands where
+instance HasSubmit Script Commands [DisclosedContract] where
   submit p cmds =
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
       actAs = NonEmpty p []
       readAs = []
       commands = cmds
+      disclosedContracts = []
       handleFailure = ()
       locations = getCallStack callStack
 
+  submitDisclosing discs p cmds = 
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = cmds
+      disclosedContracts = discs
+      handleFailure = ()
+      locations = getCallStack callStack
+  
   submitMustFail p cmds =
     lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
       actAs = NonEmpty p []
       readAs = []
       commands = void cmds
+      disclosedContracts = []
       continue = const ()
       locations = getCallStack callStack
 
@@ -470,6 +504,7 @@ submitMulti actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = cmds
+      disclosedContracts = []
       handleFailure = ()
       locations = getCallStack callStack
 
@@ -481,6 +516,7 @@ submitMultiMustFail actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = void cmds
+      disclosedContracts = []
       continue = const ()
       locations = getCallStack callStack
 
@@ -733,6 +769,13 @@ fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
+
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
+toAnyContractId cid = AnyContractId
+  { templateId = templateTypeRep @t
+  , contractId = coerceContractId cid
+  }
+
 
 data SubmitTreePayload a = SubmitTreePayload
   with

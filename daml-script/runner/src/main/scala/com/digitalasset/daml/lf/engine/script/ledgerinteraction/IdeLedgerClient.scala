@@ -135,6 +135,7 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosedContracts: List[command.DisclosedContract],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
     ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
@@ -152,6 +153,8 @@ class IdeLedgerClient(
     } else {
 
       val speedyCommands = preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray))
+      val speedyDisclosedContracts =
+        preprocessor.unsafePreprocessDisclosedContracts(disclosedContracts.to(ImmArray))
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
@@ -162,6 +165,7 @@ class IdeLedgerClient(
           actAs.toSet,
           readAs,
           translated,
+          speedyDisclosedContracts,
           optLocation,
           nextSeed(),
           traceLog,
@@ -190,12 +194,13 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosedContracts: List[command.DisclosedContract],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, commands, disclosedContracts, optLocation).map {
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -230,7 +235,7 @@ class IdeLedgerClient(
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
-    unsafeSubmit(actAs, readAs, commands, optLocation)
+    unsafeSubmit(actAs, readAs, commands, List.empty, optLocation)
       .map({
         case commit: ScenarioRunner.Commit[_] =>
           _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, commit.tx))
@@ -251,7 +256,7 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, commands, List.empty, optLocation).map {
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger

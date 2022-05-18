@@ -107,6 +107,7 @@ object ScriptF {
           data.actAs,
           data.readAs,
           data.cmds,
+          data.discs,
           data.stackTrace.topFrame,
         )
         v <- submitRes match {
@@ -602,6 +603,7 @@ object ScriptF {
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
       cmds: List[command.ApiCommand],
+      discs: List[command.DisclosedContract],
       freeAp: SValue,
       stackTrace: StackTrace,
       continue: SValue,
@@ -623,6 +625,7 @@ object ScriptF {
         actAs: OneAnd[List, SValue],
         readAs: List[SValue],
         freeAp: SValue,
+        disclosedContracts: List[SValue],
         continue: SValue,
         stackTrace: Option[SValue],
     ) =
@@ -630,15 +633,24 @@ object ScriptF {
         actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
         readAs <- readAs.traverse(Converter.toParty(_))
         cmds <- Converter.toCommands(ctx.compiledPackages, freeAp)
+        discs <- disclosedContracts.traverse(Converter.toDisclosedContract(_))
         stackTrace <- toStackTrace(ctx, stackTrace)
-      } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, stackTrace, continue)
+      } yield SubmitData(actAs, readAs.toSet, cmds, discs, freeAp, stackTrace, continue)
     v match {
       // no location
-      case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue)) =>
-        convert(OneAnd(sParty, List()), List(), freeAp, continue, None)
+      case SRecord(
+            _,
+            _,
+            ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), SList(discs), continue),
+          ) =>
+        convert(OneAnd(sParty, List()), List(), freeAp, discs.toList, continue, None)
       // location
-      case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue, loc)) =>
-        convert(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
+      case SRecord(
+            _,
+            _,
+            ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), SList(discs), continue, loc),
+          ) =>
+        convert(OneAnd(sParty, List()), List(), freeAp, discs.toList, continue, Some(loc))
       // multi-party actAs/readAs + location
       case SRecord(
             _,
@@ -647,11 +659,12 @@ object ScriptF {
               SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
               SList(read),
               SRecord(_, _, ArrayList(freeAp)),
+              SList(discs),
               continue,
               loc,
             ),
           ) =>
-        convert(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
+        convert(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, discs.toList, continue, Some(loc))
       case _ => Left(s"Expected Submit payload but got $v")
     }
   }
