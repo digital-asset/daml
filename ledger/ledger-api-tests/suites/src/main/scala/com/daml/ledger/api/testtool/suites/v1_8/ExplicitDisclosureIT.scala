@@ -22,25 +22,34 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   test(
     "EDMetadata",
     "All create events have metadata defined",
-    allocate(Parties(1)),
-  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    allocate(Parties(2)),
+  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     val contractKey = ledger.nextKeyId()
     for {
       _ <- ledger.create(owner, Delegated(owner, contractKey))
-      flatTx <- ledger.flatTransactions(owner)
-      tree <- ledger.transactionTrees(owner)
-      treeById <- ledger.transactionTreeById(flatTx.head.transactionId, owner)
+      _ <- ledger.create(owner, Delegation(owner, delegate))
+      flats <- ledger.flatTransactions(owner)
+      trees <- ledger.transactionTrees(owner)
+      someTransactionId = flats.head.transactionId
+      flatById <- ledger.flatTransactionById(someTransactionId, owner)
+      treeById <- ledger.transactionTreeById(someTransactionId, owner)
     } yield {
+      assertLength("flatTransactions", 2, flats)
+      assertLength("transactionTrees", 2, trees)
       assert(
-        createdEvents(flatTx.head).head.metadata.isDefined,
+        flats.map(createdEvents).forall(_.forall(_.metadata.isDefined)),
         "Metadata is empty for flatTransactions",
       )
       assert(
-        createdEvents(tree.head).head.metadata.isDefined,
+        trees.map(createdEvents).forall(_.forall(_.metadata.isDefined)),
         "Metadata is empty for transactionTrees",
       )
       assert(
-        createdEvents(treeById).head.metadata.isDefined,
+        createdEvents(flatById).forall(_.metadata.isDefined),
+        "Metadata is empty for flatTransactionById",
+      )
+      assert(
+        createdEvents(treeById).forall(_.metadata.isDefined),
         "Metadata is empty for transactionTreeById",
       )
     }
