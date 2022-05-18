@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
+import com.daml.api.util.TimestampConversion
 import com.daml.api.util.TimestampConversion.fromInstant
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -14,7 +15,8 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.api.v1.{event => apiEvent}
+
+import com.daml.ledger.api.v1.{commands => apiCommands, event => apiEvent}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.value.Value.ContractId
@@ -24,6 +26,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.daml.platform.{ApiOffset, FilterRelation, Value}
+import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -177,6 +180,15 @@ private[events] object TransactionLogUpdatesConversions {
               signatories = createdEvent.createSignatories.toSeq,
               observers = createdEvent.createObservers.toSeq,
               agreementText = createdEvent.createAgreementText.orElse(Some("")),
+              metadata = Some(
+                apiCommands.ContractMetadata(
+                  createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
+                  contractKeyHash =
+                    createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+                  // TODO DPP-1026: Store driver metadata in the database
+                  driverMetadata = ByteString.EMPTY,
+                )
+              ),
             )
           )
         )
@@ -407,6 +419,15 @@ private[events] object TransactionLogUpdatesConversions {
             signatories = createdEvent.createSignatories.toSeq,
             observers = createdEvent.createObservers.toSeq,
             agreementText = createdEvent.createAgreementText.orElse(Some("")),
+            metadata = Some(
+              apiCommands.ContractMetadata(
+                createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
+                contractKeyHash =
+                  createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+                // TODO DPP-1026: Store driver metadata in the database
+                driverMetadata = ByteString.EMPTY,
+              )
+            ),
           )
         )
       )
