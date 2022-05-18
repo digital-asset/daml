@@ -3,9 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import pureconfig.generic.semiauto.deriveConvert
-import pureconfig.ConfigConvert
-import com.daml.ledger.runner.common.PureConfigReaderWriter._
 import com.daml.ledger.sandbox.BridgeConfig.DefaultMaximumDeduplicationDuration
 
 import java.time.Duration
@@ -19,6 +16,4 @@ case class BridgeConfig(
 object BridgeConfig {
   val DefaultMaximumDeduplicationDuration: Duration = Duration.ofMinutes(30L)
   val Default: BridgeConfig = BridgeConfig()
-
-  implicit val convert: ConfigConvert[BridgeConfig] = deriveConvert[BridgeConfig]
 }

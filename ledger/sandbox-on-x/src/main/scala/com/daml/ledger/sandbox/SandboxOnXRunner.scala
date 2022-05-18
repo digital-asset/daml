@@ -40,13 +40,11 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
-import com.daml.resources.{AbstractResourceOwner, ProgramResource}
-import com.typesafe.config.ConfigFactory
+import com.daml.resources.AbstractResourceOwner
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
-import PureConfigReaderWriter._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
@@ -55,15 +53,6 @@ import scala.util.Try
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
-
-  def run(configObject: com.typesafe.config.Config = ConfigFactory.load()): Unit = {
-    val config = ConfigLoader.loadConfigUnsafe[Config]("ledger", configObject)
-    val bridge = ConfigLoader.loadConfigUnsafe[BridgeConfig]("bridge", configObject)
-    val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
-    new ProgramResource(
-      owner = SandboxOnXRunner.owner(configAdaptor, config, bridge)
-    ).run(ResourceContext.apply)
-  }
 
   def owner(
       configAdaptor: BridgeConfigAdaptor,
