@@ -5,7 +5,7 @@ module Test where
 
 import Daml.Script
 
-import UpgradableDesign
+import RulesA
 
 script1 : Script ()
 script1 = do

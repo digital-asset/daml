@@ -1,0 +1,14 @@
+
+module CoinA where
+
+import InterfaceA
+
+template CoinT
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory [issuer,owner]
+
+    implements CoinI where
+      _view : CoinView =  CoinView with issuer, owner

@@ -1,0 +1,38 @@
+
+module RulesA where
+
+import InterfaceA
+import CoinA
+
+template RulesT
+  with
+    admin : Party
+    obs : [Party]
+  where
+    signatory [admin]
+    observer obs
+
+    -- The Mint entry point.
+    nonconsuming choice RulesT_Mint : ContractId CoinI
+      with issuer : Party
+      controller [issuer]
+      do
+        new <- create CoinT with issuer, owner = issuer
+        pure $ toInterfaceContractId new
+
+    -- The Transfer entry point. Delegates to the coin to collect (issuer) authority.
+    nonconsuming choice RulesT_Transfer : ContractId CoinI
+      with
+        coin : ContractId CoinI
+        owner : Party
+        newOwner : Party
+      controller [owner,newOwner]
+      do exercise coin CoinI_Transfer with rules = toInterfaceContractId self, newOwner
+
+    -- Core Transfer logic. The coin delegates back here via the rules-interface.
+    implements RulesI where
+      transferR : ContractId CoinI -> CoinView -> Party -> Update (ContractId CoinI)
+              = \coin view newOwner -> do
+        new <- create CoinT with issuer = view.issuer, owner = newOwner
+        exercise coin CoinI_Archive
+        pure (toInterfaceContractId new)

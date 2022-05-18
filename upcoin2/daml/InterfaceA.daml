@@ -1,0 +1,45 @@
+
+module InterfaceA where
+
+
+data CoinView = CoinView with
+  issuer : Party
+  owner : Party
+    deriving (Eq,Show)
+
+
+interface CoinI where
+  _view : CoinView
+
+  -- Collect the authority for a coin transfer, and delegate to the rules.
+  nonconsuming choice CoinI_Transfer : ContractId CoinI
+    with
+      rules : ContractId RulesI
+      newOwner : Party
+    controller [(_view this).owner, newOwner]
+    do
+      exercise rules RulesI_Transfer_Impl with
+        authority = signatory this ++ [newOwner]
+        coin = self
+        view = _view this
+        newOwner
+
+  choice CoinI_Archive : ()
+    controller (signatory this)
+    do pure ()
+
+
+interface RulesI where
+
+  transferR : ContractId CoinI -> CoinView -> Party -> Update (ContractId CoinI)
+
+  -- The collected authority is passed explicitly.
+  nonconsuming choice RulesI_Transfer_Impl : ContractId CoinI
+    with
+      authority : [Party]
+      coin : ContractId CoinI
+      view : CoinView
+      newOwner : Party
+    controller authority
+    do transferR this coin view newOwner
+
