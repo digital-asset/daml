@@ -196,8 +196,6 @@ private[platform] object BufferedTransactionsReader {
       else
         Source
           .fromIterator(() => bufferSlice.iterator)
-          .async
-          .buffered(maxInStreamBufferSize)(bufferReaderMetrics.inStreamBufferLength)
           .mapAsync(1) { case (offset, payload) =>
             bufferReaderMetrics.fetchedBuffered.inc()
             Timed.future(
