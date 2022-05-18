@@ -22,6 +22,7 @@ message ExperimentalFeatures {
   ExperimentalOptionalLedgerId optional_ledger_id = 4;
   ExperimentalContractIds contract_ids = 5;
   ExperimentalCommitterEventLog committer_event_log = 6;
+  ExperimentalExplicitDisclosure explicit_disclosure = 7;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -102,4 +103,9 @@ message ExperimentalCommitterEventLog {
     // It may result in transaction IDs being different for the same transaction across participants, for example.
     DISTRIBUTED = 1;
   }
+}
+
+// Enables the use of explicitly disclosed contracts for command submission
+message ExperimentalExplicitDisclosure {
+  bool supported = 1;
 }

@@ -255,6 +255,8 @@ object SandboxOnXRunner {
         contractIdFeatures = ExperimentalContractIds.of(
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
+        // TODO DPP-1026: For now, explicit disclosure is always enabled on SoX.
+        explicitDisclosure = true,
       ),
       userManagementConfig = config.userManagementConfig,
       apiStreamShutdownTimeout = apiServerConfig.indexConfiguration.apiStreamShutdownTimeout,
