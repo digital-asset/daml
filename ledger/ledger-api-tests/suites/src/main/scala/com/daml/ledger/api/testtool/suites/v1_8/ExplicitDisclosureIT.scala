@@ -103,11 +103,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       // Exercise the choice using the now inactive disclosed contract
       exerciseError <- testContext.exerciseFetchDelegated(testContext.disclosedContract).failed
     } yield {
-      // TODO DPP-1026: This should return ConsistencyErrors.ContractNotFound.
-      // Right now it fails to determine the LET because the algorithm doesn't exclude disclosed contracts from the LET lookup
       assertGrpcError(
         exerciseError,
-        LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         None,
         checkDefiniteAnswerMetadata = true,
       )
