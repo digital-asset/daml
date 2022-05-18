@@ -139,13 +139,13 @@ object Trigger extends StrictLogging {
 
     def error(triggerId: Identifier, ty: Type): Left[String, Nothing] = {
       val triggerIds = TriggerIds(Ref.PackageId.assertFromString("-"))
+      val highLevelTrigger = TTyCon(triggerIds.damlTrigger("Trigger"))
       val lowLevelTrigger = TTyCon(triggerIds.damlTriggerLowLevel("Trigger"))
-      val highLevelTrigger = TTyCon(triggerIds.damlTriggerLowLevel("Trigger"))
       val a = TVar(Name.assertFromString("a"))
       Left(
         s"the definition $triggerId has not a valid trigger type: " +
           "expected a type of the form " +
-          s"(${TApp(lowLevelTrigger, a).pretty}) or (${TApp(highLevelTrigger, a).pretty}) " +
+          s"(${TApp(highLevelTrigger, a).pretty}) or (${TApp(lowLevelTrigger, a).pretty}) " +
           s"but get (${ty.pretty})"
       )
     }
