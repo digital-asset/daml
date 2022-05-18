@@ -278,7 +278,7 @@ trait AbstractTriggerServiceTest
         Some(
           JsArray(
             JsString(
-              "the definition $testPkgId:TestTrigger:triggerRule has not a valid trigger type: expected a type of the form (Daml.Trigger:Trigger a) or (Daml.Trigger.LowLevel:Trigger a) but get (Party → Daml.Trigger.Internal:TriggerA Unit Unit)"
+              s"the definition $testPkgId:TestTrigger:triggerRule does not have valid trigger type: expected a type of the form (Daml.Trigger:Trigger a) or (Daml.Trigger.LowLevel:Trigger a) but got (Party → Daml.Trigger.Internal:TriggerA Unit Unit)"
             )
           )
         )

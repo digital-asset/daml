@@ -143,10 +143,10 @@ object Trigger extends StrictLogging {
       val lowLevelTrigger = TTyCon(triggerIds.damlTriggerLowLevel("Trigger"))
       val a = TVar(Name.assertFromString("a"))
       Left(
-        s"the definition $triggerId has not a valid trigger type: " +
+        s"the definition $triggerId does not have valid trigger type: " +
           "expected a type of the form " +
           s"(${TApp(highLevelTrigger, a).pretty}) or (${TApp(lowLevelTrigger, a).pretty}) " +
-          s"but get (${ty.pretty})"
+          s"but got (${ty.pretty})"
       )
     }
 
