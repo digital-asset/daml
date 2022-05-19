@@ -78,14 +78,14 @@ class ScalaCodeGenIT
     ""
   ) // this is by design, starting from release: 0.12.18 it is a requried field
 
-  override def newConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(
+  override def config = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(
       ledgerId = ledgerId,
       participants = Map(
-        SandboxParticipantId -> super.newConfig.genericConfig
+        SandboxParticipantId -> super.config.genericConfig
           .participants(SandboxParticipantId)
           .copy(
-            apiServer = super.newConfig.genericConfig
+            apiServer = super.config.genericConfig
               .participants(SandboxParticipantId)
               .apiServer
               .copy(

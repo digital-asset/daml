@@ -83,14 +83,14 @@ trait JsonApiFixture
   override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
 
-  override def newConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(
+  override def config = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(
       ledgerId = "MyLedger",
       participants = Map(
-        SandboxParticipantId -> super.newConfig.genericConfig
+        SandboxParticipantId -> super.config.genericConfig
           .participants(SandboxParticipantId)
           .copy(
-            apiServer = super.newConfig.genericConfig
+            apiServer = super.config.genericConfig
               .participants(SandboxParticipantId)
               .apiServer
               .copy(
@@ -166,8 +166,8 @@ trait JsonApiFixture
               )
             )
         }
-        cfg = newConfig.copy(
-          genericConfig = newConfig.genericConfig.copy(
+        cfg = config.copy(
+          genericConfig = config.genericConfig.copy(
             dataSource = participantDataSource
           )
         )

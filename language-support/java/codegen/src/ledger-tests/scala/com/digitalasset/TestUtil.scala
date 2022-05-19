@@ -46,17 +46,17 @@ trait SandboxTestLedger extends SandboxFixture {
   protected val ledgerIdMode: LedgerIdMode =
     LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
 
-  override def newConfig = super.newConfig.copy(
+  override def config = super.config.copy(
     damlPackages = damlPackages,
-    genericConfig = super.newConfig.genericConfig.copy(
+    genericConfig = super.config.genericConfig.copy(
       ledgerId = TestUtil.LedgerID,
-      engine = super.newConfig.genericConfig.engine
+      engine = super.config.genericConfig.engine
         .copy(allowedLanguageVersions = LanguageVersion.DevVersions),
       participants = Map(
-        SandboxParticipantId -> super.newConfig.genericConfig
+        SandboxParticipantId -> super.config.genericConfig
           .participants(SandboxParticipantId)
           .copy(
-            apiServer = super.newConfig.genericConfig
+            apiServer = super.config.genericConfig
               .participants(SandboxParticipantId)
               .apiServer
               .copy(

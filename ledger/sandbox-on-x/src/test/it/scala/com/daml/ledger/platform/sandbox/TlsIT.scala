@@ -56,13 +56,13 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       ).client()
     )
 
-  override def newConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(participants =
+  override def config = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(participants =
       Map(
-        SandboxParticipantId -> super.newConfig.genericConfig
+        SandboxParticipantId -> super.config.genericConfig
           .participants(SandboxParticipantId)
           .copy(
-            apiServer = super.newConfig.genericConfig
+            apiServer = super.config.genericConfig
               .participants(SandboxParticipantId)
               .apiServer
               .copy(

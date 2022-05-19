@@ -106,8 +106,8 @@ final class CommandClientIT
     timeProvider(ledgerId)
       .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))
 
-  override protected def newConfig: NewSandboxServer.CustomConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(ledgerId = testLedgerId.unwrap)
+  override protected def config: NewSandboxServer.CustomConfig = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(ledgerId = testLedgerId.unwrap)
   )
 
   private val submittingPartyList = List(MockMessages.party)

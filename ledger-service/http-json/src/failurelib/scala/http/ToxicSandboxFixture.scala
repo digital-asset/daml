@@ -85,8 +85,8 @@ trait ToxicSandboxFixture
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => info.jdbcUrl)
         participantDataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl))
-        cfg = newConfig.copy(
-          genericConfig = newConfig.genericConfig.copy(
+        cfg = config.copy(
+          genericConfig = config.genericConfig.copy(
             dataSource = participantDataSource
           )
         )

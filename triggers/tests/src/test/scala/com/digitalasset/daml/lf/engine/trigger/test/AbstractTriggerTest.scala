@@ -99,7 +99,7 @@ trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql 
           compiledPackages,
           trigger,
           client,
-          newConfig.genericConfig.participants(SandboxParticipantId).apiServer.timeProviderType,
+          config.genericConfig.participants(SandboxParticipantId).apiServer.timeProviderType,
           applicationId,
           TriggerParties(
             actAs = Party(party),

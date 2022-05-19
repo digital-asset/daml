@@ -66,7 +66,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
-  protected def newConfig: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+  protected def config: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
     genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
       ledgerId = "sandbox-server",
       engine = SandboxEngineConfig.copy(

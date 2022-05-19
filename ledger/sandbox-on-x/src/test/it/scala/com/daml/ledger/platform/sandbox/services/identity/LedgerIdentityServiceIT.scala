@@ -20,8 +20,8 @@ sealed trait LedgerIdentityServiceITBaseGiven
 
   private lazy val givenLedgerId: String = UUID.randomUUID.toString
 
-  override def newConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(
+  override def config = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(
       ledgerId = givenLedgerId
     )
   )
@@ -81,9 +81,9 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     with SuiteResourceManagementAroundEach
     with PostgresAroundAll {
 
-  override def newConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(
-      ledgerId = firstRunLedgerId
+  override def config = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(
+      ledgerId = Option(firstRunLedgerId).fold(UUID.randomUUID.toString)(identity)
     )
   )
 

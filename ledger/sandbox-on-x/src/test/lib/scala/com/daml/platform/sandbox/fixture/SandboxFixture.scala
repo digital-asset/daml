@@ -42,8 +42,8 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
             )
         }
 
-        cfg = newConfig.copy(
-          genericConfig = newConfig.genericConfig.copy(
+        cfg = config.copy(
+          genericConfig = config.genericConfig.copy(
             dataSource = participantDataSource
           )
         )

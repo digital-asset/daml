@@ -510,7 +510,7 @@ abstract class AbstractFuncTests
                 case SList(items) if items.length == 2 =>
                   val t0 = items.slowApply(0).asInstanceOf[STimestamp].value
                   val t1 = items.slowApply(1).asInstanceOf[STimestamp].value
-                  newConfig.genericConfig
+                  config.genericConfig
                     .participants(SandboxParticipantId)
                     .apiServer
                     .timeProviderType match {

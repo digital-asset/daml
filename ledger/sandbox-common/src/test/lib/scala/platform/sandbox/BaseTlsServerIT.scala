@@ -80,14 +80,14 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     }
   }
 
-  override protected def newConfig: NewSandboxServer.CustomConfig = {
-    super.newConfig.copy(
-      genericConfig = super.newConfig.genericConfig.copy(
+  override protected def config: NewSandboxServer.CustomConfig = {
+    super.config.copy(
+      genericConfig = super.config.genericConfig.copy(
         participants = Map(
-          SandboxParticipantId -> super.newConfig.genericConfig
+          SandboxParticipantId -> super.config.genericConfig
             .participants(SandboxParticipantId)
             .copy(apiServer =
-              super.newConfig.genericConfig
+              super.config.genericConfig
                 .participants(SandboxParticipantId)
                 .apiServer
                 .copy(tls =

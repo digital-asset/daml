@@ -39,7 +39,7 @@ trait SandboxTestLedger extends SandboxFixture {
 
   def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
-  override protected def newConfig: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+  override protected def config: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
     genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
       ledgerId = testId,
       engine = SandboxEngineConfig.copy(

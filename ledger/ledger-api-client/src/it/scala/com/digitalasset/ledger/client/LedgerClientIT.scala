@@ -38,8 +38,8 @@ final class LedgerClientIT
     token = None,
   )
 
-  override protected def newConfig: NewSandboxServer.CustomConfig = super.newConfig.copy(
-    genericConfig = super.newConfig.genericConfig.copy(ledgerId = LedgerId.unwrap)
+  override protected def config: NewSandboxServer.CustomConfig = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(ledgerId = LedgerId.unwrap)
   )
 
   "the ledger client" should {
