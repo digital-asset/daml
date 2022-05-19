@@ -197,6 +197,7 @@ private[validation] object ExprIterable {
     x match {
       case TemplateImplements(
             interface @ _,
+            fields @ _,
             methods,
             inheritedChoices @ _,
           ) =>

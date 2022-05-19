@@ -601,9 +601,24 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): TemplateImplements =
       TemplateImplements.build(
         interfaceId = decodeTypeConName(lfImpl.getInterface),
+        fields = lfImpl.getFieldsList.asScala.view.map(decodeTemplateImplementsField),
         methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
         inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala.view
           .map(getInternedName(_, "TemplateImplements.inheritedChoices")),
+      )
+
+    private[this] def decodeTemplateImplementsField(
+        lfField: PLF.DefTemplate.ImplementsField
+    ): TemplateImplementsField =
+      TemplateImplementsField(
+        interfaceFieldName = getInternedName(
+          lfField.getInterfaceFieldInternedName,
+          "TemplateImplementsField.interfaceFieldName",
+        ),
+        templateFieldName = getInternedName(
+          lfField.getTemplateFieldInternedName,
+          "TemplateImplementsField.templateFieldName",
+        ),
       )
 
     private[this] def decodeTemplateImplementsMethod(

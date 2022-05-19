@@ -310,11 +310,13 @@ private[daml] class AstRewriter(
     x match {
       case TemplateImplements(
             interface,
+            fields,
             methods,
             inheritedChoices,
           ) =>
         TemplateImplements(
           apply(interface),
+          fields,
           methods.transform((_, x) => apply(x)),
           inheritedChoices,
         )

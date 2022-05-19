@@ -945,6 +945,7 @@ object Ast {
 
   final case class GenTemplateImplements[E](
       interfaceId: TypeConName,
+      fields: Map[FieldName, TemplateImplementsField],
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
       inheritedChoices: Set[ChoiceName],
   )
@@ -953,11 +954,16 @@ object Ast {
     @throws[PackageError]
     def build(
         interfaceId: TypeConName,
+        fields: Iterable[TemplateImplementsField],
         methods: Iterable[GenTemplateImplementsMethod[E]],
         inheritedChoices: Iterable[ChoiceName],
     ): GenTemplateImplements[E] =
       new GenTemplateImplements[E](
         interfaceId = interfaceId,
+        fields = toMapWithoutDuplicate(
+          fields.map(f => f.interfaceFieldName -> f),
+          (name: FieldName) => PackageError(s"repeated field implementation $name"),
+        ),
         methods = toMapWithoutDuplicate(
           methods.map(m => m.name -> m),
           (name: MethodName) => PackageError(s"repeated method implementation $name"),
@@ -970,15 +976,23 @@ object Ast {
 
     def apply(
         interfaceId: TypeConName,
+        fields: Map[FieldName, TemplateImplementsField],
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
         inheritedChoices: Set[ChoiceName],
     ): GenTemplateImplements[E] =
-      GenTemplateImplements[E](interfaceId, methods, inheritedChoices)
+      GenTemplateImplements[E](interfaceId, fields, methods, inheritedChoices)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName])] =
-      Some((arg.interfaceId, arg.methods, arg.inheritedChoices))
+    ): Some[
+      (
+          TypeConName,
+          Map[FieldName, TemplateImplementsField],
+          Map[MethodName, GenTemplateImplementsMethod[E]],
+          Set[ChoiceName],
+      )
+    ] =
+      Some((arg.interfaceId, arg.fields, arg.methods, arg.inheritedChoices))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]
@@ -986,6 +1000,11 @@ object Ast {
 
   type TemplateImplementsSignature = GenTemplateImplements[Unit]
   val TemplateImplementsSignature = new GenTemplateImplementsCompanion[Unit]
+
+  final case class TemplateImplementsField(
+      interfaceFieldName: FieldName,
+      templateFieldName: FieldName,
+  )
 
   final case class GenTemplateImplementsMethod[E](
       name: MethodName,

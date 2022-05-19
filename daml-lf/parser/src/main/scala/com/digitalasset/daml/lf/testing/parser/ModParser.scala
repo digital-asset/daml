@@ -122,6 +122,11 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateKey(t, body, maintainers)
     }
 
+  private lazy val field: Parser[TemplateImplementsField] =
+    Id("field") ~>! id ~ `=` ~ id ^^ { case (interfaceFieldName ~ _ ~ templateFieldName) =>
+      TemplateImplementsField(interfaceFieldName, templateFieldName)
+    }
+
   private lazy val method: Parser[TemplateImplementsMethod] =
     Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
       TemplateImplementsMethod(name, value)
@@ -132,9 +137,9 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val implements: Parser[TemplateImplements] =
     Id("implements") ~>! fullIdentifier ~ (`{` ~>
-      rep(method <~ `;`) ~ rep(inheritedChoice <~ `;`)
-      <~ `}`) ^^ { case ifaceId ~ (methods ~ inheritedChoices) =>
-      TemplateImplements.build(ifaceId, methods, inheritedChoices)
+      rep(field <~ `;`) ~ rep(method <~ `;`) ~ rep(inheritedChoice <~ `;`)
+      <~ `}`) ^^ { case ifaceId ~ (fields ~ methods ~ inheritedChoices) =>
+      TemplateImplements.build(ifaceId, fields, methods, inheritedChoices)
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =

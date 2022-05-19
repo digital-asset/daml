@@ -325,6 +325,10 @@ private[lf] final class Compiler(
       // FIXME! compileFields
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(identifier, impl.interfaceId))
+        impl.fields.values.foreach(field =>
+          addDef(compileImplementsFieldProject(identifier, impl.interfaceId, field))
+            addDef (compileImplementsFieldUpdate(identifier, impl.interfaceId, field))
+        )
         impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, identifier, impl.interfaceId, method))
         )
@@ -708,6 +712,39 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
     t.ImplementsDefRef(tmplId, ifaceId) -> IdentityDef
+
+  // Compile the implementation of an interface field projection.
+  private[this] def compileImplementsFieldProject(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      field: TemplateImplementsField,
+  ): (t.SDefinitionRef, SDefinition) = {
+    (t.ImplementsFieldProjectDefRef(tmplId, ifaceId, field.interfaceFieldName)) {
+      (tmplArgPos, env) =>
+        ERecProj(
+          TypeConApp(tmplId, ImmArray.empty),
+          field.templateFieldName,
+          env.toSEVar(tmplArgPos),
+        )
+    }
+  }
+
+  // Compile the implementation of an interface field update.
+  private[this] def compileImplementsFieldUpdate(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      field: TemplateImplementsField,
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction2(t.ImplementsFieldUpdateDefRef(tmplId, ifaceId, field.interfaceFieldName)) {
+      (tmplArgPos, updArgPos, env) =>
+        ERecUpd(
+          TypeConApp(tmplId, ImmArray.empty),
+          field.templateFieldName,
+          env.toSEVar(tmplArgPos),
+          env.toSEVar(updArgPos),
+        )
+    }
+  }
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(

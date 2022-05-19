@@ -1554,6 +1554,13 @@ message DefTemplate {
     Expr maintainers = 3; // a function from the key type to [Party]
   }
 
+  // Implementation of an interface field.
+  // *Available in versions >= 1.dev*
+  message ImplementsField {
+    int32 interface_field_interned_name = 1;
+    int32 template_field_interned_name = 2;
+  }
+
   // Implementation of an interface method.
   // *Available in versions >= 1.dev*
   message ImplementsMethod {
@@ -1565,8 +1572,9 @@ message DefTemplate {
   // *Available in versions >= 1.dev*
   message Implements {
     TypeConName interface = 1;
-    repeated ImplementsMethod methods = 2;
-    repeated int32 inherited_choice_interned_names = 3;
+    repeated ImplementsField fields = 2;
+    repeated ImplementsMethod methods = 3;
+    repeated int32 inherited_choice_interned_names = 4;
       // ^ inherited fixed choice names as interned strings
   }
 
