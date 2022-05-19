@@ -21,7 +21,8 @@ object MetricsSet {
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
-      countingFunction = _.transactions.length,
+      // counting all events across all transactions
+      countingFunction = _.transactions.map(_.events.size).sum,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -49,7 +50,8 @@ object MetricsSet {
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
-      countingFunction = _.transactions.length,
+      // counting all events across all transactions
+      countingFunction = _.transactions.map(_.eventsById.size).sum,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt

@@ -79,12 +79,14 @@ The process is similar to the weekly snapshot, except that both the [daml] and
 
 ## Stable 2.x
 
+The overall process of coordinating a stable release is documented in the
+[release planning] document, including the relevant stakeholders and roles.
+Cutting and testing a release as documented here is part of that process.
+
 Making a stable release follows the same steps as a snapshot RC, except that:
 
 - You should not be choosing an arbitrary commit, you should pick the latest RC
   for the branch.
-- Go through the [checklist] before making the release. Note that
-  the checklist is not available publicly.
 - Instead of adding a line to [`LATEST`], remove the `-snapshot` part of the
   version number for the existing RC.
 - Similarly, modifying the `LATEST` file on the assembly repo _should_ amount
@@ -92,9 +94,10 @@ Making a stable release follows the same steps as a snapshot RC, except that:
   daml, but follow the instructions there.
 - You need a team lead to approve the PR on both the [daml] and [assembly] repos.
 
-Once you have finished testing the release, coordinate with Product to decide
-how to communicate around it and when to remove the `prerelease` marker on the
-[releases page]. (This is what makes it available to `daml install`.)
+Once you have finished testing the release, communicate this to the relevant
+stakeholder (send a message on `#team-daml` if unsure) so that the process can
+move on by removing the `prerelease` marker on the [releases page]. (This is what
+makes it available to `daml install`.)
 
 ## 1.x release candidate
 
@@ -456,6 +459,7 @@ Thanks for making a release!
 [canton]: https://github.com/DACH-NY/canton
 [`LATEST`]: https://github.com/digital-asset/daml/blob/main/LATEST
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
+[release planning]: https://docs.google.com/document/d/1FaBFuYweYt0hx6fVg9rhufCtDNPiATXu5zwN2NWp2s4/edit#
 [daml]: https://github.com/digital-asset/daml
 [release notes]: https://daml.com/release-notes/
 [releases page]: https://github.com/digital-asset/daml/releases
