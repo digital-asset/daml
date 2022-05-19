@@ -14,7 +14,6 @@ final class LimitsIT extends LedgerTestSuite {
     "LLargeMapInContract",
     "Create a contract with a field containing large map",
     allocate(SingleParty),
-    8.0,
   )(implicit ec => { case Participants(Participant(ledger, alice)) =>
     val elements = (1 to 10000).map(e => (f"element_$e%08d", alice)).toMap
     for {
