@@ -242,7 +242,7 @@ class CommandService(
           meta
             .flatMap(_.deduplicationPeriod)
             .map(_.toProto)
-            .getOrElse(DeduplicationPeriod.Empty: DeduplicationPeriod),
+            .getOrElse(DeduplicationPeriod.Empty),
           submissionId = meta.flatMap(_.submissionId),
         )
       }

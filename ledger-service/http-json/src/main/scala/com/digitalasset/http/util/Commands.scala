@@ -5,8 +5,8 @@ package com.daml.http.util
 
 import com.daml.http.domain
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{v1 => lav1}
+import lav1.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
