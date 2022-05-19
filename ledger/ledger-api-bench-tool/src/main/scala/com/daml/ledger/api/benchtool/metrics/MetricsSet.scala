@@ -22,7 +22,7 @@ object MetricsSet {
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
-      countingFunction = countFlatTransactionsEvents,
+      countingFunction = (response => countFlatTransactionsEvents(response).toInt),
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -50,7 +50,7 @@ object MetricsSet {
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
-      countingFunction = countTreeTransactionsEvents,
+      countingFunction = (response => countTreeTransactionsEvents(response).toInt),
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -176,10 +176,10 @@ object MetricsSet {
     )
   }
 
-  private def countFlatTransactionsEvents(response: GetTransactionsResponse): Int =
-    response.transactions.foldLeft(0)((acc, tx) => acc + tx.events.size)
+  private def countFlatTransactionsEvents(response: GetTransactionsResponse): Long =
+    response.transactions.foldLeft(0L)((acc, tx) => acc + tx.events.size)
 
-  private def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Int =
-    response.transactions.foldLeft(0)((acc, tx) => acc + tx.eventsById.size)
+  private def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Long =
+    response.transactions.foldLeft(0L)((acc, tx) => acc + tx.eventsById.size)
 
 }
