@@ -16,13 +16,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
-GHC_LIB_REV = "c722d215b83379849383c9233534126e"
-GHC_LIB_SHA256 = "4784f7c45be315ab325f54e021e072a0581d0611b7849185d2fb47660023f11f"
-GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "c722d215b83379849383c9233534126e"
-GHC_LIB_PARSER_SHA256 = "08299d83cd6cf25aa6f59de20f397f6b6384b2119c2329413386da0a3b6c7651"
-GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "0572146d4b792c6c67affe461e0bd07d49d9df72"
 GHCIDE_SHA256 = "7de56b15d08eab19d325a93c4f43d0ca3d634bb1a1fdc0d18fe4ab4a021cc697"
 JS_JQUERY_VERSION = "3.3.1"
@@ -128,47 +123,7 @@ haskell_library(
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
-    http_archive(
-        name = "ghc_lib",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-load("@stackage//:packages.bzl", "packages")
-haskell_cabal_library(
-    name = "ghc-lib",
-    version = packages["ghc-lib"].version,
-    srcs = glob(["**"]),
-    haddock = False,
-    flags = packages["ghc-lib"].flags,
-    deps = packages["ghc-lib"].deps,
-    visibility = ["//visibility:public"],
-    tools = packages["ghc-lib"].tools,
-)
-""",
-        sha256 = GHC_LIB_SHA256,
-        strip_prefix = "ghc-lib-%s" % GHC_LIB_VERSION,
-        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-%s.tar.gz" % GHC_LIB_REV],
-    )
-
-    http_archive(
-        name = "ghc_lib_parser",
-        build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-load("@stackage//:packages.bzl", "packages")
-haskell_cabal_library(
-    name = "ghc-lib-parser",
-    version = packages["ghc-lib-parser"].version,
-    srcs = glob(["**"]),
-    haddock = False,
-    flags = packages["ghc-lib-parser"].flags,
-    deps = packages["ghc-lib-parser"].deps,
-    visibility = ["//visibility:public"],
-    tools = packages["ghc-lib-parser"].tools,
-)
-""",
-        sha256 = GHC_LIB_PARSER_SHA256,
-        strip_prefix = "ghc-lib-parser-%s" % GHC_LIB_PARSER_VERSION,
-        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-%s.tar.gz" % GHC_LIB_PARSER_REV],
-    )
+    ghc_lib_and_dependencies()
 
     http_archive(
         name = "grpc_haskell_core",
@@ -508,6 +463,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "aeson",
             "aeson-extra",
             "aeson-pretty",
+            "alex",
             "ansi-terminal",
             "ansi-wl-pprint",
             "async",
@@ -519,6 +475,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "blaze-html",
             "bytestring",
             "c2hs",
+            "Cabal",
             "case-insensitive",
             "clock",
             "cmark-gfm",
@@ -543,6 +500,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filepattern",
             "ghc-lib-parser-ex",
             "gitrev",
+            "happy",
             "hashable",
             "haskeline",
             "haskell-src-exts",
@@ -572,6 +530,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "nsis",
             "open-browser",
             "optparse-applicative",
+            "parsec",
             "parser-combinators",
             "path",
             "path-io",
@@ -646,8 +605,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
-            "ghc-lib": "@ghc_lib//:ghc-lib",
-            "ghc-lib-parser": "@ghc_lib_parser//:ghc-lib-parser",
+            "ghc-lib": "@com_github_digital_asset_daml//bazel_tools/ghc-lib/ghc-lib",
+            "ghc-lib-parser": "@com_github_digital_asset_daml//bazel_tools/ghc-lib/ghc-lib-parser",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
             "grpc-haskell": "@grpc_haskell//:grpc-haskell",
             "js-dgtable": "@js_dgtable//:js-dgtable",
