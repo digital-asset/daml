@@ -17,12 +17,12 @@ import java.time.{Clock, Duration}
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
+
   def transactionMetrics(
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
-      // counting all events across all transactions
-      countingFunction = _.transactions.map(_.events.size).sum,
+      countingFunction = countFlatTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -39,7 +39,7 @@ object MetricsSet {
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = _.transactions.length.toLong,
+      countingFunction = countFlatTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = Some(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -50,8 +50,7 @@ object MetricsSet {
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
-      // counting all events across all transactions
-      countingFunction = _.transactions.map(_.eventsById.size).sum,
+      countingFunction = countTreeTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -68,7 +67,7 @@ object MetricsSet {
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = _.transactions.length.toLong,
+      countingFunction = countTreeTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = Some(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -176,4 +175,11 @@ object MetricsSet {
       ),
     )
   }
+
+  private def countFlatTransactionsEvents(response: GetTransactionsResponse): Int =
+    response.transactions.foldLeft(0)((acc, tx) => acc + tx.events.size)
+
+  private def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Int =
+    response.transactions.foldLeft(0)((acc, tx) => acc + tx.eventsById.size)
+
 }
