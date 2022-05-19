@@ -6,6 +6,7 @@ package com.daml.http.json
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.http.domain.TemplateId
+import com.daml.http.endpoints.MeteringReportEndpoint
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
@@ -359,25 +360,13 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit val hexStringFormat: JsonFormat[HexString] =
-    jsonFormat[HexString](
-      JsonReader.func2Reader((StringJsonFormat.read _).andThen(HexString.assertFromString)),
-      JsonWriter.func2Writer[HexString](StringJsonFormat.write(_)),
-    )
-
-  implicit val deduplicationDurationTypFormat: JsonFormat[domain.DeduplicationDurationTyp] =
-    jsonFormat[domain.DeduplicationDurationTyp](
-      JsonReader.func2Reader(
-        (LongJsonFormat.read _)
-          .andThen(java.time.Duration.ofMillis)
-          .andThen(domain.DeduplicationDurationTyp(_))
-      ),
-      JsonWriter.func2Writer[domain.DeduplicationDurationTyp](duration =>
-        LongJsonFormat.write(duration.unwrap.toMillis)
-      ),
+    MeteringReportEndpoint.stringJsonFormat[HexString](
+      identity,
+      HexString.fromString,
     )
 
   implicit val DeduplicationDurationFormat: JsonFormat[domain.DeduplicationDuration] =
-    jsonFormat1(domain.DeduplicationDuration(_))
+    jsonFormat1(domain.DeduplicationDuration)
 
   implicit val DeduplicationOffsetFormat: JsonFormat[domain.DeduplicationOffset] = {
     jsonFormat1(domain.DeduplicationOffset)
@@ -386,13 +375,7 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
     deriveFormat[domain.DeduplicationPeriod]
 
-  implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] =
-    jsonFormat[domain.SubmissionId](
-      JsonReader.func2Reader(
-        (StringJsonFormat.read _).andThen(domain.SubmissionId.apply(_))
-      ),
-      JsonWriter.func2Writer[domain.SubmissionId](id => StringJsonFormat.write(id.toString)),
-    )
+  implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat5(
     domain.CommandMeta

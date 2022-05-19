@@ -69,15 +69,24 @@ class CommandService(
       input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ (ActiveContract[lav1.value.Value], domain.CompletionOffset)] =
+  ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
     withTemplateLoggingContext(input.templateId).run { implicit lc =>
       logger.trace(s"sending create command to ledger")
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
-      val et: ET[(ActiveContract[lav1.value.Value], domain.CompletionOffset)] = for {
+      val et: ET[domain.CreateCommandResponse[lav1.value.Value]] = for {
         response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
-        contractAndCompletionOffset <- either(exactlyOneActiveContract(response))
-      } yield contractAndCompletionOffset
+        contract <- either(exactlyOneActiveContract(response))
+      } yield domain.CreateCommandResponse(
+        contract.contractId,
+        contract.templateId,
+        contract.key,
+        contract.payload,
+        contract.signatories,
+        contract.observers,
+        contract.agreementText,
+        domain.CompletionOffset(response.completionOffset),
+      )
       et.run
     }
 
@@ -101,10 +110,13 @@ class CommandService(
           val et: ET[ExerciseResponse[lav1.value.Value]] = for {
             response <-
               logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
-            res <- either(exerciseResult(response))
-            (exerciseResult, completionOffset) = res
+            exerciseResult <- either(exerciseResult(response))
             contracts <- either(contracts(response))
-          } yield ExerciseResponse(exerciseResult, contracts, completionOffset)
+          } yield ExerciseResponse(
+            exerciseResult,
+            contracts,
+            domain.CompletionOffset(response.completionOffset),
+          )
 
           et.run
         }
@@ -126,11 +138,13 @@ class CommandService(
           Symbol("createAndExercise"),
           submitAndWaitForTransactionTree(jwt, request),
         )
-        res <- either(exerciseResult(response))
-        (exerciseResult, completionOffset) = res
+        exerciseResult <- either(exerciseResult(response))
         contracts <- either(contracts(response))
-      } yield ExerciseResponse(exerciseResult, contracts, completionOffset)
-
+      } yield ExerciseResponse(
+        exerciseResult,
+        contracts,
+        domain.CompletionOffset(response.completionOffset),
+      )
       et.run
     }
 
@@ -227,7 +241,7 @@ class CommandService(
           command,
           meta
             .flatMap(_.deduplicationPeriod)
-            .map(domain.DeduplicationPeriod.toProto(_))
+            .map(_.toProto)
             .getOrElse(DeduplicationPeriod.Empty: DeduplicationPeriod),
           submissionId = meta.flatMap(_.submissionId),
         )
@@ -236,9 +250,9 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ (ActiveContract[lav1.value.Value], domain.CompletionOffset) =
+  ): Error \/ ActiveContract[lav1.value.Value] =
     activeContracts(response).flatMap {
-      case Seq(x) => \/-(x, domain.CompletionOffset(response.completionOffset))
+      case Seq(x) => \/-(x)
       case xs @ _ =>
         -\/(
           InternalError(
@@ -291,12 +305,12 @@ class CommandService(
 
   private def exerciseResult(
       a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
-  ): Error \/ (lav1.value.Value, domain.CompletionOffset) = {
-    val result: Option[(lav1.value.Value, domain.CompletionOffset)] = for {
+  ): Error \/ lav1.value.Value = {
+    val result: Option[lav1.value.Value] = for {
       transaction <- a.transaction: Option[lav1.transaction.TransactionTree]
       exercised <- firstExercisedEvent(transaction): Option[lav1.event.ExercisedEvent]
       exResult <- exercised.exerciseResult: Option[lav1.value.Value]
-    } yield (exResult, domain.CompletionOffset(transaction.offset))
+    } yield exResult
 
     result.toRightDisjunction(
       InternalError(

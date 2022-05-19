@@ -16,7 +16,7 @@ import util.toLedgerId
 import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
-import lav1.value.{Record => ApiRecord, Value => ApiValue}
+import lav1.value.{Value => ApiValue, Record => ApiRecord}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, \/, \/-}
@@ -52,26 +52,13 @@ private[http] final class CreateAndExercise(
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
-        ac <- eitherT(
+        respone <- eitherT(
           Timed.future(
             metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd)),
           )
-        ): ET[(domain.ActiveContract[ApiValue], domain.CompletionOffset)]
-        (activeContract, completionOffset) = ac: (
-            domain.ActiveContract[ApiValue],
-            domain.CompletionOffset,
-        )
-      } yield domain.CreateCommandResponse[ApiValue](
-        activeContract.contractId,
-        activeContract.templateId,
-        activeContract.key,
-        activeContract.payload,
-        activeContract.signatories,
-        activeContract.observers,
-        activeContract.agreementText,
-        completionOffset,
-      )
+        ): ET[domain.CreateCommandResponse[ApiValue]]
+      } yield respone
     }
 
   def exercise(req: HttpRequest)(implicit

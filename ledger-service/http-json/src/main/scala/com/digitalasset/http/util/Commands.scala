@@ -94,7 +94,7 @@ object Commands {
       commands = Seq(lav1.commands.Command(command)),
     )
     val updatedCommands =
-      submissionId.map(_.unwrap).map(commands.withSubmissionId).getOrElse(commands)
+      domain.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
     lav1.command_service.SubmitAndWaitRequest(Some(updatedCommands))
   }
 }

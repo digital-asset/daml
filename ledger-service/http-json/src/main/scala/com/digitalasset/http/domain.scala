@@ -55,9 +55,6 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
   val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
 
-  type DeduplicationDurationTyp = java.time.Duration @@ DeduplicationDurationTag
-  val DeduplicationDurationTyp = Tag.of[DeduplicationDurationTag]
-
   type CompletionOffset = String @@ CompletionOffsetTag
   val CompletionOffset = Tag.of[CompletionOffsetTag]
 }
@@ -71,8 +68,6 @@ package domain {
   sealed trait SubmissionIdTag
 
   sealed trait CompletionOffsetTag
-
-  sealed trait DeduplicationDurationTag
 
   trait JwtPayloadTag
 
@@ -236,34 +231,22 @@ package domain {
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
-  sealed abstract class DeduplicationPeriod extends Product with Serializable
-
-  final case class DeduplicationDuration(duration: DeduplicationDurationTyp)
-      extends domain.DeduplicationPeriod {
-    def toJDuration = duration.unwrap
-  }
-
-  object DeduplicationDuration {
-    def fromJDuration(duration: java.time.Duration) = DeduplicationDuration(
-      DeduplicationDurationTyp(duration)
-    )
-  }
-
-  final case class DeduplicationOffset(offset: HexString) extends domain.DeduplicationPeriod
-
-  object DeduplicationPeriod {
-    def toProto(deduplicationPeriod: DeduplicationPeriod): Commands.DeduplicationPeriod =
-      deduplicationPeriod match {
-        case DeduplicationDuration(durationTyp) =>
-          val duration = durationTyp.unwrap
+  sealed abstract class DeduplicationPeriod extends Product with Serializable {
+    def toProto: Commands.DeduplicationPeriod =
+      this match {
+        case DeduplicationDuration(millis) =>
           Commands.DeduplicationPeriod.DeduplicationDuration(
-            com.google.protobuf.duration.Duration.of(duration.getSeconds, duration.getNano)
+            com.google.protobuf.duration.Duration(java.time.Duration.ofMillis(millis))
           )
         case DeduplicationOffset(offset) =>
           Commands.DeduplicationPeriod
             .DeduplicationOffset(offset)
       }
   }
+
+  final case class DeduplicationDuration(durationInMillis: Long) extends domain.DeduplicationPeriod
+
+  final case class DeduplicationOffset(offset: HexString) extends domain.DeduplicationPeriod
 
   final case class CommandMeta(
       commandId: Option[CommandId],

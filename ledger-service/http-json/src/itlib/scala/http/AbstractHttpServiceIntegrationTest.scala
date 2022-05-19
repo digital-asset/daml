@@ -678,11 +678,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
                 actAs = None,
                 readAs = None,
                 submissionId = Some(submissionId),
-                deduplicationPeriod = Some(
-                  domain.DeduplicationDuration.fromJDuration(
-                    java.time.Duration.ofSeconds(10L)
-                  ): domain.DeduplicationPeriod
-                ),
+                deduplicationPeriod =
+                  Some(domain.DeduplicationDuration(10000L): domain.DeduplicationPeriod),
               )
             ),
           )
@@ -693,9 +690,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json, headers)
           .map { case (status, output) =>
             status shouldBe StatusCodes.OK
-            decode1[domain.OkResponse, domain.CreateCommandResponse[JsValue]](output) match {
+            inside(decode1[domain.OkResponse, domain.CreateCommandResponse[JsValue]](output)) {
               case \/-(it) => it.result.completionOffset.unwrap should not be empty
-              case _ => fail()
             }
           }
           .flatMap { _ =>
