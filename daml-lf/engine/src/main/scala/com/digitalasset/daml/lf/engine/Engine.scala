@@ -12,9 +12,15 @@ import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
 import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{
+  Node,
+  SubmittedTransaction,
+  Versioned,
+  VersionedTransaction,
+  Transaction => Tx,
+}
 import java.nio.file.Files
-import com.daml.lf.value.Value.{VersionedContractInstance, ContractId}
+import com.daml.lf.value.Value.{ValueRecord, ValueContractId, VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
@@ -101,24 +107,24 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
-
     assert(disclosures.isEmpty || config.allowedLanguageVersions.contains(LanguageVersion.v1_dev))
-
     val submissionTime = cmds.ledgerEffectiveTime
-    preprocessor
-      .preprocessApiCommands(cmds.commands)
-      .flatMap { processedCmds =>
+
+    for {
+      processedCmds <- preprocessor.preprocessApiCommands(cmds.commands)
+      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      res <-
         interpretCommands(
           validating = false,
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
-          disclosures = disclosures,
+          disclosures = processedDiscs,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
         ) map { case (tx, meta) => tx -> meta.copy(submissionSeed = Some(submissionSeed)) }
-      }
+    } yield res
   }
 
   /** Behaves like `submit`, but it takes a single command argument.
@@ -263,7 +269,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
-      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
+      disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -298,7 +304,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       sexpr: SExpr,
-      disclosures: ImmArray[DisclosedContract],
+      disclosures: ImmArray[speedy.DisclosedContract],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -315,9 +321,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       limits = config.limits,
     )
 
-    // TODO (drsk) normalize and typecheck disclosures. https://github.com/digital-asset/daml/issues/13864.
-    val discTable = Engine.buildDiscTable(disclosures)
-    interpretLoop(machine, discTable, ledgerTime)
+    for {
+      discTable <- Engine.buildDiscTable(machine, disclosures)
+      res <- interpretLoop(machine, discTable, ledgerTime)
+    } yield res
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -552,21 +559,86 @@ object Engine {
   )
 
   private[engine] case class DisclosureTable(
-      allDisclosures: ImmArray[DisclosedContract],
+      allDisclosures: ImmArray[Versioned[DisclosedContract]],
       contractIdByKey: Map[crypto.Hash, ContractId],
       contractById: Map[ContractId, VersionedContractInstance],
   )
 
-  private[engine] def buildDiscTable(disclosures: ImmArray[DisclosedContract]): DisclosureTable = {
-    val maps = disclosures.foldLeft(
-      (Map.empty[ContractId, VersionedContractInstance], Map.empty[crypto.Hash, ContractId])
-    ) { case ((m1, m2), d) =>
-      val m1_prime = m1 + (d.contractId -> d.argument)
-      d.metadata.keyHash match {
-        case Some(hash) => (m1_prime, m2 + (hash -> d.contractId))
-        case None => (m1_prime, m2)
+  private[engine] def buildDiscTable(
+      machine: Machine,
+      disclosures: ImmArray[speedy.DisclosedContract],
+  ): Result[DisclosureTable] = {
+    val acc = disclosures.foldLeft(
+      (
+        Map.empty[ContractId, VersionedContractInstance],
+        Map.empty[crypto.Hash, ContractId],
+        List.empty[Versioned[DisclosedContract]],
+        Option.empty[Error.Preprocessing.BadDisclosedContract],
+      )
+    ) { case ((m1, m2, ds, errorM), d) =>
+      errorM match {
+        case None =>
+          val arg = machine.normValue(d.templateId, d.argument)
+          val coid = machine.normValue(d.templateId, d.contractId)
+          val version = machine.tmplId2TxVersion(d.templateId)
+
+          // check for well typed contract argument
+          (coid, arg) match {
+            case (ValueContractId(coid), r @ ValueRecord(Some(d.templateId), _)) =>
+              // check for duplicate contract ids
+              m1.get(coid) match {
+                case Some(_) =>
+                  (
+                    m1,
+                    m2,
+                    ds,
+                    Some(Error.Preprocessing.BadDisclosedContract("Duplicate disclosed contract.")),
+                  )
+                case None =>
+                  val contractInst = VersionedContractInstance(
+                    template = d.templateId,
+                    arg = Versioned(version, r),
+                    agreementText = "",
+                  )
+                  val m1_prime = m1 + (coid -> contractInst)
+                  val d_prime = Versioned(
+                    version,
+                    DisclosedContract(
+                      templateId = d.templateId,
+                      argument = r,
+                      contractId = coid,
+                      metadata = d.metadata,
+                    ),
+                  )
+                  val ds_prime = d_prime :: ds
+                  d.metadata.keyHash match {
+                    case Some(hash) => (m1_prime, m2 + (hash -> coid), ds_prime, errorM)
+                    case None => (m1_prime, m2, ds_prime, errorM)
+                  }
+              }
+            case _ => (m1, m2, ds, errorM)
+          }
+        // abort on error.
+        case Some(_) =>
+          (
+            m1,
+            m2,
+            ds,
+            Some(Error.Preprocessing.BadDisclosedContract("Malformed disclosed contract.")),
+          )
       }
     }
-    DisclosureTable(allDisclosures = disclosures, contractById = maps._1, contractIdByKey = maps._2)
+    acc._4 match {
+      case None =>
+        ResultDone(
+          DisclosureTable(
+            allDisclosures = ImmArray.from(acc._3),
+            contractById = acc._1,
+            contractIdByKey = acc._2,
+          )
+        )
+      case Some(err) => ResultError(err)
+    }
+
   }
 }

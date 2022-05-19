@@ -26,6 +26,21 @@ private[lf] final class CommandPreprocessor(
   import Preprocessor._
 
   @throws[Error.Preprocessing.Error]
+  def unsafePreprocessDisclosedContract(
+      disc: command.DisclosedContract
+  ): speedy.DisclosedContract = {
+    discard(handleLookup(interface.lookupTemplate(disc.templateId)))
+    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
+    val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
+    speedy.DisclosedContract(
+      templateId = disc.templateId,
+      contractId = coid,
+      argument = arg,
+      metadata = disc.metadata,
+    )
+  }
+
+  @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
       templateId: Ref.Identifier,
       argument: Value,
@@ -220,22 +235,37 @@ private[lf] final class CommandPreprocessor(
     }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] = {
+  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] =
+    preprocessImmArray[command.ApiCommand, speedy.Command](cmds, unsafePreprocessApiCommand)
 
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessDisclosedContracts(
+      discs: ImmArray[command.DisclosedContract]
+  ): ImmArray[speedy.DisclosedContract] =
+    preprocessImmArray[command.DisclosedContract, speedy.DisclosedContract](
+      discs,
+      unsafePreprocessDisclosedContract,
+    )
+
+  private[preprocessing] def preprocessImmArray[A, B](
+      xs: ImmArray[A],
+      process: A => B,
+  ): ImmArray[B] = {
     @tailrec
     def go(
-        toProcess: FrontStack[command.ApiCommand],
-        processed: BackStack[speedy.Command],
-    ): ImmArray[speedy.Command] = {
+        toProcess: FrontStack[A],
+        processed: BackStack[B],
+    ): ImmArray[B] = {
       toProcess match {
-        case FrontStackCons(cmd, rest) =>
-          val speedyCmd = unsafePreprocessApiCommand(cmd)
-          go(rest, processed :+ speedyCmd)
+        case FrontStackCons(x, rest) =>
+          val y = process(x)
+          go(rest, processed :+ y)
         case FrontStack() =>
           processed.toImmArray
       }
     }
 
-    go(cmds.toFrontStack, BackStack.empty)
+    go(xs.toFrontStack, BackStack.empty)
   }
+
 }

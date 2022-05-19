@@ -259,7 +259,7 @@ private[lf] object Speedy {
       val ledgerMode: LedgerMode,
   ) {
 
-    private[speedy] def tmplId2TxVersion(tmplId: TypeConName) =
+    def tmplId2TxVersion(tmplId: TypeConName) =
       TransactionVersion.assignNodeVersion(
         compiledPackages.interface.packageLanguageVersion(tmplId.packageId)
       )

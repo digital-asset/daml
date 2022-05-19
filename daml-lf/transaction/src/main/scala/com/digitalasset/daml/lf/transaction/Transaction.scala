@@ -814,7 +814,7 @@ object Transaction {
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
-      disclosures: ImmArray[DisclosedContract],
+      disclosures: ImmArray[Versioned[DisclosedContract]],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

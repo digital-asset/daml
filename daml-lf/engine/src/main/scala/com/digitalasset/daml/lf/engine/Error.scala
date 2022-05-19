@@ -125,6 +125,10 @@ object Error {
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
+    final case class BadDisclosedContract(msg: String) extends Error {
+      override def message: String = msg
+    }
+
   }
 
   // Error happening during interpretation
@@ -178,7 +182,5 @@ object Error {
     ) extends Error {
       override def message: String = mismatch.message
     }
-
   }
-
 }
