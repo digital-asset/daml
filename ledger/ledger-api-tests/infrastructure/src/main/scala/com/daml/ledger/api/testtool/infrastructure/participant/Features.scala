@@ -18,6 +18,7 @@ final case class Features(
     optionalLedgerId: Boolean = false,
     contractIds: ExperimentalContractIds,
     committerEventLog: ExperimentalCommitterEventLog,
+    explicitDisclosure: Boolean,
 )
 
 object Features {
@@ -27,6 +28,7 @@ object Features {
     commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
     contractIds = ExperimentalContractIds.defaultInstance,
     committerEventLog = ExperimentalCommitterEventLog.of(eventLogType = CENTRALIZED),
+    explicitDisclosure = false,
   )
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
@@ -40,6 +42,7 @@ object Features {
       optionalLedgerId = experimental.optionalLedgerId.isDefined,
       contractIds = experimental.getContractIds,
       committerEventLog = experimental.getCommitterEventLog,
+      explicitDisclosure = experimental.explicitDisclosure.exists(_.supported),
     )
   }
 }

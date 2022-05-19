@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.services
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.experimental_features.{
+  ExperimentalExplicitDisclosure,
   ExperimentalFeatures,
   ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
@@ -74,6 +75,8 @@ private[apiserver] final class ApiVersionService private (
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(ledgerFeatures.contractIdFeatures),
           committerEventLog = Some(ledgerFeatures.committerEventLog),
+          explicitDisclosure =
+            Some(ExperimentalExplicitDisclosure(supported = ledgerFeatures.explicitDisclosure)),
         )
       ),
     )

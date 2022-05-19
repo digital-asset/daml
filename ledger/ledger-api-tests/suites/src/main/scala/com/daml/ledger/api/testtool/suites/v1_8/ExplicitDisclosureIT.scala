@@ -23,6 +23,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     "EDMetadata",
     "All create events have metadata defined",
     allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     val contractKey = ledger.nextKeyId()
     for {
@@ -59,6 +60,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     "EDCorrectDisclosure",
     "Submission works if the correct disclosure is provided",
     allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     for {
       testContext <- initializeTest(ledger, owner, delegate)
@@ -93,6 +95,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     "EDArchivedDisclosedContracts",
     "The ledger rejects archived disclosed contracts",
     allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     for {
       testContext <- initializeTest(ledger, owner, delegate)
@@ -116,6 +119,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     "EDInvalidDisclosedContracts",
     "The ledger rejects invalid disclosed contracts",
     allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     for {
       testContext <- initializeTest(ledger, owner, delegate)
