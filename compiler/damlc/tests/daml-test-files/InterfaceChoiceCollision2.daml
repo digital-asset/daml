@@ -1,0 +1,14 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+module InterfaceChoiceCollision2 where
+
+import qualified InterfaceChoiceCollision1
+
+interface Interface requires InterfaceChoiceCollision1.Interface where
+    getOwner : Party
+
+    choice MyArchive : ()
+        controller getOwner this
+        do pure ()
