@@ -9,11 +9,13 @@ import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
+import scalaz.syntax.std.map._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
+import com.daml.nonempty.NonEmpty
 
 import scala.jdk.CollectionConverters._
 
@@ -200,8 +202,7 @@ final case class DefTemplate[+Ty](
     this.copy(choices = choices ++ resolved, unresolvedInheritedChoices = missing.toMap)
   }
 
-  def getKey: j.Optional[_ <: Ty] =
-    key.fold(j.Optional.empty[Ty])(k => j.Optional.of(k))
+  def getKey: j.Optional[_ <: Ty] = toOptional(key)
 }
 
 object DefTemplate {
@@ -224,6 +225,62 @@ object DefTemplate {
     def choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
     final def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
       choices.asJava
+  }
+}
+
+/** Choices in a [[DefTemplate]]. */
+sealed abstract class TemplateChoices[+Ty] {
+
+  /** Choices defined directly on the template */
+  def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
+
+  /** Choices defined on the template, or on resolved implemented interfaces if
+    * resolved
+    */
+  def resolvedChoices
+      : Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.Identifier], TemplateChoice[Ty]]]]
+
+  final def getDirectChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
+    directChoices.asJava
+
+  final def getResolvedChoices
+      : j.Map[Ref.ChoiceName, _ <: j.Map[j.Optional[Ref.Identifier], _ <: TemplateChoice[Ty]]] =
+    resolvedChoices.transform((_, m) => m.forgetNE.mapKeys(toOptional).asJava).asJava
+}
+
+object TemplateChoices {
+  final case class Unresolved[+Ty](
+      directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
+      unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
+  ) extends TemplateChoices[Ty] {
+    override def resolvedChoices =
+      directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.Identifier], c)))
+  }
+
+  final case class Resolved[+Ty](
+      resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
+        Map[Option[Ref.Identifier], TemplateChoice[Ty]]
+      ]]
+  ) extends TemplateChoices[Ty] {
+    override def directChoices = resolvedChoices collect (Function unlift { case (cn, m) =>
+      m get None map ((cn, _))
+    })
+  }
+
+  implicit val `TemplateChoices traverse`: Traverse[TemplateChoices] = new Traverse[TemplateChoices]
+    with Foldable.FromFoldMap[TemplateChoices] {
+    override def foldMap[A, B: Monoid](fa: TemplateChoices[A])(f: A => B): B = fa match {
+      case Unresolved(direct, _) => direct foldMap (_ foldMap f)
+      case Resolved(resolved) => resolved foldMap (_.toNEF foldMap (_ foldMap f))
+    }
+
+    override def traverseImpl[G[_]: Applicative, A, B](
+        fa: TemplateChoices[A]
+    )(f: A => G[B]): G[TemplateChoices[B]] = fa match {
+      case u @ Unresolved(_, _) =>
+        u.directChoices traverse (_ traverse f) map (dc => u.copy(directChoices = dc))
+      case Resolved(r) => r traverse (_.toNEF traverse (_ traverse f)) map (Resolved(_))
+    }
   }
 }
 
