@@ -452,6 +452,8 @@ conformance_test(
         "--exclude=CommandDeduplication",
         "--exclude=CommandServiceIT:CSduplicate",
         "--exclude=PartyManagementServiceIT:PMRejectionDuplicateHint",
+        "--exclude=ExplicitDisclosureIT:EDArchivedDisclosedContracts",
+        "--exclude=ExplicitDisclosureIT:EDInvalidDisclosedContracts",
     ],
 )
 
