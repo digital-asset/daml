@@ -24,7 +24,7 @@ template RulesT
     nonconsuming choice RulesT_Transfer : ContractId CoinI
       with
         coin : ContractId CoinI
-        owner : Party
+        owner : Party -- TODO: Used in controller: Is there any way to discover this from coin?
         newOwner : Party
       controller [owner,newOwner]
       do exercise coin CoinI_Transfer with rules = toInterfaceContractId self, newOwner

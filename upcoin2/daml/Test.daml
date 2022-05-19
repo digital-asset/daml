@@ -14,23 +14,24 @@ script1 = do
   alice <- allocateParty "Alice"
   bank <- allocateParty "Bank"
   charlie <- allocateParty "Charlie"
+  dave <- allocateParty "Dave"
 
   -- Admin administrated rules.
-  rules1 <- submit admin do createCmd RulesT with admin, obs = [bank,alice,charlie]
+  rules <- submit admin do createCmd RulesT with admin, obs = [bank,alice,charlie]
 
   -- Bank issued coin.
-  coin1 <- submit bank do exerciseCmd rules1 RulesT_Mint with issuer = bank
+  coin1 <- submit bank do exerciseCmd rules RulesT_Mint with issuer = bank
 
   -- Transfer coin to Alice.
   coin2 <- submitMulti [bank,alice] [] $ do
-    exerciseCmd rules1 RulesT_Transfer with
+    exerciseCmd rules RulesT_Transfer with
       coin = coin1
       owner = bank
       newOwner = alice
 
   -- The original coin is dead; it cannot be transfered again.
   submitMultiMustFail [bank,alice] [] $ do
-    exerciseCmd rules1 RulesT_Transfer with
+    exerciseCmd rules RulesT_Transfer with
       coin = coin1
       owner = bank
       newOwner = alice
@@ -38,9 +39,29 @@ script1 = do
   -- Transfer coin from Alice to Charlie.
   -- Note: We do not require submit-authority from the issuing Bank.
   coin3 <- submitMulti [alice,charlie] [] $ do
-    exerciseCmd rules1 RulesT_Transfer with
+    exerciseCmd rules RulesT_Transfer with
       coin = coin2
       owner = alice
       newOwner = charlie
+
+  -- Take down the rules.
+  submit admin do exerciseCmd rules Archive
+
+  -- Transfers fail when the rules are not operation.
+  submitMultiMustFail [charlie,dave] [] $ do
+    exerciseCmd rules RulesT_Transfer with
+      coin = coin3
+      owner = charlie
+      newOwner = dave
+
+  -- Create some new rules.
+  rules <- submit admin do createCmd RulesT with admin, obs = [bank,alice,charlie]
+
+  -- Transfers work again using the new rules.
+  coin4 <- submitMulti [charlie,dave] [] $ do
+    exerciseCmd rules RulesT_Transfer with
+      coin = coin3
+      owner = charlie
+      newOwner = dave
 
   pure ()
