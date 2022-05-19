@@ -1156,7 +1156,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val interfaceFieldProject = lfExpr.getInterfaceFieldProject
           EInterfaceFieldProject(
             ifaceId = decodeTypeConName(interfaceFieldProject.getInterface),
-            field = getInternedName(interfaceFieldProject.getFieldInternedStr, "EInterfaceFieldProject.field"),
+            field = getInternedName(
+              interfaceFieldProject.getFieldInternedStr,
+              "EInterfaceFieldProject.field",
+            ),
             payload = decodeExpr(interfaceFieldProject.getPayload, definition),
           )
 
@@ -1165,7 +1168,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val interfaceFieldUpdate = lfExpr.getInterfaceFieldUpdate
           EInterfaceFieldUpdate(
             ifaceId = decodeTypeConName(interfaceFieldUpdate.getInterface),
-            field = getInternedName(interfaceFieldUpdate.getFieldInternedStr, "EInterfaceFieldUpdate.field"),
+            field = getInternedName(
+              interfaceFieldUpdate.getFieldInternedStr,
+              "EInterfaceFieldUpdate.field",
+            ),
             payload = decodeExpr(interfaceFieldUpdate.getPayload, definition),
             value = decodeExpr(interfaceFieldUpdate.getValue, definition),
           )

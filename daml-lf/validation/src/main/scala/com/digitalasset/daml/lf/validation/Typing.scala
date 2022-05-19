@@ -517,7 +517,14 @@ private[validation] object Typing {
               throw EMissingInterfaceField(ctx, tplTcon, impl.interfaceId, ifaceField)
             case Some((tplFieldType, tplFieldIndex @ _)) =>
               if (!alphaEquiv(ifaceField.fieldType, tplFieldType))
-                throw EBadInterfaceField(ctx, tplTcon, impl.interfaceId, ifaceField, tplFieldName, tplFieldType)
+                throw EBadInterfaceField(
+                  ctx,
+                  tplTcon,
+                  impl.interfaceId,
+                  ifaceField,
+                  tplFieldName,
+                  tplFieldType,
+                )
           }
         }
 

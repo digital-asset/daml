@@ -350,9 +350,9 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupInterfaceMethod(ifaceName, methodName, Reference.Method(ifaceName, methodName))
 
   def lookupInterfaceField(
-    ifaceName: TypeConName,
-    fieldName: FieldName,
-    context: => Reference,
+      ifaceName: TypeConName,
+      fieldName: FieldName,
+      context: => Reference,
   ): Either[LookupError, InterfaceField] =
     lookupInterface(ifaceName, context).flatMap(
       _.fields
@@ -361,8 +361,8 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     )
 
   def lookupInterfaceField(
-    ifaceName: TypeConName,
-    fieldName: FieldName,
+      ifaceName: TypeConName,
+      fieldName: FieldName,
   ): Either[LookupError, InterfaceField] =
     lookupInterfaceField(ifaceName, fieldName, Reference.InterfaceField(ifaceName, fieldName))
 

@@ -1316,8 +1316,10 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val (tyCon, record) = getSAnyContract(args, 0)
-      machine.ctrl =
-        SEApp(SEVal(ImplementsFieldProjectDefRef(tyCon, ifaceId, fieldName)), Array(SEValue(record)))
+      machine.ctrl = SEApp(
+        SEVal(ImplementsFieldProjectDefRef(tyCon, ifaceId, fieldName)),
+        Array(SEValue(record)),
+      )
     }
   }
 

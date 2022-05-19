@@ -218,18 +218,18 @@ object Ast {
   ) extends Expr
 
   /** Obtain the value of an interface field */
-  final case class EInterfaceFieldProject (
+  final case class EInterfaceFieldProject(
       ifaceId: TypeConName,
       field: FieldName,
       payload: Expr,
   ) extends Expr
 
   /** Update the value of an interface field */
-  final case class EInterfaceFieldUpdate (
+  final case class EInterfaceFieldUpdate(
       ifaceId: TypeConName,
       field: FieldName,
       payload: Expr,
-      value: Expr
+      value: Expr,
   ) extends Expr
 
   //

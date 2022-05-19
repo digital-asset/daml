@@ -269,7 +269,7 @@ private[validation] object TypeIterable {
           methods.values.iterator.flatMap(iterator)
     }
 
-  private[validation] def iterator(ifield: InterfaceField) : Iterator[Type] =
+  private[validation] def iterator(ifield: InterfaceField): Iterator[Type] =
     ifield match {
       case InterfaceField(name @ _, ty) =>
         Iterator(ty)

@@ -426,7 +426,7 @@ final case class EMissingInterfaceField(
     context: Context,
     iface: TypeConName,
     template: TypeConName,
-    field: InterfaceField
+    field: InterfaceField,
 ) extends ValidationError {
   override protected def prettyInternal: String =
     s"Template $template is missing field ${field.name} required by interface $iface\n Expected:  ${field.name} : ${field.fieldType}\n But template has no such field."
