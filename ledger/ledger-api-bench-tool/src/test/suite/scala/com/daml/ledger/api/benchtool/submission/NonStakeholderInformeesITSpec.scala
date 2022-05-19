@@ -31,6 +31,7 @@ class NonStakeholderInformeesITSpec
       numberOfInstances = 100,
       numberOfObservers = 1,
       numberOfDivulgees = 3,
+      numberOfExtraSubmitters = 0,
       uniqueParties = false,
       instanceDistribution = List(
         WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -41,6 +42,7 @@ class NonStakeholderInformeesITSpec
       ),
       nonConsumingExercises = None,
       consumingExercises = None,
+      applicationIds = List.empty,
     )
     for {
       ledgerApiServicesF <- LedgerApiServices.forChannel(
@@ -63,6 +65,7 @@ class NonStakeholderInformeesITSpec
         submissionBatchSize = 5,
         submissionConfig = submissionConfig,
         allocatedParties = allocatedParties,
+        names = names,
       )
       _ <- tested.performSubmission()
       (treeResults_divulgee0, flatResults_divulgee0) <- observeAllTemplatesForParty(

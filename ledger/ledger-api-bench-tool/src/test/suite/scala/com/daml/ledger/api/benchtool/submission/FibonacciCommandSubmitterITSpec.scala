@@ -48,6 +48,7 @@ class FibonacciCommandSubmitterITSpec
       generator = new FibonacciCommandGenerator(
         signatory = allocatedParties.signatory,
         config = config,
+        names = names,
       )
       _ <- tested.generateAndSubmit(
         generator = generator,

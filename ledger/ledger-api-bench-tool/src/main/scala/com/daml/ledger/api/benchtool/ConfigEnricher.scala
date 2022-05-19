@@ -22,7 +22,7 @@ object ConfigEnricher {
       case config: StreamConfig.ActiveContractsStreamConfig =>
         config.copy(filters = enrichFilters(config.filters, submissionResult))
       case config: StreamConfig.CompletionsStreamConfig =>
-        config.copy(party = convertParty(config.party, submissionResult))
+        config.copy(parties = config.parties.map(party => convertParty(party, submissionResult)))
     }
   }
 

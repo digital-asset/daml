@@ -13,6 +13,7 @@ class FooSubmission(
     submissionBatchSize: Int,
     submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
+    names: Names,
 ) {
 
   def performSubmission()(implicit
@@ -43,6 +44,7 @@ class FooSubmission(
         randomnessProvider = RandomnessProvider.Default,
         config = submissionConfig,
         divulgeesToDivulgerKeyMap = divulgeesToDivulgerKeyMap,
+        names = names,
         allocatedParties = allocatedParties,
       )
       _ <- submitter
