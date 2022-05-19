@@ -2,6 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- This checks there is no choice collision for requiring Interface
+
 module InterfaceChoiceCollision2 where
 
 import qualified InterfaceChoiceCollision1
