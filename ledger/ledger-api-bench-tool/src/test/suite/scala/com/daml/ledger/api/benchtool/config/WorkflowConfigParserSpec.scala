@@ -409,7 +409,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    parties: [Obs-2]
           |    begin_offset: foo
           |    application_id: foobar
-          |    timeout_in_seconds: 100,
+          |    timeout_in_seconds: 100
           |    objectives:
           |      min_item_rate: 12
           |      max_item_rate: 345""".stripMargin
