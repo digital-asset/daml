@@ -11,6 +11,7 @@ package object v1_14 {
     (v1_8.default(timeoutScaleFactor) ++ Vector(
       new ExceptionRaceConditionIT,
       new ExceptionsIT,
+      new LimitsIT,
     )).sortBy(_.name)
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
