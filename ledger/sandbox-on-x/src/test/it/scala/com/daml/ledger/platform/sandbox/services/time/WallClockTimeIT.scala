@@ -10,7 +10,7 @@ import com.daml.grpc.GrpcException
 import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
@@ -30,8 +30,21 @@ final class WallClockTimeIT
 
   override val timeLimit: Span = 15.seconds
 
-  override protected def config: SandboxConfig = super.config.copy(
-    timeProviderType = Some(TimeProviderType.WallClock)
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                timeProviderType = TimeProviderType.WallClock
+              )
+          )
+      )
+    )
   )
 
   private val unimplemented: PartialFunction[Any, Unit] = { case GrpcException.UNIMPLEMENTED() =>

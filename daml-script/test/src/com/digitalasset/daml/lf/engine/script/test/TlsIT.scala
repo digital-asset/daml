@@ -4,10 +4,10 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import org.scalatest.matchers.should.Matchers
@@ -28,9 +28,22 @@ final class TlsIT
 
   override def timeMode = ScriptTimeMode.WallClock
 
-  override protected def config =
-    super.config
-      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                tls = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt))
+              )
+          )
+      )
+    )
+  )
 
   "Daml Script against ledger with TLS" can {
     "test0" should {

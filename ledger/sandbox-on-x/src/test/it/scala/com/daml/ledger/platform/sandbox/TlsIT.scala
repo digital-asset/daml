@@ -16,7 +16,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -56,18 +56,30 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       ).client()
     )
 
-  override protected lazy val config: SandboxConfig =
-    super.config.copy(
-      tlsConfig = Some(
-        TlsConfiguration(
-          enabled = true,
-          Some(certChainFilePath),
-          Some(privateKeyFilePath),
-          Some(trustCertCollectionFilePath),
-          minimumServerProtocolVersion = None,
-        )
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                tls = Some(
+                  TlsConfiguration(
+                    enabled = true,
+                    Some(certChainFilePath),
+                    Some(privateKeyFilePath),
+                    Some(trustCertCollectionFilePath),
+                    minimumServerProtocolVersion = None,
+                  )
+                )
+              )
+          )
       )
     )
+  )
 
   private def clientF(protocol: TlsVersion) =
     LedgerClient.singleHost(serverHost, serverPort.value, baseConfig, tlsEnabledConfig(protocol))

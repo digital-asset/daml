@@ -16,9 +16,9 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.services.time.TimeProviderType
@@ -121,10 +121,22 @@ sealed trait CommandServiceITBase
     }
   }
 
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      timeProviderType = Some(TimeProviderType.WallClock)
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                timeProviderType = TimeProviderType.WallClock
+              )
+          )
+      )
     )
+  )
 
 }
 

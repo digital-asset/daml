@@ -43,14 +43,19 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.runner.common.Config.{
+  SandboxEngineConfig,
+  SandboxParticipantConfig,
+  SandboxParticipantId,
+}
+import com.daml.ledger.sandbox.{BridgeConfig, NewSandboxServer}
+import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
@@ -169,24 +174,21 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val ledgerF = for {
       urlResource <- Future(
         SandboxBackend.H2Database.owner
-          .map(info => Some(info.jdbcUrl))
+          .map(info => info.jdbcUrl)
           .acquire()
       )
       jdbcUrl <- urlResource.asFuture
-      portF <- Future(
-        SandboxServer
-          .owner(
-            ledgerConfig(
-              Port.Dynamic,
-              dars,
-              ledgerId,
-              useTls = useTls,
-              authService = authService,
-              jdbcUrl = jdbcUrl,
-            )
-          )
-          .acquire()
+
+      config = ledgerConfig(
+        Port.Dynamic,
+        dars,
+        ledgerId,
+        useTls = useTls,
+        authService = authService,
+        jdbcUrl = jdbcUrl,
       )
+
+      portF <- Future(NewSandboxServer.owner(config).acquire())
       port <- portF.asFuture
     } yield (portF, port)
 
@@ -219,18 +221,29 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ledgerId: LedgerId,
       authService: Option[AuthService],
       useTls: UseTls,
-      jdbcUrl: Option[String],
-  ): SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      port = ledgerPort,
-      damlPackages = dars,
-      jdbcUrl = jdbcUrl,
-      timeProviderType = Some(TimeProviderType.WallClock),
-      tlsConfig = if (useTls) Some(serverTlsConfig) else None,
-      ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService,
-      seeding = Seeding.Weak,
-    )
+      jdbcUrl: String,
+  ): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+    genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+      ledgerId = ledgerId.unwrap,
+      engine = SandboxEngineConfig.copy(
+        allowedLanguageVersions = LanguageVersion.DevVersions
+      ),
+      dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+      participants = Map(
+        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+          SandboxParticipantConfig.apiServer.copy(
+            seeding = Seeding.Weak,
+            timeProviderType = TimeProviderType.WallClock,
+            tls = if (useTls) Some(serverTlsConfig) else None,
+            port = ledgerPort,
+          )
+        )
+      ),
+    ),
+    bridgeConfig = BridgeConfig(),
+    damlPackages = dars,
+    authServiceFromConfig = authService,
+  )
 
   private def clientConfig(
       applicationId: ApplicationId,

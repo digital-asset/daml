@@ -7,7 +7,6 @@ package trigger
 package test
 
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -23,6 +22,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
@@ -99,7 +99,7 @@ trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql 
           compiledPackages,
           trigger,
           client,
-          config.timeProviderType.get,
+          newConfig.genericConfig.participants(SandboxParticipantId).apiServer.timeProviderType,
           applicationId,
           TriggerParties(
             actAs = Party(party),

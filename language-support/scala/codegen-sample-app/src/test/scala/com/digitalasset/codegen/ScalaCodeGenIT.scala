@@ -8,7 +8,6 @@ import java.time.Instant
 import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.Commands
@@ -26,8 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
@@ -80,9 +78,22 @@ class ScalaCodeGenIT
     ""
   ) // this is by design, starting from release: 0.12.18 it is a requried field
 
-  override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
-    timeProviderType = Some(TimeProviderType.WallClock),
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(
+      ledgerId = ledgerId,
+      participants = Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                timeProviderType = TimeProviderType.WallClock
+              )
+          )
+      ),
+    )
   )
 
   private val clientConfig = LedgerClientConfiguration(

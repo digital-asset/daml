@@ -3,18 +3,20 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.{Flow}
+import akka.stream.scaladsl.Flow
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.data.Ref._
-import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.NewSandboxServer
+
 import java.io.File
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import com.daml.lf.engine.trigger.TriggerMsg
 
 class Tls
@@ -33,8 +35,22 @@ class Tls
 
   private val tlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
 
-  override protected def config =
-    super.config.copy(tlsConfig = Some(tlsConfig))
+  override protected def newConfig: NewSandboxServer.CustomConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                tls = Some(tlsConfig)
+              )
+          )
+      )
+    )
+  )
 
   override protected def ledgerClientChannelConfiguration =
     super.ledgerClientChannelConfiguration

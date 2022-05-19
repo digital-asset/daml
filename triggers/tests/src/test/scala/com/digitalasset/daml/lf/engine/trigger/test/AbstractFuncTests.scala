@@ -11,14 +11,15 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
-import scala.jdk.CollectionConverters._
 
+import scala.jdk.CollectionConverters._
 import com.daml.lf.engine.trigger.TriggerMsg
 
 import java.util.UUID
@@ -509,12 +510,14 @@ abstract class AbstractFuncTests
                 case SList(items) if items.length == 2 =>
                   val t0 = items.slowApply(0).asInstanceOf[STimestamp].value
                   val t1 = items.slowApply(1).asInstanceOf[STimestamp].value
-                  config.timeProviderType match {
-                    case None => fail("No time provider type specified")
-                    case Some(TimeProviderType.WallClock) =>
+                  newConfig.genericConfig
+                    .participants(SandboxParticipantId)
+                    .apiServer
+                    .timeProviderType match {
+                    case TimeProviderType.WallClock =>
                       // Given the limited resolution it can happen that t0 == t1
                       t0 should be >= t1
-                    case Some(TimeProviderType.Static) =>
+                    case TimeProviderType.Static =>
                       t0 shouldBe t1
                   }
                 case v => fail(s"Expected list with 2 elements but got $v")

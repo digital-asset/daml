@@ -22,12 +22,12 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.Port
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
@@ -45,13 +45,27 @@ trait SandboxTestLedger extends SandboxFixture {
   )
   protected val ledgerIdMode: LedgerIdMode =
     LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
-  protected override def config: SandboxConfig = SandboxConfig.defaultConfig.copy(
-    port = Port.Dynamic,
-    ledgerIdMode = ledgerIdMode,
+
+  override def newConfig = super.newConfig.copy(
     damlPackages = damlPackages,
-    timeProviderType = Some(TimeProviderType.Static),
-    engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Seeding.Weak,
+    genericConfig = super.newConfig.genericConfig.copy(
+      ledgerId = TestUtil.LedgerID,
+      engine = super.newConfig.genericConfig.engine
+        .copy(allowedLanguageVersions = LanguageVersion.DevVersions),
+      participants = Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                timeProviderType = TimeProviderType.Static,
+                seeding = Seeding.Weak,
+              )
+          )
+      ),
+    ),
   )
 
   protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(

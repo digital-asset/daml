@@ -15,7 +15,8 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.NewSandboxServer
 import io.netty.handler.ssl.ClientAuth
 import io.grpc.StatusRuntimeException
 import org.scalatest.Assertion
@@ -79,19 +80,33 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     }
   }
 
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      tlsConfig = Some(
-        TlsConfiguration(
-          enabled = true,
-          Some(certChainFilePath),
-          Some(privateKeyFilePath),
-          Some(trustCertCollectionFilePath),
-          minimumServerProtocolVersion = minimumServerProtocolVersion,
-          clientAuth = ClientAuth.NONE,
+  override protected def newConfig: NewSandboxServer.CustomConfig = {
+    super.newConfig.copy(
+      genericConfig = super.newConfig.genericConfig.copy(
+        participants = Map(
+          SandboxParticipantId -> super.newConfig.genericConfig
+            .participants(SandboxParticipantId)
+            .copy(apiServer =
+              super.newConfig.genericConfig
+                .participants(SandboxParticipantId)
+                .apiServer
+                .copy(tls =
+                  Some(
+                    TlsConfiguration(
+                      enabled = true,
+                      Some(certChainFilePath),
+                      Some(privateKeyFilePath),
+                      Some(trustCertCollectionFilePath),
+                      minimumServerProtocolVersion = minimumServerProtocolVersion,
+                      clientAuth = ClientAuth.NONE,
+                    )
+                  )
+                )
+            )
         )
       )
     )
+  }
 
   private val clientConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(

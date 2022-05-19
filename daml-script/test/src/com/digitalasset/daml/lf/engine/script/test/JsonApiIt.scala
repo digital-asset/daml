@@ -16,14 +16,9 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-}
-import com.daml.ledger.api.domain.{LedgerId, User, UserRight}
+import com.daml.jwt.JwtSigner
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   OwnedResource,
@@ -47,7 +42,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.sandbox.{ConfigConverter, NewSandboxServer}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -56,8 +51,6 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.ports.Port
@@ -73,6 +66,10 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 import com.daml.metrics.{Metrics, MetricsReporter}
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -85,18 +82,25 @@ trait JsonApiFixture
 
   override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
-  override protected def config: SandboxConfig =
-    super.config
-      .copy(
-        ledgerIdMode = LedgerIdMode.Static(LedgerId("MyLedger")),
-        authService = Some(
-          AuthServiceJWT(
-            HMAC256Verifier(secret).valueOr(err =>
-              sys.error(s"Failed to create HMAC256 verifierd $err")
-            )
+
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(
+      ledgerId = "MyLedger",
+      participants = Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                timeProviderType = TimeProviderType.WallClock,
+                authentication = UnsafeJwtHmac256(secret),
+              )
           )
-        ),
-      )
+      ),
+    )
+  )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort
   protected val secret: String = "secret"
 
@@ -153,7 +157,21 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        serverPort <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+        participantDataSource = jdbcUrl match {
+          case Some(url) => Map(SandboxParticipantId -> ParticipantDataSourceConfig(url))
+          case None =>
+            Map(
+              SandboxParticipantId -> ParticipantDataSourceConfig(
+                ConfigConverter.defaultH2SandboxJdbcUrl()
+              )
+            )
+        }
+        cfg = newConfig.copy(
+          genericConfig = newConfig.genericConfig.copy(
+            dataSource = participantDataSource
+          )
+        )
+        serverPort <- NewSandboxServer.owner(cfg)
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {

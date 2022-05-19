@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
   TransactionServiceGrpc,
 }
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.timer.Delayed
@@ -32,8 +32,27 @@ final class OngoingStreamAuthIT
 
   private val UserManagementCacheExpiryInSeconds = 1
 
-  override protected def config: SandboxConfig = super.config.withUserManagementConfig(
-    _.copy(cacheExpiryAfterWriteInSeconds = UserManagementCacheExpiryInSeconds)
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                userManagement = super.newConfig.genericConfig
+                  .participants(SandboxParticipantId)
+                  .apiServer
+                  .userManagement
+                  .copy(
+                    cacheExpiryAfterWriteInSeconds = UserManagementCacheExpiryInSeconds
+                  )
+              )
+          )
+      )
+    )
   )
 
   override def serviceCallName: String = ""

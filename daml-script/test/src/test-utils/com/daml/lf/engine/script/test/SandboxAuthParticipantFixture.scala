@@ -4,16 +4,17 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, CustomDamlJWTPayload}
+import com.daml.jwt.JwtSigner
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
@@ -49,15 +50,23 @@ trait SandboxAuthParticipantFixture
     )
 
   private val secret = "secret"
-  override def config = super.config.copy(
-    timeProviderType = Some(TimeProviderType.WallClock),
-    authService = Some(
-      AuthServiceJWT(
-        HMAC256Verifier(secret).valueOr(err =>
-          sys.error(s"Failed to create HMAC256 verifierd $err")
-        )
+
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                timeProviderType = TimeProviderType.WallClock,
+                authentication = UnsafeJwtHmac256(secret),
+              )
+          )
       )
-    ),
+    )
   )
   override def timeMode = ScriptTimeMode.WallClock
 

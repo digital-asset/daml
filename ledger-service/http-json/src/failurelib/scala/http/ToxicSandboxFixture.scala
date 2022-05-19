@@ -8,9 +8,11 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.sandbox.NewSandboxServer
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
 import io.grpc.Channel
@@ -81,8 +83,14 @@ trait ToxicSandboxFixture
       for {
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
-          .map(info => Some(info.jdbcUrl))
-        port <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+          .map(info => info.jdbcUrl)
+        participantDataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl))
+        cfg = newConfig.copy(
+          genericConfig = newConfig.genericConfig.copy(
+            dataSource = participantDataSource
+          )
+        )
+        port <- NewSandboxServer.owner(cfg)
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),

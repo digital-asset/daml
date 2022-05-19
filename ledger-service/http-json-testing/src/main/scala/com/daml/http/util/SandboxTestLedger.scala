@@ -15,9 +15,14 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ports.Port
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.runner.common.Config.{
+  SandboxEngineConfig,
+  SandboxParticipantConfig,
+  SandboxParticipantId,
+}
+import com.daml.ledger.sandbox.{BridgeConfig, NewSandboxServer}
+import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
@@ -34,15 +39,25 @@ trait SandboxTestLedger extends SandboxFixture {
 
   def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
-  override protected def config: SandboxConfig = SandboxConfig.defaultConfig.copy(
-    port = Port.Dynamic,
+  override protected def newConfig: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+    genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+      ledgerId = testId,
+      engine = SandboxEngineConfig.copy(
+        allowedLanguageVersions = LanguageVersion.DevVersions
+      ),
+      participants = Map(
+        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+          SandboxParticipantConfig.apiServer.copy(
+            seeding = Seeding.Weak,
+            timeProviderType = TimeProviderType.WallClock,
+            tls = if (useTls) Some(serverTlsConfig) else None,
+          )
+        )
+      ),
+    ),
+    bridgeConfig = BridgeConfig(),
     damlPackages = packageFiles,
-    timeProviderType = Some(TimeProviderType.WallClock),
-    tlsConfig = if (useTls) Some(serverTlsConfig) else None,
-    ledgerIdMode = LedgerIdMode.Static(ledgerId),
-    authService = authService,
-    engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Seeding.Weak,
+    authServiceFromConfig = authService,
   )
 
   def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =

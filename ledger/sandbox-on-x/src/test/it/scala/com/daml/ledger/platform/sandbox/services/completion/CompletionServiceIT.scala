@@ -15,9 +15,11 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.testing.StreamConsumer
@@ -144,15 +146,32 @@ sealed trait CompletionServiceITBase
     }
   }
 
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      commandConfig = super.config.commandConfig.copy(
-        inputBufferSize = 1,
-        maxCommandsInFlight = 2,
-      ),
-      maxParallelSubmissions = 2,
-    )
-
+  override def newConfig = super.newConfig.copy(
+    genericConfig = super.newConfig.genericConfig.copy(participants =
+      Map(
+        SandboxParticipantId -> super.newConfig.genericConfig
+          .participants(SandboxParticipantId)
+          .copy(
+            apiServer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(
+                command = CommandConfiguration.Default.copy(
+                  inputBufferSize = 1,
+                  maxCommandsInFlight = 2,
+                )
+              ),
+            indexer = super.newConfig.genericConfig
+              .participants(SandboxParticipantId)
+              .indexer
+              .copy(
+                inputMappingParallelism = 2
+              ),
+          )
+      )
+    ),
+    bridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2),
+  )
 }
 
 // CompletionServiceIT on a Postgresql ledger
