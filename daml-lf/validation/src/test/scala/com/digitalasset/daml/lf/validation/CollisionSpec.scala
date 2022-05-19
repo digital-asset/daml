@@ -331,6 +331,136 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     }
 
+    "detect collision between template choices" in {
+
+      val negativeTestCase =
+        p"""
+        module Mod {                     // fully resolved name: "Mod"
+            
+          template (this: T) = {
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
+            choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.Choice1"
+              , controllers Nil @Party
+              to upure @Unit ();
+            choice Choice2 (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.Choice2"
+              , controllers Nil @Party
+              to upure @Unit ();  
+          } ;
+
+        }
+        """
+
+      val positiveTestCase =
+        p"""
+        module Mod {                     // fully resolved name: "Mod"
+            
+         template (this: T) = {
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
+            choice Choice (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.Choice"
+              , controllers Nil @Party
+              to upure @Unit ();
+            choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.T.CHOICE"
+              , controllers Nil @Party
+              to upure @Unit ();  
+          } ;
+
+        }
+        """
+
+      check(negativeTestCase)
+      an[ECollision] shouldBe thrownBy(check(positiveTestCase))
+
+    }
+
+    "detect collision between interface choices" in {
+
+      val negativeTestCase =
+        p"""
+        module Mod {                     // fully resolved name: "Mod"
+            
+          interface (this: I) = {
+            precondition True;
+            choice Choice1 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice1"
+              , controllers Nil @Party
+              to upure @Unit ();
+            choice Choice2 (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice2"
+              , controllers Nil @Party
+              to upure @Unit ();  
+          } ;
+
+        }
+        """
+
+      val positiveTestCase =
+        p"""
+        module Mod {                     // fully resolved name: "Mod"
+            
+          interface (this: I) = {
+            precondition True;
+            choice CHOICE (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.Choice"
+              , controllers Nil @Party
+              to upure @Unit ();
+            choice Choice (self) (u:Unit) : Unit  // fully resolved name: "Mod.I.CHOICE"
+              , controllers Nil @Party
+              to upure @Unit ();  
+          } ;
+
+        }
+        """
+
+      check(negativeTestCase)
+      an[ECollision] shouldBe thrownBy(check(positiveTestCase))
+
+    }
+
+    "do not consider inherited choices for collision" in {
+
+      val testCase = p"""
+        module Mod {                     
+            
+          interface (this: I1) = {
+            precondition True;
+            choice Choice (self) (u:Unit) : Unit  
+              , controllers Nil @Party
+              to upure @Unit ();
+          };
+
+          interface (this: I2) = {
+            precondition True;
+            choice Choice (self) (u:Unit) : Unit  
+              , controllers Nil @Party
+              to upure @Unit ();
+          };
+
+          template (this: T) = {
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
+            choice Choice (self) (u:Unit) : Unit  
+              , controllers Nil @Party
+              to upure @Unit ();
+            implements Mod:I1{
+              choice Choice;
+            };
+            implements Mod:I2{
+              choice Choice;
+            };
+          } ;
+
+        }
+        """
+
+      check(testCase)
+
+    }
+
   }
 
 }

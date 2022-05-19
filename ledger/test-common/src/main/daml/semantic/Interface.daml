@@ -3,29 +3,23 @@
 
 module Interface where
 
-interface I1 where
-    getOwnerI1 : Party
-    choice ChoiceI1 : ()
-        controller getOwnerI1 this
-        do pure ()
+import qualified Interface1
+import qualified Interface2
 
-interface I2 requires I1 where
-    getOwnerI2 : Party
-    choice ChoiceI2 : ()
-        controller getOwnerI2 this
-        do pure ()
-
-template T1
+template T
   with
-    ownerT1 : Party
+    owner : Party
   where
-    signatory ownerT1
-    key ownerT1 : Party
+    signatory owner
+    key owner : Party
     maintainer key
-    implements I1 where
-      getOwnerI1 = ownerT1
-    implements I2 where
-      getOwnerI2 = ownerT1
-    choice ChoiceT1 : ()
-      controller ownerT1
+    implements Interface1.I where
+      getOwner = owner
+    implements Interface2.I where
+      getOwner = owner
+    nonconsuming choice ChoiceT: ()
+      controller owner
       do pure ()
+    choice MyArchive : Text
+      controller owner
+      do pure "Interface.T"

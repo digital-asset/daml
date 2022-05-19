@@ -87,10 +87,7 @@ private[validation] object Collision {
       tplName: DottedName,
       tpl: Ast.Template,
   ): List[NamedEntity] =
-    (tpl.choices.keys.map(NChoice(module, tplName, _)) ++
-      tpl.implements.iterator.flatMap { case (iface, impl) =>
-        impl.inheritedChoices.iterator.map(NChoiceViaInterface(module, tplName, _, iface))
-      }).toList
+    tpl.choices.keys.map(NChoice(module, tplName, _)).toList
 
   private def namedEntitiesFromInterface(
       module: NModDef,
