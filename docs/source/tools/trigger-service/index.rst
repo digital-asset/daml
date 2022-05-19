@@ -328,9 +328,27 @@ HTTP Request
 HTTP Response
 -------------
 
+A status code of ``200`` indicates a successful liveness check.
+
 - Content-Type: ``application/json``
 - Content:
 
 .. code-block:: json
 
     { "status": "pass" }
+
+Readiness Check
+===============
+
+This can be used as a readiness probe, e.g., in Kubernetes.
+
+HTTP Request
+------------
+
+- URL: ``/readyz``
+- Method: ``GET``
+
+HTTP Response
+-------------
+
+A status code of ``200`` indicates a successful readiness check.

@@ -437,6 +437,16 @@ class Server(
         }
       }
     },
+    path("readyz") {
+      extractActorSystem { implicit sys =>
+        implicit val timeout: Timeout = Timeout(5 seconds)
+        implicit val scheduler: Scheduler = schedulerFromActorSystem(sys.toTyped)
+        onSuccess(ctx.self.ask(ref => Server.GetServerState(ref))) {
+          case Server.Running => complete(StatusCodes.OK)
+          case Server.Starting => complete(StatusCodes.NotFound)
+        }
+      }
+    },
     path("livez") {
       complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
     },
@@ -456,6 +466,11 @@ object Server {
   final case class StartFailed(cause: Throwable) extends Message
 
   final case class Started(binding: ServerBinding) extends Message
+
+  final case class GetServerState(replyTo: ActorRef[ServerState]) extends Message
+  sealed trait ServerState extends Message
+  case object Running extends ServerState
+  case object Starting extends ServerState
 
   case object Stop extends Message
 
@@ -716,6 +731,11 @@ object Server {
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same
+          case GetServerState(replyTo) =>
+            replyTo ! Running
+            Behaviors.same
+          case Running | Starting =>
+            Behaviors.same
           case StartFailed(_) => Behaviors.unhandled // Will never be received in this state.
           case Started(_) => Behaviors.unhandled // Will never be received in this state.
           case Stop =>
@@ -755,6 +775,11 @@ object Server {
           running(binding)
         case GetServerBinding(replyTo) =>
           starting(wasStopped, Some(replyTo))
+        case GetServerState(replyTo) =>
+          replyTo ! Starting
+          Behaviors.same
+        case Running | Starting =>
+          Behaviors.same
         case Stop =>
           // We got a stop message but haven't completed starting
           // yet. We cannot stop until starting has completed.
