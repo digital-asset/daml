@@ -1,0 +1,17 @@
+
+-- | CoinB -- Add meta info: #transfers
+
+module CoinB where
+
+import InterfaceA -- dont need to change interface
+
+template CoinT
+  with
+    issuer : Party
+    owner : Party
+    numberOfTransfers : Int
+  where
+    signatory [issuer,owner]
+
+    implements CoinI where
+      _view : CoinView =  CoinView with issuer, owner
