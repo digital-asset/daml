@@ -7,7 +7,7 @@ import java.util.concurrent.Executors
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.metrics.Metrics
-import com.daml.platform.store.cache.BufferSlice.{Inclusive, Suffix}
+import com.daml.platform.store.cache.BufferSlice.{Inclusive, LastBufferChunkSuffix}
 import com.daml.platform.store.cache.EventsBuffer.{RequestOffBufferBounds, UnorderedException}
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
@@ -25,7 +25,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   private val BeginOffset = offset(0L)
   private val offsets @ Seq(offset1, offset2, offset3, offset4, offset5) =
     offsetIdx.map(i => offset(i.toLong))
-  private val bufferElements @ Seq(_, entry2, entry3, entry4) =
+  private val bufferElements @ Seq(entry1, entry2, entry3, entry4) =
     offsets.zip(offsetIdx.map(_ * 2)).take(4)
 
   private val LastOffset = offset4
@@ -34,16 +34,14 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   "push" when {
     "max buffer size reached" should {
       "drop oldest" in withBuffer(3L) { buffer =>
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset2,
           slice = Vector(entry3, entry4),
-          continueFrom = None,
         )
         buffer.push(offset5, 21)
-        buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, offset5, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset3,
           slice = Vector(entry4, offset5 -> 21),
-          continueFrom = None,
         )
       }
     }
@@ -67,10 +65,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "range end with equal offset added" should {
       "accept it" in withBuffer(3L) { buffer =>
         buffer.push(LastOffset, Int.MaxValue)
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset2,
           slice = Vector(entry3, entry4),
-          continueFrom = None,
         )
       }
     }
@@ -125,35 +122,42 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
           buffer.slice(offset1, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty, None)
           buffer.slice(offset2, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty, None)
       }
-      "return an empty Suffix slice if startExclusive is before buffer start" in withBuffer(
+      "return an empty LastBufferChunkSuffix slice if startExclusive is before buffer start" in withBuffer(
         maxBufferSize = 2L
       ) { buffer =>
-        buffer.slice(offset1, offset1, IdentityFilter) shouldBe Suffix(offset1, Vector.empty, None)
-        buffer.slice(offset2, offset1, IdentityFilter) shouldBe Suffix(offset1, Vector.empty, None)
+        buffer.slice(offset1, offset1, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          offset1,
+          Vector.empty,
+        )
+        buffer.slice(offset2, offset1, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          offset1,
+          Vector.empty,
+        )
       }
     }
 
     "called with startExclusive before the buffer start" should {
-      "return a Suffix slice" in withBuffer() { buffer =>
-        buffer.slice(Offset.beforeBegin, offset3, IdentityFilter) shouldBe Suffix(
+      "return a LastBufferChunkSuffix slice" in withBuffer() { buffer =>
+        buffer.slice(Offset.beforeBegin, offset3, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset1,
           Vector(entry2, entry3),
-          None,
         )
-        buffer.slice(Offset.beforeBegin, succ(offset3), IdentityFilter) shouldBe Suffix(
+        buffer.slice(
+          Offset.beforeBegin,
+          succ(offset3),
+          IdentityFilter,
+        ) shouldBe LastBufferChunkSuffix(
           offset1,
           Vector(entry2, entry3),
-          None,
         )
       }
 
-      "return a chunked Suffix slice if resulting slice is bigger than maxFetchSize" in withBuffer(
+      "return a the last filtered chunk as LastBufferChunkSuffix slice if resulting slice is bigger than maxFetchSize" in withBuffer(
         maxFetchSize = 2
       ) { buffer =>
-        buffer.slice(Offset.beforeBegin, offset4, IdentityFilter) shouldBe Suffix(
-          offset1,
-          Vector(entry2, entry3),
-          Some(offset3),
+        buffer.slice(Offset.beforeBegin, offset4, IdentityFilter) shouldBe LastBufferChunkSuffix(
+          offset2,
+          Vector(entry3, entry4),
         )
       }
     }
@@ -211,10 +215,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "element found" should {
       "prune inclusive" in withBuffer() { buffer =>
         buffer.prune(offset3)
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset4,
           bufferElements.drop(4),
-          None,
         )
       }
     }
@@ -222,10 +225,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "element not present" should {
       "prune inclusive" in withBuffer() { buffer =>
         buffer.prune(offset(6))
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset4,
           bufferElements.drop(4),
-          None,
         )
       }
     }
@@ -233,10 +235,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "element before series" should {
       "not prune" in withBuffer() { buffer =>
         buffer.prune(offset(1))
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset1,
           bufferElements.drop(1),
-          None,
         )
       }
     }
@@ -244,10 +245,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "element after series" should {
       "prune all" in withBuffer() { buffer =>
         buffer.prune(offset5)
-        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           LastOffset,
           Vector.empty,
-          None,
         )
       }
     }
@@ -255,10 +255,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "one element in buffer" should {
       "prune all" in withBuffer(1, Vector(offset(1) -> 2)) { buffer =>
         buffer.prune(offset(1))
-        buffer.slice(BeginOffset, offset(1), IdentityFilter) shouldBe Suffix(
+        buffer.slice(BeginOffset, offset(1), IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset(1),
           Vector.empty,
-          None,
         )
       }
     }
@@ -284,6 +283,75 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
     "work on empty series" in {
       Vector.empty[Int].searchBy(1337, identity) shouldBe InsertionPoint(0)
+    }
+  }
+
+  "indexAfter" should {
+    "yield the index gt the searched entry" in {
+      EventsBuffer.indexAfter(InsertionPoint(3)) shouldBe 3
+      EventsBuffer.indexAfter(Found(3)) shouldBe 4
+    }
+  }
+
+  "filterAndChunkSlice" should {
+    "return an Inclusive result with filter" in {
+      val input = Vector(entry1, entry2, entry3, entry4)
+
+      EventsBuffer.filterAndChunkSlice[Int, Int](
+        bufferSlice = input,
+        filter = Option(_).filterNot(_ == entry2._2),
+        maxChunkSize = 2,
+      ) shouldBe Inclusive(Vector(entry1, entry3), Some(entry3._1))
+
+      EventsBuffer.filterAndChunkSlice[Int, Int](
+        bufferSlice = input,
+        filter = Option(_).filterNot(_ == entry2._2),
+        maxChunkSize = 3,
+      ) shouldBe Inclusive(Vector(entry1, entry3, entry4), None)
+
+      EventsBuffer.filterAndChunkSlice[Int, Int](
+        bufferSlice = input,
+        filter = Option(_).filterNot(_ == entry2._2),
+        maxChunkSize = 1,
+      ) shouldBe Inclusive(Vector(entry1), Some(entry1._1))
+    }
+  }
+
+  "lastFilteredChunk" should {
+    val input = Vector(entry1, entry2, entry3, entry4)
+
+    "return a LastBufferChunkSuffix with the last maxChunkSize-sized chunk from the slice with filter" in {
+      EventsBuffer.lastFilteredChunk[Int, Int](
+        bufferSlice = input,
+        filter = Option(_).filterNot(_ == entry2._2),
+        maxChunkSize = 1,
+      ) shouldBe LastBufferChunkSuffix(entry3._1, Vector(entry4))
+
+      EventsBuffer.lastFilteredChunk[Int, Int](
+        bufferSlice = input,
+        filter = Option(_).filterNot(_ == entry2._2),
+        maxChunkSize = 2,
+      ) shouldBe LastBufferChunkSuffix(entry2._1, Vector(entry3, entry4))
+
+      EventsBuffer.lastFilteredChunk[Int, Int](
+        bufferSlice = input,
+        filter = Option(_).filterNot(_ == entry2._2),
+        maxChunkSize = 3,
+      ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry3, entry4))
+
+      EventsBuffer.lastFilteredChunk[Int, Int](
+        bufferSlice = input,
+        filter = Some(_), // No filter
+        maxChunkSize = 4,
+      ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry2, entry3, entry4))
+    }
+
+    "use the slice head as bufferedStartExclusive when filter yields an empty result slice" in {
+      EventsBuffer.lastFilteredChunk[Int, Int](
+        bufferSlice = input,
+        filter = _ => None,
+        maxChunkSize = 2,
+      ) shouldBe LastBufferChunkSuffix(entry1._1, Vector.empty)
     }
   }
 

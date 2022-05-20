@@ -8,9 +8,13 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref.{IdString, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import com.daml.platform.store.dao.events.BufferedTransactionsReader.FetchTransactions
+import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
+  FetchTransactions,
+  invertMapping,
+}
 import com.daml.platform.store.dao.events.BufferedTransactionsReaderSpec.{
   offset,
   predecessor,
@@ -162,21 +166,24 @@ class BufferedTransactionsReaderSpec
         )
 
         offsetUpdates.foreach(Function.tupled(transactionsBufferWithSmallChunkSize.push))
-        val anotherResponseForOffset2 = "Response fetched from storage"
+        val anotherResponseForOffset2 = "(2) Response fetched from storage"
+        val anotherResponseForOffset3 = "(3) Response fetched from storage"
         readerGetTransactionsGeneric(
           eventsBuffer = transactionsBufferWithSmallChunkSize,
           startExclusive = offset1,
           endInclusive = offset4,
           fetchTransactions = {
-            case (`offset1`, `offset2`, `filter`, false) =>
-              Source.single(offset2 -> anotherResponseForOffset2)
+            case (`offset1`, `offset3`, `filter`, false) =>
+              Source(
+                Seq(offset2 -> anotherResponseForOffset2, offset3 -> anotherResponseForOffset3)
+              )
             case unexpected =>
               fail(s"Unexpected fetch transactions subscription start: $unexpected")
           },
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
             offset2 -> anotherResponseForOffset2,
-            offset3 -> apiResponse3,
+            offset3 -> anotherResponseForOffset3,
             offset4 -> apiResponse4,
           )
         )
@@ -207,6 +214,28 @@ class BufferedTransactionsReaderSpec
           },
         ).map(_ should contain theSameElementsInOrderAs fetchedElements)
       }
+    }
+  }
+
+  "invertMapping" should {
+    "invert the mapping of Map[Party, Set[TemplateId]] into a Map[TemplateId, Set[Party]]" in {
+      def party: String => IdString.Party = Party.assertFromString
+      def templateId: String => Identifier = Identifier.assertFromString
+
+      val partiesToTemplates =
+        Map(
+          party("p11") -> Set(templateId("a:b:t1")),
+          party("p12") -> Set(templateId("a:b:t1"), templateId("a:b:t2")),
+          party("p21") -> Set(templateId("a:b:t2")),
+        )
+
+      val expectedTemplatesToParties =
+        Map(
+          templateId("a:b:t1") -> Set(party("p11"), party("p12")),
+          templateId("a:b:t2") -> Set(party("p21"), party("p12")),
+        )
+
+      invertMapping(partiesToTemplates) shouldBe expectedTemplatesToParties
     }
   }
 

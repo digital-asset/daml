@@ -14,15 +14,17 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
-import com.daml.platform.store.dao.events.BufferedTransactionsReader.getTransactions
+import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
+  getTransactions,
+  invertMapping,
+}
 import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
-  Filter,
   ToApi,
   ToFlatTransaction,
   ToTransactionTree,
@@ -30,19 +32,23 @@ import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
-    filterFlatTransactions: (Set[Party], Map[Identifier, Set[Party]]) => Filter,
+    filterFlatTransactions: (
+        Set[Party],
+        Map[Identifier, Set[Party]],
+    ) => TransactionLogUpdate.Transaction => Option[TransactionLogUpdate.Transaction],
     flatToApiTransactions: (
         FilterRelation,
         Boolean,
         LoggingContext,
     ) => ToApi[GetTransactionsResponse],
-    filterTransactionTrees: Set[Party] => Filter,
+    filterTransactionTrees: Set[Party] => TransactionLogUpdate.Transaction => Option[
+      TransactionLogUpdate.Transaction
+    ],
     treesToApiTransactions: (
         Set[Party],
         Boolean,
@@ -103,13 +109,13 @@ private[events] class BufferedTransactionsReader(
     )
 
   override def lookupFlatTransactionById(
-      transactionId: Ref.TransactionId,
+      transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     delegate.lookupFlatTransactionById(transactionId, requestingParties)
 
   override def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
+      transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     delegate.lookupTransactionTreeById(transactionId, requestingParties)
@@ -135,22 +141,10 @@ private[events] class BufferedTransactionsReader(
     throw new UnsupportedOperationException(
       s"getTransactionLogUpdates is not supported on ${getClass.getSimpleName}"
     )
-
-  private def invertMapping(partiesTemplates: Map[Party, Set[Identifier]]) =
-    partiesTemplates
-      .foldLeft(Map.empty[Identifier, mutable.Builder[Party, Set[Party]]]) { case (acc, (k, vs)) =>
-        vs.foldLeft(acc) { case (a, v) =>
-          a + (v -> (a.getOrElse(v, Set.newBuilder) += k))
-        }
-      }
-      .view
-      .map { case (k, v) => k -> v.result() }
-      .toMap
 }
 
 private[platform] object BufferedTransactionsReader {
   private val outputStreamBufferSize = 128
-  private val maxInStreamBufferSize = 128
 
   type FetchTransactions[FILTER, API_RESPONSE] =
     (Offset, Offset, FILTER, Boolean) => Source[(Offset, API_RESPONSE), NotUsed]
@@ -184,7 +178,7 @@ private[platform] object BufferedTransactionsReader {
       verbose: Boolean,
       metrics: Metrics,
   )(
-      filterEvents: Filter,
+      filterEvents: TransactionLogUpdate.Transaction => Option[TransactionLogUpdate.Transaction],
       toApiTx: ToApi[API_RESPONSE],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
@@ -194,8 +188,7 @@ private[platform] object BufferedTransactionsReader {
     ) =
       if (bufferSlice.isEmpty) Source.empty
       else
-        Source
-          .fromIterator(() => bufferSlice.iterator)
+        Source(bufferSlice)
           .mapAsync(1) { case (offset, payload) =>
             bufferReaderMetrics.fetchedBuffered.inc()
             Timed.future(
@@ -207,25 +200,21 @@ private[platform] object BufferedTransactionsReader {
     val source = Source
       .unfold(startExclusive) {
         case scannedToInclusive if scannedToInclusive < endInclusive =>
-          val bufferSlice = transactionsBuffer.slice(
-            scannedToInclusive,
-            endInclusive,
-            {
-              case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
-              case _ => None
-            },
-          )
+          val sliceFilter: TransactionLogUpdate => Option[TransactionLogUpdate.Transaction] = {
+            case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
+            case _ => None
+          }
 
-          bufferSlice match {
+          transactionsBuffer.slice(scannedToInclusive, endInclusive, sliceFilter) match {
             case BufferSlice.Inclusive(slice, continueFrom) =>
-              val source = bufferSource(slice)
-              Some(continueFrom.map(_ -> source).getOrElse(endInclusive -> source))
-            case BufferSlice.Suffix(bufferedStartExclusive, slice, continueFrom) =>
-              val source =
-                fetchTransactions(startExclusive, bufferedStartExclusive, filter, verbose).concat(
-                  bufferSource(slice)
-                )
-              Some(continueFrom.map(_ -> source).getOrElse(endInclusive -> source))
+              val sourceFromBuffer = bufferSource(slice)
+              Some(continueFrom.getOrElse(endInclusive) -> sourceFromBuffer)
+
+            case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
+              val sourceFromBuffer =
+                fetchTransactions(startExclusive, bufferedStartExclusive, filter, verbose)
+                  .concat(bufferSource(slice))
+              Some(endInclusive -> sourceFromBuffer)
           }
         case _ => None
       }
@@ -239,6 +228,20 @@ private[platform] object BufferedTransactionsReader {
       }
       .buffered(outputStreamBufferSize)(bufferReaderMetrics.bufferSize)
   }
+
+  private[events] def invertMapping(
+      partiesTemplates: Map[Party, Set[Identifier]]
+  ): Map[Identifier, Set[Party]] =
+    partiesTemplates
+      .foldLeft(Map.empty[Identifier, Set[Party]]) {
+        case (templatesToParties, (party, templates)) =>
+          templates.foldLeft(templatesToParties) { case (aux, templateId) =>
+            aux.updatedWith(templateId) {
+              case None => Some(Set(party))
+              case Some(partySet) => Some(partySet + party)
+            }
+          }
+      }
 
   // TODO LLP: Consider merging with InstrumentedSource.bufferedSource
   private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
