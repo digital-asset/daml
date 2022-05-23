@@ -41,6 +41,8 @@ object TransactionLogUpdate {
 
   /** A special event which signifies that the ledger end has been reached in a stream.
     *
+    * TODO LLP: Remove this class with the implementation of the Ledger API - Indexer bypass.
+    *
     * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
     * @param eventOffset The ledger end offset.
     * @param eventSequentialId The ledger end event sequential id.

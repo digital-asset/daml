@@ -18,6 +18,7 @@ import com.daml.platform.store.cache.EventsBuffer.{
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
+import scala.collection.View
 import scala.math.Ordering
 
 /** An ordered-by-offset queue buffer.
@@ -118,7 +119,7 @@ final class EventsBuffer[ENTRY](
               LastBufferChunkSuffix(endInclusive, Vector.empty)
             case InsertionPoint(0) => lastFilteredChunk(bufferSlice, filter, maxBufferedChunkSize)
             case InsertionPoint(_) | Found(_) =>
-              filterAndChunkSlice(bufferSlice, filter, maxBufferedChunkSize)
+              Inclusive(filterAndChunkSlice(bufferSlice.view, filter, maxBufferedChunkSize))
           }
 
           sliceSizeHistogram.update(filteredBufferSlice.slice.size)
@@ -153,14 +154,9 @@ private[platform] object BufferSlice {
   }
 
   /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq to 1) */
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  private[platform] final case class Inclusive[ELEM](
-      slice: Vector[ELEM],
-      continueStartExclusive: Option[Offset],
-  ) extends BufferSlice[ELEM]
+  private[platform] final case class Inclusive[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
 
   /** A slice of a vector that is a suffix of the requested window (i.e. start index of the slice in the source vector is 0) */
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   private[platform] final case class LastBufferChunkSuffix[ELEM](
       bufferedStartExclusive: Offset,
       slice: Vector[ELEM],
@@ -216,45 +212,28 @@ private[platform] object EventsBuffer {
     }
 
   private[cache] def filterAndChunkSlice[ENTRY, FILTER_RESULT](
-      bufferSlice: Vector[(Offset, ENTRY)],
+      sliceView: View[(Offset, ENTRY)],
       filter: ENTRY => Option[FILTER_RESULT],
       maxChunkSize: Int,
-  ): Inclusive[(Offset, FILTER_RESULT)] = {
-    val bufferSliceIterator = bufferSlice.iterator
-
-    val filteredSlice = bufferSliceIterator
+  ): Vector[(Offset, FILTER_RESULT)] =
+    sliceView
       .flatMap { case (offset, entry) => filter(entry).map(offset -> _) }
       .take(maxChunkSize)
       .toVector
-
-    Inclusive(filteredSlice, Option.when(bufferSliceIterator.hasNext)(filteredSlice.last._1))
-  }
 
   private[cache] def lastFilteredChunk[ENTRY, FILTER_RESULT](
       bufferSlice: Vector[(Offset, ENTRY)],
       filter: ENTRY => Option[FILTER_RESULT],
       maxChunkSize: Int,
   ): LastBufferChunkSuffix[(Offset, FILTER_RESULT)] = {
-    val reversedSliceIterator = bufferSlice.view.reverseIterator
-
     val lastChunk =
-      reversedSliceIterator
-        .flatMap { case (offset, entry) => filter(entry).map(offset -> _) }
-        .take(maxChunkSize)
-        .toVector
-        .reverse
+      filterAndChunkSlice(bufferSlice.view.reverse, filter, maxChunkSize + 1).reverse
 
-    if (lastChunk.isEmpty) {
+    if (lastChunk.isEmpty)
       LastBufferChunkSuffix(bufferSlice.head._1, Vector.empty)
-    } else {
-      val firstOffsetInChunk = lastChunk.head._1
-
-      Option.when(reversedSliceIterator.hasNext)(reversedSliceIterator.next()._1) match {
-        case Some(lowerOffset) =>
-          LastBufferChunkSuffix(lowerOffset, lastChunk)
-        case None =>
-          LastBufferChunkSuffix(firstOffsetInChunk, lastChunk.tail)
-      }
+    else {
+      // We waste the first element so we can pass it as the bufferStartExclusive
+      LastBufferChunkSuffix(lastChunk.head._1, lastChunk.tail)
     }
   }
 }

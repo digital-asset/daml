@@ -206,9 +206,10 @@ private[platform] object BufferedTransactionsReader {
           }
 
           transactionsBuffer.slice(scannedToInclusive, endInclusive, sliceFilter) match {
-            case BufferSlice.Inclusive(slice, continueFrom) =>
+            case BufferSlice.Inclusive(slice) =>
               val sourceFromBuffer = bufferSource(slice)
-              Some(continueFrom.getOrElse(endInclusive) -> sourceFromBuffer)
+              val nextChunkStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
+              Some(nextChunkStartExclusive -> sourceFromBuffer)
 
             case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
               val sourceFromBuffer =

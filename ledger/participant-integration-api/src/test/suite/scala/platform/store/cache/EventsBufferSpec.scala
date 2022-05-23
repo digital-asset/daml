@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scala.collection.Searching.{Found, InsertionPoint}
-import scala.collection.immutable
+import scala.collection.{View, immutable}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
@@ -85,24 +85,20 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   "slice" when {
     "filters" in withBuffer() { buffer =>
       buffer.slice(offset1, offset4, Some(_).filterNot(_ == entry3._2)) shouldBe Inclusive(
-        Vector(entry2, entry4),
-        None,
+        Vector(entry2, entry4)
       )
     }
 
     "called with startExclusive gteq than the buffer start" should {
       "return an Inclusive slice" in withBuffer() { buffer =>
         buffer.slice(offset1, succ(offset3), IdentityFilter) shouldBe BufferSlice.Inclusive(
-          Vector(entry2, entry3),
-          None,
+          Vector(entry2, entry3)
         )
         buffer.slice(offset1, offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
-          Vector(entry2, entry3, entry4),
-          None,
+          Vector(entry2, entry3, entry4)
         )
         buffer.slice(succ(offset1), offset4, IdentityFilter) shouldBe BufferSlice.Inclusive(
-          Vector(entry2, entry3, entry4),
-          None,
+          Vector(entry2, entry3, entry4)
         )
       }
 
@@ -110,8 +106,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
         maxFetchSize = 2
       ) { buffer =>
         buffer.slice(offset1, offset4, IdentityFilter) shouldBe Inclusive(
-          Vector(entry2, entry3),
-          Some(offset3),
+          Vector(entry2, entry3)
         )
       }
     }
@@ -119,8 +114,8 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "called with endInclusive lteq startExclusive" should {
       "return an empty Inclusive slice if startExclusive is gteq buffer start" in withBuffer() {
         buffer =>
-          buffer.slice(offset1, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty, None)
-          buffer.slice(offset2, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty, None)
+          buffer.slice(offset1, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty)
+          buffer.slice(offset2, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty)
       }
       "return an empty LastBufferChunkSuffix slice if startExclusive is before buffer start" in withBuffer(
         maxBufferSize = 2L
@@ -295,25 +290,19 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
   "filterAndChunkSlice" should {
     "return an Inclusive result with filter" in {
-      val input = Vector(entry1, entry2, entry3, entry4)
+      val input = Vector(entry1, entry2, entry3, entry4).view
 
       EventsBuffer.filterAndChunkSlice[Int, Int](
-        bufferSlice = input,
-        filter = Option(_).filterNot(_ == entry2._2),
-        maxChunkSize = 2,
-      ) shouldBe Inclusive(Vector(entry1, entry3), Some(entry3._1))
-
-      EventsBuffer.filterAndChunkSlice[Int, Int](
-        bufferSlice = input,
+        sliceView = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 3,
-      ) shouldBe Inclusive(Vector(entry1, entry3, entry4), None)
+      ) shouldBe Vector(entry1, entry3, entry4)
 
       EventsBuffer.filterAndChunkSlice[Int, Int](
-        bufferSlice = input,
-        filter = Option(_).filterNot(_ == entry2._2),
-        maxChunkSize = 1,
-      ) shouldBe Inclusive(Vector(entry1), Some(entry1._1))
+        sliceView = View.empty,
+        filter = Some(_),
+        maxChunkSize = 3,
+      ) shouldBe Vector.empty
     }
   }
 
@@ -331,7 +320,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
         bufferSlice = input,
         filter = Option(_).filterNot(_ == entry2._2),
         maxChunkSize = 2,
-      ) shouldBe LastBufferChunkSuffix(entry2._1, Vector(entry3, entry4))
+      ) shouldBe LastBufferChunkSuffix(entry1._1, Vector(entry3, entry4))
 
       EventsBuffer.lastFilteredChunk[Int, Int](
         bufferSlice = input,
