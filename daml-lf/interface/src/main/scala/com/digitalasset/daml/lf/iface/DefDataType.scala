@@ -16,6 +16,7 @@ import java.{util => j}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 
 import scala.jdk.CollectionConverters._
 
@@ -176,12 +177,14 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
 }
 
 final case class DefTemplate[+Ty](
-    choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-    unresolvedInheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
+    tChoices: TemplateChoices[Ty],
     key: Option[Ty],
     implementedInterfaces: Seq[Ref.TypeConName],
 ) extends DefTemplate.GetChoices[Ty] {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
+
+  @deprecated("use tChoices.directChoices or tChoices.resolvedChoices instead", since = "2.3.0")
+  def choices = tChoices.directChoices
 
   /** Remove choices from `unresolvedInheritedChoices` and add to `choices`
     * given the `astInterfaces` from an [[EnvironmentInterface]].  If the result
@@ -230,6 +233,7 @@ object DefTemplate {
 
 /** Choices in a [[DefTemplate]]. */
 sealed abstract class TemplateChoices[+Ty] {
+  import TemplateChoices.{Resolved, Unresolved}
 
   /** Choices defined directly on the template */
   def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
@@ -238,14 +242,39 @@ sealed abstract class TemplateChoices[+Ty] {
     * resolved
     */
   def resolvedChoices
-      : Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.Identifier], TemplateChoice[Ty]]]]
+      : Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TemplateChoice[Ty]]]]
 
   final def getDirectChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     directChoices.asJava
 
   final def getResolvedChoices
-      : j.Map[Ref.ChoiceName, _ <: j.Map[j.Optional[Ref.Identifier], _ <: TemplateChoice[Ty]]] =
+      : j.Map[Ref.ChoiceName, _ <: j.Map[j.Optional[Ref.TypeConName], _ <: TemplateChoice[Ty]]] =
     resolvedChoices.transform((_, m) => m.forgetNE.mapKeys(toOptional).asJava).asJava
+
+  /** Coerce to [[Resolved]] based on the environment `astInterfaces`, or fail
+    * with the choices that could not be resolved.
+    */
+  def resolveChoices[O >: Ty](
+      astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
+  ): Either[NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]], Resolved[O]] = this match {
+    case u @ Unresolved(direct, unresolved) =>
+      val getAstInterface = astInterfaces.lift
+      val (missing, resolved) = unresolved.partitionMap { case pair @ (choiceName, tcn) =>
+        val resolution = for {
+          astIf <- getAstInterface(tcn)
+          tchoice <- astIf.choices get choiceName
+        } yield (choiceName, (some(tcn), tchoice))
+        resolution toRight pair
+      }
+      missing match {
+        case NonEmpty(missing) => Left(missing.toMap)
+        case _ =>
+          val indirectGrouped =
+            resolved.groupBy1(_._1).transform { (_, ics) => ics.map(_._2).toMap }
+          Right(Resolved(indirectGrouped.unionWith(u.resolvedChoices)(_ ++ _)))
+      }
+    case r @ Resolved(_) => Right(r)
+  }
 }
 
 object TemplateChoices {
@@ -254,12 +283,12 @@ object TemplateChoices {
       unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
   ) extends TemplateChoices[Ty] {
     override def resolvedChoices =
-      directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.Identifier], c)))
+      directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
   }
 
   final case class Resolved[+Ty](
       resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
-        Map[Option[Ref.Identifier], TemplateChoice[Ty]]
+        Map[Option[Ref.TypeConName], TemplateChoice[Ty]]
       ]]
   ) extends TemplateChoices[Ty] {
     override def directChoices = resolvedChoices collect (Function unlift { case (cn, m) =>
