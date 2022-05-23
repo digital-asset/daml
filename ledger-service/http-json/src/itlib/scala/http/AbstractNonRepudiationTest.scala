@@ -40,6 +40,7 @@ abstract class AbstractNonRepudiationTest
     with AbstractHttpServiceIntegrationTestFuns
     with PostgresAroundEach {
 
+  import AbstractNonRepudiationTest._
   import HttpServiceTestFixture._
 
   private var nonRepudiation: nonrepudiation.Configuration.Cli = _
@@ -98,7 +99,7 @@ abstract class AbstractNonRepudiationTest
       nonRepudiation = nonRepudiation,
     ) _
 
-  protected def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
+  protected def withSetup[A](test: SetupFixture => Future[Assertion]) =
     withParticipant { case (participantPort, _: DamlLedgerClient, _) =>
       val participantChannelBuilder =
         NettyChannelBuilder
@@ -137,10 +138,17 @@ abstract class AbstractNonRepudiationTest
 
       setup.use { case (_: Server, db: Tables) =>
         withJsonApi(proxyPort) { (uri, encoder, _: DomainJsonDecoder, _: DamlLedgerClient) =>
-          test(db, uri, encoder)
+          test(SetupFixture(db, uri, encoder))
         }
       }
 
     }
 
+}
+
+object AbstractNonRepudiationTest {
+  import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
+  final case class SetupFixture(db: Tables, uri: Uri, encoder: DomainJsonEncoder)
+      extends UriFixture
+      with EncoderFixture
 }

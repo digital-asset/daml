@@ -79,61 +79,62 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should work with correct user rights
-  "create IOU should work with correct user rights" in withHttpServiceAndClient {
-    (uri, encoder, _, ledgerClient, _) =>
-      val alice = getUniqueParty("Alice")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-      for {
-        user <- createUser(ledgerClient)(
-          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-          initialRights = List(
-            CanActAs(Ref.Party.assertFromString(alice.unwrap))
-          ),
-        )
-        (status, output) <- postJsonRequest(
-          uri.withPath(Uri.Path("/v1/create")),
-          input,
-          headers = headersWithUserAuth(user.id),
-        )
-        assertion <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          val activeContract = getResult(output)
-          assertActiveContract(activeContract)(command, encoder)
-        }
-      } yield assertion
+  "create IOU should work with correct user rights" in withHttpService { fixture =>
+    import fixture.{encoder, client => ledgerClient}
+    val alice = getUniqueParty("Alice")
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(alice.unwrap))
+        ),
+      )
+      (status, output) <- fixture.postJsonRequest(
+        Uri.Path("/v1/create"),
+        input,
+        headers = headersWithUserAuth(user.id),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val activeContract = getResult(output)
+        assertActiveContract(activeContract)(command, encoder)
+      }
+    } yield assertion
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should fail if user has no permission
-  "create IOU should fail if user has no permission" in withHttpServiceAndClient {
-    (uri, encoder, _, ledgerClient, _) =>
-      val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-      for {
-        user <- createUser(ledgerClient)(
-          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-          initialRights = List(
-            CanActAs(Ref.Party.assertFromString(bob.unwrap))
-          ),
-        )
-        (status, output) <- postJsonRequest(
-          uri.withPath(Uri.Path("/v1/create")),
-          input,
-          headers = headersWithUserAuth(user.id),
-        )
-        assertion <- {
-          status shouldBe StatusCodes.BadRequest
-          assertStatus(output, StatusCodes.BadRequest)
-        }
-      } yield assertion
+  "create IOU should fail if user has no permission" in withHttpService { fixture =>
+    import fixture.{encoder, client => ledgerClient}
+    val alice = getUniqueParty("Alice")
+    val bob = getUniqueParty("Bob")
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(bob.unwrap))
+        ),
+      )
+      (status, output) <- fixture.postJsonRequest(
+        Uri.Path("/v1/create"),
+        input,
+        headers = headersWithUserAuth(user.id),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.BadRequest
+        assertStatus(output, StatusCodes.BadRequest)
+      }
+    } yield assertion
   }
 
   // TEST_EVIDENCE: Authorization: create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights
-  "create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" in withHttpServiceAndClient {
-    (uri, encoder, _, ledgerClient, _) =>
+  "create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" in withHttpService {
+    fixture =>
+      import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
       val meta = domain.CommandMeta(None, Some(NonEmptyList(bob)), None)
@@ -148,8 +149,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- postJsonRequest(
-          uri.withPath(Uri.Path("/v1/create")),
+        (status, output) <- fixture.postJsonRequest(
+          Uri.Path("/v1/create"),
           input,
           headers = headersWithUserAuth(user.id),
         )
@@ -160,27 +161,27 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       } yield assertion
   }
 
-  "requesting the user id should be possible via the user endpoint" in withHttpServiceAndClient {
-    (uri, _, _, ledgerClient, _) =>
-      import com.daml.http.json.JsonProtocol._
-      for {
-        user <- createUser(ledgerClient)(
-          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-          initialRights = List.empty,
+  "requesting the user id should be possible via the user endpoint" in withHttpService { fixture =>
+    import fixture.{client => ledgerClient}
+    import com.daml.http.json.JsonProtocol._
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List.empty,
+      )
+      (status, output) <- fixture.getRequest(
+        Uri.Path("/v1/user"),
+        headers = headersWithUserAuth(user.id),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        getResult(output).convertTo[UserDetails] shouldEqual UserDetails(
+          user.id,
+          user.primaryParty: Option[String],
         )
-        (status, output) <- getRequest(
-          uri.withPath(Uri.Path("/v1/user")),
-          headers = headersWithUserAuth(user.id),
-        )
-        assertion <- {
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output).convertTo[UserDetails] shouldEqual UserDetails(
-            user.id,
-            user.primaryParty: Option[String],
-          )
-        }
-      } yield assertion
+      }
+    } yield assertion
   }
 
   "requesting the user rights for a specific user should be possible via a POST to the user/rights endpoint" in withHttpServiceAndClient {
@@ -213,8 +214,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       } yield assertion
   }
 
-  "requesting the user rights for the current user should be possible via a GET to the user/rights endpoint" in withHttpServiceAndClient {
-    (uri, _, _, ledgerClient, _) =>
+  "requesting the user rights for the current user should be possible via a GET to the user/rights endpoint" in withHttpService {
+    fixture =>
+      import fixture.{client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
       for {
@@ -225,8 +227,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ),
         )
-        (status, output) <- getRequest(
-          uri.withPath(Uri.Path("/v1/user/rights")),
+        (status, output) <- fixture.getRequest(
+          Uri.Path("/v1/user/rights"),
           headers = headersWithUserAuth(user.id),
         )
         assertion <- {
@@ -295,45 +297,44 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         .convertTo[List[domain.UserRight]] shouldEqual List.empty
   }
 
-  "getting all users should be possible via the users endpoint" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
-      import spray.json._
-      import scalaz.std.scalaFuture._
-      import scalaz.syntax.traverse._
-      import scalaz.std.list._
-      val alice = getUniqueParty("Alice")
-      val usernames =
-        List("nice.username", "nice.username2", "nice.username3").map(getUniqueUserName)
-      val createUserRequests = usernames.map(name =>
-        domain.CreateUserRequest(
-          name,
-          Some(alice.unwrap),
-          Some(
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.ParticipantAdmin,
-            )
-          ),
-        )
+  "getting all users should be possible via the users endpoint" in withHttpService { fixture =>
+    import spray.json._
+    import scalaz.std.scalaFuture._
+    import scalaz.syntax.traverse._
+    import scalaz.std.list._
+    val alice = getUniqueParty("Alice")
+    val usernames =
+      List("nice.username", "nice.username2", "nice.username3").map(getUniqueUserName)
+    val createUserRequests = usernames.map(name =>
+      domain.CreateUserRequest(
+        name,
+        Some(alice.unwrap),
+        Some(
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.ParticipantAdmin,
+          )
+        ),
       )
-      for {
-        _ <- createUserRequests.traverse(createUserRequest =>
-          for {
-            (status, _) <- postRequest(
-              uri.withPath(Uri.Path("/v1/user/create")),
-              createUserRequest.toJson,
-              headers = headersWithAdminAuth,
-            )
-            _ = status shouldBe StatusCodes.OK
-          } yield ()
-        )
-        (status, output) <- getRequest(
-          uri.withPath(Uri.Path("/v1/users")),
-          headers = headersWithAdminAuth,
-        )
-        _ = status shouldBe StatusCodes.OK
-        users = getResult(output).convertTo[List[UserDetails]]
-      } yield users.map(_.userId) should contain allElementsOf usernames
+    )
+    for {
+      _ <- createUserRequests.traverse(createUserRequest =>
+        for {
+          (status, _) <- postRequest(
+            fixture.uri.withPath(Uri.Path("/v1/user/create")),
+            createUserRequest.toJson,
+            headers = headersWithAdminAuth,
+          )
+          _ = status shouldBe StatusCodes.OK
+        } yield ()
+      )
+      (status, output) <- fixture.getRequest(
+        Uri.Path("/v1/users"),
+        headers = headersWithAdminAuth,
+      )
+      _ = status shouldBe StatusCodes.OK
+      users = getResult(output).convertTo[List[UserDetails]]
+    } yield users.map(_.userId) should contain allElementsOf usernames
   }
 
   "getting information about a specific user should be possible via the user endpoint" in withHttpServiceAndClient {
@@ -374,8 +375,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  "getting information about the current user should be possible via the user endpoint" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
+  "getting information about the current user should be possible via the user endpoint" in withHttpService {
+    fixture =>
+      import fixture.uri
       import spray.json._
       val alice = getUniqueParty("Alice")
       val createUserRequest = domain.CreateUserRequest(
@@ -398,8 +400,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           status1 shouldBe StatusCodes.OK
           getResult(output1) shouldBe JsObject()
         }
-        (status2, output2) <- getRequest(
-          uri.withPath(Uri.Path(s"/v1/user")),
+        (status2, output2) <- fixture.getRequest(
+          Uri.Path(s"/v1/user"),
           headers = headersWithUserAuth(createUserRequest.userId),
         )
       } yield {
@@ -411,8 +413,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  "deleting a specific user should be possible via the user/delete endpoint" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
+  "deleting a specific user should be possible via the user/delete endpoint" in withHttpService {
+    fixture =>
+      import fixture.uri
       import spray.json._
       import spray.json.DefaultJsonProtocol._
       val alice = getUniqueParty("Alice")
@@ -442,8 +445,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           headers = headersWithAdminAuth,
         )
         _ = status2 shouldBe StatusCodes.OK
-        (status3, output3) <- getRequest(
-          uri.withPath(Uri.Path("/v1/users")),
+        (status3, output3) <- fixture.getRequest(
+          Uri.Path("/v1/users"),
           headers = headersWithAdminAuth,
         )
       } yield {
@@ -560,68 +563,68 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   // TEST_EVIDENCE: Performance: creating and listing 20K users should be possible
-  "creating and listing 20K users should be possible" in withHttpServiceAndClient {
-    (uri, _, _, _, _) =>
-      import spray.json._
-      import spray.json.DefaultJsonProtocol._
+  "creating and listing 20K users should be possible" in withHttpService { fixture =>
+    import fixture.uri
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
 
-      val createdUsers = 20000
+    val createdUsers = 20000
 
-      val createUserRequests: List[domain.CreateUserRequest] =
-        List.tabulate(createdUsers) { sequenceNumber =>
-          {
-            val p = getUniqueParty(f"p$sequenceNumber%05d")
-            domain.CreateUserRequest(
-              p.unwrap,
-              Some(p.unwrap),
-              Some(
-                List[domain.UserRight](
-                  domain.CanActAs(p),
-                  domain.ParticipantAdmin,
-                )
-              ),
-            )
-          }
-        }
-
-      // Create users in chunks to avoid overloading the server
-      // https://doc.akka.io/docs/akka-http/current/client-side/pool-overflow.html
-      def createUsers(
-          createUserRequests: Seq[domain.CreateUserRequest],
-          chunkSize: Int = 20,
-      ): Future[Assertion] = {
-        createUserRequests.splitAt(chunkSize) match {
-          case (Nil, _) => Future.successful(succeed)
-          case (next, remainingRequests) =>
-            Future
-              .sequence {
-                next.map { request =>
-                  postRequest(
-                    uri.withPath(Uri.Path("/v1/user/create")),
-                    request.toJson,
-                    headers = headersWithAdminAuth,
-                  ).map(_._1)
-                }
-              }
-              .flatMap { statusCodes =>
-                all(statusCodes) shouldBe StatusCodes.OK
-                createUsers(remainingRequests)
-              }
+    val createUserRequests: List[domain.CreateUserRequest] =
+      List.tabulate(createdUsers) { sequenceNumber =>
+        {
+          val p = getUniqueParty(f"p$sequenceNumber%05d")
+          domain.CreateUserRequest(
+            p.unwrap,
+            Some(p.unwrap),
+            Some(
+              List[domain.UserRight](
+                domain.CanActAs(p),
+                domain.ParticipantAdmin,
+              )
+            ),
+          )
         }
       }
 
-      for {
-        _ <- createUsers(createUserRequests)
-        (status, output) <- getRequest(
-          uri.withPath(Uri.Path("/v1/users")),
-          headers = headersWithAdminAuth,
-        )
-      } yield {
-        status shouldBe StatusCodes.OK
-        val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
-        val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
-        userIds should contain allElementsOf expectedUserIds
+    // Create users in chunks to avoid overloading the server
+    // https://doc.akka.io/docs/akka-http/current/client-side/pool-overflow.html
+    def createUsers(
+        createUserRequests: Seq[domain.CreateUserRequest],
+        chunkSize: Int = 20,
+    ): Future[Assertion] = {
+      createUserRequests.splitAt(chunkSize) match {
+        case (Nil, _) => Future.successful(succeed)
+        case (next, remainingRequests) =>
+          Future
+            .sequence {
+              next.map { request =>
+                postRequest(
+                  uri.withPath(Uri.Path("/v1/user/create")),
+                  request.toJson,
+                  headers = headersWithAdminAuth,
+                ).map(_._1)
+              }
+            }
+            .flatMap { statusCodes =>
+              all(statusCodes) shouldBe StatusCodes.OK
+              createUsers(remainingRequests)
+            }
       }
+    }
+
+    for {
+      _ <- createUsers(createUserRequests)
+      (status, output) <- fixture.getRequest(
+        Uri.Path("/v1/users"),
+        headers = headersWithAdminAuth,
+      )
+    } yield {
+      status shouldBe StatusCodes.OK
+      val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
+      val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
+      userIds should contain allElementsOf expectedUserIds
+    }
   }
 }
 

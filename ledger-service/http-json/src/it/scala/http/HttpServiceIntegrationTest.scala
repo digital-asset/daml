@@ -74,28 +74,28 @@ abstract class HttpServiceIntegrationTest
   }
 
   // TODO(#13668) Redesign the test once the issue is fixed
-  "pick up new package's inherited interfaces" ignore withHttpService { (uri, encoder, _, _) =>
+  "pick up new package's inherited interfaces" ignore withHttpService { fixture =>
+    import fixture.encoder
     import json.JsonProtocol._
     def createIouAndExerciseTransfer(
         initialTplId: domain.TemplateId.OptionalPkg,
         exerciseBy: domain.TemplateId.OptionalPkg,
     ) = for {
-      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
       createTest <- postCreateCommand(
         iouCommand(alice, initialTplId),
-        encoder,
-        uri,
+        fixture,
         aliceHeaders,
       )
       testIIouID = {
         discard { createTest._1 should ===(StatusCodes.OK) }
         createTest._2.convertTo[domain.OkResponse[domain.ActiveContract[JsValue]]].result.contractId
       }
-      bobH <- getUniquePartyAndAuthHeaders(uri)("Bob")
+      bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
       (bob, _) = bobH
-      exerciseTest <- postJsonRequest(
-        uri withPath Uri.Path("/v1/exercise"),
+      exerciseTest <- fixture.postJsonRequest(
+        Uri.Path("/v1/exercise"),
         encodeExercise(encoder)(
           iouTransfer(domain.EnrichedContractId(Some(exerciseBy), testIIouID), bob)
         ),
@@ -106,7 +106,7 @@ abstract class HttpServiceIntegrationTest
     }
 
     for {
-      _ <- uploadPackage(uri)(ciouDar)
+      _ <- uploadPackage(fixture)(ciouDar)
       // first, use IIou only
       _ <- createIouAndExerciseTransfer(
         initialTplId = domain.TemplateId(None, "IIou", "TestIIou"),
@@ -124,23 +124,23 @@ abstract class HttpServiceIntegrationTest
     } yield succeed
   }
 
-  "fail to exercise by key with interface ID" in withHttpService { (uri, encoder, _, _) =>
+  "fail to exercise by key with interface ID" in withHttpService { fixture =>
+    import fixture.encoder
     import json.JsonProtocol._
     for {
-      _ <- uploadPackage(uri)(ciouDar)
-      aliceH <- getUniquePartyAndAuthHeaders(uri)("Alice")
+      _ <- uploadPackage(fixture)(ciouDar)
+      aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, aliceHeaders) = aliceH
       createTest <- postCreateCommand(
         iouCommand(alice, domain.TemplateId(None, "CIou", "CIou")),
-        encoder,
-        uri,
+        fixture,
         aliceHeaders,
       )
       _ = createTest._1 should ===(StatusCodes.OK)
-      bobH <- getUniquePartyAndAuthHeaders(uri)("Bob")
+      bobH <- fixture.getUniquePartyAndAuthHeaders("Bob")
       (bob, _) = bobH
-      exerciseTest <- postJsonRequest(
-        uri withPath Uri.Path("/v1/exercise"),
+      exerciseTest <- fixture.postJsonRequest(
+        Uri.Path("/v1/exercise"),
         encodeExercise(encoder)(
           iouTransfer(
             domain.EnrichedContractKey(
