@@ -22,8 +22,9 @@ template RulesT
 
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
     implements RulesI where
-      transferR : ContractId CoinI -> CoinView -> Party -> Update (ContractId CoinI)
-              = \coin view newOwner -> do
-        new <- create CoinT with issuer = view.issuer, owner = newOwner
+
+      transferR : ContractId CoinI -> CoinView -> CoinI_Transfer -> Update (ContractId CoinI)
+              = \coin view targ -> do
+        new <- create CoinT with issuer = view.issuer, owner = targ.newOwner
         exercise coin CoinI_Archive
         pure (toInterfaceContractId new)
