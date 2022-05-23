@@ -604,7 +604,15 @@ object Engine {
               )
               val ds_prime = d_prime :: ds
               d.metadata.keyHash match {
-                case Some(hash) => (m1_prime, m2 + (hash -> coid), ds_prime)
+                case Some(hash) =>
+                  // check for duplicate contract key hashes
+                  m2.get(hash) match {
+                    case Some(_) =>
+                      throw (Error.Preprocessing.BadDisclosedContract(
+                        "Duplicate key for disclosed contract."
+                      ))
+                    case None => (m1_prime, m2 + (hash -> coid), ds_prime)
+                  }
                 case None => (m1_prime, m2, ds_prime)
               }
           }
