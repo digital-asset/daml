@@ -135,7 +135,7 @@ private[http] final class RouteSetup(
   ): ET[Timer.Context] =
     EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time())
 
-  private[http] def input(req: HttpRequest)(implicit
+  private[endpoints] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ (Jwt, String)] = {
     findJwt(req) match {
@@ -181,7 +181,7 @@ private[http] final class RouteSetup(
     }
 }
 
-private[http] object RouteSetup {
+private[endpoints] object RouteSetup {
   import Endpoints.IntoEndpointsError
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -200,7 +200,7 @@ private[http] object RouteSetup {
       "read_as" -> jwtPayload.readAs.toString,
     ).run(fn)
 
-  private[http] def handleFutureFailure[A](fa: Future[A])(implicit
+  private[endpoints] def handleFutureFailure[A](fa: Future[A])(implicit
       ec: ExecutionContext
   ): Future[Error \/ A] =
     fa.map(a => \/-(a)).recover(Error.fromThrowable andThen (-\/(_)))
@@ -222,7 +222,7 @@ private[http] object RouteSetup {
     }
 
   // avoid case class to avoid using the wrong unapply in isForwardedForHttps
-  private[http] final class Forwarded(override val value: String)
+  private[endpoints] final class Forwarded(override val value: String)
       extends ModeledCustomHeader[Forwarded] {
     override def companion = Forwarded
     override def renderInRequests = true
@@ -232,7 +232,7 @@ private[http] object RouteSetup {
       Forwarded.re findFirstMatchIn value map (_.group(1).toLowerCase)
   }
 
-  private[http] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
+  private[endpoints] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
     override val name = "Forwarded"
     override def parse(value: String) = Try(new Forwarded(value))
     private val re = raw"""(?i)proto\s*=\s*"?(https?)""".r
