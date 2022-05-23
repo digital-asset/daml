@@ -177,7 +177,9 @@ private[apiserver] object ApiPartyManagementService {
     private val PrefixMaxLength: Int = MaxLength - SuffixLength
 
     def withPrefix(partyHint: String): Ref.SubmissionId =
-      augmentSubmissionId(partyHint.take(PrefixMaxLength))
+      augmentSubmissionId(
+        Ref.SubmissionId.fromString(partyHint.take(PrefixMaxLength)).getOrElse("")
+      )
   }
 
   private final class SynchronousResponseStrategy(
