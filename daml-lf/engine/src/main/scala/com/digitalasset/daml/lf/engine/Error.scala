@@ -125,9 +125,7 @@ object Error {
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
-    final case class BadDisclosedContract(msg: String) extends Error {
-      override def message: String = msg
-    }
+    final case class BadDisclosedContract(message: String) extends Error
 
   }
 
