@@ -12,11 +12,11 @@ index 96dfd503..0fad061c 100644
          """.format(
                  ghc = hs.tools.ghc.path,
                  c2hs = c2hs_exe.path,
-diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index ee5f3d02..a89e815b 100644
---- a/haskell/private/actions/compile.bzl
-+++ b/haskell/private/actions/compile.bzl
-@@ -82,16 +82,34 @@ def _process_hsc_file(hs, cc, hsc_flags, hsc_inputs, hsc_file):
+diff --git a/haskell/private/actions/process_hsc_file.bzl b/haskell/private/actions/process_hsc_file.bzl
+index 07bdec29..76dd195a 100644
+--- a/haskell/private/actions/process_hsc_file.bzl
++++ b/haskell/private/actions/process_hsc_file.bzl
+@@ -60,17 +60,35 @@ def process_hsc_file(hs, cc, hsc_flags, hsc_inputs, hsc_file):
      if hs.env.get("PATH") == None and hs.toolchain.is_windows:
          hs.env["PATH"] = ""
  
@@ -29,6 +29,7 @@ index ee5f3d02..a89e815b 100644
              depset(hsc_inputs),
 +            depset(hs.toolchain.bindir),
          ]),
+         input_manifests = cc.manifests,
          outputs = [hs_out],
          mnemonic = "HaskellHsc2hs",
 -        executable = hs.tools.hsc2hs,

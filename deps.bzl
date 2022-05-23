@@ -34,8 +34,8 @@ load("//:canton_dep.bzl", "canton")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "e2a74e5c29588f2107daae7c438e0d4117fcafb3"
-rules_haskell_sha256 = "db8bf1813a07948269e622f646be3e7acc2799664fce548ed6c1afbe141d7085"
+rules_haskell_version = "e1017b429526e6549ef327e80ce7b3f3af3470a3"
+rules_haskell_sha256 = "f527f0e1a654cf2031a6540f674af328dc5f32a0fae55b5ac588861aa7a608e6"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
@@ -46,8 +46,6 @@ rules_haskell_patches = [
     "@com_github_digital_asset_daml//bazel_tools:haskell-rts-docs.patch",
     # This should be upstreamed
     "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:haskell-arm-m1.patch",
 ]
 rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
 rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
