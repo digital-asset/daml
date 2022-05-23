@@ -11,6 +11,7 @@ final case class IndexConfiguration(
     archiveFiles: List[File] = IndexConfiguration.DefaultArchiveFiles,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
+    bufferedStreamsPageSize: Int = IndexConfiguration.DefaultBufferedStreamsPageSize,
     acsIdPageSize: Int = IndexConfiguration.DefaultAcsIdPageSize,
     acsIdPageBufferSize: Int = IndexConfiguration.DefaultAcsIdPageBufferSize,
     acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
@@ -28,6 +29,7 @@ final case class IndexConfiguration(
 object IndexConfiguration {
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
+  val DefaultBufferedStreamsPageSize: Int = 100
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdFetchingParallelism: Int = 2

@@ -3,44 +3,50 @@
 
 package com.daml.platform.store.cache
 
+import com.daml.ledger.offset.Offset
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.cache.BufferSlice.{BufferSlice, Inclusive, LastBufferChunkSuffix}
 import com.daml.platform.store.cache.EventsBuffer.{
-  BufferStateRef,
+  BufferState,
   RequestOffBufferBounds,
   SearchableByVector,
   UnorderedException,
+  filterAndChunkSlice,
+  indexAfter,
+  lastFilteredChunk,
 }
-import com.daml.platform.store.cache.BufferSlice.{Inclusive, Prefix, BufferSlice, Empty}
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
+import scala.collection.View
 import scala.math.Ordering
-import scala.math.Ordering.Implicits.infixOrderingOps
 
-/** An ordered-by-offset ring buffer.
+/** An ordered-by-offset queue buffer.
   *
   * The buffer allows appending only elements with strictly increasing offsets.
   *
   * @param maxBufferSize The maximum buffer size.
   * @param metrics The Daml metrics.
   * @param bufferQualifier The qualifier used for metrics tag specialization.
-  * @param isRangeEndMarker Identifies if an element [[E]] should be treated
+  * @param isRangeEndMarker Identifies if an element [[ENTRY]] should be treated
   *                         as a range end marker, in which case the element would be treated
   *                         as a buffer range end updater and not appended to the actual buffer.
-  * @tparam O The offset type.
-  * @tparam E The entry buffer type.
+  * @tparam ENTRY The entry buffer type.
   */
-private[platform] final class EventsBuffer[O: Ordering, E](
+final class EventsBuffer[ENTRY](
     maxBufferSize: Long,
     metrics: Metrics,
     bufferQualifier: String,
-    isRangeEndMarker: E => Boolean,
+    isRangeEndMarker: ENTRY => Boolean,
+    maxBufferedChunkSize: Int,
 ) {
-  @volatile private var _bufferStateRef = BufferStateRef[O, E]()
+  @volatile private var _bufferState = BufferState[Offset, ENTRY]()
 
-  private val pushTimer = metrics.daml.services.index.streamsBuffer.push(bufferQualifier)
-  private val sliceTimer = metrics.daml.services.index.streamsBuffer.slice(bufferQualifier)
-  private val pruneTimer = metrics.daml.services.index.streamsBuffer.prune(bufferQualifier)
+  private val bufferMetrics = metrics.daml.services.index.Buffer(bufferQualifier)
+  private val pushTimer = bufferMetrics.push
+  private val sliceTimer = bufferMetrics.slice
+  private val pruneTimer = bufferMetrics.prune
+  private val sliceSizeHistogram = bufferMetrics.sliceSize
 
   /** Appends a new event to the buffer.
     *
@@ -51,11 +57,11 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     *              of the range end marker, which can have an offset equal to the last appended element.
     * @param entry The buffer entry.
     */
-  def push(offset: O, entry: E): Unit =
+  def push(offset: Offset, entry: ENTRY): Unit =
     Timed.value(
       pushTimer,
       synchronized {
-        _bufferStateRef.rangeEnd.foreach { lastOffset =>
+        _bufferState.rangeEnd.foreach { lastOffset =>
           // Ensure vector grows with strictly monotonic offsets.
           // Only specially-designated range end markers are allowed
           // to have offsets equal to the buffer range end.
@@ -64,18 +70,18 @@ private[platform] final class EventsBuffer[O: Ordering, E](
           }
         }
 
-        var auxBufferVector = _bufferStateRef.vector
+        var bufferVectorSnapshot = _bufferState.vector
 
         // The range end markers are not appended to the buffer
         if (!isRangeEndMarker(entry)) {
-          if (auxBufferVector.size.toLong == maxBufferSize) {
-            auxBufferVector = auxBufferVector.drop(1)
+          if (bufferVectorSnapshot.size.toLong == maxBufferSize) {
+            bufferVectorSnapshot = bufferVectorSnapshot.drop(1)
           }
-          auxBufferVector = auxBufferVector :+ offset -> entry
+          bufferVectorSnapshot = bufferVectorSnapshot :+ offset -> entry
         }
 
         // Update the buffer reference
-        _bufferStateRef = BufferStateRef(auxBufferVector, Some(offset))
+        _bufferState = BufferState(bufferVectorSnapshot, Some(offset))
       },
     )
 
@@ -87,28 +93,37 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     * @param endInclusive The end inclusive bound of the requested range.
     * @return The series of events as an ordered vector satisfying the input bounds.
     */
-  def slice(startExclusive: O, endInclusive: O): BufferSlice[(O, E)] =
+  def slice[FILTER_RESULT](
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: ENTRY => Option[FILTER_RESULT],
+  ): BufferSlice[(Offset, FILTER_RESULT)] =
     Timed.value(
       sliceTimer, {
-        val bufferSnapshot = _bufferStateRef
+        val bufferSnapshot = _bufferState
+        val vectorSnapshot = bufferSnapshot.vector
+
         if (bufferSnapshot.rangeEnd.exists(_ < endInclusive)) {
-          throw RequestOffBufferBounds(bufferSnapshot.vector.last._1, endInclusive)
-        } else if (bufferSnapshot.vector.isEmpty)
-          Empty
-        else {
-          val Seq(bufferStartInclusiveIdx, bufferEndExclusiveIdx) =
-            Seq(startExclusive, endInclusive)
-              .map(bufferSnapshot.vector.searchBy(_, _._1))
-              .map {
-                case InsertionPoint(insertionPoint) => insertionPoint
-                case Found(foundIndex) => foundIndex + 1
-              }
+          throw RequestOffBufferBounds(bufferSnapshot.rangeEnd.get, endInclusive)
+        } else {
+          val bufferStartSearchResult = vectorSnapshot.searchBy(startExclusive, _._1)
+          val bufferEndSearchResult = vectorSnapshot.searchBy(endInclusive, _._1)
 
-          val vectorSlice =
-            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+          val bufferStartInclusiveIdx = indexAfter(bufferStartSearchResult)
+          val bufferEndExclusiveIdx = indexAfter(bufferEndSearchResult)
 
-          if (bufferStartInclusiveIdx == 0) Prefix(vectorSlice)
-          else Inclusive(vectorSlice)
+          val bufferSlice = vectorSnapshot.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+
+          val filteredBufferSlice = bufferStartSearchResult match {
+            case InsertionPoint(0) if bufferSlice.isEmpty =>
+              LastBufferChunkSuffix(endInclusive, Vector.empty)
+            case InsertionPoint(0) => lastFilteredChunk(bufferSlice, filter, maxBufferedChunkSize)
+            case InsertionPoint(_) | Found(_) =>
+              Inclusive(filterAndChunkSlice(bufferSlice.view, filter, maxBufferedChunkSize))
+          }
+
+          sliceSizeHistogram.update(filteredBufferSlice.slice.size)
+          filteredBufferSlice
         }
       },
     )
@@ -117,17 +132,15 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     *
     * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
     */
-  def prune(endInclusive: O): Unit =
+  def prune(endInclusive: Offset): Unit =
     Timed.value(
       pruneTimer,
       synchronized {
-        _bufferStateRef.vector.searchBy[O](endInclusive, _._1) match {
+        _bufferState.vector.searchBy(endInclusive, _._1) match {
           case Found(foundIndex) =>
-            _bufferStateRef =
-              _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(foundIndex + 1))
+            _bufferState = _bufferState.copy(vector = _bufferState.vector.drop(foundIndex + 1))
           case InsertionPoint(insertionPoint) =>
-            _bufferStateRef =
-              _bufferStateRef.copy(vector = _bufferStateRef.vector.drop(insertionPoint))
+            _bufferState = _bufferState.copy(vector = _bufferState.vector.drop(insertionPoint))
         }
       },
     )
@@ -140,20 +153,18 @@ private[platform] object BufferSlice {
     def slice: Vector[ELEM]
   }
 
-  /** The source was empty */
-  private[platform] final case object Empty extends BufferSlice[Nothing] {
-    override val slice: Vector[Nothing] = Vector.empty
-  }
-
   /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq to 1) */
   private[platform] final case class Inclusive[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
 
-  /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
-  private[platform] final case class Prefix[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
+  /** A slice of a vector that is a suffix of the requested window (i.e. start index of the slice in the source vector is 0) */
+  private[platform] final case class LastBufferChunkSuffix[ELEM](
+      bufferedStartExclusive: Offset,
+      slice: Vector[ELEM],
+  ) extends BufferSlice[ELEM]
 }
 
 private[platform] object EventsBuffer {
-  private final case class BufferStateRef[O, E](
+  private final case class BufferState[O, E](
       vector: Vector[(O, E)] = Vector.empty,
       rangeEnd: Option[O] = Option.empty,
   )
@@ -192,5 +203,37 @@ private[platform] object EventsBuffer {
           case _ => Found(idx)
         }
       }
+  }
+
+  private[cache] def indexAfter(bufferStartInclusiveSearchResult: SearchResult): Int =
+    bufferStartInclusiveSearchResult match {
+      case InsertionPoint(insertionPoint) => insertionPoint
+      case Found(foundIndex) => foundIndex + 1
+    }
+
+  private[cache] def filterAndChunkSlice[ENTRY, FILTER_RESULT](
+      sliceView: View[(Offset, ENTRY)],
+      filter: ENTRY => Option[FILTER_RESULT],
+      maxChunkSize: Int,
+  ): Vector[(Offset, FILTER_RESULT)] =
+    sliceView
+      .flatMap { case (offset, entry) => filter(entry).map(offset -> _) }
+      .take(maxChunkSize)
+      .toVector
+
+  private[cache] def lastFilteredChunk[ENTRY, FILTER_RESULT](
+      bufferSlice: Vector[(Offset, ENTRY)],
+      filter: ENTRY => Option[FILTER_RESULT],
+      maxChunkSize: Int,
+  ): LastBufferChunkSuffix[(Offset, FILTER_RESULT)] = {
+    val lastChunk =
+      filterAndChunkSlice(bufferSlice.view.reverse, filter, maxChunkSize + 1).reverse
+
+    if (lastChunk.isEmpty)
+      LastBufferChunkSuffix(bufferSlice.head._1, Vector.empty)
+    else {
+      // We waste the first element so we can pass it as the bufferStartExclusive
+      LastBufferChunkSuffix(lastChunk.head._1, lastChunk.tail)
+    }
   }
 }
