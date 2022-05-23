@@ -19,8 +19,8 @@ class DefDataTypeSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 object DefDataTypeSpec {
   import org.scalacheck.{Arbitrary, Gen}
 
-  implicit def `TemplateChoices arb`[Ty: Arbitrary]: Arbitrary[TemplateChoices[Ty]] =
-    Gen const TemplateChoices.Resolved(Map.empty) // TODO SC actual gen
+  implicit def `TemplateChoices arb`[Ty]: Arbitrary[TemplateChoices[Ty]] =
+    Arbitrary(Gen const TemplateChoices.Resolved(Map.empty)) // TODO SC actual gen
 
   implicit val `TemplateChoices eq`: Equal[TemplateChoices[Int]] = Equal.equalA
 }

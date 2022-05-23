@@ -49,7 +49,10 @@ da_scala_test(
     srcs = glob(["src/test/**/*.scala"]),
     data = [":InterfaceTestPackage.dar"],
     scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -60,6 +63,8 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//libs-scala/nonempty",
+        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
