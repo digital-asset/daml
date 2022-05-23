@@ -236,7 +236,7 @@ private[lf] final class CommandPreprocessor(
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] =
-    preprocessImmArray[command.ApiCommand, speedy.Command](cmds, unsafePreprocessApiCommand)
+    cmds.map(unsafePreprocessApiCommand)
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
