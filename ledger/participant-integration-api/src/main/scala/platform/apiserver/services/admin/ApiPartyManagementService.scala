@@ -46,8 +46,6 @@ private[apiserver] final class ApiPartyManagementService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
@@ -101,6 +99,9 @@ private[apiserver] final class ApiPartyManagementService private (
       logger.info("Allocating party")
       implicit val telemetryContext: TelemetryContext =
         DefaultTelemetry.contextFromGrpcThreadLocalContext()
+      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
       val validatedPartyIdHint =
         if (request.partyIdHint.isEmpty) {
           Future.successful(None)
@@ -117,24 +118,23 @@ private[apiserver] final class ApiPartyManagementService private (
             )
         }
 
-      validatedPartyIdHint
-        .flatMap(partyIdHint => {
-          val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-          synchronousResponse
-            .submitAndWait(submissionId, (partyIdHint, displayName))
-            .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
-              AllocatePartyResponse(
-                Some(
-                  PartyDetails(
-                    partyDetails.party,
-                    partyDetails.displayName.getOrElse(""),
-                    partyDetails.isLocal,
-                  )
-                )
-              )
-            }
-        })
-        .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+      val submit = for {
+        partyIdHint <- validatedPartyIdHint
+        displayName = Some(request.displayName).filterNot(_.isEmpty)
+        input = (partyIdHint, displayName)
+        PartyEntry.AllocationAccepted(_, partyDetails) <- synchronousResponse.submitAndWait(
+          submissionId,
+          input,
+        )
+      } yield {
+        val details = PartyDetails(
+          partyDetails.party,
+          partyDetails.displayName.getOrElse(""),
+          partyDetails.isLocal,
+        )
+        AllocatePartyResponse(Some(details))
+      }
+      submit.andThen(logger.logErrorsOnCall[AllocatePartyResponse])
     }
   }
 
@@ -146,7 +146,6 @@ private[apiserver] final class ApiPartyManagementService private (
       displayName = details.displayName.getOrElse(""),
       isLocal = details.isLocal,
     )
-
 }
 
 private[apiserver] object ApiPartyManagementService {
