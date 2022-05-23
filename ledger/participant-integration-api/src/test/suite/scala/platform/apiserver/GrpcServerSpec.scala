@@ -88,7 +88,9 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
     "rate limit interceptor is installed" in {
       val metrics = new Metrics(new MetricRegistry)
       resources(metrics).use { channel =>
-        metrics.registry.meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")).mark(1000) // Over limit
+        metrics.registry
+          .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
+          .mark(1000) // Over limit
         val helloService = HelloServiceGrpc.stub(channel)
         helloService.single(HelloRequest(7)).failed.map {
           case s: StatusRuntimeException => s.getStatus.getCode shouldBe Status.Code.ABORTED
@@ -118,7 +120,9 @@ object GrpcServerSpec {
     }
   }
 
-  private def resources(metrics: Metrics = new Metrics(new MetricRegistry)): ResourceOwner[ManagedChannel] =
+  private def resources(
+      metrics: Metrics = new Metrics(new MetricRegistry)
+  ): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
       server <- GrpcServer.owner(

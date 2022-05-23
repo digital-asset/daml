@@ -16,7 +16,11 @@ import com.daml.ports.Port
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
-import io.grpc.reflection.v1alpha.{ServerReflectionGrpc, ServerReflectionRequest, ServerReflectionResponse}
+import io.grpc.reflection.v1alpha.{
+  ServerReflectionGrpc,
+  ServerReflectionRequest,
+  ServerReflectionResponse,
+}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -42,10 +46,12 @@ final class RateLimitingInterceptorSpec
     val config = RateLimitingConfig(100)
     withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.registry.meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
+      val submitted = metrics.registry.meter(
+        MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")
+      )
       for {
         _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesQueueSize.toLong+1)
+        _ = submitted.mark(config.maxApiServicesQueueSize.toLong + 1)
         exception <- helloService.single(HelloRequest(2)).failed
         _ = submitted.mark(-config.maxApiServicesQueueSize.toLong)
         _ <- helloService.single(HelloRequest(3))
@@ -59,22 +65,29 @@ final class RateLimitingInterceptorSpec
   it should "allow metadata requests even when over limit" in {
     val metrics = new Metrics(new MetricRegistry)
     val config = RateLimitingConfig(100)
-    metrics.registry.meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")).mark(1000) // Over limit
+    metrics.registry
+      .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
+      .mark(1000) // Over limit
 
     withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
-      val methodDescriptor: MethodDescriptor[ServerReflectionRequest, ServerReflectionResponse] = ServerReflectionGrpc.getServerReflectionInfoMethod
+      val methodDescriptor: MethodDescriptor[ServerReflectionRequest, ServerReflectionResponse] =
+        ServerReflectionGrpc.getServerReflectionInfoMethod
       val call = channel.newCall(methodDescriptor, CallOptions.DEFAULT)
       val promise = Promise[Status]()
       val listener = new ClientCall.Listener[ServerReflectionResponse]() {
         override def onReady(): Unit = {
-           call.request(1)
+          call.request(1)
         }
         override def onClose(status: Status, trailers: Metadata): Unit = {
           promise.success(status)
         }
       }
       call.start(listener, new Metadata())
-      val request = ServerReflectionRequest.newBuilder().setListServices("services").setHost("localhost").build()
+      val request = ServerReflectionRequest
+        .newBuilder()
+        .setListServices("services")
+        .setHost("localhost")
+        .build()
       call.sendMessage(ServerReflectionRequest.newBuilder(request).build())
       call.halfClose()
       promise.future.map(status => status shouldBe Status.OK)
@@ -85,16 +98,20 @@ final class RateLimitingInterceptorSpec
 
 object RateLimitingInterceptorSpec {
 
-  def withChannel(metrics: Metrics, service: BindableService, config: RateLimitingConfig): ResourceOwner[Channel] =
+  def withChannel(
+      metrics: Metrics,
+      service: BindableService,
+      config: RateLimitingConfig,
+  ): ResourceOwner[Channel] =
     for {
       server <- serverOwner(new RateLimitingInterceptor(metrics, config), service)
       channel <- GrpcClientResource.owner(Port(server.getPort))
     } yield channel
 
   private def serverOwner(
-                           interceptor: ServerInterceptor,
-                           service: BindableService,
-                         ): ResourceOwner[Server] =
+      interceptor: ServerInterceptor,
+      service: BindableService,
+  ): ResourceOwner[Server] =
     new ResourceOwner[Server] {
       def acquire()(implicit context: ResourceContext): Resource[Server] =
         Resource(Future {
@@ -111,7 +128,4 @@ object RateLimitingInterceptorSpec {
         })(server => Future(server.shutdown().awaitTermination()))
     }
 
-
 }
-
-

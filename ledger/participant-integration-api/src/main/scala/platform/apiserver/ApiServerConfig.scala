@@ -31,5 +31,5 @@ case class ApiServerConfig(
     seeding: Seeding,
     managementServiceTimeout: Duration,
     userManagementConfig: UserManagementConfig,
-    rateLimitingConfig: Option[RateLimitingConfig]
+    rateLimitingConfig: Option[RateLimitingConfig],
 )

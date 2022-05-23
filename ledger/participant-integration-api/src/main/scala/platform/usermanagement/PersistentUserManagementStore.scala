@@ -49,7 +49,7 @@ final case class UserManagementConfig(
 )
 
 final case class RateLimitingConfig(
-  maxApiServicesQueueSize: Int,
+    maxApiServicesQueueSize: Int
 )
 
 case object RateLimitingConfig {

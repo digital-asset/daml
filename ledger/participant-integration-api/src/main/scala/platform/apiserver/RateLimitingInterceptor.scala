@@ -1,4 +1,3 @@
-
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +11,8 @@ import io.grpc.Status.Code
 import io.grpc._
 import io.grpc.protobuf.StatusProto
 
-private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config: RateLimitingConfig) extends ServerInterceptor {
+private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config: RateLimitingConfig)
+    extends ServerInterceptor {
 
   import metrics.daml.lapi.threadpool.apiServices
 
@@ -22,12 +22,12 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
   private val completed = metrics.registry.meter(MetricRegistry.name(apiServices, "completed"))
 
   override def interceptCall[ReqT, RespT](
-                                           call: ServerCall[ReqT, RespT],
-                                           headers: Metadata,
-                                           next: ServerCallHandler[ReqT, RespT],
-                                         ): ServerCall.Listener[ReqT] = {
+      call: ServerCall[ReqT, RespT],
+      headers: Metadata,
+      next: ServerCallHandler[ReqT, RespT],
+  ): ServerCall.Listener[ReqT] = {
 
-    val queued = submitted.getCount-running.getCount-completed.getCount
+    val queued = submitted.getCount - running.getCount - completed.getCount
 
     val fullMethodName = call.getMethodDescriptor.getFullMethodName
 
@@ -35,7 +35,9 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
       val rpcStatus = com.google.rpc.Status
         .newBuilder()
         .setCode(Code.ABORTED.value())
-        .setMessage(s"The api services queue size ($queued) has exceeded the maximum (${config.maxApiServicesQueueSize}).  Api services metrics are available at $apiServices")
+        .setMessage(
+          s"The api services queue size ($queued) has exceeded the maximum (${config.maxApiServicesQueueSize}).  Api services metrics are available at $apiServices"
+        )
         .build()
 
       val exception = StatusProto.toStatusRuntimeException(rpcStatus)
@@ -47,7 +49,6 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
     }
 
   }
-
 
 }
 
