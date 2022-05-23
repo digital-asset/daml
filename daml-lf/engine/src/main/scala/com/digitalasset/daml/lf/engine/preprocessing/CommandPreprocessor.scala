@@ -242,10 +242,7 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[command.DisclosedContract]
   ): ImmArray[speedy.DisclosedContract] =
-    preprocessImmArray[command.DisclosedContract, speedy.DisclosedContract](
-      discs,
-      unsafePreprocessDisclosedContract,
-    )
+      discs.map(unsafePreprocessDisclosedContract)
 
   private[preprocessing] def preprocessImmArray[A, B](
       xs: ImmArray[A],
