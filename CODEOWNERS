@@ -62,6 +62,9 @@ NOTICES     @garyverhaegen-da @dasormeter
 # KV Participant
 /ledger/participant-integration-api/    @digital-asset/kv-participant
 
+# Conformance test on canton
+/ledger/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da
+
 # Ecosystems
 /language-support/hs/       @nickchapman-da @sofiafaro-da
 /language-support/java/     @ray-roestenburg-da
