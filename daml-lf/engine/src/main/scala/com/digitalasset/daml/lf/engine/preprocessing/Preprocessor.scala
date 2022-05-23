@@ -147,6 +147,13 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 
+  def preprocessDisclosedContracts(
+      discs: data.ImmArray[command.DisclosedContract]
+  ): Result[ImmArray[speedy.DisclosedContract]] =
+    safelyRun(pullTemplatePackage(discs.toSeq.view.map(_.templateId))) {
+      commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
+    }
+
   private[engine] def preprocessReplayCommand(
       cmd: command.ReplayCommand
   ): Result[speedy.Command] =

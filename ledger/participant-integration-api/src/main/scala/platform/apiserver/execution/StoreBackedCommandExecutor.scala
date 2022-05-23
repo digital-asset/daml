@@ -139,6 +139,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           commitAuthorizers,
           commands.readAs,
           commands.commands,
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
