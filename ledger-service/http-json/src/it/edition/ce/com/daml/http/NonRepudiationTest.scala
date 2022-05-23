@@ -14,7 +14,7 @@ abstract class NonRepudiationTest extends AbstractNonRepudiationTest {
   import HttpServiceTestFixture._
 
   "fail to work through the non-repudiation proxy" in withSetup { fixture =>
-    import fixture.{db, uri, encoder}
+    import fixture.db
     val expectedParty = "Alice"
     val expectedNumber = "abc123"
     val expectedCommandId = UUID.randomUUID.toString
