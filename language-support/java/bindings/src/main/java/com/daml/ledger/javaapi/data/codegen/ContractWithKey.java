@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> {
+  /** The contract's key, if it was present in the event. */
   public final Optional<Key> key;
 
   protected ContractWithKey(
