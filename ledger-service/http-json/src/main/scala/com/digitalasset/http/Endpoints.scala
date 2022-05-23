@@ -91,6 +91,10 @@ class Endpoints(
   private[this] val meteringReportEndpoint =
     new MeteringReportEndpoint(routeSetup, meteringReportService)
 
+  private[this] val contractList: endpoints.ContractList =
+    new endpoints.ContractList(routeSetup, decoder, contractsService)
+  import contractList._
+
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   // Limit logging of bodies to content with size of less than 10 KiB.
@@ -301,105 +305,6 @@ class Endpoints(
     )
   }
 
-  def fetch(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      ec: ExecutionContext,
-      metrics: Metrics,
-  ): ET[domain.SyncResponse[JsValue]] =
-    for {
-      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
-      input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
-
-      (jwt, jwtPayload, reqBody) = input
-
-      jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-        logger.debug(s"/v1/fetch reqBody: $reqBody")
-        for {
-          fr <-
-            either(
-              SprayJson
-                .decode[domain.FetchRequest[JsValue]](reqBody)
-                .liftErr[Error](InvalidUserInput)
-            )
-              .flatMap(
-                _.traverseLocator(
-                  decoder
-                    .decodeContractLocatorKey(_, jwt, toLedgerId(jwtPayload.ledgerId))
-                    .liftErr(InvalidUserInput)
-                )
-              ): ET[domain.FetchRequest[LfValue]]
-          _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
-          _ = logger.debug(s"/v1/fetch fr: $fr")
-
-          _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
-          ac <- eitherT(
-            handleFutureFailure(contractsService.lookup(jwt, jwtPayload, fr))
-          ): ET[Option[domain.ActiveContract[JsValue]]]
-
-          jsVal <- either(
-            ac.cata(x => toJsValue(x), \/-(JsNull))
-          ): ET[JsValue]
-        } yield jsVal
-      }
-
-    } yield domain.OkResponse(jsVal)
-
-  def retrieveAll(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
-  ): Future[Error \/ SearchResult[Error \/ JsValue]] = for {
-    parseAndDecodeTimerCtx <- Future(
-      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time()
-    )
-    res <- inputAndJwtPayload[JwtPayload](req).run.map {
-      _.map { case (jwt, jwtPayload, _) =>
-        parseAndDecodeTimerCtx.close()
-        withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
-            contractsService.retrieveAll(jwt, jwtPayload)
-
-          domain.SyncResponse.covariant.map(result) { source =>
-            source
-              .via(handleSourceFailure)
-              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
-          }
-        }
-      }
-    }
-  } yield res
-
-  def query(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
-  ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
-    for {
-      it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
-      (jwt, jwtPayload, reqBody) = it
-      res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-        val res = for {
-          cmd <- SprayJson
-            .decode[domain.GetActiveContractsRequest](reqBody)
-            .liftErr[Error](InvalidUserInput)
-          _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
-        } yield withEnrichedLoggingContext(
-          LoggingContextOf.label[domain.GetActiveContractsRequest],
-          "cmd" -> cmd.toString,
-        ).run { implicit lc =>
-          logger.debug("Processing a query request")
-          contractsService
-            .search(jwt, jwtPayload, cmd)
-            .map(
-              domain.SyncResponse.covariant.map(_)(
-                _.via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-              )
-            )
-        }
-        eitherT(res.sequence)
-      }
-    } yield res
-  }.run
-
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
@@ -421,13 +326,6 @@ class Endpoints(
     EitherT
       .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
       .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
-
-  private def handleSourceFailure[E, A](implicit
-      E: IntoEndpointsError[E]
-  ): Flow[E \/ A, Error \/ A, NotUsed] =
-    Flow
-      .fromFunction((_: E \/ A).leftMap(E.run))
-      .recover(Error.fromThrowable andThen (-\/(_)))
 
   private def httpResponse[T](output: T)(implicit
       T: MkHttpResponse[T],
@@ -537,16 +435,6 @@ object Endpoints {
 
   private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
-  private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
-
-  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
-    for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
-      c <- toJsValue(b)
-    } yield c
-  }
-
   private def partiesResponse(
       parties: List[domain.PartyDetails],
       unknownParties: List[domain.Party],
@@ -557,9 +445,5 @@ object Endpoints {
       else Some(domain.UnknownParties(unknownParties))
 
     domain.OkResponse(parties, warnings)
-  }
-
-  private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
-    SprayJson.encode(a).liftErr(ServerError.fromMsg)
   }
 }
