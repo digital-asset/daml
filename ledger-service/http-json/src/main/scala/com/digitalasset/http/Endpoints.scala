@@ -89,6 +89,9 @@ class Endpoints(
     new endpoints.ContractList(routeSetup, decoder, contractsService)
   import contractList._
 
+  private[this] val partiesEP: endpoints.Parties = new endpoints.Parties(routeSetup, partiesService)
+  import partiesEP._
+
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   // Limit logging of bodies to content with size of less than 10 KiB.
@@ -299,28 +302,6 @@ class Endpoints(
     )
   }
 
-  def allParties(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
-      .flatMap(pd => either(pd map (domain.OkResponse(_))))
-
-  def parties(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithCommand[NonEmptyList[domain.Party], (Set[domain.PartyDetails], Set[domain.Party])](
-      (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
-    )(req)
-      .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
-
-  def allocateParty(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
-  ): ET[domain.SyncResponse[domain.PartyDetails]] =
-    EitherT
-      .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
-      .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
-
   private def httpResponse[T](output: T)(implicit
       T: MkHttpResponse[T],
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -425,16 +406,4 @@ object Endpoints {
   }
 
   private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
-
-  private def partiesResponse(
-      parties: List[domain.PartyDetails],
-      unknownParties: List[domain.Party],
-  ): domain.SyncResponse[List[domain.PartyDetails]] = {
-
-    val warnings: Option[domain.UnknownParties] =
-      if (unknownParties.isEmpty) None
-      else Some(domain.UnknownParties(unknownParties))
-
-    domain.OkResponse(parties, warnings)
-  }
 }
