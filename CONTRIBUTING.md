@@ -1,8 +1,12 @@
 # Contributing to Daml
 
-Welcome! This page gives a high-level overview of how to contribute to the development of Daml.
+Welcome and thank you for considering contributing to Daml! This page gives a high-level overview of how to contribute to the development of Daml.
+
+## Where to start from
 
 There are many ways you can contribute beyond coding. For example, you can report problems, clarify [issues](https://github.com/digital-asset/daml/issues), and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
+
+For anything apart from very trivial changes (like fixing a typo), we recommend making the core contributors aware of your ideas, so that you can iterate on them together and make sure you are working on something that can move swiftly though its review phase without any hiccup. If you already have a clear idea of exactly what you want to work on, [open an issue on GitHub](https://github.com/digital-asset/daml/issues/new/choose) and describe it in detail. If you are not 100% sure yet, you can engage with the team on the [Daml forum](https://discuss.daml.com) if you want to have a first, informal chat before opening a ticket. Once the ticket is open and a core contributor endorses the design you proposed, your contribution is on its path to be accepted after the normal review process.
 
 ## Working on the codebase
 
@@ -155,11 +159,11 @@ You can see all the active milestones [here](https://github.com/digital-asset/da
 
 ## Discussions
 
-Please hold discussions that are relevant to Daml development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarise them in an issue or comment to an issue.
+Please hold discussions that are relevant to Daml development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarize them in an issue or comment to an issue.
 
 You can also participate in the discussions at the following link: [discuss.daml.com](https://discuss.daml.com/).
 
-# Problems
+## Problems
 
 1. When running tests on `MacOS` you might get a system dialog like this:
    ````
@@ -174,8 +178,7 @@ You can also participate in the discussions at the following link: [discuss.daml
    The test can succeeds independent of whether `Deny` or `Allow`.  
    If the dialog doesn't appear for you, you've probably already excercised one of these two choices.  
    To check your Firewall settings go to: `System Preferences` -> `Security & Privacy` -> `Firewall` -> `Firewall Options...` (checked on macOS Big Sur 11.5.2).  
-  
 
-# Thank you!
+## Thank you!
 
 Thank you for taking the time to contribute!
