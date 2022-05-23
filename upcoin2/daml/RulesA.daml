@@ -4,7 +4,7 @@ module RulesA where
 import InterfaceA
 import CoinA
 
-template RulesT
+template RulesImpl
   with
     admin : Party
     obs : [Party]
@@ -13,7 +13,7 @@ template RulesT
     observer obs
 
     -- The Mint entry point.
-    nonconsuming choice RulesT_Mint : ContractId Coin
+    nonconsuming choice RulesImpl_Mint : ContractId Coin
       with issuer : Party
       controller [issuer]
       do

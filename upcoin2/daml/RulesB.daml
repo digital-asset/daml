@@ -6,7 +6,7 @@ module RulesB where
 import InterfaceA
 import CoinB
 
-template RulesT
+template RulesImpl
   with
     admin : Party
     obs : [Party]
@@ -15,7 +15,7 @@ template RulesT
     observer obs
 
     -- The Mint entry point.
-    nonconsuming choice RulesT_Mint : ContractId Coin
+    nonconsuming choice RulesImpl_Mint : ContractId Coin
       with issuer : Party
       controller [issuer]
       do
@@ -23,7 +23,7 @@ template RulesT
         pure $ toInterfaceContractId new
 
     -- How many times has this coin been transfered?
-    nonconsuming choice RulesT_QueryTransferCount : Int
+    nonconsuming choice RulesImpl_QueryTransferCount : Int
       with
         coin : ContractId Coin
         inspector : Party -- issuer or owner will do

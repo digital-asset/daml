@@ -21,11 +21,11 @@ script1 = do
   let everyone = [alice,bank,charlie,dave]
 
   -- Admin administrated rules.
-  rulesA <- submit admin do createCmd A.RulesT with admin, obs = everyone
+  rulesA <- submit admin do createCmd A.RulesImpl with admin, obs = everyone
   let rules = toInterfaceContractId rulesA
 
   -- Bank issued coin.
-  coin1 <- submit bank do exerciseCmd rulesA A.RulesT_Mint with issuer = bank
+  coin1 <- submit bank do exerciseCmd rulesA A.RulesImpl_Mint with issuer = bank
 
   -- Transfer coin to Alice.
   let deadCoin1 = coin1
@@ -58,7 +58,7 @@ script1 = do
       newOwner = dave
 
   -- Create some new rules.
-  rulesA <- submit admin do createCmd A.RulesT with admin, obs = [bank,alice,charlie]
+  rulesA <- submit admin do createCmd A.RulesImpl with admin, obs = [bank,alice,charlie]
   let rules = toInterfaceContractId rulesA
 
   -- Transfers work again using the new rules.
@@ -72,7 +72,7 @@ script1 = do
 
   -- Upgrade rules
   submit admin do exerciseCmd rulesA Archive
-  rulesB <- submit admin do createCmd B.RulesT with admin, obs = everyone
+  rulesB <- submit admin do createCmd B.RulesImpl with admin, obs = everyone
   let rules = toInterfaceContractId rulesB
 
   -- Now coins track their #transfers
@@ -87,17 +87,17 @@ script1 = do
       newOwner = charlie
 
   n <- submit bank $ do
-    exerciseCmd rulesB B.RulesT_QueryTransferCount with
+    exerciseCmd rulesB B.RulesImpl_QueryTransferCount with
       coin = coin1
       inspector = bank
 
   assert (n == 2)
 
   -- Mint a 2nd coin to see 0 #transfers
-  coin2 <- submit bank do exerciseCmd rulesB B.RulesT_Mint with issuer = bank
+  coin2 <- submit bank do exerciseCmd rulesB B.RulesImpl_Mint with issuer = bank
 
   n <- submit bank $ do
-    exerciseCmd rulesB B.RulesT_QueryTransferCount with
+    exerciseCmd rulesB B.RulesImpl_QueryTransferCount with
       coin = coin2
       inspector = bank
 
