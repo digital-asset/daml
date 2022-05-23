@@ -18,7 +18,7 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
   private val submitted = metrics.registry.meter(MetricRegistry.name(apiServices, "submitted"))
-  private val running = metrics.registry.meter(MetricRegistry.name(apiServices, "running"))
+  private val running = metrics.registry.counter(MetricRegistry.name(apiServices, "running"))
   private val completed = metrics.registry.meter(MetricRegistry.name(apiServices, "completed"))
 
   override def interceptCall[ReqT, RespT](
