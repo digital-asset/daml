@@ -36,6 +36,7 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
+import scalaz.std.tuple._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -251,11 +252,13 @@ trait AbstractHttpServiceIntegrationTestFuns
     ): Future[(StatusCode, JsValue)] =
       HttpServiceTestFixture.postJsonRequest(uri withPath path, json, headers)
 
-    def postJsonRequestWithMinimumAuth(
+    def postJsonRequestWithMinimumAuth[Result: JsonReader](
         path: Uri.Path,
         json: JsValue,
-    ): Future[(StatusCode, JsValue)] =
-      headersWithAuth.flatMap(postJsonRequest(path, json, _))
+    ): Future[(StatusCode, domain.SyncResponse[Result])] =
+      headersWithAuth
+        .flatMap(postJsonRequest(path, json, _))
+        .map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
 
     def getRequest(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
       HttpServiceTestFixture.getRequest(uri withPath path, headers)
