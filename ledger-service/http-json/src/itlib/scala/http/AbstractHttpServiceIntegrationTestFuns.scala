@@ -263,8 +263,12 @@ trait AbstractHttpServiceIntegrationTestFuns
     def getRequest(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
       HttpServiceTestFixture.getRequest(uri withPath path, headers)
 
-    def getRequestWithMinimumAuth(path: Uri.Path): Future[(StatusCode, JsValue)] =
-      headersWithAuth.flatMap(getRequest(path, _))
+    def getRequestWithMinimumAuth[Result: JsonReader](
+        path: Uri.Path
+    ): Future[(StatusCode, domain.SyncResponse[Result])] =
+      headersWithAuth
+        .flatMap(getRequest(path, _))
+        .map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
   }
 
   protected def postCreateCommand(
@@ -662,12 +666,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def getAllPackageIds(fixture: UriFixture): Future[domain.OkResponse[List[String]]] =
-    fixture.getRequestWithMinimumAuth(Uri.Path("/v1/packages")).map { case (status, output) =>
-      status shouldBe StatusCodes.OK
-      inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
+    fixture
+      .getRequestWithMinimumAuth[List[String]](Uri.Path("/v1/packages"))
+      .map(inside(_) { case (StatusCodes.OK, x: domain.OkResponse[List[String]]) =>
         x
-      }
-    }
+      })
 
   protected[this] def uploadPackage(fixture: UriFixture)(newDar: java.io.File): Future[Unit] = for {
     resp <- Http()

@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.{StatusCodes, Uri}
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import spray.json.{JsArray, JsObject}
+import spray.json.JsValue
 
 import scala.concurrent.Future
 
@@ -18,6 +18,7 @@ abstract class TlsTest
     with Matchers
     with Inside
     with AbstractHttpServiceIntegrationTestFuns {
+  import json.JsonProtocol._
 
   override def jdbcConfig = None
 
@@ -30,16 +31,10 @@ abstract class TlsTest
   // TEST_EVIDENCE: Authentication: connect normally with tls on
   "connect normally with tls on" in withHttpService { fixture =>
     fixture
-      .getRequestWithMinimumAuth(Uri.Path("/v1/query"))
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        inside(output) { case JsObject(fields) =>
-          inside(fields.get("result")) { case Some(JsArray(vector)) =>
-            vector should have size 0L
-          }
-        }
-      }: Future[Assertion]
+      .getRequestWithMinimumAuth[Vector[JsValue]](Uri.Path("/v1/query"))
+      .map(inside(_) { case (StatusCodes.OK, domain.OkResponse(vector, None, StatusCodes.OK)) =>
+        vector should have size 0L
+      }): Future[Assertion]
   }
 }
 

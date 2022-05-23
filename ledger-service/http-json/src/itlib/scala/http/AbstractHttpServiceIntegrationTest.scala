@@ -881,14 +881,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     val badPath = Uri.Path("/contracts/does-not-exist")
     val badUri = fixture.uri withPath badPath
     fixture
-      .getRequestWithMinimumAuth(badPath)
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.NotFound
-        assertStatus(output, StatusCodes.NotFound)
-        expectedOneErrorMessage(
-          output
-        ) shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
-      }: Future[Assertion]
+      .getRequestWithMinimumAuth[JsValue](badPath)
+      .map(inside(_) {
+        case (
+              StatusCodes.NotFound,
+              domain.ErrorResponse(Seq(errorMsg), _, StatusCodes.NotFound, _),
+            ) =>
+          errorMsg shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
+      }): Future[Assertion]
   }
 
   "parties endpoint should return all known parties" in withHttpService { fixture =>
