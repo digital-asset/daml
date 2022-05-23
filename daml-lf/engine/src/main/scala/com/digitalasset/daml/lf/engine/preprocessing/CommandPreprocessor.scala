@@ -10,7 +10,7 @@ import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.nowarn
 
 private[lf] final class CommandPreprocessor(
     interface: language.PackageInterface,
@@ -243,26 +243,4 @@ private[lf] final class CommandPreprocessor(
       discs: ImmArray[command.DisclosedContract]
   ): ImmArray[speedy.DisclosedContract] =
       discs.map(unsafePreprocessDisclosedContract)
-
-  private[preprocessing] def preprocessImmArray[A, B](
-      xs: ImmArray[A],
-      process: A => B,
-  ): ImmArray[B] = {
-    @tailrec
-    def go(
-        toProcess: FrontStack[A],
-        processed: BackStack[B],
-    ): ImmArray[B] = {
-      toProcess match {
-        case FrontStackCons(x, rest) =>
-          val y = process(x)
-          go(rest, processed :+ y)
-        case FrontStack() =>
-          processed.toImmArray
-      }
-    }
-
-    go(xs.toFrontStack, BackStack.empty)
-  }
-
 }
