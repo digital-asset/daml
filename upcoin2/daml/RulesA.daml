@@ -20,15 +20,6 @@ template RulesT
         new <- create CoinT with issuer, owner = issuer
         pure $ toInterfaceContractId new
 
-    -- The Transfer entry point. Delegates to the coin to collect (issuer) authority.
-    nonconsuming choice RulesT_Transfer : ContractId CoinI
-      with
-        coin : ContractId CoinI
-        owner : Party -- TODO: Used in controller: Is there any way to discover this from coin?
-        newOwner : Party
-      controller [owner,newOwner]
-      do exercise coin CoinI_Transfer with rules = toInterfaceContractId self, newOwner
-
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
     implements RulesI where
       transferR : ContractId CoinI -> CoinView -> Party -> Update (ContractId CoinI)

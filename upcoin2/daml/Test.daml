@@ -5,6 +5,7 @@ module Test where
 
 import Daml.Script
 
+import InterfaceA
 import qualified RulesA as A
 import qualified RulesB as B
 
@@ -20,86 +21,83 @@ script1 = do
   let everyone = [alice,bank,charlie,dave]
 
   -- Admin administrated rules.
-  rules <- submit admin do createCmd A.RulesT with admin, obs = everyone
+  rulesA <- submit admin do createCmd A.RulesT with admin, obs = everyone
+  let rules = toInterfaceContractId rulesA
 
   -- Bank issued coin.
-  coin1 <- submit bank do exerciseCmd rules A.RulesT_Mint with issuer = bank
+  coin1 <- submit bank do exerciseCmd rulesA A.RulesT_Mint with issuer = bank
 
   -- Transfer coin to Alice.
   let deadCoin1 = coin1
+
   coin1 <- submitMulti [bank,alice] [] $ do
-    exerciseCmd rules A.RulesT_Transfer with
-      coin = coin1
-      owner = bank
+    exerciseCmd coin1 CoinI_Transfer with
+      rules
       newOwner = alice
 
   -- The original coin is dead; it cannot be transfered again.
   submitMultiMustFail [bank,alice] [] $ do
-    exerciseCmd rules A.RulesT_Transfer with
-      coin = deadCoin1
-      owner = bank
+    exerciseCmd deadCoin1 CoinI_Transfer with
+      rules
       newOwner = alice
 
   -- Transfer coin from Alice to Charlie.
   -- Note: We do not require submit-authority from the issuing Bank.
   coin1 <- submitMulti [alice,charlie] [] $ do
-    exerciseCmd rules A.RulesT_Transfer with
-      coin = coin1
-      owner = alice
+    exerciseCmd coin1 CoinI_Transfer with
+      rules
       newOwner = charlie
 
   -- Take down the rules.
-  submit admin do exerciseCmd rules Archive
+  submit admin do exerciseCmd rulesA Archive
 
   -- Transfers fail when the rules are not operation.
   submitMultiMustFail [charlie,dave] [] $ do
-    exerciseCmd rules A.RulesT_Transfer with
-      coin = coin1
-      owner = charlie
+    exerciseCmd coin1 CoinI_Transfer with
+      rules
       newOwner = dave
 
   -- Create some new rules.
-  rules <- submit admin do createCmd A.RulesT with admin, obs = [bank,alice,charlie]
+  rulesA <- submit admin do createCmd A.RulesT with admin, obs = [bank,alice,charlie]
+  let rules = toInterfaceContractId rulesA
 
   -- Transfers work again using the new rules.
   coin1 <- submitMulti [charlie,dave] [] $ do
-    exerciseCmd rules A.RulesT_Transfer with
-      coin = coin1
-      owner = charlie
+    exerciseCmd coin1 CoinI_Transfer with
+      rules
       newOwner = dave
 
 
   -- UPGRADE #1 -- Track #transfers
 
   -- Upgrade rules
-  submit admin do exerciseCmd rules Archive
-  rules <- submit admin do createCmd B.RulesT with admin, obs = everyone
+  submit admin do exerciseCmd rulesA Archive
+  rulesB <- submit admin do createCmd B.RulesT with admin, obs = everyone
+  let rules = toInterfaceContractId rulesB
 
   -- Now coins track their #transfers
   coin1 <- submitMulti [dave,alice] [] $ do
-    exerciseCmd rules B.RulesT_Transfer with
-      coin = coin1
-      owner = dave
+    exerciseCmd coin1 CoinI_Transfer with
+      rules
       newOwner = alice
 
   coin1 <- submitMulti [alice,charlie] [] $ do
-    exerciseCmd rules B.RulesT_Transfer with
-      coin = coin1
-      owner = alice
+    exerciseCmd coin1 CoinI_Transfer with
+      rules
       newOwner = charlie
 
   n <- submit bank $ do
-    exerciseCmd rules B.RulesT_QueryTransferCount with
+    exerciseCmd rulesB B.RulesT_QueryTransferCount with
       coin = coin1
       inspector = bank
 
   assert (n == 2)
 
   -- Mint a 2nd coin to see 0 #transfers
-  coin2 <- submit bank do exerciseCmd rules B.RulesT_Mint with issuer = bank
+  coin2 <- submit bank do exerciseCmd rulesB B.RulesT_Mint with issuer = bank
 
   n <- submit bank $ do
-    exerciseCmd rules B.RulesT_QueryTransferCount with
+    exerciseCmd rulesB B.RulesT_QueryTransferCount with
       coin = coin2
       inspector = bank
 
