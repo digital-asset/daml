@@ -107,6 +107,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    
+    // TODO (drsk) remove this assertion once disclosed contracts feature becomes stable.
+    // https://github.com/digital-asset/daml/issues/13952.
     assert(disclosures.isEmpty || config.allowedLanguageVersions.contains(LanguageVersion.v1_dev))
     val submissionTime = cmds.ledgerEffectiveTime
 
