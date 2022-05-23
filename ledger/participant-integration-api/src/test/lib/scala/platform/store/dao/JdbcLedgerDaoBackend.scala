@@ -82,6 +82,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           eventsPageSize = eventsPageSize,
           eventsProcessingParallelism = eventsProcessingParallelism,
           acsIdPageSize = acsIdPageSize,
+          acsIdPageBufferSize = 1,
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
           acsGlobalParallelism = acsGlobalParallelism,
@@ -92,7 +93,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
-          materializer = materializer,
         )
       }
   }

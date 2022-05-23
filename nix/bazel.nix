@@ -30,9 +30,14 @@ let shared = rec {
     zip
   ;
 
-    ghc_lib_deps = pkgs.buildEnv {
+    # ghc-lib needs GHC 8.6.5, but the first version to support Darwin arm64 /
+    # Apple M1 is GHC 8.10.7. Use GHC 8.6.5 on aarch64_darwin via Rosetta to build
+    # the ghc-lib cabal sdist.
+    ghc_lib_pkgs = if system == "aarch64-darwin" then import ./nixpkgs.nix { system = "x86_64-darwin"; } else pkgs;
+
+    ghc_lib_deps = with ghc_lib_pkgs; buildEnv {
       name = "ghc-lib-deps";
-      paths = with pkgs; [
+      paths = [
         autoconf
         automake
         cabal-install
@@ -41,7 +46,7 @@ let shared = rec {
         gnumake
         ncurses
         perl
-        pkgs.haskell.compiler.ghc865Binary
+        haskell.compiler.ghc865Binary
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
         xz
       ] ++ (
@@ -49,7 +54,7 @@ let shared = rec {
         then [stdenv.cc.bintools.bintools xcodebuild]
         else []
       );
-      ignoreCollisions = pkgs.stdenv.isDarwin;
+      ignoreCollisions = stdenv.isDarwin;
     };
 
     postgresql_10 = if pkgs.buildPlatform.libc == "glibc"

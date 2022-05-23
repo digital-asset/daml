@@ -102,6 +102,7 @@ da_scala_dar_resources_library(
         "1.8": [
             "**/*Exception*.daml",
             "**/*Interface*daml",
+            "**/Limits.daml",
         ],
         "1.14": [
             "**/*Interface*daml",
