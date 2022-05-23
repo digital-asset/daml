@@ -10,5 +10,5 @@ template CoinT
   where
     signatory [issuer,owner]
 
-    implements CoinI where
+    implements Coin where
       _view : CoinView =  CoinView with issuer, owner

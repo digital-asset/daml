@@ -1,4 +1,6 @@
 
+-- | interface to the upcoin2 system
+
 module InterfaceA where
 
 
@@ -14,15 +16,15 @@ data CoinView = CoinView with
 instance HasSignatory CoinView where
   signatory v = [v.issuer,v.owner]
 
-instance HasControllers CoinView CoinI_Transfer where
+instance HasControllers CoinView Coin_Transfer where
   controllers_ _ t = [t.newOwner]
 
 
-interface CoinI where
+interface Coin where
   _view : CoinView
 
   -- Collect the authority for a coin transfer, and delegate to the rules.
-  nonconsuming choice CoinI_Transfer : ContractId CoinI
+  nonconsuming choice Coin_Transfer : ContractId Coin
     with
       rules : ContractId RulesI
       newOwner : Party
@@ -33,21 +35,21 @@ interface CoinI where
         view = _view this
         targ = arg
 
-  choice CoinI_Archive : ()
+  choice Coin_Archive : ()
     controller (signatory this)
     do pure ()
 
 
 interface RulesI where
 
-  transferR : ContractId CoinI -> CoinView -> CoinI_Transfer -> Update (ContractId CoinI)
+  transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
 
   -- The collected authority is passed explicitly.
-  nonconsuming choice RulesI_Transfer_Impl2 : ContractId CoinI
+  nonconsuming choice RulesI_Transfer_Impl2 : ContractId Coin
     with
-      coin : ContractId CoinI
+      coin : ContractId Coin
       view : CoinView
-      targ : CoinI_Transfer
+      targ : Coin_Transfer
     controller (signatory view ++ controllers_ view targ)
     do transferR this coin view targ
 

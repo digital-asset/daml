@@ -15,7 +15,7 @@ template RulesT
     observer obs
 
     -- The Mint entry point.
-    nonconsuming choice RulesT_Mint : ContractId CoinI
+    nonconsuming choice RulesT_Mint : ContractId Coin
       with issuer : Party
       controller [issuer]
       do
@@ -25,7 +25,7 @@ template RulesT
     -- How many times has this coin been transfered?
     nonconsuming choice RulesT_QueryTransferCount : Int
       with
-        coin : ContractId CoinI
+        coin : ContractId Coin
         inspector : Party -- issuer or owner will do
       controller [inspector]
       do transferCount <$> fetch coin
@@ -33,18 +33,18 @@ template RulesT
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
     implements RulesI where
 
-      transferR : ContractId CoinI -> CoinView -> CoinI_Transfer -> Update (ContractId CoinI)
+      transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
               = \coin view targ -> do
         old <- fetch coin
         new <- create CoinT with
           issuer = view.issuer
           owner = targ.newOwner
           numberOfTransfers = transferCount old + 1
-        exercise coin CoinI_Archive
+        exercise coin Coin_Archive
         pure (toInterfaceContractId new)
 
-transferCount : CoinI -> Int
+transferCount : Coin -> Int
 transferCount anyCoin = do
-  case fromInterface @CoinT @CoinI anyCoin of
+  case fromInterface @CoinT @Coin anyCoin of
     None -> 0
     Some coin -> coin.numberOfTransfers

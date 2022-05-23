@@ -13,7 +13,7 @@ template RulesT
     observer obs
 
     -- The Mint entry point.
-    nonconsuming choice RulesT_Mint : ContractId CoinI
+    nonconsuming choice RulesT_Mint : ContractId Coin
       with issuer : Party
       controller [issuer]
       do
@@ -23,8 +23,8 @@ template RulesT
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
     implements RulesI where
 
-      transferR : ContractId CoinI -> CoinView -> CoinI_Transfer -> Update (ContractId CoinI)
+      transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
               = \coin view targ -> do
         new <- create CoinT with issuer = view.issuer, owner = targ.newOwner
-        exercise coin CoinI_Archive
+        exercise coin Coin_Archive
         pure (toInterfaceContractId new)

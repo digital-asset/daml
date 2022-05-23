@@ -31,20 +31,20 @@ script1 = do
   let deadCoin1 = coin1
 
   coin1 <- submitMulti [bank,alice] [] $ do
-    exerciseCmd coin1 CoinI_Transfer with
+    exerciseCmd coin1 Coin_Transfer with
       rules
       newOwner = alice
 
   -- The original coin is dead; it cannot be transfered again.
   submitMultiMustFail [bank,alice] [] $ do
-    exerciseCmd deadCoin1 CoinI_Transfer with
+    exerciseCmd deadCoin1 Coin_Transfer with
       rules
       newOwner = alice
 
   -- Transfer coin from Alice to Charlie.
   -- Note: We do not require submit-authority from the issuing Bank.
   coin1 <- submitMulti [alice,charlie] [] $ do
-    exerciseCmd coin1 CoinI_Transfer with
+    exerciseCmd coin1 Coin_Transfer with
       rules
       newOwner = charlie
 
@@ -53,7 +53,7 @@ script1 = do
 
   -- Transfers fail when the rules are not operation.
   submitMultiMustFail [charlie,dave] [] $ do
-    exerciseCmd coin1 CoinI_Transfer with
+    exerciseCmd coin1 Coin_Transfer with
       rules
       newOwner = dave
 
@@ -63,7 +63,7 @@ script1 = do
 
   -- Transfers work again using the new rules.
   coin1 <- submitMulti [charlie,dave] [] $ do
-    exerciseCmd coin1 CoinI_Transfer with
+    exerciseCmd coin1 Coin_Transfer with
       rules
       newOwner = dave
 
@@ -77,12 +77,12 @@ script1 = do
 
   -- Now coins track their #transfers
   coin1 <- submitMulti [dave,alice] [] $ do
-    exerciseCmd coin1 CoinI_Transfer with
+    exerciseCmd coin1 Coin_Transfer with
       rules
       newOwner = alice
 
   coin1 <- submitMulti [alice,charlie] [] $ do
-    exerciseCmd coin1 CoinI_Transfer with
+    exerciseCmd coin1 Coin_Transfer with
       rules
       newOwner = charlie
 
