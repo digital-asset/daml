@@ -1,6 +1,7 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
 
 -- | interface to the upcoin2 system
-
 module InterfaceA where
 
 
@@ -52,4 +53,3 @@ interface Rules where
       targ : Coin_Transfer
     controller (signatory view ++ controllers_ view targ)
     do transferR this coin view targ
-

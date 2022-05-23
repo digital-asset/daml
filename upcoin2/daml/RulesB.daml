@@ -1,6 +1,7 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
 
--- | Manage the #transfers meta info
-
+-- | RulesB: Manage the #transfers meta info
 module RulesB where
 
 import InterfaceA
