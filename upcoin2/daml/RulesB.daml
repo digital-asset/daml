@@ -31,7 +31,7 @@ template RulesT
       do transferCount <$> fetch coin
 
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
-    implements RulesI where
+    implements Rules where
 
       transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
               = \coin view targ -> do

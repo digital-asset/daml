@@ -26,11 +26,11 @@ interface Coin where
   -- Collect the authority for a coin transfer, and delegate to the rules.
   nonconsuming choice Coin_Transfer : ContractId Coin
     with
-      rules : ContractId RulesI
+      rules : ContractId Rules
       newOwner : Party
     controller [(_view this).owner, newOwner]
     do
-      exercise rules RulesI_Transfer_Impl2 with
+      exercise rules Rules_Transfer_Impl2 with
         coin = self
         view = _view this
         targ = arg
@@ -40,12 +40,12 @@ interface Coin where
     do pure ()
 
 
-interface RulesI where
+interface Rules where
 
   transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
 
   -- The collected authority is passed explicitly.
-  nonconsuming choice RulesI_Transfer_Impl2 : ContractId Coin
+  nonconsuming choice Rules_Transfer_Impl2 : ContractId Coin
     with
       coin : ContractId Coin
       view : CoinView
