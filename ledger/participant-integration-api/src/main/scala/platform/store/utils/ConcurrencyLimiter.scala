@@ -7,11 +7,11 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait ConcurrencyLimiter {
-  def execute[T](task: () => Future[T]): Future[T]
+  def execute[T](task: => Future[T]): Future[T]
 }
 
 class NoConcurrencyLimiter extends ConcurrencyLimiter {
-  override def execute[T](task: () => Future[T]): Future[T] = task()
+  override def execute[T](task: => Future[T]): Future[T] = task
 }
 
 class QueueBasedConcurrencyLimiter(
@@ -24,11 +24,11 @@ class QueueBasedConcurrencyLimiter(
   private val waiting = mutable.Queue[Task]()
   private var running: Int = 0
 
-  override def execute[T](task: () => Future[T]): Future[T] = synchronized {
+  override def execute[T](task: => Future[T]): Future[T] = synchronized {
     val promise = Promise[T]()
 
     val waitingTask = () => {
-      task()
+      task
         .andThen { case result =>
           synchronized {
             running = running - 1
