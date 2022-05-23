@@ -3,24 +3,15 @@ package endpoints
 
 import akka.NotUsed
 import akka.http.scaladsl.model._
-import headers.`Content-Type`
-import akka.http.scaladsl.server
-import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
-import akka.http.scaladsl.server.RouteResult._
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
-import akka.util.ByteString
-import com.codahale.metrics.Timer
 import com.daml.lf.value.{Value => LfValue}
 import ContractsService.SearchResult
 import EndpointsCompanion._
 import Endpoints.{ET, IntoEndpointsError}
 import domain.JwtPayload
 import json._
-import util.Collections.toNonEmptySet
 import util.FutureUtil.{either, eitherT}
-import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
+import util.Logging.{InstanceUUID, RequestID}
 import util.toLedgerId
 import util.JwtParties._
 import com.daml.jwt.domain.Jwt
@@ -28,19 +19,12 @@ import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, \/, \/-}
+import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.{Metrics, Timed}
-import akka.http.scaladsl.server.Directives._
-import com.daml.http.endpoints.MeteringReportEndpoint
-import com.daml.ledger.client.services.admin.UserManagementClient
-import com.daml.ledger.client.services.identity.LedgerIdentityClient
-
-import scala.util.control.NonFatal
+import com.daml.metrics.Metrics
 
 private[http] final class ContractList(
     routeSetup: RouteSetup,

@@ -14,17 +14,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
 import com.codahale.metrics.Timer
-import com.daml.lf.value.{Value => LfValue}
 import ContractsService.SearchResult
 import EndpointsCompanion._
-import domain.JwtPayload
 import json._
 import util.Collections.toNonEmptySet
-import util.FutureUtil.{either, eitherT}
+import util.FutureUtil.either
 import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
-import util.toLedgerId
-import util.JwtParties._
-import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
@@ -68,7 +63,6 @@ class Endpoints(
     ledgerIdentityClient,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
   )
-  import endpoints.RouteSetup._
   import routeSetup._
 
   private[this] val commandsHelper: endpoints.CreateAndExercise =
@@ -400,9 +394,6 @@ class Endpoints(
 }
 
 object Endpoints {
-  import json.JsonProtocol._
-  import util.ErrorOps._
-
   private[http] type ET[A] = EitherT[Future, Error, A]
 
   private[http] final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
