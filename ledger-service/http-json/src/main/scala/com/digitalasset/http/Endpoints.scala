@@ -17,14 +17,13 @@ import com.codahale.metrics.Timer
 import ContractsService.SearchResult
 import EndpointsCompanion._
 import json._
-import util.Collections.toNonEmptySet
 import util.FutureUtil.either
 import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, \/, \/-}
+import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -63,7 +62,6 @@ class Endpoints(
     ledgerIdentityClient,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
   )
-  import routeSetup._
 
   private[this] val commandsHelper: endpoints.CreateAndExercise =
     new endpoints.CreateAndExercise(routeSetup, decoder, commandService, contractsService)

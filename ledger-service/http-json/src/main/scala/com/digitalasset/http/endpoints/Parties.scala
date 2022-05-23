@@ -4,50 +4,25 @@
 package com.daml.http
 package endpoints
 
-import akka.NotUsed
 import akka.http.scaladsl.model._
-import headers.`Content-Type`
-import akka.http.scaladsl.server
-import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
-import akka.http.scaladsl.server.RouteResult._
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
-import akka.util.ByteString
-import com.codahale.metrics.Timer
-import ContractsService.SearchResult
-import EndpointsCompanion._
 import Endpoints.ET
-import json._
 import util.Collections.toNonEmptySet
 import util.FutureUtil.either
-import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
-import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import util.Logging.{InstanceUUID, RequestID}
 import scalaz.std.scalaFuture._
-import scalaz.syntax.std.option._
-import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, \/, \/-}
-import spray.json._
+import scalaz.{EitherT, NonEmptyList}
 
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.{Metrics, Timed}
-import akka.http.scaladsl.server.Directives._
-import com.daml.http.endpoints.MeteringReportEndpoint
-import com.daml.ledger.client.services.admin.UserManagementClient
-import com.daml.ledger.client.services.identity.LedgerIdentityClient
-
-import scala.util.control.NonFatal
+import scala.concurrent.ExecutionContext
+import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 
 private[http] final class Parties(
     routeSetup: RouteSetup,
     partiesService: PartiesService,
 )(implicit ec: ExecutionContext) {
   import Parties._
-  import routeSetup._, RouteSetup._
+  import routeSetup._
   import json.JsonProtocol._
-  import util.ErrorOps._
 
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
