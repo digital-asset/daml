@@ -10,7 +10,7 @@ final case class IndexServiceConfig(
     eventsProcessingParallelism: Int = IndexServiceConfig.DefaultEventsProcessingParallelism,
     bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
     acsIdPageSize: Int = IndexServiceConfig.DefaultAcsIdPageSize,
-    acsIdPageBufferSize: Int = IndexConfiguration.DefaultAcsIdPageBufferSize,
+    acsIdPageBufferSize: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize,
     acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
     acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,

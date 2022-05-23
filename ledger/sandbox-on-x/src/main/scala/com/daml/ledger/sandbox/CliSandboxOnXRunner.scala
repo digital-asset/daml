@@ -64,7 +64,7 @@ object CliSandboxOnXRunner {
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         originalConfig.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
-            DumpIndexMetadata(jdbcUrls, RunnerName)
+            DumpIndexMetadata(jdbcUrls)
             sys.exit(0)
           case Mode.Run =>
             val config = CliConfigConverter.toConfig(configAdaptor, originalConfig)
