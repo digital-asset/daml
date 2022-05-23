@@ -48,6 +48,14 @@ final case class UserManagementConfig(
     maxUsersPageSize: Int,
 )
 
+final case class RateLimitingConfig(
+  maxApiServicesQueueSize: Int,
+)
+
+case object RateLimitingConfig {
+  val default: RateLimitingConfig = RateLimitingConfig(maxApiServicesQueueSize = 1000)
+}
+
 object PersistentUserManagementStore {
 
   /** Intended to be thrown within a DB transaction to abort it.

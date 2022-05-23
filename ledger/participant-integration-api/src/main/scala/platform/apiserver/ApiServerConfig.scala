@@ -8,10 +8,10 @@ import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
 import com.daml.ports.Port
+
 import java.nio.file.Path
 import java.time.Duration
-
-import com.daml.platform.usermanagement.UserManagementConfig
+import com.daml.platform.usermanagement.{RateLimitingConfig, UserManagementConfig}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -31,4 +31,5 @@ case class ApiServerConfig(
     seeding: Seeding,
     managementServiceTimeout: Duration,
     userManagementConfig: UserManagementConfig,
+    rateLimitingConfig: Option[RateLimitingConfig]
 )

@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import java.util.concurrent.Executors
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
@@ -15,9 +14,10 @@ import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.usermanagement.RateLimitingConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
-import io.grpc.ManagedChannel
+import io.grpc.{ManagedChannel, Status, StatusRuntimeException}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -84,12 +84,27 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
         }
       }
     }
+
+    "rate limit interceptor is installed" in {
+      val metrics = new Metrics(new MetricRegistry)
+      resources(metrics).use { channel =>
+        metrics.registry.meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")).mark(1000) // Over limit
+        val helloService = HelloServiceGrpc.stub(channel)
+        helloService.single(HelloRequest(7)).failed.map {
+          case s: StatusRuntimeException => s.getStatus.getCode shouldBe Status.Code.ABORTED
+          case o => fail(s"Expected StatusRuntimeException, not $o")
+        }
+      }
+    }
+
   }
 }
 
 object GrpcServerSpec {
 
   private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
+
+  private val rateLimitingConfig = RateLimitingConfig(100)
 
   class TestedHelloService extends HelloServiceReferenceImplementation {
     override def fails(request: HelloRequest): Future[HelloResponse] = {
@@ -103,16 +118,17 @@ object GrpcServerSpec {
     }
   }
 
-  private def resources(): ResourceOwner[ManagedChannel] =
+  private def resources(metrics: Metrics = new Metrics(new MetricRegistry)): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
       server <- GrpcServer.owner(
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
-        metrics = new Metrics(new MetricRegistry),
+        metrics = metrics,
         servicesExecutor = executor,
         services = Seq(new TestedHelloService),
+        rateLimitingConfig = Some(rateLimitingConfig),
       )
       channel <- new GrpcChannel.Owner(
         Port(server.getPort),
