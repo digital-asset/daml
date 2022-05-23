@@ -78,6 +78,7 @@ object StandaloneIndexService {
         eventsPageSize = config.eventsPageSize,
         eventsProcessingParallelism = config.eventsProcessingParallelism,
         acsIdPageSize = config.acsIdPageSize,
+        acsIdPageBufferSize = config.acsIdPageBufferSize,
         acsIdFetchingParallelism = config.acsIdFetchingParallelism,
         acsContractFetchingParallelism = config.acsContractFetchingParallelism,
         acsGlobalParallelism = config.acsGlobalParallelism,

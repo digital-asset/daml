@@ -28,9 +28,10 @@ case class AllocatedParties(
     signatory: client.binding.Primitive.Party,
     observers: List[client.binding.Primitive.Party],
     divulgees: List[client.binding.Primitive.Party],
+    extraSubmitters: List[client.binding.Primitive.Party],
 ) {
   val allAllocatedParties: List[Primitive.Party] =
-    List(signatory) ++ observers ++ divulgees
+    List(signatory) ++ observers ++ divulgees ++ extraSubmitters
 }
 
 case class CommandSubmitter(
@@ -50,6 +51,8 @@ case class CommandSubmitter(
       names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
     val divulgeePartyNames =
       names.divulgeePartyNames(config.numberOfDivulgees, config.uniqueParties)
+    val extraSubmittersPartyNames =
+      names.extraSubmitterPartyNames(config.numberOfExtraSubmitters, config.uniqueParties)
 
     logger.info("Generating contracts...")
     logger.info(s"Identifier suffix: ${names.identifierSuffix}")
@@ -57,6 +60,7 @@ case class CommandSubmitter(
       signatory <- allocateSignatoryParty()
       observers <- allocateParties(observerPartyNames)
       divulgees <- allocateParties(divulgeePartyNames)
+      extraSubmitters <- allocateParties(extraSubmittersPartyNames)
       _ <- uploadTestDars()
     } yield {
       logger.info("Prepared command submission.")
@@ -64,6 +68,7 @@ case class CommandSubmitter(
         signatory = signatory,
         observers = observers,
         divulgees = divulgees,
+        extraSubmitters = extraSubmitters,
       )
     })
       .recoverWith { case NonFatal(ex) =>
@@ -86,6 +91,7 @@ case class CommandSubmitter(
       id = commandId,
       actAs = actAs,
       commands = commands,
+      applicationId = names.benchtoolApplicationId,
     )
   }
 
@@ -149,12 +155,13 @@ case class CommandSubmitter(
       id: String,
       actAs: Seq[Primitive.Party],
       commands: Seq[Command],
+      applicationId: String,
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     def makeCommands(commands: Seq[Command]) = new Commands(
       ledgerId = benchtoolUserServices.ledgerId,
-      applicationId = names.benchtoolApplicationId,
+      applicationId = applicationId,
       commandId = id,
       actAs = actAs.map(_.unwrap),
       commands = commands,
@@ -213,8 +220,9 @@ case class CommandSubmitter(
               timed(submitAndWaitTimer, metricsManager)(
                 submitAndWait(
                   id = names.commandId(index),
-                  actAs = baseActAs,
+                  actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
                   commands = commands.flatten,
+                  applicationId = generator.nextApplicationId(),
                 )
               )
                 .map(_ => index + commands.length - 1)

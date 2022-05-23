@@ -17,11 +17,12 @@ import java.time.{Clock, Duration}
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
+
   def transactionMetrics(
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
-      countingFunction = _.transactions.length,
+      countingFunction = (response => countFlatTransactionsEvents(response).toInt),
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -38,7 +39,7 @@ object MetricsSet {
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = _.transactions.length.toLong,
+      countingFunction = countFlatTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = Some(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -49,7 +50,7 @@ object MetricsSet {
       objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
-      countingFunction = _.transactions.length,
+      countingFunction = (response => countTreeTransactionsEvents(response).toInt),
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -66,7 +67,7 @@ object MetricsSet {
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = _.transactions.length.toLong,
+      countingFunction = countTreeTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = Some(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -174,4 +175,11 @@ object MetricsSet {
       ),
     )
   }
+
+  private def countFlatTransactionsEvents(response: GetTransactionsResponse): Long =
+    response.transactions.foldLeft(0L)((acc, tx) => acc + tx.events.size)
+
+  private def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Long =
+    response.transactions.foldLeft(0L)((acc, tx) => acc + tx.eventsById.size)
+
 }

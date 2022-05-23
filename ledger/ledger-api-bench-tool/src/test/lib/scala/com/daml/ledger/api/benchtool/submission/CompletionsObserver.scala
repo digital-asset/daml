@@ -21,7 +21,7 @@ class CompletionsObserver(logger: Logger)
 
   private val completions = collection.mutable.ArrayBuffer[ObservedCompletion]()
 
-  override def streamName: String = "some-completions-stream"
+  override def streamName: String = "dummy-stream-name"
 
   override def onNext(value: CompletionStreamResponse): Unit = {
     for {

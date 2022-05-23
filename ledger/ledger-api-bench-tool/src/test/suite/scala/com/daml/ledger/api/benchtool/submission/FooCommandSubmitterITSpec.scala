@@ -49,6 +49,7 @@ class FooCommandSubmitterITSpec
       numberOfInstances = 10,
       numberOfObservers = 1,
       numberOfDivulgees = 0,
+      numberOfExtraSubmitters = 0,
       uniqueParties = false,
       instanceDistribution = List(
         foo1Config,
@@ -56,6 +57,7 @@ class FooCommandSubmitterITSpec
       ),
       nonConsumingExercises = Some(nonConsumingExercisesConfig),
       consumingExercises = Some(consumingExercisesConfig),
+      applicationIds = List.empty,
     )
 
     for {
@@ -80,6 +82,7 @@ class FooCommandSubmitterITSpec
         submissionBatchSize = 5,
         submissionConfig = config,
         allocatedParties = allocatedParties,
+        names = names,
       )
       _ <- tested.performSubmission()
       eventsObserver = TreeEventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))

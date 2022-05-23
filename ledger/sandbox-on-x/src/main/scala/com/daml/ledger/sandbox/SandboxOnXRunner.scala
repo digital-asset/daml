@@ -69,7 +69,7 @@ object SandboxOnXRunner {
 
         config.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
-            DumpIndexMetadata(jdbcUrls, RunnerName)
+            DumpIndexMetadata(jdbcUrls)
             sys.exit(0)
           case Mode.Run =>
             run(config)

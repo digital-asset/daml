@@ -60,6 +60,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/timer-utils",
         "//ledger/test-common:model-tests-%s.scala" % "1.14",  # TODO: make the LF version configurable
         "//ledger/test-common:dar-files-%s-lib" % "1.14",  # TODO: make the LF version configurable
         "@maven//:io_dropwizard_metrics_metrics_core",
