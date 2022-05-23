@@ -252,6 +252,10 @@ trait AbstractHttpServiceIntegrationTestFuns
     ): Future[(StatusCode, JsValue)] =
       HttpServiceTestFixture.postJsonRequest(uri withPath path, json, headers)
 
+    // XXX SC check that the status matches the one in the SyncResponse, and
+    // remove StatusCode from these responses everywhere, if all tests are
+    // similarly duplicative
+
     def postJsonRequestWithMinimumAuth[Result: JsonReader](
         path: Uri.Path,
         json: JsValue,
