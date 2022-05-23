@@ -62,7 +62,7 @@ object TypedValueGenerators {
     @deprecated("use Aux instead", since = "2.2.0")
     type NoCid[Inj0] = Aux[Inj0]
 
-    private sealed abstract class NoCid0[Inj0](implicit
+    private sealed abstract class Leaf0[Inj0](implicit
         ord: Order[Inj0],
         arb: Arbitrary[Inj0],
         shr: Shrink[Inj0],
@@ -73,9 +73,9 @@ object TypedValueGenerators {
       override final def injshrink = shr
     }
 
-    def noCid[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value)(
+    private def leaf[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value)(
         prj0: Value PartialFunction Inj0
-    ): Aux[Inj0] = new NoCid0[Inj0] {
+    ): Aux[Inj0] = new Leaf0[Inj0] {
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj(v: Inj0) = inj0(v)
       override def prj = prj0.lift
@@ -84,17 +84,17 @@ object TypedValueGenerators {
     import Value._, ValueGenerators.Implicits._, data.Utf8.ImplicitOrder._
     import scalaz.std.anyVal._
 
-    val text = noCid(PT.Text, ValueText) { case ValueText(t) => t }
-    val int64 = noCid(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
-    val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
-    val date = noCid(PT.Date, ValueDate) { case ValueDate(d) => d }
-    val timestamp = noCid(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
-    val bool = noCid(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
-    val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
+    val text = leaf(PT.Text, ValueText) { case ValueText(t) => t }
+    val int64 = leaf(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
+    val unit = leaf(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
+    val date = leaf(PT.Date, ValueDate) { case ValueDate(d) => d }
+    val timestamp = leaf(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
+    val bool = leaf(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
+    val party = leaf(PT.Party, ValueParty) { case ValueParty(p) => p }
 
     def numeric(scale: Numeric.Scale): Aux[Numeric] = {
       implicit val arb: Arbitrary[Numeric] = Arbitrary(ValueGenerators.numGen(scale))
-      new NoCid0[Numeric] {
+      new Leaf0[Numeric] {
         override def t: Type = TypeNumeric(scale)
 
         override def inj(x: Numeric): Value =
@@ -108,20 +108,17 @@ object TypedValueGenerators {
     }
 
     // we limit contract id generation to comparable cids in some places
-    def contractId(implicit cid: Arbitrary[Value.ContractId]): Aux[ContractId] = new ValueAddend {
-      type Inj = ContractId
-      // TODO SC it probably doesn't make much difference for our initial use case,
-      // but the proper arg should probably end up here, not Unit
-      override val t = TypePrim(PT.ContractId, ImmArraySeq(TypePrim(PT.Unit, ImmArraySeq.empty)))
-      override def inj(v: ContractId) = ValueContractId(v)
-      override def prj = {
-        case ValueContractId(cid) => Some(cid)
-        case _ => None
+    def contractId(implicit cid: Arbitrary[Value.ContractId]): Aux[ContractId] =
+      new Leaf0[ContractId] {
+        // TODO SC it probably doesn't make much difference for our initial use case,
+        // but the proper arg should probably end up here, not Unit
+        override val t = TypePrim(PT.ContractId, ImmArraySeq(TypePrim(PT.Unit, ImmArraySeq.empty)))
+        override def inj(v: ContractId) = ValueContractId(v)
+        override def prj = {
+          case ValueContractId(cid) => Some(cid)
+          case _ => None
+        }
       }
-      override def injord = implicitly[Order[ContractId]]
-      override def injarb = cid
-      override def injshrink = Shrink.shrinkAny
-    }
 
     def list(elt: ValueAddend): Aux[Vector[elt.Inj]] = new ValueAddend {
       type Inj = Vector[elt.Inj]
