@@ -120,28 +120,37 @@ object TypedValueGenerators {
         }
       }
 
-    def list(elt: ValueAddend): Aux[Vector[elt.Inj]] = new ValueAddend {
-      type Inj = Vector[elt.Inj]
-      override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
-      override def inj(elts: Inj) =
-        ValueList(elts.map(elt.inj(_)).to(FrontStack))
-      override def prj = {
-        case ValueList(v) =>
-          import scalaz.std.vector._
-          v.toImmArray.toSeq.to(Vector) traverse elt.prj
-        case _ => None
-      }
-      override def injord = {
-        import scalaz.std.iterable._ // compatible with SValue ordering
-        implicit val e: Order[elt.Inj] = elt.injord
-        Order[Iterable[elt.Inj]] contramap identity
-      }
-      override def injarb = {
-        implicit val e: Arbitrary[elt.Inj] = elt.injarb
-        Tag unsubst implicitly[Arbitrary[Vector[elt.Inj] @@ Div3]]
-      }
-      override def injshrink = implicitly[Shrink[Vector[elt.Inj]]]
+    private[this] def inductive1[F[_]](pt: PT, elt: ValueAddend)(
+        inj0: (F[elt.Inj], elt.Inj => Value) => Value,
+        prj0: (Value, Value => Option[elt.Inj]) => Option[F[elt.Inj]],
+        ord0: Order[elt.Inj] => Order[F[elt.Inj]],
+        arb0: Arbitrary[elt.Inj] => Arbitrary[F[elt.Inj]],
+        shr0: Shrink[elt.Inj] => Shrink[F[elt.Inj]],
+    ): Aux[F[elt.Inj]] = new ValueAddend {
+      type Inj = F[elt.Inj]
+      override val t = TypePrim(pt, ImmArraySeq(elt.t))
+      override def inj(elts: Inj) = inj0(elts, elt.inj)
+      override def prj = prj0(_, elt.prj)
+      override def injord = ord0(elt.injord)
+      override def injarb = arb0(elt.injarb)
+      override def injshrink = shr0(elt.injshrink)
     }
+
+    def list(elt: ValueAddend): Aux[Vector[elt.Inj]] = inductive1(PT.List, elt)(
+      (elts, eltinj) => ValueList(elts.map(eltinj).to(FrontStack)),
+      {
+        case (ValueList(v), eltprj) =>
+          import scalaz.std.vector._
+          v.toImmArray.toSeq.to(Vector) traverse eltprj
+        case _ => None
+      },
+      { implicit e =>
+        import scalaz.std.iterable._ // compatible with SValue ordering
+        Order[Iterable[elt.Inj]] contramap identity
+      },
+      implicit e => Tag unsubst implicitly[Arbitrary[Vector[elt.Inj] @@ Div3]],
+      implicit e => implicitly[Shrink[Vector[elt.Inj]]],
+    )
 
     def optional(elt: ValueAddend): Aux[Option[elt.Inj]] = new ValueAddend {
       type Inj = Option[elt.Inj]
