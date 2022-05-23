@@ -1,9 +1,11 @@
 
+-- | CoinA: Initial coin implementation.
+
 module CoinA where
 
 import InterfaceA
 
-template CoinT
+template CoinImpl
   with
     issuer : Party
     owner : Party

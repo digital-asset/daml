@@ -1,11 +1,11 @@
 
--- | CoinB -- Add meta info: #transfers
+-- | CoinB: Add meta info: #transfers.
 
 module CoinB where
 
 import InterfaceA -- dont need to change interface
 
-template CoinT
+template CoinImpl
   with
     issuer : Party
     owner : Party

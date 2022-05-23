@@ -17,7 +17,7 @@ template RulesImpl
       with issuer : Party
       controller [issuer]
       do
-        new <- create CoinT with issuer, owner = issuer
+        new <- create CoinImpl with issuer, owner = issuer
         pure $ toInterfaceContractId new
 
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
@@ -25,6 +25,6 @@ template RulesImpl
 
       transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
               = \coin view targ -> do
-        new <- create CoinT with issuer = view.issuer, owner = targ.newOwner
+        new <- create CoinImpl with issuer = view.issuer, owner = targ.newOwner
         exercise coin Coin_Archive
         pure (toInterfaceContractId new)

@@ -19,7 +19,7 @@ template RulesImpl
       with issuer : Party
       controller [issuer]
       do
-        new <- create CoinT with issuer, owner = issuer, numberOfTransfers = 0
+        new <- create CoinImpl with issuer, owner = issuer, numberOfTransfers = 0
         pure $ toInterfaceContractId new
 
     -- How many times has this coin been transfered?
@@ -36,7 +36,7 @@ template RulesImpl
       transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
               = \coin view targ -> do
         old <- fetch coin
-        new <- create CoinT with
+        new <- create CoinImpl with
           issuer = view.issuer
           owner = targ.newOwner
           numberOfTransfers = transferCount old + 1
@@ -45,6 +45,6 @@ template RulesImpl
 
 transferCount : Coin -> Int
 transferCount anyCoin = do
-  case fromInterface @CoinT @Coin anyCoin of
+  case fromInterface @CoinImpl @Coin anyCoin of
     None -> 0
     Some coin -> coin.numberOfTransfers
