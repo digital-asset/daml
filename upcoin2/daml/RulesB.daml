@@ -34,7 +34,7 @@ template RulesImpl
     -- Core Transfer logic. The coin delegates back here via the rules-interface.
     implements Rules where
 
-      transferR : ContractId Coin -> CoinView -> Coin_Transfer -> Update (ContractId Coin)
+      transferMethod : ContractId Coin -> CoinView -> Transfer -> Update (ContractId Coin)
               = \coin view targ -> do
         old <- fetch coin
         new <- create CoinImpl with
