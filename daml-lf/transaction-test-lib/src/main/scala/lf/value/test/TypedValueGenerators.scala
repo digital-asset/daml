@@ -47,10 +47,8 @@ object TypedValueGenerators {
     def inj(v: Inj): Value
     def prj: Value => Option[Inj]
     implicit def injord: Order[Inj]
-    // We parametrize by the Arbitrary instance so we can limit
-    // contract id generation to comparable cids in some places.
-    implicit def injarb(implicit cid: Arbitrary[Value.ContractId]): Arbitrary[Inj]
-    implicit def injshrink(implicit shr: Shrink[Value.ContractId]): Shrink[Inj]
+    implicit def injarb: Arbitrary[Inj]
+    implicit def injshrink: Shrink[Inj]
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
 
     final def xmap[B](f: Inj => B)(g: B => Inj): ValueAddend.Aux[B] =
@@ -71,8 +69,8 @@ object TypedValueGenerators {
     ) extends ValueAddend {
       type Inj = Inj0
       override final def injord = ord
-      override final def injarb(implicit cid: Arbitrary[Value.ContractId]) = arb
-      override final def injshrink(implicit noshr: Shrink[Value.ContractId]) = shr
+      override final def injarb = arb
+      override final def injshrink = shr
     }
 
     def noCid[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value)(
@@ -109,7 +107,8 @@ object TypedValueGenerators {
       }
     }
 
-    val contractId: Aux[ContractId] = new ValueAddend {
+    // we limit contract id generation to comparable cids in some places
+    def contractId(implicit cid: Arbitrary[Value.ContractId]): Aux[ContractId] = new ValueAddend {
       type Inj = ContractId
       // TODO SC it probably doesn't make much difference for our initial use case,
       // but the proper arg should probably end up here, not Unit
@@ -120,11 +119,8 @@ object TypedValueGenerators {
         case _ => None
       }
       override def injord = implicitly[Order[ContractId]]
-      override def injarb(implicit cid: Arbitrary[Value.ContractId]) = Arbitrary(
-        ValueGenerators.coidGen
-      )
-      override def injshrink(implicit shr: Shrink[Value.ContractId]) =
-        implicitly[Shrink[ContractId]]
+      override def injarb = cid
+      override def injshrink = Shrink.shrinkAny
     }
 
     def list(elt: ValueAddend): Aux[Vector[elt.Inj]] = new ValueAddend {
@@ -143,13 +139,11 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj] = elt.injord
         Order[Iterable[elt.Inj]] contramap identity
       }
-      override def injarb(implicit cid: Arbitrary[Value.ContractId]) = {
+      override def injarb = {
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
         Tag unsubst implicitly[Arbitrary[Vector[elt.Inj] @@ Div3]]
       }
-      override def injshrink(implicit shr: Shrink[Value.ContractId]) = {
-        implicitly[Shrink[Vector[elt.Inj]]]
-      }
+      override def injshrink = implicitly[Shrink[Vector[elt.Inj]]]
     }
 
     def optional(elt: ValueAddend): Aux[Option[elt.Inj]] = new ValueAddend {
@@ -164,13 +158,11 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj] = elt.injord
         Order[Option[elt.Inj]]
       }
-      override def injarb(implicit cid: Arbitrary[Value.ContractId]) = {
+      override def injarb = {
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
         implicitly[Arbitrary[Option[elt.Inj]]]
       }
-      override def injshrink(implicit cid: Shrink[Value.ContractId]) = {
-        implicitly[Shrink[Option[elt.Inj]]]
-      }
+      override def injshrink = implicitly[Shrink[Option[elt.Inj]]]
     }
 
     def map(elt: ValueAddend): Aux[SortedLookupList[elt.Inj]] = new ValueAddend {
@@ -186,11 +178,11 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj] = elt.injord
         Order[SortedLookupList[elt.Inj]]
       }
-      override def injarb(implicit cid: Arbitrary[Value.ContractId]) = {
+      override def injarb = {
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
         Tag unsubst implicitly[Arbitrary[SortedLookupList[elt.Inj] @@ Div3]]
       }
-      override def injshrink(implicit shr: Shrink[Value.ContractId]) =
+      override def injshrink =
         Shrink.shrinkAny // XXX descend
     }
 
@@ -222,12 +214,12 @@ object TypedValueGenerators {
           m.to(ImmArraySeq).sortBy(_._1).toImmArray
         }
       }
-      override def injarb(implicit arb: Arbitrary[Value.ContractId]) = {
+      override def injarb = {
         implicit val k: Arbitrary[key.Inj] = key.injarb
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
         Tag unsubst implicitly[Arbitrary[key.Inj Map elt.Inj @@ Div3]]
       }
-      override def injshrink(implicit shr: Shrink[Value.ContractId]) = {
+      override def injshrink = {
         import key.{injshrink => keyshrink}, elt.{injshrink => eltshrink}
         implicitly[Shrink[key.Inj Map elt.Inj]]
       }
@@ -252,8 +244,8 @@ object TypedValueGenerators {
             case _ => None
           }
           override def injord = spec.record
-          override def injarb(implicit cid: Arbitrary[Value.ContractId]) = spec.recarb
-          override def injshrink(implicit shr: Shrink[Value.ContractId]) = spec.recshrink
+          override def injarb = spec.recarb
+          override def injshrink = spec.recshrink
         },
       )
 
@@ -274,9 +266,9 @@ object TypedValueGenerators {
             case _ => None
           }
           override def injord = spec.varord
-          override def injarb(implicit cid: Arbitrary[Value.ContractId]) =
+          override def injarb =
             Arbitrary(Gen.oneOf(spec.vararb.toSeq).flatMap(_._2))
-          override def injshrink(implicit shr: Shrink[Value.ContractId]) = spec.varshrink
+          override def injshrink = spec.varshrink
         },
       )
 
@@ -296,10 +288,10 @@ object TypedValueGenerators {
             case _ => None
           }
           override def injord = Order.orderBy(values.indexOf)
-          override def injarb(implicit cid: Arbitrary[Value.ContractId]) = Arbitrary(
+          override def injarb = Arbitrary(
             Gen.oneOf(values)
           )
-          override def injshrink(implicit shr: Shrink[Value.ContractId]) =
+          override def injshrink =
             Shrink { ev =>
               if (!(values.headOption contains ev)) values.headOption.toStream
               else Stream.empty: @annotation.nowarn("cat=deprecation")
@@ -322,9 +314,9 @@ object TypedValueGenerators {
       override def prj = under.prj andThen (_ map f)
 
       override def injord = under.injord contramap g
-      override def injarb(implicit cid: Arbitrary[Value.ContractId]) =
+      override def injarb =
         Arbitrary(under.injarb.arbitrary map f)
-      override def injshrink(implicit shr: Shrink[Value.ContractId]) =
+      override def injshrink =
         Shrink.xmap(f, g)(under.injshrink)
     }
   }
@@ -360,14 +352,14 @@ object TypedValueGenerators {
           Order.orderBy { case ah :: at => (ah: h.Inj, at) }
         }
 
-        override def recarb(implicit cid: Arbitrary[Value.ContractId]) = {
+        override def recarb = {
           import self.{recarb => tailarb}, h.{injarb => headarb}
           Arbitrary(arbitrary[(h.Inj, self.HRec)] map { case (vh, vt) =>
             field[K](vh) :: vt
           })
         }
 
-        override def recshrink(implicit shr: Shrink[Value.ContractId]): Shrink[HRec] = {
+        override def recshrink: Shrink[HRec] = {
           import h.{injshrink => hshrink}, self.{recshrink => tshrink}
           Shrink { case vh :: vt =>
             (Shrink.shrink(vh: h.Inj) zip Shrink.shrink(vt)) map { case (nh, nt) =>
@@ -398,7 +390,7 @@ object TypedValueGenerators {
               case (Inl(ah), Inl(bh)) => h.injord.order(ah, bh)
             }
 
-        override def vararb(implicit cid: Arbitrary[Value.ContractId]) = {
+        override def vararb = {
           val r =
             self.vararb transform { (_, ta) =>
               ta map (Inr(_))
@@ -425,20 +417,14 @@ object TypedValueGenerators {
     private[TypedValueGenerators] def injRec(v: HRec): List[Value]
     private[TypedValueGenerators] def prjRec(v: ImmArray[(_, Value)]): Option[HRec]
     private[TypedValueGenerators] implicit def record: Order[HRec]
-    private[TypedValueGenerators] implicit def recarb(implicit
-        cid: Arbitrary[Value.ContractId]
-    ): Arbitrary[HRec]
-    private[TypedValueGenerators] implicit def recshrink(implicit
-        shr: Shrink[Value.ContractId]
-    ): Shrink[HRec]
+    private[TypedValueGenerators] implicit def recarb: Arbitrary[HRec]
+    private[TypedValueGenerators] implicit def recshrink: Shrink[HRec]
 
     private[TypedValueGenerators] def injVar(v: HVar): (Ref.Name, Value)
     private[TypedValueGenerators] type PrjResult = Option[HVar]
     private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value => PrjResult]
     private[TypedValueGenerators] implicit def varord: Order[HVar]
-    private[TypedValueGenerators] implicit def vararb(implicit
-        cid: Arbitrary[Value.ContractId]
-    ): Map[Ref.Name, Gen[HVar]]
+    private[TypedValueGenerators] implicit def vararb: Map[Ref.Name, Gen[HVar]]
     private[TypedValueGenerators] implicit def varshrink: Shrink[HVar]
   }
 
@@ -451,16 +437,15 @@ object TypedValueGenerators {
     private[TypedValueGenerators] override def prjRec(v: ImmArray[(_, Value)]) =
       Some(HNil)
     private[TypedValueGenerators] override def record = (_, _) => Ordering.EQ
-    private[TypedValueGenerators] override def recarb(implicit cid: Arbitrary[Value.ContractId]) =
+    private[TypedValueGenerators] override def recarb =
       Arbitrary(Gen const HNil)
-    private[TypedValueGenerators] override def recshrink(implicit shr: Shrink[Value.ContractId]) =
+    private[TypedValueGenerators] override def recshrink =
       Shrink.shrinkAny
 
     private[TypedValueGenerators] override def injVar(v: CNil) = v.impossible
     private[TypedValueGenerators] override val prjVar = Map.empty
     private[TypedValueGenerators] override def varord = (v, _) => v.impossible
-    private[TypedValueGenerators] override def vararb(implicit cid: Arbitrary[Value.ContractId]) =
-      Map.empty
+    private[TypedValueGenerators] override def vararb = Map.empty
     private[TypedValueGenerators] override def varshrink = Shrink.shrinkAny
   }
 
@@ -541,7 +526,7 @@ object TypedValueGenerators {
     */
   def indGenAddend(
       f: (Gen[ValueAddend], Gen[ValueAddend]) => Seq[Gen[ValueAddend]]
-  ): Gen[ValueAddend] = {
+  )(implicit cid: Arbitrary[Value.ContractId]): Gen[ValueAddend] = {
     object Knot {
       val tie: Gen[ValueAddend] = Gen.sized { sz =>
         val keySelf = Gen.resize(sz / 10, tie)
@@ -571,7 +556,7 @@ object TypedValueGenerators {
     * prism into [[Value]], a [[Type]] describing that type, and
     * Scalacheck support surrounding that type.''
     */
-  val genAddend: Gen[ValueAddend] =
+  def genAddend(implicit cid: Arbitrary[Value.ContractId]): Gen[ValueAddend] =
     indGenAddend { (keySelf, self) =>
       Seq(
         self.map(ValueAddend.list(_)),
@@ -580,12 +565,13 @@ object TypedValueGenerators {
       )
     }
 
-  val genAddendNoListMap: Gen[ValueAddend] = indGenAddend((_, _) => Seq.empty)
+  def genAddendNoListMap(implicit cid: Arbitrary[Value.ContractId]): Gen[ValueAddend] =
+    indGenAddend((_, _) => Seq.empty)
 
   /** Generate a type and value guaranteed to conform to that type. */
   def genTypeAndValue(cid: Gen[Value.ContractId]): Gen[(Type, Value)] =
     for {
-      addend <- genAddend
-      value <- addend.injarb(Arbitrary(cid)).arbitrary
+      addend <- genAddend(Arbitrary(cid))
+      value <- addend.injarb.arbitrary
     } yield (addend.t, addend.inj(value))
 }
