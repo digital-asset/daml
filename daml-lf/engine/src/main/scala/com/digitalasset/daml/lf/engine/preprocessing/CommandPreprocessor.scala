@@ -242,5 +242,5 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[command.DisclosedContract]
   ): ImmArray[speedy.DisclosedContract] =
-      discs.map(unsafePreprocessDisclosedContract)
+    discs.map(unsafePreprocessDisclosedContract)
 }

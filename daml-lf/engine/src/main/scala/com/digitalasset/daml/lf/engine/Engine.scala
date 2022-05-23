@@ -573,72 +573,52 @@ object Engine {
         Map.empty[ContractId, VersionedContractInstance],
         Map.empty[crypto.Hash, ContractId],
         List.empty[Versioned[DisclosedContract]],
-        Option.empty[Error.Preprocessing.BadDisclosedContract],
       )
-    ) { case ((m1, m2, ds, errorM), d) =>
-      errorM match {
-        case None =>
-          val arg = machine.normValue(d.templateId, d.argument)
-          val coid = machine.normValue(d.templateId, d.contractId)
-          val version = machine.tmplId2TxVersion(d.templateId)
+    ) { case ((m1, m2, ds), d) =>
+      val arg = machine.normValue(d.templateId, d.argument)
+      val coid = machine.normValue(d.templateId, d.contractId)
+      val version = machine.tmplId2TxVersion(d.templateId)
 
-          // check for well typed contract argument
-          (coid, arg) match {
-            case (ValueContractId(coid), r @ ValueRecord(Some(d.templateId), _)) =>
-              // check for duplicate contract ids
-              m1.get(coid) match {
-                case Some(_) =>
-                  (
-                    m1,
-                    m2,
-                    ds,
-                    Some(Error.Preprocessing.BadDisclosedContract("Duplicate disclosed contract.")),
-                  )
-                case None =>
-                  val contractInst = VersionedContractInstance(
-                    template = d.templateId,
-                    arg = Versioned(version, r),
-                    agreementText = "",
-                  )
-                  val m1_prime = m1 + (coid -> contractInst)
-                  val d_prime = Versioned(
-                    version,
-                    DisclosedContract(
-                      templateId = d.templateId,
-                      argument = r,
-                      contractId = coid,
-                      metadata = d.metadata,
-                    ),
-                  )
-                  val ds_prime = d_prime :: ds
-                  d.metadata.keyHash match {
-                    case Some(hash) => (m1_prime, m2 + (hash -> coid), ds_prime, errorM)
-                    case None => (m1_prime, m2, ds_prime, errorM)
-                  }
+      // check for well typed contract argument
+      (coid, arg) match {
+        case (ValueContractId(coid), r @ ValueRecord(Some(d.templateId), _)) =>
+          // check for duplicate contract ids
+          m1.get(coid) match {
+            case Some(_) =>
+              throw (Error.Preprocessing.BadDisclosedContract("Duplicate disclosed contract."))
+            case None =>
+              val contractInst = VersionedContractInstance(
+                template = d.templateId,
+                arg = Versioned(version, r),
+                agreementText = "",
+              )
+              val m1_prime = m1 + (coid -> contractInst)
+              val d_prime = Versioned(
+                version,
+                DisclosedContract(
+                  templateId = d.templateId,
+                  argument = r,
+                  contractId = coid,
+                  metadata = d.metadata,
+                ),
+              )
+              val ds_prime = d_prime :: ds
+              d.metadata.keyHash match {
+                case Some(hash) => (m1_prime, m2 + (hash -> coid), ds_prime)
+                case None => (m1_prime, m2, ds_prime)
               }
-            case _ => (m1, m2, ds, errorM)
           }
-        // abort on error.
-        case Some(_) =>
-          (
-            m1,
-            m2,
-            ds,
-            Some(Error.Preprocessing.BadDisclosedContract("Malformed disclosed contract.")),
-          )
+        case _ =>
+          throw (Error.Preprocessing.BadDisclosedContract("Disclosed contract is not well-typed."))
       }
     }
-    acc._4 match {
-      case None =>
-        ResultDone(
-          DisclosureTable(
-            allDisclosures = ImmArray.from(acc._3),
-            contractById = acc._1,
-            contractIdByKey = acc._2,
-          )
-        )
-      case Some(err) => ResultError(err)
-    }
+    ResultDone(
+      DisclosureTable(
+        allDisclosures = ImmArray.from(acc._3),
+        contractById = acc._1,
+        contractIdByKey = acc._2,
+      )
+    )
 
   }
 }
