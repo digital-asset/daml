@@ -448,14 +448,14 @@ class JsonLedgerClient(
       })
   }
 
-  // TODO (#13653) this is not enough data to pick an interface choice
+  // TODO (#13973) this is not enough data to pick an interface choice
   private[this] def lookupChoice(tplId: Identifier, choice: ChoiceName) =
     envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
       .template
       .tChoices
-      .assumeNoOverloadedChoices(githubIssue = 13653)(choice)
+      .assumeNoOverloadedChoices(githubIssue = 13973)(choice)
 
   private[this] val SubmissionFailures: Set[StatusCode] = {
     import StatusCodes._
