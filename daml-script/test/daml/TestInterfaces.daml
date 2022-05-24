@@ -5,6 +5,7 @@ module TestInterfaces where
 
 import Daml.Script
 import DA.Assert
+import DA.Types()
 
 interface Token where
   getOwner : Party
