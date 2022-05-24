@@ -30,19 +30,24 @@ object DefDataTypeSpec {
       )
     )
 
-  implicit def `TemplateChoice arb`[Ty: Arbitrary]: Arbitrary[TemplateChoice[Ty]] =
+  private[this] implicit def `TemplateChoice arb`[Ty: Arbitrary]: Arbitrary[TemplateChoice[Ty]] =
     Arbitrary(mappedGen((TemplateChoice[Ty] _).tupled))
 
   // equal is inductively natural; not bothering to write the non-natural case -SC
   implicit val `TemplateChoices eq`: Equal[TemplateChoices[Int]] = Equal.equalA
 
-  implicit def `nonempty map arb`[K: Arbitrary, V: Arbitrary]: Arbitrary[NonEmpty[Map[K, V]]] =
+  private[this] implicit def `nonempty map arb`[K: Arbitrary, V: Arbitrary]
+      : Arbitrary[NonEmpty[Map[K, V]]] =
     Arbitrary(
       arbitrary[((K, V), Map[K, V])] map { case (kv, m) => NonEmpty(Map, kv) ++ m }
     )
 
-  implicit def `ChoiceName arb`: Arbitrary[Ref.ChoiceName] = Arbitrary(ValueGenerators.nameGen)
-  implicit def `TypeConName arb`: Arbitrary[Ref.TypeConName] = Arbitrary(ValueGenerators.idGen)
+  private[this] implicit def `ChoiceName arb`: Arbitrary[Ref.ChoiceName] = Arbitrary(
+    ValueGenerators.nameGen
+  )
+  private[this] implicit def `TypeConName arb`: Arbitrary[Ref.TypeConName] = Arbitrary(
+    ValueGenerators.idGen
+  )
 
   // helper to avoid restating the A type
   private def mappedGen[A: Arbitrary, B](f: A => B): Gen[B] =
