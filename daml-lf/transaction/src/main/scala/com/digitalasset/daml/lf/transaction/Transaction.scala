@@ -9,6 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.command.DisclosedContract
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -813,6 +814,7 @@ object Transaction {
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
+      disclosures: ImmArray[Versioned[DisclosedContract]],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

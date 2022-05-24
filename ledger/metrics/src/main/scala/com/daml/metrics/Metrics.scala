@@ -639,35 +639,24 @@ final class Metrics(val registry: MetricRegistry) {
         val prune: Timer = registry.timer(Prefix :+ "prune")
         val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
-        object streamsBuffer {
-          private val Prefix: MetricName = index.Prefix :+ "streams_buffer"
+        case class Buffer(bufferName: String) {
+          private val Prefix: MetricName = index.Prefix :+ s"${bufferName}_buffer"
 
-          def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
-          def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
-          def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+          val push: Timer = registry.timer(Prefix :+ "push")
+          val slice: Timer = registry.timer(Prefix :+ "slice")
+          val prune: Timer = registry.timer(Prefix :+ "prune")
 
-          val transactionTreesTotal: Counter =
-            registry.counter(Prefix :+ "transaction_trees_total")
-          val transactionTreesBuffered: Counter =
-            registry.counter(Prefix :+ "transaction_trees_buffered")
+          val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
+        }
 
-          val flatTransactionsTotal: Counter =
-            registry.counter(Prefix :+ "flat_transactions_total")
-          val flatTransactionsBuffered: Counter =
-            registry.counter(Prefix :+ "flat_transactions_buffered")
+        case class BufferedReader(streamName: String) {
+          private val Prefix: MetricName = index.Prefix :+ s"${streamName}_buffer_reader"
 
-          val getTransactionTrees: Timer =
-            registry.timer(Prefix :+ "get_transaction_trees")
-          val getFlatTransactions: Timer =
-            registry.timer(Prefix :+ "get_flat_transactions")
-
-          val toFlatTransactions: Timer = registry.timer(Prefix :+ "to_flat_transactions")
-          val toTransactionTrees: Timer = registry.timer(Prefix :+ "to_transaction_trees")
-
-          val transactionTreesBufferSize: Counter =
-            registry.counter(Prefix :+ "transaction_trees_buffer_size")
-          val flatTransactionsBufferSize: Counter =
-            registry.counter(Prefix :+ "flat_transactions_buffer_size")
+          val fetchedTotal: Counter = registry.counter(Prefix :+ "fetched_total")
+          val fetchedBuffered: Counter = registry.counter(Prefix :+ "fetched_buffered")
+          val fetchTimer: Timer = registry.timer(Prefix :+ "fetch")
+          val conversion: Timer = registry.timer(Prefix :+ "conversion")
+          val bufferSize: Counter = registry.counter(Prefix :+ "buffer_size")
         }
 
         val getContractStateEventsChunkSize: Histogram =

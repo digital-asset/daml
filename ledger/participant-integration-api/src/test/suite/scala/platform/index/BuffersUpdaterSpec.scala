@@ -213,7 +213,7 @@ final class BuffersUpdaterSpec
       val exercisedCid = ContractId.V1(Hash.hashPrivateKey("exercisedCid"))
       val exercisedKey = Versioned(TransactionVersion.VDev, ValueInt64(8974L))
       val exercisedTemplateId = Ref.Identifier.assertFromString("exercised:template:id")
-      val exercisedFlatEventWitnesses = Set("bob", "dan")
+      val exercisedFlatEventWitnesses = Set("bob", "dan").map(Ref.Party.assertFromString)
       val exercisedOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
       val exercisedEventSequentialId = 9876L
 
@@ -252,8 +252,8 @@ final class BuffersUpdaterSpec
         commandId = null,
         workflowId = null,
         contractKey = Some(createdContractKey),
-        treeEventWitnesses = Set("bob"), // Unused in ContractStateEvent
-        flatEventWitnesses = createdFlatEventWitnesses,
+        treeEventWitnesses = Set(Ref.Party.assertFromString("bob")), // Unused in ContractStateEvent
+        flatEventWitnesses = createdFlatEventWitnesses.map(Ref.Party.assertFromString),
         submitters = null,
         createArgument = createArgument,
         createSignatories = null,

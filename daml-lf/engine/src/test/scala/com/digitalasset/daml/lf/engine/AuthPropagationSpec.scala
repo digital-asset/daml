@@ -128,6 +128,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "commands-tag"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )

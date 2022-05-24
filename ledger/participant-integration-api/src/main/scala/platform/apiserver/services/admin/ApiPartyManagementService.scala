@@ -37,7 +37,7 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
     managementServiceTimeout: Duration,
-    submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId,
+    submissionIdGenerator: String => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -46,8 +46,6 @@ private[apiserver] final class ApiPartyManagementService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
@@ -92,47 +90,53 @@ private[apiserver] final class ApiPartyManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
   }
 
-  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    withEnrichedLoggingContext(logging.partyString(request.partyIdHint)) {
-      implicit loggingContext =>
-        logger.info("Allocating party")
-        implicit val telemetryContext: TelemetryContext =
-          DefaultTelemetry.contextFromGrpcThreadLocalContext()
-        val validatedPartyIdHint =
-          if (request.partyIdHint.isEmpty) {
-            Future.successful(None)
-          } else {
-            Ref.Party
-              .fromString(request.partyIdHint)
-              .fold(
-                error =>
-                  Future.failed(
-                    ValidationLogger
-                      .logFailure(request, ValidationErrors.invalidArgument(error))
-                  ),
-                party => Future.successful(Some(party)),
-              )
-          }
+  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
+    val submissionId = submissionIdGenerator(request.partyIdHint)
+    withEnrichedLoggingContext(
+      logging.partyString(request.partyIdHint),
+      logging.submissionId(submissionId),
+    ) { implicit loggingContext =>
+      logger.info("Allocating party")
+      implicit val telemetryContext: TelemetryContext =
+        DefaultTelemetry.contextFromGrpcThreadLocalContext()
+      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-        validatedPartyIdHint
-          .flatMap(partyIdHint => {
-            val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-            synchronousResponse
-              .submitAndWait(submissionIdGenerator(partyIdHint), (partyIdHint, displayName))
-              .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
-                AllocatePartyResponse(
-                  Some(
-                    PartyDetails(
-                      partyDetails.party,
-                      partyDetails.displayName.getOrElse(""),
-                      partyDetails.isLocal,
-                    )
-                  )
-                )
-              }
-          })
-          .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+      val validatedPartyIdHint =
+        if (request.partyIdHint.isEmpty) {
+          Future.successful(None)
+        } else {
+          Ref.Party
+            .fromString(request.partyIdHint)
+            .fold(
+              error =>
+                Future.failed(
+                  ValidationLogger
+                    .logFailure(request, ValidationErrors.invalidArgument(error))
+                ),
+              party => Future.successful(Some(party)),
+            )
+        }
+
+      val submit = for {
+        partyIdHint <- validatedPartyIdHint
+        displayName = Some(request.displayName).filterNot(_.isEmpty)
+        input = (partyIdHint, displayName)
+        PartyEntry.AllocationAccepted(_, partyDetails) <- synchronousResponse.submitAndWait(
+          submissionId,
+          input,
+        )
+      } yield {
+        val details = PartyDetails(
+          partyDetails.party,
+          partyDetails.displayName.getOrElse(""),
+          partyDetails.isLocal,
+        )
+        AllocatePartyResponse(Some(details))
+      }
+      submit.andThen(logger.logErrorsOnCall[AllocatePartyResponse])
     }
+  }
 
   private[this] def mapPartyDetails(
       details: com.daml.ledger.api.domain.PartyDetails
@@ -142,7 +146,6 @@ private[apiserver] final class ApiPartyManagementService private (
       displayName = details.displayName.getOrElse(""),
       isLocal = details.isLocal,
     )
-
 }
 
 private[apiserver] object ApiPartyManagementService {
@@ -152,7 +155,7 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
       managementServiceTimeout: Duration,
-      submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId = CreateSubmissionId.withPrefix,
+      submissionIdGenerator: String => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -172,11 +175,10 @@ private[apiserver] object ApiPartyManagementService {
     private val MaxLength: Int = 255
     private val PrefixMaxLength: Int = MaxLength - SuffixLength
 
-    def withPrefix(maybeParty: Option[Ref.Party]): Ref.SubmissionId = {
-      val uuid = UUID.randomUUID().toString
-      val raw = maybeParty.fold(uuid)(party => s"${party.take(PrefixMaxLength)}-$uuid")
-      Ref.SubmissionId.assertFromString(raw)
-    }
+    def withPrefix(partyHint: String): Ref.SubmissionId =
+      augmentSubmissionId(
+        Ref.SubmissionId.fromString(partyHint.take(PrefixMaxLength)).getOrElse("")
+      )
   }
 
   private final class SynchronousResponseStrategy(
@@ -197,7 +199,10 @@ private[apiserver] object ApiPartyManagementService {
     override def submit(
         submissionId: Ref.SubmissionId,
         input: (Option[Ref.Party], Option[String]),
-    )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
+    )(implicit
+        telemetryContext: TelemetryContext,
+        loggingContext: LoggingContext,
+    ): Future[state.SubmissionResult] = {
       val (party, displayName) = input
       writeService.allocateParty(party, displayName, submissionId).asScala
     }

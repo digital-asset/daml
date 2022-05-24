@@ -49,6 +49,7 @@ object LedgerApiBenchTool {
     ConfigMaker.make(args) match {
       case Left(error) =>
         logger.error(s"Configuration error: ${error.details}")
+        sys.exit(1)
       case Right(config) =>
         logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
         val result = LedgerApiBenchTool(config)

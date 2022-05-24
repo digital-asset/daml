@@ -76,6 +76,7 @@ object ConfigConverter {
       commandConfig = sandboxConfig.commandConfig,
       enableInMemoryFanOutForLedgerApi = false,
       eventsPageSize = sandboxConfig.eventsPageSize,
+      bufferedStreamsPageSize = 100,
       eventsProcessingParallelism = sandboxConfig.eventsProcessingParallelism,
       extra = extraBridgeConfig,
       ledgerId = sandboxConfig.ledgerIdMode match {

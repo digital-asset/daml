@@ -283,6 +283,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         submitters = Set(submitter),
         readAs = Set.empty,
         ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
+        ImmArray.empty,
         participant,
         seed,
       )

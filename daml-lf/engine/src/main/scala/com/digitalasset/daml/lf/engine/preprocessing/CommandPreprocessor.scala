@@ -10,7 +10,7 @@ import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.nowarn
 
 private[lf] final class CommandPreprocessor(
     interface: language.PackageInterface,
@@ -24,6 +24,21 @@ private[lf] final class CommandPreprocessor(
     )
 
   import Preprocessor._
+
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessDisclosedContract(
+      disc: command.DisclosedContract
+  ): speedy.DisclosedContract = {
+    discard(handleLookup(interface.lookupTemplate(disc.templateId)))
+    val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
+    val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
+    speedy.DisclosedContract(
+      templateId = disc.templateId,
+      contractId = coid,
+      argument = arg,
+      metadata = disc.metadata,
+    )
+  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
@@ -220,23 +235,12 @@ private[lf] final class CommandPreprocessor(
     }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] = {
+  def unsafePreprocessApiCommands(cmds: ImmArray[command.ApiCommand]): ImmArray[speedy.Command] =
+    cmds.map(unsafePreprocessApiCommand)
 
-    @tailrec
-    def go(
-        toProcess: FrontStack[command.ApiCommand],
-        processed: BackStack[speedy.Command],
-    ): ImmArray[speedy.Command] = {
-      toProcess match {
-        case FrontStackCons(cmd, rest) =>
-          val speedyCmd = unsafePreprocessApiCommand(cmd)
-          go(rest, processed :+ speedyCmd)
-        case FrontStack() =>
-          processed.toImmArray
-      }
-    }
-
-    go(cmds.toFrontStack, BackStack.empty)
-  }
-
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessDisclosedContracts(
+      discs: ImmArray[command.DisclosedContract]
+  ): ImmArray[speedy.DisclosedContract] =
+    discs.map(unsafePreprocessDisclosedContract)
 }
