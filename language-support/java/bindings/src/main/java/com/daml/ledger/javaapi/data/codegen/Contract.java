@@ -14,14 +14,19 @@ import java.util.Set;
  * @param <Data> The containing template's associated record type.
  */
 public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data.Contract {
+  /** The contract ID retrieved from the event. */
   public final Id id;
 
+  /** The contract payload, as declared after {@code template X with}. */
   public final Data data;
 
+  /** If defined, the contract's agreement text. */
   public final Optional<String> agreementText;
 
+  /** The party IDs of this contract's signatories. */
   public final Set<String> signatories;
 
+  /** The party IDs of this contract's observers. */
   public final Set<String> observers;
 
   protected Contract(
