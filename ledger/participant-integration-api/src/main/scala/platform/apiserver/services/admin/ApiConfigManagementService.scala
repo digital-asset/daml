@@ -242,7 +242,10 @@ private[apiserver] object ApiConfigManagementService {
     override def submit(
         submissionId: Ref.SubmissionId,
         input: (Time.Timestamp, Configuration),
-    )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
+    )(implicit
+        telemetryContext: TelemetryContext,
+        loggingContext: LoggingContext,
+    ): Future[state.SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
