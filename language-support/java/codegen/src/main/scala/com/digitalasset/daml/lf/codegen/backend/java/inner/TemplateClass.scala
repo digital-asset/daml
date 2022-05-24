@@ -30,7 +30,8 @@ private[inner] object TemplateClass extends StrictLogging {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
-      val templateChoices = assumeOneChoicePerName(template)
+      // TODO(SC #13921) replace with a call to TemplateChoices#directChoices
+      val templateChoices = template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921)
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
@@ -83,27 +84,6 @@ private[inner] object TemplateClass extends StrictLogging {
         .build()
       logger.debug("End")
       templateType
-    }
-
-  // TODO(SC #13921) replace with a call to TemplateChoices#directChoices
-  private[this] def assumeOneChoicePerName[Ty](template: DefTemplate[Ty]) =
-    template.tChoices.resolvedChoices.transform { (choiceName, overloads) =>
-      if (overloads.sizeIs == 1) overloads.head1._2
-      else
-        overloads
-          .get(None)
-          .cata(
-            { directChoice =>
-              logger.warn(s"discarded inherited choices for $choiceName, see #13921")
-              directChoice
-            }, {
-              val (Some(randomKey), randomChoice) = overloads.head1
-              logger.warn(
-                s"selected $randomKey-inherited choice but discarded others for $choiceName, see #13921"
-              )
-              randomChoice
-            },
-          )
     }
 
   private def generateCreateMethod(name: ClassName): MethodSpec =

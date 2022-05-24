@@ -10,6 +10,7 @@ import scalaz.syntax.applicative.^
 import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.map._
+import scalaz.syntax.std.option._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
@@ -180,11 +181,11 @@ final case class DefTemplate[+Ty](
     tChoices: TemplateChoices[Ty],
     key: Option[Ty],
     implementedInterfaces: Seq[Ref.TypeConName],
-) extends DefTemplate.GetChoices[Ty] {
+) {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
   @deprecated("use tChoices.directChoices or tChoices.resolvedChoices instead", since = "2.3.0")
-  def choices = tChoices.directChoices
+  private[daml] def choices = tChoices.directChoices
 
   /** Remove choices from `unresolvedInheritedChoices` and add to `choices`
     * given the `astInterfaces` from an [[EnvironmentInterface]].  If the result
@@ -220,17 +221,11 @@ object DefTemplate {
 
   private[daml] val Empty: DefTemplate[Nothing] =
     DefTemplate(TemplateChoices.Resolved(Map.empty), None, Seq.empty)
-
-  sealed trait GetChoices[+Ty] {
-    def choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
-    final def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
-      choices.asJava
-  }
 }
 
 /** Choices in a [[DefTemplate]]. */
 sealed abstract class TemplateChoices[+Ty] {
-  import TemplateChoices.{Resolved, Unresolved, ResolveError, directAsResolved}
+  import TemplateChoices.{Resolved, Unresolved, ResolveError, directAsResolved, logger}
 
   /** Choices defined directly on the template */
   def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
@@ -240,6 +235,32 @@ sealed abstract class TemplateChoices[+Ty] {
     */
   def resolvedChoices
       : Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TemplateChoice[Ty]]]]
+
+  /** A shim function to delay porting a component to overloaded choices.
+    * Discards essential data, so not a substitute for a proper port.
+    * TODO delete when there are no more callers
+    */
+  private[daml] def assumeNoOverloadedChoices(
+      githubIssue: Int
+  ): Map[Ref.ChoiceName, TemplateChoice[Ty]] =
+    resolvedChoices.transform { (choiceName, overloads) =>
+      if (overloads.sizeIs == 1) overloads.head1._2
+      else
+        overloads
+          .get(None)
+          .cata(
+            { directChoice =>
+              logger.warn(s"discarded inherited choices for $choiceName, see #$githubIssue")
+              directChoice
+            }, {
+              val (Some(randomKey), randomChoice) = overloads.head1
+              logger.warn(
+                s"selected $randomKey-inherited choice but discarded others for $choiceName, see #$githubIssue"
+              )
+              randomChoice
+            },
+          )
+    }
 
   final def getDirectChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     directChoices.asJava
@@ -275,6 +296,8 @@ sealed abstract class TemplateChoices[+Ty] {
 }
 
 object TemplateChoices {
+  private val logger = com.typesafe.scalalogging.Logger(getClass)
+
   final case class ResolveError[+Partial](
       missingChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
       partialResolution: Partial,
@@ -347,8 +370,10 @@ object TemplateChoice {
   }
 }
 
-final case class DefInterface[+Ty](choices: Map[Ref.ChoiceName, TemplateChoice[Ty]])
-    extends DefTemplate.GetChoices[Ty]
+final case class DefInterface[+Ty](choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) {
+  def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
+    choices.asJava
+}
 
 object DefInterface extends FWTLike[DefInterface] {
 
