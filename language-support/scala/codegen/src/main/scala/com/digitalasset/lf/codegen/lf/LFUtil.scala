@@ -336,7 +336,7 @@ object LFUtil {
     List.fill(number)(prefix).zipWithIndex.map(t => toIdent(s"${t._1}${t._2}"))
 
   private[lf] def genConsumingChoicesMethod(templateInterface: DefTemplate[_]) = {
-    val consumingChoicesIds = templateInterface.choices
+    val consumingChoicesIds = templateInterface.tChoices.directChoices
       .collect {
         case (id, ci) if ci.consuming => id
       }

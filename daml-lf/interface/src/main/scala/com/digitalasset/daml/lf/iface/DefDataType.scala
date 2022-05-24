@@ -322,7 +322,9 @@ object TemplateChoices {
       directAsResolved(directChoices)
   }
 
-  private[iface] def directAsResolved[Ty](directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) =
+  private[TemplateChoices] def directAsResolved[Ty](
+      directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
+  ) =
     directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
 
   final case class Resolved[+Ty](
@@ -333,6 +335,11 @@ object TemplateChoices {
     override def directChoices = resolvedChoices collect (Function unlift { case (cn, m) =>
       m get None map ((cn, _))
     })
+  }
+
+  object Resolved {
+    private[daml] def fromDirect[Ty](directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) =
+      Resolved(directAsResolved(directChoices))
   }
 
   implicit val `TemplateChoices traverse`: Traverse[TemplateChoices] = new Traverse[TemplateChoices]

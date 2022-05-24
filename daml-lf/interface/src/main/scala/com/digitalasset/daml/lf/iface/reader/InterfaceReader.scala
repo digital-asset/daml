@@ -192,7 +192,7 @@ object InterfaceReader {
     inheritedChoices match {
       case NonEmpty(unresolvedInherited) =>
         TemplateChoices.Unresolved(choices, unresolvedInherited)
-      case _ => TemplateChoices.Resolved(TemplateChoices directAsResolved choices)
+      case _ => TemplateChoices.Resolved fromDirect choices
     }
 
   private def visitChoice(

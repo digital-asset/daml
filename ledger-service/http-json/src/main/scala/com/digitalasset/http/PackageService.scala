@@ -336,13 +336,14 @@ object PackageService {
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
+  // TODO (#13923) probably needs to change signature
   private def getChoices(
       interface: iface.Interface
   ): Map[(TemplateId.RequiredPkg, Choice), iface.Type] = {
     val allChoices: Iterator[(Ref.QualifiedName, Map[Ref.ChoiceName, iface.TemplateChoice.FWT])] =
       interface.typeDecls.iterator.collect {
-        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _, _))) =>
-          (qn, choices)
+        case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _, _))) =>
+          (qn, choices.assumeNoOverloadedChoices(githubIssue = 13923))
       } ++ interface.astInterfaces.iterator.map { case (qn, defIf) =>
         (qn, defIf.choices)
       }
@@ -370,7 +371,7 @@ object PackageService {
       case (
             qn,
             iface.InterfaceType
-              .Template(_, iface.DefTemplate(_, _, Some(keyType), _)),
+              .Template(_, iface.DefTemplate(_, Some(keyType), _)),
           ) =>
         val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)
