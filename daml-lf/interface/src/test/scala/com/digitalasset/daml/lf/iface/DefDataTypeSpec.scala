@@ -3,6 +3,7 @@
 
 package com.daml.lf.iface
 
+import com.daml.nonempty.NonEmpty
 import com.daml.scalatest.WordSpecCheckLaws
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,10 +18,33 @@ class DefDataTypeSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 }
 
 object DefDataTypeSpec {
-  import org.scalacheck.{Arbitrary, Gen}
+  import org.scalacheck.{Arbitrary, Gen}, Arbitrary.arbitrary
+  import com.daml.lf.data.Ref
+  import com.daml.lf.value.test.ValueGenerators
 
-  implicit def `TemplateChoices arb`[Ty]: Arbitrary[TemplateChoices[Ty]] =
-    Arbitrary(Gen const TemplateChoices.Resolved(Map.empty)) // TODO SC actual gen
+  implicit def `TemplateChoices arb`[Ty: Arbitrary]: Arbitrary[TemplateChoices[Ty]] =
+    Arbitrary(
+      Gen.oneOf(
+        mappedGen(TemplateChoices.Resolved[Ty] _),
+        mappedGen((TemplateChoices.Unresolved[Ty] _).tupled),
+      )
+    )
 
+  implicit def `TemplateChoice arb`[Ty: Arbitrary]: Arbitrary[TemplateChoice[Ty]] =
+    Arbitrary(mappedGen((TemplateChoice[Ty] _).tupled))
+
+  // equal is inductively natural; not bothering to write the non-natural case -SC
   implicit val `TemplateChoices eq`: Equal[TemplateChoices[Int]] = Equal.equalA
+
+  implicit def `nonempty map arb`[K: Arbitrary, V: Arbitrary]: Arbitrary[NonEmpty[Map[K, V]]] =
+    Arbitrary(
+      arbitrary[((K, V), Map[K, V])] map { case (kv, m) => NonEmpty(Map, kv) ++ m }
+    )
+
+  implicit def `ChoiceName arb`: Arbitrary[Ref.ChoiceName] = Arbitrary(ValueGenerators.nameGen)
+  implicit def `TypeConName arb`: Arbitrary[Ref.TypeConName] = Arbitrary(ValueGenerators.idGen)
+
+  // helper to avoid restating the A type
+  private def mappedGen[A: Arbitrary, B](f: A => B): Gen[B] =
+    arbitrary[A] map f
 }

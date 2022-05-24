@@ -65,6 +65,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/transaction-test-lib",
         "//libs-scala/nonempty",
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",

@@ -224,7 +224,7 @@ object DefTemplate {
 }
 
 /** Choices in a [[DefTemplate]]. */
-sealed abstract class TemplateChoices[+Ty] {
+sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   import TemplateChoices.{Resolved, Unresolved, ResolveError, directAsResolved, logger}
 
   /** Choices defined directly on the template */
