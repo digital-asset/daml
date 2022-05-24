@@ -91,6 +91,7 @@ object RunnerMain {
         if (config.jsonApi) {
           val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
           val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+          // TODO (#13653) resolve envIface, or not, depending on whether inherited choices are needed
           Runner.jsonClients(participantParams, envIface)
         } else {
           Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
