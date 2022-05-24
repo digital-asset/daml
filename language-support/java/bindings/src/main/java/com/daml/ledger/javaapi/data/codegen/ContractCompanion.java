@@ -31,7 +31,7 @@ public abstract class ContractCompanion<Ct, Id, Data> {
   protected final Function<DamlRecord, Data> fromValue;
 
   /**
-   * Try to parse a contract from an event expected to create a {@code Ct} contract.
+   * Tries to parse a contract from an event expected to create a {@code Ct} contract.
    *
    * @param event the event to try to parse a contract from
    * @throws IllegalArgumentException when the {@link CreatedEvent#arguments} cannot be parsed as
