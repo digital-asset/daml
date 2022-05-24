@@ -36,6 +36,7 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
+import scalaz.std.tuple._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -251,17 +252,27 @@ trait AbstractHttpServiceIntegrationTestFuns
     ): Future[(StatusCode, JsValue)] =
       HttpServiceTestFixture.postJsonRequest(uri withPath path, json, headers)
 
-    def postJsonRequestWithMinimumAuth(
+    // XXX SC check that the status matches the one in the SyncResponse, and
+    // remove StatusCode from these responses everywhere, if all tests are
+    // similarly duplicative
+
+    def postJsonRequestWithMinimumAuth[Result: JsonReader](
         path: Uri.Path,
         json: JsValue,
-    ): Future[(StatusCode, JsValue)] =
-      headersWithAuth.flatMap(postJsonRequest(path, json, _))
+    ): Future[(StatusCode, domain.SyncResponse[Result])] =
+      headersWithAuth
+        .flatMap(postJsonRequest(path, json, _))
+        .map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
 
     def getRequest(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
       HttpServiceTestFixture.getRequest(uri withPath path, headers)
 
-    def getRequestWithMinimumAuth(path: Uri.Path): Future[(StatusCode, JsValue)] =
-      headersWithAuth.flatMap(getRequest(path, _))
+    def getRequestWithMinimumAuth[Result: JsonReader](
+        path: Uri.Path
+    ): Future[(StatusCode, domain.SyncResponse[Result])] =
+      headersWithAuth
+        .flatMap(getRequest(path, _))
+        .map(_ map (decode1[domain.SyncResponse, Result](_).fold(e => fail(e.shows), identity)))
   }
 
   protected def postCreateCommand(
@@ -659,12 +670,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def getAllPackageIds(fixture: UriFixture): Future[domain.OkResponse[List[String]]] =
-    fixture.getRequestWithMinimumAuth(Uri.Path("/v1/packages")).map { case (status, output) =>
-      status shouldBe StatusCodes.OK
-      inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
+    fixture
+      .getRequestWithMinimumAuth[List[String]](Uri.Path("/v1/packages"))
+      .map(inside(_) { case (StatusCodes.OK, x: domain.OkResponse[List[String]]) =>
         x
-      }
-    }
+      })
 
   protected[this] def uploadPackage(fixture: UriFixture)(newDar: java.io.File): Future[Unit] = for {
     resp <- Http()

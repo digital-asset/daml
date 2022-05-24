@@ -139,14 +139,14 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       application = None,
     )
     fixture
-      .postJsonRequestWithMinimumAuth(
+      .postJsonRequestWithMinimumAuth[MeteringReport](
         Uri.Path("/v1/metering-report"),
         request.toJson,
       )
-      .map { case (status, value) =>
-        status shouldBe StatusCodes.OK
-        result(value).convertTo[MeteringReport].request shouldBe expected
-      }
+      .map(inside(_) {
+        case (StatusCodes.OK, domain.OkResponse(meteringReport, _, StatusCodes.OK)) =>
+          meteringReport.request shouldBe expected
+      })
   }
 
 }
@@ -708,36 +708,37 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       val contractId = lar.ContractId(contractIdString)
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       fixture
-        .postJsonRequestWithMinimumAuth(Uri.Path("/v1/exercise"), exerciseJson)
-        .flatMap { case (status, output) =>
-          status shouldBe StatusCodes.NotFound
-          assertStatus(output, StatusCodes.NotFound)
-          expectedOneErrorMessage(output) should include(
-            s"Contract could not be found with id $contractIdString"
-          )
-          val ledgerApiError =
-            output.asJsObject.fields("ledgerApiError").convertTo[domain.LedgerApiError]
-          ledgerApiError.message should include("CONTRACT_NOT_FOUND")
-          ledgerApiError.message should include(
-            "Contract could not be found with id 000000000000000000000000000000000000000000000000000000000000000000"
-          )
-          import org.scalatest.Inspectors._
-          forExactly(1, ledgerApiError.details) {
-            case domain.ErrorInfoDetail(errorCodeId, _) =>
-              errorCodeId shouldBe "CONTRACT_NOT_FOUND"
-            case _ => fail()
-          }
-          forExactly(1, ledgerApiError.details) {
-            case domain.RequestInfoDetail(_) => succeed
-            case _ => fail()
-          }
-          forExactly(1, ledgerApiError.details) {
-            case domain.ResourceInfoDetail(name, typ) =>
-              name shouldBe "000000000000000000000000000000000000000000000000000000000000000000"
-              typ shouldBe "CONTRACT_ID"
-            case _ => fail()
-          }
-        }: Future[Assertion]
+        .postJsonRequestWithMinimumAuth[JsValue](Uri.Path("/v1/exercise"), exerciseJson)
+        .map(inside(_) {
+          case (
+                StatusCodes.NotFound,
+                domain
+                  .ErrorResponse(Seq(errorMsg), None, StatusCodes.NotFound, Some(ledgerApiError)),
+              ) =>
+            errorMsg should include(
+              s"Contract could not be found with id $contractIdString"
+            )
+            ledgerApiError.message should include("CONTRACT_NOT_FOUND")
+            ledgerApiError.message should include(
+              "Contract could not be found with id 000000000000000000000000000000000000000000000000000000000000000000"
+            )
+            import org.scalatest.Inspectors._
+            forExactly(1, ledgerApiError.details) {
+              case domain.ErrorInfoDetail(errorCodeId, _) =>
+                errorCodeId shouldBe "CONTRACT_NOT_FOUND"
+              case _ => fail()
+            }
+            forExactly(1, ledgerApiError.details) {
+              case domain.RequestInfoDetail(_) => succeed
+              case _ => fail()
+            }
+            forExactly(1, ledgerApiError.details) {
+              case domain.ResourceInfoDetail(name, typ) =>
+                name shouldBe "000000000000000000000000000000000000000000000000000000000000000000"
+                typ shouldBe "CONTRACT_ID"
+              case _ => fail()
+            }
+        }): Future[Assertion]
   }
 
   "exercise Archive" in withHttpService { fixture =>
@@ -880,14 +881,14 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     val badPath = Uri.Path("/contracts/does-not-exist")
     val badUri = fixture.uri withPath badPath
     fixture
-      .getRequestWithMinimumAuth(badPath)
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.NotFound
-        assertStatus(output, StatusCodes.NotFound)
-        expectedOneErrorMessage(
-          output
-        ) shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
-      }: Future[Assertion]
+      .getRequestWithMinimumAuth[JsValue](badPath)
+      .map(inside(_) {
+        case (
+              StatusCodes.NotFound,
+              domain.ErrorResponse(Seq(errorMsg), _, StatusCodes.NotFound, _),
+            ) =>
+          errorMsg shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
+      }): Future[Assertion]
   }
 
   "parties endpoint should return all known parties" in withHttpService { fixture =>
@@ -962,34 +963,35 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   "parties endpoint should error if empty array passed as input" in withHttpService { fixture =>
     fixture
-      .postJsonRequestWithMinimumAuth(
+      .postJsonRequestWithMinimumAuth[JsValue](
         Uri.Path("/v1/parties"),
         JsArray(Vector.empty),
       )
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.BadRequest
-        assertStatus(output, StatusCodes.BadRequest)
-        val errorMsg = expectedOneErrorMessage(output)
-        errorMsg should include("Cannot read JSON: <[]>")
-        errorMsg should include("must be a JSON array with at least 1 element")
-      }: Future[Assertion]
+      .map(inside(_) {
+        case (
+              StatusCodes.BadRequest,
+              domain.ErrorResponse(Seq(errorMsg), None, StatusCodes.BadRequest, _),
+            ) =>
+          errorMsg should include("Cannot read JSON: <[]>")
+          errorMsg should include("must be a JSON array with at least 1 element")
+      }): Future[Assertion]
   }
 
   "parties endpoint returns error if empty party string passed" in withHttpService { fixture =>
     val requestedPartyIds: Vector[domain.Party] = domain.Party.subst(Vector(""))
 
     fixture
-      .postJsonRequestWithMinimumAuth(
+      .postJsonRequestWithMinimumAuth[List[domain.PartyDetails]](
         Uri.Path("/v1/parties"),
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap))),
       )
-      .flatMap { case (status, output) =>
-        status shouldBe StatusCodes.BadRequest
-        inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
-          case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _)) =>
-            error should include("Daml-LF Party is empty")
-        }
-      }: Future[Assertion]
+      .map(inside(_) {
+        case (
+              StatusCodes.BadRequest,
+              domain.ErrorResponse(List(error), None, StatusCodes.BadRequest, _),
+            ) =>
+          error should include("Daml-LF Party is empty")
+      }): Future[Assertion]
   }
 
   "parties endpoint returns empty result with warnings and OK status if nothing found" in withHttpService {
