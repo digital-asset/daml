@@ -64,8 +64,7 @@ object DbSupport {
         dataSource = storageBackendFactory.createDataSourceStorageBackend
           .createDataSource(dbConfig.dataSourceConfig),
         serverRole = serverRole,
-        minimumIdle = dbConfig.connectionPool.connectionPoolSize,
-        maxPoolSize = dbConfig.connectionPool.connectionPoolSize,
+        connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
         connectionTimeout = dbConfig.connectionPool.connectionTimeout,
         metrics = metrics,
       )
