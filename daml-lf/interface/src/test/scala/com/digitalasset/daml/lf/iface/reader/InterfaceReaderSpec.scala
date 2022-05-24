@@ -207,9 +207,12 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     import QualifiedName.{assertFromString => qn}
+    import Ref.ChoiceName.{assertFromString => cn}
     val Foo = qn("InterfaceTestPackage:Foo")
+    val Bar = cn("Bar")
+    val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
-    val Useless = Ref.ChoiceName.assertFromString("Useless")
+    val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
     import itp.main.{packageId => itpPid}
 
@@ -244,13 +247,17 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       itp.main.astInterfaces(TIf).choices get Useless should ===(Some(theUselessChoice))
     }
 
-    def foundUselessChoice(foo: Option[InterfaceType]) = inside(foo) {
+    def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {
       case Some(InterfaceType.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
-        inside(resolved.get(Useless).map(_.toSeq)) { case Some(Seq((Some(origin), onlyOne))) =>
+        resolved
+    }
+
+    def foundUselessChoice(foo: Option[InterfaceType]) =
+      inside(foundResolvedChoices(foo).get(Useless).map(_.toSeq)) {
+        case Some(Seq((Some(origin), onlyOne))) =>
           origin should ===(Ref.Identifier(itpPid, TIf))
           onlyOne should ===(theUselessChoice)
-        }
-    }
+      }
 
     "resolve inherited choices" in {
       foundUselessChoice(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
@@ -259,6 +266,15 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     "resolve choices internally" in {
       foundUselessChoice(
         itp.main.resolveChoicesAndIgnoreUnresolvedChoices(PartialFunction.empty).typeDecls get Foo
+      )
+    }
+
+    "collect direct and resolved choices in one map" in {
+      foundResolvedChoices(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+        .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
+        Useless -> Set(Some(Ref.Identifier(itpPid, TIf))),
+        Bar -> Set(None),
+        Archive -> Set(None),
       )
     }
   }
