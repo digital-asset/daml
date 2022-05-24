@@ -13,26 +13,32 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.Interface._
 import scalaz.Tag
 
 class InterfaceIT extends LedgerTestSuite {
 
-  private[this] val T1Id = Tag.unwrap(T1.id)
-  private[this] val I1Id = Tag.unwrap(T1.id).copy(entityName = "I1")
-  private[this] val I2Id = Tag.unwrap(T1.id).copy(entityName = "I2")
+  private[this] val TId = Tag.unwrap(T.id)
+  private[this] val I1Id = Tag.unwrap(T.id).copy(moduleName = "Interface1", entityName = "I")
+  private[this] val I2Id = Tag.unwrap(T.id).copy(moduleName = "Interface2", entityName = "I")
 
   // Workaround improper support of scala Codegen TODO(#13349)
-  private[this] def fixId[T](command: Primitive.Update[T], id: Identifier): Primitive.Update[T] =
+  private[this] def fixId[X](command: Primitive.Update[X], id: Identifier): Primitive.Update[X] = {
+    val exe = command.command.getExercise
+    val arg = exe.getChoiceArgument.getRecord
     command
       .copy(
         command = command.command.withExercise(
-          command.command.getExercise.copy(templateId = Some(id))
+          exe.copy(
+            templateId = Some(id),
+            choiceArgument = Some(Value.of(Value.Sum.Record(arg.copy(recordId = None)))),
+          )
         )
       )
-      .asInstanceOf[Primitive.Update[T]]
+      .asInstanceOf[Primitive.Update[X]]
+  }
 
   test(
     "ExerciseTemplateSuccess",
@@ -40,12 +46,13 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T1(party))
-      tree <- ledger.exercise(party, x => t.exerciseChoiceT1(x))
+      t <- ledger.create(party, T(party))
+      tree <- ledger.exercise(party, x => fixId(t.exerciseMyArchive(x), TId))
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
       assertEquals(events.head.interfaceId, None)
+      assertEquals(events.head.getExerciseResult.getText, "Interface.T")
     }
   })
 
@@ -55,12 +62,13 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T1(party))
-      tree <- ledger.exercise(party, x => fixId(t.exerciseChoiceI1(x), I1Id))
+      t <- ledger.create(party, T(party))
+      tree <- ledger.exercise(party, x => fixId(t.exerciseMyArchive(x), I1Id))
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events)
       assertEquals(events.head.interfaceId, Some(I1Id))
+      assertEquals(events.head.getExerciseResult.getText, "Interface1.I")
     }
   })
 
@@ -70,9 +78,9 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T1(party))
+      t <- ledger.create(party, T(party))
       failure <- ledger
-        .exercise(party, x => fixId(t.exerciseChoiceI1(x), T1Id))
+        .exercise(party, x => fixId(t.exerciseChoiceI1(x), TId))
         .mustFail("unknown choice")
     } yield {
       assertGrpcError(
@@ -90,7 +98,7 @@ class InterfaceIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      t <- ledger.create(party, T1(party))
+      t <- ledger.create(party, T(party))
       failure <- ledger
         .exercise(party, x => fixId(t.exerciseChoiceI1(x), I2Id))
         .mustFail("unknown choice")
