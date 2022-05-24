@@ -12,7 +12,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Metrics
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.ContractStateEvent.LedgerEndMarker
 import com.daml.platform.store.cache.ContractKeyStateValue._
@@ -26,12 +26,10 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
 }
 
-import java.util.concurrent.Executors
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.util.control.NoStackTrace
-import scala.util.chaining._
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -348,17 +346,9 @@ private[platform] object MutableCacheBackedContractStore {
   final class CacheUpdateSubscription(
       contractStore: MutableCacheBackedContractStore,
       subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      metrics: Metrics,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
   )(implicit materializer: Materializer)
       extends ResourceOwner[Unit] {
-    private val cacheUpdaterExecutionContext =
-      ExecutionContext.fromExecutor(
-        Executors.newSingleThreadExecutor(
-          new Thread(_).tap(_.setName("ledger-api-contracts-cache-updater-thread"))
-        )
-      )
-
     override def acquire()(implicit
         context: ResourceContext
     ): Resource[Unit] =
@@ -371,13 +361,7 @@ private[platform] object MutableCacheBackedContractStore {
               randomFactor = 0.2,
             )
           )(() => subscribeToContractStateEvents())
-          .async
-          .mapAsync(1) { contractStateEvent =>
-            Timed.future(
-              metrics.daml.index.updateMutableContractStateCache,
-              Future(contractStore.push(contractStateEvent))(cacheUpdaterExecutionContext),
-            )
-          }
+          .map(contractStore.push)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
           .run()

@@ -7,6 +7,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.BuffersUpdater._
@@ -14,12 +15,12 @@ import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{Contract, Key, Party}
 import com.daml.scalautil.Statement.discard
+import scala.util.chaining._
 
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.chaining._
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -36,24 +37,18 @@ import scala.util.{Failure, Success}
   * @param sysExitWithCode Triggers a system exit (i.e. `sys.exit`) with a specific exit code.
   * @param mat The Akka materializer.
   * @param loggingContext The logging context.
-  * @param executionContext The execution context.
   */
 private[index] class BuffersUpdater(
     subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
     updateCaches: (Offset, TransactionLogUpdate) => Unit,
     metrics: Metrics,
     minBackoffStreamRestart: FiniteDuration,
+    cachesUpdaterExecutionContext: ExecutionContext,
     sysExitWithCode: Int => Unit,
-)(implicit mat: Materializer, loggingContext: LoggingContext, executionContext: ExecutionContext)
+)(implicit mat: Materializer, loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private val logger = ContextualizedLogger.get(getClass)
-  private val cachesUpdaterExecutionContext =
-    ExecutionContext.fromExecutor(
-      Executors.newSingleThreadExecutor(
-        new Thread(_).tap(_.setName("ledger-api-caches-updater-thread"))
-      )
-    )
 
   private[index] val updaterIndex: AtomicReference[Option[(Offset, Long)]] =
     new AtomicReference(None)
@@ -68,12 +63,17 @@ private[index] class BuffersUpdater(
         )
       )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
       .async
+      // The parallelism here must be limited to 1
+      // since the order of the updates being applied to the caches must be preserved.
       .mapAsync(1) { case ((offset, eventSequentialId), update) =>
         Timed.future(
           metrics.daml.index.updateCaches,
           Future {
             updateCaches(offset, update)
             updaterIndex.set(Some(offset -> eventSequentialId))
+            // The async caches update must be executed on a dedicated threadpool as it is
+            // fundamental that it gets high execution priority even under heavy system load when
+            // other threadpools are saturated.
           }(cachesUpdaterExecutionContext),
         )
       }
@@ -95,7 +95,7 @@ private[index] class BuffersUpdater(
         ex,
       )
       sysExitWithCode(1)
-  }
+  }(ExecutionContext.parasitic)
 
   override def close(): Unit = {
     transactionLogUpdatesKillSwitch.shutdown()
@@ -122,33 +122,44 @@ private[index] object BuffersUpdater {
     * @param loggingContext The logging context.
     * @param executionContext The execution context.
     */
-  def apply(
+  def owner(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
       updateMutableCache: Vector[ContractStateEvent] => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
-      executionContext: ExecutionContext,
       metrics: Metrics,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-  ): BuffersUpdater = new BuffersUpdater(
-    subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
-    updateCaches = (offset, transactionLogUpdate) => {
-      updateTransactionsBuffer(offset, transactionLogUpdate)
+  ): ResourceOwner[BuffersUpdater] =
+    for {
+      cachesUpdaterExecutorService <- ResourceOwner.forExecutorService(() =>
+        Executors.newSingleThreadExecutor(
+          new Thread(_).tap(_.setName("ledger-api-caches-updater-thread"))
+        )
+      )
+      cachesUpdaterExecutionContext = ExecutionContext.fromExecutor(cachesUpdaterExecutorService)
+      buffersUpdater <- ResourceOwner.forCloseable(() =>
+        new BuffersUpdater(
+          subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
+          updateCaches = (offset, transactionLogUpdate) => {
+            updateTransactionsBuffer(offset, transactionLogUpdate)
 
-      val contractStateEventsBatch = toContractStateEvents(transactionLogUpdate).toVector
-      if (contractStateEventsBatch.nonEmpty) {
-        updateMutableCache(contractStateEventsBatch)
-      }
-    },
-    metrics = metrics,
-    minBackoffStreamRestart = minBackoffStreamRestart,
-    sysExitWithCode = sysExitWithCode,
-  )(mat, loggingContext, executionContext)
+            val contractStateEventsBatch = toContractStateEvents(transactionLogUpdate).toVector
+            if (contractStateEventsBatch.nonEmpty) {
+              updateMutableCache(contractStateEventsBatch)
+            }
+          },
+          metrics = metrics,
+          cachesUpdaterExecutionContext = cachesUpdaterExecutionContext,
+          minBackoffStreamRestart = minBackoffStreamRestart,
+          sysExitWithCode = sysExitWithCode,
+        )(mat, loggingContext)
+      )
+    } yield buffersUpdater
 
   private[index] def convertToContractStateEvents(
       tx: TransactionLogUpdate

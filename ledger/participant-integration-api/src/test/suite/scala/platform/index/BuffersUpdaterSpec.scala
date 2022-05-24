@@ -3,7 +3,6 @@
 
 package com.daml.platform.index
 
-import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
@@ -11,6 +10,7 @@ import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -18,26 +18,29 @@ import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.{Contract, Key, Party}
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.testing.LogCollector
+import com.daml.platform.{Contract, Key, Party}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.collection.immutable
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 final class BuffersUpdaterSpec
-    extends AnyWordSpec
+    extends AsyncWordSpec
     with Matchers
     with Eventually
+    with TestResourceContext
     with BeforeAndAfterAll {
   private val actorSystem = ActorSystem("test")
   private val metrics = new Metrics(new MetricRegistry)
@@ -69,24 +72,27 @@ final class BuffersUpdaterSpec
       }
       val contractStateMock = scala.collection.mutable.ArrayBuffer.empty[ContractStateEvent]
 
-      val buffersUpdater = BuffersUpdater(
-        subscribeToTransactionLogUpdates = { _ => source },
-        updateTransactionsBuffer = updateTransactionsBufferMock,
-        toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
-        updateMutableCache = contractStateMock ++= _,
-        executionContext = scala.concurrent.ExecutionContext.global,
-        metrics = metrics,
-        minBackoffStreamRestart = 10.millis,
-        sysExitWithCode = _ => fail("should not be triggered"),
-      )(materializer, loggingContext)
+      BuffersUpdater
+        .owner(
+          subscribeToTransactionLogUpdates = { _ => source },
+          updateTransactionsBuffer = updateTransactionsBufferMock,
+          toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
+          updateMutableCache = contractStateMock ++= _,
+          metrics = metrics,
+          minBackoffStreamRestart = 10.millis,
+          sysExitWithCode = _ => fail("should not be triggered"),
+        )(materializer, loggingContext)
+        .use { buffersUpdater =>
+          queue.offer((someOffset, someEventSeqId) -> updateMock) shouldBe QueueOfferResult.Enqueued
 
-      queue.offer((someOffset, someEventSeqId) -> updateMock) shouldBe QueueOfferResult.Enqueued
-
-      eventually {
-        transactionsBufferMock should contain theSameElementsAs Seq(someOffset -> updateMock)
-        contractStateMock should contain theSameElementsInOrderAs contractStateEventMocks
-        buffersUpdater.updaterIndex.get shouldBe Some((someOffset -> someEventSeqId))
-      }
+          eventually {
+            Future {
+              transactionsBufferMock should contain theSameElementsAs Seq(someOffset -> updateMock)
+              contractStateMock should contain theSameElementsInOrderAs contractStateEventMocks
+              buffersUpdater.updaterIndex.get shouldBe Some((someOffset -> someEventSeqId))
+            }
+          }
+        }
     }
   }
 
@@ -131,26 +137,29 @@ final class BuffersUpdaterSpec
         ()
       }
 
-      val buffersUpdater = BuffersUpdater(
-        subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
-        updateTransactionsBuffer = updateTransactionsBufferMock,
-        toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
-        updateMutableCache = _ => (),
-        executionContext = scala.concurrent.ExecutionContext.global,
-        metrics = metrics,
-        minBackoffStreamRestart = 1.millis,
-        sysExitWithCode = _ => fail("should not be triggered"),
-      )(materializer, loggingContext)
+      BuffersUpdater
+        .owner(
+          subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
+          updateTransactionsBuffer = updateTransactionsBufferMock,
+          toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
+          updateMutableCache = _ => (),
+          metrics = metrics,
+          minBackoffStreamRestart = 1.millis,
+          sysExitWithCode = _ => fail("should not be triggered"),
+        )(materializer, loggingContext)
+        .use { buffersUpdater =>
+          eventually {
+            Future {
+              transactionsBufferMock should contain theSameElementsAs Seq(
+                offset1._1 -> update1,
+                offset2._1 -> update2,
+                offset3._1 -> update3,
+              )
 
-      eventually {
-        transactionsBufferMock should contain theSameElementsAs Seq(
-          offset1._1 -> update1,
-          offset2._1 -> update2,
-          offset3._1 -> update3,
-        )
-
-        buffersUpdater.updaterIndex.get shouldBe Some(offset3)
-      }
+              buffersUpdater.updaterIndex.get shouldBe Some(offset3)
+            }
+          }
+        }
     }
 
     "shutdown is triggered with status code 1 if a non-recoverable error occurs in the buffers updating logic" in {
@@ -164,26 +173,29 @@ final class BuffersUpdaterSpec
 
       val shutdownCodeCapture = new AtomicInteger(Integer.MIN_VALUE)
 
-      BuffersUpdater(
-        subscribeToTransactionLogUpdates =
-          _ => Source(scala.collection.immutable.Seq(offset1 -> update1, offset2 -> update2)),
-        updateTransactionsBuffer = updateTransactionsBufferMock,
-        toContractStateEvents = Map.empty,
-        updateMutableCache = _ => (),
-        executionContext = scala.concurrent.ExecutionContext.global,
-        metrics = metrics,
-        minBackoffStreamRestart = 1.millis,
-        sysExitWithCode = shutdownCodeCapture.set,
-      )(materializer, loggingContext)
-
-      eventually {
-        shutdownCodeCapture.get() shouldBe 1
-        val (lastErrorLevel, lastError) = readLog().last
-        lastErrorLevel shouldBe Level.ERROR
-        lastError should startWith(
-          "The transaction log updates stream encountered a non-recoverable error and will shutdown"
-        )
-      }
+      BuffersUpdater
+        .owner(
+          subscribeToTransactionLogUpdates =
+            _ => Source(scala.collection.immutable.Seq(offset1 -> update1, offset2 -> update2)),
+          updateTransactionsBuffer = updateTransactionsBufferMock,
+          toContractStateEvents = Map.empty,
+          updateMutableCache = _ => (),
+          metrics = metrics,
+          minBackoffStreamRestart = 1.millis,
+          sysExitWithCode = shutdownCodeCapture.set,
+        )(materializer, loggingContext)
+        .use { _ =>
+          eventually {
+            Future {
+              shutdownCodeCapture.get() shouldBe 1
+              val (lastErrorLevel, lastError) = readLog().last
+              lastErrorLevel shouldBe Level.ERROR
+              lastError should startWith(
+                "The transaction log updates stream encountered a non-recoverable error and will shutdown"
+              )
+            }
+          }
+        }
     }
   }
 

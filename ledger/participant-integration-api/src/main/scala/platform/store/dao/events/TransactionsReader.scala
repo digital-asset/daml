@@ -325,9 +325,7 @@ private[dao] final class TransactionsReader(
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
-          Future.traverse(raw)(event =>
-            Future(TransactionLogUpdatesReader.toTransactionEvent(event))
-          ),
+          Future(raw.map(TransactionLogUpdatesReader.toTransactionEvent)),
         )
       }
       .mapConcat(identity)
@@ -441,16 +439,14 @@ private[dao] final class TransactionsReader(
           )
         }
       }
+      .mapConcat(identity)
       .async
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
-          Future.traverse(raw)(rawEvent =>
-            Future(ContractStateEventsReader.toContractStateEvent(rawEvent, lfValueTranslation))
-          ),
+          Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
         )
       }
-      .mapConcat(identity)
       .map(event => (event.eventOffset, event.eventSequentialId) -> event)
 
     val groupedByOffset = TransactionsReader

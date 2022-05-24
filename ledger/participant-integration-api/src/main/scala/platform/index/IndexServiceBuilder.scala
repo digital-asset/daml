@@ -209,33 +209,29 @@ private[platform] case class IndexServiceBuilder(
       )(servicesExecutionContext)
 
       for {
-        _ <- ResourceOwner.forCloseable(() =>
-          BuffersUpdater(
-            subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
-              val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                maybeOffsetSeqId.getOrElse(startExclusive)
-              logger.info(
-                s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+        _ <- BuffersUpdater.owner(
+          subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
+            val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
+              maybeOffsetSeqId.getOrElse(startExclusive)
+            logger.info(
+              s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+            )
+            cacheUpdatesDispatcher
+              .startingAt(
+                subscriptionStartExclusive,
+                RangeSource(
+                  ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
+                ),
               )
-              cacheUpdatesDispatcher
-                .startingAt(
-                  subscriptionStartExclusive,
-                  RangeSource(
-                    ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
-                  ),
-                )
-            },
-            updateTransactionsBuffer = transactionsBuffer.push,
-            updateMutableCache = contractStore.push,
-            executionContext = servicesExecutionContext,
-            metrics = metrics,
-          )
+          },
+          updateTransactionsBuffer = transactionsBuffer.push,
+          updateMutableCache = contractStore.push,
+          metrics = metrics,
         )
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
     } else
       new MutableCacheBackedContractStore.CacheUpdateSubscription(
         contractStore = contractStore,
-        metrics = metrics,
         subscribeToContractStateEvents = () => {
           val subscriptionStartExclusive = ledgerEndCache()
           logger.info(s"Subscribing to contract state events after $subscriptionStartExclusive")
