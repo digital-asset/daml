@@ -241,6 +241,8 @@ object Profile {
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
+      implicit val implementsFieldProjectDefRef: Allowed[ImplementsFieldProjectDefRef] = allowAll
+      implicit val implementsFieldUpdateDefRef: Allowed[ImplementsFieldUpdateDefRef] = allowAll
       implicit val choiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
       implicit val guardedChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
       implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll

@@ -967,6 +967,9 @@ encodeTemplate Template{..} = do
 encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
+    let
+      -- FIXME
+      defTemplate_ImplementsFields = V.empty
     defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
     defTemplate_ImplementsInheritedChoiceInternedNames <- encodeSet (encodeNameId unChoiceName) tpiInheritedChoiceNames
     pure P.DefTemplate_Implements {..}

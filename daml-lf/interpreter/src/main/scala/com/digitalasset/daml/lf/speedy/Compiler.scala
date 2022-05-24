@@ -17,6 +17,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.validation.{Validation, ValidationError}
+import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import org.slf4j.LoggerFactory
@@ -153,6 +154,12 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
+
+  private[this] def handleLookup[X](location: String, x: Either[LookupError, X]) =
+    x match {
+      case Right(value) => value
+      case Left(err) => throw SError.SErrorCrash(location, err.pretty)
+    }
 
   private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
 
@@ -326,8 +333,7 @@ private[lf] final class Compiler(
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(identifier, impl.interfaceId))
         impl.fields.values.foreach(field =>
-          addDef(compileImplementsFieldProject(identifier, impl.interfaceId, field))
-            addDef (compileImplementsFieldUpdate(identifier, impl.interfaceId, field))
+          compileImplementsField(identifier, impl.interfaceId, field).foreach(f => addDef(f))
         )
         impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(tmpl.param, identifier, impl.interfaceId, method))
@@ -713,37 +719,35 @@ private[lf] final class Compiler(
   ): (t.SDefinitionRef, SDefinition) =
     t.ImplementsDefRef(tmplId, ifaceId) -> IdentityDef
 
-  // Compile the implementation of an interface field projection.
-  private[this] def compileImplementsFieldProject(
+  // Compile the implementation of an interface field (projection and update functions).
+  private[this] def compileImplementsField(
       tmplId: Identifier,
       ifaceId: Identifier,
       field: TemplateImplementsField,
-  ): (t.SDefinitionRef, SDefinition) = {
-    (t.ImplementsFieldProjectDefRef(tmplId, ifaceId, field.interfaceFieldName)) {
-      (tmplArgPos, env) =>
-        ERecProj(
-          TypeConApp(tmplId, ImmArray.empty),
-          field.templateFieldName,
-          env.toSEVar(tmplArgPos),
-        )
-    }
-  }
+  ): Map[t.SDefinitionRef, SDefinition] = {
+    val index = handleLookup(
+      NameOf.qualifiedNameOfCurrentFunc,
+      interface.lookupRecordFieldInfo(tmplId, field.templateFieldName),
+    ).index
 
-  // Compile the implementation of an interface field update.
-  private[this] def compileImplementsFieldUpdate(
-      tmplId: Identifier,
-      ifaceId: Identifier,
-      field: TemplateImplementsField,
-  ): (t.SDefinitionRef, SDefinition) = {
-    topLevelFunction2(t.ImplementsFieldUpdateDefRef(tmplId, ifaceId, field.interfaceFieldName)) {
-      (tmplArgPos, updArgPos, env) =>
-        ERecUpd(
-          TypeConApp(tmplId, ImmArray.empty),
-          field.templateFieldName,
-          env.toSEVar(tmplArgPos),
-          env.toSEVar(updArgPos),
-        )
+    val project = topLevelFunction1(
+      t.ImplementsFieldProjectDefRef(tmplId, ifaceId, field.interfaceFieldName)
+    ) { (tmplArgPos, env) =>
+      SBRecProj(tmplId, index)(
+        env.toSEVar(tmplArgPos)
+      )
     }
+
+    val update = topLevelFunction2(
+      t.ImplementsFieldUpdateDefRef(tmplId, ifaceId, field.interfaceFieldName)
+    ) { (tmplArgPos, updArgPos, env) =>
+      SBRecUpd(tmplId, index)(
+        env.toSEVar(tmplArgPos),
+        env.toSEVar(updArgPos),
+      )
+    }
+
+    Map(project, update)
   }
 
   // Compile the implementation of an interface method.
