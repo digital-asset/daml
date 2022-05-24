@@ -3,12 +3,10 @@
 
 package com.daml.lf.iface
 
-import scalaz.std.either._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
-import scalaz.syntax.bifunctor._
 import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.map._
@@ -194,9 +192,12 @@ final case class DefTemplate[+Ty](
     */
   def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
-  ): Either[TemplateChoices.ResolveError[DefTemplate[O]], DefTemplate[O]] =
+  ): Either[TemplateChoices.ResolveError[DefTemplate[O]], DefTemplate[O]] = {
+    import scalaz.std.either._
+    import scalaz.syntax.bifunctor._
     tChoices resolveChoices astInterfaces bimap (_.map(r => copy(tChoices = r)), r =>
       copy(tChoices = r))
+  }
 
   def getKey: j.Optional[_ <: Ty] = toOptional(key)
 }
