@@ -180,15 +180,20 @@ object InterfaceReader {
       fields <- fieldsOrCons(name, record.fields)
       choices <- dfn.choices traverse (visitChoice(name, _))
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-      tChoices = dfn.inheritedChoices match {
-        case NonEmpty(unresolvedInherited) =>
-          TemplateChoices.Unresolved(choices, unresolvedInherited)
-        case _ => TemplateChoices.Resolved(choices)
-      }
     } yield name -> (iface.InterfaceType.Template(
       Record(fields),
-      DefTemplate(tChoices, key, dfn.implements.keys),
+      DefTemplate(visitChoices(choices, dfn.inheritedChoices), key, dfn.implements.keys),
     ): T)
+
+  private[this] def visitChoices[Ty](
+      choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
+      inheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
+  ): TemplateChoices[Ty] =
+    inheritedChoices match {
+      case NonEmpty(unresolvedInherited) =>
+        TemplateChoices.Unresolved(choices, unresolvedInherited)
+      case _ => TemplateChoices.Resolved(TemplateChoices directAsResolved choices)
+    }
 
   private def visitChoice(
       ctx: QualifiedName,

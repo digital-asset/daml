@@ -3,10 +3,12 @@
 
 package com.daml.lf.iface
 
+import scalaz.std.either._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.map._
@@ -192,8 +194,9 @@ final case class DefTemplate[+Ty](
     */
   def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
-  ): Either[TemplateChoices.ResolveError, DefTemplate[O]] =
-    tChoices resolveChoices astInterfaces map (r => copy(tChoices = r))
+  ): Either[TemplateChoices.ResolveError[DefTemplate[O]], DefTemplate[O]] =
+    tChoices resolveChoices astInterfaces bimap (_.map(r => copy(tChoices = r)), r =>
+      copy(tChoices = r))
 
   def getKey: j.Optional[_ <: Ty] = toOptional(key)
 }
@@ -223,7 +226,7 @@ object DefTemplate {
 
 /** Choices in a [[DefTemplate]]. */
 sealed abstract class TemplateChoices[+Ty] {
-  import TemplateChoices.{Resolved, Unresolved, ResolveError}
+  import TemplateChoices.{Resolved, Unresolved, ResolveError, directAsResolved}
 
   /** Choices defined directly on the template */
   def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
@@ -246,8 +249,8 @@ sealed abstract class TemplateChoices[+Ty] {
     */
   def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
-  ): Either[ResolveError, Resolved[O]] = this match {
-    case u @ Unresolved(_, unresolved) =>
+  ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
+    case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
       val (missing, resolved) = unresolved.partitionMap { case pair @ (choiceName, tcn) =>
         val resolution = for {
@@ -256,27 +259,44 @@ sealed abstract class TemplateChoices[+Ty] {
         } yield (choiceName, (some(tcn), tchoice))
         resolution toRight pair
       }
+      val indirectGrouped =
+        resolved.groupBy1(_._1).transform { (_, ics) => ics.map(_._2).toMap }
+      val rChoices = Resolved(indirectGrouped.unionWith(directAsResolved(direct))(_ ++ _))
       missing match {
-        case NonEmpty(missing) => Left(missing.toMap)
-        case _ =>
-          val indirectGrouped =
-            resolved.groupBy1(_._1).transform { (_, ics) => ics.map(_._2).toMap }
-          Right(Resolved(indirectGrouped.unionWith(u.resolvedChoices)(_ ++ _)))
+        case NonEmpty(missing) => Left(ResolveError(missing.toMap, rChoices))
+        case _ => Right(rChoices)
       }
     case r @ Resolved(_) => Right(r)
   }
 }
 
 object TemplateChoices {
-  type ResolveError = NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]]
+  final case class ResolveError[+Partial](
+      missingChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
+      partialResolution: Partial,
+  ) {
+    private[iface] def describeError: String =
+      transposeMap(missingChoices).view
+        .map { case (tc, cns) => s"$tc(${cns mkString ", "}" }
+        .mkString(", ")
+
+    private[iface] def map[B](f: Partial => B): ResolveError[B] =
+      copy(partialResolution = f(partialResolution))
+  }
+
+  private[this] def transposeMap[K, V](m: Map[K, V]): Map[V, Iterable[K]] =
+    m.groupBy(_._2).transform((_, ks) => ks.keys)
 
   final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
       unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
   ) extends TemplateChoices[Ty] {
     override def resolvedChoices =
-      directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
+      directAsResolved(directChoices)
   }
+
+  private[iface] def directAsResolved[Ty](directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) =
+    directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
 
   final case class Resolved[+Ty](
       resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
