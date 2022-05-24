@@ -238,29 +238,32 @@ sealed abstract class TemplateChoices[+Ty] {
 
   /** A shim function to delay porting a component to overloaded choices.
     * Discards essential data, so not a substitute for a proper port.
-    * TODO delete when there are no more callers
+    * TODO (#13974) delete when there are no more callers
     */
   private[daml] def assumeNoOverloadedChoices(
       githubIssue: Int
-  ): Map[Ref.ChoiceName, TemplateChoice[Ty]] =
-    resolvedChoices.transform { (choiceName, overloads) =>
-      if (overloads.sizeIs == 1) overloads.head1._2
-      else
-        overloads
-          .get(None)
-          .cata(
-            { directChoice =>
-              logger.warn(s"discarded inherited choices for $choiceName, see #$githubIssue")
-              directChoice
-            }, {
-              val (Some(randomKey), randomChoice) = overloads.head1
-              logger.warn(
-                s"selected $randomKey-inherited choice but discarded others for $choiceName, see #$githubIssue"
-              )
-              randomChoice
-            },
-          )
-    }
+  ): Map[Ref.ChoiceName, TemplateChoice[Ty]] = this match {
+    case Unresolved(directChoices, _) => directChoices
+    case Resolved(resolvedChoices) =>
+      resolvedChoices.transform { (choiceName, overloads) =>
+        if (overloads.sizeIs == 1) overloads.head1._2
+        else
+          overloads
+            .get(None)
+            .cata(
+              { directChoice =>
+                logger.warn(s"discarded inherited choices for $choiceName, see #$githubIssue")
+                directChoice
+              }, {
+                val (Some(randomKey), randomChoice) = overloads.head1
+                logger.warn(
+                  s"selected $randomKey-inherited choice but discarded others for $choiceName, see #$githubIssue"
+                )
+                randomChoice
+              },
+            )
+      }
+  }
 
   final def getDirectChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     directChoices.asJava
