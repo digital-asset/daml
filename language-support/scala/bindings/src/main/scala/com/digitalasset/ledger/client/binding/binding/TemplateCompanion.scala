@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.binding
 
-import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
+import com.daml.ledger.api.refinements.ApiTypes.Choice
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
@@ -17,15 +17,8 @@ import scala.annotation.nowarn
   *           types are guaranteed to have zero tparams.
   */
 abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
-    extends ValueRefCompanion
+    extends ContractTypeCompanion
     with LfEncodable.ViaFields[T] {
-
-  /** Alias for contract IDs for this template. Can be used interchangeably with
-    * its expansion.
-    */
-  type ContractId = Primitive.ContractId[T]
-
-  val id: Primitive.TemplateId[T]
 
   val consumingChoices: Set[Choice]
 
@@ -48,8 +41,6 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
 
   def toNamedArguments(associatedType: T): rpcvalue.Record
 
-  override protected lazy val ` dataTypeId` = TemplateId.unwrap(id)
-
   def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T]
 
   implicit val `the template Value`: Value[T] = new `Value ValueRef`[T] {
@@ -63,13 +54,6 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
       TemplateCompanion.this.encoding(lte)(TemplateCompanion.this.fieldEncoding(lte))
   }
 
-  protected final def ` templateId`(
-      packageId: String,
-      moduleName: String,
-      entityName: String,
-  ): Primitive.TemplateId[T] =
-    Primitive.TemplateId(packageId, moduleName, entityName)
-
   /** Helper for EventDecoderApi. */
   private[binding] final def decoderEntry
       : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
@@ -80,7 +64,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
   }
 
   @nowarn("msg=parameter value actor .* is never used") // part of generated code API
-  protected final def ` exercise`[ExOn, Out](
+  protected override final def ` exercise`[ExOn, Out](
       actor: Primitive.Party,
       receiver: ExOn,
       choiceId: String,
