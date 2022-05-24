@@ -246,7 +246,10 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     def foundUselessChoice(foo: Option[InterfaceType]) = inside(foo) {
       case Some(InterfaceType.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
-        resolved get Useless should ===(Some(theUselessChoice))
+        inside(resolved.get(Useless).map(_.toSeq)) { case Some(Seq((Some(origin), onlyOne))) =>
+          origin should ===(Ref.Identifier(itpPid, TIf))
+          onlyOne should ===(theUselessChoice)
+        }
     }
 
     "resolve inherited choices" in {
