@@ -18,9 +18,9 @@ final case class EnvironmentInterface(
     astInterfaces: Map[Ref.TypeConName, DefInterface.FWT],
 ) {
 
-  // TODO(SC #13154) should fail instead in case of unresolved inherited choices?
   /** Replace all resolvable `inheritedChoices` in `typeDecls` with concrete
-    * choices copied from `astInterfaces`.  Idempotent.
+    * choices copied from `astInterfaces`.  If a template has any missing choices,
+    * none of its inherited choices are resolved.  Idempotent.
     *
     * This is not distributive because we delay resolution, because successful
     * lookup can require the presence of another DAR.  In other words,
