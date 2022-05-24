@@ -38,8 +38,8 @@ final case class EnvironmentInterface(
     copy(typeDecls = typeDecls.transform { (_, it) =>
       it match {
         case itpl: InterfaceType.Template =>
-          val tpl2 = itpl.template resolveChoices astInterfaces
-          itpl.copy(template = tpl2)
+          val errOrTpl2 = itpl.template resolveChoices astInterfaces
+          errOrTpl2.fold(_ => itpl, tpl2 => itpl.copy(template = tpl2))
         case z: InterfaceType.Normal => z
       }
     })
