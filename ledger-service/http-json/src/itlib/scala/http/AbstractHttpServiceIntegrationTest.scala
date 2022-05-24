@@ -1432,6 +1432,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     maxInboundMessageSize = StartSettings.DefaultMaxInboundMessageSize * 10
   ) { fixture =>
     import fixture.encoder
+    import org.scalacheck.{Arbitrary, Gen}
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
@@ -1459,7 +1460,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               ShRecord(cids =
                 lfToApi(
                   VAx
-                    .seq(VA.contractId)
+                    .seq(VA.contractId(Arbitrary(Gen.fail)))
                     .inj(cids map lfv.Value.ContractId.assertFromString)
                 ).sum
               )
