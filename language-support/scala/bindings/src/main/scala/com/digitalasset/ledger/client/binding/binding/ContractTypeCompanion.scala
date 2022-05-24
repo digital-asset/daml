@@ -23,6 +23,7 @@ abstract class ContractTypeCompanion[T] extends ValueRefCompanion {
   ): Primitive.TemplateId[T] =
     Primitive.TemplateId(packageId, moduleName, entityName)
 
+  // TODO SC #13924 try to define just one version, here, instead of two
   protected def ` exercise`[ExOn, Out](
       actor: Primitive.Party,
       receiver: ExOn,

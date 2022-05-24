@@ -8,8 +8,6 @@ import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
 
-import scala.annotation.nowarn
-
 /** Common superclass of template classes' companions.
   *
   * @tparam T The companion class's type. We can get away with this here, but
@@ -17,7 +15,7 @@ import scala.annotation.nowarn
   *           types are guaranteed to have zero tparams.
   */
 abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
-    extends ContractTypeCompanion
+    extends ContractTypeCompanion[T]
     with LfEncodable.ViaFields[T] {
 
   val consumingChoices: Set[Choice]
@@ -63,7 +61,6 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
     )
   }
 
-  @nowarn("msg=parameter value actor .* is never used") // part of generated code API
   protected override final def ` exercise`[ExOn, Out](
       actor: Primitive.Party,
       receiver: ExOn,
