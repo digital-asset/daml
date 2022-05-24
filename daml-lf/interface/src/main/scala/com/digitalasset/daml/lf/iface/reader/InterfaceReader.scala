@@ -17,6 +17,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.{Util => AstUtil}
+import com.daml.nonempty.NonEmpty
 
 import scala.collection.immutable.Map
 
@@ -179,9 +180,14 @@ object InterfaceReader {
       fields <- fieldsOrCons(name, record.fields)
       choices <- dfn.choices traverse (visitChoice(name, _))
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
+      tChoices = dfn.inheritedChoices match {
+        case NonEmpty(unresolvedInherited) =>
+          TemplateChoices.Unresolved(choices, unresolvedInherited)
+        case _ => TemplateChoices.Resolved(choices)
+      }
     } yield name -> (iface.InterfaceType.Template(
       Record(fields),
-      DefTemplate(choices, dfn.inheritedChoices, key, dfn.implements.keys),
+      DefTemplate(tChoices, key, dfn.implements.keys),
     ): T)
 
   private def visitChoice(
