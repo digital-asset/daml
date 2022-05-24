@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import akka.NotUsed
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_service.{
@@ -144,8 +143,6 @@ private[events] class BufferedTransactionsReader(
 }
 
 private[platform] object BufferedTransactionsReader {
-  private val outputStreamBufferSize = 128
-
   type FetchTransactions[FILTER, API_RESPONSE] =
     (Offset, Offset, FILTER, Boolean) => Source[(Offset, API_RESPONSE), NotUsed]
 
@@ -227,7 +224,6 @@ private[platform] object BufferedTransactionsReader {
         bufferReaderMetrics.fetchedTotal.inc()
         tx
       }
-      .buffered(outputStreamBufferSize)(bufferReaderMetrics.bufferSize)
   }
 
   private[events] def invertMapping(
@@ -243,19 +239,4 @@ private[platform] object BufferedTransactionsReader {
             }
           }
       }
-
-  // TODO LLP: Consider merging with InstrumentedSource.bufferedSource
-  private implicit class SourceWithBuffers[T, R](source: Source[T, NotUsed]) {
-    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Source[T, NotUsed] =
-      source
-        .map { in =>
-          counter.inc()
-          in
-        }
-        .buffer(bufferLength, OverflowStrategy.backpressure)
-        .map { in =>
-          counter.dec()
-          in
-        }
-  }
 }
