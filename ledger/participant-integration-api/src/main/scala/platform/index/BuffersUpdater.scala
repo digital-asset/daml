@@ -3,24 +3,25 @@
 
 package com.daml.platform.index
 
-import java.util.concurrent.atomic.AtomicReference
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream._
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.{Contract, Key, Party}
 import com.daml.platform.index.BuffersUpdater._
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.{Contract, Key, Party}
 import com.daml.scalautil.Statement.discard
 
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.chaining._
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 /** Creates and manages a subscription to a transaction log updates source
   * (see [[LedgerDaoTransactionsReader.getTransactionLogUpdates]]
@@ -48,7 +49,11 @@ private[index] class BuffersUpdater(
 
   private val logger = ContextualizedLogger.get(getClass)
   private val cachesUpdaterExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+    ExecutionContext.fromExecutor(
+      Executors.newSingleThreadExecutor(
+        new Thread(_).tap(_.setName("ledger-api-caches-updater-thread"))
+      )
+    )
 
   private[index] val updaterIndex: AtomicReference[Option[(Offset, Long)]] =
     new AtomicReference(None)

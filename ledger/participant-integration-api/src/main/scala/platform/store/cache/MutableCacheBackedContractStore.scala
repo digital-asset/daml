@@ -31,6 +31,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.util.control.NoStackTrace
+import scala.util.chaining._
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -352,7 +353,11 @@ private[platform] object MutableCacheBackedContractStore {
   )(implicit materializer: Materializer)
       extends ResourceOwner[Unit] {
     private val cacheUpdaterExecutionContext =
-      ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+      ExecutionContext.fromExecutor(
+        Executors.newSingleThreadExecutor(
+          new Thread(_).tap(_.setName("ledger-api-contracts-cache-updater-thread"))
+        )
+      )
 
     override def acquire()(implicit
         context: ResourceContext
@@ -369,7 +374,7 @@ private[platform] object MutableCacheBackedContractStore {
           .async
           .mapAsync(1) { contractStateEvent =>
             Timed.future(
-              metrics.daml.index.updateCaches,
+              metrics.daml.index.updateMutableContractStateCache,
               Future(contractStore.push(contractStateEvent))(cacheUpdaterExecutionContext),
             )
           }

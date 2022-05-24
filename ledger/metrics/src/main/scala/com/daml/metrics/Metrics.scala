@@ -360,6 +360,8 @@ final class Metrics(val registry: MetricRegistry) {
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
 
       val updateCaches: Timer = registry.timer(Prefix :+ "update_caches")
+      val updateMutableContractStateCache: Timer =
+        registry.timer(Prefix :+ "update_contracts_cache")
 
       val decodeTransactionLogUpdate: Timer =
         registry.timer(Prefix :+ "transaction_log_update_decode")
