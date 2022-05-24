@@ -62,6 +62,7 @@ def ghc():
     )
     haskell_cabal_binary(
         name = "hadrian",
+        flags = ["with_bazel"],
         srcs = [":hadrian-srcs"],
         deps = [
             "@stackage//:base",
