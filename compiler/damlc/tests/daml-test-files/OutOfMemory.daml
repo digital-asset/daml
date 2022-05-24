@@ -1,0 +1,12 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ENABLE-SCENARIOS
+
+module OutOfMemory where
+
+main = scenario do
+  loop ()
+
+loop : Action m => () -> m ()
+loop x = loop x
