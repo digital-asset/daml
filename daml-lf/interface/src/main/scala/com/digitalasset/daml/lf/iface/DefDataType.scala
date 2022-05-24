@@ -192,18 +192,8 @@ final case class DefTemplate[+Ty](
     */
   def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
-  ): DefTemplate[O] = {
-    val getAstInterface = astInterfaces.lift
-    val (missing, resolved) = unresolvedInheritedChoices.partitionMap {
-      case pair @ (choiceName, tcn) =>
-        val resolution = for {
-          astIf <- getAstInterface(tcn)
-          tchoice <- astIf.choices get choiceName
-        } yield (choiceName, tchoice)
-        resolution toRight pair
-    }
-    this.copy(choices = choices ++ resolved, unresolvedInheritedChoices = missing.toMap)
-  }
+  ): Either[TemplateChoices.ResolveError, DefTemplate[O]] =
+    tChoices resolveChoices astInterfaces map (r => copy(tChoices = r))
 
   def getKey: j.Optional[_ <: Ty] = toOptional(key)
 }
@@ -214,13 +204,13 @@ object DefTemplate {
   implicit val `TemplateDecl traverse`: Traverse[DefTemplate] =
     new Traverse[DefTemplate] with Foldable.FromFoldMap[DefTemplate] {
       override def foldMap[A, B: Monoid](fa: DefTemplate[A])(f: A => B): B =
-        fa.choices.foldMap(_ foldMap f) |+| (fa.key foldMap f)
+        (fa.tChoices foldMap f) |+| (fa.key foldMap f)
 
       override def traverseImpl[G[_]: Applicative, A, B](
           fab: DefTemplate[A]
       )(f: A => G[B]): G[DefTemplate[B]] =
-        ^(fab.choices traverse (_ traverse f), fab.key traverse f) { (choices, key) =>
-          fab.copy(choices = choices, key = key)
+        ^(fab.tChoices traverse f, fab.key traverse f) { (choices, key) =>
+          fab.copy(tChoices = choices, key = key)
         }
     }
 
@@ -233,7 +223,7 @@ object DefTemplate {
 
 /** Choices in a [[DefTemplate]]. */
 sealed abstract class TemplateChoices[+Ty] {
-  import TemplateChoices.{Resolved, Unresolved}
+  import TemplateChoices.{Resolved, Unresolved, ResolveError}
 
   /** Choices defined directly on the template */
   def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
@@ -256,8 +246,8 @@ sealed abstract class TemplateChoices[+Ty] {
     */
   def resolveChoices[O >: Ty](
       astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
-  ): Either[NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]], Resolved[O]] = this match {
-    case u @ Unresolved(direct, unresolved) =>
+  ): Either[ResolveError, Resolved[O]] = this match {
+    case u @ Unresolved(_, unresolved) =>
       val getAstInterface = astInterfaces.lift
       val (missing, resolved) = unresolved.partitionMap { case pair @ (choiceName, tcn) =>
         val resolution = for {
@@ -278,6 +268,8 @@ sealed abstract class TemplateChoices[+Ty] {
 }
 
 object TemplateChoices {
+  type ResolveError = NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]]
+
   final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
       unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
