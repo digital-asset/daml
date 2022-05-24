@@ -218,6 +218,9 @@ object DefTemplate {
         }
     }
 
+  private[daml] val Empty: DefTemplate[Nothing] =
+    DefTemplate(TemplateChoices.Resolved(Map.empty), None, Seq.empty)
+
   sealed trait GetChoices[+Ty] {
     def choices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
     final def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
