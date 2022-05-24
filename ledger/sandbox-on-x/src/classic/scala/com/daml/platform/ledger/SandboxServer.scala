@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.{CliConfigConverter, Config, ParticipantConfig}
-import com.daml.ledger.sandbox.SandboxOnXRunner.validateDataSource
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -64,9 +63,9 @@ final class SandboxServer(
     }
     val genericConfig = CliConfigConverter.toConfig(bridgeConfigAdaptor, genericCliConfig)
     for {
-      (participantId, participantConfig) <-
-        SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      dataSource <- validateDataSource(genericConfig, participantId)
+      (participantId, dataSource, participantConfig) <- SandboxOnXRunner.combinedParticipant(
+        genericConfig
+      )
       (apiServer, writeService, indexService) <-
         SandboxOnXRunner
           .buildLedger(

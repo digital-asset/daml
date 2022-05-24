@@ -80,8 +80,7 @@ object SandboxOnXRunner {
       _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
       // Start the ledger
-      (participantId, participantConfig) <- validateCombinedParticipantMode(config)
-      dataSource <- validateDataSource(config, participantId)
+      (participantId, dataSource, participantConfig) <- combinedParticipant(config)
       _ <- buildLedger(
         participantId,
         config,
@@ -101,7 +100,16 @@ object SandboxOnXRunner {
     )
   }
 
-  def validateDataSource(
+  def combinedParticipant(
+      config: Config
+  )(implicit
+      resourceContext: ResourceContext
+  ): Resource[(Ref.ParticipantId, ParticipantDataSourceConfig, ParticipantConfig)] = for {
+    (participantId, participantConfig) <- validateCombinedParticipantMode(config)
+    dataSource <- validateDataSource(config, participantId)
+  } yield (participantId, dataSource, participantConfig)
+
+  private def validateDataSource(
       config: Config,
       participantId: Ref.ParticipantId,
   ): Resource[ParticipantDataSourceConfig] =
@@ -116,7 +124,7 @@ object SandboxOnXRunner {
       )
     )
 
-  def validateCombinedParticipantMode(
+  private def validateCombinedParticipantMode(
       config: Config
   ): Resource[(Ref.ParticipantId, ParticipantConfig)] =
     config.participants.toList match {
