@@ -597,7 +597,7 @@ interface InterfaceToMix where
   choice InheritedOnly: () with
     controller getOwner this
     do return ()
-{- TODO(#13349) uncomment when overloaded choices compile
+{- TODO(#13926) uncomment when overloaded choices compile
   choice OverloadedInTemplate: () with
     controller getOwner this
     do return ()
