@@ -51,7 +51,7 @@
   type: jar-scala
 - target: //daml-lf/validation:validation
   type: jar-scala
-- target: //daml-script/daml-script:script-runner-lib
+- target: //daml-script/runner:script-runner-lib
   type: jar-scala
 - target: //daml-script/converter:converter
   type: jar-scala
