@@ -170,14 +170,15 @@ object CodeGen {
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
         import lf.HierarchicalOutput.{PotentialFile => SrcV}
-        val ntdRights =
+        val ntdPotentials =
           (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
             .map(sdt => (sdt.name, SrcV.NormalDt(sdt): SrcV))
-        val tmplLefts = templateIds.transform((_, v) => SrcV.Tpl(v): SrcV)
-        // TODO #13924 add interfaces to the hierarchy
+        val tmplPotentials = templateIds.transform((_, v) => SrcV.Tpl(v): SrcV)
+        val interfacePotentials = interfaces.transform((_, v) => SrcV.Interface(v): SrcV)
 
-        (ntdRights ++ tmplLefts) map { case (ddtIdent @ Identifier(_, qualName), body) =>
-          (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
+        (ntdPotentials ++ tmplPotentials ++ interfacePotentials) map {
+          case (ddtIdent @ Identifier(_, qualName), body) =>
+            (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
         }
       }
 
