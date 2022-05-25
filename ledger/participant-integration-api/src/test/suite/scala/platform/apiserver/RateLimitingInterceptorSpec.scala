@@ -59,9 +59,9 @@ final class RateLimitingInterceptorSpec
       )
       for {
         _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesQueueSize.toLong+1)
+        _ = submitted.mark(config.maxApiServicesQueueSize.toLong + 1)
         exception <- helloService.single(HelloRequest(2)).failed
-        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong-1)
+        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong - 1)
         _ <- helloService.single(HelloRequest(3))
       } yield {
         exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices.toString)
