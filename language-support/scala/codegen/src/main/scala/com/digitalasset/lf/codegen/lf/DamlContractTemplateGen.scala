@@ -36,9 +36,6 @@ object DamlContractTemplateGen {
 
     logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
 
-    val templateChoiceMethods =
-      genChoiceMethods(util)(templateName, templateInterface.template.choices)
-
     def toNamedArgumentsMethod =
       q"""
         override def toNamedArguments(` self`: ${TypeName(templateName.name)}) =
@@ -67,11 +64,7 @@ object DamlContractTemplateGen {
 
     def templateObjectMembers = Seq(
       generateTemplateIdDef(templateId),
-      q"""implicit final class ${TypeName(
-          s"${templateName.name} syntax"
-        )}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
-            ..$templateChoiceMethods
-          }""",
+      genChoiceImplicitClass(util)(templateName, templateInterface.template.choices),
       q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",
       consumingChoicesMethod,
       toNamedArgumentsMethod,
@@ -94,10 +87,10 @@ object DamlContractTemplateGen {
   private val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
   private val syntaxIdType = TypeName(" ExOn")
 
-  private[lf] def genChoiceMethods(
+  private[lf] def genChoiceImplicitClass(
       util: LFUtil
-  )(templateName: util.DamlScalaName, choices: Map[Ref.ChoiceName, iface.TemplateChoice.FWT]) =
-    choices.flatMap { case (id, interface) =>
+  )(templateName: util.DamlScalaName, choices: Map[Ref.ChoiceName, iface.TemplateChoice.FWT]) = {
+    val templateChoiceMethods = choices.flatMap { case (id, interface) =>
       util.genTemplateChoiceMethods(
         templateType = tq"${TypeName(templateName.name)}",
         idType = syntaxIdType,
@@ -105,6 +98,12 @@ object DamlContractTemplateGen {
         interface,
       )
     }
+    q"""implicit final class ${TypeName(
+        s"${templateName.name} syntax"
+      )}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
+        ..$templateChoiceMethods
+      }"""
+  }
 
   private[lf] def generateTemplateIdDef(templateId: Identifier) = {
     val Identifier(_, QualifiedName(moduleName, baseName)) = templateId

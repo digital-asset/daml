@@ -10,7 +10,7 @@ import com.daml.lf.iface
 import com.typesafe.scalalogging.Logger
 
 import LFUtil.domainApiAlias
-import DamlContractTemplateGen.{genChoiceMethods, generateTemplateIdDef}
+import DamlContractTemplateGen.{genChoiceImplicitClass, generateTemplateIdDef}
 
 import scala.reflect.runtime.universe._
 
@@ -23,18 +23,20 @@ object DamlInterfaceGen {
   ): (File, Set[Tree], Iterable[Tree]) = {
     val damlScalaName = util.mkDamlScalaName(templateId.qualifiedName)
 
+    logger.debug(
+      s"generate interfaceDecl: ${damlScalaName.toString}, ${interfaceSignature.toString}"
+    )
+
     val typeParent = tq"$domainApiAlias.Interface"
     val companionParent = tq"$domainApiAlias.InterfaceCompanion[${TypeName(damlScalaName.name)}]"
 
     val klass = q"""
       sealed abstract class ${TypeName(damlScalaName.name)} extends $typeParent"""
 
-    val choiceMethods = genChoiceMethods(util)(damlScalaName, interfaceSignature.choices)
-    logger.debug(s"TODO (#13924) interface choices $choiceMethods")
-
     val companion = q"""
       object ${TermName(damlScalaName.name)} extends $companionParent {
         ${generateTemplateIdDef(templateId)}
+        ${genChoiceImplicitClass(util)(damlScalaName, interfaceSignature.choices)}
         ..$companionMembers
       }"""
 
