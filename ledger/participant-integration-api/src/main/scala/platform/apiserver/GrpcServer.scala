@@ -7,9 +7,9 @@ import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
-
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.error.ErrorInterceptor
 import com.daml.ports.Port
 import com.google.protobuf.Message
@@ -39,6 +39,7 @@ private[apiserver] object GrpcServer {
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
+      rateLimitingConfig: Option[RateLimitingConfig],
   ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
     val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
@@ -52,6 +53,7 @@ private[apiserver] object GrpcServer {
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)
+    rateLimitingConfig.foreach(c => builder.intercept(new RateLimitingInterceptor(metrics, c)))
     services.foreach { service =>
       builder.addService(service)
       toLegacyService(service).foreach(builder.addService)

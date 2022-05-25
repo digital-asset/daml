@@ -35,6 +35,7 @@ import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
@@ -122,7 +123,11 @@ object SandboxOnXRunner {
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
     implicit val apiServerConfig: ApiServerConfig =
-      BridgeConfigProvider.apiServerConfig(participantConfig, config)
+      BridgeConfigProvider.apiServerConfig(
+        participantConfig,
+        Some(RateLimitingConfig.default),
+        config,
+      )
     val sharedEngine = new Engine(config.engineConfig)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
