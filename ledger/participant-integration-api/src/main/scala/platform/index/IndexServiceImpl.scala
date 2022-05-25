@@ -43,6 +43,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -62,7 +63,12 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
+    metrics: Metrics,
 ) extends IndexService {
+  // An Akka stream buffer is added at the end of all streaming queries,
+  // allowing to absorb temporary downstream backpressure.
+  // (e.g. when the client is temporarily slower than upstream delivery throughput)
+  private val LedgerApiStreamsBufferSize = 128
   private val logger = ContextualizedLogger.get(getClass)
 
   override def getParticipantId()(implicit
@@ -90,13 +96,20 @@ private[index] class IndexServiceImpl(
       to.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
       )
-      dispatcher
+      val flatTransactionsSource = dispatcher
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
           to,
         )
         .map(_._2)
+
+      InstrumentedSource
+        .bufferedSource(
+          flatTransactionsSource,
+          metrics.daml.index.flatTransactionsBufferSize,
+          LedgerApiStreamsBufferSize,
+        )
     }).wireTap(
       _.transactions.view
         .map(transaction =>
@@ -118,7 +131,7 @@ private[index] class IndexServiceImpl(
       to.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
       )
-      dispatcher
+      val transactionTreesSource = dispatcher
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(
@@ -127,6 +140,13 @@ private[index] class IndexServiceImpl(
           to,
         )
         .map(_._2)
+
+      InstrumentedSource
+        .bufferedSource(
+          transactionTreesSource,
+          metrics.daml.index.transactionTreesBufferSize,
+          LedgerApiStreamsBufferSize,
+        )
     }).wireTap(
       _.transactions.view
         .map(transaction =>
@@ -140,7 +160,7 @@ private[index] class IndexServiceImpl(
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
-    convertOffset(startExclusive).flatMapConcat { beginOpt =>
+    val completionsSource = convertOffset(startExclusive).flatMapConcat { beginOpt =>
       dispatcher
         .startingAt(
           beginOpt,
@@ -149,6 +169,13 @@ private[index] class IndexServiceImpl(
         )
         .map(_._2)
     }
+
+    InstrumentedSource
+      .bufferedSource(
+        completionsSource,
+        metrics.daml.index.completionsBufferSize,
+        LedgerApiStreamsBufferSize,
+      )
   }
 
   override def getCompletions(
@@ -156,8 +183,8 @@ private[index] class IndexServiceImpl(
       endInclusive: LedgerOffset,
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
-    between(startExclusive, Some(endInclusive))((start, end) =>
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
+    val completionsSource = between(startExclusive, Some(endInclusive))((start, end) =>
       dispatcher
         .startingAt(
           start.getOrElse(Offset.beforeBegin),
@@ -166,6 +193,14 @@ private[index] class IndexServiceImpl(
         )
         .map(_._2)
     )
+
+    InstrumentedSource
+      .bufferedSource(
+        completionsSource,
+        metrics.daml.index.completionsBufferSize,
+        LedgerApiStreamsBufferSize,
+      )
+  }
 
   override def getActiveContracts(
       filter: TransactionFilter,
@@ -178,9 +213,16 @@ private[index] class IndexServiceImpl(
         convertFilter(filter),
         verbose,
       )
-    acs.concat(
-      Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
-    )
+
+    InstrumentedSource
+      .bufferedSource(
+        acs,
+        metrics.daml.index.activeContractsBufferSize,
+        LedgerApiStreamsBufferSize,
+      )
+      .concat(
+        Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
+      )
   }
 
   override def lookupActiveContract(

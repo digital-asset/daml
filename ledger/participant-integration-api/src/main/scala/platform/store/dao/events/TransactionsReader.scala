@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.error.DamlContextualizedErrorLogger
@@ -72,6 +71,8 @@ private[dao] final class TransactionsReader(
 
   // TransactionReader adds an Akka stream buffer at the end of all streaming queries.
   // This significantly improves the performance of the transaction service.
+  //
+  // TODO LLP: Remove once getContractStateEvents and getTransactionLogUpdates is removed
   private val outputStreamBufferSize = 128
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
@@ -128,19 +129,12 @@ private[dao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    val flatTransactionsStream = TransactionsReader
+    TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
-
-    InstrumentedSource
-      .bufferedSource(
-        flatTransactionsStream,
-        metrics.daml.index.flatTransactionsBufferSize,
-        outputStreamBufferSize,
-      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
@@ -229,19 +223,12 @@ private[dao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    val transactionTreesStream = TransactionsReader
+    TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
-
-    InstrumentedSource
-      .bufferedSource(
-        transactionTreesStream,
-        metrics.daml.index.transactionTreesBufferSize,
-        outputStreamBufferSize,
-      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
@@ -386,7 +373,6 @@ private[dao] final class TransactionsReader(
         )
       }
       .mapConcat(TransactionConversions.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
         Spans.addEventToSpan(
           telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
