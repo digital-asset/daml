@@ -10,6 +10,12 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, MetricsSet, StreamMetrics}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
@@ -30,7 +36,7 @@ object Benchmark {
       .traverse(streamConfigs) {
         case streamConfig: StreamConfig.TransactionsStreamConfig =>
           StreamMetrics
-            .observer(
+            .observer[GetTransactionsResponse](
               streamName = streamConfig.name,
               logInterval = reportingPeriod,
               metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
@@ -39,13 +45,15 @@ object Benchmark {
                 MetricsSet
                   .transactionExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
               ),
+              itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
+              requiredItemsCount = streamConfig.requiredItemCount,
             )(system, ec)
             .flatMap { observer =>
               apiServices.transactionService.transactions(streamConfig, observer)
             }
         case streamConfig: StreamConfig.TransactionTreesStreamConfig =>
           StreamMetrics
-            .observer(
+            .observer[GetTransactionTreesResponse](
               streamName = streamConfig.name,
               logInterval = reportingPeriod,
               metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
@@ -57,13 +65,15 @@ object Benchmark {
                   reportingPeriod,
                 )
               ),
+              itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
+              requiredItemsCount = streamConfig.requiredItemCount,
             )(system, ec)
             .flatMap { observer =>
               apiServices.transactionService.transactionTrees(streamConfig, observer)
             }
         case streamConfig: StreamConfig.ActiveContractsStreamConfig =>
           StreamMetrics
-            .observer(
+            .observer[GetActiveContractsResponse](
               streamName = streamConfig.name,
               logInterval = reportingPeriod,
               metrics = MetricsSet.activeContractsMetrics(streamConfig.objectives),
@@ -75,13 +85,15 @@ object Benchmark {
                   reportingPeriod,
                 )
               ),
+              itemCountingFunction = (response) => MetricsSet.countActiveContracts(response).toLong,
+              requiredItemsCount = streamConfig.requiredItemCount,
             )(system, ec)
             .flatMap { observer =>
               apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
             }
         case streamConfig: StreamConfig.CompletionsStreamConfig =>
           StreamMetrics
-            .observer(
+            .observer[CompletionStreamResponse](
               streamName = streamConfig.name,
               logInterval = reportingPeriod,
               metrics = MetricsSet.completionsMetrics(streamConfig.objectives),
@@ -90,6 +102,8 @@ object Benchmark {
                 MetricsSet
                   .completionsExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
               ),
+              itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
+              requiredItemsCount = streamConfig.requiredItemCount,
             )(system, ec)
             .flatMap { observer =>
               Delayed.by(t = Duration(streamConfig.timeoutInSeconds, TimeUnit.SECONDS))(
