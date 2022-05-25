@@ -72,11 +72,8 @@ object DamlContractTemplateGen {
 
     def consumingChoicesMethod = LFUtil.genConsumingChoicesMethod(templateInterface.template)
 
-    val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
-    val packageIdRef = PackageIDsGen.reference(moduleName)
-
     def templateObjectMembers = Seq(
-      q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})",
+      generateTemplateIdDef(templateId),
       q"""implicit final class ${TypeName(
           s"${templateName.name} syntax"
         )}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
@@ -99,5 +96,11 @@ object DamlContractTemplateGen {
       rootClassChildren = templateClassMembers,
       companionChildren = templateObjectMembers ++ companionMembers,
     )
+  }
+
+  private[lf] def generateTemplateIdDef(templateId: Identifier) = {
+    val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
+    val packageIdRef = PackageIDsGen.reference(moduleName)
+    q"override val id = ` templateId`(packageId=$packageIdRef, moduleName=${moduleName.dottedName}, entityName=${baseName.dottedName})"
   }
 }
