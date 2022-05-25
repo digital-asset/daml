@@ -92,11 +92,12 @@ case class CommandSubmitter(
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    submitAndWait(
+    submit(
       id = commandId,
       actAs = actAs,
       commands = commands,
       applicationId = names.benchtoolApplicationId,
+      waitForSubmission = true,
     )
   }
 

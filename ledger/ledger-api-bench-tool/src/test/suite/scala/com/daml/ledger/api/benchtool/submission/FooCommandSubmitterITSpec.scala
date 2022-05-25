@@ -73,6 +73,7 @@ class FooCommandSubmitterITSpec
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
+        waitForSubmission = false,
       )
       allocatedParties <- submitter.prepare(config)
       _ = allocatedParties.divulgees shouldBe empty
