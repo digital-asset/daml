@@ -7,7 +7,8 @@ import java.io.File
 
 import com.daml.lf.codegen.lf.LFUtil
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.daml.lf.data.Ref, Ref.{Identifier, QualifiedName}
+import com.daml.lf.iface
 import com.typesafe.scalalogging.Logger
 import scalaz.syntax.std.option._
 
@@ -32,19 +33,11 @@ object DamlContractTemplateGen {
   ): (File, Set[Tree], Iterable[Tree]) = {
 
     val templateName = util.mkDamlScalaName(templateId.qualifiedName)
-    val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
-    val syntaxIdType = TypeName(" ExOn")
 
     logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
 
-    val templateChoiceMethods = templateInterface.template.choices.flatMap { case (id, interface) =>
-      util.genTemplateChoiceMethods(
-        templateType = tq"${TypeName(templateName.name)}",
-        idType = syntaxIdType,
-        id,
-        interface,
-      )
-    }
+    val templateChoiceMethods =
+      genChoiceMethods(util)(templateName, templateInterface.template.choices)
 
     def toNamedArgumentsMethod =
       q"""
@@ -97,6 +90,21 @@ object DamlContractTemplateGen {
       companionChildren = templateObjectMembers ++ companionMembers,
     )
   }
+
+  private val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
+  private val syntaxIdType = TypeName(" ExOn")
+
+  private[lf] def genChoiceMethods(
+      util: LFUtil
+  )(templateName: util.DamlScalaName, choices: Map[Ref.ChoiceName, iface.TemplateChoice.FWT]) =
+    choices.flatMap { case (id, interface) =>
+      util.genTemplateChoiceMethods(
+        templateType = tq"${TypeName(templateName.name)}",
+        idType = syntaxIdType,
+        id,
+        interface,
+      )
+    }
 
   private[lf] def generateTemplateIdDef(templateId: Identifier) = {
     val Identifier(_, QualifiedName(moduleName, baseName)) = templateId
