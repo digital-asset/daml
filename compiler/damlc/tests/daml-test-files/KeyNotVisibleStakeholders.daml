@@ -71,7 +71,7 @@ divulgeeLookup = scenario do
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
   submit divulgee do
-    _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
+    _ <- createAndExercise (Delegation sig divulgee) LookupKeyed
     pure ()
 
 blindFetch = scenario do
