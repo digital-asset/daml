@@ -195,7 +195,6 @@ message GetExerciseEventsRequest {
   LedgerOffset end = 3;
 
   // Requesting parties with template filters.
-  // Template filters must be empty for GetTransactionTrees requests.
   // Required
   TransactionExerciseFilter filter = 4;
 
