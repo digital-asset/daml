@@ -17,7 +17,7 @@ template Divulger
     key (divulger, keyId): (Party, Text)
     maintainer key._1
 
-    nonconsuming choice DivulgeImmediate: ()
+    nonconsuming choice DivulgeContractImmediate: ()
       with
           fooObservers : [Party]
           fooPayload : Text
@@ -25,7 +25,8 @@ template Divulger
           fooTemplateName: Text
       controller divulger
       do
-        -- Party 'divulgee' sees the creation of Foo even though she is not a stakeholder i.e. immediate divulgence occurs.
+        -- Parties from 'divulgees' sees the creation of Foo even though
+        -- they are not a contract stakeholder, i.e. immediate divulgence occurs.
         if fooTemplateName == "Foo1" then
             void $ create Foo1 with
                 signatory = divulger
@@ -47,6 +48,23 @@ template Divulger
         else
             return ()
 
+    nonconsuming choice DivulgeConsumingExercise: ()
+      with
+          fooTemplateName: Text
+          fooKey: (Party, Text)
+          fooConsumingPayload : Text
+      controller divulger
+      do
+        -- Parties from 'divulgees' see the consuming exercise on Foo even though they are not
+        -- contract stakeholders or choice controllers/observers, i.e. divulgence occurs.
+        if fooTemplateName == "Foo1" then
+            void $ exerciseByKey @Foo1 fooKey (Foo1_ConsumingChoice fooConsumingPayload)
+        else if fooTemplateName == "Foo2" then
+            void $ exerciseByKey @Foo2 fooKey (Foo2_ConsumingChoice fooConsumingPayload)
+        else if fooTemplateName == "Foo3" then
+            void $ exerciseByKey @Foo3 fooKey (Foo3_ConsumingChoice fooConsumingPayload)
+        else
+            return ()
 template Foo1
   with
     signatory : Party

@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.ConsumingExercises
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -41,7 +42,12 @@ class NonStakeholderInformeesITSpec
         )
       ),
       nonConsumingExercises = None,
-      consumingExercises = None,
+      consumingExercises = Some(
+        ConsumingExercises(
+          probability = 0.1,
+          payloadSizeBytes = 0,
+        )
+      ),
       applicationIds = List.empty,
     )
     for {
@@ -93,13 +99,23 @@ class NonStakeholderInformeesITSpec
       // thus, they are visible on transaction trees stream but absent from flat transactions stream.
       {
         // Divulge0
-        val treeFoo1 = treeResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
-        val flatFoo1 = flatResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
-        treeFoo1 shouldBe 100 withClue ("number of Foo1 contracts visible to divulgee0 on tree transactions stream")
-        flatFoo1 shouldBe 0 withClue ("number of Foo1 contracts visible to divulgee0 on flat transactions stream")
-        val divulger = treeResults_divulgee0.numberOfCreatesPerTemplateName("Divulger")
-        // For 3 divulgees in total (a, b, c) there are 4 subsets that contain 'a': a, ab, ac, abc.
-        divulger shouldBe 4 withClue ("number divulger contracts visible to divulgee0")
+        {
+          // Create events
+          val treeFoo1 = treeResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
+          val flatFoo1 = flatResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
+          treeFoo1 shouldBe 100 withClue ("number of Foo1 contracts visible to divulgee0 on tree transactions stream")
+          flatFoo1 shouldBe 0 withClue ("number of Foo1 contracts visible to divulgee0 on flat transactions stream")
+          val divulger = treeResults_divulgee0.numberOfCreatesPerTemplateName("Divulger")
+          // For 3 divulgees in total (a, b, c) there are 4 subsets that contain 'a': a, ab, ac, abc.
+          divulger shouldBe 4 withClue ("number of divulger contracts visible to divulgee0")
+        }
+        {
+          // Consuming events (with 10% chance of generating a consuming event for a contract)
+          val treeFoo1 = treeResults_divulgee0.numberOfConsumingExercisesPerTemplateName("Foo1")
+          val flatFoo1 = flatResults_divulgee0.numberOfConsumingExercisesPerTemplateName("Foo1")
+          treeFoo1 should ((be > 0) and (be < submissionConfig.numberOfInstances / 5)) withClue ("number of Foo1 consuming events visible to divulgee0 on tree transactions stream")
+          flatFoo1 shouldBe 0 withClue ("number of Foo1 consuming events visible to divulgee0 on flat transactions stream")
+        }
       }
       {
         // Divulgee1
@@ -114,10 +130,11 @@ class NonStakeholderInformeesITSpec
       }
       {
         // Observer0
-        val treeFoo1 = flatResults_observer0.numberOfCreatesPerTemplateName("Foo1")
-        val flatFoo1 = treeResults_observer0.numberOfCreatesPerTemplateName("Foo1")
-        flatFoo1 shouldBe 100
-        flatFoo1 shouldBe treeFoo1
+        val treeFoo1 = treeResults_observer0.numberOfCreatesPerTemplateName("Foo1")
+        val flatFoo1 = flatResults_observer0.numberOfCreatesPerTemplateName("Foo1")
+        treeFoo1 shouldBe 100
+        // Approximately 10% of contracts is created and archived in the same transaction and thus omitted from the flat transactions stream
+        flatFoo1 should ((be > 70) and (be < submissionConfig.numberOfInstances))
         val divulger = treeResults_observer0.numberOfCreatesPerTemplateName("Divulger")
         divulger shouldBe 0
       }

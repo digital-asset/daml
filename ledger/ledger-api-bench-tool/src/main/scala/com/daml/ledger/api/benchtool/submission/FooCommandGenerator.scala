@@ -108,6 +108,7 @@ final class FooCommandGenerator(
     val contractCounter = FooCommandGenerator.nextContractNumber.getAndIncrement()
     val fooKeyId = "foo-" + contractCounter
     val fooContractKey = FooCommandGenerator.makeContractKeyValue(signatory, fooKeyId)
+    // Create events
     val createFooCmd = divulgerContractKeyO match {
       case Some(divulgerContractKey) =>
         makeCreateAndDivulgeFooCommand(
@@ -124,6 +125,60 @@ final class FooCommandGenerator(
           case "Foo3" => Foo3(signatory, observers, payload, keyId = fooKeyId).create.command
         }
     }
+    // Non-consuming events
+    val nonconsumingExercises: Seq[Command] = makeNonConsumingExerciseCommands(
+      templateDescriptor = templateDescriptor,
+      fooContractKey = fooContractKey,
+    )
+    // Consuming events
+    val consumingPayloadO: Option[String] = config.consumingExercises
+      .flatMap(config =>
+        if (randomnessProvider.randomDouble() <= config.probability) {
+          Some(randomPayload(config.payloadSizeBytes))
+        } else None
+      )
+    val consumingExerciseO: Option[Command] = consumingPayloadO.map { payload =>
+      divulgerContractKeyO match {
+        case Some(divulgerContractKey) =>
+          makeExerciseByKeyCommand(
+            templateId = FooTemplateDescriptor.Divulger_templateId,
+            choiceName = FooTemplateDescriptor.Divulger_DivulgeConsumingExercise,
+            args = Seq(
+              RecordField(
+                label = "fooTemplateName",
+                value = Some(Value(Value.Sum.Text(templateDescriptor.name))),
+              ),
+              RecordField(
+                label = "fooKey",
+                value = Some(fooContractKey),
+              ),
+              RecordField(
+                label = "fooConsumingPayload",
+                value = Some(Value(Value.Sum.Text(payload))),
+              ),
+            ),
+          )(contractKey = divulgerContractKey)
+
+        case None =>
+          makeExerciseByKeyCommand(
+            templateId = templateDescriptor.templateId,
+            choiceName = templateDescriptor.consumingChoiceName,
+            args = Seq(
+              RecordField(
+                label = "exercisePayload",
+                value = Some(Value(Value.Sum.Text(payload))),
+              )
+            ),
+          )(contractKey = fooContractKey)
+      }
+    }
+    Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
+  }
+
+  private def makeNonConsumingExerciseCommands(
+      templateDescriptor: FooTemplateDescriptor,
+      fooContractKey: Value,
+  ): Seq[Command] = {
     val nonconsumingExercisePayloads: Seq[String] =
       config.nonConsumingExercises.fold(Seq.empty[String]) { config =>
         var f = config.probability.toInt
@@ -144,26 +199,7 @@ final class FooCommandGenerator(
         ),
       )(contractKey = fooContractKey)
     }
-    val consumingExerciseO: Option[Command] = config.consumingExercises
-      .flatMap(config =>
-        if (randomnessProvider.randomDouble() <= config.probability) {
-          val payload = randomPayload(config.payloadSizeBytes)
-          Some(
-            makeExerciseByKeyCommand(
-              templateId = templateDescriptor.templateId,
-              choiceName = templateDescriptor.consumingChoiceName,
-              args = Seq(
-                RecordField(
-                  label = "exercisePayload",
-                  value = Some(Value(Value.Sum.Text(payload))),
-                )
-              ),
-            )(contractKey = fooContractKey)
-          )
-
-        } else None
-      )
-    Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
+    nonconsumingExercises
   }
 
   private def makeCreateAndDivulgeFooCommand(
@@ -175,7 +211,7 @@ final class FooCommandGenerator(
   ) = {
     makeExerciseByKeyCommand(
       templateId = FooTemplateDescriptor.Divulger_templateId,
-      choiceName = FooTemplateDescriptor.Divulger_DivulgeImmediate,
+      choiceName = FooTemplateDescriptor.Divulger_DivulgeContractImmediate,
       args = Seq(
         RecordField(
           label = "fooObservers",
