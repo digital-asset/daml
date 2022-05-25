@@ -32,6 +32,9 @@ object DamlInterfaceGen {
     val klass = q"""
       sealed abstract class ${TypeName(damlScalaName.name)} extends $typeParent"""
 
+    val choiceMethods = genChoiceMethods(util)(damlScalaName, interfaceSignature.choices)
+    logger.debug(s"TODO (#13924) interface choices $choiceMethods")
+
     val companion = q"""
       object ${TermName(damlScalaName.name)} extends $companionParent {
         ${generateTemplateIdDef(templateId)}
@@ -40,6 +43,8 @@ object DamlInterfaceGen {
 
     (damlScalaName.toFileName, defaultImports, Seq(klass, companion))
   }
+
+  private val logger: Logger = Logger(getClass)
 
   private[this] val defaultImports = Set(LFUtil.domainApiImport)
 }
