@@ -807,7 +807,7 @@ object Transaction {
     *                       time.
     * @param nodeSeeds      : An association list that maps to each ID of create and exercise
     *                       nodes its seeds.
-    * @param keyMapping    : The keys reqested to the ledger assiated to with the response obtained
+    * @param keyMapping    : input key mapping inferred by interpretation
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
