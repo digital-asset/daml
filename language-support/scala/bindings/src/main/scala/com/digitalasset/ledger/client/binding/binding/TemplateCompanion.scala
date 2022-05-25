@@ -6,7 +6,7 @@ package com.daml.ledger.client.binding
 import com.daml.ledger.api.refinements.ApiTypes.Choice
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
-import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
+import encoding.{LfEncodable, LfTypeEncoding, RecordView}
 
 /** Common superclass of template classes' companions.
   *
@@ -60,14 +60,6 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
       (id, _.createArguments flatMap fromNamedArguments)
     )
   }
-
-  protected override final def ` exercise`[ExOn, Out](
-      actor: Primitive.Party,
-      receiver: ExOn,
-      choiceId: String,
-      arguments: Option[rpcvalue.Value],
-  )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
-    Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =
     Primitive.arguments(` dataTypeId`, elems)

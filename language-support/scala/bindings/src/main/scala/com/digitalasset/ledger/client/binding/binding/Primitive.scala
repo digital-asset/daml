@@ -137,7 +137,7 @@ sealed abstract class Primitive extends PrimitiveInstances {
   ): Update[ContractId[Tpl]]
 
   private[binding] def exercise[ExOn, Tpl, Out](
-      templateCompanion: TemplateCompanion[Tpl],
+      templateCompanion: ContractTypeCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
       argument: rpcvalue.Value,
@@ -247,7 +247,7 @@ private[client] object OnlyPrimitive extends Primitive {
     )
 
   private[binding] override def exercise[ExOn, Tpl, Out](
-      templateCompanion: TemplateCompanion[Tpl],
+      templateCompanion: ContractTypeCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
       argument: rpcvalue.Value,
