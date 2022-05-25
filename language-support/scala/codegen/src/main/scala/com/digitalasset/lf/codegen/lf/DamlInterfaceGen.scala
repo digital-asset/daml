@@ -7,18 +7,39 @@ import java.io.File
 
 import com.daml.lf.codegen.lf.LFUtil
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.daml.lf.data.Ref, Ref.{Identifier, QualifiedName}
 import com.daml.lf.iface
 import com.typesafe.scalalogging.Logger
 import scalaz.syntax.std.option._
+
+import LFUtil.domainApiAlias
+import DamlContractTemplateGen.generateTemplateIdDef
 
 import scala.reflect.runtime.universe._
 
 object DamlInterfaceGen {
   def generate(
       util: LFUtil,
-      templateId: Identifier,
+      templateId: Ref.Identifier,
       interfaceSignature: iface.DefInterface.FWT,
       companionMembers: Iterable[Tree],
-  ): (File, Set[Tree], Iterable[Tree]) = {}
+  ): (File, Set[Tree], Iterable[Tree]) = {
+    val damlScalaName = util.mkDamlScalaName(templateId.qualifiedName)
+
+    val typeParent = tq"$domainApiAlias.Interface"
+    val companionParent = tq"$domainApiAlias.InterfaceCompanion[${TypeName(damlScalaName.name)}]"
+
+    val klass = q"""
+      sealed abstract class ${TypeName(damlScalaName.name)} extends $typeParent"""
+
+    val companion = q"""
+      object ${TermName(damlScalaName.name)} extends $companionParent {
+        ${generateTemplateIdDef(templateId)}
+        ..$companionMembers
+      }"""
+
+    (damlScalaName.toFileName, defaultImports, Seq(klass, companion))
+  }
+
+  private[this] val defaultImports = Set(LFUtil.domainApiImport)
 }
