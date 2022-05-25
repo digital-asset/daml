@@ -12,6 +12,10 @@ option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
+// Filtering Transaction and Active Contract Set streams
+////////////////////////////////////////////////////////
+
+
 // Used for filtering Transaction and Active Contract Set streams.
 // Determines which on-ledger events will be served to the client.
 message TransactionFilter {
@@ -24,55 +28,11 @@ message TransactionFilter {
   map<string, Filters> filters_by_party = 1;
 }
 
-// Used for filtering Transaction and Active Contract Set streams.
-// Determines which on-ledger events will be served to the client.
-message TransactionExerciseFilter {
-
-  map<string, ExerciseFilters> filters_by_party = 1;
-}
-
-message ExerciseFilters {
-  // Required
-  InclusiveExerciseFilters inclusive = 1;
-}
-
 message Filters {
 
   // If not set, no filters will be applied.
   // Optional
   InclusiveFilters inclusive = 1;
-}
-
-message FilterSelector {
-  oneof {
-    // Include events for this template id.
-    Identifier template_id = 1;
-    // Include events for templates which implement this interface id.
-    Identifier interface_id = 1;
-  }
-}
-
-// The values included for events matching the filter.
-message FilterValue {
-  oneof {
-    // Include create_arguments in CreateEvent
-    boolean create_arguments = 1;
-    // Include create_arguments_blob in CreateEvent
-    boolean create_arguments_blob = 2;
-    // Include interface view if the interface is implemented by the template.
-    InterfaceView interface_view = 3;
-  }
-}
-
-
-// A filter on the transaction & ACS stream.
-message Filter {
-  // The criteria by which events should be filtered.
-  // Required
-  FilterSelector selector = 1;
-  // The values included for the events matching the filter.
-  // Required
-  repeated FilterValue values = 2;
 }
 
 // If no internal fields are set, no filters will be applied.
@@ -87,21 +47,47 @@ message InclusiveFilters {
 
   // Collection of filters and the values that should be included for events matching the filter.
   // Optional
-  repeated Filter filters = 4;
+  repeated InterfaceFilter interface_filters = 2;
+}
+
+// A filter on the transaction & ACS stream.
+message InterfaceFilter {
+
+  // Required
+  Identifier interface_id = 1;
+
+  // Include create_arguments_blob in CreateEvent
+  boolean include_contract_blob = 2;
+
+  // Include interface view if the interface is implemented by the template.
+  boolean include_interface_arguments = 3;
+}
+
+
+
+// Filtering Exercise Event streams
+///////////////////////////////////
+
+message TransactionExerciseFilter {
+
+  map<string, ExerciseFilters> filters_by_party = 1;
+}
+
+message ExerciseFilters {
+  // Required
+  InclusiveExerciseFilters inclusive = 1;
+}
+
+// A filter on the exercise stream.
+message InclusiveExerciseFilters {
+  repeated ChoiceFilter choices = 1;
 }
 
 // Filter of a choice defined in either a template or an interface.
 message ChoiceFilter {
         // Required if interface_id is not set.
-        Identifier template_id = 1;
-        // Required if template_id is not set.
-        Identifier interface_id = 2;
-        // Optional, if not set all choices of the given template/interface
-        // are included.
-        string choice = 3;
+        Identifier template_or_interface_id = 1;
+        // Required.
+        string choice = 2;
 }
 
-// A filter on the exercise stream.
-message InclusiveExerciseFilters {
-        repeated ChoiceFilter choices = 1;
-}
