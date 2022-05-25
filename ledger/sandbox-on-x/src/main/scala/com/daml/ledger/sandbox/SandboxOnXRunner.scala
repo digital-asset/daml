@@ -35,14 +35,11 @@ import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
-import com.daml.platform.usermanagement.{
-  PersistentUserManagementStore,
-  RateLimitingConfig,
-  UserManagementConfig,
-}
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}

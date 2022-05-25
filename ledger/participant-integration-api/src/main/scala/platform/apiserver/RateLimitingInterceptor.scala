@@ -5,16 +5,19 @@ package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.RateLimitingInterceptor.serverReflectionInfo
-import com.daml.platform.usermanagement.RateLimitingConfig
+import com.daml.platform.apiserver.RateLimitingInterceptor.doNonLimit
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import io.grpc.Status.Code
 import io.grpc._
 import io.grpc.protobuf.StatusProto
+import org.slf4j.LoggerFactory
 
 private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config: RateLimitingConfig)
     extends ServerInterceptor {
 
   import metrics.daml.lapi.threadpool.apiServices
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
   private val submitted = metrics.registry.meter(MetricRegistry.name(apiServices, "submitted"))
@@ -31,14 +34,21 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
 
     val fullMethodName = call.getMethodDescriptor.getFullMethodName
 
-    if (queued > config.maxApiServicesQueueSize && (fullMethodName != serverReflectionInfo)) {
+    if (queued > config.maxApiServicesQueueSize && !doNonLimit.contains(fullMethodName)) {
+
       val rpcStatus = com.google.rpc.Status
         .newBuilder()
         .setCode(Code.ABORTED.value())
         .setMessage(
-          s"The api services queue size ($queued) has exceeded the maximum (${config.maxApiServicesQueueSize}).  Api services metrics are available at $apiServices"
+          s"""
+            | The api services queue size ($queued) has exceeded the maximum (${config.maxApiServicesQueueSize}).
+            | The rejected call was $fullMethodName.
+            | Api services metrics are available at $apiServices.
+          """.stripMargin
         )
         .build()
+
+      logger.info(s"gRPC call rejected: $rpcStatus")
 
       val exception = StatusProto.toStatusRuntimeException(rpcStatus)
 
@@ -53,5 +63,9 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
 }
 
 object RateLimitingInterceptor {
-  val serverReflectionInfo = "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo"
+  val doNonLimit = Set(
+    "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
+    "grpc.health.v1.Health/Check",
+    "grpc.health.v1.Health/Watch",
+  )
 }

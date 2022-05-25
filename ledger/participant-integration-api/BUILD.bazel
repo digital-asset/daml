@@ -228,6 +228,7 @@ da_scala_test_suite(
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_actor_typed",
         "@maven//:com_typesafe_akka_akka_testkit",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_akka_akka_stream_testkit",
@@ -274,6 +275,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-api-akka",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",

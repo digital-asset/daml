@@ -8,7 +8,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.usermanagement.RateLimitingConfig
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.ports.Port
 import io.grpc.ServerInterceptor
 

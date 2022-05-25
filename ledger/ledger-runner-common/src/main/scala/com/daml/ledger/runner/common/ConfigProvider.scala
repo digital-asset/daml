@@ -5,6 +5,7 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   IndexConfiguration,
@@ -12,7 +13,6 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
 }
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.RateLimitingConfig
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 

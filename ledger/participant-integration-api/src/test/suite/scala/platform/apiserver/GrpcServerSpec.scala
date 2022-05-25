@@ -13,8 +13,8 @@ import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import com.daml.platform.usermanagement.RateLimitingConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import io.grpc.{ManagedChannel, Status, StatusRuntimeException}

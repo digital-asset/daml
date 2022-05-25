@@ -3,17 +3,24 @@
 
 package com.daml.platform.apiserver
 
+import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
+import com.daml.ledger.api.health.HealthChecks.ComponentName
+import com.daml.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.RateLimitingInterceptorSpec._
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
-import com.daml.platform.usermanagement.RateLimitingConfig
+import com.daml.platform.server.api.services.grpc.GrpcHealthService
 import com.daml.ports.Port
+import com.daml.resources.akka.ActorSystemResourceOwner
 import io.grpc._
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.reflection.v1alpha.{
@@ -21,6 +28,7 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionRequest,
   ServerReflectionResponse,
 }
+import io.grpc.stub.StreamObserver
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -51,9 +59,9 @@ final class RateLimitingInterceptorSpec
       )
       for {
         _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesQueueSize.toLong + 1)
+        _ = submitted.mark(config.maxApiServicesQueueSize.toLong+1)
         exception <- helloService.single(HelloRequest(2)).failed
-        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong)
+        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong-1)
         _ <- helloService.single(HelloRequest(3))
       } yield {
         exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices.toString)
@@ -69,7 +77,9 @@ final class RateLimitingInterceptorSpec
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(1000) // Over limit
 
-    withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
+    val protoService = ProtoReflectionService.newInstance()
+
+    withChannel(metrics, protoService, config).use { channel: Channel =>
       val methodDescriptor: MethodDescriptor[ServerReflectionRequest, ServerReflectionResponse] =
         ServerReflectionGrpc.getServerReflectionInfoMethod
       val call = channel.newCall(methodDescriptor, CallOptions.DEFAULT)
@@ -94,9 +104,50 @@ final class RateLimitingInterceptorSpec
     }
   }
 
+  it should "allow health checks event when over limit" in {
+    val metrics = new Metrics(new MetricRegistry)
+    val config = RateLimitingConfig(100)
+    metrics.registry
+      .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
+      .mark(1000) // Over limit
+
+    val healthService = new GrpcHealthService(healthChecks)(
+      executionSequencerFactory,
+      materializer,
+      executionContext,
+      LoggingContext.ForTesting,
+    )
+
+    withChannel(metrics, healthService, config).use { channel: Channel =>
+      val healthStub = HealthGrpc.stub(channel)
+      val promise = Promise[Unit]()
+      for {
+        _ <- healthStub.check(HealthCheckRequest())
+        _ = healthStub.watch(
+          HealthCheckRequest(),
+          new StreamObserver[HealthCheckResponse] {
+            override def onNext(value: HealthCheckResponse): Unit = {
+              promise.success(())
+            }
+            override def onError(t: Throwable): Unit = {}
+            override def onCompleted(): Unit = {}
+          },
+        )
+        _ <- promise.future
+      } yield {
+        succeed
+      }
+    }
+  }
+
 }
 
 object RateLimitingInterceptorSpec {
+
+  val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
+  val systemOwner: ResourceOwner[ActorSystem] = new ActorSystemResourceOwner(() =>
+    ActorSystem("RateLimitingInterceptorSpec")
+  )
 
   def withChannel(
       metrics: Metrics,
@@ -121,7 +172,6 @@ object RateLimitingInterceptorSpec {
               .directExecutor()
               .intercept(interceptor)
               .addService(service)
-              .addService(ProtoReflectionService.newInstance())
               .build()
           server.start()
           server
