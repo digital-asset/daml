@@ -15,10 +15,12 @@ import DamlContractTemplateGen.{genChoiceImplicitClass, generateTemplateIdDef}
 import scala.reflect.runtime.universe._
 
 object DamlInterfaceGen {
+  type DataType = iface.DefInterface.FWT
+
   def generate(
       util: LFUtil,
       templateId: Ref.Identifier,
-      interfaceSignature: iface.DefInterface.FWT,
+      interfaceSignature: DataType,
       companionMembers: Iterable[Tree],
   ): (File, Set[Tree], Iterable[Tree]) = {
     val damlScalaName = util.mkDamlScalaName(templateId.qualifiedName)
