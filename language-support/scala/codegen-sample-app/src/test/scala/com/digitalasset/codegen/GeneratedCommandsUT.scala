@@ -3,7 +3,7 @@
 
 package com.daml.codegen
 
-import com.daml.sample.MyMain
+import com.daml.sample.{MyMain, MyMainIface}
 import MyMain.{KeyedNumber, Increment, SimpleListExample}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd}
@@ -38,7 +38,9 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
   "exercise" should {
     import com.daml.ledger.client.binding.Value.encode
     val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
+    val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
     val DirectTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceMixer.id
+    val FAMTemplateId = ApiTypes.TemplateId unwrap MyMainIface.IfaceFromAnotherMod.id
 
     "invoke directly-defined choices" in {
       inside(imId.exerciseOverloadedInTemplate(alice).command.command) {
@@ -68,6 +70,35 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           cid should ===(imId)
           choiceArg should ===(encode(MyMain.InheritedOnly()))
       }
+    }
+
+    "invoke on an interface-contract ID" in {
+      inside(itmId.exerciseFromAnotherMod(alice, 42).command.command) {
+        case rpccmd.Command.Command.Exercise(
+              rpccmd.ExerciseCommand(
+                Some(FAMTemplateId),
+                cid,
+                "FromAnotherMod",
+                Some(choiceArg),
+              )
+            ) =>
+          cid should ===(itmId)
+          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
+      }
+    }
+  }
+
+  "template IDs" should {
+    "be present on templates" in {
+      val sle = ApiTypes.TemplateId unwrap MyMain.SimpleListExample.id
+      sle.moduleName should ===("MyMain")
+      sle.entityName should ===("SimpleListExample")
+    }
+
+    "be present on interfaces" in {
+      val sle = ApiTypes.TemplateId unwrap MyMainIface.IfaceFromAnotherMod.id
+      sle.moduleName should ===("MyMainIface")
+      sle.entityName should ===("IfaceFromAnotherMod")
     }
   }
 
