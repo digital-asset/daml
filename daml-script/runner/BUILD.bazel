@@ -33,6 +33,7 @@ da_scala_library(
         "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = script_scalacopts,
+    tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
