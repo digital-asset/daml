@@ -1,3 +1,6 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
@@ -79,7 +82,7 @@ blindFetch = scenario do
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
   submit blind do
-    _ <- createAndExercise (Delegation sig blind) LookupKeyed
+    _ <- createAndExercise (Delegation sig blind) FetchKeyed
     pure ()
 
 blindLookup = scenario do
