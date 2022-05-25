@@ -184,11 +184,6 @@ message GetLedgerEndResponse {
 }
 
 message GetExerciseEventsRequest {
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
   // Beginning of the requested ledger section.
   // This offset is exclusive: the response will only contain transactions whose offset is strictly greater than this.
   // Required
