@@ -185,46 +185,30 @@ object DamlDataTypeGen {
     // - A type class instance (i.e. implicit object) for serializing/deserializing
     //   to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlVariantType(fields: List[(Ref.Name, VariantField)]): (Tree, Tree) = {
-      lazy val damlVariant =
-        if (fields.isEmpty) damlVariantZeroFields
-        else damlVariantOneOrMoreFields
-
-      /*
-       *  A variant with no fields in Daml is also known as the "Void" type. It has no
-       *  values. A value of this class cannot be created!
-       */
-      lazy val damlVariantZeroFields =
+      lazy val damlVariant = {
+        val (variantParent, argumentValueTypeClassInstance) =
+          if (fields.isEmpty) (tq"$domainApiAlias.VoidValueRef", None)
+          else
+            (
+              typeParent,
+              Some(
+                valueTypeClassInstance(
+                  writeMethod = damlVariantArgumentValueWriteMethod,
+                  readMethod = damlVariantArgumentValueReadMethod,
+                )
+              ),
+            )
         (
           q"""
           sealed abstract class ${TypeName(
               damlScalaName.name
-            )}[..$covariantTypeParams] extends $domainApiAlias.VoidValueRef {
-            ..$rootClassChildren
-          }""",
-          q"""object ${TermName(damlScalaName.name)} extends $companionParent {
-            ..${idField.toList}
-            ..$companionChildren
-
-            ${lfEncodableForVariant(fields)}
-          }""",
-        )
-
-      lazy val damlVariantOneOrMoreFields = {
-        val argumentValueTypeClassInstance: Tree = valueTypeClassInstance(
-          writeMethod = damlVariantArgumentValueWriteMethod,
-          readMethod = damlVariantArgumentValueReadMethod,
-        )
-        (
-          q"""
-          sealed abstract class ${TypeName(
-              damlScalaName.name
-            )}[..$covariantTypeParams] extends $typeParent {
+            )}[..$covariantTypeParams] extends $variantParent {
             ..$rootClassChildren
           }""",
           q"""object ${TermName(damlScalaName.name)} extends $companionParent {
             ..$variantCaseClasses
 
-            $argumentValueTypeClassInstance
+            ..${argumentValueTypeClassInstance.toList}
 
             ..${idField.toList}
             ..$companionChildren
