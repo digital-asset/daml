@@ -5,15 +5,12 @@ package com.daml.lf.codegen.lf
 
 import java.io.File
 
-import com.daml.lf.codegen.lf.LFUtil
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref, Ref.{Identifier, QualifiedName}
+import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.typesafe.scalalogging.Logger
-import scalaz.syntax.std.option._
 
 import LFUtil.domainApiAlias
-import DamlContractTemplateGen.generateTemplateIdDef
+import DamlContractTemplateGen.{genChoiceMethods, generateTemplateIdDef}
 
 import scala.reflect.runtime.universe._
 
