@@ -47,7 +47,7 @@ subtle errors.
 Instead, you should think of, and write, your triggers from the perspective of
 "correcting the current ACS" to match some predefined expectations. Trigger
 rules should be a combination of checking those expectations on the current ACS
-and applyin corrective actions to bring back the ACS in line with its expected
+and applying corrective actions to bring back the ACS in line with its expected
 state.
 
 The "trigger" part is best thought of as an optimization: rather than check the
