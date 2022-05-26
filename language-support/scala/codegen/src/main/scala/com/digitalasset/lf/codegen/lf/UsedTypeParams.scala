@@ -7,14 +7,16 @@ import com.daml.lf.codegen.lf.DamlDataTypeGen.{DataType, VariantField}
 import com.daml.lf.data.Ref, Ref.Identifier
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.iface
-import scalaz.Monoid
+import scalaz.{\/, -\/, \/-, Monoid}
 import scalaz.std.list._
 import scalaz.std.map._
+import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
+import scalaz.syntax.std.boolean._
 
 import scala.annotation.tailrec
 
@@ -38,16 +40,13 @@ object UsedTypeParams {
     case iface.TypeNumeric(_) => Set.empty
   }
 
-  final case class LookupType[+RF, +VF](
-      run: iface.TypeConName => Option[(iface.DefDataType[RF, VF], LookupType[RF, VF])]
-  )
-
   import VarianceConstraint.BaseResolution
   import Variance._
 
   private[this] type TVar = Ref.Name
 
   final class ResolvedVariance private (private val prior: Map[Identifier, ImmArraySeq[Variance]]) {
+    import ResolvedVariance.IsInterface
 
     /** The variance of each type parameter of `dt` in `ei`, in order,
       * and an updated copy of the receiver that may contain more cached
@@ -57,7 +56,10 @@ object UsedTypeParams {
         dt: Identifier,
         ei: iface.EnvironmentInterface,
     ): (ResolvedVariance, ImmArraySeq[Variance]) = {
-      val resolved = covariantVars(dt, (i: Identifier) => ei.typeDecls get i map (_.`type`))
+      def lookupType(i: Identifier) =
+        (ei.typeDecls get i map (it => \/-(it.`type`))
+          orElse (ei.astInterfaces contains i option -\/(IsInterface)))
+      val resolved = covariantVars(dt, lookupType)
       (
         resolved,
         resolved.prior.getOrElse(
@@ -71,7 +73,7 @@ object UsedTypeParams {
 
     private[this] def covariantVars(
         dt: Identifier,
-        lookupType: Identifier => Option[iface.DefDataType.FWT],
+        lookupType: Identifier => Option[IsInterface.type \/ iface.DefDataType.FWT],
     ): ResolvedVariance = {
       import iface._
 
@@ -109,13 +111,15 @@ object UsedTypeParams {
               }
 
             case TypeCon(TypeConName(tcName), typArgs) =>
-              val refDdt = lookupOrFail(tcName)
-              val argConstraints = refDdt.typeVars zip typArgs foldMap { case (tv, ta) =>
-                goType(contexts |+| Map(tcName -> Set(tv)))(ta)
+              val refDdt = lookupOrFail(tcName).toOption // discard interface
+              val argConstraints = refDdt foldMap {
+                _.typeVars zip typArgs foldMap { case (tv, ta) =>
+                  goType(contexts |+| Map(tcName -> Set(tv)))(ta)
+                }
               }
               val refConstraints =
                 if (seen(tcName)) mzero[VarianceConstraint]
-                else goSdt(tcName, seen + tcName)(refDdt)
+                else refDdt foldMap (goSdt(tcName, seen + tcName)(_))
               argConstraints |+| refConstraints
 
             case TypeNumeric(_) => VarianceConstraint.base(Map.empty)
@@ -138,9 +142,13 @@ object UsedTypeParams {
             fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
           }
 
-      val solved = goSdt(dt, Set(dt))(lookupOrFail(dt)).solve
+      val solved: BaseResolution = lookupOrFail(dt).fold(
+        (_: IsInterface.type) => Map(dt -> Map.empty),
+        ddt => goSdt(dt, Set(dt))(ddt).solve,
+      )
       new ResolvedVariance(prior ++ solved.view.map { case (tcName, m) =>
-        val paramsOrder = lookupOrFail(tcName).typeVars
+        val paramsOrder =
+          lookupOrFail(tcName).fold((_: IsInterface.type) => ImmArraySeq.empty, _.typeVars)
         (tcName, paramsOrder map (m.getOrElse(_, Covariant)))
       })
     }
@@ -148,6 +156,7 @@ object UsedTypeParams {
 
   object ResolvedVariance {
     val Empty: ResolvedVariance = new ResolvedVariance(Map.empty)
+    private case object IsInterface
   }
 
   // an implementation tool for covariantVars
