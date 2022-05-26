@@ -240,7 +240,7 @@ case class CommandSubmitter(
                   case e: io.grpc.StatusRuntimeException
                       if e.getStatus.getCode == Status.Code.ABORTED =>
                     logger.info(s"Flow rate limited at index $index: ${e.getLocalizedMessage}")
-                    Thread.sleep(10)  // Small back-off period
+                    Thread.sleep(10) // Small back-off period
                     Future.successful(index + commands.length - 1)
                   case ex =>
                     logger.error(
