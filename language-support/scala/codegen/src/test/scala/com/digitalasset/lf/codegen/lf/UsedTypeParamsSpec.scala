@@ -112,6 +112,14 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           )
         ),
       ),
+      "UsesInterface" -> DT(
+        IASeq(a),
+        Record(
+          IASeq(
+            rn("cid") -> iface.TypePrim(iface.PrimType.ContractId, IASeq(reftc("SomeInterface")))
+          )
+        ),
+      ),
       // no type vars
       "Concrete" -> DT(
         IASeq.empty,
@@ -124,7 +132,9 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
 
-  val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls, Map.empty)
+  private val sampleInterfaces = Map(ref("SomeInterface") -> iface.DefInterface(Map.empty))
+
+  private val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls, sampleInterfaces)
 
   private val exVariances =
     Seq(
@@ -137,8 +147,10 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       "MapOfAb" -> Seq(Invariant, Invariant),
       "FooMapAndBar" -> Seq(Invariant, Invariant),
       "BarMapAndFoo" -> Seq(Invariant, Invariant),
+      "UsesInterface" -> Seq(Covariant),
       "Concrete" -> Seq(),
       "Phantom" -> Seq(Covariant),
+      "SomeInterface" -> Seq(),
     )
 
   private val exVarianceTable = Table(("type ctor", "positional variances"), exVariances: _*)
