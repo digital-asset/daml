@@ -51,7 +51,7 @@ object Template {
       private[binding] val origin: TemplateCompanion[_],
   ) {
     @nowarn("cat=unused&msg=parameter value ev in method")
-    def toInterface[T0 >: T, I](implicit ev: Implements[T0, I]): CreateForExercise[I] =
+    def toInterface[I](implicit ev: ToInterface[T, I]): CreateForExercise[I] =
       CreateForExercise(value, origin)
   }
 
@@ -66,18 +66,32 @@ object Template {
       private[binding] val origin: TemplateCompanion[_],
   ) {
     @nowarn("cat=unused&msg=parameter value ev in method")
-    def toInterface[T0 >: T, I](implicit ev: Implements[T0, I]): Key[I] =
+    def toInterface[I](implicit ev: ToInterface[T, I]): Key[I] =
       Key(encodedKey, origin)
   }
 
+  /** Evidence that coercing from template-IDed to interface-IDed is sound,
+    * i.e. `toInterface`.  Not safe at all for the opposite coercion.
+    *
+    * This weaker marker is defined so that [[Key]] and [[CreateForExercise]] can
+    * have simple `toInterface` methods.
+    */
   @implicitNotFound("${T} is not a template that implements interface ${I}")
-  final class Implements[T, I]
+  sealed abstract class ToInterface[-T, I]
+
+  /** As with [[ToInterface]], but also proves that `T` implements `I`.
+    * This is a subtle distinction, but [[ToInterface]] allows a universe of
+    * subtypes for which this would not be true.  So this can be used for
+    * `unsafeToTemplate` as well as `toInterface`.
+    */
+  @implicitNotFound("${T} is not a template that implements interface ${I}")
+  final class Implements[T, I] extends ToInterface[T, I]
 
   import Primitive.ContractId, ContractId.subst
   implicit final class `template ContractId syntax`[T](private val self: ContractId[T])
       extends AnyVal {
     @nowarn("cat=unused&msg=parameter value ev in method")
-    def toInterface[I](implicit ev: Implements[T, I]): ContractId[I] = {
+    def toInterface[I](implicit ev: ToInterface[T, I]): ContractId[I] = {
       type K[C] = C => ApiTypes.ContractId
       type K2[C] = ContractId[T] => C
       subst[K2, I](subst[K, T](identity))(self)

@@ -40,7 +40,7 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         MyMain
           .InterfaceMixer(alice)
           .createAnd
-          .toInterface[MyMain.InterfaceMixer, MyMainIface.IfaceFromAnotherMod]
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
           .exerciseFromAnotherMod(alice, 42)
           .command
           .command
