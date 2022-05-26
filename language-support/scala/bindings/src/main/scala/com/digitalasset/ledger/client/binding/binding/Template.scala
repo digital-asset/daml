@@ -55,7 +55,7 @@ object Template {
   /** Part of an `ExerciseByKey` command.
     *
     * {{{
-    *   Iou key foo exerciseTransfer (controller, ...)
+    *   Iou.key(foo).exerciseTransfer(controller, ...)
     * }}}
     */
   final case class Key[+T](encodedKey: rpcvalue.Value) {
