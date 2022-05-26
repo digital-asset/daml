@@ -410,7 +410,7 @@ object ScenarioRunner {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx, locationInfo, _) =>
+            case PartialTransaction.CompleteTransaction(tx, locationInfo, _, _) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(onLedger.incompleteTransaction))

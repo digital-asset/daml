@@ -80,6 +80,7 @@ template Foo1
     nonconsuming choice Foo1_NonconsumingChoice: ()
       with
         exercisePayload: Text
+      observer observers
       controller signatory
       do
         return ()
@@ -106,6 +107,7 @@ template Foo2
     nonconsuming choice Foo2_NonconsumingChoice: ()
       with
         exercisePayload: Text
+      observer observers
       controller signatory
       do
         return ()
@@ -132,6 +134,7 @@ template Foo3
     nonconsuming choice Foo3_NonconsumingChoice: ()
       with
         exercisePayload: Text
+      observer observers
       controller signatory
       do
         return ()

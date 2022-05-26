@@ -5,6 +5,7 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   IndexConfiguration,
@@ -30,6 +31,7 @@ trait ConfigProvider[ExtraConfig] {
 
   def apiServerConfig(
       participantConfig: ParticipantConfig,
+      rateLimitingProvider: Option[RateLimitingConfig],
       config: Config[ExtraConfig],
   ): ApiServerConfig =
     ApiServerConfig(
@@ -65,6 +67,7 @@ trait ConfigProvider[ExtraConfig] {
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
       userManagementConfig = config.userManagementConfig,
+      rateLimitingConfig = rateLimitingProvider,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =

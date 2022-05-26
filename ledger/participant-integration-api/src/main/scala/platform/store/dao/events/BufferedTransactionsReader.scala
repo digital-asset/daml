@@ -36,6 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
     val transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+    eventProcessingParallelism: Int,
     filterFlatTransactions: (
         Set[Party],
         Map[Identifier, Set[Party]],
@@ -54,7 +55,8 @@ private[events] class BufferedTransactionsReader(
         LoggingContext,
     ) => ToApi[GetTransactionTreesResponse],
     metrics: Metrics,
-) extends LedgerDaoTransactionsReader {
+)(implicit executionContext: ExecutionContext)
+    extends LedgerDaoTransactionsReader {
 
   private val flatTransactionsBufferMetrics =
     metrics.daml.services.index.BufferedReader("flat_transactions")
@@ -78,6 +80,7 @@ private[events] class BufferedTransactionsReader(
       filter = filter,
       verbose = verbose,
       metrics = metrics,
+      eventProcessingParallelism = eventProcessingParallelism,
     )(
       filterEvents = filterFlatTransactions(wildcardParties, templatesParties),
       toApiTx = flatToApiTransactions(filter, verbose, loggingContext),
@@ -100,6 +103,7 @@ private[events] class BufferedTransactionsReader(
       filter = requestingParties,
       verbose = verbose,
       metrics = metrics,
+      eventProcessingParallelism = eventProcessingParallelism,
     )(
       filterEvents = filterTransactionTrees(requestingParties),
       toApiTx = treesToApiTransactions(requestingParties, verbose, loggingContext),
@@ -149,6 +153,7 @@ private[platform] object BufferedTransactionsReader {
   def apply(
       delegate: LedgerDaoTransactionsReader,
       transactionsBuffer: EventsBuffer[TransactionLogUpdate],
+      eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
   )(implicit
@@ -164,6 +169,7 @@ private[platform] object BufferedTransactionsReader {
       filterTransactionTrees = ToTransactionTree.filter,
       treesToApiTransactions =
         ToTransactionTree.toApiTransaction(_, _, lfValueTranslation)(_, executionContext),
+      eventProcessingParallelism = eventProcessingParallelism,
     )
 
   private[events] def getTransactions[FILTER, API_RESPONSE](
@@ -174,19 +180,25 @@ private[platform] object BufferedTransactionsReader {
       filter: FILTER,
       verbose: Boolean,
       metrics: Metrics,
+      eventProcessingParallelism: Int,
   )(
       filterEvents: TransactionLogUpdate.Transaction => Option[TransactionLogUpdate.Transaction],
       toApiTx: ToApi[API_RESPONSE],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
-  ): Source[(Offset, API_RESPONSE), NotUsed] = {
+  )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
+    val sliceFilter: TransactionLogUpdate => Option[TransactionLogUpdate.Transaction] = {
+      case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
+      case _ => None
+    }
+
     def bufferSource(
         bufferSlice: Vector[(Offset, TransactionLogUpdate.Transaction)]
     ) =
       if (bufferSlice.isEmpty) Source.empty
       else
         Source(bufferSlice)
-          .mapAsync(1) { case (offset, payload) =>
+          .mapAsync(eventProcessingParallelism) { case (offset, payload) =>
             bufferReaderMetrics.fetchedBuffered.inc()
             Timed.future(
               bufferReaderMetrics.conversion,
@@ -195,26 +207,23 @@ private[platform] object BufferedTransactionsReader {
           }
 
     val source = Source
-      .unfold(startExclusive) {
+      .unfoldAsync(startExclusive) {
         case scannedToInclusive if scannedToInclusive < endInclusive =>
-          val sliceFilter: TransactionLogUpdate => Option[TransactionLogUpdate.Transaction] = {
-            case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
-            case _ => None
-          }
+          Future {
+            transactionsBuffer.slice(scannedToInclusive, endInclusive, sliceFilter) match {
+              case BufferSlice.Inclusive(slice) =>
+                val sourceFromBuffer = bufferSource(slice)
+                val nextChunkStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
+                Some(nextChunkStartExclusive -> sourceFromBuffer)
 
-          transactionsBuffer.slice(scannedToInclusive, endInclusive, sliceFilter) match {
-            case BufferSlice.Inclusive(slice) =>
-              val sourceFromBuffer = bufferSource(slice)
-              val nextChunkStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
-              Some(nextChunkStartExclusive -> sourceFromBuffer)
-
-            case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
-              val sourceFromBuffer =
-                fetchTransactions(startExclusive, bufferedStartExclusive, filter, verbose)
-                  .concat(bufferSource(slice))
-              Some(endInclusive -> sourceFromBuffer)
+              case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
+                val sourceFromBuffer =
+                  fetchTransactions(startExclusive, bufferedStartExclusive, filter, verbose)
+                    .concat(bufferSource(slice))
+                Some(endInclusive -> sourceFromBuffer)
+            }
           }
-        case _ => None
+        case _ => Future.successful(None)
       }
       .flatMapConcat(identity)
 

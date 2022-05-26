@@ -807,6 +807,7 @@ object Transaction {
     *                       time.
     * @param nodeSeeds      : An association list that maps to each ID of create and exercise
     *                       nodes its seeds.
+    * @param keyMapping    : input key mapping inferred by interpretation
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -814,6 +815,7 @@ object Transaction {
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
+      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosures: ImmArray[Versioned[DisclosedContract]],
   )
 

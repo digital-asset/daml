@@ -2387,6 +2387,7 @@ object EngineTest {
           usedPackages = Set.empty,
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
+          globalKeyMapping = Map.empty,
           disclosures = ImmArray.empty,
         ),
       )

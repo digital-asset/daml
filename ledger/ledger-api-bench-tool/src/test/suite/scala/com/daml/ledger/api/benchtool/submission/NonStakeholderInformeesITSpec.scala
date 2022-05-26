@@ -63,6 +63,7 @@ class NonStakeholderInformeesITSpec
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
+        waitForSubmission = true,
       )
       allocatedParties <- submitter.prepare(submissionConfig)
       tested = new FooSubmission(
