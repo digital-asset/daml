@@ -20,7 +20,7 @@ abstract class Template[+T] extends ValueRef { self: T =>
     * }}}
     */
   final def createAnd(implicit d: DummyImplicit): Template.CreateForExercise[T] =
-    Template.CreateForExercise(self, templateCompanion)
+    Template.CreateForExercise(self)
 
   final def arguments(implicit d: DummyImplicit): rpcvalue.Record =
     templateCompanion.toNamedArguments(self)
@@ -47,12 +47,11 @@ object Template {
     * }}}
     */
   final case class CreateForExercise[+T](
-      private[binding] val value: Template[_],
-      private[binding] val origin: TemplateCompanion[_],
+      private[binding] val value: Template[_]
   ) {
     @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[I](implicit ev: ToInterface[T, I]): CreateForExercise[I] =
-      CreateForExercise(value, origin)
+      CreateForExercise(value)
   }
 
   /** Part of an `ExerciseByKey` command.

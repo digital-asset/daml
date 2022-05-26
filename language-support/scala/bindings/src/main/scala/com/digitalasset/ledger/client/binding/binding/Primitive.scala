@@ -269,7 +269,7 @@ private[client] object OnlyPrimitive extends Primitive {
             rpccmd.Command.Command.CreateAndExercise(
               // TODO #13925 pass exerciseTarget.id.unwrap as interface ID
               rpccmd.CreateAndExerciseCommand(
-                templateId = Some(cfe.origin.id.unwrap),
+                templateId = Some(cfe.value.templateId.unwrap),
                 createArguments = Some(cfe.value.arguments),
                 choice = choiceId,
                 choiceArgument = Some(argument),
