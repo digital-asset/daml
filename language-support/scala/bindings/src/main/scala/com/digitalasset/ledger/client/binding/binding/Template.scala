@@ -7,7 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import ApiTypes.Choice
 import com.daml.ledger.api.v1.{value => rpcvalue}
 
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, implicitNotFound}
 
 abstract class Template[+T] extends ValueRef { self: T =>
   final def create(implicit d: DummyImplicit): Primitive.Update[Primitive.ContractId[T]] =
@@ -64,6 +64,7 @@ object Template {
       Key(encodedKey)
   }
 
+  @implicitNotFound("${T} is not a template that implements interface ${I}")
   final class Implements[T, I]
 
   import Primitive.ContractId, ContractId.subst
