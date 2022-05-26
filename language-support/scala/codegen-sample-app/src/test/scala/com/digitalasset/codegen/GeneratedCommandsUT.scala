@@ -133,10 +133,27 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
         case rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))
             ) =>
-          import com.daml.ledger.client.binding.Value.encode
           tid should ===(KeyedNumber.id)
           k should ===(encode(alice))
           choiceArg should ===(encode(Increment(42)))
+      }
+    }
+
+    "pass template ID when exercising interface choice" in {
+      inside(
+        MyMain.InterfaceMixer
+          .key(alice)
+          .toInterface[MyMainIface.IfaceFromAnotherMod]
+          .exerciseFromAnotherMod(alice, 42)
+          .command
+          .command
+      ) {
+        case rpccmd.Command.Command.ExerciseByKey(
+              rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "FromAnotherMod", Some(choiceArg))
+            ) =>
+          tid should ===(MyMain.InterfaceMixer.id)
+          k should ===(encode(alice))
+          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
       }
     }
   }
