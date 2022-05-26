@@ -22,12 +22,14 @@ object WorkflowConfig {
     def numberOfDivulgees: Int
     def numberOfExtraSubmitters: Int
     def uniqueParties: Boolean
+    def waitForSubmission: Boolean
   }
 
   final case class FibonacciSubmissionConfig(
       numberOfInstances: Int,
       uniqueParties: Boolean,
       value: Int,
+      waitForSubmission: Boolean,
   ) extends SubmissionConfig {
     override val numberOfObservers = 0
     override val numberOfDivulgees = 0
@@ -44,7 +46,10 @@ object WorkflowConfig {
       nonConsumingExercises: Option[NonconsumingExercises],
       consumingExercises: Option[ConsumingExercises],
       applicationIds: List[FooSubmissionConfig.ApplicationId],
-  ) extends SubmissionConfig
+      maybeWaitForSubmission: Option[Boolean] = None,
+  ) extends SubmissionConfig {
+    def waitForSubmission: Boolean = maybeWaitForSubmission.getOrElse(true)
+  }
 
   object FooSubmissionConfig {
     case class ContractDescription(

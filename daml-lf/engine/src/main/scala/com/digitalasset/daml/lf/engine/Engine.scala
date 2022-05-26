@@ -431,7 +431,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
+      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds, globalKeyMapping) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
@@ -439,6 +439,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             usedPackages = deps,
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
+            globalKeyMapping = globalKeyMapping,
             disclosures = disclosures.allDisclosures,
           )
           config.profileDir.foreach { dir =>

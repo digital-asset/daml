@@ -204,14 +204,15 @@ private[lf] object PartialTransaction {
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
+      globalKeyMapping: Map[GlobalKey, KeyMapping],
   ) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
-  sealed abstract class KeyMapping extends Product with Serializable
+  type KeyMapping = Option[Value.ContractId]
   // There is no active contract with the given key.
-  final case object KeyInactive extends KeyMapping
+  val KeyInactive = None
   // The contract with the given cid is active and has the given key.
-  final case class KeyActive(cid: Value.ContractId) extends KeyMapping
+  val KeyActive = Some
 }
 
 /** A transaction under construction
@@ -361,11 +362,10 @@ private[speedy] case class PartialTransaction(
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
-          SubmittedTransaction(
-            TxVersion.asVersionedTransaction(tx)
-          ),
+          SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
+          globalKeyInputs,
         )
       case _ =>
         IncompleteTransaction(this)

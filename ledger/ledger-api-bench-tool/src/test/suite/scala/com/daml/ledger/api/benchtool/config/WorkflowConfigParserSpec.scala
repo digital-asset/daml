@@ -183,6 +183,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_instances: 500
           |  unique_parties: true
           |  value: 7
+          |  wait_for_submission: true
         """.stripMargin
 
       parseYaml(yaml) shouldBe Right(
@@ -192,6 +193,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfInstances = 500,
               uniqueParties = true,
               value = 7,
+              waitForSubmission = true,
             )
           ),
           streams = Nil,
