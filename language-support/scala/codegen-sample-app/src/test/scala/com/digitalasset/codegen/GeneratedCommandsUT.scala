@@ -8,6 +8,7 @@ import MyMain.{KeyedNumber, Increment, SimpleListExample}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd}
 import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.Value.encode
 
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -33,10 +34,34 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
           ()
       }
     }
+
+    "include template ID and interface ID" in {
+      inside(
+        MyMain
+          .InterfaceMixer(alice)
+          .createAnd
+          .toInterface[MyMain.InterfaceMixer, MyMainIface.IfaceFromAnotherMod]
+          .exerciseFromAnotherMod(alice, 42)
+          .command
+          .command
+      ) {
+        case rpccmd.Command.Command
+              .CreateAndExercise(
+                rpccmd.CreateAndExerciseCommand(
+                  Some(tpId),
+                  Some(payload),
+                  "FromAnotherMod",
+                  Some(choiceArg),
+                )
+              ) =>
+          tpId should ===(MyMain.InterfaceMixer.id)
+          payload should ===(MyMain.InterfaceMixer(alice).arguments)
+          choiceArg should ===(encode(MyMainIface.FromAnotherMod(42)))
+      }
+    }
   }
 
   "exercise" should {
-    import com.daml.ledger.client.binding.Value.encode
     val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
     val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
     val DirectTemplateId = ApiTypes.TemplateId unwrap MyMain.InterfaceMixer.id
