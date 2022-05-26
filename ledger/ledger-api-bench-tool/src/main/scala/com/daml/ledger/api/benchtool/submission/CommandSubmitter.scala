@@ -97,7 +97,7 @@ case class CommandSubmitter(
       actAs = actAs,
       commands = commands,
       applicationId = names.benchtoolApplicationId,
-      waitForSubmission = true,
+      useSubmitAndWait = true,
     )
   }
 
@@ -162,7 +162,7 @@ case class CommandSubmitter(
       actAs: Seq[Primitive.Party],
       commands: Seq[Command],
       applicationId: String,
-      waitForSubmission: Boolean,
+      useSubmitAndWait: Boolean,
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
@@ -175,13 +175,11 @@ case class CommandSubmitter(
       workflowId = names.workflowId,
     )
 
-    val future = if (waitForSubmission) {
-      benchtoolUserServices.commandService.submitAndWait(makeCommands(commands))
-    } else {
-      benchtoolUserServices.commandSubmissionService.submit(makeCommands(commands))
-    }
-
-    future.map(_ => ())
+    (if (useSubmitAndWait) {
+       benchtoolUserServices.commandService.submitAndWait(makeCommands(commands))
+     } else {
+       benchtoolUserServices.commandSubmissionService.submit(makeCommands(commands))
+     }).map(_ => ())
   }
 
   private def submitCommands(
@@ -233,7 +231,7 @@ case class CommandSubmitter(
                   actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
                   commands = commands.flatten,
                   applicationId = generator.nextApplicationId(),
-                  waitForSubmission = config.waitForSubmission,
+                  useSubmitAndWait = config.waitForSubmission,
                 )
               )
                 .map(_ => index + commands.length - 1)
