@@ -247,7 +247,7 @@ private[client] object OnlyPrimitive extends Primitive {
     )
 
   private[binding] override def exercise[ExOn, Tpl, Out](
-      templateCompanion: ContractTypeCompanion[Tpl],
+      exerciseTarget: ContractTypeCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
       argument: rpcvalue.Value,
@@ -258,7 +258,7 @@ private[client] object OnlyPrimitive extends Primitive {
           case _: ExerciseOn.OnId[Tpl] =>
             rpccmd.Command.Command.Exercise(
               rpccmd.ExerciseCommand(
-                templateId = Some(templateCompanion.id.unwrap),
+                templateId = Some(exerciseTarget.id.unwrap),
                 contractId = (receiver: ContractId[Tpl]).unwrap,
                 choice = choiceId,
                 choiceArgument = Some(argument),
@@ -267,7 +267,8 @@ private[client] object OnlyPrimitive extends Primitive {
           case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
             rpccmd.Command.Command.CreateAndExercise(
               rpccmd.CreateAndExerciseCommand(
-                templateId = Some(templateCompanion.id.unwrap),
+                // TODO #13925 wrong ID in interface case
+                templateId = Some(exerciseTarget.id.unwrap),
                 createArguments = Some((receiver: Template.CreateForExercise[Tpl]).value.arguments),
                 choice = choiceId,
                 choiceArgument = Some(argument),
@@ -276,7 +277,8 @@ private[client] object OnlyPrimitive extends Primitive {
           case _: ExerciseOn.OnKey[Tpl] =>
             rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(
-                templateId = Some(templateCompanion.id.unwrap),
+                // TODO #13925 wrong ID in interface case
+                templateId = Some(exerciseTarget.id.unwrap),
                 contractKey = Some((receiver: Template.Key[Tpl]).encodedKey),
                 choice = choiceId,
                 choiceArgument = Some(argument),
@@ -284,7 +286,7 @@ private[client] object OnlyPrimitive extends Primitive {
             )
         }
       },
-      templateCompanion,
+      exerciseTarget,
     )
 
   private[binding] override def arguments(
