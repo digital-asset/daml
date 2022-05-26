@@ -20,7 +20,7 @@ abstract class Template[+T] extends ValueRef { self: T =>
     * }}}
     */
   final def createAnd(implicit d: DummyImplicit): Template.CreateForExercise[T] =
-    Template.CreateForExercise(self)
+    Template.CreateForExercise(self, templateCompanion)
 
   final def arguments(implicit d: DummyImplicit): rpcvalue.Record =
     templateCompanion.toNamedArguments(self)
@@ -46,10 +46,13 @@ object Template {
     *   Iou(foo, bar).createAnd.exerciseTransfer(controller, ...)
     * }}}
     */
-  final case class CreateForExercise[+T](value: T with Template[_]) {
+  final case class CreateForExercise[+T](
+      private[binding] val value: Template[_],
+      private[binding] val origin: TemplateCompanion[_],
+  ) {
     @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[T0 >: T, I](implicit ev: Implements[T0, I]): CreateForExercise[I] =
-      sys.error("TODO #13925 different value evidence")
+      CreateForExercise(value, origin)
   }
 
   /** Part of an `ExerciseByKey` command.
@@ -58,10 +61,13 @@ object Template {
     *   Iou.key(foo).exerciseTransfer(controller, ...)
     * }}}
     */
-  final case class Key[+T](encodedKey: rpcvalue.Value) {
+  final case class Key[+T](
+      private[binding] val encodedKey: rpcvalue.Value,
+      private[binding] val origin: TemplateCompanion[_],
+  ) {
     @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[T0 >: T, I](implicit ev: Implements[T0, I]): Key[I] =
-      Key(encodedKey)
+      Key(encodedKey, origin)
   }
 
   @implicitNotFound("${T} is not a template that implements interface ${I}")

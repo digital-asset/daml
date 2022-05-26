@@ -30,7 +30,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
 
   /** Prepare an exercise-by-key Update. */
   final def key(k: key)(implicit enc: ValueEncoder[key]): Template.Key[T] =
-    Template.Key(Value encode k)
+    Template.Key(Value encode k, this)
 
   /** Proof that T <: Template[T].  Expressed here instead of as a type parameter
     * bound because the latter is much more inconvenient in practice.
