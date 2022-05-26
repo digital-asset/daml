@@ -267,7 +267,7 @@ private[client] object OnlyPrimitive extends Primitive {
           case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
             val cfe: Template.CreateForExercise[Tpl] = receiver
             rpccmd.Command.Command.CreateAndExercise(
-              // TODO #13925 pass exerciseTarget.id.unwrap as interface ID
+              // TODO #13993 pass exerciseTarget.id.unwrap as interface ID
               rpccmd.CreateAndExerciseCommand(
                 templateId = Some(cfe.value.templateId.unwrap),
                 createArguments = Some(cfe.value.arguments),
@@ -277,7 +277,7 @@ private[client] object OnlyPrimitive extends Primitive {
             )
           case _: ExerciseOn.OnKey[Tpl] =>
             val k: Template.Key[Tpl] = receiver
-            // TODO #13925 pass exerciseTarget.id.unwrap as interface ID
+            // TODO #13993 pass exerciseTarget.id.unwrap as interface ID
             rpccmd.Command.Command.ExerciseByKey(
               rpccmd.ExerciseByKeyCommand(
                 templateId = Some(k.origin.id.unwrap),
