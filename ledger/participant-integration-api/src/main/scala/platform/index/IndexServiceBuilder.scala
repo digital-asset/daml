@@ -206,29 +206,28 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
+        eventProcessingParallelism = eventsProcessingParallelism,
       )(servicesExecutionContext)
 
       for {
-        _ <- ResourceOwner.forCloseable(() =>
-          BuffersUpdater(
-            subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
-              val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                maybeOffsetSeqId.getOrElse(startExclusive)
-              logger.info(
-                s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+        _ <- BuffersUpdater.owner(
+          subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
+            val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
+              maybeOffsetSeqId.getOrElse(startExclusive)
+            logger.info(
+              s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+            )
+            cacheUpdatesDispatcher
+              .startingAt(
+                subscriptionStartExclusive,
+                RangeSource(
+                  ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
+                ),
               )
-              cacheUpdatesDispatcher
-                .startingAt(
-                  subscriptionStartExclusive,
-                  RangeSource(
-                    ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
-                  ),
-                )
-            },
-            updateTransactionsBuffer = transactionsBuffer.push,
-            updateMutableCache = contractStore.push,
-            executionContext = servicesExecutionContext,
-          )
+          },
+          updateTransactionsBuffer = transactionsBuffer.push,
+          updateMutableCache = contractStore.push,
+          metrics = metrics,
         )
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
     } else
