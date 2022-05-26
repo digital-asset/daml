@@ -46,7 +46,11 @@ object Template {
     *   Iou(foo, bar).createAnd.exerciseTransfer(controller, ...)
     * }}}
     */
-  final case class CreateForExercise[+T](value: T with Template[T])
+  final case class CreateForExercise[+T](value: T with Template[_]) {
+    @nowarn("cat=unused&msg=parameter value ev in method")
+    def toInterface[T0 >: T, I](implicit ev: Implements[T0, I]): CreateForExercise[I] =
+      sys.error("TODO #13925 different value evidence")
+  }
 
   /** Part of an `ExerciseByKey` command.
     *
@@ -54,7 +58,11 @@ object Template {
     *   Iou key foo exerciseTransfer (controller, ...)
     * }}}
     */
-  final case class Key[+T](encodedKey: rpcvalue.Value)
+  final case class Key[+T](encodedKey: rpcvalue.Value) {
+    @nowarn("cat=unused&msg=parameter value ev in method")
+    def toInterface[T0 >: T, I](implicit ev: Implements[T0, I]): Key[I] =
+      Key(encodedKey)
+  }
 
   final class Implements[T, I]
 
@@ -62,7 +70,7 @@ object Template {
   implicit final class `template ContractId syntax`[T](private val self: ContractId[T])
       extends AnyVal {
     @nowarn("cat=unused&msg=parameter value ev in method")
-    def toInterface[I](implicit ev: Template.Implements[T, I]): ContractId[I] = {
+    def toInterface[I](implicit ev: Implements[T, I]): ContractId[I] = {
       type K[C] = C => ApiTypes.ContractId
       type K2[C] = ContractId[T] => C
       subst[K2, I](subst[K, T](identity))(self)
