@@ -124,7 +124,7 @@ object WorkflowConfigParser {
       )(FooSubmissionConfig.ApplicationId.apply)
 
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
-      Decoder.forProduct9(
+      Decoder.forProduct10(
         "num_instances",
         "num_observers",
         "num_divulgees",
@@ -134,13 +134,15 @@ object WorkflowConfigParser {
         "nonconsuming_exercises",
         "consuming_exercises",
         "application_ids",
+        "wait_for_submission",
       )(FooSubmissionConfig.apply)
 
     implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =
-      Decoder.forProduct3(
+      Decoder.forProduct4(
         "num_instances",
         "unique_parties",
         "value",
+        "wait_for_submission",
       )(FibonacciSubmissionConfig.apply)
 
     implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
