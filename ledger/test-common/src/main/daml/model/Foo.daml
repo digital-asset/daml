@@ -25,8 +25,8 @@ template Divulger
           fooTemplateName: Text
       controller divulger
       do
-        -- Parties from 'divulgees' sees the creation of Foo even though
-        -- they are not a contract stakeholder, i.e. immediate divulgence occurs.
+        -- Parties from 'divulgees' see the creation of Foo even though
+        -- they are not contract stakeholders, i.e. immediate divulgence occurs.
         if fooTemplateName == "Foo1" then
             void $ create Foo1 with
                 signatory = divulger
