@@ -49,6 +49,15 @@ object Template {
   final case class CreateForExercise[+T](
       private[binding] val value: Template[_]
   ) {
+
+    /** Get access to interface choices.
+      *
+      * {{{
+      *  MyTemplate(foo, bar).createAnd
+      *    .toInterface[MyInterface]
+      *    .exerciseInterfaceChoice(controller, ...)
+      * }}}
+      */
     @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[I](implicit ev: ToInterface[T, I]): CreateForExercise[I] =
       CreateForExercise(value)
@@ -64,6 +73,15 @@ object Template {
       private[binding] val encodedKey: rpcvalue.Value,
       private[binding] val origin: TemplateCompanion[_],
   ) {
+
+    /** Get access to interface choices.
+      *
+      * {{{
+      *  MyTemplate.key(foo)
+      *    .toInterface[MyInterface]
+      *    .exerciseInterfaceChoices(controller, ...)
+      * }}}
+      */
     @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[I](implicit ev: ToInterface[T, I]): Key[I] =
       Key(encodedKey, origin)
@@ -89,6 +107,10 @@ object Template {
   import Primitive.ContractId, ContractId.subst
   implicit final class `template ContractId syntax`[T](private val self: ContractId[T])
       extends AnyVal {
+
+    /** Widen a contract ID to the same contract ID for one of `T`'s implemented
+      * interfaces.  Do this to get access to the interface choices.
+      */
     @nowarn("cat=unused&msg=parameter value ev in method")
     def toInterface[I](implicit ev: ToInterface[T, I]): ContractId[I] = {
       type K[C] = C => ApiTypes.ContractId

@@ -18,6 +18,17 @@ object Interface {
 
   implicit final class `interface ContractId syntax`[I](private val self: ContractId[I])
       extends AnyVal {
+
+    /** Convert an interface contract ID to a template contract ID.  Sometimes
+      * this is needed if you got an interface contract ID from a choice, but
+      * you need to assert that the contract ID is of a particular template
+      * so that you can exercise contracts on it.
+      *
+      * This checks at compile-time that `T` is in fact a template that
+      * implements interface `I`, but it does not check that the specific
+      * contract ID is actually associated with `T` on the ledger, hence the
+      * `unsafe` in the name.
+      */
     @nowarn("cat=unused&msg=parameter value ev in method")
     def unsafeToTemplate[T](implicit ev: Template.Implements[T, I]): ContractId[T] = {
       type K[C] = C => ApiTypes.ContractId
