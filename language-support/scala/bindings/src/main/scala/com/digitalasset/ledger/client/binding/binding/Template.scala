@@ -3,8 +3,11 @@
 
 package com.daml.ledger.client.binding
 
-import com.daml.ledger.api.refinements.ApiTypes.Choice
+import com.daml.ledger.api.refinements.ApiTypes
+import ApiTypes.Choice
 import com.daml.ledger.api.v1.{value => rpcvalue}
+
+import scala.annotation.nowarn
 
 abstract class Template[+T] extends ValueRef { self: T =>
   final def create(implicit d: DummyImplicit): Primitive.Update[Primitive.ContractId[T]] =
@@ -52,4 +55,17 @@ object Template {
     * }}}
     */
   final case class Key[+T](encodedKey: rpcvalue.Value)
+
+  final class Implements[T, I]
+
+  import Primitive.ContractId, ContractId.subst
+  implicit final class `template ContractId syntax`[T](private val self: ContractId[T])
+      extends AnyVal {
+    @nowarn("cat=unused&msg=parameter value ev in method")
+    def toInterface[I](implicit ev: Template.Implements[T, I]): ContractId[I] = {
+      type K[C] = C => ApiTypes.ContractId
+      type K2[C] = ContractId[T] => C
+      subst[K2, I](subst[K, T](identity))(self)
+    }
+  }
 }

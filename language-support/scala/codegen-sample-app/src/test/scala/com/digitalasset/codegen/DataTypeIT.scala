@@ -86,4 +86,15 @@ class DataTypeIT extends AnyWordSpec with Matchers {
     }
   }
 
+  /*
+  "contract IDs" should {
+    val imId: P.ContractId[MyMain.SimpleListExample] = P.ContractId("fakesle")
+    val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
+    val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
+
+    "coerce from template to interface" in {
+      imId.toInterface[MyMainIface.IfaceFromAnotherMod]
+    }
+  }
+   */
 }
