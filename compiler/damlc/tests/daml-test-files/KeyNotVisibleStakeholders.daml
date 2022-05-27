@@ -48,11 +48,11 @@ template Delegation
       do
         fetchByKey @Keyed sig
 
-    choice LookupKeyed
-      : (ContractId Keyed, Keyed)
+    choice LookupKeyed 
+      : Optional (ContractId Keyed)
       controller divulgee
-      do
-        fetchByKey @Keyed sig
+      do 
+        lookupByKey sig
 
 divulgeeFetch = scenario do
   sig <- getParty "s" -- Signatory
