@@ -5,6 +5,7 @@ package com.daml.lf.iface
 
 import scalaz.std.map._
 import scalaz.std.option._
+import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.semigroup._
@@ -12,12 +13,12 @@ import scalaz.syntax.traverse._
 import scalaz.syntax.std.map._
 import scalaz.syntax.std.option._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
+import scalaz.Tags.FirstVal
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyReturningOps._
 
 import scala.jdk.CollectionConverters._
 
@@ -225,15 +226,7 @@ object DefTemplate {
 
 /** Choices in a [[DefTemplate]]. */
 sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
-  import TemplateChoices.{
-    Resolved,
-    Unresolved,
-    ResolveError,
-    directAsResolved,
-    logger,
-    partitionMapValues,
-    transposeMap,
-  }
+  import TemplateChoices.{Resolved, Unresolved, ResolveError, directAsResolved, logger}
 
   /** Choices defined directly on the template */
   def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
@@ -288,22 +281,31 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
+      import scalaz.std.iterable._
+      type ChoiceMap[C] = Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
       val (missing, resolved): (
           Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]],
-          Map[Ref.TypeConName, NonEmpty[Map[Ref.ChoiceName, TemplateChoice[O]]]],
-      ) = partitionMapValues(unresolved) { (tcn, choiceNames) =>
-        getAstInterface(tcn).cata(
-          astIf =>
-            choiceNames
-              .partitionMap(choiceName =>
-                astIf.choices get choiceName map ((choiceName, _)) toRight choiceName
+          Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TemplateChoice[O]]]],
+      ) = (unresolved: Iterable[(Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]])])
+        .foldMap { case (tcn, choiceNames) =>
+          getAstInterface(tcn).cata(
+            { astIf =>
+              val (tcnMissing, tcnResolved) = choiceNames
+                .partitionMap(choiceName =>
+                  astIf.choices get choiceName map { tc =>
+                    (choiceName, NonEmpty(Map, some(tcn) -> tc))
+                  } toRight choiceName
+                )
+              (
+                NonEmpty from tcnMissing foldMap (yesMissing => Map(tcn -> yesMissing)),
+                FirstVal.subst[ChoiceMap, TemplateChoice[O]](tcnResolved.toMap),
               )
-              .map(_.toMap),
-          (choiceNames, Map.empty),
-        )
-      }
-      val indirectGrouped = transposeMap(resolved mapKeys some)(_.map(_._1), _.map(_._2))
-      val rChoices = Resolved(indirectGrouped.unionWith(directAsResolved(direct))(_ ++ _))
+            },
+            (Map(tcn -> choiceNames), Map.empty: ChoiceMap[Nothing]),
+          )
+        }
+        .map(FirstVal.unsubst[ChoiceMap, TemplateChoice[O]])
+      val rChoices = Resolved(resolved.unionWith(directAsResolved(direct))(_ ++ _))
       missing match {
         case NonEmpty(missing) => Left(ResolveError(missing, rChoices))
         case _ => Right(rChoices)
@@ -326,41 +328,6 @@ object TemplateChoices {
 
     private[iface] def map[B](f: Partial => B): ResolveError[B] =
       copy(partialResolution = f(partialResolution))
-  }
-
-  private def transposeMap[K, V, K2, V2](m: Map[K, V])(
-      f: V => Iterable[K2],
-      g: V => V2,
-  ): Map[K2, NonEmpty[Map[K, V2]]] =
-    m.view
-      .flatMap { case (k, v) =>
-        val v2 = g(v)
-        f(v).view.map((_, (k, v2)))
-      }
-      .groupMap(_._1)(_._2)
-      .transform { (_, ks) =>
-        val NonEmpty(ne) = ks.toMap
-        ne
-      }
-
-  import collection.IterableOps
-  private def partitionMapValues[K, V, L, LS[X] <: IterableOps[X, LS, LS[X]], R, RS[
-      X
-  ] <: IterableOps[
-    X,
-    RS,
-    RS[X],
-  ]](m: Map[K, V])(
-      f: (K, V) => (LS[L], RS[R])
-  ): (Map[K, NonEmpty[LS[L]]], Map[K, NonEmpty[RS[R]]]) = {
-    val (kls, krs) = m.view.map { case (k, v) =>
-      val (ls, rs) = f(k, v)
-      ((k, ls), (k, rs))
-    }.unzip
-    (
-      kls.collect { case (k, NonEmpty(ls)) => (k, ls) }.toMap,
-      krs.collect { case (k, NonEmpty(rs)) => (k, rs) }.toMap,
-    )
   }
 
   final case class Unresolved[+Ty](

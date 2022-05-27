@@ -187,7 +187,7 @@ object InterfaceReader {
 
   private[this] def visitChoices[Ty](
       choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      astInterfaces: Map[Ref.TypeConName, Ast.GenTemplateImplements[Ty]],
+      astInterfaces: Map[Ref.TypeConName, Ast.GenTemplateImplements[_]],
   ): TemplateChoices[Ty] = {
     val inheritedChoices: Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]] =
       astInterfaces.collect {
