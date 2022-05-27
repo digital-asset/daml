@@ -42,6 +42,9 @@ object DefDataTypeSpec {
       arbitrary[((K, V), Map[K, V])] map { case (kv, m) => NonEmpty(Map, kv) ++ m }
     )
 
+  private[this] implicit def `nonempty set arb`[A: Arbitrary]: Arbitrary[NonEmpty[Set[A]]] =
+    Arbitrary(arbitrary[(A, Set[A])] map { case (hd, tl) => NonEmpty(Set, hd) ++ tl })
+
   private[this] implicit def `ChoiceName arb`: Arbitrary[Ref.ChoiceName] = Arbitrary(
     ValueGenerators.nameGen
   )

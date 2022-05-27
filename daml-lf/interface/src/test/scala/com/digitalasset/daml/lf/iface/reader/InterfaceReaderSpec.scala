@@ -17,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/-
 import scalaz.syntax.functor._
+import scalaz.syntax.std.map._
 
 import scala.language.implicitConversions
 
@@ -228,24 +229,35 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
         case Some(
               InterfaceType.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
             ) =>
-          inherited.transform((_, tcn) => tcn.qualifiedName) should ===(
-            Map("Useless" -> TIf)
+          inherited.forgetNE.mapKeys(_.qualifiedName) should ===(
+            Map(TIf -> Set(Useless), LibTIf -> Set(Useless))
           )
       }
     }
 
-    lazy val theUselessChoice = TemplateChoice(
-      TypeCon(TypeConName(Ref.Identifier(itpPid, UselessTy)), ImmArraySeq.empty),
-      true,
-      TypePrim(
-        PrimType.ContractId,
-        ImmArraySeq(TypeCon(TypeConName(Ref.Identifier(itpPid, TIf)), ImmArraySeq.empty)),
-      ),
-    )
+    object TheUselessChoice {
+      def unapply(ty: TemplateChoice.FWT): Option[(QualifiedName, QualifiedName)] = {
+        val ItpPid = itpPid
+        ty match {
+          case TemplateChoice(
+                TypeCon(TypeConName(Ref.Identifier(ItpPid, uselessTy)), Seq()),
+                true,
+                TypePrim(
+                  PrimType.ContractId,
+                  Seq(TypeCon(TypeConName(Ref.Identifier(ItpPid, tIf)), Seq())),
+                ),
+              ) =>
+            Some((uselessTy, tIf))
+          case _ => None
+        }
+      }
+    }
 
-    "have an interface with a choice" in {
-      itp.main.astInterfaces.keySet should ===(Set(TIf))
-      itp.main.astInterfaces(TIf).choices get Useless should ===(Some(theUselessChoice))
+    "have interfaces with choices" in {
+      itp.main.astInterfaces.keySet should ===(Set(LibTIf, TIf))
+      inside(itp.main.astInterfaces(TIf).choices get Useless) {
+        case Some(TheUselessChoice(UselessTy, TIf)) =>
+      }
     }
 
     def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {
@@ -254,13 +266,14 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     def foundUselessChoice(foo: Option[InterfaceType]) =
-      inside(foundResolvedChoices(foo).get(Useless).map(_.toSeq)) {
+      inside(foundResolvedChoices(foo).get(Useless).map(_.forgetNE.toSeq)) {
         case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
           Seq(origin1, origin2) should contain theSameElementsAs Seq(
             Ref.Identifier(itpPid, TIf),
             Ref.Identifier(itpPid, LibTIf),
           )
-          allOf(choice1, choice2) should ===(theUselessChoice)
+          inside(choice1) { case TheUselessChoice(_, tIf) => tIf should ===(origin1.qualifiedName) }
+          inside(choice2) { case TheUselessChoice(_, tIf) => tIf should ===(origin2.qualifiedName) }
       }
 
     "resolve inherited choices" in {
