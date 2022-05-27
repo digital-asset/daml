@@ -46,7 +46,7 @@ object Benchmark {
                   .transactionExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
               ),
               itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
-              requiredItemsCount = streamConfig.requiredItemCount,
+              maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
               apiServices.transactionService.transactions(streamConfig, observer)
@@ -66,7 +66,7 @@ object Benchmark {
                 )
               ),
               itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
-              requiredItemsCount = streamConfig.requiredItemCount,
+              maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
               apiServices.transactionService.transactionTrees(streamConfig, observer)
@@ -86,7 +86,7 @@ object Benchmark {
                 )
               ),
               itemCountingFunction = (response) => MetricsSet.countActiveContracts(response).toLong,
-              requiredItemsCount = streamConfig.requiredItemCount,
+              maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
               apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
@@ -103,7 +103,7 @@ object Benchmark {
                   .completionsExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
               ),
               itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
-              requiredItemsCount = streamConfig.requiredItemCount,
+              maxItemCount = streamConfig.maxItemCount,
             )(system, ec)
             .flatMap { observer =>
               Delayed.by(t = Duration(streamConfig.timeoutInSeconds, TimeUnit.SECONDS))(

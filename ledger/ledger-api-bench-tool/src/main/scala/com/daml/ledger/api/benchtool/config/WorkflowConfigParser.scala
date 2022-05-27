@@ -59,7 +59,7 @@ object WorkflowConfigParser {
         "begin_offset",
         "end_offset",
         "objectives",
-        "required_item_count",
+        "max_item_count",
       )(StreamConfig.TransactionsStreamConfig.apply)
 
     implicit val transactionTreesStreamDecoder: Decoder[StreamConfig.TransactionTreesStreamConfig] =
@@ -69,7 +69,7 @@ object WorkflowConfigParser {
         "begin_offset",
         "end_offset",
         "objectives",
-        "required_item_count",
+        "max_item_count",
       )(StreamConfig.TransactionTreesStreamConfig.apply)
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
@@ -77,7 +77,7 @@ object WorkflowConfigParser {
         "name",
         "filters",
         "objectives",
-        "required_item_count",
+        "max_item_count",
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
@@ -88,7 +88,7 @@ object WorkflowConfigParser {
         "begin_offset",
         "timeout_in_seconds",
         "objectives",
-        "required_item_count",
+        "max_item_count",
       )(StreamConfig.CompletionsStreamConfig.apply)
 
     implicit val streamConfigDecoder: Decoder[StreamConfig] =

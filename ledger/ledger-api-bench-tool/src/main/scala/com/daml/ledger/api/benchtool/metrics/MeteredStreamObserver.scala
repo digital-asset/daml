@@ -13,7 +13,7 @@ class MeteredStreamObserver[T](
     logger: Logger,
     manager: MetricsManager[T],
     itemCountingFunction: T => Long,
-    requiredItemsCount: Option[Long],
+    maxItemCount: Option[Long],
 ) extends ObserverWithResult[T, BenchmarkResult](logger) {
   private var itemsCount = 0L
 
@@ -21,7 +21,7 @@ class MeteredStreamObserver[T](
     itemsCount += itemCountingFunction(value)
     manager.sendNewValue(value)
     super.onNext(value)
-    if (requiredItemsCount.isDefined && itemsCount >= requiredItemsCount.get)
+    if (maxItemCount.isDefined && itemsCount >= maxItemCount.get)
       cancel()
   }
 

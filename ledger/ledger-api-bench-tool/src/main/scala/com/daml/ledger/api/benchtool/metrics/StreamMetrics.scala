@@ -18,7 +18,7 @@ object StreamMetrics {
       logger: Logger,
       exposedMetrics: Option[ExposedMetrics[StreamElem]] = None,
       itemCountingFunction: (StreamElem) => Long,
-      requiredItemsCount: Option[Long],
+      maxItemCount: Option[Long],
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
@@ -29,7 +29,7 @@ object StreamMetrics {
         logger = logger,
         manager = manager,
         itemCountingFunction = itemCountingFunction,
-        requiredItemsCount = requiredItemsCount,
+        maxItemCount = maxItemCount,
       )
     }
 
