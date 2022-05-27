@@ -140,24 +140,12 @@ final class FooCommandGenerator(
     val consumingExerciseO: Option[Command] = consumingPayloadO.map { payload =>
       divulgerContractKeyO match {
         case Some(divulgerContractKey) =>
-          makeExerciseByKeyCommand(
-            templateId = FooTemplateDescriptor.Divulger_templateId,
-            choiceName = FooTemplateDescriptor.Divulger_DivulgeConsumingExercise,
-            args = Seq(
-              RecordField(
-                label = "fooTemplateName",
-                value = Some(Value(Value.Sum.Text(templateDescriptor.name))),
-              ),
-              RecordField(
-                label = "fooKey",
-                value = Some(fooContractKey),
-              ),
-              RecordField(
-                label = "fooConsumingPayload",
-                value = Some(Value(Value.Sum.Text(payload))),
-              ),
-            ),
-          )(contractKey = divulgerContractKey)
+          makeDivulgedConsumeExerciseCommand(
+            templateDescriptor = templateDescriptor,
+            fooContractKey = fooContractKey,
+            payload = payload,
+            divulgerContractKey = divulgerContractKey,
+          )
 
         case None =>
           makeExerciseByKeyCommand(
@@ -173,6 +161,32 @@ final class FooCommandGenerator(
       }
     }
     Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
+  }
+
+  private def makeDivulgedConsumeExerciseCommand(
+      templateDescriptor: FooTemplateDescriptor,
+      fooContractKey: Value,
+      payload: String,
+      divulgerContractKey: Value,
+  ): Command = {
+    makeExerciseByKeyCommand(
+      templateId = FooTemplateDescriptor.Divulger_templateId,
+      choiceName = FooTemplateDescriptor.Divulger_DivulgeConsumingExercise,
+      args = Seq(
+        RecordField(
+          label = "fooTemplateName",
+          value = Some(Value(Value.Sum.Text(templateDescriptor.name))),
+        ),
+        RecordField(
+          label = "fooKey",
+          value = Some(fooContractKey),
+        ),
+        RecordField(
+          label = "fooConsumingPayload",
+          value = Some(Value(Value.Sum.Text(payload))),
+        ),
+      ),
+    )(contractKey = divulgerContractKey)
   }
 
   private def makeNonConsumingExerciseCommands(
