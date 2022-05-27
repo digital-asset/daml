@@ -11,7 +11,8 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.InstrumentedGraph._
 import com.daml.platform.indexer.ha.Handle
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.dao.DbDispatcher
@@ -76,12 +77,8 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
-        InstrumentedSource
-          .bufferedSource(
-            original = initialized.readServiceSource,
-            counter = metrics.daml.parallelIndexer.inputBufferLength,
-            size = maxInputBufferSize,
-          )
+        initialized.readServiceSource
+          .buffered(metrics.daml.parallelIndexer.inputBufferLength, maxInputBufferSize)
       )
         .map(_ => ())
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
