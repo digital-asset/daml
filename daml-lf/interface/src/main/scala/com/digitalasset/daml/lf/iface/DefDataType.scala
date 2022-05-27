@@ -225,7 +225,15 @@ object DefTemplate {
 
 /** Choices in a [[DefTemplate]]. */
 sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
-  import TemplateChoices.{Resolved, Unresolved, ResolveError, directAsResolved, logger}
+  import TemplateChoices.{
+    Resolved,
+    Unresolved,
+    ResolveError,
+    directAsResolved,
+    logger,
+    partitionMapValues,
+    transposeMap,
+  }
 
   /** Choices defined directly on the template */
   def directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
@@ -280,18 +288,24 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
-      val (missing, resolved) = unresolved.partitionMap { case pair @ (choiceName, tcn) =>
-        val resolution = for {
-          astIf <- getAstInterface(tcn)
-          tchoice <- astIf.choices get choiceName
-        } yield (choiceName, (some(tcn), tchoice))
-        resolution toRight pair
+      val (missing, resolved): (
+          Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]],
+          Map[Ref.TypeConName, NonEmpty[Map[Ref.ChoiceName, TemplateChoice[O]]]],
+      ) = partitionMapValues(unresolved) { (tcn, choiceNames) =>
+        getAstInterface(tcn).cata(
+          astIf =>
+            choiceNames
+              .partitionMap(choiceName =>
+                astIf.choices get choiceName map ((choiceName, _)) toRight choiceName
+              )
+              .map(_.toMap),
+          (choiceNames, Map.empty),
+        )
       }
-      val indirectGrouped =
-        resolved.groupBy1(_._1).transform { (_, ics) => ics.map(_._2).toMap }
+      val indirectGrouped = transposeMap(resolved mapKeys some)(_.map(_._1), _.map(_._2))
       val rChoices = Resolved(indirectGrouped.unionWith(directAsResolved(direct))(_ ++ _))
       missing match {
-        case NonEmpty(missing) => Left(ResolveError(missing.toMap, rChoices))
+        case NonEmpty(missing) => Left(ResolveError(missing, rChoices))
         case _ => Right(rChoices)
       }
     case r @ Resolved(_) => Right(r)
@@ -302,24 +316,56 @@ object TemplateChoices {
   private val logger = com.typesafe.scalalogging.Logger(getClass)
 
   final case class ResolveError[+Partial](
-      missingChoices: NonEmpty[Map[Ref.ChoiceName, NonEmpty[Set[Ref.TypeConName]]]],
+      missingChoices: NonEmpty[Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]]],
       partialResolution: Partial,
   ) {
     private[iface] def describeError: String =
-      transposeMap(missingChoices).view
-        .map { case (tc, cns) => s"$tc(${cns mkString ", "}" }
+      missingChoices.view
+        .map { case (tc, cns) => s"$tc(${cns mkString ", "})" }
         .mkString(", ")
 
     private[iface] def map[B](f: Partial => B): ResolveError[B] =
       copy(partialResolution = f(partialResolution))
   }
 
-  private[this] def transposeMap[K, V](m: Map[K, V]): Map[V, Iterable[K]] =
-    m.groupBy(_._2).transform((_, ks) => ks.keys)
+  private def transposeMap[K, V, K2, V2](m: Map[K, V])(
+      f: V => Iterable[K2],
+      g: V => V2,
+  ): Map[K2, NonEmpty[Map[K, V2]]] =
+    m.view
+      .flatMap { case (k, v) =>
+        val v2 = g(v)
+        f(v).view.map((_, (k, v2)))
+      }
+      .groupMap(_._1)(_._2)
+      .transform { (_, ks) =>
+        val NonEmpty(ne) = ks.toMap
+        ne
+      }
+
+  import collection.IterableOps
+  private def partitionMapValues[K, V, L, LS[X] <: IterableOps[X, LS, LS[X]], R, RS[
+      X
+  ] <: IterableOps[
+    X,
+    RS,
+    RS[X],
+  ]](m: Map[K, V])(
+      f: (K, V) => (LS[L], RS[R])
+  ): (Map[K, NonEmpty[LS[L]]], Map[K, NonEmpty[RS[R]]]) = {
+    val (kls, krs) = m.view.map { case (k, v) =>
+      val (ls, rs) = f(k, v)
+      ((k, ls), (k, rs))
+    }.unzip
+    (
+      kls.collect { case (k, NonEmpty(ls)) => (k, ls) }.toMap,
+      krs.collect { case (k, NonEmpty(rs)) => (k, rs) }.toMap,
+    )
+  }
 
   final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, NonEmpty[Set[Ref.TypeConName]]]],
+      unresolvedInheritedChoices: NonEmpty[Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]]],
   ) extends TemplateChoices[Ty] {
     override def resolvedChoices =
       directAsResolved(directChoices)
