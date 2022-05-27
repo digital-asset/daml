@@ -8,5 +8,5 @@ final case class RateLimitingConfig(
 )
 
 case object RateLimitingConfig {
-  val default: RateLimitingConfig = RateLimitingConfig(maxApiServicesQueueSize = 1000)
+  val default: RateLimitingConfig = RateLimitingConfig(maxApiServicesQueueSize = 10000)
 }
