@@ -11,12 +11,11 @@ class FooSubmission(
     submitter: CommandSubmitter,
     maxInFlightCommands: Int,
     submissionBatchSize: Int,
-    submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     names: Names,
 ) {
 
-  def performSubmission()(implicit
+  def performSubmission(submissionConfig: FooSubmissionConfig)(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     val (divulgerCmds, divulgeesToDivulgerKeyMap) = FooDivulgerCommandGenerator
@@ -27,7 +26,7 @@ class FooSubmission(
 
     for {
       _ <-
-        if (divulgerCmds.nonEmpty) {
+        if (!divulgerCmds.isEmpty) {
           require(
             divulgeesToDivulgerKeyMap.nonEmpty,
             "Map from divulgees to Divulger contract keys must be non empty.",

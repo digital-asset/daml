@@ -49,7 +49,7 @@ final class FooCommandGenerator(
     allocatedParties.extraSubmitters
   )
 
-  override def next(): Try[Seq[Command]] =
+  override def next(): Try[GeneratedCommands] =
     (for {
       (contractDescription, observers, divulgees) <- Try(
         (
@@ -59,7 +59,7 @@ final class FooCommandGenerator(
         )
       )
       createContractPayload <- Try(randomPayload(contractDescription.payloadSizeBytes))
-      command = createCommands(
+      commands = makeCommands(
         templateDescriptor = FooTemplateDescriptor.forName(contractDescription.template),
         signatory = allocatedParties.signatory,
         observers = observers,
@@ -67,7 +67,7 @@ final class FooCommandGenerator(
           if (divulgees.isEmpty) None else divulgeesToDivulgerKeyMap.get(divulgees),
         payload = createContractPayload,
       )
-    } yield command).recoverWith { case NonFatal(ex) =>
+    } yield commands).recoverWith { case NonFatal(ex) =>
       Failure(
         FooCommandGenerator.CommandGeneratorError(
           msg = s"Command generation failed. Details: ${ex.getLocalizedMessage}",
@@ -98,13 +98,13 @@ final class FooCommandGenerator(
   private def randomDraw(unlikelihood: Int): Boolean =
     randomnessProvider.randomNatural(unlikelihood) == 0
 
-  private def createCommands(
+  private def makeCommands(
       templateDescriptor: FooTemplateDescriptor,
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       divulgerContractKeyO: Option[Value],
       payload: String,
-  ): Seq[Command] = {
+  ): GeneratedCommands = {
     val contractCounter = FooCommandGenerator.nextContractNumber.getAndIncrement()
     val fooKeyId = "foo-" + contractCounter
     val fooContractKey = FooCommandGenerator.makeContractKeyValue(signatory, fooKeyId)
@@ -132,7 +132,7 @@ final class FooCommandGenerator(
         }
         Seq.fill[String](f)(randomPayload(config.payloadSizeBytes))
       }
-    val nonconsumingExercises = nonconsumingExercisePayloads.map { payload =>
+    val nonConsumingCommands = nonconsumingExercisePayloads.map { payload =>
       makeExerciseByKeyCommand(
         templateId = templateDescriptor.templateId,
         choiceName = templateDescriptor.nonconsumingChoiceName,
@@ -163,7 +163,18 @@ final class FooCommandGenerator(
 
         } else None
       )
-    Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
+    if (config.createAndConsumeInOneTransaction) {
+      GeneratedCommands(
+        firstTransaction = Seq(createFooCmd) ++ nonConsumingCommands ++ consumingExerciseO.toList,
+        secondTransaction = Seq.empty,
+      )
+    } else {
+      GeneratedCommands(
+        firstTransaction = Seq(createFooCmd) ++ nonConsumingCommands,
+        secondTransaction = consumingExerciseO.toList,
+      )
+    }
+
   }
 
   private def makeCreateAndDivulgeFooCommand(

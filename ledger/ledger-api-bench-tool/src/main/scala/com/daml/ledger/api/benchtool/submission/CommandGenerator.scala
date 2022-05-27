@@ -8,8 +8,18 @@ import com.daml.ledger.client.binding.Primitive
 
 import scala.util.Try
 
+/** Allows for splitting generated commands in two separate transactions.
+  */
+case class GeneratedCommands(
+    firstTransaction: Seq[Command],
+    secondTransaction: Seq[Command] = Seq.empty,
+) {
+
+  def isEmpty: Boolean = firstTransaction.isEmpty && secondTransaction.isEmpty
+
+}
 trait CommandGenerator {
-  def next(): Try[Seq[Command]]
+  def next(): Try[GeneratedCommands]
 
   def nextApplicationId(): String
 

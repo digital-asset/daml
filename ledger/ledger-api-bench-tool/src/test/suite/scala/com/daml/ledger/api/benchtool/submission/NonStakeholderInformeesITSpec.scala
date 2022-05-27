@@ -64,11 +64,10 @@ class NonStakeholderInformeesITSpec
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
-        submissionConfig = submissionConfig,
         allocatedParties = allocatedParties,
         names = names,
       )
-      _ <- tested.performSubmission()
+      _ <- tested.performSubmission(submissionConfig = submissionConfig)
       (treeResults_divulgee0, flatResults_divulgee0) <- observeAllTemplatesForParty(
         party = allocatedParties.divulgees(0),
         apiServices = apiServices,

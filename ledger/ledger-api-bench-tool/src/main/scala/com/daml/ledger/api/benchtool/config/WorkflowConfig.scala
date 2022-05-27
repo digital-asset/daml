@@ -42,6 +42,7 @@ object WorkflowConfig {
       numberOfDivulgees: Int,
       numberOfExtraSubmitters: Int,
       uniqueParties: Boolean,
+      createAndConsumeInOneTransactionO: Option[Boolean] = None,
       instanceDistribution: List[FooSubmissionConfig.ContractDescription],
       nonConsumingExercises: Option[NonconsumingExercises],
       consumingExercises: Option[ConsumingExercises],
@@ -49,6 +50,9 @@ object WorkflowConfig {
       maybeWaitForSubmission: Option[Boolean] = None,
   ) extends SubmissionConfig {
     def waitForSubmission: Boolean = maybeWaitForSubmission.getOrElse(true)
+
+    val createAndConsumeInOneTransaction: Boolean =
+      createAndConsumeInOneTransactionO.getOrElse(true)
   }
 
   object FooSubmissionConfig {

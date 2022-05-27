@@ -21,39 +21,36 @@ final class FibonacciCommandGenerator(
 
   override def nextExtraCommandSubmitters(): List[Primitive.Party] = List.empty
 
-  def next(): Try[Seq[Command]] = {
-    Success(
-      Seq(
-        Command(
-          Command.Command.CreateAndExercise(
-            CreateAndExerciseCommand(
-              templateId = Some(
-                com.daml.ledger.test.model.Bench.InefficientFibonacci.id.asInstanceOf[Identifier]
-              ),
-              createArguments = Some(
-                toNamedArguments(com.daml.ledger.test.model.Bench.InefficientFibonacci(signatory))
-              ),
-              choice = "InefficientFibonacci_Compute",
-              choiceArgument = Some(
-                Value(
-                  Value.Sum.Record(
-                    Record(
-                      None,
-                      Seq(
-                        RecordField(
-                          label = "value",
-                          value = Some(Value(Value.Sum.Int64(config.value.toLong))),
-                        )
-                      ),
+  def next(): Try[GeneratedCommands] = {
+    val command = Command(
+      Command.Command.CreateAndExercise(
+        CreateAndExerciseCommand(
+          templateId = Some(
+            com.daml.ledger.test.model.Bench.InefficientFibonacci.id.asInstanceOf[Identifier]
+          ),
+          createArguments = Some(
+            toNamedArguments(com.daml.ledger.test.model.Bench.InefficientFibonacci(signatory))
+          ),
+          choice = "InefficientFibonacci_Compute",
+          choiceArgument = Some(
+            Value(
+              Value.Sum.Record(
+                Record(
+                  None,
+                  Seq(
+                    RecordField(
+                      label = "value",
+                      value = Some(Value(Value.Sum.Int64(config.value.toLong))),
                     )
-                  )
+                  ),
                 )
-              ),
+              )
             )
-          )
+          ),
         )
       )
     )
+    Success(GeneratedCommands(firstTransaction = Seq(command)))
   }
 
 }

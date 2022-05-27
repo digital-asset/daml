@@ -22,7 +22,7 @@ object FooDivulgerCommandGenerator {
   def makeCreateDivulgerCommands(
       divulgingParty: Primitive.Party,
       allDivulgees: List[Primitive.Party],
-  ): (List[Command], Map[Set[Primitive.Party], Value]) = {
+  ): (GeneratedCommands, Map[Set[Primitive.Party], Value]) = {
     require(
       allDivulgees.size <= 5,
       s"Number of divulgee parties must be at most 5, was: ${allDivulgees.size}.",
@@ -61,7 +61,7 @@ object FooDivulgerCommandGenerator {
       (cmd, key, divulgees.toSet)
     }.unzip3
     val divulgeesToContractKeysMap = divulgeeSets.zip(keys).toMap
-    (commands, divulgeesToContractKeysMap)
+    (GeneratedCommands(commands), divulgeesToContractKeysMap)
   }
 
 }

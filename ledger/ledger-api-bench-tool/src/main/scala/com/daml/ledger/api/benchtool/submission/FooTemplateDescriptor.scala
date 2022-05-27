@@ -10,7 +10,10 @@ case class FooTemplateDescriptor(
     templateId: Identifier,
     consumingChoiceName: String,
     nonconsumingChoiceName: String,
-)
+) {
+  val fullyQualifiedName: String =
+    templateId.packageId + ":" + templateId.moduleName + ":" + templateId.entityName
+}
 
 /** NOTE: Keep me in sync with `Foo.daml`
   */

@@ -84,11 +84,10 @@ class FooCommandSubmitterITSpec
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
-        submissionConfig = config,
         allocatedParties = allocatedParties,
         names = names,
       )
-      _ <- tested.performSubmission()
+      _ <- tested.performSubmission(submissionConfig = config)
       observerResult_signatory: ObservedEvents <- treeEventsObserver(
         apiServices = apiServices,
         party = allocatedParties.signatory,

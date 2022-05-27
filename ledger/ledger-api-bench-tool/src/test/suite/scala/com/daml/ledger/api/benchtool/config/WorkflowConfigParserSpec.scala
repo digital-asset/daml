@@ -27,6 +27,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_divulgees: 5
           |  num_extra_submitters: 6
           |  unique_parties: true
+          |  create_and_consume_in_one_transaction: true
           |  instance_distribution:
           |    - template: Foo1
           |      weight: 50
@@ -63,6 +64,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfDivulgees = 5,
               numberOfExtraSubmitters = 6,
               uniqueParties = true,
+              createAndConsumeInOneTransactionO = Some(true),
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
                   template = "Foo1",
@@ -147,6 +149,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfDivulgees = 5,
               numberOfExtraSubmitters = 6,
               uniqueParties = true,
+              createAndConsumeInOneTransactionO = None,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
                   template = "Foo1",

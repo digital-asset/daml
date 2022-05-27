@@ -89,14 +89,14 @@ case class CommandSubmitter(
   def submitSingleBatch(
       commandId: String,
       actAs: Seq[Primitive.Party],
-      commands: Seq[Command],
+      commands: GeneratedCommands,
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     submit(
       id = commandId,
       actAs = actAs,
-      commands = commands,
+      commands = Seq(commands),
       applicationId = names.benchtoolApplicationId,
       useSubmitAndWait = true,
     )
@@ -161,7 +161,7 @@ case class CommandSubmitter(
   private def submit(
       id: String,
       actAs: Seq[Primitive.Party],
-      commands: Seq[Command],
+      commands: Seq[GeneratedCommands],
       applicationId: String,
       useSubmitAndWait: Boolean,
   )(implicit
@@ -175,11 +175,25 @@ case class CommandSubmitter(
       commands = commands,
       workflowId = names.workflowId,
     )
+    val commandsFirstTx = makeCommands(commands.flatMap(_.firstTransaction))
+    val commandsSecondTx = makeCommands(commands.flatMap(_.secondTransaction))
 
     (if (useSubmitAndWait) {
-       benchtoolUserServices.commandService.submitAndWait(makeCommands(commands))
+       for {
+         r <- benchtoolUserServices.commandService.submitAndWait(commandsFirstTx)
+       } yield {
+         if (commandsSecondTx.commands.nonEmpty) {
+           benchtoolUserServices.commandService.submitAndWait(commandsSecondTx)
+         } else {
+           r
+         }
+       }
+
      } else {
-       benchtoolUserServices.commandSubmissionService.submit(makeCommands(commands))
+       if (commandsSecondTx.commands.nonEmpty) {
+         sys.error("Attempting to submit two dependent transactions without using submitAndWait")
+       }
+       benchtoolUserServices.commandSubmissionService.submit(commandsFirstTx)
      }).map(_ => ())
   }
 
@@ -225,12 +239,12 @@ case class CommandSubmitter(
             .groupedWithin(submissionBatchSize, 1.minute)
             .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
-            .mapAsync(maxInFlightCommands) { case (index, commands) =>
+            .mapAsync(maxInFlightCommands) { case (index, commands: Seq[GeneratedCommands]) =>
               timed(submitLatencyTimer, metricsManager) {
                 submit(
                   id = names.commandId(index),
                   actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
-                  commands = commands.flatten,
+                  commands = commands,
                   applicationId = generator.nextApplicationId(),
                   useSubmitAndWait = config.waitForSubmission,
                 )

@@ -77,11 +77,10 @@ class WeightedApplicationIdsAndSubmittersITSpec
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 1,
-        submissionConfig = submissionConfig,
         names = names,
         allocatedParties = allocatedParties,
       )
-      _ <- tested.performSubmission()
+      _ <- tested.performSubmission(submissionConfig = submissionConfig)
       completionsApp1 <- observeCompletions(
         parties = List(allocatedParties.signatory),
         apiServices = apiServices,

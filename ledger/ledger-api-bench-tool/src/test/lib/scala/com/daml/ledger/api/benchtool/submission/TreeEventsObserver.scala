@@ -56,6 +56,8 @@ case class ObservedEvents(
     s"${_actualTemplateNames} must be a subset of $expectedTemplateNames",
   )
 
+  val allEventsSize: Int = createEvents.size + exerciseEvents.size
+
   val consumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filter(_.consuming)
   val nonConsumingExercises: Seq[ObservedExerciseEvent] = exerciseEvents.filterNot(_.consuming)
 

@@ -301,10 +301,9 @@ class LedgerApiBenchTool(
               submitter = submitter,
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
-              submissionConfig = submissionConfig,
               allocatedParties = allocatedParties,
               names = names,
-            ).performSubmission()
+            ).performSubmission(submissionConfig = submissionConfig)
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
               signatory = allocatedParties.signatory,
