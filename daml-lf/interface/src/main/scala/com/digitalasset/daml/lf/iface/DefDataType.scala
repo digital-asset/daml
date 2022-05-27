@@ -302,7 +302,7 @@ object TemplateChoices {
   private val logger = com.typesafe.scalalogging.Logger(getClass)
 
   final case class ResolveError[+Partial](
-      missingChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
+      missingChoices: NonEmpty[Map[Ref.ChoiceName, NonEmpty[Set[Ref.TypeConName]]]],
       partialResolution: Partial,
   ) {
     private[iface] def describeError: String =
@@ -319,7 +319,7 @@ object TemplateChoices {
 
   final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, Ref.TypeConName]],
+      unresolvedInheritedChoices: NonEmpty[Map[Ref.ChoiceName, NonEmpty[Set[Ref.TypeConName]]]],
   ) extends TemplateChoices[Ty] {
     override def resolvedChoices =
       directAsResolved(directChoices)

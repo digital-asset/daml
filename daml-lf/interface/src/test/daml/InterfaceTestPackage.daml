@@ -3,6 +3,8 @@
 
 module InterfaceTestPackage where
 
+import qualified InterfaceTestLib as L
+
 template Foo with
     party: Party
   where
@@ -13,6 +15,10 @@ template Foo with
         return ()
 
     implements TIf where
+      getOwner = party
+      dup = toInterfaceContractId <$> create this
+
+    implements L.TIf where
       getOwner = party
       dup = toInterfaceContractId <$> create this
 

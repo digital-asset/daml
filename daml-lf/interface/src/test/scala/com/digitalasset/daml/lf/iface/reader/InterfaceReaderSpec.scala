@@ -212,6 +212,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     val Bar = cn("Bar")
     val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
+    val LibTIf = qn("InterfaceTestLib:TIf")
     val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
     import itp.main.{packageId => itpPid}
@@ -254,9 +255,12 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
     def foundUselessChoice(foo: Option[InterfaceType]) =
       inside(foundResolvedChoices(foo).get(Useless).map(_.toSeq)) {
-        case Some(Seq((Some(origin), onlyOne))) =>
-          origin should ===(Ref.Identifier(itpPid, TIf))
-          onlyOne should ===(theUselessChoice)
+        case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
+          Seq(origin1, origin2) should contain theSameElementsAs Seq(
+            Ref.Identifier(itpPid, TIf),
+            Ref.Identifier(itpPid, LibTIf),
+          )
+          allOf(choice1, choice2) should ===(theUselessChoice)
       }
 
     "resolve inherited choices" in {
@@ -272,7 +276,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     "collect direct and resolved choices in one map" in {
       foundResolvedChoices(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
         .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
-        Useless -> Set(Some(Ref.Identifier(itpPid, TIf))),
+        Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
         Bar -> Set(None),
         Archive -> Set(None),
       )

@@ -182,17 +182,29 @@ object InterfaceReader {
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
     } yield name -> (iface.InterfaceType.Template(
       Record(fields),
-      DefTemplate(visitChoices(choices, dfn.inheritedChoices), key, dfn.implements.keys),
+      DefTemplate(visitChoices(choices, dfn.implements), key, dfn.implements.keys),
     ): T)
 
   private[this] def visitChoices[Ty](
       choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      inheritedChoices: Map[Ref.ChoiceName, Ref.TypeConName],
-  ): TemplateChoices[Ty] =
+      astInterfaces: Map[Ref.TypeConName, Ast.GenTemplateImplements[Ty]],
+  ): TemplateChoices[Ty] = {
+    val inheritedChoices: Map[Ref.ChoiceName, NonEmpty[Set[Ref.TypeConName]]] =
+      transposeMap(astInterfaces)(_.inheritedChoices)
     inheritedChoices match {
       case NonEmpty(unresolvedInherited) =>
         TemplateChoices.Unresolved(choices, unresolvedInherited)
       case _ => TemplateChoices.Resolved fromDirect choices
+    }
+  }
+
+  private[this] def transposeMap[K, V, K2](m: Map[K, V])(
+      f: V => Iterable[K2]
+  ): Map[K2, NonEmpty[Set[K]]] =
+    m.view.flatMap { case (k, v) => f(v).view.map((_, k)) }.groupMap(_._1)(_._2).transform {
+      (_, ks) =>
+        val NonEmpty(ne) = ks.toSet
+        ne
     }
 
   private def visitChoice(
