@@ -63,6 +63,10 @@ object InterfaceClass extends StrictLogging {
         .get(ClassName get classOf[InterfaceCompanion[_]], interfaceName)
     )
     .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
+    .addMethod {
+      // we define this explicitly to make it package-private
+      MethodSpec.constructorBuilder().build()
+    }
     .build()
 
   private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
