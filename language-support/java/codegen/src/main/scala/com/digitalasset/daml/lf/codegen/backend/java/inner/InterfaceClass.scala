@@ -3,6 +3,7 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.iface.DefInterface
 import com.squareup.javapoet._
@@ -25,6 +26,7 @@ object InterfaceClass extends StrictLogging {
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addField(generateTemplateIdField(packageId, interfaceId))
+        .addField(generateInterfaceCompanionField())
         .addType(
           ContractIdClass
             .builder(
@@ -34,10 +36,34 @@ object InterfaceClass extends StrictLogging {
             )
             .build()
         )
+        .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
         .build()
       logger.debug("End")
       interfaceType
     }
+
+  private val companionName = "INTERFACE"
+
+  private def generateInterfaceCompanionField(): FieldSpec =
+    FieldSpec
+      .builder(
+        ClassName bestGuess companionName,
+        companionName,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+        Modifier.STATIC,
+      )
+      .initializer("new $N()", companionName)
+      .build()
+
+  private def generateInterfaceCompanionClass(interfaceName: ClassName): TypeSpec = TypeSpec
+    .classBuilder(companionName)
+    .superclass(
+      ParameterizedTypeName
+        .get(ClassName get classOf[InterfaceCompanion[_]], interfaceName)
+    )
+    .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
+    .build()
 
   private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
     ClassGenUtils.generateTemplateIdField(
