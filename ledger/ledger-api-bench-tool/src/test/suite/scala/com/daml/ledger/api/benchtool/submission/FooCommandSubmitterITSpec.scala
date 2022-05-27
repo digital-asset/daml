@@ -141,6 +141,7 @@ class FooCommandSubmitterITSpec
       beginOffset = None,
       endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
       objectives = None,
+      maxItemCount = None,
     )
     apiServices.transactionService.transactionTrees(
       config = config,

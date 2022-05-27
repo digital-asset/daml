@@ -77,6 +77,7 @@ class FibonacciCommandSubmitterITSpec
           beginOffset = None,
           endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
           objectives = None,
+          maxItemCount = None,
         ),
         observer = eventsObserver,
       )

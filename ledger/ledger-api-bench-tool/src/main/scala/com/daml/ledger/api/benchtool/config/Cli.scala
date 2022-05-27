@@ -239,6 +239,7 @@ object Cli {
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
@@ -246,6 +247,7 @@ object Cli {
           endOffset = endOffset,
           objectives =
             transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+          maxItemCount = maxItemCount,
         )
 
         def transactionTreesConfig
@@ -259,6 +261,7 @@ object Cli {
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            maxItemCount <- optionalLongField("max-item-count")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
@@ -266,6 +269,7 @@ object Cli {
             endOffset = endOffset,
             objectives =
               transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+            maxItemCount = maxItemCount,
           )
 
         def rateObjectives(
@@ -289,10 +293,12 @@ object Cli {
           filters <- stringField("filters").flatMap(parseFilters)
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
           objectives = rateObjectives(minItemRate, maxItemRate),
+          maxItemCount = maxItemCount,
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
@@ -304,6 +310,7 @@ object Cli {
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
             timeoutInSeconds <- longField("timeout")
+            maxItemCount <- optionalLongField("max-item-count")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
             parties = parties,
@@ -311,6 +318,7 @@ object Cli {
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
             timeoutInSeconds = timeoutInSeconds,
+            maxItemCount = maxItemCount,
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
