@@ -36,6 +36,7 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
+import com.daml.metrics.InstrumentedGraph._
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -317,20 +318,14 @@ private[dao] final class TransactionsReader(
       }
       .mapConcat(identity)
 
-    val transactionLogUpdatesSource = TransactionsReader
+    TransactionsReader
       .groupContiguous(eventsSource)(by = _.transactionId)
       .map { v =>
         val tx = toTransaction(v)
         (tx.offset, tx.events.last.eventSequentialId) -> tx
       }
       .mapMaterializedValue(_ => NotUsed)
-
-    InstrumentedSource
-      .bufferedSource(
-        original = transactionLogUpdatesSource,
-        counter = metrics.daml.index.transactionLogUpdatesBufferSize,
-        size = outputStreamBufferSize,
-      )
+      .buffered(metrics.daml.index.transactionLogUpdatesBufferSize, outputStreamBufferSize)
       .concat(endMarker)
   }
 
@@ -435,19 +430,13 @@ private[dao] final class TransactionsReader(
       }
       .map(event => (event.eventOffset, event.eventSequentialId) -> event)
 
-    val groupedByOffset = TransactionsReader
+    TransactionsReader
       .groupContiguous(contractStateEventsSource)(by = { case ((offset, _), _) => offset })
       .map { v =>
         val offset = v.head._1
         offset -> v.map(_._2)
       }
-
-    InstrumentedSource
-      .bufferedSource(
-        original = groupedByOffset,
-        counter = metrics.daml.index.contractStateEventsBufferSize,
-        size = outputStreamBufferSize,
-      )
+      .buffered(metrics.daml.index.contractStateEventsBufferSize, outputStreamBufferSize)
       .concat(endMarker)
   }
 

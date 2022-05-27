@@ -3,32 +3,32 @@
 
 package com.daml.metrics
 
-import scala.util.chaining._
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.QueueOfferResult
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.metrics.InstrumentedSourceSpec.SamplingCounter
+import com.daml.metrics.InstrumentedGraphSpec.SamplingCounter
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.metrics.InstrumentedGraph._
 
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
+final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
   behavior of "InstrumentedSource.queue"
 
   it should "correctly enqueue and measure queue delay" in {
     val capacityCounter = new Counter()
-    val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
+    val maxBuffered = new InstrumentedGraphSpec.MaxValueCounter()
     val delayTimer = new Timer()
     val bufferSize = 2
 
     val (source, sink) =
-      InstrumentedSource
+      InstrumentedGraph
         .queue[Int](bufferSize, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1) { x =>
           akka.pattern.after(5.millis, system.scheduler)(Future(x))
@@ -60,14 +60,14 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     val lowAcceptanceThreshold = bufferSize - acceptanceTolerance
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
-    val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
+    val maxBuffered = new InstrumentedGraphSpec.MaxValueCounter()
     val capacityCounter = new Counter()
     val delayTimer = new Timer()
 
     val stop = Promise[Unit]()
 
     val (source, termination) =
-      InstrumentedSource
+      InstrumentedGraph
         .queue[Int](bufferSize, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1)(_ => stop.future) // Block until completed to overflow queue.
         .watchTermination()(Keep.both)
@@ -102,19 +102,13 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
   }
 
   // this test suite is disabled since it's timing related expectations proven to be very flaky in automated tests
-  behavior of "InstrumentedSource.bufferedSource"
+  behavior of s"${classOf[BufferedFlow[_, _, _]].getSimpleName}.buffered"
 
   def throttledTest(producerMaxSpeed: Int, consumerMaxSpeed: Int): Future[List[Long]] = {
     val counter = new SamplingCounter(10.millis)
     Source(List.fill(1000)("element"))
       .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
-      .pipe(original =>
-        InstrumentedSource.bufferedSource(
-          original = original,
-          counter = counter,
-          size = 100,
-        )
-      )
+      .buffered(counter, 100)
       .throttle(consumerMaxSpeed, FiniteDuration(10, "millis"))
       .run()
       .map(_ => counter.finishSampling())
@@ -125,7 +119,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
   def samplePercentage(samples: List[Long])(filter: Long => Boolean): Double =
     samples.count(filter).toDouble / samples.size.toDouble * 100.0
 
-  it should "signal mostly full buffer if slow consumer" ignore {
+  it should "signal mostly full buffer if slow consumer" in {
     throttledTest(
       producerMaxSpeed = 10,
       consumerMaxSpeed = 5,
@@ -135,7 +129,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     }
   }
 
-  it should "signal mostly empty buffer if fast consumer" ignore {
+  it should "signal mostly empty buffer if fast consumer" in {
     throttledTest(
       producerMaxSpeed = 10,
       consumerMaxSpeed = 20,
@@ -145,7 +139,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     }
   }
 
-  it should "signal mostly empty buffer if speeds are aligned" ignore {
+  it should "signal mostly empty buffer if speeds are aligned" in {
     throttledTest(
       producerMaxSpeed = 10,
       consumerMaxSpeed = 10,
@@ -154,29 +148,9 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
       samplePercentage(samples)(_ == 0) should be > 90.0
     }
   }
-
-  it should "signal mostly empty buffer if consumer slightly faster" ignore {
-    throttledTest(
-      producerMaxSpeed = 10,
-      consumerMaxSpeed = 12,
-    ) map { samples =>
-      sampleAverage(samples) should be < 10.0
-      samplePercentage(samples)(_ == 0) should be > 90.0
-    }
-  }
-
-  it should "signal mostly full buffer if consumer slightly slower" ignore {
-    throttledTest(
-      producerMaxSpeed = 10,
-      consumerMaxSpeed = 8,
-    ) map { samples =>
-      sampleAverage(samples) should be > 50.0
-      samplePercentage(samples)(_ == 100) should be > 40.0
-    }
-  }
 }
 
-object InstrumentedSourceSpec {
+object InstrumentedGraphSpec {
 
   // For testing only, this counter will never decrease
   // so that we can test the maximum value read

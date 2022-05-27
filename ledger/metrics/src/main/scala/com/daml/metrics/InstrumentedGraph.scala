@@ -3,11 +3,13 @@
 
 package com.daml.metrics
 
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.{Counter, Timer}
 
-object InstrumentedSource {
+import scala.util.chaining._
+
+object InstrumentedGraph {
 
   final class InstrumentedBoundedSourceQueue[T](
       delegate: BoundedSourceQueue[(Timer.Context, T)],
@@ -86,33 +88,30 @@ object InstrumentedSource {
     }
   }
 
-  /** Adds a buffer to the output of the original source, and adds a Counter metric for buffer size.
-    *
-    * Good for detecting bottlenecks and speed difference between consumer and producer.
-    * In case producer is faster, this buffer should be mostly empty.
-    * In case producer is slower, this buffer should be mostly full.
-    *
-    * @param original the original source which will be instrumented
-    * @param counter the counter to track the actual size of the buffer
-    * @param size the maximum size of the buffer. In case of a bottleneck in producer this will be mostly full, so careful estimation needed to prevent excessive memory pressure
-    * @tparam T
-    * @tparam U
-    * @return the instrumentes source
-    */
-  def bufferedSource[T, U](
-      original: Source[T, U],
-      counter: com.codahale.metrics.Counter,
-      size: Int,
-  ): Source[T, U] = {
-    def tap(block: => Unit): T => T = t => {
-      block
-      t
-    }
-    original
-      .map(
-        tap(counter.inc())
-      ) // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
-      .buffer(size, OverflowStrategy.backpressure)
-      .map(tap(counter.dec()))
+  implicit class BufferedFlow[In, Out, Mat](val original: Flow[In, Out, Mat]) extends AnyVal {
+
+    /** Adds a buffer to the output of the [[original]] flow, and adds a Counter metric for buffer size.
+      *
+      * Good for detecting bottlenecks and speed difference between consumer and producer.
+      * In case producer is faster, this buffer should be mostly empty.
+      * In case producer is slower, this buffer should be mostly full.
+      *
+      * @param counter the counter to track the actual size of the buffer
+      * @param size the maximum size of the buffer.
+      *             In case of a bottleneck in producer this will be mostly full,
+      *             so careful estimation is needed to prevent excessive memory pressure.
+      * @return the instrumented flow
+      */
+    def buffered(counter: com.codahale.metrics.Counter, size: Int): Flow[In, Out, Mat] =
+      original
+        // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
+        .map(_.tap(_ => counter.inc()))
+        .buffer(size, OverflowStrategy.backpressure)
+        .map(_.tap(_ => counter.dec()))
+  }
+
+  implicit class BufferedSource[Out, Mat](val original: Source[Out, Mat]) extends AnyVal {
+    def buffered(counter: com.codahale.metrics.Counter, size: Int): Source[Out, Mat] =
+      original.via(Flow[Out].buffered(counter, size))
   }
 }
