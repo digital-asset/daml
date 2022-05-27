@@ -49,7 +49,7 @@ class FooCommandSubmitterITSpec
       payloadSizeBytes = 100,
     )
     val config = WorkflowConfig.FooSubmissionConfig(
-      numberOfInstances = 10,
+      numberOfInstances = 100,
       numberOfObservers = 2,
       numberOfDivulgees = 0,
       numberOfExtraSubmitters = 0,
