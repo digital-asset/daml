@@ -567,6 +567,12 @@ describe("interface definition", () => {
     expect(if1).not.toHaveProperty(key2);
     expect(if2).not.toHaveProperty(key1);
   });
+  test("even with no choices", () => {
+    const emptyIfcId: string = buildAndLint.Main.EmptyIfc.templateId;
+    expect(buildAndLint.Main.EmptyIfc).toMatchObject({
+      templateId: emptyIfcId,
+    });
+  });
 });
 
 test("interfaces", async () => {
