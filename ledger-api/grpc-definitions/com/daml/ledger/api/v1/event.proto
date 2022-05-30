@@ -82,14 +82,6 @@ message CreatedEvent {
   // Optional
   repeated InterfaceViewResult interface_views = 11;
 
-  // Map from parties to the indices of filters that matched the event
-  // for easy demultiplexing.
-  // This is only set for
-  // the transaction stream & the ACS stream but not for the
-  // transaction tree stream.
-  // Optional
-  map<string, FilterIndices> repeated uint32 matched_filter_indices = 12;
-
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
   // the parties specified in the ``TransactionFilter`` that are informees
@@ -133,14 +125,6 @@ message ArchivedEvent {
   // The template of the archived contract.
   // Required
   Identifier template_id = 3;
-
-  // Map from parties to the indices of filters that matched the event
-  // for easy demultiplexing.
-  // This is only set for
-  // the transaction stream & the ACS stream but not for the
-  // transaction tree stream.
-  // Optional
-  map<string, FilterIndices> repeated uint32 matched_filter_indices = 12;
 
   // The parties that are notified of this event. For ``ArchivedEvent``s,
   // these are the intersection of the stakeholders of the contract in
