@@ -79,6 +79,7 @@ private[platform] case class IndexServiceBuilder(
         instrumentedSignalNewLedgerHead,
       )
       (transactionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
+        config,
         contractStore,
         ledgerDao,
         prefetchingDispatcher,
@@ -169,6 +170,7 @@ private[platform] case class IndexServiceBuilder(
   }
 
   private def cacheComponentsAndSubscription(
+      config: IndexServiceConfig,
       contractStore: MutableCacheBackedContractStore,
       ledgerReadDao: LedgerReadDao,
       cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
@@ -195,7 +197,7 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
-        eventProcessingParallelism = eventsProcessingParallelism,
+        eventProcessingParallelism = config.eventsProcessingParallelism,
       )(servicesExecutionContext)
 
       for {
