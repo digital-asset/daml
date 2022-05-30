@@ -4,6 +4,7 @@
 package com.daml.platform.store
 
 import com.daml.caching
+import com.daml.caching.SizedCache._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.metrics.Metrics
@@ -19,8 +20,8 @@ object LfValueTranslationCache {
   type ContractCache = caching.Cache[ContractCache.Key, ContractCache.Value]
 
   final case class Config(
-      eventsMaximumSize: caching.SizedCache.Configuration = caching.SizedCache.Configuration.none,
-      contractsMaximumSize: caching.SizedCache.Configuration = caching.SizedCache.Configuration.none,
+      eventsMaximumSize: Long = Configuration.none.maximumSize,
+      contractsMaximumSize: Long = Configuration.none.maximumSize,
   )
 
   object Cache {
@@ -31,8 +32,8 @@ object LfValueTranslationCache {
         config: Config
     ): Cache =
       Cache(
-        events = EventCache.newInstance(config.eventsMaximumSize),
-        contracts = ContractCache.newInstance(config.contractsMaximumSize),
+        events = EventCache.newInstance(Configuration(config.eventsMaximumSize)),
+        contracts = ContractCache.newInstance(Configuration(config.contractsMaximumSize)),
       )
 
     def newInstrumentedInstance(
@@ -40,21 +41,27 @@ object LfValueTranslationCache {
         metrics: Metrics,
     ): Cache =
       Cache(
-        events = EventCache.newInstrumentedInstance(config.eventsMaximumSize, metrics),
-        contracts = ContractCache.newInstrumentedInstance(config.contractsMaximumSize, metrics),
+        events = EventCache.newInstrumentedInstance(
+          Configuration(config.eventsMaximumSize),
+          metrics,
+        ),
+        contracts = ContractCache.newInstrumentedInstance(
+          Configuration(config.contractsMaximumSize),
+          metrics,
+        ),
       )
   }
 
   object EventCache {
 
-    def newInstance(configuration: caching.SizedCache.Configuration): EventCache =
-      caching.SizedCache.from(configuration)
+    def newInstance(configuration: Configuration): EventCache =
+      from(configuration)
 
     def newInstrumentedInstance(
-        configuration: caching.SizedCache.Configuration,
+        configuration: Configuration,
         metrics: Metrics,
     ): EventCache =
-      caching.SizedCache.from(
+      from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
       )
@@ -90,14 +97,14 @@ object LfValueTranslationCache {
 
   object ContractCache {
 
-    def newInstance(configuration: caching.SizedCache.Configuration): ContractCache =
-      caching.SizedCache.from(configuration)
+    def newInstance(configuration: Configuration): ContractCache =
+      from(configuration)
 
     def newInstrumentedInstance(
-        configuration: caching.SizedCache.Configuration,
+        configuration: Configuration,
         metrics: Metrics,
     ): ContractCache =
-      caching.SizedCache.from(
+      from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
       )

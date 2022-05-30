@@ -39,8 +39,8 @@ object CliConfigConverter {
       maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
     ),
     lfValueTranslationCache = LfValueTranslationCache.Config(
-      contractsMaximumSize = cliConfig.lfValueTranslationContractCache,
-      eventsMaximumSize = cliConfig.lfValueTranslationEventCache,
+      contractsMaximumSize = cliConfig.lfValueTranslationContractCache.maximumSize,
+      eventsMaximumSize = cliConfig.lfValueTranslationEventCache.maximumSize,
     ),
     dataSourceProperties = DataSourceProperties(
       connectionPool = ConnectionPoolConfig(
