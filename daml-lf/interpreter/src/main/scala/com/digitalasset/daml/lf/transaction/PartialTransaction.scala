@@ -281,6 +281,11 @@ private[speedy] case class PartialTransaction(
 
   import PartialTransaction._
 
+  require(
+    keys.keySet subsetOf globalKeyInputs.keySet,
+    s"Keys are not a subset of the global key inputs. Missing keys: ${globalKeyInputs.keySet diff keys.keySet}",
+  )
+
   private def activeState: ActiveLedgerState =
     ActiveLedgerState(consumedBy, keys)
 
