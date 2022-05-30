@@ -35,7 +35,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
             case cids of 
               Cons h t -> 
                 ubind 
-                  first: Mod:T <- fetch @Mod:T h;
+                  first: Mod:T <- fetch_template @Mod:T h;
                   rest: List Mod:T <- Mod:fetches t
                 in 
                   upure @(List Mod:T) Cons @Mod:T [first] rest
@@ -94,7 +94,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
     "refuse to fetch a contract with too many signatories" in {
       val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
-      val e = e"""\(cid: ContractId Mod:T) -> fetch @Mod:T cid"""
+      val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
 
       forEvery(testCases) { (i, succeed) =>
         val (signatories, observers) = committers.splitAt(i)
@@ -181,7 +181,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
     "refuse to fetch a contract with too many observers" in {
       val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
-      val e = e"""\(cid: ContractId Mod:T) -> fetch @Mod:T cid"""
+      val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
 
       forEvery(testCases) { (i, succeed) =>
         val (observers, signatories) = committers.splitAt(i)
