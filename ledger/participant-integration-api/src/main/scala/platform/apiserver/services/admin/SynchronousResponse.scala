@@ -16,8 +16,6 @@ import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted,
 import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
@@ -28,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
   */
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
-    timeToLive: Duration,
+    timeToLive: FiniteDuration,
 )(implicit
     executionContext: ExecutionContext,
     materializer: Materializer,
@@ -70,7 +68,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
         case isAccepted(entry) => Future.successful(entry)
         case isRejected(exception) => Future.failed(exception)
       }
-      .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
+      .completionTimeout(timeToLive)
       .runWith(Sink.head)
       .recoverWith(toGrpcError(loggingContext, submissionId))
       .flatten

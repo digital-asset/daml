@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import java.time.Clock
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -20,9 +19,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
@@ -30,7 +27,6 @@ import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
-import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 object StandaloneApiServer {
@@ -40,11 +36,9 @@ object StandaloneApiServer {
       indexService: IndexService,
       userManagementStore: UserManagementStore,
       ledgerId: LedgerId,
+      participantId: Ref.ParticipantId,
       config: ApiServerConfig,
-      commandConfig: CommandConfiguration,
-      partyConfig: PartyConfiguration,
       optWriteService: Option[state.WriteService],
-      authService: AuthService,
       healthChecks: HealthChecks,
       metrics: Metrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -55,14 +49,12 @@ object StandaloneApiServer {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
-      userManagementConfig: UserManagementConfig,
-      apiStreamShutdownTimeout: Duration,
+      authService: AuthService,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[ApiServer] = {
-    val participantId: Ref.ParticipantId = config.participantId
 
     def writePortFile(port: Port): Try[Unit] = {
       config.portFile match {
@@ -82,7 +74,7 @@ object StandaloneApiServer {
       participantId,
       userManagementStore,
       servicesExecutionContext,
-      userRightsCheckIntervalInSeconds = userManagementConfig.cacheExpiryAfterWriteInSeconds,
+      userRightsCheckIntervalInSeconds = config.userManagement.cacheExpiryAfterWriteInSeconds,
       akkaScheduler = actorSystem.scheduler,
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
@@ -102,8 +94,8 @@ object StandaloneApiServer {
           ),
         configurationLoadTimeout = config.configurationLoadTimeout,
         initialLedgerConfiguration = config.initialLedgerConfiguration,
-        commandConfig = commandConfig,
-        partyConfig = partyConfig,
+        commandConfig = config.command,
+        partyConfig = config.party,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
@@ -113,8 +105,8 @@ object StandaloneApiServer {
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
-        userManagementConfig = config.userManagementConfig,
-        apiStreamShutdownTimeout = apiStreamShutdownTimeout,
+        userManagementConfig = config.userManagement,
+        apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -122,10 +114,10 @@ object StandaloneApiServer {
         config.port,
         config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig,
+        config.tls,
         AuthorizationInterceptor(
           authService,
-          Option.when(config.userManagementConfig.enabled)(userManagementStore),
+          Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
         servicesExecutionContext,
@@ -135,7 +127,7 @@ object StandaloneApiServer {
       _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
     } yield {
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.indexConfiguration.archiveFiles}"
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}"
       )
       apiServer
     }

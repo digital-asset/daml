@@ -42,13 +42,12 @@ class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def createDataSource(
-      jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit],
   )(implicit loggingContext: LoggingContext): DataSource = {
     import DataSourceStorageBackendImpl.exe
     val pgSimpleDataSource = new PGSimpleDataSource()
-    pgSimpleDataSource.setUrl(jdbcUrl)
+    pgSimpleDataSource.setUrl(dataSourceConfig.jdbcUrl)
 
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList

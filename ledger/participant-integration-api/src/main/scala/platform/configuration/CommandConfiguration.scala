@@ -29,7 +29,7 @@ final case class CommandConfiguration(
 object CommandConfiguration {
   val DefaultTrackerRetentionPeriod: Duration = Duration.ofMinutes(5)
 
-  lazy val default: CommandConfiguration =
+  lazy val Default: CommandConfiguration =
     CommandConfiguration(
       inputBufferSize = 512,
       maxCommandsInFlight = 256,

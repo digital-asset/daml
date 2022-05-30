@@ -111,12 +111,12 @@ object DbDispatcher {
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher with ReportsHealth] =
     for {
       hikariDataSource <- HikariDataSourceOwner(
-        dataSource,
-        serverRole,
-        connectionPoolSize,
-        connectionPoolSize,
-        connectionTimeout,
-        Some(metrics.registry),
+        dataSource = dataSource,
+        serverRole = serverRole,
+        minimumIdle = connectionPoolSize,
+        maxPoolSize = connectionPoolSize,
+        connectionTimeout = connectionTimeout,
+        metrics = Some(metrics.registry),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"

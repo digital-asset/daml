@@ -12,7 +12,7 @@ object MainWithEphemeralOracleUser {
     val user = OracleAround.createNewUniqueRandomUser()
     sys.addShutdownHook(user.drop())
     new ProgramResource(
-      owner = SandboxOnXRunner.owner(
+      owner = CliSandboxOnXRunner.owner(
         args = args,
         manipulateConfig = originalConfig =>
           originalConfig.copy(
@@ -20,11 +20,10 @@ object MainWithEphemeralOracleUser {
               participantConfig.copy(
                 serverJdbcUrl = user.jdbcUrl,
                 indexerConfig = participantConfig.indexerConfig.copy(
-                  haConfig = participantConfig.indexerConfig.haConfig.copy(
+                  highAvailability = participantConfig.indexerConfig.highAvailability.copy(
                     indexerLockId = user.lockIdSeed,
                     indexerWorkerLockId = user.lockIdSeed + 1,
-                  ),
-                  jdbcUrl = user.jdbcUrl,
+                  )
                 ),
               )
             )

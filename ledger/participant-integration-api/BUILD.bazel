@@ -55,6 +55,7 @@ compile_deps = [
     "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger-service/jwt",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
@@ -82,12 +83,14 @@ compile_deps = [
     "@maven//:com_oracle_database_jdbc_ojdbc8",
     "@maven//:com_google_api_grpc_proto_google_common_protos",
     "@maven//:com_github_ben_manes_caffeine_caffeine",
+    "@maven//:com_auth0_java_jwt",
 ]
 
 scala_compile_deps = [
     "@maven//:com_github_scopt_scopt",
     "@maven//:com_typesafe_akka_akka_actor",
     "@maven//:com_typesafe_akka_akka_stream",
+    "@maven//:com_typesafe_scala_logging_scala_logging",
     "@maven//:org_playframework_anorm_anorm",
     "@maven//:org_playframework_anorm_anorm_tokenizer",
     "@maven//:org_scalaz_scalaz_core",
