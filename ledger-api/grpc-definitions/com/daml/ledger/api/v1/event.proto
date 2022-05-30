@@ -204,4 +204,5 @@ message ExercisedEvent {
   // The result of exercising the choice
   // Required
   Value exercise_result = 12;
+
 }
