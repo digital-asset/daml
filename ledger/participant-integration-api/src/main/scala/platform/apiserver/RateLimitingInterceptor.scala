@@ -4,9 +4,10 @@
 package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.Metrics
+import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.RateLimitingInterceptor.doNonLimit
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.configuration.ServerRole
 import io.grpc.Status.Code
 import io.grpc._
 import io.grpc.protobuf.StatusProto
@@ -15,14 +16,22 @@ import org.slf4j.LoggerFactory
 private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config: RateLimitingConfig)
     extends ServerInterceptor {
 
-  import metrics.daml.lapi.threadpool.apiServices
-
   private val logger = LoggerFactory.getLogger(getClass)
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
-  private val submitted = metrics.registry.meter(MetricRegistry.name(apiServices, "submitted"))
-  private val running = metrics.registry.counter(MetricRegistry.name(apiServices, "running"))
-  private val completed = metrics.registry.meter(MetricRegistry.name(apiServices, "completed"))
+  private case class InstrumentedCount(name: String, prefix: MetricName) {
+    private val submitted = metrics.registry.meter(MetricRegistry.name(prefix, "submitted"))
+    private val running = metrics.registry.counter(MetricRegistry.name(prefix, "running"))
+    private val completed = metrics.registry.meter(MetricRegistry.name(prefix, "completed"))
+    def queueSize: Long = submitted.getCount - running.getCount - completed.getCount
+  }
+
+  private val apiServices =
+    InstrumentedCount("Api Services", metrics.daml.lapi.threadpool.apiServices)
+  private val indexDbThreadpool = InstrumentedCount(
+    "Index Database Connection Threadpool",
+    MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
+  )
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -30,34 +39,60 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
 
-    val queued = submitted.getCount - running.getCount - completed.getCount
+    serviceOverloaded(call.getMethodDescriptor.getFullMethodName) match {
+      case Some(errorMessage) =>
+        val rpcStatus = com.google.rpc.Status
+          .newBuilder()
+          .setCode(Code.ABORTED.value())
+          .setMessage(errorMessage)
+          .build()
 
-    val fullMethodName = call.getMethodDescriptor.getFullMethodName
+        logger.info(s"gRPC call rejected: $rpcStatus")
 
-    if (queued > config.maxApiServicesQueueSize && !doNonLimit.contains(fullMethodName)) {
+        val exception = StatusProto.toStatusRuntimeException(rpcStatus)
 
-      val rpcStatus = com.google.rpc.Status
-        .newBuilder()
-        .setCode(Code.ABORTED.value())
-        .setMessage(
-          s"""
-            | The api services queue size ($queued) has exceeded the maximum (${config.maxApiServicesQueueSize}).
-            | The rejected call was $fullMethodName.
-            | Api services metrics are available at $apiServices.
-          """.stripMargin
-        )
-        .build()
+        call.close(exception.getStatus, exception.getTrailers)
+        new ServerCall.Listener[ReqT]() {}
 
-      logger.info(s"gRPC call rejected: $rpcStatus")
-
-      val exception = StatusProto.toStatusRuntimeException(rpcStatus)
-
-      call.close(exception.getStatus, exception.getTrailers)
-      new ServerCall.Listener[ReqT]() {}
-    } else {
-      next.startCall(call, headers)
+      case None =>
+        next.startCall(call, headers)
     }
 
+  }
+
+  private def serviceOverloaded(fullMethodName: String): Option[String] = {
+    if (doNonLimit.contains(fullMethodName)) {
+      None
+    } else {
+      (for {
+        _ <- metricOverloaded(fullMethodName, apiServices, config.maxApiServicesQueueSize)
+        _ <- metricOverloaded(
+          fullMethodName,
+          indexDbThreadpool,
+          config.maxApiServicesIndexDbQueueSize,
+        )
+      } yield ()).fold(Some.apply, _ => None)
+    }
+  }
+
+  private def metricOverloaded(
+      fullMethodName: String,
+      count: InstrumentedCount,
+      limit: Int,
+  ): Either[String, Unit] = {
+    val queued = count.queueSize
+    if (queued > limit) {
+      val rpcStatus =
+        s"""
+           | The ${count.name} queue size ($queued) has exceeded the maximum ($limit).
+           | The rejected call was $fullMethodName.
+           | Api services metrics are available at ${count.prefix}.
+          """.stripMargin
+
+      Left(rpcStatus)
+    } else {
+      Right(())
+    }
   }
 
 }
