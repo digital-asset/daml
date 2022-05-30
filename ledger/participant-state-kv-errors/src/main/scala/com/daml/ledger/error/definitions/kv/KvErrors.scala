@@ -151,6 +151,7 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
     @Resolution(
       "Retry the transaction submission or provide the details to the participant operator."
     )
+    @deprecated(since = "2.3.0", message = "Replaced by RESOURCE_OVERLOADED.")
     object ResourceExhausted
         extends ErrorCode(
           id = "RESOURCE_EXHAUSTED",
@@ -161,6 +162,23 @@ object KvErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause = s"Resources exhausted: $details"
+          )
+    }
+
+    @Explanation("A system resource is overloaded.")
+    @Resolution(
+      "Retry the transaction submission or provide the details to the participant operator."
+    )
+    object ResourceOverloaded
+        extends ErrorCode(
+          id = "RESOURCE_OVERLOADED",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(
+            cause = s"Resources overloaded: $details"
           )
     }
 
