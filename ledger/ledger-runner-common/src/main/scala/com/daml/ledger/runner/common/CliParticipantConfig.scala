@@ -26,8 +26,6 @@ final case class CliParticipantConfig(
       CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
-    maxTransactionsInMemoryFanOutBufferSize: Long =
-      IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
 )
 
 object CliParticipantConfig {

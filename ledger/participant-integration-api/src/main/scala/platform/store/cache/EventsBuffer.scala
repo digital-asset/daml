@@ -34,7 +34,7 @@ import scala.math.Ordering
   * @tparam ENTRY The entry buffer type.
   */
 final class EventsBuffer[ENTRY](
-    maxBufferSize: Long,
+    maxBufferSize: Int,
     metrics: Metrics,
     bufferQualifier: String,
     isRangeEndMarker: ENTRY => Boolean,

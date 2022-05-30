@@ -56,6 +56,8 @@ final case class CliConfig[Extra](
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
     userManagementConfig: UserManagementConfig,
+    // TODO LLP: Move to `CliParticipantConfig`
+    maxTransactionsInMemoryFanOutBufferSize: Int,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): CliConfig[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -105,6 +107,8 @@ object CliConfig {
       timeProviderType = TimeProviderType.WallClock,
       tlsConfig = None,
       userManagementConfig = UserManagementConfig.default(enabled = false),
+      maxTransactionsInMemoryFanOutBufferSize =
+        IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
     )
 
   def ownerWithoutExtras(
@@ -265,10 +269,6 @@ object CliConfig {
               .get("contract-key-state-cache-max-size")
               .map(_.toLong)
               .getOrElse(IndexServiceConfig.DefaultMaxContractKeyStateCacheSize)
-            val maxTransactionsInMemoryFanOutBufferSize = kv
-              .get("ledger-api-transactions-buffer-max-size")
-              .map(_.toLong)
-              .getOrElse(IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = CliParticipantConfig(
               mode = runMode,
               participantId = participantId,
@@ -290,7 +290,6 @@ object CliConfig {
               managementServiceTimeout = managementServiceTimeout,
               maxContractStateCacheSize = maxContractStateCacheSize,
               maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
-              maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
             )
             config.copy(participants = config.participants :+ partConfig)
           })
@@ -447,6 +446,15 @@ object CliConfig {
             else Left("buffered-streams-page-size should be strictly positive")
           }
           .action((pageSize, config) => config.copy(bufferedStreamsPageSize = pageSize))
+
+        opt[Int]("ledger-api-transactions-buffer-max-size")
+          .optional()
+          .text(
+            s"Maximum size of the in-memory fan-out buffer used for serving Ledger API transaction streams. Default is ${IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize}."
+          )
+          .action((maxBufferSize, config) =>
+            config.copy(maxTransactionsInMemoryFanOutBufferSize = maxBufferSize)
+          )
 
         opt[Int]("buffers-prefetching-parallelism")
           .optional()

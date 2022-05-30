@@ -36,7 +36,7 @@ object CliConfigConverter {
       eventsProcessingParallelism = cliConfig.eventsProcessingParallelism,
       maxContractStateCacheSize = config.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
-      maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
+      maxTransactionsInMemoryFanOutBufferSize = cliConfig.maxTransactionsInMemoryFanOutBufferSize,
     ),
     lfValueTranslationCache = LfValueTranslationCache.Config(
       contractsMaximumSize = cliConfig.lfValueTranslationContractCache.maximumSize,
