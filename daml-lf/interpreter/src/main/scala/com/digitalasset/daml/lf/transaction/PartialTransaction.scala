@@ -263,6 +263,8 @@ private[lf] object PartialTransaction {
   *
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
+  *
+  * invariant: [[keys.keySet subsetOf globalKeyInputs.keySet]]
   */
 private[speedy] case class PartialTransaction(
     contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -462,10 +464,11 @@ private[speedy] case class PartialTransaction(
           case Some(KeyActive(_)) => KeyConflict.Duplicate
           case Some(KeyInactive) | None => KeyConflict.None
         }
-        val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-          case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
-          case Some(_) => ptx.globalKeyInputs
-        }
+        val globalKeyInputs =
+          if (ptx.globalKeyInputs.isDefinedAt(ck))
+            ptx.globalKeyInputs
+          else
+            ptx.globalKeyInputs.updated(ck, KeyInactive)
         (conflict, contractKeyUniqueness) match {
           case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
             cid -> ptx.noteAbort(Tx.DuplicateContractKey(ck))
