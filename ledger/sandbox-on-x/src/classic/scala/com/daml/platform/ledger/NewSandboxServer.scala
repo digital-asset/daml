@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.sandbox.NewSandboxServer._
-import com.daml.ledger.sandbox.SandboxOnXRunner.validateDataSource
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion
@@ -58,9 +57,9 @@ final class NewSandboxServer(
         authServiceFromConfig.getOrElse(AuthServiceWildcard)
     }
     for {
-      (participantId, participantConfig) <-
-        SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      dataSource <- validateDataSource(genericConfig, participantId)
+      (participantId, dataSource, participantConfig) <- SandboxOnXRunner.combinedParticipant(
+        genericConfig
+      )
       (apiServer, writeService, indexService) <-
         SandboxOnXRunner
           .buildLedger(
