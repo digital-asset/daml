@@ -36,10 +36,10 @@ object IndexerConfig {
       ingestionParallelism: Int
   ): DataSourceProperties = DataSourceProperties(
     // PostgresSQL specific configurations
-    // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
-    // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
     postgres = PostgresDataSourceConfig(
       synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off),
+      // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
+      // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
       tcpKeepalivesIdle = Some(10),
       tcpKeepalivesInterval = Some(1),
       tcpKeepalivesCount = Some(5),
