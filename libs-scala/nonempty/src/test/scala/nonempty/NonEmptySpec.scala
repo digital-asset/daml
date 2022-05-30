@@ -218,6 +218,20 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
     }
   }
 
+  "min" should {
+    "'work' on sets, so to speak" in {
+      val r = NonEmpty(Set, 1, 42, -5)
+      r.min should ===(-5)
+    }
+  }
+
+  "max" should {
+    "'work' on sets, so to speak" in {
+      val r = NonEmpty(Set, 1, 42, -5)
+      r.max should ===(42)
+    }
+  }
+
   "flatMap" should {
     "'work' on sets, so to speak" in {
       val r = NonEmpty(Set, 1, 2) flatMap (n => NonEmpty(List, n + 3, n + 5))

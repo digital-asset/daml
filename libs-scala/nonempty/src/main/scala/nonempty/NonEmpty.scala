@@ -203,6 +203,9 @@ object NonEmptyColl extends NonEmptyCollInstances {
     import NonEmptyColl.Instance.{unsafeNarrow => un}
     private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
 
+    def min(implicit ev: Ordering[A]): A = widen(self).min
+    def max(implicit ev: Ordering[A]): A = widen(self).max
+
     def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
     def flatMap[B](f: A => NonEmpty[IterableOnce[B]]): NonEmpty[CC[B]] = {
       type K[F[_]] = (F[ESelf], A => F[IterableOnce[B]]) => F[CC[B]]
