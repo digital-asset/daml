@@ -124,7 +124,25 @@ Errors that relate to system resources.
 RESOURCE_EXHAUSTED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
+    **Deprecation**: Replaced by RESOURCE_OVERLOADED. Since: 2.3.0
+    
     **Explanation**: A system resource has been exhausted.
+
+    **Category**: ContentionOnSharedResources
+
+    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+
+    **Resolution**: Retry the transaction submission or provide the details to the participant operator.
+
+
+
+
+.. _error_code_RESOURCE_OVERLOADED:
+
+RESOURCE_OVERLOADED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A system resource is overloaded.
 
     **Category**: ContentionOnSharedResources
 
