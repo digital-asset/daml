@@ -43,5 +43,6 @@ object FooTemplateDescriptor {
 
   val Divulger_templateId: Identifier =
     com.daml.ledger.test.model.Foo.Divulger.id.asInstanceOf[Identifier]
-  val Divulger_DivulgeImmediate = "DivulgeImmediate"
+  val Divulger_DivulgeContractImmediate = "DivulgeContractImmediate"
+  val Divulger_DivulgeConsumingExercise = "DivulgeConsumingExercise"
 }
