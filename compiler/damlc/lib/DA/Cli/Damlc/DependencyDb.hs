@@ -226,8 +226,7 @@ installDar depsPath isDataDep ExtractedDar {..} = do
         fp <- dalfFileNameFromEntry dalf
         let targetFp = depsPath </> fp
         let targetDir = takeDirectory targetFp
-        targetExists <- doesFileExist targetFp
-        unless targetExists $ do
+        unlessM (doesFileExist targetFp) $ do
           if isDataDep
             then markDirWith dataDepMarker targetDir
             else markDirWith depMarker targetDir
