@@ -98,6 +98,7 @@ object ContractIdClass {
         ParameterizedTypeName
           .get(ClassName get classOf[javaapi.data.codegen.Exercises[_]], exercisesTypeParam)
       )
+      .addModifiers(Modifier.PUBLIC)
     choices foreach { case (choiceName, choice) =>
       exercisesClass addMethod Builder.generateExerciseMethod(
         choiceName,
