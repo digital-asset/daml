@@ -6,7 +6,6 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
-import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref, Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
@@ -51,7 +50,6 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addMethods(
           generateCreateAndExerciseMethods(
-            className,
             templateChoices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
@@ -286,7 +284,6 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
 
   private def generateCreateAndExerciseMethods(
-      templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
@@ -297,7 +294,6 @@ private[inner] object TemplateClass extends StrictLogging {
         generateDeprecatedCreateAndExerciseMethod(
           choiceName,
           choice,
-          templateClassName,
           packagePrefixes,
         )
       val splatted =
@@ -325,11 +321,11 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateDeprecatedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
-      templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
   ): MethodSpec = {
     val methodName = s"createAndExercise${choiceName.capitalize}"
-    val createAndExerciseChoiceBuilder = MethodSpec
+    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Deprecated])
@@ -337,37 +333,12 @@ private[inner] object TemplateClass extends StrictLogging {
         s"@deprecated since Daml 2.3.0; use {@code createAnd().exercise${choiceName.capitalize}} instead"
       )
       .returns(classOf[javaapi.data.CreateAndExerciseCommand])
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
-    createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
-    choice.param match {
-      case TypeCon(_, _) =>
-        createAndExerciseChoiceBuilder.addStatement(
-          "$T argValue = arg.toValue()",
-          classOf[javaapi.data.Value],
-        )
-      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
-        createAndExerciseChoiceBuilder
-          .addStatement(
-            "$T argValue = $T.getInstance()",
-            classOf[javaapi.data.Value],
-            classOf[javaapi.data.Unit],
-          )
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
-        createAndExerciseChoiceBuilder
-          .addStatement(
-            "$T argValue = new $T(arg)",
-            classOf[javaapi.data.Value],
-            toAPITypeName(choice.param),
-          )
-    }
-    createAndExerciseChoiceBuilder.addStatement(
-      "return new $T($T.$N, this.toValue(), $S, argValue)",
-      classOf[javaapi.data.CreateAndExerciseCommand],
-      templateClassName,
-      templateIdFieldName,
-      choiceName,
-    )
-    createAndExerciseChoiceBuilder.build()
+      .addParameter(javaType, "arg")
+      .addStatement(
+        "return createAnd().exercise$L(arg)",
+        choiceName.capitalize,
+      )
+      .build()
   }
 
   private def generateFlattenedCreateAndExerciseMethod(
