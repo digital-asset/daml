@@ -56,10 +56,10 @@ trait SandboxTestLedger extends SandboxFixture {
         engine = SandboxDefault.engine
           .copy(allowedLanguageVersions = LanguageVersion.DevVersions),
         participants = Map(
-          SandboxParticipantId -> super.config.genericConfig
+          SandboxParticipantId -> SandboxDefault
             .participants(SandboxParticipantId)
             .copy(
-              apiServer = super.config.genericConfig
+              apiServer = SandboxDefault
                 .participants(SandboxParticipantId)
                 .apiServer
                 .copy(
