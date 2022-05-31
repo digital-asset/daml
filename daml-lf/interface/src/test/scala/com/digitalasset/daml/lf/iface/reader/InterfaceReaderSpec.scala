@@ -17,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/-
 import scalaz.syntax.functor._
+import scalaz.syntax.std.map._
 
 import scala.language.implicitConversions
 
@@ -207,45 +208,73 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     import QualifiedName.{assertFromString => qn}
+    import Ref.ChoiceName.{assertFromString => cn}
     val Foo = qn("InterfaceTestPackage:Foo")
+    val Bar = cn("Bar")
+    val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
-    val Useless = Ref.ChoiceName.assertFromString("Useless")
+    val LibTIf = qn("InterfaceTestLib:TIf")
+    val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
     import itp.main.{packageId => itpPid}
 
     "exclude interface choices with template choices" in {
       inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
-        tpl.choices.keySet should ===(Set("Bar", "Archive"))
+        tpl.tChoices.directChoices.keySet should ===(Set("Bar", "Archive"))
       }
     }
 
     "include interface choices in separate inheritedChoices" in {
-      inside(itp.main.typeDecls get Foo) { case Some(InterfaceType.Template(_, tpl)) =>
-        tpl.unresolvedInheritedChoices.transform((_, tcn) => tcn.qualifiedName) should ===(
-          Map("Useless" -> TIf)
-        )
+      inside(itp.main.typeDecls get Foo) {
+        case Some(
+              InterfaceType.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
+            ) =>
+          inherited.forgetNE.mapKeys(_.qualifiedName) should ===(
+            Map(TIf -> Set(Useless), LibTIf -> Set(Useless))
+          )
       }
     }
 
-    lazy val theUselessChoice = TemplateChoice(
-      TypeCon(TypeConName(Ref.Identifier(itpPid, UselessTy)), ImmArraySeq.empty),
-      true,
-      TypePrim(
-        PrimType.ContractId,
-        ImmArraySeq(TypeCon(TypeConName(Ref.Identifier(itpPid, TIf)), ImmArraySeq.empty)),
-      ),
-    )
-
-    "have an interface with a choice" in {
-      itp.main.astInterfaces.keySet should ===(Set(TIf))
-      itp.main.astInterfaces(TIf).choices get Useless should ===(Some(theUselessChoice))
+    object TheUselessChoice {
+      def unapply(ty: TemplateChoice.FWT): Option[(QualifiedName, QualifiedName)] = {
+        val ItpPid = itpPid
+        ty match {
+          case TemplateChoice(
+                TypeCon(TypeConName(Ref.Identifier(ItpPid, uselessTy)), Seq()),
+                true,
+                TypePrim(
+                  PrimType.ContractId,
+                  Seq(TypeCon(TypeConName(Ref.Identifier(ItpPid, tIf)), Seq())),
+                ),
+              ) =>
+            Some((uselessTy, tIf))
+          case _ => None
+        }
+      }
     }
 
-    def foundUselessChoice(foo: Option[InterfaceType]) = inside(foo) {
-      case Some(InterfaceType.Template(_, tpl)) =>
-        tpl.unresolvedInheritedChoices shouldBe empty
-        tpl.choices get Useless should ===(Some(theUselessChoice))
+    "have interfaces with choices" in {
+      itp.main.astInterfaces.keySet should ===(Set(LibTIf, TIf))
+      inside(itp.main.astInterfaces(TIf).choices get Useless) {
+        case Some(TheUselessChoice(UselessTy, TIf)) =>
+      }
     }
+
+    def foundResolvedChoices(foo: Option[InterfaceType]) = inside(foo) {
+      case Some(InterfaceType.Template(_, DefTemplate(TemplateChoices.Resolved(resolved), _, _))) =>
+        resolved
+    }
+
+    def foundUselessChoice(foo: Option[InterfaceType]) =
+      inside(foundResolvedChoices(foo).get(Useless).map(_.forgetNE.toSeq)) {
+        case Some(Seq((Some(origin1), choice1), (Some(origin2), choice2))) =>
+          Seq(origin1, origin2) should contain theSameElementsAs Seq(
+            Ref.Identifier(itpPid, TIf),
+            Ref.Identifier(itpPid, LibTIf),
+          )
+          inside(choice1) { case TheUselessChoice(_, tIf) => tIf should ===(origin1.qualifiedName) }
+          inside(choice2) { case TheUselessChoice(_, tIf) => tIf should ===(origin2.qualifiedName) }
+      }
 
     "resolve inherited choices" in {
       foundUselessChoice(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
@@ -254,6 +283,15 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     "resolve choices internally" in {
       foundUselessChoice(
         itp.main.resolveChoicesAndIgnoreUnresolvedChoices(PartialFunction.empty).typeDecls get Foo
+      )
+    }
+
+    "collect direct and resolved choices in one map" in {
+      foundResolvedChoices(itpEI.typeDecls get Ref.Identifier(itpPid, Foo))
+        .transform((_, cs) => cs.keySet) should contain theSameElementsAs Map(
+        Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
+        Bar -> Set(None),
+        Archive -> Set(None),
       )
     }
   }

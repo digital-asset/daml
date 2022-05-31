@@ -71,14 +71,13 @@ object DependencyGraphSpec {
       "a:b:HasKey" -> InterfaceType.Template(
         fooRec,
         DefTemplate(
-          Map.empty,
-          Map.empty,
+          TemplateChoices.Resolved(Map.empty),
           Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
           Seq.empty,
         ),
       ),
       "a:b:NoKey" -> InterfaceType
-        .Template(fooRec, DefTemplate(Map.empty, Map.empty, None, Seq.empty)),
+        .Template(fooRec, DefTemplate.Empty),
       "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
     ) mapKeys Ref.Identifier.assertFromString
 

@@ -30,6 +30,8 @@ private[inner] object TemplateClass extends StrictLogging {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
+      // TODO(SC #13921) replace with a call to TemplateChoices#directChoices
+      val templateChoices = template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921)
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
@@ -39,7 +41,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethods(
           generateStaticExerciseByKeyMethods(
             className,
-            template.choices,
+            templateChoices,
             template.key,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
@@ -49,7 +51,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethods(
           generateCreateAndExerciseMethods(
             className,
-            template.choices,
+            templateChoices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
             packagePrefixes,
@@ -60,7 +62,7 @@ private[inner] object TemplateClass extends StrictLogging {
           ContractIdClass
             .builder(
               className,
-              template.choices,
+              templateChoices,
               packagePrefixes,
             )
             .addFlattenedExerciseMethods(

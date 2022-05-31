@@ -42,6 +42,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )

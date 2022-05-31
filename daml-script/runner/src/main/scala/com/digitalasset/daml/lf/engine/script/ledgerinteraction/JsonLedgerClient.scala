@@ -368,11 +368,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
-    val choiceDef = envIface
-      .typeDecls(tplId)
-      .asInstanceOf[InterfaceType.Template]
-      .template
-      .choices(choice)
+    val choiceDef = lookupChoice(tplId, choice)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[ExerciseArgs, ExerciseResponse](
       "exercise",
@@ -400,11 +396,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
-    val choiceDef = envIface
-      .typeDecls(tplId)
-      .asInstanceOf[InterfaceType.Template]
-      .template
-      .choices(choice)
+    val choiceDef = lookupChoice(tplId, choice)
     val jsonKey = LfValueCodec.apiValueToJsValue(key)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[ExerciseByKeyArgs, ExerciseResponse](
@@ -432,11 +424,7 @@ class JsonLedgerClient(
       argument: Value,
       partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
-    val choiceDef = envIface
-      .typeDecls(tplId)
-      .asInstanceOf[InterfaceType.Template]
-      .template
-      .choices(choice)
+    val choiceDef = lookupChoice(tplId, choice)
     val jsonTemplate = LfValueCodec.apiValueToJsValue(template)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[CreateAndExerciseArgs, CreateAndExerciseResponse](
@@ -459,6 +447,15 @@ class JsonLedgerClient(
         )
       })
   }
+
+  // TODO (#13973) this is not enough data to pick an interface choice
+  private[this] def lookupChoice(tplId: Identifier, choice: ChoiceName) =
+    envIface
+      .typeDecls(tplId)
+      .asInstanceOf[InterfaceType.Template]
+      .template
+      .tChoices
+      .assumeNoOverloadedChoices(githubIssue = 13973)(choice)
 
   private[this] val SubmissionFailures: Set[StatusCode] = {
     import StatusCodes._
