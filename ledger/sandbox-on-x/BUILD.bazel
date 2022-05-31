@@ -398,8 +398,20 @@ da_scala_binary(
     ],
 )
 
-da_scala_binary(
+alias(
+    name = "conformance-test-postgres-bin",
+    actual = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
+    visibility = ["//visibility:public"],
+)
+
+alias(
     name = "conformance-test-oracle-bin",
+    actual = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-oracle",
+    visibility = ["//visibility:public"],
+)
+
+da_scala_binary(
+    name = "sandbox-on-x-ephemeral-postgresql",
     main_class = "com.daml.ledger.sandbox.MainWithEphemeralOracleUser",
     visibility = ["//visibility:public"],
     runtime_deps = [],
@@ -409,7 +421,7 @@ da_scala_binary(
 )
 
 da_scala_binary(
-    name = "conformance-test-postgres-bin",
+    name = "sandbox-on-x-ephemeral-oracle",
     main_class = "com.daml.ledger.sandbox.MainWithEphemeralPostgresql",
     visibility = ["//visibility:public"],
     runtime_deps = [],

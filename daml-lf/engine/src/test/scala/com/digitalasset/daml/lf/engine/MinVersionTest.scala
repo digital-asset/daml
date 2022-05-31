@@ -48,10 +48,10 @@ final class MinVersionTest
   private val dar = DarDecoder.assertReadArchiveFromFile(darFile)
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
-  private val portfile = tmpDir.resolve("portfile")
+  private val portFile = tmpDir.resolve("portFile")
 
   override protected def afterAll(): Unit = {
-    Files.delete(portfile)
+    Files.delete(portFile)
     super.afterAll()
 
   }
@@ -124,18 +124,19 @@ final class MinVersionTest
   private val configAdaptor = new BridgeConfigAdaptor()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val jdbcUrl = s"jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
+    val participantId = Config.SandboxParticipantId
+    val jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId)
 
     val config = Config.Default.copy(
       engine = Config.DefaultEngineConfig
         .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
-      dataSource = Config.Default.participants.map { case (key, _) =>
-        key -> ParticipantDataSourceConfig(jdbcUrl)
+      dataSource = Config.Default.dataSource.map { case (participantId, _) =>
+        participantId -> ParticipantDataSourceConfig(jdbcUrl)
       },
-      participants = Config.Default.participants.map { case (key, value) =>
-        key -> value.copy(
-          apiServer = value.apiServer.copy(
-            portFile = Some(portfile),
+      participants = Config.Default.participants.map { case (participantId, participantConfig) =>
+        participantId -> participantConfig.copy(
+          apiServer = participantConfig.apiServer.copy(
+            portFile = Some(portFile),
             port = Port.Dynamic,
             address = Some("localhost"),
             initialLedgerConfiguration = Some(configAdaptor.initialLedgerConfig(None)),
@@ -149,7 +150,7 @@ final class MinVersionTest
     new OwnedResource[ResourceContext, Port](
       for {
         _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
-      } yield readPortfile(portfile)
+      } yield readPortfile(portFile)
     )
   }
 }
