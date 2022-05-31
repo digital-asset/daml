@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.JavaDurationOps
 
-object CliConfigConverter {
+object LegacyCliConfigConverter {
 
   private def toParticipantConfig(
       configAdaptor: ConfigAdaptor,
@@ -82,7 +82,8 @@ object CliConfigConverter {
       engine = config.engineConfig,
       ledgerId = config.ledgerId,
       metrics = MetricsConfig(
-        reporter = config.metricsReporter,
+        enabled = config.metricsReporter.isDefined,
+        reporter = config.metricsReporter.getOrElse(MetricsConfig.DefaultMetricsConfig.reporter),
         reportingInterval = config.metricsReportingInterval.toScala,
       ),
       dataSource = config.participants.map { participantConfig =>

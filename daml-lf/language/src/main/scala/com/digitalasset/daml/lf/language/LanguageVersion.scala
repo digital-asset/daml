@@ -28,7 +28,7 @@ object LanguageVersion {
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
   }
 
-  private[lf] val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_dev) = All
 

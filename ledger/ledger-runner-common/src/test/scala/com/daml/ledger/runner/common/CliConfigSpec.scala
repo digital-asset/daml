@@ -3,14 +3,17 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.daml.ledger.runner.common.CliConfigSpec.TestScope
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
-import org.scalatest.{Assertion, OptionValues}
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import scopt.OptionParser
+import scopt.OParser
+
 import java.io.File
 import java.time.Duration
 
@@ -20,63 +23,13 @@ final class CliConfigSpec
     with OptionValues
     with TableDrivenPropertyChecks {
 
-  private val dumpIndexMetadataCommand = "dump-index-metadata"
-  private val participantOption = "--participant"
-  private val participantId: Ref.ParticipantId =
-    Ref.ParticipantId.assertFromString("dummy-participant")
-  private val fixedParticipantSubOptions = s"participant-id=$participantId,port=123"
+  behavior of "CliConfig with RunLegacy mode"
 
-  private val jdbcUrlSubOption = "server-jdbc-url"
-  private val jdbcUrlEnvSubOption = "server-jdbc-url-env"
-  private val jdbcEnvVar = "JDBC_ENV_VAR"
-
-  private val certRevocationChecking = "--cert-revocation-checking"
-  private val trackerRetentionPeriod = "--tracker-retention-period"
-  private val clientAuth = "--client-auth"
-
-  object TestJdbcValues {
-    val jdbcFromCli = "command-line-jdbc"
-    val jdbcFromEnv = "env-jdbc"
-  }
-
-  private val minimalValidOptions = List(
-    participantOption,
-    s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}",
-  )
-
-  private def configParser(
-      parameters: Seq[String],
-      getEnvVar: String => Option[String] = (_ => None),
-  ): Option[CliConfig[Unit]] =
-    CliConfig.parse(
-      name = "Test",
-      extraOptions = (_: OptionParser[CliConfig[Unit]]) => (),
-      defaultExtra = (),
-      args = parameters,
-      getEnvVar = getEnvVar,
-    )
-
-  private def configParserSimple(
-      parameters: Iterable[String] = Seq.empty
-  ): Option[CliConfig[Unit]] =
-    configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
-      ) ++ parameters
-    )
-
-  private def checkOptionFail(parameters: Iterable[String]): Assertion = {
-    configParserSimple(parameters) shouldBe None
-  }
-
-  behavior of "Runner"
-
-  it should "succeed when server's private key is encrypted and secret-url is provided" in {
+  it should "succeed when server's private key is encrypted and secret-url is provided" in new TestScope {
     val actual = configParser(
       Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+        "run-legacy-cli-config",
+        "--participant=participant-id=example,port=0",
         "--pem",
         "key.enc",
         "--tls-secrets-url",
@@ -96,33 +49,33 @@ final class CliConfigSpec
     )
   }
 
-  it should "fail when server's private key is encrypted but secret-url is not provided" in {
+  it should "fail when server's private key is encrypted but secret-url is not provided" in new TestScope {
     configParser(
       Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+        "run-legacy-cli-config",
+        "--participant=participant-id=example,port=0",
         "--pem",
         "key.enc",
       )
     ) shouldBe None
   }
 
-  it should "fail parsing a bogus TLS version" in {
+  it should "fail parsing a bogus TLS version" in new TestScope {
     configParser(
       Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+        "run-legacy-cli-config",
+        "--participant=participant-id=example,port=0",
         "--min-tls-version",
         "111",
       )
     ) shouldBe None
   }
 
-  it should "succeed parsing a supported TLS version" in {
+  it should "succeed parsing a supported TLS version" in new TestScope {
     val actual = configParser(
       Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+        "run-legacy-cli-config",
+        "--participant=participant-id=example,port=0",
         "--min-tls-version",
         "1.3",
       )
@@ -137,11 +90,11 @@ final class CliConfigSpec
     )
   }
 
-  it should "succeed when server's private key is in plaintext and secret-url is not provided" in {
+  it should "succeed when server's private key is in plaintext and secret-url is not provided" in new TestScope {
     val actual = configParser(
       Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+        "run-legacy-cli-config",
+        "--participant=participant-id=example,port=0",
         "--pem",
         "key.txt",
       )
@@ -159,28 +112,62 @@ final class CliConfigSpec
     )
   }
 
-  it should "fail if a participant is not provided in run mode" in {
-    configParser(Seq.empty) shouldEqual None
+  it should "fail if a participant is not provided in run mode" in new TestScope {
+    configParser(Seq("run-legacy-cli-config")) shouldEqual None
   }
 
-  it should "fail if a participant is not provided when dumping the index metadata" in {
+  it should "fail if a participant is not provided when dumping the index metadata" in new TestScope {
     configParser(Seq(dumpIndexMetadataCommand)) shouldEqual None
 
   }
-  it should "succeed if a participant is provided when dumping the index metadata" in {
+  it should "succeed if a participant is provided when dumping the index metadata" in new TestScope {
     configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url")) should not be empty
   }
 
-  it should "succeed if more than one participant is provided when dumping the index metadata" in {
+  it should "succeed if more than one participant is provided when dumping the index metadata" in new TestScope {
     configParser(
       Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url")
     ) should not be empty
   }
 
-  it should "get the jdbc string from the command line argument when provided" in {
+  it should "accept single default participant" in new TestScope {
+    val config =
+      configParser(Seq("run-legacy-cli-config", "--participant", "participant-id=p1,port=123"))
+        .getOrElse(fail())
+    config.participants(0).participantId should be(Ref.ParticipantId.assertFromString("p1"))
+  }
+
+  it should "accept multiple participant, with unique id" in new TestScope {
+    val config = configParser(
+      Seq(
+        "run-legacy-cli-config",
+        "--participant",
+        "participant-id=p1,port=123",
+        "--participant",
+        "participant-id=p2,port=123",
+      )
+    ).getOrElse(fail())
+    config.participants(0).participantId should be(Ref.ParticipantId.assertFromString("p1"))
+    config.participants(1).participantId should be(Ref.ParticipantId.assertFromString("p2"))
+  }
+
+  it should "fail to accept multiple participants with non-unique ids" in new TestScope {
+    configParser(
+      Seq(
+        "run-legacy-cli-config",
+        "--participant",
+        "participant-id=p1,port=123",
+        "--participant",
+        "participant-id=p1,port=123",
+      )
+    ) shouldBe None
+  }
+
+  it should "get the jdbc string from the command line argument when provided" in new TestScope {
     val jdbcFromCli = "command-line-jdbc"
     val config = configParser(
       Seq(
+        "run-legacy-cli-config",
         participantOption,
         s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}",
       )
@@ -189,44 +176,52 @@ final class CliConfigSpec
     config.participants.head.serverJdbcUrl should be(jdbcFromCli)
   }
 
-  it should "get the jdbc string from the environment when provided" in {
+  it should "get the jdbc string from the environment when provided" in new TestScope {
     val config = configParser(
-      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar"),
+      Seq(
+        "run-legacy-cli-config",
+        participantOption,
+        s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar",
+      ),
       { case `jdbcEnvVar` => Some(TestJdbcValues.jdbcFromEnv) },
     ).getOrElse(parsingFailure())
     config.participants.head.serverJdbcUrl should be(TestJdbcValues.jdbcFromEnv)
   }
 
-  it should "return the default when env variable not provided" in {
+  it should "return the default when env variable not provided" in new TestScope {
     val defaultJdbc = ParticipantConfig.defaultIndexJdbcUrl(participantId)
     val config = configParser(
-      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
+      Seq(
+        "run-legacy-cli-config",
+        participantOption,
+        s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar",
+      )
     ).getOrElse(parsingFailure())
 
     config.participants.head.serverJdbcUrl should be(defaultJdbc)
   }
 
-  it should "get the certificate revocation checking parameter when provided" in {
+  it should "get the certificate revocation checking parameter when provided" in new TestScope {
     val config =
-      configParser(parameters = minimalValidOptions ++ List(s"$certRevocationChecking", "true"))
+      configParser(parameters = minimumRunLegacyOptions ++ List(s"$certRevocationChecking", "true"))
         .getOrElse(parsingFailure())
 
     config.tlsConfig.value.enableCertRevocationChecking should be(true)
   }
 
-  it should "get the tracker retention period when provided" in {
+  it should "get the tracker retention period when provided" in new TestScope {
     val periodStringRepresentation = "P0DT1H2M3S"
     val expectedPeriod = Duration.ofHours(1).plusMinutes(2).plusSeconds(3)
     val config =
       configParser(parameters =
-        minimalValidOptions ++ List(trackerRetentionPeriod, periodStringRepresentation)
+        minimumRunLegacyOptions ++ List(trackerRetentionPeriod, periodStringRepresentation)
       )
         .getOrElse(parsingFailure())
 
     config.commandConfig.trackerRetentionPeriod should be(expectedPeriod)
   }
 
-  it should "set the client-auth parameter when provided" in {
+  it should "set the client-auth parameter when provided" in new TestScope {
     val cases = Table(
       ("clientAuthParam", "expectedParsedValue"),
       ("none", ClientAuth.NONE),
@@ -235,65 +230,57 @@ final class CliConfigSpec
     )
     forAll(cases) { (param, expectedValue) =>
       val config =
-        configParser(parameters = minimalValidOptions ++ List(clientAuth, param))
+        configParser(parameters = minimumRunLegacyOptions ++ List(clientAuth, param))
           .getOrElse(parsingFailure())
 
       config.tlsConfig.value.clientAuth shouldBe expectedValue
     }
   }
 
-  it should "handle '--enable-user-management' flag correctly" in {
+  it should "handle '--enable-user-management' flag correctly" in new TestScope {
     configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
-        "--enable-user-management",
+      minimumRunLegacyOptions ++ Seq(
+        "--enable-user-management"
       )
     ) shouldBe None
 
     configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+      minimumRunLegacyOptions ++ Seq(
         "--enable-user-management",
         "false",
       )
     ).value.userManagementConfig.enabled shouldBe false
 
     configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
+      minimumRunLegacyOptions ++ Seq(
         "--enable-user-management",
         "true",
       )
     ).value.userManagementConfig.enabled shouldBe true
 
     configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
-      )
+      minimumRunLegacyOptions
     ).value.userManagementConfig.enabled shouldBe false
   }
 
-  it should "set REQUIRE client-auth when the parameter is not explicitly provided" in {
+  it should "set REQUIRE client-auth when the parameter is not explicitly provided" in new TestScope {
     val aValidTlsOptions = List(s"$certRevocationChecking", "false")
     val config =
-      configParser(parameters = minimalValidOptions ++ aValidTlsOptions).getOrElse(parsingFailure())
+      configParser(parameters = minimumRunLegacyOptions ++ aValidTlsOptions)
+        .getOrElse(parsingFailure())
 
     config.tlsConfig.value.clientAuth shouldBe ClientAuth.REQUIRE
   }
 
-  it should "handle '--user-management-max-cache-size' flag correctly" in {
+  it should "handle '--user-management-max-cache-size' flag correctly" in new TestScope {
     // missing cache size value
-    configParserSimple(
+    configParserRunLegacy(
       Seq("--user-management-max-cache-size")
     ) shouldBe None
     // default
-    configParserSimple().value.userManagementConfig.maxCacheSize shouldBe 100
+    configParserRunLegacy().value.userManagementConfig.maxCacheSize shouldBe 100
     // custom value
-    configParserSimple(
+    configParserRunLegacy(
       Seq(
         "--user-management-max-cache-size",
         "123",
@@ -301,15 +288,15 @@ final class CliConfigSpec
     ).value.userManagementConfig.maxCacheSize shouldBe 123
   }
 
-  it should "handle '--user-management-cache-expiry' flag correctly" in {
+  it should "handle '--user-management-cache-expiry' flag correctly" in new TestScope {
     // missing cache size value
-    configParserSimple(
+    configParserRunLegacy(
       Seq("--user-management-cache-expiry")
     ) shouldBe None
     // default
-    configParserSimple().value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 5
+    configParserRunLegacy().value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 5
     // custom value
-    configParserSimple(
+    configParserRunLegacy(
       Seq(
         "--user-management-cache-expiry",
         "123",
@@ -317,41 +304,163 @@ final class CliConfigSpec
     ).value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 123
   }
 
-  it should "handle '--user-management-max-users-page-size' flag correctly" in {
+  it should "handle '--user-management-max-users-page-size' flag correctly" in new TestScope {
     // missing value
-    configParserSimple(
+    configParserRunLegacy(
       Seq("--user-management-max-users-page-size")
     ) shouldBe None
     // default
-    configParserSimple().value.userManagementConfig.maxUsersPageSize shouldBe 1000
+    configParserRunLegacy().value.userManagementConfig.maxUsersPageSize shouldBe 1000
     // custom value
-    configParserSimple(
+    configParserRunLegacy(
       Seq(
         "--user-management-max-users-page-size",
         "123",
       )
     ).value.userManagementConfig.maxUsersPageSize shouldBe 123
     // values in range [1, 99] are disallowed
-    checkOptionFail(
+    configParserRunLegacy(
       Array(
         "--user-management-max-users-page-size",
         "1",
       )
-    )
-    checkOptionFail(
+    ) shouldBe None
+    configParserRunLegacy(
       Array(
         "--user-management-max-users-page-size",
         "99",
       )
-    )
+    ) shouldBe None
     // negative values are disallowed
-    checkOptionFail(
+    configParserRunLegacy(
       Array(
         "--user-management-max-users-page-size",
         "-1",
       )
+    ) shouldBe None
+  }
+
+  behavior of "CliConfig with Run mode"
+
+  it should "support empty cli parameters" in new TestScope {
+    configParserRun().value.configFiles shouldBe Seq.empty
+    configParserRun().value.configMap shouldBe Map.empty
+  }
+
+  it should "support key-value map via -C option" in new TestScope {
+    configParserRun(Seq("-C", "key1=value1,key2=value2")).value.configMap shouldBe Map(
+      "key1" -> "value1",
+      "key2" -> "value2",
     )
   }
 
-  private def parsingFailure(): Nothing = fail("Config parsing failed.")
+  it should "support key-value map via multiple -C options" in new TestScope {
+    configParserRun(Seq("-C", "key1=value1", "-C", "key2=value2")).value.configMap shouldBe Map(
+      "key1" -> "value1",
+      "key2" -> "value2",
+    )
+  }
+
+  it should "support key-value map with complex hocon path" in new TestScope {
+    configParserRun(
+      Seq("-C", "ledger.participant.api-server.host=localhost")
+    ).value.configMap shouldBe Map(
+      "ledger.participant.api-server.host" -> "localhost"
+    )
+  }
+
+  it should "support existing config file" in new TestScope {
+    configParserRun(Seq("-c", confFilePath)).value.configFiles shouldBe Seq(
+      confFile
+    )
+  }
+
+  it should "support multiple existing config files" in new TestScope {
+    configParserRun(Seq("-c", confFilePath, "-c", confFilePath2)).value.configFiles shouldBe Seq(
+      confFile,
+      confFile2,
+    )
+
+    configParserRun(Seq("-c", s"$confFilePath,$confFilePath2")).value.configFiles shouldBe Seq(
+      confFile,
+      confFile2,
+    )
+  }
+
+  it should "fail for non-existing config file" in new TestScope {
+    configParserRun(Seq("-c", "somefile.conf")) shouldBe None
+  }
+
+}
+
+object CliConfigSpec {
+
+  trait TestScope extends Matchers {
+
+    val dumpIndexMetadataCommand = "dump-index-metadata"
+    val participantOption = "--participant"
+    val participantId: Ref.ParticipantId =
+      Ref.ParticipantId.assertFromString("dummy-participant")
+    val fixedParticipantSubOptions = s"participant-id=$participantId,port=123"
+
+    val jdbcUrlSubOption = "server-jdbc-url"
+    val jdbcUrlEnvSubOption = "server-jdbc-url-env"
+    val jdbcEnvVar = "JDBC_ENV_VAR"
+
+    val certRevocationChecking = "--cert-revocation-checking"
+    val trackerRetentionPeriod = "--tracker-retention-period"
+    val clientAuth = "--client-auth"
+
+    object TestJdbcValues {
+      val jdbcFromCli = "command-line-jdbc"
+      val jdbcFromEnv = "env-jdbc"
+    }
+
+    val minimumRunLegacyOptions = List(
+      "run-legacy-cli-config",
+      participantOption,
+      s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}",
+    )
+
+    val minimumRunOptions = List(
+      "run"
+    )
+
+    def configParser(
+        parameters: Seq[String],
+        getEnvVar: String => Option[String] = (_ => None),
+    ): Option[CliConfig[Unit]] =
+      CliConfig.parse(
+        name = "Test",
+        extraOptions = OParser.builder[CliConfig[Unit]].note(""),
+        defaultExtra = (),
+        args = parameters,
+        getEnvVar = getEnvVar,
+      )
+
+    def configParserRunLegacy(
+        parameters: Iterable[String] = Seq.empty
+    ): Option[CliConfig[Unit]] =
+      configParser(
+        minimumRunLegacyOptions ++ parameters
+      )
+
+    def configParserRun(
+        parameters: Iterable[String] = Seq.empty
+    ): Option[CliConfig[Unit]] =
+      configParser(
+        minimumRunOptions ++ parameters
+      )
+
+    def parsingFailure(): Nothing = fail("Config parsing failed.")
+
+    def confStringPath = "ledger/ledger-runner-common/src/test/resources/test.conf"
+    def confFilePath = rlocation(confStringPath)
+    def confFile = requiredResource(confStringPath)
+
+    def confStringPath2 = "ledger/ledger-runner-common/src/test/resources/test2.conf"
+    def confFilePath2 = rlocation(confStringPath2)
+    def confFile2 = requiredResource(confStringPath2)
+
+  }
 }

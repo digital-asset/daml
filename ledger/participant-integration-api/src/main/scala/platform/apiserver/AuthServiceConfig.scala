@@ -21,7 +21,7 @@ object AuthServiceConfig {
   final case class UnsafeJwtHmac256(secret: String) extends AuthServiceConfig {
     // note that HMAC256Verifier only returns an error for a `null` secret and UnsafeJwtHmac256 therefore can't throw an
     // exception when reading secret from a config value
-    private val verifier =
+    private lazy val verifier =
       HMAC256Verifier(secret).valueOr(err =>
         throw new IllegalArgumentException(s"Invalid hmac secret ($secret): $err")
       )
@@ -29,16 +29,16 @@ object AuthServiceConfig {
   }
 
   /** Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt) */
-  final case class JwtRs256Crt(certificate: String) extends AuthServiceConfig {
-    private val verifier = RSA256Verifier
+  final case class JwtRs256(certificate: String) extends AuthServiceConfig {
+    private lazy val verifier = RSA256Verifier
       .fromCrtFile(certificate)
       .valueOr(err => throw new IllegalArgumentException(s"Failed to create RSA256 verifier: $err"))
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
 
   /** "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)" */
-  final case class JwtEs256Crt(certificate: String) extends AuthServiceConfig {
-    private val verifier = ECDSAVerifier
+  final case class JwtEs256(certificate: String) extends AuthServiceConfig {
+    private lazy val verifier = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA256(_, null))
       .valueOr(err =>
         throw new IllegalArgumentException(s"Failed to create ECDSA256 verifier: $err")
@@ -47,8 +47,8 @@ object AuthServiceConfig {
   }
 
   /** Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt) */
-  final case class JwtEs512Crt(certificate: String) extends AuthServiceConfig {
-    private val verifier = ECDSAVerifier
+  final case class JwtEs512(certificate: String) extends AuthServiceConfig {
+    private lazy val verifier = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA512(_, null))
       .valueOr(err =>
         throw new IllegalArgumentException(s"Failed to create ECDSA512 verifier: $err")
@@ -58,7 +58,7 @@ object AuthServiceConfig {
 
   /** Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL */
   final case class JwtRs256Jwks(url: String) extends AuthServiceConfig {
-    private val verifier = JwksVerifier(url)
+    private lazy val verifier = JwksVerifier(url)
     override def create(): AuthService = AuthServiceJWT(verifier)
   }
 

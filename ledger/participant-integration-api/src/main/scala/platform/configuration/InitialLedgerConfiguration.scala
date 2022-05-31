@@ -8,9 +8,9 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 
 /** Instructions on how to initialize an empty ledger, without a configuration.
   *
-  * A configuation is only submitted if one is not detected on the ledger.
+  * A configuration is only submitted if one is not detected on the ledger and `enabled` flag is set to `true`
   *
-  * @param generation                The configuration generation. Monotonically increasing.
+  * @param enabled                Flag which defines if this functionality is enabled.
   * @param maxDeduplicationDuration  The maximum time window during which commands can be deduplicated.
   * @param avgTransactionLatency  The expected average latency of a transaction, i.e., the average
   *                               time from submitting the transaction to a write service and the
@@ -22,11 +22,11 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
   * @param delayBeforeSubmitting The delay until the participant tries to submit a configuration.
   */
 final case class InitialLedgerConfiguration(
-    maxDeduplicationDuration: Duration,
-    avgTransactionLatency: Duration,
-    minSkew: Duration,
-    maxSkew: Duration,
-    delayBeforeSubmitting: Duration,
+    maxDeduplicationDuration: Duration = Duration.ofMinutes(30),
+    avgTransactionLatency: Duration = Duration.ofSeconds(0),
+    minSkew: Duration = Duration.ofSeconds(30),
+    maxSkew: Duration = Duration.ofSeconds(30),
+    delayBeforeSubmitting: Duration = Duration.ofSeconds(0),
 ) {
   def toConfiguration = Configuration(
     generation = 1L,
@@ -34,5 +34,3 @@ final case class InitialLedgerConfiguration(
     maxDeduplicationDuration = maxDeduplicationDuration,
   )
 }
-
-object InitialLedgerConfiguration {}

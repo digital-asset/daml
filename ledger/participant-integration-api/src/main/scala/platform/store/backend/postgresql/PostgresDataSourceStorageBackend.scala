@@ -34,6 +34,13 @@ object PostgresDataSourceConfig {
     case object RemoteWrite extends SynchronousCommitValue("remote_write")
     case object RemoteApply extends SynchronousCommitValue("remote_apply")
     case object Local extends SynchronousCommitValue("local")
+    val All: Set[SynchronousCommitValue] = Set(
+      On,
+      Off,
+      RemoteWrite,
+      RemoteApply,
+      Local,
+    )
   }
 }
 

@@ -70,11 +70,8 @@ object MetricsReporter {
       case "console" =>
         Console
       case value if value.startsWith("csv://") =>
-        val uri = parseUri(value)
-        if (uri.getHost != null || uri.getPort >= 0) {
-          throw invalidRead
-        }
-        Csv(Paths.get(uri.getPath))
+        val directory = Paths.get(value.substring("csv://".length))
+        Csv(directory)
       case value if value.startsWith("graphite://") =>
         val uri = parseUri(value)
         val address = getAddress(uri, Graphite.defaultPort)
