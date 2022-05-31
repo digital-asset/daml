@@ -283,6 +283,7 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
+  // TODO #14039 delete
   private def generateDeprecatedCreateAndExerciseMethods(
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
@@ -318,6 +319,7 @@ private[inner] object TemplateClass extends StrictLogging {
     methods.flatten.asJava
   }
 
+  // TODO #14039 delete
   private def generateDeprecatedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
@@ -341,6 +343,7 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
   }
 
+  // TODO #14039 delete
   private def generateDeprecatedFlattenedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
