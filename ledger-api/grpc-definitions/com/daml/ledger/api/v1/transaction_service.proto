@@ -177,4 +177,3 @@ message GetLedgerEndResponse {
   // The absolute offset of the current ledger end.
   LedgerOffset offset = 1;
 }
-
