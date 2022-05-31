@@ -37,6 +37,10 @@ object InterfaceClass extends StrictLogging {
             .build()
         )
         .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
+        .addMethod {
+          // interface classes are not inhabited
+          MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build()
+        }
         .build()
       logger.debug("End")
       interfaceType
