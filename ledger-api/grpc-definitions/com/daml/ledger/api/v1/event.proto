@@ -118,7 +118,9 @@ message InterfaceView {
   // Required
   google.rpc.Status view_status = 2;
 
-  // The value of the interface's canonical view method on this event.
+  // The value of the interface's view method on this event.
+  // Set if it was requested in the ``InterfaceFilter`` and it could be
+  // sucessfully computed.
   // Optional
   Record view_value = 3;
 
