@@ -52,6 +52,12 @@ sealed trait LedgerIdentityServiceITBaseDynamic
 
   @volatile private var firstRunLedgerId: String = _
 
+  override def config = super.config.copy(
+    genericConfig = super.config.genericConfig.copy(
+      ledgerId = UUID.randomUUID.toString
+    )
+  )
+
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
 
   "A platform" when {
