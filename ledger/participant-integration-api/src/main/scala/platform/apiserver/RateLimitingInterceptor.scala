@@ -27,7 +27,7 @@ private[apiserver] final class RateLimitingInterceptor(metrics: Metrics, config:
   }
 
   private val apiServices =
-    InstrumentedCount("Api Services", metrics.daml.lapi.threadpool.apiServices)
+    InstrumentedCount("Api Services Threadpool", metrics.daml.lapi.threadpool.apiServices)
   private val indexDbThreadpool = InstrumentedCount(
     "Index Database Connection Threadpool",
     MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
