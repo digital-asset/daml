@@ -209,7 +209,7 @@ object Repl {
           compiledPackages,
           expr,
         )
-      (machine, new ScenarioRunner(machine, seed).run)
+      (machine, ScenarioRunner.run(() => machine, seed))
     }
   }
 
