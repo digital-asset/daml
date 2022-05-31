@@ -290,8 +290,8 @@ convertPrim _ "UExerciseInterface"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "UExerciseByKey"
-    (TApp proxy (TCon template) :-> key :-> TCon choice :-> TUpdate _returnTy) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    (tProxy@(TApp _ (TCon template)) :-> key :-> TCon choice :-> TUpdate _returnTy) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "key", key) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExerciseByKey template choiceName (EVar (mkVar "key")) (EVar (mkVar "arg"))
@@ -317,9 +317,9 @@ convertPrim _ "UFetchByKey"
             ])
 
 convertPrim _ "ETemplateTypeRep"
-    (TApp proxy (TCon template) :-> TTypeRep) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
-    ETypeRep (TCon template)
+    (tProxy@(TApp _ tCon@(TCon _)) :-> TTypeRep) =
+    ETmLam (mkVar "_", tProxy) $
+    ETypeRep tCon
 
 convertPrim _ "EFromAnyTemplate"
     (TAny :-> TOptional (TCon template)) =
@@ -341,8 +341,8 @@ convertPrim _ "EFromAnyInterfaceChoice"
       ,  CaseAlternative CPDefault (ENone choice) ]
 
 convertPrim _ "EFromAnyContractKey"
-    (TApp proxy (TCon template) :-> TAny :-> TOptional key) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    (tProxy@(TApp _ (TCon _)) :-> TAny :-> TOptional key) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "any", TAny) $
     EFromAny key (EVar $ mkVar "any")
 
@@ -358,14 +358,14 @@ convertPrim _ "EToAnyTemplateChoice"
     EToAny choice (EVar $ mkVar "choice")
 
 convertPrim _ "EToAnyInterfaceChoice"
-    (TApp proxy (TCon typeId) :-> choice :-> TAny) =
-    ETmLam (mkVar "_", TApp proxy (TCon typeId)) $
+    (tProxy@(TApp _ (TCon typeId)) :-> choice :-> TAny) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "choice", choice) $
     EToAny (mkTAnyInterfaceChoice choice) (mkEAnyInterfaceChoice choice typeId $ EVar $ mkVar "choice")
 
 convertPrim _ "EToAnyContractKey"
-    (TApp proxy (TCon template) :-> key :-> TAny) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    (tProxy@(TApp _ (TCon _)) :-> key :-> TAny) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "key", key) $
     EToAny key (EVar $ mkVar "key")
 
