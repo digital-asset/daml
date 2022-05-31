@@ -307,6 +307,7 @@ private[platform] case class IndexServiceBuilder(
       eventsProcessingParallelism = config.eventsProcessingParallelism,
       acsIdPageSize = config.acsIdPageSize,
       acsIdPageBufferSize = config.acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes = config.acsIdPageWorkingMemoryBytes,
       acsIdFetchingParallelism = config.acsIdFetchingParallelism,
       acsContractFetchingParallelism = config.acsContractFetchingParallelism,
       acsGlobalParallelism = config.acsGlobalParallelism,
