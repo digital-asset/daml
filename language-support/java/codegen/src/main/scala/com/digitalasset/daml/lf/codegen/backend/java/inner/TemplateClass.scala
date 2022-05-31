@@ -49,7 +49,7 @@ private[inner] object TemplateClass extends StrictLogging {
           )
         )
         .addMethods(
-          generateCreateAndExerciseMethods(
+          generateDeprecatedCreateAndExerciseMethods(
             templateChoices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
@@ -283,7 +283,7 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
-  private def generateCreateAndExerciseMethods(
+  private def generateDeprecatedCreateAndExerciseMethods(
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
