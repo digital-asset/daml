@@ -294,7 +294,12 @@ private[inner] object TemplateClass extends StrictLogging {
   ) = {
     val methods = for ((choiceName, choice) <- choices) yield {
       val createAndExerciseChoiceMethod =
-        generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
+        generateDeprecatedCreateAndExerciseMethod(
+          choiceName,
+          choice,
+          templateClassName,
+          packagePrefixes,
+        )
       val splatted =
         for (
           record <- choice.param
@@ -317,7 +322,7 @@ private[inner] object TemplateClass extends StrictLogging {
     methods.flatten.asJava
   }
 
-  private def generateCreateAndExerciseMethod(
+  private def generateDeprecatedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       templateClassName: ClassName,
@@ -327,6 +332,10 @@ private[inner] object TemplateClass extends StrictLogging {
     val createAndExerciseChoiceBuilder = MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        s"@deprecated since Daml 2.3.0; use {@code createAnd().exercise${choiceName.capitalize}} instead"
+      )
       .returns(classOf[javaapi.data.CreateAndExerciseCommand])
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
