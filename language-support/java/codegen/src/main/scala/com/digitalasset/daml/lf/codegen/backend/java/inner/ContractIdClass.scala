@@ -53,19 +53,13 @@ object ContractIdClass {
     def addConversionForImplementedInterfaces(
         implementedInterfaces: Seq[Ref.TypeConName]
     ): Builder = {
+      idClassBuilder.addMethods(
+        generateToInterfaceMethods("ContractId", "this.contractId", implementedInterfaces).asJava
+      )
       implementedInterfaces.foreach { interfaceName =>
         // XXX why doesn't this use packagePrefixes? -SC
         val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
         val interfaceContractIdName = name nestedClass "ContractId"
-        idClassBuilder.addMethod(
-          MethodSpec
-            .methodBuilder("toInterface")
-            .addModifiers(Modifier.PUBLIC)
-            .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
-            .addStatement("return new $T(this.contractId)", interfaceContractIdName)
-            .returns(interfaceContractIdName)
-            .build()
-        )
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
         idClassBuilder.addMethod(
           MethodSpec
