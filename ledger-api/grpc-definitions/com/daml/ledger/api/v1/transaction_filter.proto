@@ -21,11 +21,12 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 message TransactionFilter {
 
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
-  // For transaction trees only the listed parties matter, and all subtrees
-  // whose root is has one of the listed parties as an informee are returned.
-  // Create and and archive events are returned for all contracts whose
-  // stakeholders include at least one of the listed parties and match the
-  // per-party filter.
+  // The interpretation of the filter depends on the stream being filtered:
+  // - Transaction tree streams: only the listed parties matter, and all subtrees
+  //    whose root is has one of the listed parties as an informee are returned.
+  // - Transaction and ACS streams: create and archive events are returned for all contracts whose
+  //    stakeholders include at least one of the listed parties and match the
+  //    per-party filter.
   // Required
   map<string, Filters> filters_by_party = 1;
 }

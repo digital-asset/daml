@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1;
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
+import "google/rpc/status.proto";
 
 
 option java_outer_classname = "EventOuterClass";
@@ -31,14 +32,6 @@ message Event {
   // see https://github.com/digital-asset/daml/issues/960
   reserved 2;
   reserved "exercised";
-}
-
-// TODO update
-message InterfaceViewResult {
-  Identifier interface_id = 1;
-  // The result of the interface view method
-  // Optional
-  Record view = 2;
 }
 
 // Records that a contract has been created, and choices may now be exercised on it.
@@ -66,7 +59,9 @@ message CreatedEvent {
   // Optional
   Record create_arguments = 4;
 
-  // Opaque representation of contract payload. This cannot be decoded by the client.
+  // Opaque representation of contract payload intented for forwarding
+  // to a Ledger API server as a contract disclosed as part of a command
+  // submission.
   // Optional
   google.protobuf.Any create_arguments_blob = 10;
 
@@ -101,6 +96,24 @@ message CreatedEvent {
   // This means a newer client works with an older sandbox seamlessly.
   // Optional
   google.protobuf.StringValue agreement_text = 6;
+}
+
+// View of a create event matched by an interface filter.
+message InterfaceFilterResult {
+
+  // The interface implemented by the event.
+  // Required
+  Identifier interface_id = 1;
+
+  // Whether the result's view was successfully computed, and if not,
+  // the reason for the error.
+  // Required
+  google.rpc.Status result_status = 2;
+
+  // The result of the interface's canonical view method on this event.
+  // Optional
+  Record result_view = 3;
+
 }
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.
@@ -198,5 +211,5 @@ message ExercisedEvent {
   // The result of exercising the choice
   // Required
   Value exercise_result = 12;
-
 }
+

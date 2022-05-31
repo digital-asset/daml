@@ -124,8 +124,7 @@ message TransactionExercises {
   // Required
   google.protobuf.Timestamp effective_at = 4;
 
-  // The collection of events.
-  // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
+  // The exercise events matching the filter in the order they were executed.
   // Required
   repeated ExercisedEvent events = 5;
 
