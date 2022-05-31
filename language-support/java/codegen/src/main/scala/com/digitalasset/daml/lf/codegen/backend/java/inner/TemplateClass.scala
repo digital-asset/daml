@@ -63,6 +63,7 @@ private[inner] object TemplateClass extends StrictLogging {
             .builder(
               className,
               templateChoices,
+              ContractIdClass.For.Template,
               packagePrefixes,
             )
             .addFlattenedExerciseMethods(

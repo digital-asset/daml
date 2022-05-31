@@ -23,13 +23,21 @@ import javax.lang.model.element.Modifier
 
 object ContractIdClass {
 
+  sealed abstract class For extends Product with Serializable
+  object For {
+    case object Interface extends For
+    case object Template extends For
+  }
+
   def builder(
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+      kind: For,
       packagePrefixes: Map[PackageId, String],
   ) = Builder.create(
     templateClassName,
     choices,
+    kind,
     packagePrefixes,
   )
 
@@ -158,9 +166,19 @@ object ContractIdClass {
       exerciseChoiceBuilder.build()
     }
 
+    private[this] def generateGetCompanion(kind: For) =
+      ClassGenUtils.generateGetCompanion(
+        ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion],
+        kind match {
+          case For.Interface => InterfaceClass.companionName
+          case For.Template => ClassGenUtils.companionFieldName
+        },
+      )
+
     def create(
         templateClassName: ClassName,
         choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
+        kind: For,
         packagePrefixes: Map[PackageId, String],
     ): Builder = {
 
@@ -179,7 +197,7 @@ object ContractIdClass {
           .addParameter(ClassName.get(classOf[String]), "contractId")
           .addStatement("super(contractId)")
           .build()
-      idClassBuilder.addMethod(constructor)
+      idClassBuilder.addMethod(constructor).addMethod(generateGetCompanion(kind))
       for ((choiceName, choice) <- choices) {
         val exerciseChoiceMethod =
           generateExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)

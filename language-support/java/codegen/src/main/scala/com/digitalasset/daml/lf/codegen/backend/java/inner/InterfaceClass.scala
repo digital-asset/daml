@@ -32,6 +32,7 @@ object InterfaceClass extends StrictLogging {
             .builder(
               interfaceName,
               interface.choices,
+              ContractIdClass.For.Interface,
               packagePrefixes,
             )
             .build()

@@ -98,4 +98,13 @@ private[inner] object ClassGenUtils {
     choiceBuilder.build()
   }
 
+  def generateGetCompanion(companionType: TypeName, companionName: String): MethodSpec = {
+    MethodSpec
+      .methodBuilder("getCompanion")
+      .addModifiers(Modifier.PROTECTED)
+      .addAnnotation(classOf[Override])
+      .returns(companionType)
+      .addStatement("return $N", companionName)
+      .build()
+  }
 }
