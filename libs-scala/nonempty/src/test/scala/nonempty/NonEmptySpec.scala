@@ -221,14 +221,14 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   "min" should {
     "'work' on sets, so to speak" in {
       val r = NonEmpty(Set, 1, 42, -5)
-      r.min should ===(-5)
+      r.min1 should ===(-5)
     }
   }
 
   "max" should {
     "'work' on sets, so to speak" in {
       val r = NonEmpty(Set, 1, 42, -5)
-      r.max should ===(42)
+      r.max1 should ===(42)
     }
   }
 
