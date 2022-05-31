@@ -40,7 +40,7 @@ service TransactionService {
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
 
-  // Read the ldeger’s filtered transaction tree stream and emit the flat exercise events for a set of parties.
+  // Read the ledger's filtered transaction tree stream and emit the flat exercise events for a set of parties.
   // Emits only exercise events.
   rpc GetExerciseEvents (GetExerciseEventsRequest) returns (stream GetExerciseEventsResponse);
 
@@ -184,6 +184,7 @@ message GetLedgerEndResponse {
 }
 
 message GetExerciseEventsRequest {
+
   // Beginning of the requested ledger section.
   // This offset is exclusive: the response will only contain transactions whose offset is strictly greater than this.
   // Required
@@ -194,7 +195,8 @@ message GetExerciseEventsRequest {
   // Optional, if not set, the stream will not terminate.
   LedgerOffset end = 3;
 
-  // Requesting parties with template filters.
+  // The filter determining whether to include an ``ExercisedEvent`` in the
+  // result.
   // Required
   TransactionExerciseFilter filter = 4;
 

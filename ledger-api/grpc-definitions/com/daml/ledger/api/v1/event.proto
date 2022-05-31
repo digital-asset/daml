@@ -60,7 +60,7 @@ message CreatedEvent {
   Record create_arguments = 4;
 
   // Opaque representation of contract payload intented for forwarding
-  // to a Ledger API server as a contract disclosed as part of a command
+  // to a API server as a contract disclosed as part of a command
   // submission.
   // Optional
   google.protobuf.Any create_arguments_blob = 10;
@@ -101,12 +101,13 @@ message CreatedEvent {
 // View of a create event matched by an interface filter.
 message InterfaceView {
 
-  // The interface implemented by the event.
+  // The interface implemented by the matched event.
   // Required
   Identifier interface_id = 1;
 
   // Whether the view was successfully computed, and if not,
-  // the reason for the error.
+  // the reason for the error reported analogously to errors raised by
+  // request handlers in the API.
   // Required
   google.rpc.Status view_status = 2;
 
@@ -133,7 +134,7 @@ message ArchivedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The parties that are notified of this event. For ``ArchivedEvent``s,
+  // The parties that are notified of this event. For an ``ArchivedEvent``,
   // these are the intersection of the stakeholders of the contract in
   // question and the parties specified in the ``TransactionFilter``. The
   // stakeholders are the union of the signatories and the observers of
@@ -161,22 +162,22 @@ message ExercisedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The interface where the choice is defined if inherited
+  // The interface where the choice is defined, if inherited.
   // Optional
   Identifier interface_id = 13;
 
   reserved 4; // removed field
 
-  // The choice that's been exercised on the target contract.
+  // The choice that was exercised on the target contract.
   // Must be a valid NameString (as described in ``value.proto``).
   // Required
   string choice = 5;
 
-  // The argument the choice was made with.
+  // The argument the choice with which the choice was exercised.
   // Required
   Value choice_argument = 6;
 
-  // The parties that made the choice.
+  // The parties that exercised the choice.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string acting_parties = 7;
@@ -208,7 +209,7 @@ message ExercisedEvent {
   // Optional
   repeated string child_event_ids = 11;
 
-  // The result of exercising the choice
+  // The result of exercising the choice.
   // Required
   Value exercise_result = 12;
 }

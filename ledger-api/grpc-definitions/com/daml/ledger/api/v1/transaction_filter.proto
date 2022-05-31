@@ -22,9 +22,9 @@ message TransactionFilter {
 
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // The interpretation of the filter depends on the stream being filtered:
-  // - Transaction tree streams: only the listed parties matter, and all subtrees
-  //    whose root is has one of the listed parties as an informee are returned.
-  // - Transaction and ACS streams: create and archive events are returned for all contracts whose
+  // (1) For **transaction tree streams** only the listed parties matter, and all subtrees
+  //     whose root is has one of the listed parties as an informee are returned.
+  // (2) For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
   //    stakeholders include at least one of the listed parties and match the
   //    per-party filter.
   // Required
@@ -41,17 +41,17 @@ message Filters {
   InclusiveFilters inclusive = 1;
 }
 
-// A filter for contracts.
+// A filter that matches all contracts that are either an instance of one of
+// the ``template_ids`` or that match one of the ``interface_filters``.
 message InclusiveFilters {
 
   // A collection of templates for which the payload will be included in the
-  // create_arguments of CreatedEvents.
+  // ``create_arguments`` of a matching ``CreatedEvent``.
   // SHOULD NOT contain duplicates.
   // Optional
   repeated Identifier template_ids = 1;
 
-  // Collection of filters matching on interfaces and the values that should
-  // be included for events matching the filter.
+  // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // Optional
   repeated InterfaceFilter interface_filters = 2;
 }
@@ -64,14 +64,15 @@ message InterfaceFilter {
   Identifier interface_id = 1;
 
   // Whether to include the canonical interface view on the contract in the
-  // returned CreateEvent.
-  // Use this to access contract data in a uniform manner in your Ledger API
+  // returned ``CreateEvent``.
+  // Use this to access contract data in a uniform manner in your API
   // client.
   // Optional.
   bool include_interface_view = 2;
 
-  // Whether to include a create_arguments_blob in the returned CreateEvent.
-  // Use this to access the complete contract data in your Ledger API client
+  // Whether to include a ``create_arguments_blob`` in the returned
+  // ``CreateEvent``.
+  // Use this to access the complete contract data in your API client
   // for submitting it as a disclosed contract with future commands.
   // Optional.
   bool include_create_arguments_blob = 3;
@@ -81,7 +82,7 @@ message InterfaceFilter {
 // Filtering Exercise Event streams
 ///////////////////////////////////
 
-// A filter for filtering exercise events.
+// A filter for exercise events.
 message TransactionExerciseFilter {
 
   // Include exercises of choices that are witnessed by the given party
@@ -90,7 +91,7 @@ message TransactionExerciseFilter {
 }
 
 // An exercise event matches this filter if it matches one of the choice
-// filters. In contrast to a `TransactionFilter`, no wildcard matches are
+// filters. In contrast to a ``TransactionFilter``, no wildcard matches are
 // supported.
 message ExerciseEventFilter {
 
