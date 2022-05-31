@@ -109,7 +109,7 @@ class CodegenLedgerTest
       glookoflyContract.data shouldEqual glookofly
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = sruquito.createAndExerciseReproduce(glookoflyContract.id, tob)
+      val reproduceCmd = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
       sendCmd(client, alice, reproduceCmd)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)

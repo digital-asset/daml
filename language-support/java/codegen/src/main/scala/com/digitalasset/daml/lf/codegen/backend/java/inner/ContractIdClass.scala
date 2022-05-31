@@ -152,9 +152,8 @@ object ContractIdClass {
         choiceName,
         choice,
         fields,
-        Seq(Modifier.DEFAULT),
         packagePrefixes,
-      )
+      )(_.addModifiers(Modifier.DEFAULT))
 
     private[ContractIdClass] def generateExerciseMethod(
         choiceName: ChoiceName,

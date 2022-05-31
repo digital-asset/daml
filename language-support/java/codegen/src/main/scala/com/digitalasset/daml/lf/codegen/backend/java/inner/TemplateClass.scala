@@ -353,8 +353,13 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName,
       choice,
       fields,
-      Seq.empty[Modifier],
       packagePrefixes,
+    )(
+      _.addAnnotation(classOf[Deprecated])
+        .addJavadoc(
+          "@deprecated since Daml 2.3.0; use {@code createAnd().exercise$L} instead",
+          choiceName.capitalize,
+        )
     )
 
   private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =

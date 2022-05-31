@@ -12,7 +12,6 @@ import com.squareup.javapoet._
 import com.daml.ledger.javaapi
 
 import javax.lang.model.element.Modifier
-import scala.jdk.CollectionConverters._
 
 private[inner] object ClassGenUtils {
 
@@ -79,13 +78,12 @@ private[inner] object ClassGenUtils {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-      modifiers: Seq[Modifier],
       packagePrefixes: Map[PackageId, String],
-  ): MethodSpec = {
+  )(alter: MethodSpec.Builder => MethodSpec.Builder): MethodSpec = {
     val methodName = s"$name${choiceName.capitalize}"
     val choiceBuilder = MethodSpec
       .methodBuilder(methodName)
-      .addModifiers((modifiers :+ Modifier.PUBLIC).asJava)
+      .addModifiers(Modifier.PUBLIC)
       .returns(returns)
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
@@ -97,7 +95,7 @@ private[inner] object ClassGenUtils {
       javaType,
       generateArgumentList(fields.map(_.javaName)),
     )
-    choiceBuilder.build()
+    alter(choiceBuilder).build()
   }
 
   def generateGetCompanion(companionType: TypeName, companionName: String): MethodSpec = {
