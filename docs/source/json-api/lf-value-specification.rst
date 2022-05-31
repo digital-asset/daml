@@ -27,7 +27,9 @@ Type-directed Parsing
 
 Note that throughout the document the decoding is type-directed. In
 other words, the same JSON value can correspond to many Daml-LF values,
-and the expected Daml-LF type is needed to decide which one.
+and a single Daml-LF value can correspond to multiple JSON encodings. This
+means it is crucial to know the expected type of a JSON-encoded LF value to
+make sense of it.
 
 For that reason, you should parse the data into appropriate data types
 (including parsing numbers into appropriate representations) before doing any
