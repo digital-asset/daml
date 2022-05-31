@@ -124,6 +124,16 @@ class CommonCli(name: LedgerName) {
           config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.fromString(url))))
         )
 
+      checkConfig { c =>
+        if (c.damlPackages.nonEmpty) {
+          failure(
+            "Daml packages are not supported"
+          )
+        } else {
+          success
+        }
+      }
+
       checkConfig(c =>
         c.tlsConfig.fold(success) { tlsConfig =>
           if (
