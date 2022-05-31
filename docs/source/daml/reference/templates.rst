@@ -37,7 +37,37 @@ Template Parameters
 - A template parameter can't have the same name as any :ref:`choice arguments <daml-ref-choice-arguments>` inside the template.
 - For all parties involved in the contract (whether they're a ``signatory``, ``observer``, or ``controller``) you must pass them in as parameters to the contract, whether individually or as a list (``[Party]``).
 
-.. Template has an *associated* data type with the same name?
+.. _daml_ref-template-data:
+
+Implicit Record
+***************
+
+Whenever a template is defined, a record is implicitly defined with the same
+name and fields as the template. This record structure is used in Daml code to
+represent the data of a contract based on that template.
+
+Note that, in the general case, the existence of a local binding ``b`` of type
+``T``, where ``T`` is a template (and thus also a record), does not necessarily
+imply the existence of a contract with the same data as ``b`` on the ledger.
+You can only assume the existence of such a contract if ``b`` is the result of
+a fetch from the ledger within the same transaction.
+
+You can create a new instance of a record of type ``T`` without any interaction
+with the ledger; in fact, this is how you construct a create command.
+
+.. _daml_ref-template-this:
+
+``this`` and ``self``
+*********************
+
+Within the body of a template, we implicitly define a local binding ``this`` to
+represent the data of the current contract. For a template ``T``, this binding
+is of type ``T``, i.e. the implicit record defined by the template.
+
+Within choices, you can additionally use the binding ``self`` to refer to the
+contract ID of the current contract (the one on which the choice is being
+executed). For a contract of template ``T``, the ``self`` binding is of type
+``ContractId T``. Fetching ``self`` yields ``this``.
 
 .. _daml-ref-template-let:
 
@@ -51,7 +81,7 @@ Template-local Definitions
 
 - ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
 - Template parameters as well as ``this`` are in scope, but ``self`` is not.
-- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block. 
+- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block.
 
 .. _daml-ref-signatories:
 
