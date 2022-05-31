@@ -132,14 +132,6 @@ message Identifier {
 }
 
 
-// Definition of an interface view.
-// Currently this is just the identifier of the interface but if we
-// allow multiple views per interface this would be extended.
-message InterfaceView {
-  // The canonical view of an interface as defined in Daml.
-  Identifier interface_id = 1;
-}
-
 // A value with alternative representations.
 message Variant {
 

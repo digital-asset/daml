@@ -32,19 +32,12 @@ message Event {
   reserved "exercised";
 }
 
-// Result of evaluating an interface view consisting of the view definition
-// and the resulting value.
+// TODO update
 message InterfaceViewResult {
   Identifier interface_id = 1;
-  Record value = 2;
-}
-
-// The 0-based index of the filters that matched the request. This is useful for
-// demultiplexing streams on the client side. This is only set for
-// the transaction stream & the ACS stream but not for the
-// transaction tree stream.
-message FilterIndices {
-  repeated uint32 indices = 1;
+  // The result of the interface view method
+  // Optional
+  Record view = 2;
 }
 
 // Records that a contract has been created, and choices may now be exercised on it.
@@ -74,7 +67,7 @@ message CreatedEvent {
 
   // Opaque representation of contract payload. This cannot be decoded by the client.
   // Optional
-  bytes create_arguments_blob = 10;
+  Any create_arguments_blob = 10;
 
   // Interface views specified in the transaction filter. Only contains entries
   // for the intersection of interfaces implemented by the template
