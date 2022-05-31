@@ -69,7 +69,7 @@ message CreatedEvent {
   // for the intersection of interfaces implemented by the template
   // and the interfaces specified in the transaction filter.
   // Optional
-  repeated InterfaceViewResult interface_views = 11;
+  repeated InterfaceView interface_views = 11;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
@@ -99,20 +99,20 @@ message CreatedEvent {
 }
 
 // View of a create event matched by an interface filter.
-message InterfaceFilterResult {
+message InterfaceView {
 
   // The interface implemented by the event.
   // Required
   Identifier interface_id = 1;
 
-  // Whether the result's view was successfully computed, and if not,
+  // Whether the view was successfully computed, and if not,
   // the reason for the error.
   // Required
-  google.rpc.Status result_status = 2;
+  google.rpc.Status view_status = 2;
 
-  // The result of the interface's canonical view method on this event.
+  // The value of the interface's canonical view method on this event.
   // Optional
-  Record result_view = 3;
+  Record view_value = 3;
 
 }
 
