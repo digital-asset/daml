@@ -43,7 +43,7 @@ Implicit Record
 ***************
 
 Whenever a template is defined, a record is implicitly defined with the same
-name and fields as the template. This record structure is used in Daml code to
+name and fields as that template. This record structure is used in Daml code to
 represent the data of a contract based on that template.
 
 Note that, in the general case, the existence of a local binding ``b`` of type
