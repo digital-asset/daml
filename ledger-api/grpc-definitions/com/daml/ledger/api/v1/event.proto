@@ -56,11 +56,12 @@ message CreatedEvent {
   Value contract_key = 7;
 
   // The arguments that have been used to create the contract.
+  // Set if there was a match by template_id in the given transaction filter.
   // Optional
   Record create_arguments = 4;
 
   // Opaque representation of contract payload intented for forwarding
-  // to a API server as a contract disclosed as part of a command
+  // to an API server as a contract disclosed as part of a command
   // submission.
   // Optional
   google.protobuf.Any create_arguments_blob = 10;
@@ -106,8 +107,8 @@ message InterfaceView {
   Identifier interface_id = 1;
 
   // Whether the view was successfully computed, and if not,
-  // the reason for the error reported analogously to errors raised by
-  // request handlers in the API.
+  // the reason for the error. The error is reported using the same rules
+  // for error codes and messages as the errors returned for API requests.
   // Required
   google.rpc.Status view_status = 2;
 
@@ -173,7 +174,7 @@ message ExercisedEvent {
   // Required
   string choice = 5;
 
-  // The argument the choice with which the choice was exercised.
+  // The argument of the exercised choice.
   // Required
   Value choice_argument = 6;
 

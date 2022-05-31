@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "google/protobuf/empty.proto";
-import "google/rpc/status.proto";
 
 option java_outer_classname = "ValueOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -131,7 +130,6 @@ message Identifier {
   // Required
   string entity_name = 4;
 }
-
 
 // A value with alternative representations.
 message Variant {

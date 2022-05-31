@@ -16,14 +16,14 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 // Filtering Transaction, TransactionTree, and Active Contract Set streams
 //////////////////////////////////////////////////////////////////////////
 
-// A filter both for filtering create and archive events; and for filtering
-// transaction trees.
+// A filter both for filtering create and archive events as well as for
+// filtering transaction trees.
 message TransactionFilter {
 
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // The interpretation of the filter depends on the stream being filtered:
   // (1) For **transaction tree streams** only the listed parties matter, and all subtrees
-  //     whose root is has one of the listed parties as an informee are returned.
+  //     whose root has one of the listed parties as an informee are returned.
   // (2) For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
   //    stakeholders include at least one of the listed parties and match the
   //    per-party filter.
@@ -65,16 +65,15 @@ message InterfaceFilter {
 
   // Whether to include the canonical interface view on the contract in the
   // returned ``CreateEvent``.
-  // Use this to access contract data in a uniform manner in your API
-  // client.
-  // Optional.
+  // Use this to access contract data in a uniform manner in your API client.
+  // Optional
   bool include_interface_view = 2;
 
   // Whether to include a ``create_arguments_blob`` in the returned
   // ``CreateEvent``.
   // Use this to access the complete contract data in your API client
   // for submitting it as a disclosed contract with future commands.
-  // Optional.
+  // Optional
   bool include_create_arguments_blob = 3;
 }
 
@@ -96,7 +95,7 @@ message TransactionExerciseFilter {
 message ExerciseEventFilter {
 
   // Choices of interest.
-  // Required.
+  // Required
   repeated ChoiceFilter choices = 1;
 }
 
@@ -105,11 +104,11 @@ message ExerciseEventFilter {
 message ChoiceFilter {
 
     // The template or interface defining the choice.
-    // Required.
+    // Required
     Identifier template_or_interface_id = 1;
 
     // The name of the choice.
-    // Required.
+    // Required
     string choice = 3;
 }
 
