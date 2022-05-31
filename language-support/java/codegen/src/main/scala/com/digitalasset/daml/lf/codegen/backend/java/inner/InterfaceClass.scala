@@ -8,6 +8,7 @@ import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.iface, iface.DefInterface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.-\/
 
 import javax.lang.model.element.Modifier
 
@@ -45,6 +46,9 @@ object InterfaceClass extends StrictLogging {
             packageId,
             packagePrefixes,
           )
+        )
+        .addType(
+          TemplateClass.generateCreateAndClass(-\/(ContractIdClass.For.Interface))
         )
         .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
         .addMethod {

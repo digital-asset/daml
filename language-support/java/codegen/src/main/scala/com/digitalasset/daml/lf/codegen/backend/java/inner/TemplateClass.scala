@@ -7,10 +7,11 @@ import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref, Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.{\/, \/-}
 import scalaz.syntax.std.option._
 
 import javax.lang.model.element.Modifier
@@ -83,6 +84,7 @@ private[inner] object TemplateClass extends StrictLogging {
             packagePrefixes,
           )
         )
+        .addType(generateCreateAndClass(\/-(template.implementedInterfaces)))
         .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
@@ -224,6 +226,54 @@ private[inner] object TemplateClass extends StrictLogging {
     )
     exerciseByKeyBuilder.build()
   }
+
+  private val createAndClassName = "CreateAnd"
+
+  private[inner] def generateCreateAndClass(
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
+  ) =
+    TypeSpec
+      .classBuilder(createAndClassName)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .superclass(classOf[javaapi.data.codegen.CreateAnd])
+      .addSuperinterface(
+        ParameterizedTypeName.get(
+          ContractIdClass.exercisesInterface,
+          ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
+        )
+      )
+      .addMethod(
+        ContractIdClass.Builder.generateGetCompanion(
+          implementedInterfaces.map(_ => ContractIdClass.For.Template).merge
+        )
+      )
+      .addMethod(
+        MethodSpec
+          .constructorBuilder()
+          // for template, use createAnd(); toInterface methods need public
+          // access if in different packages, though
+          .addModifiers(
+            implementedInterfaces.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
+          )
+          .addParameter(classOf[javaapi.data.Template], "createArguments")
+          .addStatement("super(createArguments)")
+          .build()
+      )
+      .addMethods(
+        implementedInterfaces
+          .fold(
+            (_: ContractIdClass.For.Interface.type) => Seq.empty,
+            implemented =>
+              ContractIdClass
+                .generateToInterfaceMethods(
+                  createAndClassName,
+                  "this.createArguments",
+                  implemented,
+                ),
+          )
+          .asJava
+      )
+      .build()
 
   private def generateCreateAndExerciseMethods(
       templateClassName: ClassName,

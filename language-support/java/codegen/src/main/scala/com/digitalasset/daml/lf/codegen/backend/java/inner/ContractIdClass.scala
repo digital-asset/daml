@@ -20,6 +20,7 @@ import com.daml.lf.iface.{
 import com.squareup.javapoet._
 
 import javax.lang.model.element.Modifier
+import scala.jdk.CollectionConverters._
 
 object ContractIdClass {
 
@@ -83,7 +84,7 @@ object ContractIdClass {
   }
 
   private val exercisesTypeParam = TypeVariableName get "Cmd"
-  private val exercisesInterface = ClassName bestGuess "Exercises"
+  private[inner] val exercisesInterface = ClassName bestGuess "Exercises"
 
   private[inner] def generateExercisesInterface(
       choices: Map[ChoiceName, TemplateChoice.FWT],
@@ -124,6 +125,24 @@ object ContractIdClass {
     }
     exercisesClass.build()
   }
+
+  private[inner] def generateToInterfaceMethods(
+      nestedReturn: String,
+      selfArgs: String,
+      implementedInterfaces: Seq[Ref.TypeConName],
+  ) =
+    implementedInterfaces.map { interfaceName =>
+      // XXX why doesn't this use packagePrefixes? -SC
+      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+      val interfaceContractIdName = name nestedClass nestedReturn
+      MethodSpec
+        .methodBuilder("toInterface")
+        .addModifiers(Modifier.PUBLIC)
+        .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
+        .addStatement("return new $T($L)", interfaceContractIdName, selfArgs)
+        .returns(interfaceContractIdName)
+        .build()
+    }
 
   private[inner] object Builder {
 
@@ -183,7 +202,7 @@ object ContractIdClass {
       exerciseChoiceBuilder.build()
     }
 
-    private[this] def generateGetCompanion(kind: For) =
+    def generateGetCompanion(kind: For) =
       ClassGenUtils.generateGetCompanion(
         ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion],
         kind match {

@@ -8,7 +8,7 @@ import com.daml.ledger.javaapi.data.Template;
 import com.daml.ledger.javaapi.data.Value;
 
 public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
-  private final Template createArguments;
+  protected final Template createArguments;
 
   protected CreateAnd(Template createArguments) {
     this.createArguments = createArguments;
@@ -20,5 +20,5 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
         getCompanion().TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
   }
 
-  public abstract ContractTypeCompanion getCompanion();
+  protected abstract ContractTypeCompanion getCompanion();
 }
