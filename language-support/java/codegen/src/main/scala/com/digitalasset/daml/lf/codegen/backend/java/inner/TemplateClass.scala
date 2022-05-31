@@ -306,7 +306,7 @@ private[inner] object TemplateClass extends StrictLogging {
               _ => None,
             )
         ) yield {
-          generateFlattenedCreateAndExerciseMethod(
+          generateDeprecatedFlattenedCreateAndExerciseMethod(
             choiceName,
             choice,
             getFieldsWithTypes(record.fields, packagePrefixes),
@@ -341,7 +341,7 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
   }
 
-  private def generateFlattenedCreateAndExerciseMethod(
+  private def generateDeprecatedFlattenedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
