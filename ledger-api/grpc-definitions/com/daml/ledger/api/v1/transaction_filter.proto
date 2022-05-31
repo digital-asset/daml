@@ -12,6 +12,10 @@ option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
+
+// Filtering Transaction, TransactionTree, and Active Contract Set streams
+//////////////////////////////////////////////////////////////////////////
+
 // A filter both for filtering create and archive events as well as for
 // filtering transaction trees.
 message TransactionFilter {
@@ -72,3 +76,39 @@ message InterfaceFilter {
   // Optional
   bool include_create_arguments_blob = 3;
 }
+
+
+// Filtering Exercise Event streams
+///////////////////////////////////
+
+// A filter for exercise events.
+message TransactionExerciseFilter {
+
+  // Include exercises of choices that are witnessed by the given party
+  // and match the per-party exercise event filter.
+  map<string, ExerciseEventFilter> per_party_filter = 1;
+}
+
+// An exercise event matches this filter if it matches one of the choice
+// filters. In contrast to a ``TransactionFilter``, no wildcard matches are
+// supported.
+message ExerciseEventFilter {
+
+  // Choices of interest.
+  // Required
+  repeated ChoiceFilter choices = 1;
+}
+
+// An exercise event matches a choice filter if the event's exercised choice
+// is equal to the one referenced in the filter.
+message ChoiceFilter {
+
+    // The template or interface defining the choice.
+    // Required
+    Identifier template_or_interface_id = 1;
+
+    // The name of the choice.
+    // Required
+    string choice = 3;
+}
+
