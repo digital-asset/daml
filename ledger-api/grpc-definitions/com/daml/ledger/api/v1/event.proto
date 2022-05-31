@@ -7,6 +7,7 @@ package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/any.proto";
 
 
 option java_outer_classname = "EventOuterClass";
@@ -67,7 +68,7 @@ message CreatedEvent {
 
   // Opaque representation of contract payload. This cannot be decoded by the client.
   // Optional
-  Any create_arguments_blob = 10;
+  google.protobuf.Any create_arguments_blob = 10;
 
   // Interface views specified in the transaction filter. Only contains entries
   // for the intersection of interfaces implemented by the template

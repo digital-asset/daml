@@ -127,7 +127,7 @@ message TransactionExercises {
   // The collection of events.
   // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
   // Required
-  repeated ExerciseEvent events = 5;
+  repeated ExercisedEvent events = 5;
 
   // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
   // Required
