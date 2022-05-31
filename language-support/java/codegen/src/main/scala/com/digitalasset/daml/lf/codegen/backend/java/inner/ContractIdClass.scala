@@ -46,10 +46,9 @@ object ContractIdClass {
     ): Builder = {
       implementedInterfaces.foreach { interfaceName =>
         val name = ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
-        val simpleName = interfaceName.qualifiedName.name.segments.last
         idClassBuilder.addMethod(
           MethodSpec
-            .methodBuilder(s"to$simpleName")
+            .methodBuilder("toInterface")
             .addModifiers(Modifier.PUBLIC)
             .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
             .addStatement("return new $T.ContractId(this.contractId)", name)

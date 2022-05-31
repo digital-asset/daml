@@ -51,7 +51,7 @@ class Interfaces
           sendCmd(
             client,
             alice,
-            child.id.toTIf(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
+            child.id.toInterface(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
           )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
@@ -62,7 +62,7 @@ class Interfaces
                 alice,
                 interfaces.Child.ContractId
                   .unsafeFromInterface(
-                    child.id.toTIf(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
+                    child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
                   )
                   .exerciseHam(new interfaces.Ham()),
               )
