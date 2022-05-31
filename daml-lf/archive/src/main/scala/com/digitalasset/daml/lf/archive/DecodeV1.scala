@@ -1387,7 +1387,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
         case PLF.Update.SumCase.FETCH =>
           val fetch = lfUpdate.getFetch
-          UpdateFetch(
+          UpdateFetchTemplate(
             templateId = decodeTypeConName(fetch.getTemplate),
             contractId = decodeExpr(fetch.getCid, definition),
           )

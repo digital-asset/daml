@@ -204,14 +204,15 @@ private[lf] object PartialTransaction {
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
       seeds: NodeSeeds,
+      globalKeyMapping: Map[GlobalKey, KeyMapping],
   ) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
-  sealed abstract class KeyMapping extends Product with Serializable
+  type KeyMapping = Option[Value.ContractId]
   // There is no active contract with the given key.
-  final case object KeyInactive extends KeyMapping
+  val KeyInactive = None
   // The contract with the given cid is active and has the given key.
-  final case class KeyActive(cid: Value.ContractId) extends KeyMapping
+  val KeyActive = Some
 }
 
 /** A transaction under construction
@@ -262,6 +263,8 @@ private[lf] object PartialTransaction {
   *
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
+  *
+  * invariant: [[keys.keySet subsetOf globalKeyInputs.keySet]]
   */
 private[speedy] case class PartialTransaction(
     contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -361,11 +364,10 @@ private[speedy] case class PartialTransaction(
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
-          SubmittedTransaction(
-            TxVersion.asVersionedTransaction(tx)
-          ),
+          SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
+          globalKeyInputs,
         )
       case _ =>
         IncompleteTransaction(this)
@@ -462,10 +464,11 @@ private[speedy] case class PartialTransaction(
           case Some(KeyActive(_)) => KeyConflict.Duplicate
           case Some(KeyInactive) | None => KeyConflict.None
         }
-        val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-          case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
-          case Some(_) => ptx.globalKeyInputs
-        }
+        val globalKeyInputs =
+          if (ptx.globalKeyInputs.isDefinedAt(ck))
+            ptx.globalKeyInputs
+          else
+            ptx.globalKeyInputs.updated(ck, KeyInactive)
         (conflict, contractKeyUniqueness) match {
           case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
             cid -> ptx.noteAbort(Tx.DuplicateContractKey(ck))

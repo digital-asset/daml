@@ -21,6 +21,8 @@ class LedgerApiServices(
   val activeContractsService =
     new ActiveContractsService(channel, ledgerId, authorizationToken = authorizationToken)
   val commandService = new CommandService(channel, authorizationToken = authorizationToken)
+  val commandSubmissionService =
+    new CommandSubmissionService(channel, authorizationToken = authorizationToken)
   val commandCompletionService =
     new CommandCompletionService(
       channel,

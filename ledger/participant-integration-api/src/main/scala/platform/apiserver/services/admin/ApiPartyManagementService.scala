@@ -3,9 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -29,6 +27,7 @@ import com.daml.platform.server.api.ValidationLogger
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +35,7 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
-    managementServiceTimeout: Duration,
+    managementServiceTimeout: FiniteDuration,
     submissionIdGenerator: String => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
@@ -154,7 +153,7 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
-      managementServiceTimeout: Duration,
+      managementServiceTimeout: FiniteDuration,
       submissionIdGenerator: String => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,

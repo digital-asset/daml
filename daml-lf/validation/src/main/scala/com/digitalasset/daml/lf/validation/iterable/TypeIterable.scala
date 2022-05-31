@@ -119,7 +119,7 @@ private[validation] object TypeIterable {
       case UpdateCreateInterface(interface, arg) =>
         Iterator(TTyCon(interface)) ++
           iterator(arg)
-      case UpdateFetch(templateId, contractId) =>
+      case UpdateFetchTemplate(templateId, contractId) =>
         Iterator(TTyCon(templateId)) ++
           iterator(contractId)
       case UpdateFetchInterface(interface, contractId) =>

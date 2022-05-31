@@ -82,6 +82,7 @@ case class TlsFixture(
             tlsConfiguration = Some(serverTlsConfiguration),
             servicesExecutor = servicesExecutor,
             metrics = new Metrics(new MetricRegistry),
+            rateLimitingConfig = None,
           )
         )
     }

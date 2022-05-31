@@ -35,6 +35,7 @@ class StoreBackedCommandExecutorSpec
     usedPackages = Set.empty,
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
+    globalKeyMapping = Map.empty,
     disclosures = ImmArray.Empty,
   )
 

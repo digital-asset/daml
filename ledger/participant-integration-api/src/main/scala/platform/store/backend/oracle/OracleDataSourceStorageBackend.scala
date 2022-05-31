@@ -14,12 +14,11 @@ import javax.sql.DataSource
 
 object OracleDataSourceStorageBackend extends DataSourceStorageBackend {
   override def createDataSource(
-      jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit],
   )(implicit loggingContext: LoggingContext): DataSource = {
     val oracleDataSource = new oracle.jdbc.pool.OracleDataSource
-    oracleDataSource.setURL(jdbcUrl)
+    oracleDataSource.setURL(dataSourceConfig.jdbcUrl)
     InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
   }
 

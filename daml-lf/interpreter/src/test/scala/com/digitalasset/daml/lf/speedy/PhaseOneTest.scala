@@ -205,7 +205,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     EUpdate(UpdateBlock(ImmArray(Binding(None, ty, exp), Binding(None, ty, exp)), x))
   private def ucreate = (x: Expr) => EUpdate(UpdateCreate(tcon, x))
   private def ucreateI = (x: Expr) => EUpdate(UpdateCreateInterface(tcon, x))
-  private def ufetch = (x: Expr) => EUpdate(UpdateFetch(tcon, x))
+  private def ufetch = (x: Expr) => EUpdate(UpdateFetchTemplate(tcon, x))
   private def ufetchI = (x: Expr) => EUpdate(UpdateFetchInterface(tcon, x))
   private def uexercise1 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, x, exp))
   private def uexercise2 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, exp, x))

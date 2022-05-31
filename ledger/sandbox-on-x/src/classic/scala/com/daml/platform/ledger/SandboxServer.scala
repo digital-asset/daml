@@ -9,22 +9,24 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config
+import com.daml.ledger.runner.common.{CliConfigConverter, Config, ParticipantConfig}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
-import com.daml.platform.apiserver.ApiServer
+import com.daml.platform.apiserver.{ApiServer, ApiServerConfig}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.store.backend.{DataSourceStorageBackend, StorageBackendFactory}
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.ports.Port
 import com.daml.resources.AbstractResourceOwner
@@ -39,9 +41,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Failure, Success, Try}
-
 import scala.util.chaining._
+import scala.util.{Failure, Success, Try}
 
 final class SandboxServer(
     config: SandboxConfig,
@@ -55,17 +56,27 @@ final class SandboxServer(
 
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
-    val genericConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+    val genericCliConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+    val bridgeConfigAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor {
+      override def authService(apiServerConfig: ApiServerConfig): AuthService =
+        config.authService.getOrElse(AuthServiceWildcard)
+    }
+    val genericConfig = CliConfigConverter.toConfig(bridgeConfigAdaptor, genericCliConfig)
     for {
-      participantConfig <-
-        SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
+      (participantId, dataSource, participantConfig) <- SandboxOnXRunner.combinedParticipant(
+        genericConfig
+      )
       (apiServer, writeService, indexService) <-
         SandboxOnXRunner
           .buildLedger(
+            participantId,
             genericConfig,
             participantConfig,
+            dataSource,
+            genericCliConfig.extra,
             materializer,
             materializer.system,
+            bridgeConfigAdaptor,
             Some(metrics),
           )
           .acquire()
@@ -80,13 +91,15 @@ final class SandboxServer(
             .acquire()
       }
     } yield {
-      initializationLoggingHeader(genericConfig, apiServer)
+      initializationLoggingHeader(genericConfig, participantConfig, dataSource, apiServer)
       apiServer.port
     }
   }
 
   private def initializationLoggingHeader(
-      genericConfig: Config[BridgeConfig],
+      genericConfig: Config,
+      participantConfig: ParticipantConfig,
+      dataSource: ParticipantDataSourceConfig,
       apiServer: ApiServer,
   ): Unit = {
     Banner.show(Console.out)
@@ -95,11 +108,13 @@ final class SandboxServer(
       BuildInfo.Version,
       genericConfig.ledgerId,
       apiServer.port.toString,
-      DbType.jdbcType(genericConfig.participants.head.serverJdbcUrl).name,
+      DbType
+        .jdbcType(dataSource.jdbcUrl)
+        .name,
       config.damlPackages,
-      genericConfig.timeProviderType.description,
+      participantConfig.apiServer.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
-      genericConfig.authService.getClass.getSimpleName,
+      participantConfig.apiServer.authentication.getClass.getSimpleName,
       config.seeding.name,
       if (config.stackTraces) "" else ", stack traces = no",
       config.profileDir match {
@@ -251,7 +266,9 @@ object SandboxServer {
         // on new db when creating via `IndexMetadata.read`
         val storageBackendFactory = StorageBackendFactory.of(dbType)
         val dataSource =
-          storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl)
+          storageBackendFactory.createDataSourceStorageBackend.createDataSource(
+            DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+          )
 
         storageBackendFactory.createParameterStorageBackend
           .ledgerIdentity(dataSource.getConnection)

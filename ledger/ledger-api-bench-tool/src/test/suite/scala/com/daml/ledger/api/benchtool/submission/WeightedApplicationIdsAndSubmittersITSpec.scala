@@ -70,6 +70,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
+        waitForSubmission = true,
       )
       allocatedParties <- submitter.prepare(submissionConfig)
       tested = new FooSubmission(
@@ -128,6 +129,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
         beginOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
         objectives = None,
         timeoutInSeconds = 0,
+        maxItemCount = None,
       ),
       observer = observer,
     )

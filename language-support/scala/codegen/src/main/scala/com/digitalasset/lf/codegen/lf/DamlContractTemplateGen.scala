@@ -64,7 +64,11 @@ object DamlContractTemplateGen {
 
     def templateObjectMembers = Seq(
       generateTemplateIdDef(templateId),
-      genChoiceImplicitClass(util)(templateName, templateInterface.template.choices),
+      genChoiceImplicitClass(util)(
+        templateName,
+        // TODO (#13921) replace assumeNoOverloadedChoices with directChoices
+        templateInterface.template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921),
+      ),
       q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",
       consumingChoicesMethod,
       toNamedArgumentsMethod,
