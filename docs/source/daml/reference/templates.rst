@@ -46,7 +46,7 @@ Whenever a template is defined, a record is implicitly defined with the same
 name and fields as that template. This record structure is used in Daml code to
 represent the data of a contract based on that template.
 
-Note that, in the general case, the existence of a local binding ``b`` of type
+Note that in the general case, the existence of a local binding ``b`` of type
 ``T``, where ``T`` is a template (and thus also a record), does not necessarily
 imply the existence of a contract with the same data as ``b`` on the ledger.
 You can only assume the existence of such a contract if ``b`` is the result of
