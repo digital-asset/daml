@@ -21,10 +21,7 @@ import java.util.function.Function;
  * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
  *     the template, whose instances contain only the payload.
  */
-public abstract class ContractCompanion<Ct, Id, Data> {
-  /** The full template ID of the template that defined this companion. */
-  public final Identifier TEMPLATE_ID;
-
+public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion {
   final String templateClassName; // not something we want outside this package
 
   protected final Function<String, Id> newContractId;
@@ -45,7 +42,7 @@ public abstract class ContractCompanion<Ct, Id, Data> {
       Identifier templateId,
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue) {
-    this.TEMPLATE_ID = templateId;
+    super(templateId);
     this.templateClassName = templateClassName;
     this.newContractId = newContractId;
     this.fromValue = fromValue;
