@@ -472,7 +472,6 @@ abstract class EventStorageBackendTemplate(
       partitions = List(
         "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
         "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
         // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
         // "participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
       ),
