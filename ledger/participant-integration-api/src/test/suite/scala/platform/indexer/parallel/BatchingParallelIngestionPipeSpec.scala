@@ -109,7 +109,7 @@ class BatchingParallelIngestionPipeSpec
     ).map { case (_, _, err) =>
       // The first and last batches can be smaller than `MaxBatchSize`
       // so we assert the average batch size instead of the sizes of individual batches
-      batchSizes.sum.toDouble / batchSizes.size should be > (MaxBatchSize.toDouble - MaxBatchSize / 10.0)
+      batchSizes.sum.toDouble / batchSizes.size should be > (MaxBatchSize.toDouble - MaxBatchSize / 5.0)
       err shouldBe empty
     }
   }
