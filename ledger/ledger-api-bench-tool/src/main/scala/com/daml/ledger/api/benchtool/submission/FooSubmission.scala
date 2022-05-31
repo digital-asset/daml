@@ -4,7 +4,6 @@
 package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
-import com.daml.ledger.client.binding
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -13,9 +12,8 @@ class FooSubmission(
     maxInFlightCommands: Int,
     submissionBatchSize: Int,
     submissionConfig: FooSubmissionConfig,
-    signatory: binding.Primitive.Party,
-    allObservers: List[binding.Primitive.Party],
-    allDivulgees: List[binding.Primitive.Party],
+    allocatedParties: AllocatedParties,
+    names: Names,
 ) {
 
   def performSubmission()(implicit
@@ -23,8 +21,8 @@ class FooSubmission(
   ): Future[Unit] = {
     val (divulgerCmds, divulgeesToDivulgerKeyMap) = FooDivulgerCommandGenerator
       .makeCreateDivulgerCommands(
-        divulgingParty = signatory,
-        allDivulgees = allDivulgees,
+        divulgingParty = allocatedParties.signatory,
+        allDivulgees = allocatedParties.divulgees,
       )
 
     for {
@@ -36,7 +34,7 @@ class FooSubmission(
           )
           submitter.submitSingleBatch(
             commandId = "divulgence-setup",
-            actAs = Seq(signatory) ++ allDivulgees,
+            actAs = Seq(allocatedParties.signatory) ++ allocatedParties.divulgees,
             commands = divulgerCmds,
           )
         } else {
@@ -44,17 +42,16 @@ class FooSubmission(
         }
       generator: CommandGenerator = new FooCommandGenerator(
         randomnessProvider = RandomnessProvider.Default,
-        signatory = signatory,
         config = submissionConfig,
-        allObservers = allObservers,
-        allDivulgees = allDivulgees,
         divulgeesToDivulgerKeyMap = divulgeesToDivulgerKeyMap,
+        names = names,
+        allocatedParties = allocatedParties,
       )
       _ <- submitter
         .generateAndSubmit(
           generator = generator,
           config = submissionConfig,
-          actAs = List(signatory) ++ allDivulgees,
+          baseActAs = List(allocatedParties.signatory) ++ allocatedParties.divulgees,
           maxInFlightCommands = maxInFlightCommands,
           submissionBatchSize = submissionBatchSize,
         )

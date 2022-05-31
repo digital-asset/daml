@@ -22,7 +22,7 @@ object ConfigEnricher {
       case config: StreamConfig.ActiveContractsStreamConfig =>
         config.copy(filters = enrichFilters(config.filters, submissionResult))
       case config: StreamConfig.CompletionsStreamConfig =>
-        config.copy(party = convertParty(config.party, submissionResult))
+        config.copy(parties = config.parties.map(party => convertParty(party, submissionResult)))
     }
   }
 
@@ -33,7 +33,7 @@ object ConfigEnricher {
     submissionResult match {
       case None => party
       case Some(summary) =>
-        summary.allocatedParties
+        summary.allocatedParties.allAllocatedParties
           .map(_.unwrap)
           .find(_.contains(party))
           .getOrElse(throw new RuntimeException(s"Observer not found: $party"))

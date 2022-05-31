@@ -1020,7 +1020,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfacePrecond <- encodeExpr intPrecondition
-    defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
+    defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
     pure $ P.DefInterface{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod

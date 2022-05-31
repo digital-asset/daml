@@ -179,8 +179,8 @@ private[daml] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateCreateInterface(interface, arg) =>
         UpdateCreateInterface(apply(interface), apply(arg))
-      case UpdateFetch(templateId, contractId) =>
-        UpdateFetch(apply(templateId), apply(contractId))
+      case UpdateFetchTemplate(templateId, contractId) =>
+        UpdateFetchTemplate(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
@@ -346,11 +346,11 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(requires, param, fixedChoices, methods, precond) =>
+      case DefInterface(requires, param, choices, methods, precond) =>
         DefInterface(
           requires.map(apply(_)),
           param,
-          fixedChoices.transform((_, v) => apply(v)),
+          choices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
           apply(precond),
         )

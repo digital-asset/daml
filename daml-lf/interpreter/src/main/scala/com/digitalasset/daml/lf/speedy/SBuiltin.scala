@@ -1037,18 +1037,10 @@ private[lf] object SBuiltin {
   }
 
   // SBCastAnyInterface: ContractId ifaceId -> Any -> ifaceId
-  final case class SBCastAnyInterface(
-      ifaceId: TypeConName,
-      optExpectedTmplId: Option[TypeConName] = None,
-  ) extends SBuiltin(2) {
+  final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       def coid = getSContractId(args, 0)
       val (actualTmplId, _) = getSAnyContract(args, 1)
-      optExpectedTmplId.foreach { expectedTmplId: TypeConName =>
-        if (actualTmplId != expectedTmplId)
-          throw SErrorDamlException(IE.WronglyTypedContract(coid, expectedTmplId, actualTmplId))
-      }
-
       if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTmplId, ifaceId)).isEmpty)
         throw SErrorDamlException(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
       machine.returnValue = args.get(1)

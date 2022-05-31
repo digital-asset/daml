@@ -5,12 +5,16 @@ package com.daml.ledger.api.benchtool.util
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
-import io.grpc.stub.StreamObserver
+import io.grpc.stub.{ClientCallStreamObserver, ClientResponseObserver}
 import org.slf4j.Logger
 
 import scala.concurrent.{Future, Promise}
 
-abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObserver[T] {
+object ClientCancelled extends Exception
+abstract class ObserverWithResult[RespT, Result](logger: Logger)
+    extends ClientResponseObserver[Any, RespT] {
+
+  private var requestStream: ClientCallStreamObserver[_] = null
 
   def streamName: String
 
@@ -18,7 +22,7 @@ abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObser
 
   def completeWith(): Future[Result]
 
-  override def onNext(value: T): Unit = ()
+  override def onNext(value: RespT): Unit = ()
 
   override def onError(t: Throwable): Unit = {
     logger.error(withStreamName(s"Received error: $t"))
@@ -26,9 +30,20 @@ abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObser
       case ex: io.grpc.StatusRuntimeException if isServerShuttingDownError(ex) =>
         logger.info(s"Stopping reading the stream due to the server being shut down.")
         promise.completeWith(completeWith())
+      case ex if ex.getCause == ClientCancelled =>
+        logger.info(s"Stopping reading the stream due to a client cancellation.")
+        promise.completeWith(completeWith())
       case ex =>
         promise.failure(ex)
     }
+  }
+
+  override def beforeStart(requestStream: ClientCallStreamObserver[Any]): Unit = {
+    this.requestStream = requestStream
+  }
+
+  def cancel(): Unit = {
+    requestStream.cancel(null, ClientCancelled)
   }
 
   private def isServerShuttingDownError(ex: io.grpc.StatusRuntimeException): Boolean =

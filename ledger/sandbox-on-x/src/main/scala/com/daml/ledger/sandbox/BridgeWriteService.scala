@@ -19,7 +19,7 @@ import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.InstrumentedSource
+import com.daml.metrics.InstrumentedGraph
 import com.daml.telemetry.TelemetryContext
 
 import java.time.Duration
@@ -134,7 +134,7 @@ class BridgeWriteService(
 
   private val queue: BoundedSourceQueue[Submission] = {
     val (queue, queueSource) =
-      InstrumentedSource
+      InstrumentedGraph
         .queue[Submission](
           bufferSize = submissionBufferSize,
           capacityCounter = bridgeMetrics.BridgeInputQueue.conflictQueueCapacity,

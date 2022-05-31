@@ -13,22 +13,27 @@ class Names {
   val workflowId = s"$benchtoolApplicationId-$identifierSuffix"
   val signatoryPartyName = s"signatory-$identifierSuffix"
 
-  def observerPartyName(index: Int, uniqueParties: Boolean): String =
-    if (uniqueParties) s"Obs-$index-$identifierSuffix"
-    else s"Obs-$index"
-
-  def divulgeePartyName(index: Int, uniqueParties: Boolean): String =
-    if (uniqueParties) s"Div-$index-$identifierSuffix"
-    else s"Div-$index"
-
   def observerPartyNames(numberOfObservers: Int, uniqueParties: Boolean): Seq[String] =
-    (0 until numberOfObservers).map(i => observerPartyName(i, uniqueParties))
+    partyNames("Obs", numberOfObservers, uniqueParties)
 
   def divulgeePartyNames(numberOfDivulgees: Int, uniqueParties: Boolean): Seq[String] =
-    (0 until numberOfDivulgees).map(i => divulgeePartyName(i, uniqueParties))
+    partyNames("Div", numberOfDivulgees, uniqueParties)
+
+  def extraSubmitterPartyNames(numberOfExtraSubmitters: Int, uniqueParties: Boolean): Seq[String] =
+    partyNames("Sub", numberOfExtraSubmitters, uniqueParties)
 
   def commandId(index: Int): String = s"command-$index-$identifierSuffix"
 
   def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
+
+  private def partyNames(
+      baseName: String,
+      numberOfParties: Int,
+      uniqueParties: Boolean,
+  ): Seq[String] =
+    (0 until numberOfParties).map(i => partyName(baseName, i, uniqueParties))
+
+  private def partyName(baseName: String, index: Int, uniqueParties: Boolean): String =
+    s"$baseName-$index" + (if (uniqueParties) identifierSuffix else "")
 
 }

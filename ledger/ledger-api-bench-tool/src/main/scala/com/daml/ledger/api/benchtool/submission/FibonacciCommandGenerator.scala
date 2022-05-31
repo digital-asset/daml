@@ -14,7 +14,12 @@ import scala.util.{Success, Try}
 final class FibonacciCommandGenerator(
     config: FibonacciSubmissionConfig,
     signatory: Primitive.Party,
+    names: Names,
 ) extends CommandGenerator {
+
+  override def nextApplicationId(): String = names.benchtoolApplicationId
+
+  override def nextExtraCommandSubmitters(): List[Primitive.Party] = List.empty
 
   def next(): Try[Seq[Command]] = {
     Success(

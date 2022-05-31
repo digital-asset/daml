@@ -3,7 +3,6 @@
 
 package com.daml.platform.store
 
-import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
@@ -14,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
@@ -29,7 +29,6 @@ object IndexMetadata {
   )(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
-      materializer: Materializer,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
     ownDao(jdbcUrl).use { dao =>
@@ -48,16 +47,19 @@ object IndexMetadata {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-      materializer: Materializer,
   ) = {
     val metrics = new Metrics(new MetricRegistry)
     DbSupport
       .owner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.ReadIndexMetadata,
-        connectionPoolSize = 1,
-        connectionTimeout = 250.millis,
         metrics = metrics,
+        dbConfig = DbConfig(
+          jdbcUrl = jdbcUrl,
+          connectionPool = ConnectionPoolConfig(
+            connectionPoolSize = 1,
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(
@@ -65,6 +67,7 @@ object IndexMetadata {
           eventsPageSize = 1000,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 20000,
+          acsIdPageBufferSize = 1,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
@@ -76,7 +79,6 @@ object IndexMetadata {
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning =
             new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used
-          materializer = materializer,
         )
       )
   }

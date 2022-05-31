@@ -119,7 +119,7 @@ private[validation] object TypeIterable {
       case UpdateCreateInterface(interface, arg) =>
         Iterator(TTyCon(interface)) ++
           iterator(arg)
-      case UpdateFetch(templateId, contractId) =>
+      case UpdateFetchTemplate(templateId, contractId) =>
         Iterator(TTyCon(templateId)) ++
           iterator(contractId)
       case UpdateFetchInterface(interface, contractId) =>
@@ -257,10 +257,10 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(requires, _, fixedChoice, methods, precond) =>
+      case DefInterface(requires, _, choices, methods, precond) =>
         requires.iterator.map(TTyCon) ++
           iterator(precond) ++
-          fixedChoice.values.iterator.flatMap(iterator) ++
+          choices.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator)
     }
 

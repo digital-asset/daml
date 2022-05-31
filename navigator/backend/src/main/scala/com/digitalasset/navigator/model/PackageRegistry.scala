@@ -14,13 +14,14 @@ case class PackageRegistry(
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,
     private val typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType] = Map.empty,
 ) {
+  // TODO (#13969) ignores inherited choices; interfaces aren't handled at all
   private[this] def template(
       packageId: DamlLfRef.PackageId,
       qname: DamlLfQualifiedName,
       t: DamlLfIface.DefTemplate[DamlLfIface.Type],
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
-    t.choices.toList.map(c => choice(c._1, c._2)),
+    t.tChoices.directChoices.toList.map(c => choice(c._1, c._2)),
     t.key,
   )
 

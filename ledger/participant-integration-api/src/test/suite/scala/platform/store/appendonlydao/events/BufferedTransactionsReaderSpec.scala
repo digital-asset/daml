@@ -8,12 +8,17 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref.{IdString, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import com.daml.platform.store.dao.events.BufferedTransactionsReader.FetchTransactions
+import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
+  FetchTransactions,
+  invertMapping,
+}
 import com.daml.platform.store.dao.events.BufferedTransactionsReaderSpec.{
+  offset,
   predecessor,
-  transactionLogUpdate,
+  transaction,
 }
 import com.daml.platform.store.cache.EventsBuffer
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -41,67 +46,61 @@ class BufferedTransactionsReaderSpec
       (offset4, update4),
     ) =
       (1 to 4).map { idx =>
-        Offset.fromByteArray(BigInt(idx * 2 + 1234).toByteArray) -> transactionLogUpdate(s"tx-$idx")
+        offset(idx.toLong) -> transaction(s"tx-$idx")
       }
 
     // Dummy filters. We're not interested in concrete details
     // since we are asserting only the generic getTransactions method
-    val filter, otherFilter = new Object
+    val filter = new Object
 
-    val txApiMap @ Seq(
-      (apiTx1, apiResponse1),
-      (apiTx2, apiResponse2),
-      (apiTx3, apiResponse3),
-      (apiTx4, apiResponse4),
-    ) = (1 to 4).map(idx => s"Some API TX $idx" -> s"Some API response $idx from buffer")
-
-    val toApiTx: (TransactionLogUpdate, Object, Boolean) => Future[Option[String]] = {
-      case (`update1`, `otherFilter`, false) => Future.successful(None)
-      case (`update1`, `filter`, false) => Future.successful(Some(apiTx1))
-      case (`update2`, `filter`, false) => Future.successful(Some(apiTx2))
-      case (`update3`, `filter`, false) => Future.successful(Some(apiTx3))
-      case (`update4`, `filter`, false) => Future.successful(Some(apiTx4))
+    val filterEvents: TransactionLogUpdate => Option[TransactionLogUpdate.Transaction] = {
+      case `update1` => None
+      case `update2` => Some(update2)
+      case `update3` => Some(update3)
+      case `update4` => Some(update4)
       case unexpected => fail(s"Unexpected $unexpected")
     }
 
-    val apiResponseCtor = txApiMap.map { case (apiTx, apiResponse) =>
-      Seq(apiTx) -> apiResponse
-    }.toMap
+    val apiResponseFromDB = "Some API response from storage"
+    val apiResponses @ Seq(apiResponse2, apiResponse3, apiResponse4) =
+      (2 to 4).map(idx => s"Some API response $idx from buffer")
 
-    val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
+    val toApiTx = Seq(update2, update3, update4)
+      .zip(apiResponses)
+      .map { case (u, r) =>
+        u -> Future.successful(r)
+      }
+      .toMap
+
+    val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
       maxBufferSize = 3L,
       metrics = metrics,
       bufferQualifier = "test",
       isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+      maxBufferedChunkSize = 100,
     )
 
-    offsetUpdates.foreach { case (offset, update) =>
-      transactionsBuffer.push(offset, update)
-    }
+    offsetUpdates.foreach(Function.tupled(transactionsBuffer.push))
 
     def readerGetTransactionsGeneric(
-        eventsBuffer: EventsBuffer[Offset, TransactionLogUpdate],
+        eventsBuffer: EventsBuffer[TransactionLogUpdate],
         startExclusive: Offset,
         endInclusive: Offset,
         fetchTransactions: FetchTransactions[Object, String],
     ) =
       BufferedTransactionsReader
-        .getTransactions(eventsBuffer)(
+        .getTransactions[Object, String](eventsBuffer)(
           startExclusive = startExclusive,
           endInclusive = endInclusive,
           filter = filter,
           verbose = false,
+          metrics,
+          eventProcessingParallelism = 2,
         )(
+          filterEvents = filterEvents,
           toApiTx = toApiTx,
-          apiResponseCtor = apiResponseCtor,
           fetchTransactions = fetchTransactions,
-          toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
-          sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
-          resolvedFromBufferCounter =
-            metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
-          totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-          bufferSizeCounter = metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
-          outputStreamBufferSize = 128,
+          bufferReaderMetrics = metrics.daml.services.index.BufferedReader("some_tx_stream"),
         )
         .runWith(Sink.seq)
 
@@ -157,21 +156,53 @@ class BufferedTransactionsReaderSpec
           )
         )
       }
+
+      "fetch from buffer and storage chunked" in {
+        val transactionsBufferWithSmallChunkSize = new EventsBuffer[TransactionLogUpdate](
+          maxBufferSize = 3L,
+          metrics = metrics,
+          bufferQualifier = "test",
+          isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+          maxBufferedChunkSize = 1,
+        )
+
+        offsetUpdates.foreach(Function.tupled(transactionsBufferWithSmallChunkSize.push))
+        val anotherResponseForOffset2 = "(2) Response fetched from storage"
+        val anotherResponseForOffset3 = "(3) Response fetched from storage"
+        readerGetTransactionsGeneric(
+          eventsBuffer = transactionsBufferWithSmallChunkSize,
+          startExclusive = offset1,
+          endInclusive = offset4,
+          fetchTransactions = {
+            case (`offset1`, `offset3`, `filter`, false) =>
+              Source(
+                Seq(offset2 -> anotherResponseForOffset2, offset3 -> anotherResponseForOffset3)
+              )
+            case unexpected =>
+              fail(s"Unexpected fetch transactions subscription start: $unexpected")
+          },
+        ).map(
+          _ should contain theSameElementsInOrderAs Seq(
+            offset2 -> anotherResponseForOffset2,
+            offset3 -> anotherResponseForOffset3,
+            offset4 -> apiResponse4,
+          )
+        )
+      }
     }
 
     "request before buffer bounds" should {
       "fetch only from storage" in {
-        val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
+        val transactionsBuffer = new EventsBuffer[TransactionLogUpdate](
           maxBufferSize = 1L,
           metrics = metrics,
           bufferQualifier = "test",
           isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+          maxBufferedChunkSize = 100,
         )
 
-        offsetUpdates.foreach { case (offset, update) =>
-          transactionsBuffer.push(offset, update)
-        }
-        val fetchedElements = Vector(offset2 -> apiResponse1, offset3 -> apiResponse2)
+        offsetUpdates.foreach(Function.tupled(transactionsBuffer.push))
+        val fetchedElements = Vector(offset2 -> apiResponseFromDB, offset3 -> apiResponse2)
 
         readerGetTransactionsGeneric(
           eventsBuffer = transactionsBuffer,
@@ -187,13 +218,35 @@ class BufferedTransactionsReaderSpec
     }
   }
 
+  "invertMapping" should {
+    "invert the mapping of Map[Party, Set[TemplateId]] into a Map[TemplateId, Set[Party]]" in {
+      def party: String => IdString.Party = Party.assertFromString
+      def templateId: String => Identifier = Identifier.assertFromString
+
+      val partiesToTemplates =
+        Map(
+          party("p11") -> Set(templateId("a:b:t1")),
+          party("p12") -> Set(templateId("a:b:t1"), templateId("a:b:t2")),
+          party("p21") -> Set(templateId("a:b:t2")),
+        )
+
+      val expectedTemplatesToParties =
+        Map(
+          templateId("a:b:t1") -> Set(party("p11"), party("p12")),
+          templateId("a:b:t2") -> Set(party("p21"), party("p12")),
+        )
+
+      invertMapping(partiesToTemplates) shouldBe expectedTemplatesToParties
+    }
+  }
+
   override def afterAll(): Unit = {
     val _ = actorSystem.terminate()
   }
 }
 
 object BufferedTransactionsReaderSpec {
-  private def transactionLogUpdate(discriminator: String) =
+  private def transaction(discriminator: String) =
     TransactionLogUpdate.Transaction(
       transactionId = discriminator,
       workflowId = "",
@@ -204,4 +257,9 @@ object BufferedTransactionsReaderSpec {
 
   private def predecessor(offset: Offset): Offset =
     Offset.fromByteArray((BigInt(offset.toByteArray) - 1).toByteArray)
+
+  private def offset(idx: Long): Offset = {
+    val base = BigInt(1L) << 32
+    Offset.fromByteArray((base + idx).toByteArray)
+  }
 }

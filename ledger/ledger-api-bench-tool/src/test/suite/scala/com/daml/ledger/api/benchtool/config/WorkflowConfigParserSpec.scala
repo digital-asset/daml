@@ -6,8 +6,9 @@ package com.daml.ledger.api.benchtool.config
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.io.StringReader
+
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
@@ -24,6 +25,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_instances: 500
           |  num_observers: 4
           |  num_divulgees: 5
+          |  num_extra_submitters: 6
           |  unique_parties: true
           |  instance_distribution:
           |    - template: Foo1
@@ -35,6 +37,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  consuming_exercises:
           |      probability: 0.5
           |      payload_size_bytes: 200
+          |  application_ids:
+          |       - id: App-1
+          |         weight: 100
+          |       - id: App-2
+          |         weight: 102
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -45,7 +52,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo3
           |    objectives:
           |      min_item_rate: 123
-          |      max_item_rate: 456""".stripMargin
+          |      max_item_rate: 456
+          |    max_item_count: 700""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -54,6 +62,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfInstances = 500,
               numberOfObservers = 4,
               numberOfDivulgees = 5,
+              numberOfExtraSubmitters = 6,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -74,6 +83,16 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   payloadSizeBytes = 200,
                 )
               ),
+              applicationIds = List(
+                FooSubmissionConfig.ApplicationId(
+                  applicationId = "App-1",
+                  weight = 100,
+                ),
+                FooSubmissionConfig.ApplicationId(
+                  applicationId = "App-2",
+                  weight = 102,
+                ),
+              ),
             )
           ),
           streams = List(
@@ -91,6 +110,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(456),
                 )
               ),
+              maxItemCount = Some(700),
             )
           ),
         )
@@ -102,8 +122,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         """submission:
         |  type: foo
         |  num_instances: 500
+        |  num_divulgees: 1
         |  num_observers: 4
         |  num_divulgees: 5
+        |  num_extra_submitters: 6
         |  unique_parties: true
         |  instance_distribution:
         |    - template: Foo1
@@ -114,7 +136,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |      payload_size_bytes: 35
         |    - template: Foo3
         |      weight: 10
-        |      payload_size_bytes: 25""".stripMargin
+        |      payload_size_bytes: 25
+        |  application_ids: []
+""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -123,6 +147,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfInstances = 500,
               numberOfObservers = 4,
               numberOfDivulgees = 5,
+              numberOfExtraSubmitters = 6,
               uniqueParties = true,
               instanceDistribution = List(
                 WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -143,6 +168,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               nonConsumingExercises = None,
               consumingExercises = None,
+              applicationIds = List.empty,
             )
           ),
           streams = Nil,
@@ -157,6 +183,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_instances: 500
           |  unique_parties: true
           |  value: 7
+          |  wait_for_submission: true
         """.stripMargin
 
       parseYaml(yaml) shouldBe Right(
@@ -166,6 +193,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               numberOfInstances = 500,
               uniqueParties = true,
               value = 7,
+              waitForSubmission = true,
             )
           ),
           streams = Nil,
@@ -213,6 +241,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(34),
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -256,6 +285,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = None,
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -289,6 +319,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
               objectives = None,
+              maxItemCount = None,
             )
           ),
         )
@@ -334,6 +365,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(34),
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -371,6 +403,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(4567),
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -382,9 +415,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         """streams:
           |  - type: completions
           |    name: stream-1
-          |    party: Obs-2
+          |    parties: [Obs-2]
           |    begin_offset: foo
           |    application_id: foobar
+          |    timeout_in_seconds: 100
+          |    max_item_count: 101
           |    objectives:
           |      min_item_rate: 12
           |      max_item_rate: 345""".stripMargin
@@ -394,7 +429,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           streams = List(
             WorkflowConfig.StreamConfig.CompletionsStreamConfig(
               name = "stream-1",
-              party = "Obs-2",
+              parties = List("Obs-2"),
               beginOffset = Some(offset("foo")),
               applicationId = "foobar",
               objectives = Some(
@@ -403,6 +438,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(345),
                 )
               ),
+              timeoutInSeconds = 100,
+              maxItemCount = Some(101L),
             )
           ),
         )
@@ -436,6 +473,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               beginOffset = Some(ledgerBeginOffset),
               endOffset = Some(ledgerEndOffset),
               objectives = None,
+              maxItemCount = None,
             )
           ),
         )

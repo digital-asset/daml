@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import akka.NotUsed
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -19,6 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{GlobalKey => LfGlobalKey, Transaction => LfTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.InstrumentedGraph._
 
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,30 +31,18 @@ private[validate] class ConflictCheckingLedgerBridge(
     sequence: Sequence,
     servicesThreadPoolSize: Int,
 ) extends LedgerBridge {
+  private val StageBufferSize = 128
+
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .buffered(128)(bridgeMetrics.Stages.PrepareSubmission.bufferBefore)
+      .buffered(bridgeMetrics.Stages.PrepareSubmission.bufferBefore, StageBufferSize)
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
-      .buffered(128)(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore)
+      .buffered(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore, StageBufferSize)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .buffered(128)(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore)
+      .buffered(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore, StageBufferSize)
       .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
-      .buffered(128)(bridgeMetrics.Stages.Sequence.bufferBefore)
+      .buffered(bridgeMetrics.Stages.Sequence.bufferBefore, StageBufferSize)
       .statefulMapConcat(sequence)
-
-  private implicit class FlowWithBuffers[T, R](flow: Flow[T, R, NotUsed]) {
-    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Flow[T, R, NotUsed] =
-      flow
-        .map { in =>
-          counter.inc()
-          in
-        }
-        .buffer(bufferLength, OverflowStrategy.backpressure)
-        .map { in =>
-          counter.dec()
-          in
-        }
-  }
 }
 
 private[bridge] object ConflictCheckingLedgerBridge {

@@ -12,8 +12,15 @@ import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
 import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{
+  Node,
+  SubmittedTransaction,
+  Versioned,
+  VersionedTransaction,
+  Transaction => Tx,
+}
 import java.nio.file.Files
+import com.daml.lf.value.Value.{ValueRecord, ValueContractId, VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
@@ -96,23 +103,31 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
+      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+
+    // TODO (drsk) remove this assertion once disclosed contracts feature becomes stable.
+    // https://github.com/digital-asset/daml/issues/13952.
+    assert(disclosures.isEmpty || config.allowedLanguageVersions.contains(LanguageVersion.v1_dev))
     val submissionTime = cmds.ledgerEffectiveTime
-    preprocessor
-      .preprocessApiCommands(cmds.commands)
-      .flatMap { processedCmds =>
+
+    for {
+      processedCmds <- preprocessor.preprocessApiCommands(cmds.commands)
+      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      res <-
         interpretCommands(
           validating = false,
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
+          disclosures = processedDiscs,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
         ) map { case (tx, meta) => tx -> meta.copy(submissionSeed = Some(submissionSeed)) }
-      }
+    } yield res
   }
 
   /** Behaves like `submit`, but it takes a single command argument.
@@ -147,6 +162,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         validating = true,
         submitters = submitters,
         readAs = Set.empty,
+        disclosures = ImmArray.empty,
         sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -169,6 +185,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submitters = submitters,
         readAs = Set.empty,
         commands = commands,
+        disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
@@ -255,6 +272,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
+      disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -269,6 +287,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submitters,
         readAs,
         sexpr,
+        disclosures,
         ledgerTime,
         submissionTime,
         seeding,
@@ -288,6 +307,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       sexpr: SExpr,
+      disclosures: ImmArray[speedy.DisclosedContract],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -303,7 +323,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
     )
-    interpretLoop(machine, ledgerTime)
+
+    for {
+      discTable <- Engine.buildDiscTable(machine, disclosures)
+      res <- interpretLoop(machine, discTable, ledgerTime)
+    } yield res
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -330,6 +354,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
+      disclosures: Engine.DisclosureTable,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
@@ -354,31 +379,44 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             pkg => {
               compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
-                interpretLoop(machine, time)
+                interpretLoop(machine, disclosures, time)
               }
             },
           )
 
-        case SResultNeedContract(contractId, _, callback) =>
-          return Result.needContract(
-            contractId,
-            { coinst =>
-              callback(coinst)
-              interpretLoop(machine, time)
-            },
-          )
+        case SResultNeedContract(contractId, _, callback) => {
+          def continueWithContract = (coinst: VersionedContractInstance) => {
+            callback(coinst)
+            interpretLoop(machine, disclosures, time)
+          }
+          disclosures.contractById.get(contractId) match {
+            case None =>
+              return Result.needContract(
+                contractId,
+                continueWithContract,
+              )
+            case Some(coinst) => return continueWithContract(coinst)
+          }
+        }
 
         case SResultNeedTime(callback) =>
           callback(time)
 
         case SResultNeedKey(gk, _, cb) =>
-          return ResultNeedKey(
-            gk,
-            { result =>
-              discard[Boolean](cb(result))
-              interpretLoop(machine, time)
-            },
-          )
+          def continueWithCoid = (result: Option[ContractId]) => {
+            discard[Boolean](cb(result))
+            interpretLoop(machine, disclosures, time)
+          }
+
+          disclosures.contractIdByKey.get(gk.globalKey.hash) match {
+            case None =>
+              return ResultNeedKey(
+                gk,
+                continueWithCoid,
+              )
+            // TODO (drsk) validate key hash. https://github.com/digital-asset/daml/issues/13897
+            case Some(coid) => return continueWithCoid(Some(coid))
+          }
 
         case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
             _: SResultScenarioGetParty) =>
@@ -393,7 +431,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
+      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds, globalKeyMapping) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
@@ -401,6 +439,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             usedPackages = deps,
             dependsOnTime = onLedger.dependsOnTime,
             nodeSeeds = nodeSeeds,
+            globalKeyMapping = globalKeyMapping,
+            disclosures = disclosures.allDisclosures,
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
@@ -522,4 +562,75 @@ object Engine {
     StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
   )
 
+  private[engine] case class DisclosureTable(
+      allDisclosures: ImmArray[Versioned[DisclosedContract]],
+      contractIdByKey: Map[crypto.Hash, ContractId],
+      contractById: Map[ContractId, VersionedContractInstance],
+  )
+
+  private[engine] def buildDiscTable(
+      machine: Machine,
+      disclosures: ImmArray[speedy.DisclosedContract],
+  ): Result[DisclosureTable] = {
+    val acc = disclosures.foldLeft(
+      (
+        Map.empty[ContractId, VersionedContractInstance],
+        Map.empty[crypto.Hash, ContractId],
+        List.empty[Versioned[DisclosedContract]],
+      )
+    ) { case ((m1, m2, ds), d) =>
+      val arg = machine.normValue(d.templateId, d.argument)
+      val coid = machine.normValue(d.templateId, d.contractId)
+      val version = machine.tmplId2TxVersion(d.templateId)
+
+      // check for well typed contract argument
+      (coid, arg) match {
+        case (ValueContractId(coid), r @ ValueRecord(Some(d.templateId), _)) =>
+          // check for duplicate contract ids
+          m1.get(coid) match {
+            case Some(_) =>
+              throw (Error.Preprocessing.BadDisclosedContract("Duplicate disclosed contract."))
+            case None =>
+              val contractInst = VersionedContractInstance(
+                template = d.templateId,
+                arg = Versioned(version, r),
+                agreementText = "",
+              )
+              val m1_prime = m1 + (coid -> contractInst)
+              val d_prime = Versioned(
+                version,
+                DisclosedContract(
+                  templateId = d.templateId,
+                  argument = r,
+                  contractId = coid,
+                  metadata = d.metadata,
+                ),
+              )
+              val ds_prime = d_prime :: ds
+              d.metadata.keyHash match {
+                case Some(hash) =>
+                  // check for duplicate contract key hashes
+                  m2.get(hash) match {
+                    case Some(_) =>
+                      throw (Error.Preprocessing.BadDisclosedContract(
+                        "Duplicate key for disclosed contract."
+                      ))
+                    case None => (m1_prime, m2 + (hash -> coid), ds_prime)
+                  }
+                case None => (m1_prime, m2, ds_prime)
+              }
+          }
+        case _ =>
+          throw (Error.Preprocessing.BadDisclosedContract("Disclosed contract is not well-typed."))
+      }
+    }
+    ResultDone(
+      DisclosureTable(
+        allDisclosures = ImmArray.from(acc._3),
+        contractById = acc._1,
+        contractIdByKey = acc._2,
+      )
+    )
+
+  }
 }

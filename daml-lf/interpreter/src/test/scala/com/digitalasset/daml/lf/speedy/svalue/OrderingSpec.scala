@@ -80,7 +80,6 @@ class OrderingSpec
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
     import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-    implicit val cidArb: Arbitrary[Value.ContractId] = Arbitrary(Gen.fail[Value.ContractId])
     def r(name: String, va: VA)(sv: va.Inj => SValue) =
       (name, va.injarb.arbitrary map sv)
     Table(

@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
@@ -25,6 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 class ApiPartyManagementServiceSpec
     extends AsyncWordSpec
@@ -59,7 +59,7 @@ class ApiPartyManagementServiceSpec
         mockIndexPartyManagementService,
         mockIndexTransactionsService,
         TestWritePartyService,
-        Duration.ZERO,
+        Duration.Zero,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 

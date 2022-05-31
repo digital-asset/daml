@@ -202,9 +202,6 @@ checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
-    forM_ tplImplements $ \TemplateImplements{..} ->
-        forM_ tpiInheritedChoiceNames $ \choiceName ->
-            checkName (NChoiceViaInterface moduleName tplTypeCon choiceName tpiInterface)
 
 checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
 checkSynonym moduleName DefTypeSyn{..} =
@@ -212,7 +209,7 @@ checkSynonym moduleName DefTypeSyn{..} =
 
 checkInterface :: ModuleName -> DefInterface -> NCMonad ()
 checkInterface moduleName DefInterface{..} = do
-    forM_ intFixedChoices $ \TemplateChoice{..} ->
+    forM_ intChoices $ \TemplateChoice{..} ->
         checkName (NInterfaceChoice moduleName intName chcName)
     forM_ intMethods $ \InterfaceMethod{..} ->
         checkName (NInterfaceMethod moduleName intName ifmName)

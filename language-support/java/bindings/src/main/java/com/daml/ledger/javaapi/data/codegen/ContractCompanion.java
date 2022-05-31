@@ -12,13 +12,32 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+/**
+ * Metadata and utilities associated with a template as a whole, rather than one single contract
+ * made from that template.
+ *
+ * @param <Ct> The {@link Contract} subclass generated within the template class.
+ * @param <Id> The {@link ContractId} subclass generated within the template class.
+ * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
+ *     the template, whose instances contain only the payload.
+ */
 public abstract class ContractCompanion<Ct, Id, Data> {
+  /** The full template ID of the template that defined this companion. */
   public final Identifier TEMPLATE_ID;
+
   final String templateClassName; // not something we want outside this package
 
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
+  /**
+   * Tries to parse a contract from an event expected to create a {@code Ct} contract.
+   *
+   * @param event the event to try to parse a contract from
+   * @throws IllegalArgumentException when the {@link CreatedEvent#arguments} cannot be parsed as
+   *     {@code Data}, or the {@link CreatedEvent#contractKey} cannot be parsed as {@code Key}.
+   * @return The parsed contract, with payload and metadata, if present.
+   */
   public abstract Ct fromCreatedEvent(CreatedEvent event);
 
   protected ContractCompanion(
@@ -87,6 +106,7 @@ public abstract class ContractCompanion<Ct, Id, Data> {
     }
   }
 
+  /** @param <Key> {@code Data}'s key type as represented in Java codegen. */
   public static final class WithKey<Ct, Id, Data, Key> extends ContractCompanion<Ct, Id, Data> {
     private final NewContract<Ct, Id, Data, Key> newContract;
     private final Function<Value, Key> keyFromValue;

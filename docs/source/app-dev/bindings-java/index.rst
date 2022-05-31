@@ -41,15 +41,6 @@ The Java bindings library is composed of:
     main implementation working against a Daml Ledger is the ``DamlLedgerClient``.
 
     Can be found in the java package ``com.daml.ledger.rxjava``.
-- The Reactive Components
-    A set of optional components you can use to assemble Daml Ledger applications. These components are deprecated as of 2020-10-14.
-
-    The most important components are:
-
-    - the ``LedgerView``, which provides a local view of the Ledger
-    - the ``Bot``, which provides utility methods to assemble automation logic for the Ledger
-
-    Can be found in the java package ``com.daml.ledger.rxjava.components``.
 
 Generate Code
 =============
@@ -100,7 +91,7 @@ You can also take a look at the ``pom.xml`` file from the :ref:`quickstart proje
 Connect to the Ledger
 =====================
 
-Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients directly, or passed to a call to ``Bot.wire`` to connect a ``Bot`` instance to the ledger.
+Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients.
 
 .. _ledger-api-java-bindings-authorization:
 
@@ -141,78 +132,6 @@ Advanced Connection Settings
 ============================
 
 Sometimes the default settings for gRPC connections/channels are not suitable for a given situation. These use cases are supported by creating a custom `NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and passing the it to the ``newBuilder`` static method defined over `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
-
-Reactive Components
-===================
-
-The Reactive Components are deprecated as of 2020-10-14.
-
-Access Data on the Ledger: LedgerView
--------------------------------------
-
-The ``LedgerView`` of an application is the "copy" of the ledger that the application has locally. You can query it to obtain the contracts that are active on the Ledger and not pending.
-
-.. note::
-
-  - A contract is *active* if it exists in the Ledger and has not yet been archived.
-  - A contract is *pending* if the application has sent a consuming command to the Ledger and has yet
-    to receive an completion for the command (that is, if the command has succeeded or not).
-
-The ``LedgerView`` is updated every time:
-
-- a new event is received from the Ledger
-- new commands are sent to the Ledger
-- a command has failed to be processed
-
-For instance, if an incoming transaction is received with a create event for a contract that is relevant
-for the application, the application ``LedgerView`` is updated to contain that contract too.
-
-Write Automations: Bot
-----------------------
-
-The ``Bot`` is an abstraction used to write automation for a Daml Ledger. It is conceptually
-defined by two aspects:
-
-- the ``LedgerView``
-- the logic that produces commands, given a ``LedgerView``
-
-When the ``LedgerView`` is updated, to see if the bot has new commands to submit based on the
-updated view, the logic of the bot is run.
-
-The logic of the bot is a Java function from the bot's ``LedgerView`` to a ``Flowable<CommandsAndPendingSet>``.
-Each ``CommandsAndPendingSet`` contains:
-
-- the commands to send to the Ledger
-- the set of contractIds that should be considered pending while the command is in-flight
-  (that is, sent by the client but not yet processed by the Ledger)
-
-You can wire a ``Bot`` to a ``LedgerClient`` implementation using ``Bot.wire``:
-
-.. code-block:: java
-
-    Bot.wire(String applicationId,
-             LedgerClient ledgerClient,
-             TransactionFilter transactionFilter,
-             Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
-             Function<CreatedContract, R> transform)
-
-In the above:
-
-- ``applicationId``
-    The id used by the Ledger to identify all the queries from the same application.
-- ``ledgerClient``
-    The connection to the Ledger.
-- ``transactionFilter``
-    The server-side filter to the incoming transactions. Used to reduce the traffic between
-    Ledger and application and make an application more efficient.
-- ``bot``
-    The logic of the application,
-- ``transform``
-    The function that, given a new contract, returns which information for
-    that contracts are useful for the application. Can be used to reduce space used
-    by discarding all the info not required by the application. The input to the function
-    contains the ``templateId``, the arguments of the contract created and the context of
-    the created contract. The context contains the ``workflowId``.
 
 Example Projects
 ****************

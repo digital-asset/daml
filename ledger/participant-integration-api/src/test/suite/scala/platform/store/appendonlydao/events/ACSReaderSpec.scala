@@ -5,309 +5,154 @@ package com.daml.platform.store.dao.events
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
-import com.codahale.metrics.MetricRegistry
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
-import org.scalatest.BeforeAndAfterAll
+import akka.stream.scaladsl.{Sink, Source}
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.immutable
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
-  private implicit val errorLogger: ContextualizedErrorLogger = NoLogging
   private val actorSystem = ActorSystem()
   private implicit val materializer: Materializer = Materializer(actorSystem)
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
-  private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
   override def afterAll(): Unit = {
     Await.result(actorSystem.terminate(), Duration(10, "seconds"))
     ()
   }
 
-  behavior of "pullWorkerSource"
+  behavior of "idSource"
 
-  it should "give an empty source if initialTasks are empty" in {
+  it should "populate expected continuation" in {
     FilterTableACSReader
-      .pullWorkerSource[Int, String](
-        workerParallelism = 1,
-        materializer = materializer,
-      )(
-        work = _ => Future.successful("a" -> None),
-        initialTasks = Nil,
-      )
-      .runWith(Sink.collection)
-      .map(_ should have size 0)
+      .idSource(pageBufferSize = 1) { from =>
+        Future.successful(
+          if (from == 8) Vector.empty
+          else Vector(from + 1, from + 1, from + 2)
+        )
+      }
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector(1, 1, 2, 3, 3, 4, 5, 5, 6, 7, 7, 8))
   }
 
-  it should "iterate through one task to completion with parallelism 1 and 1 element" in {
+  it should "populate empty stream correctly" in {
     FilterTableACSReader
-      .pullWorkerSource[Int, String](
-        workerParallelism = 1,
-        materializer = materializer,
-      )(
-        work = i => Future.successful(i.toString -> Some(i + 1).filter(_ < 0)),
-        initialTasks = 0 :: Nil,
-      )
-      .runWith(Sink.collection)
-      .map(_.map(_._2) shouldBe List("0"))
+      .idSource(pageBufferSize = 1) { _ =>
+        Future.successful(
+          Vector.empty
+        )
+      }
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector.empty)
   }
 
-  it should "iterate through one task to completion with parallelism 1 and 3 elements" in {
-    FilterTableACSReader
-      .pullWorkerSource[Int, String](
-        workerParallelism = 1,
-        materializer = materializer,
-      )(
-        work = i => Future.successful(i.toString -> Some(i + 1).filter(_ < 3)),
-        initialTasks = 0 :: Nil,
-      )
-      .runWith(Sink.collection)
-      .map(_.map(_._2) shouldBe List("0", "1", "2"))
+  behavior of "mergeSort"
+
+  it should "sort correctly zero sources" in testMergeSort {
+    Vector.empty
   }
 
-  private val simple4Task = List(1 -> 1, 2 -> 2, 3 -> 3, 4 -> 4).reverse
-  private val simple4Worker: ((Int, Int)) => Future[(String, Option[(Int, Int)])] =
-    i =>
-      Future.successful(
-        i.toString ->
-          Some(i._2 + (if (i._1 == 2) 5 else 10))
-            .filter(_ < 50)
-            .map(i._1 -> _)
-      )
-  val simple4WorkerExpectedOrderedResult = List(
-    "(1,1)",
-    "(2,2)",
-    "(3,3)",
-    "(4,4)",
-    "(2,7)",
-    "(1,11)",
-    "(2,12)",
-    "(3,13)",
-    "(4,14)",
-    "(2,17)",
-    "(1,21)",
-    "(2,22)",
-    "(3,23)",
-    "(4,24)",
-    "(2,27)",
-    "(1,31)",
-    "(2,32)",
-    "(3,33)",
-    "(4,34)",
-    "(2,37)",
-    "(1,41)",
-    "(2,42)",
-    "(3,43)",
-    "(4,44)",
-    "(2,47)",
+  it should "sort correctly one source" in testMergeSort {
+    Vector(
+      sortedRandomInts(10)
+    )
+  }
+
+  it should "sort correctly one empty source" in testMergeSort {
+    Vector(
+      sortedRandomInts(0)
+    )
+  }
+
+  it should "sort correctly 2 sources with same size" in testMergeSort {
+    Vector(
+      sortedRandomInts(10),
+      sortedRandomInts(10),
+    )
+  }
+
+  it should "sort correctly 2 sources with different size" in testMergeSort {
+    Vector(
+      sortedRandomInts(5),
+      sortedRandomInts(10),
+    )
+  }
+
+  it should "sort correctly 2 sources one of them empty" in testMergeSort {
+    Vector(
+      sortedRandomInts(0),
+      sortedRandomInts(10),
+    )
+  }
+
+  it should "sort correctly 2 sources both of them empty" in testMergeSort {
+    Vector(
+      sortedRandomInts(0),
+      sortedRandomInts(0),
+    )
+  }
+
+  it should "sort correctly 10 sources, random size" in testMergeSort(
+    {
+      Vector.fill(10)(sortedRandomInts(10))
+    },
+    times = 100,
   )
 
-  it should "always pick the smallest with parallelism 1" in {
+  behavior of "statefulDeduplicate"
+
+  it should "deduplicate a stream correctly" in {
+    Source(Vector(1, 1, 2, 2, 2, 3, 4, 4, 5, 6, 7, 0, 0, 0))
+      .statefulMapConcat(FilterTableACSReader.statefulDeduplicate)
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector(1, 2, 3, 4, 5, 6, 7, 0))
+  }
+
+  it should "preserve a stream of unique numbers" in {
+    Source(Vector(1, 2, 3, 4, 5, 6, 7, 0))
+      .statefulMapConcat(FilterTableACSReader.statefulDeduplicate)
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector(1, 2, 3, 4, 5, 6, 7, 0))
+  }
+
+  it should "work for empty stream" in {
+    Source(Vector.empty)
+      .statefulMapConcat(FilterTableACSReader.statefulDeduplicate)
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector.empty)
+  }
+
+  it should "work for one sized stream" in {
+    Source(Vector(1))
+      .statefulMapConcat(FilterTableACSReader.statefulDeduplicate)
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector(1))
+  }
+
+  it should "work if only duplications present" in {
+    Source(Vector(1, 1, 1, 1))
+      .statefulMapConcat(FilterTableACSReader.statefulDeduplicate)
+      .runWith(Sink.seq)
+      .map(_ shouldBe Vector(1))
+  }
+
+  private def sortedRandomInts(length: Int): Vector[Int] =
+    Vector.fill(length)(scala.util.Random.nextInt(10)).sorted
+
+  private def testMergeSort(in: => Vector[Vector[Int]], times: Int = 5): Future[Assertion] = {
+    val testInput = in
     FilterTableACSReader
-      .pullWorkerSource[(Int, Int), String](
-        workerParallelism = 1,
-        materializer = materializer,
-      )(
-        work = simple4Worker,
-        initialTasks = simple4Task,
-      )(Ordering.by[(Int, Int), Int](_._2), errorLogger)
-      .runWith(Sink.collection)
-      .map(
-        _.map(_._2) shouldBe simple4WorkerExpectedOrderedResult
+      .mergeSort[Int](
+        sources = testInput.map(Source.apply)
       )
-  }
-
-  it should "finish and provide the expected set of results with parallelism 2" in {
-    FilterTableACSReader
-      .pullWorkerSource[(Int, Int), String](
-        workerParallelism = 2,
-        materializer = materializer,
-      )(
-        work = simple4Worker,
-        initialTasks = simple4Task,
-      )(Ordering.by[(Int, Int), Int](_._2), errorLogger)
-      .runWith(Sink.collection)
-      .map(
-        _.map(_._2).toSet shouldBe simple4WorkerExpectedOrderedResult.toSet
-      )
-  }
-
-  it should "finish and provide the expected set of results with parallelism 10" in {
-    FilterTableACSReader
-      .pullWorkerSource[(Int, Int), String](
-        workerParallelism = 10,
-        materializer = materializer,
-      )(
-        work = simple4Worker,
-        initialTasks = simple4Task,
-      )(Ordering.by[(Int, Int), Int](_._2), errorLogger)
-      .runWith(Sink.collection)
-      .map(
-        _.map(_._2).toSet shouldBe simple4WorkerExpectedOrderedResult.toSet
-      )
-  }
-
-  it should "fail if a worker fails" in {
-    FilterTableACSReader
-      .pullWorkerSource[Int, String](
-        workerParallelism = 1,
-        materializer = materializer,
-      )(
-        work = i =>
-          if (i == 3) Future.failed(new Exception("boom"))
-          else Future.successful(i.toString -> Some(i + 1).filter(_ < 5)),
-        initialTasks = 0 :: Nil,
-      )
-      .runWith(Sink.collection)
-      .failed
-      .map(_.getMessage shouldBe "boom")
-  }
-
-  case class PuppetTask(
-      i: Int, // value for Ordering
-      startedPromise: Promise[Unit] = Promise(), // completed by worker
-  ) {
-    private val finishedPromise: Promise[(Int, Option[PuppetTask])] = Promise()
-    def finished: Future[(Int, Option[PuppetTask])] = finishedPromise.future
-    def started: Future[Unit] = startedPromise.future
-
-    def continueWith(next: Int)(thisResult: Int): PuppetTask = {
-      val r = PuppetTask(next)
-      finishedPromise.success(thisResult -> Some(r))
-      r
-    }
-
-    def finish(thisResult: Int): Unit =
-      finishedPromise.success(thisResult -> None)
-
-  }
-  def puppetWorker: PuppetTask => Future[(Int, Option[PuppetTask])] =
-    puppetTask => {
-      puppetTask.startedPromise.success(())
-      puppetTask.finished
-    }
-  def waitMillis(millis: Long): Unit = Thread.sleep(millis)
-  def stillRunning(streamResultsFuture: Future[immutable.Iterable[(PuppetTask, Int)]]): Unit = {
-    waitMillis(5)
-    streamResultsFuture.isCompleted shouldBe false
-    ()
-  }
-  def notStartedYet(tasks: PuppetTask*): Unit = {
-    waitMillis(5)
-    tasks.foreach(_.started.isCompleted shouldBe false)
-  }
-
-  it should "provide correct execution order with parallelism 3 for 5 tasks" in {
-    val puppetTask1 = PuppetTask(1)
-    val puppetTask2 = PuppetTask(2)
-    val puppetTask3 = PuppetTask(3)
-    val puppetTask4 = PuppetTask(4)
-    val puppetTask6 = PuppetTask(6)
-    val streamResultsFuture: Future[immutable.Iterable[(PuppetTask, Int)]] =
-      FilterTableACSReader
-        .pullWorkerSource[PuppetTask, Int](
-          workerParallelism = 3,
-          materializer = materializer,
-        )(
-          work = puppetWorker,
-          initialTasks = List(puppetTask1, puppetTask6, puppetTask3, puppetTask4, puppetTask2),
-        )(Ordering.by[PuppetTask, Int](_.i), errorLogger)
-        .runWith(Sink.collection)
-    info("As stream processing starts")
-    for {
-      _ <- puppetTask1.started
-      _ <- puppetTask2.started
-      _ <- puppetTask3.started
-      (puppetTask10, puppetTask5) = {
-        stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask4, puppetTask6)
-        info("The first three task started: Running: [1, 2, 3] Queueing: [4, 6]")
-        info(
-          "As 2 completes with continuation 10 -- completion inserts at the end of the queue case"
-        )
-        val task10 = puppetTask2.continueWith(10)(102)
-        stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask4, puppetTask6)
-        info("No new task started: Running: [1, 3] Queueing: [4, 6, 10]")
-        info(
-          "As 3 finishes with continuation 5 -- completion inserts at the beginning of the queue case"
-        )
-        val task5 = puppetTask3.continueWith(5)(103)
-        stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask4, puppetTask6)
-        info("No new task started: Running: [1] Queueing: [4, 5, 6, 10]")
-        info("As 1 finishes")
-        puppetTask1.finish(101)
-        (task10, task5)
+      .runWith(Sink.seq)
+      .map(_ shouldBe testInput.flatten.sorted)
+      .flatMap { result =>
+        if (times == 0) Future.successful(result)
+        else testMergeSort(in, times - 1)
       }
-      _ <- puppetTask4.started
-      _ <- puppetTask5.started
-      _ <- puppetTask6.started
-      _ = {
-        stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask10)
-        info("4, 5, 6 started: Running: [4, 5, 6] Queueing: [10]")
-        info("As 5 finishes")
-        puppetTask5.finish(105)
-        stillRunning(streamResultsFuture)
-        notStartedYet(puppetTask10)
-        info("No new task started: Running: [4, 6] Queueing: [10]")
-        info("As 4 finishes")
-        puppetTask4.finish(104)
-      }
-      _ <- puppetTask10.started
-      _ = {
-        stillRunning(streamResultsFuture)
-        info("10 started: Running: [6, 10] Queueing: []")
-        info("As 6 finishes")
-        puppetTask6.finish(106)
-        info("As 10 finishes")
-        puppetTask10.finish(110)
-      }
-      streamResults <- streamResultsFuture
-    } yield {
-      streamResults.map(_._2) shouldBe List(
-        101, 102, 103, 104, 105, 106, 110,
-      )
-      info("Stream is also finished, with the expected results")
-      succeed
-    }
   }
 
-  behavior of "mergeIdStreams"
-
-  it should "merge, deduplicate and batch a stream of 3" in {
-    val mutableLogic = FilterTableACSReader.mergeIdStreams(
-      tasks = List("a", "b", "c"),
-      outputBatchSize = 3,
-      inputBatchSize = 2,
-      metrics = new Metrics(new MetricRegistry),
-    )(implicitly)()
-    mutableLogic("a" -> List(1, 3)) shouldBe Nil // a [1 3] b [] c []
-    mutableLogic("a" -> List(5, 7)) shouldBe Nil // a [1 3 5 7] b [] c []
-    mutableLogic("a" -> List(9, 11)) shouldBe Nil // a [1 3 5 7 9 11] b [] c []
-    mutableLogic("b" -> List(2, 4)) shouldBe Nil // a [1 3 5 7 9 11] b [2 4] c []
-    mutableLogic("b" -> List(6, 8)) shouldBe Nil // a [1 3 5 7 9 11] b [2 4 6 8] c []
-    mutableLogic("b" -> List(10, 12)) shouldBe Nil // a [1 3 5 7 9 11] b [2 4 6 8 10 12] c []
-    mutableLogic("c" -> List(10, 14)) shouldBe List( // a [] b [12] c [14] stashed 10 11
-      List(1, 2, 3),
-      List(4, 5, 6),
-      List(7, 8, 9),
-    ) // stashed: 10, 11
-    mutableLogic("a" -> List(12, 13)) shouldBe List(
-      List(10, 11, 12)
-    ) // a [13] b [] c [14] stashed 10 11 12
-    mutableLogic("b" -> List(13)) shouldBe Nil // a [] c [14] stashed: 13
-    mutableLogic("c" -> List(15, 16)) shouldBe Nil // a [] c [14 15 16] stashed: 13
-    mutableLogic("a" -> Nil) shouldBe List(List(13, 14, 15)) // c [] stashed: 16
-    mutableLogic("c" -> List(16, 17)) shouldBe Nil // c [] stashed: 16 17
-    mutableLogic("c" -> List(18, 19)) shouldBe List(List(16, 17, 18)) // c [] stashed: 19
-    mutableLogic("c" -> List(20)) shouldBe List(List(19, 20))
-  }
 }

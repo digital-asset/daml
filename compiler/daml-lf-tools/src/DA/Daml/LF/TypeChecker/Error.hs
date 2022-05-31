@@ -19,6 +19,7 @@ import Numeric.Natural
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
+import DA.Daml.UtilLF (sourceLocToRange)
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
 -- | Type checking context for error reporting purposes.
@@ -440,7 +441,7 @@ instance Pretty Context where
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic
-    { _range = noRange
+    { _range = maybe noRange sourceLocToRange (errorLocation err)
     , _severity = Just sev
     , _code = Nothing
     , _tags = Nothing

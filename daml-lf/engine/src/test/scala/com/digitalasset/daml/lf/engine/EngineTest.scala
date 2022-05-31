@@ -166,6 +166,7 @@ class EngineTest
         submitters,
         readAs,
         ApiCommands(ImmArray(command), let, "test"),
+        ImmArray.empty,
         participant,
         submissionSeed,
       )
@@ -256,7 +257,14 @@ class EngineTest
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
       suffixLenientEngine
-        .submit(actAs, readAs, ApiCommands(ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .submit(
+          actAs,
+          readAs,
+          ApiCommands(ImmArray(cmd), let, "test"),
+          ImmArray.empty,
+          participant,
+          submissionSeed,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
 
@@ -381,6 +389,7 @@ class EngineTest
           Set(party),
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -450,6 +459,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -518,6 +528,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -1077,6 +1088,7 @@ class EngineTest
         submitters,
         readAs,
         ApiCommands(ImmArray(command), let, "test"),
+        ImmArray.empty,
         participant,
         submissionSeed,
       )
@@ -1424,6 +1436,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          ImmArray.empty,
           participant,
           seed,
         )
@@ -1456,6 +1469,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          ImmArray.empty,
           participant,
           seed,
         )
@@ -1498,6 +1512,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(exerciseCmd), now, "test"),
+          ImmArray.empty,
           participant,
           seed,
         )
@@ -1574,6 +1589,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -1598,7 +1614,7 @@ class EngineTest
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
 
-      val cmd = speedy.Command.Fetch(BasicTests_WithKey, SValue.SContractId(fetchedCid))
+      val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
       val submitters = Set(alice)
 
@@ -1750,7 +1766,14 @@ class EngineTest
     val readAs = (Set.empty: Set[Party])
     def run(cmds: ImmArray[ApiCommand]) =
       suffixLenientEngine
-        .submit(submitters, readAs, ApiCommands(cmds, now, ""), participant, submissionSeed)
+        .submit(
+          submitters,
+          readAs,
+          ApiCommands(cmds, now, ""),
+          ImmArray.empty,
+          participant,
+          submissionSeed,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
 
     "error on fetch" in {
@@ -1803,6 +1826,7 @@ class EngineTest
           submitters,
           readAs,
           ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -2363,6 +2387,8 @@ object EngineTest {
           usedPackages = Set.empty,
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
+          globalKeyMapping = Map.empty,
+          disclosures = ImmArray.empty,
         ),
       )
     )

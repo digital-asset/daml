@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   LedgerConfiguration,
   LedgerConfigurationServiceGrpc,
 }
-import com.daml.ledger.sandbox.BridgeConfigProvider
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.google.protobuf.duration.Duration
@@ -31,7 +31,7 @@ sealed trait LedgerConfigurationServiceITBase extends AnyWordSpec with Matchers 
             .getLedgerConfiguration
 
         maxDeduplicationDuration shouldEqual toProto(
-          BridgeConfigProvider.DefaultMaximumDeduplicationDuration
+          BridgeConfig.DefaultMaximumDeduplicationDuration
         )
       }
     }

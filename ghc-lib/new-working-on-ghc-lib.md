@@ -5,8 +5,7 @@ SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by Daml and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
 
-Here are instructions for when working on Daml surface syntax, as implemented in the the digital-assert fork of `ghc`. (linked in via `ghc-lib`).
-
+Here are instructions for when working on Daml surface syntax, as implemented in the the digital-assert fork of `ghc`. (linked in via `ghc-lib`, see [ghc-lib](/bazel_tools/ghc-lib/).
 
 ### Cloning the digital-assert fork of `ghc`
 
@@ -28,11 +27,6 @@ git checkout da-master-8.8.1
 git submodule update --init --recursive
 ```
 
-4. Make initial build (takes about 15 mins)
-```
-hadrian/build.sh --configure --flavour=quickest -j
-```
-
 ### Iterating on parser/desugaring in `ghc`
 
 Working locally in a branch from `da-master-8.8.1`, there are two files which generally need changing to update syntax and desugaring:
@@ -51,29 +45,40 @@ The quickest way to build and test is:
 Step 1 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 2 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`
 
 
-### Building `daml` following a change to `ghc`
+### Interactive development workflow
 
-Once you have the GHC patch you want to incorporate into the Daml repo, here's the steps you'll need to take:
+While working on GHC, you can integrate your changes directly into the `daml` project as follows.
 
-1. Open a PR in the daml repo with the commit hash for the GHC patch in `ci/da-ghc-lib/compile.yml`. See [here](https://github.com/digital-asset/daml/pull/7489/commits/fedc456260f598f9924ce62d9765c3c09b8ad861)
+1. Make initial clone from the main ghc gitlab repo:
+   ```
+   git clone --recurse-submodules https://gitlab.haskell.org/ghc/ghc.git
+   cd ghc
+   ```
 
-2. Wait for CI to build `ghc-lib`/`ghc-lib-parser`, and get the new SHA from the end of the azure CI logs. The CI/azure log you are looking for is in the `Bash` subtab of the `da_ghc_lib` job. The lines of interest are at the very end of the log, and will look like this:
+2. Add the DA fork as a remote
+   ```
+   git remote add da-fork git@github.com:digital-asset/ghc.git
+   git fetch da-fork
+   ```
 
-  ```
-  GHC_LIB_REV = "60a14c87f2fa4b204eed881425e86a50"
-  GHC_LIB_SHA256 = "c0e359e43b7d2209208eb8dbd22c2071b462c954b1f413d1ac784bcd4be056bf"
-  GHC_LIB_VERSION = "8.8.1"
-  GHC_LIB_PARSER_REV = "60a14c87f2fa4b204eed881425e86a50"
-  GHC_LIB_PARSER_SHA256 = "5765c67c24cb1a140918ae51c8d45a61fe5268ccace303b7275997970b660273"
-  GHC_LIB_PARSER_VERSION = "8.8.1"
-  ```
+3. Checkout the version of interest (usually `GHC_REV` from [`/bazel_tools/ghc-lib/version.bzl`]) and update the submodules:
+   ```
+   git checkout da-master-8.8.1
+   git submodule update --init --recursive
+   ```
 
-3. Update `bazel-haskell-deps.bzl` with the new values, they go at the top of the file after the `load(...)` statements. Push this to the daml repo PR.
+4. Add `WORKSPACE` and `BUILD` file:
+   ```
+   cp ../daml/bazel_tools/ghc-lib/BUILD.ghc BUILD
+   touch WORKSPACE
+   ```
 
-4. Once CI has finished successfully, you can merge the GHC patch PR.
+5. Make changes...  
 
-5. Update the GHC patch commit hash in `ci/da-ghc-lib/compile.yml` to point to the new HEAD of the GHC fork.
+6. Build referencing your local checkout of GHC:
+   ```
+   cd ../daml
+   bazel build --override_repository=da-ghc="$( cd ../ghc ; pwd )" //...
+   ```
 
-6. Repeat steps 2 and 3.
-
-7. Once CI has finished successfully, you can merge the daml PR.
+After you are satisfied with your changes, just open a PR on the GHC repository and after it is merged update the SHA value in `GHC_REV` in [`/bazel_tools/ghc-lib/version.bzl`] and create a PR for the `daml` project.

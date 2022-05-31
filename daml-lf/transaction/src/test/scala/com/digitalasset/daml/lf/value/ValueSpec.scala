@@ -75,7 +75,7 @@ class ValueSpec
   private def checkOrderPreserved(
       va: VA,
       scope: Value.LookupVariantEnum,
-  )(implicit cid: Arbitrary[Value.ContractId]) = {
+  ) = {
     import va.{injord, injarb, injshrink}
     implicit val targetOrd: Order[Value] = Tag unsubst Value.orderInstance(scope)
     forAll(minSuccessful(20)) { (a: va.Inj, b: va.Inj) =>

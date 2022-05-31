@@ -97,7 +97,7 @@ private[validation] object ExprIterable {
         Iterator(arg)
       case UpdateCreateInterface(interface @ _, arg) =>
         Iterator(arg)
-      case UpdateFetch(templateId @ _, contractId) =>
+      case UpdateFetchTemplate(templateId @ _, contractId) =>
         Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>
         Iterator(contractId)
@@ -218,11 +218,11 @@ private[validation] object ExprIterable {
       case DefInterface(
             requires @ _,
             param @ _,
-            fixedChoices,
+            choices,
             methods @ _,
             precond,
           ) =>
-        Iterator(precond) ++ fixedChoices.values.iterator.flatMap(iterator(_))
+        Iterator(precond) ++ choices.values.iterator.flatMap(iterator(_))
     }
 
   def apply(expr: Expr): Iterable[Expr] =

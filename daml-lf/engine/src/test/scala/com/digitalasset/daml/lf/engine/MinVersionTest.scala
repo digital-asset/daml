@@ -20,14 +20,13 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.runner.common.{Config, ParticipantConfig, ParticipantRunMode}
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
+import com.daml.ledger.runner.common._
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
-import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion.v1_14
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
@@ -122,39 +121,34 @@ final class MinVersionTest
       } yield succeed
     }
   }
-
-  private val participantId = Ref.ParticipantId.assertFromString("participant1")
-  private val participant = ParticipantConfig(
-    mode = ParticipantRunMode.Combined,
-    participantId = participantId,
-    shardName = None,
-    address = Some("localhost"),
-    port = Port.Dynamic,
-    portFile = Some(portfile),
-    serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-    indexerConfig = IndexerConfig(
-      participantId = participantId,
-      jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-      startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
-    ),
-  )
+  private val configAdaptor = new BridgeConfigAdaptor()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val defaultConfig = Config
-      .createDefault[BridgeConfig](BridgeConfigProvider.defaultExtraConfig)
+    val jdbcUrl = s"jdbc:h2:mem:default;db_close_delay=-1;db_close_on_exit=false"
+
+    val config = Config.Default.copy(
+      engine = Config.DefaultEngineConfig
+        .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
+      dataSource = Config.Default.participants.map { case (key, _) =>
+        key -> ParticipantDataSourceConfig(jdbcUrl)
+      },
+      participants = Config.Default.participants.map { case (key, value) =>
+        key -> value.copy(
+          apiServer = value.apiServer.copy(
+            portFile = Some(portfile),
+            port = Port.Dynamic,
+            address = Some("localhost"),
+            initialLedgerConfiguration = Some(configAdaptor.initialLedgerConfig(None)),
+          )
+        )
+      },
+    )
+    val bridgeConfig = BridgeConfig.Default
+
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(
-          defaultConfig
-            .copy(
-              participants = Seq(participant),
-              // Bump min version to 1.14 and check that older stable packages are still accepted.
-              engineConfig = defaultConfig.engineConfig.copy(
-                allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)
-              ),
-            )
-        )
+        _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
       } yield readPortfile(portfile)
     )
   }

@@ -26,9 +26,9 @@ class DistributionSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       } yield (weight, double)
 
       forAll(cases) { case (weight, d) =>
-        val distribution = new Distribution(List(weight))
-        val index = distribution.index(d)
-        index shouldBe 0
+        val sentinel = new Object()
+        val distribution = new Distribution[Object](List(weight), IndexedSeq(sentinel))
+        distribution.choose(d) shouldBe sentinel
       }
     }
 
@@ -39,7 +39,7 @@ class DistributionSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       } yield (weights, double)
 
       forAll(cases) { case (weights, d) =>
-        val distribution = new Distribution(weights)
+        val distribution = new Distribution[Int](weights, items = weights.toIndexedSeq)
         val index = distribution.index(d)
 
         val totalWeight = weights.map(_.toLong).sum

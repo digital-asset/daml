@@ -367,7 +367,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setCreateInterface(
             PLF.Update.CreateInterface.newBuilder().setInterface(interface).setExpr(arg)
           )
-        case UpdateFetch(templateId, contractId) =>
+        case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
@@ -798,7 +798,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
       builder.setParamInternedStr(stringsTable.insert(interface.param))
-      builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
+      builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       builder.accumulateLeft(interface.requires)(_ addRequires _)
       builder.setPrecond(interface.precond)

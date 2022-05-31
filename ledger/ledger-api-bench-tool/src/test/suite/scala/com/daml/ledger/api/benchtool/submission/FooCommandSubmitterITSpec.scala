@@ -13,10 +13,13 @@ import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.binding
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.AppendedClues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.Future
 
 class FooCommandSubmitterITSpec
     extends AsyncFlatSpec
@@ -46,9 +49,10 @@ class FooCommandSubmitterITSpec
       payloadSizeBytes = 100,
     )
     val config = WorkflowConfig.FooSubmissionConfig(
-      numberOfInstances = 10,
-      numberOfObservers = 1,
+      numberOfInstances = 100,
+      numberOfObservers = 2,
       numberOfDivulgees = 0,
+      numberOfExtraSubmitters = 0,
       uniqueParties = false,
       instanceDistribution = List(
         foo1Config,
@@ -56,6 +60,7 @@ class FooCommandSubmitterITSpec
       ),
       nonConsumingExercises = Some(nonConsumingExercisesConfig),
       consumingExercises = Some(consumingExercisesConfig),
+      applicationIds = List.empty,
     )
 
     for {
@@ -64,58 +69,84 @@ class FooCommandSubmitterITSpec
         authorizationHelper = None,
       )
       apiServices = ledgerApiServicesF("someUser")
+      names = new Names()
       submitter = CommandSubmitter(
-        names = new Names(),
+        names = names,
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
+        waitForSubmission = false,
       )
-      (signatory, observers, divulgees) <- submitter.prepare(config)
-      _ = divulgees shouldBe empty
+      allocatedParties <- submitter.prepare(config)
+      _ = allocatedParties.divulgees shouldBe empty
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
         submissionConfig = config,
-        signatory = signatory,
-        allObservers = observers,
-        allDivulgees = divulgees,
+        allocatedParties = allocatedParties,
+        names = names,
       )
       _ <- tested.performSubmission()
-      eventsObserver = TreeEventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
-      _ <- apiServices.transactionService.transactionTrees(
-        config = WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
-          name = "dummy-name",
-          filters = List(
-            WorkflowConfig.StreamConfig.PartyFilter(
-              party = signatory.toString,
-              templates = List.empty,
-            )
-          ),
-          beginOffset = None,
-          endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-          objectives = None,
-        ),
-        observer = eventsObserver,
+      observerResult_signatory: ObservedEvents <- treeEventsObserver(
+        apiServices = apiServices,
+        party = allocatedParties.signatory,
       )
-      observerResult: ObservedEvents <- eventsObserver.result
+      observerResult_observer0: ObservedEvents <- treeEventsObserver(
+        apiServices = apiServices,
+        party = allocatedParties.observers(0),
+      )
+      observerResult_observer1: ObservedEvents <- treeEventsObserver(
+        apiServices = apiServices,
+        party = allocatedParties.observers(1),
+      )
     } yield {
-      observerResult.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
+      observerResult_signatory.createEvents.size shouldBe config.numberOfInstances withClue ("number of create events")
 
-      observerResult.avgSizeOfCreateEventPerTemplateName(
+      observerResult_signatory.avgSizeOfCreateEventPerTemplateName(
         "Foo1"
       ) shouldBe (foo1Config.payloadSizeBytes + 60) +- 20 withClue ("payload size of create Foo1")
-      observerResult.avgSizeOfCreateEventPerTemplateName(
+      observerResult_signatory.avgSizeOfCreateEventPerTemplateName(
         "Foo2"
       ) shouldBe (foo2Config.payloadSizeBytes + 60) +- 20 withClue ("payload size of create Foo2")
-      observerResult.avgSizeOfConsumingExercise shouldBe (consumingExercisesConfig.payloadSizeBytes + 10) +- 5
-      observerResult.avgSizeOfNonconsumingExercise shouldBe (nonConsumingExercisesConfig.payloadSizeBytes + 10) +- 5
-      observerResult.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
-      observerResult.nonConsumingExercises.size.toDouble shouldBe (config.numberOfInstances * nonConsumingExercisesConfig.probability) withClue ("number of non consuming exercises")
+      observerResult_signatory.avgSizeOfConsumingExercise shouldBe (consumingExercisesConfig.payloadSizeBytes + 10) +- 5
+      observerResult_signatory.avgSizeOfNonconsumingExercise shouldBe (nonConsumingExercisesConfig.payloadSizeBytes + 10) +- 5
+      observerResult_signatory.consumingExercises.size.toDouble shouldBe (config.numberOfInstances * consumingExercisesConfig.probability) withClue ("number of consuming exercises")
+      val expectedNumberOfNonConsumingExercises =
+        config.numberOfInstances * nonConsumingExercisesConfig.probability.toInt
+      observerResult_signatory.nonConsumingExercises.size shouldBe expectedNumberOfNonConsumingExercises withClue ("number of non consuming exercises visible to signatory")
+      // First observer can see all non-consuming events
+      observerResult_observer0.nonConsumingExercises.size shouldBe expectedNumberOfNonConsumingExercises withClue ("number of non consuming exercises visible to Obs-0")
+      // Second observer can see ~10% of all non-consuming events
+      observerResult_observer1.nonConsumingExercises.size should be > 0 withClue ("number of non consuming exercises visible to Obs-1")
 
       succeed
     }
+  }
+
+  private def treeEventsObserver(
+      apiServices: LedgerApiServices,
+      party: binding.Primitive.Party,
+  ): Future[ObservedEvents] = {
+    val eventsObserver = TreeEventsObserver(expectedTemplateNames = Set("Foo1", "Foo2"))
+    val config = WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
+      name = "dummy-name",
+      filters = List(
+        WorkflowConfig.StreamConfig.PartyFilter(
+          party = party.toString,
+          templates = List.empty,
+        )
+      ),
+      beginOffset = None,
+      endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
+      objectives = None,
+      maxItemCount = None,
+    )
+    apiServices.transactionService.transactionTrees(
+      config = config,
+      observer = eventsObserver,
+    )
   }
 
 }

@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.ConsumingExercises
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -31,6 +32,7 @@ class NonStakeholderInformeesITSpec
       numberOfInstances = 100,
       numberOfObservers = 1,
       numberOfDivulgees = 3,
+      numberOfExtraSubmitters = 0,
       uniqueParties = false,
       instanceDistribution = List(
         WorkflowConfig.FooSubmissionConfig.ContractDescription(
@@ -40,7 +42,13 @@ class NonStakeholderInformeesITSpec
         )
       ),
       nonConsumingExercises = None,
-      consumingExercises = None,
+      consumingExercises = Some(
+        ConsumingExercises(
+          probability = 0.1,
+          payloadSizeBytes = 0,
+        )
+      ),
+      applicationIds = List.empty,
     )
     for {
       ledgerApiServicesF <- LedgerApiServices.forChannel(
@@ -48,41 +56,42 @@ class NonStakeholderInformeesITSpec
         authorizationHelper = None,
       )
       apiServices: LedgerApiServices = ledgerApiServicesF("someUser")
+      names = new Names()
       submitter = CommandSubmitter(
-        names = new Names(),
+        names = names,
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
         metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
+        waitForSubmission = true,
       )
-      (signatory, observers, divulgees) <- submitter.prepare(submissionConfig)
+      allocatedParties <- submitter.prepare(submissionConfig)
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,
         submissionBatchSize = 5,
         submissionConfig = submissionConfig,
-        signatory = signatory,
-        allObservers = observers,
-        allDivulgees = divulgees,
+        allocatedParties = allocatedParties,
+        names = names,
       )
       _ <- tested.performSubmission()
       (treeResults_divulgee0, flatResults_divulgee0) <- observeAllTemplatesForParty(
-        party = divulgees(0),
+        party = allocatedParties.divulgees(0),
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
       (treeResults_divulgee1, flatResults_divulgee1) <- observeAllTemplatesForParty(
-        party = divulgees(1),
+        party = allocatedParties.divulgees(1),
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
       (treeResults_observer0, flatResults_observer0) <- observeAllTemplatesForParty(
-        party = observers(0),
+        party = allocatedParties.observers(0),
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
       (treeResults_signatory, _) <- observeAllTemplatesForParty(
-        party = signatory,
+        party = allocatedParties.signatory,
         apiServices = apiServices,
         expectedTemplateNames = expectedTemplateNames,
       )
@@ -91,33 +100,42 @@ class NonStakeholderInformeesITSpec
       // thus, they are visible on transaction trees stream but absent from flat transactions stream.
       {
         // Divulge0
-        val treeFoo1 = treeResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
-        val flatFoo1 = flatResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
-        treeFoo1 shouldBe 100 withClue ("number of Foo1 contracts visible to divulgee0 on tree transactions stream")
-        flatFoo1 shouldBe 0 withClue ("number of Foo1 contracts visible to divulgee0 on flat transactions stream")
-        val divulger = treeResults_divulgee0.numberOfCreatesPerTemplateName("Divulger")
-        // For 3 divulgees in total (a, b, c) there are 4 subsets that contain 'a': a, ab, ac, abc.
-        divulger shouldBe 4 withClue ("number divulger contracts visible to divulgee0")
+        {
+          // Create events
+          val treeFoo1 = treeResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
+          val flatFoo1 = flatResults_divulgee0.numberOfCreatesPerTemplateName("Foo1")
+          treeFoo1 shouldBe 100 withClue ("number of Foo1 contracts visible to divulgee0 on tree transactions stream")
+          flatFoo1 shouldBe 0 withClue ("number of Foo1 contracts visible to divulgee0 on flat transactions stream")
+          val divulger = treeResults_divulgee0.numberOfCreatesPerTemplateName("Divulger")
+          // For 3 divulgees in total (a, b, c) there are 4 subsets that contain 'a': a, ab, ac, abc.
+          divulger shouldBe 4 withClue ("number of divulger contracts visible to divulgee0")
+        }
+        {
+          // Consuming events (with 10% chance of generating a consuming event for a contract)
+          val treeFoo1 = treeResults_divulgee0.numberOfConsumingExercisesPerTemplateName("Foo1")
+          val flatFoo1 = flatResults_divulgee0.numberOfConsumingExercisesPerTemplateName("Foo1")
+          treeFoo1 should ((be > 0) and (be < submissionConfig.numberOfInstances / 5)) withClue ("number of Foo1 consuming events visible to divulgee0 on tree transactions stream")
+          flatFoo1 shouldBe 0 withClue ("number of Foo1 consuming events visible to divulgee0 on flat transactions stream")
+        }
       }
       {
         // Divulgee1
         val treeFoo1 = treeResults_divulgee1.numberOfCreatesPerTemplateName("Foo1")
         val flatFoo1 = flatResults_divulgee1.numberOfCreatesPerTemplateName("Foo1")
-        // This assertion will fail once in ~37k test executions
+        // This assertion will fail once in ~37k test executions with number of observed items being 0
         // because for 100 instances and 10% chance of divulging to divulgee1, divulgee1 won't be disclosed any contracts once in 1/(0.9**100) ~= 37649
-        treeFoo1 should be > 0
+        treeFoo1 should ((be > 0) and (be < submissionConfig.numberOfInstances / 5))
         flatFoo1 shouldBe 0
-
         val divulger = treeResults_divulgee1.numberOfCreatesPerTemplateName("Divulger")
         divulger shouldBe 4
       }
       {
         // Observer0
-        val treeFoo1 = flatResults_observer0.numberOfCreatesPerTemplateName("Foo1")
-        val flatFoo1 = treeResults_observer0.numberOfCreatesPerTemplateName("Foo1")
-        flatFoo1 shouldBe 100
-        flatFoo1 shouldBe treeFoo1
-
+        val treeFoo1 = treeResults_observer0.numberOfCreatesPerTemplateName("Foo1")
+        val flatFoo1 = flatResults_observer0.numberOfCreatesPerTemplateName("Foo1")
+        treeFoo1 shouldBe 100
+        // Approximately 10% of contracts is created and archived in the same transaction and thus omitted from the flat transactions stream
+        flatFoo1 should ((be > 70) and (be < submissionConfig.numberOfInstances))
         val divulger = treeResults_observer0.numberOfCreatesPerTemplateName("Divulger")
         divulger shouldBe 0
       }
@@ -149,6 +167,7 @@ class NonStakeholderInformeesITSpec
           beginOffset = None,
           endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
           objectives = None,
+          maxItemCount = None,
         ),
         observer = treeTxObserver,
       )
@@ -164,6 +183,7 @@ class NonStakeholderInformeesITSpec
           beginOffset = None,
           endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
           objectives = None,
+          maxItemCount = None,
         ),
         observer = flatTxObserver,
       )

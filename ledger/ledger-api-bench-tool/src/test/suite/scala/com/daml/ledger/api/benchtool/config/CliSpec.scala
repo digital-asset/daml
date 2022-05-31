@@ -81,35 +81,41 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
     "parse stream type" in {
       import WorkflowConfig.StreamConfig._
       val name = "streamname"
-      val party = "dummy"
+      val party1 = "dummy1"
+      val party2 = "dummy2"
       val appId = "appid"
       val cases = Table(
         "cli argument" -> "stream config",
-        s"stream-type=transactions,name=$name,filters=$party" -> TransactionsStreamConfig(
+        s"stream-type=transactions,name=$name,filters=$party1" -> TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party1, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
         ),
-        s"stream-type=transaction-trees,name=$name,filters=$party" -> TransactionTreesStreamConfig(
+        s"stream-type=transaction-trees,name=$name,filters=$party1" -> TransactionTreesStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party1, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
         ),
-        s"stream-type=active-contracts,name=$name,filters=$party" -> ActiveContractsStreamConfig(
+        s"stream-type=active-contracts,name=$name,filters=$party1" -> ActiveContractsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party1, Nil)),
           objectives = None,
+          maxItemCount = None,
         ),
-        s"stream-type=completions,name=$name,party=$party,application-id=$appId" -> CompletionsStreamConfig(
+        s"stream-type=completions,name=$name,parties=$party1+$party2,application-id=$appId,timeout=123,max-item-count=5" -> CompletionsStreamConfig(
           name = name,
-          party = party,
+          parties = List(party1, party2),
           applicationId = appId,
           beginOffset = None,
           objectives = None,
+          timeoutInSeconds = 123,
+          maxItemCount = Some(5),
         ),
       )
       forAll(cases) { (argument, config) =>
@@ -143,6 +149,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
         ),
         s"stream-type=transaction-trees,name=$name,filters=$filters" -> TransactionTreesStreamConfig(
           name = name,
@@ -150,11 +157,13 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
         ),
         s"stream-type=active-contracts,name=$name,filters=$filters" -> ActiveContractsStreamConfig(
           name = name,
           filters = filtersList,
           objectives = None,
+          maxItemCount = None,
         ),
       )
       forAll(cases) { (argument, config) =>
@@ -186,6 +195,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = Some(offset),
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -218,6 +228,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = None,
           endOffset = Some(offset),
           objectives = None,
+          maxItemCount = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -262,6 +273,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = None,
           endOffset = None,
           objectives = Some(objectives),
+          maxItemCount = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -287,6 +299,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           name = name,
           filters = List(PartyFilter(party, Nil)),
           objectives = Some(objectives),
+          maxItemCount = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))

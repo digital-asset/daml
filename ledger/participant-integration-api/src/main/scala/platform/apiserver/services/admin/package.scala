@@ -8,6 +8,9 @@ import java.util.UUID
 import com.daml.lf.data.Ref
 
 package object admin {
-  private[admin] def augmentSubmissionId(submissionId: String): Ref.SubmissionId =
-    Ref.SubmissionId.assertFromString(s"$submissionId-${UUID.randomUUID().toString}")
+  private[admin] def augmentSubmissionId(submissionId: String): Ref.SubmissionId = {
+    val uuid = UUID.randomUUID().toString
+    val raw = if (submissionId.isEmpty) uuid else s"$submissionId-$uuid"
+    Ref.SubmissionId.assertFromString(raw)
+  }
 }

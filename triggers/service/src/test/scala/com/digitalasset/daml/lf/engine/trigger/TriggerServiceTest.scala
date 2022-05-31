@@ -255,7 +255,33 @@ trait AbstractTriggerServiceTest
       JsObject(fields) = body.parseJson
       _ <- fields.get("status") shouldBe Some(JsNumber(expectedError.intValue))
       _ <- fields.get("errors") shouldBe
-        Some(JsArray(JsString(s"unknown definition $testPkgId:TestTrigger:foobar")))
+        Some(
+          JsArray(
+            JsString(
+              s"unknown definition $testPkgId:TestTrigger:foobar while looking for value $testPkgId:TestTrigger:foobar"
+            )
+          )
+        )
+    } yield succeed
+  }
+
+  it should "fail to start wrongly typed trigger" in withTriggerService(List(dar)) { uri: Uri =>
+    val expectedError = StatusCodes.UnprocessableEntity
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:triggerRule", alice)
+      _ <- resp.status shouldBe expectedError
+      // Check the "status" and "errors" fields
+      body <- responseBodyToString(resp)
+      JsObject(fields) = body.parseJson
+      _ <- fields.get("status") shouldBe Some(JsNumber(expectedError.intValue))
+      _ <- fields.get("errors") shouldBe
+        Some(
+          JsArray(
+            JsString(
+              s"the definition $testPkgId:TestTrigger:triggerRule does not have valid trigger type: expected a type of the form (Daml.Trigger:Trigger a) or (Daml.Trigger.LowLevel:Trigger a) but got (Party → Daml.Trigger.Internal:TriggerA Unit Unit)"
+            )
+          )
+        )
     } yield succeed
   }
 

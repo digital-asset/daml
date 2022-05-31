@@ -105,7 +105,7 @@ object ConcurrencyLimiterSpec extends Assertions {
     val limiter = createLimiter(ec)
 
     val results = (1 to items).map(i =>
-      limiter.execute(() =>
+      limiter.execute(
         // Note: this future is running in the thread pool executor that is capable of running many tasks in parallel
         // The limiter is responsible for not starting too many futures in parallel
         Future {

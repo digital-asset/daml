@@ -181,6 +181,9 @@ object Cli {
             case None => Left(s"Missing field: '$fieldName'")
           }
 
+        def longField(fieldName: String): Either[String, Long] =
+          stringField(fieldName).map(_.toLong)
+
         def optionalStringField(fieldName: String): Either[String, Option[String]] =
           Right(m.get(fieldName))
 
@@ -229,13 +232,14 @@ object Cli {
         def transactionsConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
-          filters <- stringField("filters").flatMap(filters)
+          filters <- stringField("filters").flatMap(parseFilters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
@@ -243,19 +247,21 @@ object Cli {
           endOffset = endOffset,
           objectives =
             transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+          maxItemCount = maxItemCount,
         )
 
         def transactionTreesConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
-            filters <- stringField("filters").flatMap(filters)
+            filters <- stringField("filters").flatMap(parseFilters)
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            maxItemCount <- optionalLongField("max-item-count")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
@@ -263,6 +269,7 @@ object Cli {
             endOffset = endOffset,
             objectives =
               transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+            maxItemCount = maxItemCount,
           )
 
         def rateObjectives(
@@ -283,29 +290,35 @@ object Cli {
         def activeContractsConfig
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
-          filters <- stringField("filters").flatMap(filters)
+          filters <- stringField("filters").flatMap(parseFilters)
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
           objectives = rateObjectives(minItemRate, maxItemRate),
+          maxItemCount = maxItemCount,
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
           for {
             name <- stringField("name")
-            party <- stringField("party")
+            parties <- stringField("parties").map(parseParties)
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            timeoutInSeconds <- longField("timeout")
+            maxItemCount <- optionalLongField("max-item-count")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
-            party = party,
+            parties = parties,
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
+            timeoutInSeconds = timeoutInSeconds,
+            maxItemCount = maxItemCount,
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
@@ -319,13 +332,17 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(
+    // Parse strings like: "", "party1" or "party1+party2+party3"
+    private def parseParties(raw: String): List[String] =
+      raw.split('+').toList
+
+    private def parseFilters(
         listOfIds: String
     ): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
       listOfIds
         .split('+')
         .toList
-        .map(filter)
+        .map(parseFilter)
         .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](
           Right(List.empty)
         ) { case (acc, next) =>
@@ -335,7 +352,7 @@ object Cli {
           } yield filters :+ filter
         }
 
-    private def filter(
+    private def parseFilter(
         filterString: String
     ): Either[String, WorkflowConfig.StreamConfig.PartyFilter] = {
       filterString
