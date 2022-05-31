@@ -123,6 +123,41 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
+  private val byKeyClassName = "ByKey"
+
+  private[this] def generateByKeyMethod(
+      maybeKey: Option[Type],
+      packagePrefixes: Map[PackageId, String],
+  ) =
+    maybeKey map { key =>
+      MethodSpec
+        .methodBuilder("byKey")
+        .returns(ClassName bestGuess byKeyClassName)
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .addParameter(toJavaTypeName(key, packagePrefixes), "key")
+        .addStatement(
+          "return new ByKey($L)",
+          ToValueGenerator
+            .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
+        )
+        .build()
+    }
+
+  private[inner] def generateByKeyClass(
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
+  ) =
+    TypeSpec
+      .classBuilder(byKeyClassName)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+      .superclass(classOf[javaapi.data.codegen.ByKey])
+      .addSuperinterface(
+        ParameterizedTypeName.get(
+          ContractIdClass.exercisesInterface,
+          ClassName get classOf[javaapi.data.ExerciseByKeyCommand],
+        )
+      )
+      .build()
+
   private def generateStaticExerciseByKeyMethods(
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[Type]],
