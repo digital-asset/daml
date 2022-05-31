@@ -115,6 +115,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       transaction = updateTx,
       dependsOnLedgerTime = meta.dependsOnTime,
       interpretationTimeNanos = interpretationTimeNanos,
+      globalKeyMapping = meta.globalKeyMapping,
     )
   }
 

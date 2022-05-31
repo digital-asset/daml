@@ -17,13 +17,14 @@ import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph
 import com.daml.telemetry.TelemetryContext
-
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+
+import com.daml.lf.value.Value
 
 class BridgeWriteService(
     feedSink: Sink[(Offset, Update), NotUsed],
@@ -47,6 +48,7 @@ class BridgeWriteService(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
+      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
