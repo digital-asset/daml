@@ -15,9 +15,9 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration => ScalaDuration}
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success}
 
 /** Writes a default ledger configuration to the ledger, after a configurable delay. The
@@ -55,7 +55,7 @@ final class LedgerConfigurationProvisioner(
           ScalaDuration.fromNanos(initialLedgerConfiguration.delayBeforeSubmitting.toNanos),
           new Runnable {
             override def run(): Unit = {
-              submitImmediately(initialLedgerConfiguration.configuration)
+              submitImmediately(initialLedgerConfiguration.toConfiguration)
             }
           },
         )

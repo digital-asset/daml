@@ -179,8 +179,8 @@ private[daml] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateCreateInterface(interface, arg) =>
         UpdateCreateInterface(apply(interface), apply(arg))
-      case UpdateFetch(templateId, contractId) =>
-        UpdateFetch(apply(templateId), apply(contractId))
+      case UpdateFetchTemplate(templateId, contractId) =>
+        UpdateFetchTemplate(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>

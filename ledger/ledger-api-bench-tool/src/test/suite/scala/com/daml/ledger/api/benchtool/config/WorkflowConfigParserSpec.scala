@@ -53,7 +53,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo3
           |    objectives:
           |      min_item_rate: 123
-          |      max_item_rate: 456""".stripMargin
+          |      max_item_rate: 456
+          |    max_item_count: 700""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -111,6 +112,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(456),
                 )
               ),
+              maxItemCount = Some(700),
             )
           ),
         )
@@ -242,6 +244,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(34),
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -285,6 +288,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = None,
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -318,6 +322,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
               objectives = None,
+              maxItemCount = None,
             )
           ),
         )
@@ -363,6 +368,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(34),
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -400,6 +406,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(4567),
                 )
               ),
+              maxItemCount = None,
             )
           ),
         )
@@ -415,6 +422,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    begin_offset: foo
           |    application_id: foobar
           |    timeout_in_seconds: 100
+          |    max_item_count: 101
           |    objectives:
           |      min_item_rate: 12
           |      max_item_rate: 345""".stripMargin
@@ -434,6 +442,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               timeoutInSeconds = 100,
+              maxItemCount = Some(101L),
             )
           ),
         )
@@ -467,6 +476,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               beginOffset = Some(ledgerBeginOffset),
               endOffset = Some(ledgerEndOffset),
               objectives = None,
+              maxItemCount = None,
             )
           ),
         )

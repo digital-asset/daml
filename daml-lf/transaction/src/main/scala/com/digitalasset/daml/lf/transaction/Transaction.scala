@@ -752,39 +752,6 @@ object Transaction {
   private[lf] case object OrphanedNode extends NotWellFormedErrorReason
   private[lf] case object AliasedNode extends NotWellFormedErrorReason
 
-  // crashes if transaction's keys contain contract Ids.
-  @throws[IllegalArgumentException]
-  def duplicatedContractKeys(tx: VersionedTransaction): Set[GlobalKey] = {
-
-    import GlobalKey.{assertBuild => globalKey}
-
-    case class State(active: Set[GlobalKey], duplicates: Set[GlobalKey]) {
-      def created(key: GlobalKey): State =
-        if (active(key)) copy(duplicates = duplicates + key) else copy(active = active + key)
-      def consumed(key: GlobalKey): State =
-        copy(active = active - key)
-      def referenced(key: GlobalKey): State =
-        copy(active = active + key)
-    }
-
-    tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
-      node match {
-        case Node.Create(_, tmplId, _, _, _, _, Some(key), _) =>
-          state.created(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
-          state.consumed(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
-          state.referenced(globalKey(tmplId, key.key))
-        case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _) =>
-          state.referenced(globalKey(tmplId, key.key))
-        case Node.LookupByKey(tmplId, key, Some(_), _) =>
-          state.referenced(globalKey(tmplId, key.key))
-        case _ =>
-          state
-      }
-    }.duplicates
-  }
-
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
   type ContractInstance = Value.VersionedContractInstance
 

@@ -430,7 +430,9 @@ object SExpr {
   final case class ChoiceByKeyDefRef(ref: DefinitionRef, choiceName: ChoiceName)
       extends SDefinitionRef
   final case class CreateDefRef(ref: DefinitionRef) extends SDefinitionRef
-  final case class FetchDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class FetchTemplateDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class FetchInterfaceDefRef(ref: DefinitionRef) extends SDefinitionRef
+
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef

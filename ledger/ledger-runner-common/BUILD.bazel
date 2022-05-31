@@ -28,9 +28,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger-service/jwt",
         "//ledger/caching",
-        "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-configuration",
@@ -42,7 +40,6 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
-        "@maven//:com_auth0_java_jwt",
         "@maven//:io_netty_netty_handler",
     ],
 )

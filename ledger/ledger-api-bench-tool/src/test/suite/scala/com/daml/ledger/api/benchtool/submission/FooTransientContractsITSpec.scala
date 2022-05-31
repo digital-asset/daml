@@ -142,6 +142,7 @@ class FooTransientContractsITSpec
       beginOffset = None,
       endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
       objectives = None,
+      maxItemCount = None,
     )
     apiServices.transactionService.transactions(
       config = config,

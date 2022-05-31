@@ -21,9 +21,11 @@ def conformance_test(
         extra_runner_args = [],
         lf_versions = ["default"],
         dev_mod_flag = "--daml-lf-dev-mode-unsafe",
-        flaky = False):
+        flaky = False,
+        hocon = False):
     for lf_version in lf_versions_aggregate(lf_versions):
-        extra_server_args = [dev_mod_flag] if lf_version == lf_version_configuration.get("preview") or lf_version == lf_version_configuration.get("dev") else []
+        daml_lf_dev_mode_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if hocon else [dev_mod_flag]
+        extra_server_args = daml_lf_dev_mode_args if lf_version == lf_version_configuration.get("preview") or lf_version == lf_version_configuration.get("dev") else []
         if not is_windows:
             test_name = "-".join([name, lf_version])
             client_server_test(

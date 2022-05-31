@@ -1614,7 +1614,7 @@ class EngineTest
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
 
-      val cmd = speedy.Command.Fetch(BasicTests_WithKey, SValue.SContractId(fetchedCid))
+      val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
       val submitters = Set(alice)
 

@@ -78,8 +78,8 @@ private[sandbox] object Rejection {
     override def toStatus: Status =
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyInconsistentKeys
         .Reject(
-          "The transaction attempts to create two contracts with the same contract key",
-          Some(key),
+          cause = "The transaction references a contract key inconsistently",
+          keyO = Some(key),
         )
         .rpcStatus()
   }
@@ -92,7 +92,10 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
-        .Reject("The transaction references a contract key inconsistently", Some(key))
+        .Reject(
+          cause = "The transaction attempts to create two contracts with the same contract key",
+          keyO = Some(key),
+        )
         .rpcStatus()
   }
 

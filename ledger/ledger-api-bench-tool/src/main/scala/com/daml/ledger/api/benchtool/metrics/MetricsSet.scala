@@ -87,7 +87,7 @@ object MetricsSet {
         ).flatten,
       ),
       TotalCountMetric.empty[GetActiveContractsResponse](
-        countingFunction = _.activeContracts.length
+        countingFunction = countActiveContracts
       ),
       SizeMetric.empty[GetActiveContractsResponse](
         sizingFunction = _.serializedSize.toLong
@@ -103,7 +103,7 @@ object MetricsSet {
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = _.activeContracts.length.toLong,
+      countingFunction = (response) => countActiveContracts(response).toLong,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = None,
     )
@@ -121,7 +121,7 @@ object MetricsSet {
         ).flatten,
       ),
       TotalCountMetric.empty(
-        countingFunction = _.completions.length
+        countingFunction = countCompletions
       ),
       SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
@@ -137,7 +137,7 @@ object MetricsSet {
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = _.completions.length.toLong,
+      countingFunction = (response) => countCompletions(response).toLong,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = None,
     )
@@ -176,10 +176,16 @@ object MetricsSet {
     )
   }
 
-  private def countFlatTransactionsEvents(response: GetTransactionsResponse): Long =
+  def countActiveContracts(response: GetActiveContractsResponse): Int =
+    response.activeContracts.length
+
+  def countCompletions(response: CompletionStreamResponse): Int =
+    response.completions.length
+
+  def countFlatTransactionsEvents(response: GetTransactionsResponse): Long =
     response.transactions.foldLeft(0L)((acc, tx) => acc + tx.events.size)
 
-  private def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Long =
+  def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Long =
     response.transactions.foldLeft(0L)((acc, tx) => acc + tx.eventsById.size)
 
 }

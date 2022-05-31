@@ -14,7 +14,7 @@ import scopt.OptionParser
 import java.io.File
 import java.time.Duration
 
-final class ConfigSpec
+final class CliConfigSpec
     extends AnyFlatSpec
     with Matchers
     with OptionValues
@@ -47,16 +47,18 @@ final class ConfigSpec
   private def configParser(
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
-  ): Option[Config[Unit]] =
-    Config.parse(
+  ): Option[CliConfig[Unit]] =
+    CliConfig.parse(
       name = "Test",
-      extraOptions = (_: OptionParser[Config[Unit]]) => (),
+      extraOptions = (_: OptionParser[CliConfig[Unit]]) => (),
       defaultExtra = (),
       args = parameters,
       getEnvVar = getEnvVar,
     )
 
-  private def configParserSimple(parameters: Iterable[String] = Seq.empty): Option[Config[Unit]] =
+  private def configParserSimple(
+      parameters: Iterable[String] = Seq.empty
+  ): Option[CliConfig[Unit]] =
     configParser(
       Seq(
         dumpIndexMetadataCommand,
