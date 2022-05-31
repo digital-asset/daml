@@ -84,6 +84,7 @@ private[inner] object TemplateClass extends StrictLogging {
             packagePrefixes,
           )
         )
+        .addMethod(generateCreateAndMethod())
         .addType(generateCreateAndClass(\/-(template.implementedInterfaces)))
         .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
@@ -228,6 +229,15 @@ private[inner] object TemplateClass extends StrictLogging {
   }
 
   private val createAndClassName = "CreateAnd"
+
+  private[this] def generateCreateAndMethod() =
+    MethodSpec
+      .methodBuilder("createAnd")
+      .returns(ClassName bestGuess createAndClassName)
+      .addModifiers(Modifier.PUBLIC)
+      .addAnnotation(classOf[Override])
+      .addStatement("return new CreateAnd(this)")
+      .build()
 
   private[inner] def generateCreateAndClass(
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
