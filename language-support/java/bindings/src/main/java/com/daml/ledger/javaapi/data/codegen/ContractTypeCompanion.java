@@ -6,11 +6,11 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.Identifier;
 
 /** The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}. */
-public class ContractTypeCompanion {
+public abstract class ContractTypeCompanion {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
-  public ContractTypeCompanion(Identifier templateId) {
+  protected ContractTypeCompanion(Identifier templateId) {
     TEMPLATE_ID = templateId;
   }
 }
