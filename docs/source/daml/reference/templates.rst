@@ -60,7 +60,7 @@ with the ledger; in fact, this is how you construct a create command.
 ``this`` and ``self``
 *********************
 
-Within the body of a template, we implicitly define a local binding ``this`` to
+Within the body of a template we implicitly define a local binding ``this`` to
 represent the data of the current contract. For a template ``T``, this binding
 is of type ``T``, i.e. the implicit record defined by the template.
 
