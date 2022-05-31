@@ -277,7 +277,7 @@ private[inner] object TemplateClass extends StrictLogging {
   ) =
     TypeSpec
       .classBuilder(createAndClassName)
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
       .superclass(classOf[javaapi.data.codegen.CreateAnd])
       .addSuperinterface(
         ParameterizedTypeName.get(
