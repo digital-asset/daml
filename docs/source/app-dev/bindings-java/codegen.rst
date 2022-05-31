@@ -505,6 +505,8 @@ Effectively it is a class that contains only the inner type ContractId because o
   public final class TIf {
     public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
 
+    public static final INTERFACE INTERFACE = new INTERFACE();
+
     public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<TIf> {
       public ContractId(String contractId) { /* ... */ }
 
@@ -512,11 +514,13 @@ Effectively it is a class that contains only the inner type ContractId because o
 
       public ExerciseCommand exerciseHam(Ham arg) { /* ... */ }
     }
+
+    public static final class INTERFACE extends InterfaceCompanion<TIf> { /* ... */}
   }
 
 For templates the code generation will be slightly different if a template implements interfaces.
 Main difference here is that the choices from inherited interfaces are included in the class declaration.
-Moreover to allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterfaceName` is generated.
+Moreover to allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterface` is generated.
 
 .. code-block:: java
   :caption: interfaces/Child.java
@@ -552,9 +556,9 @@ Moreover to allow converting the ContractId of a template to an interface Contra
 
       public ExerciseCommand exerciseUseless(TIf.ContractId interfacely) { /* ... */ }
 
-      public TIf.ContractId toTIf() { /* ... */ }
+      public TIf.ContractId toInterface(TIf.INTERFACE interfaceCompanion) { /* ... */ }
 
-      public static Child.ContractId unsafeFromTIf(interfaces.TIf.ContractId interfaceContractId)  { /* ... */ }
+      public static ContractId unsafeFromInterface(TIf.ContractId interfaceContractId) { /* ... */ }
 
     }
 
