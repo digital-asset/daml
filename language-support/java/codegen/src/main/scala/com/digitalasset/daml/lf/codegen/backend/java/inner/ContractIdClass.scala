@@ -45,14 +45,16 @@ object ContractIdClass {
         implementedInterfaces: Seq[Ref.TypeConName]
     ): Builder = {
       implementedInterfaces.foreach { interfaceName =>
-        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
+        // XXX why doesn't this use packagePrefixes? -SC
+        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+        val interfaceContractIdName = name nestedClass "ContractId"
         idClassBuilder.addMethod(
           MethodSpec
             .methodBuilder("toInterface")
             .addModifiers(Modifier.PUBLIC)
             .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
-            .addStatement("return new $T.ContractId(this.contractId)", name)
-            .returns(name nestedClass "ContractId")
+            .addStatement("return new $T(this.contractId)", interfaceContractIdName)
+            .returns(interfaceContractIdName)
             .build()
         )
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
@@ -60,7 +62,7 @@ object ContractIdClass {
           MethodSpec
             .methodBuilder(s"unsafeFromInterface")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(name nestedClass "ContractId", "interfaceContractId")
+            .addParameter(interfaceContractIdName, "interfaceContractId")
             .addStatement(
               "return new ContractId(interfaceContractId.contractId)"
             )
