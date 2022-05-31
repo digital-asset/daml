@@ -20,5 +20,6 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
         getCompanion().TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
   }
 
+  /** The origin of the choice, not the createArguments. */
   protected abstract ContractTypeCompanion getCompanion();
 }

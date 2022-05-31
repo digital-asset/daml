@@ -12,10 +12,9 @@ public abstract class Template {
   public abstract DamlRecord toValue();
 
   /**
-   * Set up a {@link CreateAndExerciseCommand}; invoke an {@code exercise} method
-   * on the result of this to finish creating the command, or convert to an
-   * interface first with {@code toInterface} to invoke an interface {@code exercise}
-   * method.
+   * Set up a {@link CreateAndExerciseCommand}; invoke an {@code exercise} method on the result of
+   * this to finish creating the command, or convert to an interface first with {@code toInterface}
+   * to invoke an interface {@code exercise} method.
    */
   public abstract CreateAnd createAnd();
 }
