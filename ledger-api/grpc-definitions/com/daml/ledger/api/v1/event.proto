@@ -35,7 +35,7 @@ message Event {
 // Result of evaluating an interface view consisting of the view definition
 // and the resulting value.
 message InterfaceViewResult {
-  InterfaceView view = 1;
+  Identifier interface_id = 1;
   Record value = 2;
 }
 
