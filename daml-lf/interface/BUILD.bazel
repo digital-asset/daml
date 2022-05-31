@@ -15,6 +15,7 @@ da_scala_library(
     name = "interface",
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
@@ -32,14 +33,16 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/nonempty",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 daml_compile(
     name = "InterfaceTestPackage",
-    srcs = ["src/test/daml/InterfaceTestPackage.daml"],
-    target = lf_version_configuration.get("dev"),  # TODO(SC) remove when interfaces in default
+    srcs = glob(["src/test/daml/**/*.daml"]),
+    target = lf_version_configuration.get("dev"),  # TODO(#13296) remove when interfaces in default
 )
 
 da_scala_test(
@@ -48,7 +51,10 @@ da_scala_test(
     srcs = glob(["src/test/**/*.scala"]),
     data = [":InterfaceTestPackage.dar"],
     scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -59,6 +65,9 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/nonempty",
+        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

@@ -50,7 +50,7 @@ class SBuiltinInterfaceTest
       }
     }
 
-    "fetch_by_interface" - {
+    "fetch_interface" - {
 
       "should request unknown package before everything else" in {
 
@@ -58,7 +58,7 @@ class SBuiltinInterfaceTest
 
         inside(
           evalApp(
-            e"\(cid: ContractId Mod:Iface) -> fetch_by_interface @Mod:Iface cid",
+            e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
             true,
             getContract = Map(
@@ -75,7 +75,7 @@ class SBuiltinInterfaceTest
 
         inside(
           evalApp(
-            e"\(cid: ContractId Mod:Iface) -> fetch_by_interface @Mod:Iface cid",
+            e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
             true,
             getContract = Map(
@@ -92,7 +92,7 @@ class SBuiltinInterfaceTest
 
         inside(
           evalApp(
-            e"\(cid: ContractId Mod:Iface) -> fetch_by_interface @Mod:Iface cid",
+            e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
             true,
             getContract = Map(

@@ -37,14 +37,17 @@ object DamlContractTemplateGen {
 
     logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
 
-    val templateChoiceMethods = templateInterface.template.choices.flatMap { case (id, interface) =>
-      util.genTemplateChoiceMethods(
-        templateType = tq"${TypeName(templateName.name)}",
-        idType = syntaxIdType,
-        id,
-        interface,
-      )
-    }
+    // TODO (#13921) replace assumeNoOverloadedChoices with directChoices
+    val templateChoiceMethods =
+      templateInterface.template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921).flatMap {
+        case (id, interface) =>
+          util.genTemplateChoiceMethods(
+            templateType = tq"${TypeName(templateName.name)}",
+            idType = syntaxIdType,
+            id,
+            interface,
+          )
+      }
 
     def toNamedArgumentsMethod =
       q"""

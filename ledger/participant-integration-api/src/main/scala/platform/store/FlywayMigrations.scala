@@ -8,11 +8,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.FlywayMigrations._
 import com.daml.platform.store.backend.VerifiedDataSource
 import com.daml.timer.RetryStrategy
-import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
+import javax.sql.DataSource
 import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}

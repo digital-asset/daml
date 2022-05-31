@@ -316,34 +316,34 @@ private[lf] final class Compiler(
     }
 
     module.templates.foreach { case (tmplName, tmpl) =>
-      val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
-      addDef(compileCreate(identifier, tmpl))
-      addDef(compileFetch(identifier, tmpl))
-      addDef(compileSignatories(identifier, tmpl))
-      addDef(compileObservers(identifier, tmpl))
-      addDef(compileToCachedContract(identifier, tmpl))
+      val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
+      addDef(compileCreate(tmplId, tmpl))
+      addDef(compileFetchTemplate(tmplId, tmpl))
+      addDef(compileSignatories(tmplId, tmpl))
+      addDef(compileObservers(tmplId, tmpl))
+      addDef(compileToCachedContract(tmplId, tmpl))
       tmpl.implements.values.foreach { impl =>
-        addDef(compileImplements(identifier, impl.interfaceId))
+        addDef(compileImplements(tmplId, impl.interfaceId))
         impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(tmpl.param, identifier, impl.interfaceId, method))
+          addDef(compileImplementsMethod(tmpl.param, tmplId, impl.interfaceId, method))
         )
       }
 
-      tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(identifier, tmpl, x)))
+      tmpl.choices.values.foreach(x => addDef(compileTemplateChoice(tmplId, tmpl, x)))
 
       tmpl.key.foreach { tmplKey =>
-        addDef(compileFetchByKey(identifier, tmpl, tmplKey))
-        addDef(compileLookupByKey(identifier, tmplKey))
-        tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(identifier, tmpl, tmplKey, x)))
+        addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
+        addDef(compileLookupByKey(tmplId, tmplKey))
+        tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x)))
       }
     }
 
     module.interfaces.foreach { case (ifaceName, iface) =>
-      val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
-      addDef(compileFetchInterface(identifier))
-      addDef(compileInterfacePrecond(identifier, iface.param, iface.precond))
+      val ifaceId = Identifier(pkgId, QualifiedName(module.name, ifaceName))
+      addDef(compileFetchInterface(ifaceId))
+      addDef(compileInterfacePrecond(ifaceId, iface.param, iface.precond))
       iface.choices.values.foreach { choice =>
-        addDef(compileInterfaceChoice(identifier, iface.param, choice))
+        addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
       }
     }
 
@@ -573,8 +573,8 @@ private[lf] final class Compiler(
         }
     }
 
-  @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
-  private[this] def compileFetchBody(env: Env, tmplId: Identifier, tmpl: Template)(
+  @nowarn("msg=parameter value tokenPos.* is never used")
+  private[this] def compileFetchTemplateBody(env: Env, tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
@@ -598,7 +598,7 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileFetch(
+  private[this] def compileFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
@@ -607,36 +607,26 @@ private[lf] final class Compiler(
     //   let <tmplArg> = $fetch(tmplId) <coid>
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
     //   in <tmplArg>
-    topLevelFunction2(t.FetchDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      compileFetchBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
+    topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
+      compileFetchTemplateBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
-  private[this] def compileFetchInterfaceBody(
-      env: Env,
-      ifaceId: Identifier,
-      tmplId: Option[TypeConName],
-      cidPos: Position,
-  ) =
-    let(
-      env,
-      SBCastAnyInterface(ifaceId, tmplId)(
-        env.toSEVar(cidPos),
-        SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
-      ),
-    ) { (payloadPos, env) =>
+  private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =
+    topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
       let(
         env,
-        SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
-      ) { (_, env) =>
-        env.toSEVar(payloadPos)
+        SBCastAnyInterface(ifaceId)(
+          env.toSEVar(cidPos),
+          SBFetchAny(env.toSEVar(cidPos), s.SEValue.None),
+        ),
+      ) { (payloadPos, env) =>
+        let(
+          env,
+          SBResolveSBUInsertFetchNode(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+        ) { (_, env) =>
+          env.toSEVar(payloadPos)
+        }
       }
-    }
-
-  private[this] def compileFetchInterface(
-      ifaceId: Identifier
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.FetchDefRef(ifaceId)) { (cidPos, _, env) =>
-      compileFetchInterfaceBody(env, ifaceId, None, cidPos)
     }
 
   private[this] def compileInterfacePrecond(
@@ -819,9 +809,11 @@ private[lf] final class Compiler(
     topLevelFunction2(t.FetchByKeyDefRef(tmplId)) { (keyPos, tokenPos, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
         let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-          let(env, compileFetchBody(env, tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos)) {
-            (contractPos, env) =>
-              FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
+          let(
+            env,
+            compileFetchTemplateBody(env, tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos),
+          ) { (contractPos, env) =>
+            FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
           }
         }
       }
@@ -864,18 +856,6 @@ private[lf] final class Compiler(
       )
     }
 
-  private[this] def compileFetchByInterface(
-      env: Env,
-      interfaceId: TypeConName,
-      templateId: TypeConName,
-      contractId: SValue,
-  ): s.SExpr =
-    unaryFunction(env) { (_, env) =>
-      let(env, s.SEValue(contractId)) { (cidPos, env) =>
-        compileFetchInterfaceBody(env, interfaceId, Some(templateId), cidPos)
-      }
-    }
-
   private[this] def translateCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
@@ -906,10 +886,10 @@ private[lf] final class Compiler(
       )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
-    case Command.Fetch(templateId, coid) =>
-      t.FetchDefRef(templateId)(s.SEValue(coid))
-    case Command.FetchByInterface(interfaceId, templateId, coid) =>
-      compileFetchByInterface(env, interfaceId, templateId, coid)
+    case Command.FetchTemplate(templateId, coid) =>
+      t.FetchTemplateDefRef(templateId)(s.SEValue(coid))
+    case Command.FetchInterface(interfaceId, coid) =>
+      t.FetchInterfaceDefRef(interfaceId)(s.SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>

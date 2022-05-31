@@ -11,6 +11,9 @@ import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 
+import scalaz.std.either._
+import scalaz.syntax.bifunctor._
+
 import scala.collection.immutable.Map
 import scala.jdk.CollectionConverters._
 
@@ -62,21 +65,6 @@ final case class Interface(
   def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
   def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = astInterfaces.asJava
 
-  /** Like [[EnvironmentInterface]]'s version, but permits incremental
-    * resolution of newly-loaded interfaces, such as json-api does.
-    *
-    * {{{
-    *  // suppose
-    *  i: Interface; ei: EnvironmentInterface
-    *  val eidelta = EnvironmentInterface.fromReaderInterfaces(i)
-    *  // such that
-    *  ei |+| eidelta
-    *  // contains the whole environment of i.  Then
-    *  ei |+| eidelta.resolveChoices(ei.astInterfaces)
-    *  === (ei |+| eidelta).resolveChoices
-    *  // but faster.
-    * }}}
-    */
   private def resolveChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
       failIfUnresolvedChoicesLeft: Boolean,
@@ -86,18 +74,21 @@ final case class Interface(
       if (id.packageId == packageId) astInterfaces get id.qualifiedName
       else outside(id)
     val tplFindIface = Function unlift findIface
-    val transformTemplate = {
-      def transform(ift: InterfaceType.Template) =
-        ift.copy(template = ift.template resolveChoices tplFindIface)
-      if (failIfUnresolvedChoicesLeft)
-        transform _ andThen (res =>
-          if (res.template.unresolvedInheritedChoices.isEmpty) res
-          else
-            throw new IllegalStateException(
-              s"Couldn't resolve all inherited choices for template $res"
-            )
+    def transformTemplate(ift: InterfaceType.Template) = {
+      val errOrItt = (ift.template resolveChoices tplFindIface)
+        .bimap(
+          _.map(partial => ift.copy(template = partial)),
+          resolved => ift.copy(template = resolved),
         )
-      else transform _
+      errOrItt.fold(
+        e =>
+          if (failIfUnresolvedChoicesLeft)
+            throw new IllegalStateException(
+              s"Couldn't resolve inherited choices ${e.describeError}"
+            )
+          else e.partialResolution,
+        identity,
+      )
     }
     copy(typeDecls = typeDecls transform { (_, ift) =>
       ift match {
@@ -107,10 +98,29 @@ final case class Interface(
     })
   }
 
+  /** Like [[EnvironmentInterface#resolveChoices]], but permits incremental
+    * resolution of newly-loaded interfaces, such as json-api does.
+    *
+    * {{{
+    *  // suppose
+    *  i: Interface; ei: EnvironmentInterface
+    *  val eidelta = EnvironmentInterface.fromReaderInterfaces(i)
+    *  // such that
+    *  ei |+| eidelta
+    *  // contains the whole environment of i.  Then
+    *  ei |+| eidelta.resolveChoicesAndFailOnUnresolvableChoices(ei.astInterfaces)
+    *  === (ei |+| eidelta).resolveChoices
+    *  // but faster.
+    * }}}
+    */
   def resolveChoicesAndFailOnUnresolvableChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
   ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
 
+  /** Like resolveChoicesAndFailOnUnresolvableChoices, but simply discard
+    * unresolved choices from the structure.  Not wise to use on a receiver
+    * without a complete environment provided as the argument.
+    */
   def resolveChoicesAndIgnoreUnresolvedChoices(
       findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
   ): Interface = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)

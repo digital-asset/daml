@@ -944,7 +944,7 @@ private[validation] object Typing {
       TUpdate(choice.returnType)
     }
 
-    private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
+    private def typeOfFetchTemplate(tpl: TypeConName, cid: Expr): Type = {
       discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
@@ -986,8 +986,8 @@ private[validation] object Typing {
         typeOfExerciseInterface(tpl, choice, cid, arg, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
-      case UpdateFetch(tpl, cid) =>
-        typeOfFetch(tpl, cid)
+      case UpdateFetchTemplate(tpl, cid) =>
+        typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>

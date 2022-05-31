@@ -367,7 +367,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setCreateInterface(
             PLF.Update.CreateInterface.newBuilder().setInterface(interface).setExpr(arg)
           )
-        case UpdateFetch(templateId, contractId) =>
+        case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
