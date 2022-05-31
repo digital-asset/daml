@@ -69,8 +69,11 @@ object InterfaceClass extends StrictLogging {
     )
     .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
     .addMethod {
-      // we define this explicitly to make it package-private
-      MethodSpec.constructorBuilder().build()
+      MethodSpec
+        .constructorBuilder()
+        // intentionally package-private
+        .addStatement("super($T.$N)", interfaceName, ClassGenUtils.templateIdFieldName)
+        .build()
     }
     .build()
 
