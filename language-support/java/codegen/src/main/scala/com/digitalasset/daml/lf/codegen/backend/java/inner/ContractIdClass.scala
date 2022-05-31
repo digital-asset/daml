@@ -45,24 +45,25 @@ object ContractIdClass {
         implementedInterfaces: Seq[Ref.TypeConName]
     ): Builder = {
       implementedInterfaces.foreach { interfaceName =>
-        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
         val simpleName = interfaceName.qualifiedName.name.segments.last
         idClassBuilder.addMethod(
           MethodSpec
             .methodBuilder(s"to$simpleName")
             .addModifiers(Modifier.PUBLIC)
-            .addStatement(s"return new $name.ContractId(this.contractId)")
-            .returns(ClassName.bestGuess(s"$name.ContractId"))
+            .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
+            .addStatement("return new $T.ContractId(this.contractId)", name)
+            .returns(name nestedClass "ContractId")
             .build()
         )
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
         idClassBuilder.addMethod(
           MethodSpec
-            .methodBuilder(s"unsafeFrom$simpleName")
+            .methodBuilder(s"unsafeFromInterface")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(ClassName.bestGuess(s"$name.ContractId"), "interfaceContractId")
+            .addParameter(name nestedClass "ContractId", "interfaceContractId")
             .addStatement(
-              s"return new ContractId(interfaceContractId.contractId)"
+              "return new ContractId(interfaceContractId.contractId)"
             )
             .returns(tplContractIdClassName)
             .build()

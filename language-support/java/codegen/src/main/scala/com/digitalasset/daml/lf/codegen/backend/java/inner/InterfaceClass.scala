@@ -46,7 +46,7 @@ object InterfaceClass extends StrictLogging {
       interfaceType
     }
 
-  private val companionName = "INTERFACE"
+  private[inner] val companionName = "INTERFACE"
 
   private def generateInterfaceCompanionField(): FieldSpec =
     FieldSpec

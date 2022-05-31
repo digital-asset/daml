@@ -48,7 +48,11 @@ class Interfaces
           sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
         }
         readActiveContractsSafe(safeChildFromCreatedEvent)(client, alice).foreach { child =>
-          sendCmd(client, alice, child.id.toTIf.exerciseHam(new interfaces.Ham()))
+          sendCmd(
+            client,
+            alice,
+            child.id.toTIf(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
+          )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
           .foreach { child =>
@@ -57,7 +61,9 @@ class Interfaces
                 client,
                 alice,
                 interfaces.Child.ContractId
-                  .unsafeFromTIf(child.id.toTIf: interfaces.TIf.ContractId)
+                  .unsafeFromInterface(
+                    child.id.toTIf(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
+                  )
                   .exerciseHam(new interfaces.Ham()),
               )
             )
