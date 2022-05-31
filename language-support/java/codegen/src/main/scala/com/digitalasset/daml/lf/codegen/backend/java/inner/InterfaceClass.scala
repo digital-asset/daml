@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.daml.lf.iface.DefInterface
+import com.daml.lf.iface, iface.DefInterface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -17,6 +17,7 @@ object InterfaceClass extends StrictLogging {
       interfaceName: ClassName,
       interface: DefInterface.FWT,
       packagePrefixes: Map[PackageId, String],
+      typeDeclarations: Map[QualifiedName, iface.InterfaceType],
       packageId: PackageId,
       interfaceId: QualifiedName,
   ): TypeSpec =
@@ -36,6 +37,14 @@ object InterfaceClass extends StrictLogging {
               packagePrefixes,
             )
             .build()
+        )
+        .addType(
+          ContractIdClass.generateExercisesInterface(
+            interface.choices,
+            typeDeclarations,
+            packageId,
+            packagePrefixes,
+          )
         )
         .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
         .addMethod {

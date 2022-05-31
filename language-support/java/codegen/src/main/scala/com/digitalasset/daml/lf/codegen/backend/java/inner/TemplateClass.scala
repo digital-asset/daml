@@ -66,10 +66,6 @@ private[inner] object TemplateClass extends StrictLogging {
               ContractIdClass.For.Template,
               packagePrefixes,
             )
-            .addFlattenedExerciseMethods(
-              typeWithContext.interface.typeDecls,
-              typeWithContext.packageId,
-            )
             .addConversionForImplementedInterfaces(template.implementedInterfaces)
             .build()
         )
@@ -78,6 +74,14 @@ private[inner] object TemplateClass extends StrictLogging {
             .builder(className, template.key, packagePrefixes)
             .addGenerateFromMethods()
             .build()
+        )
+        .addType(
+          ContractIdClass.generateExercisesInterface(
+            templateChoices,
+            typeWithContext.interface.typeDecls,
+            typeWithContext.packageId,
+            packagePrefixes,
+          )
         )
         .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
@@ -303,11 +307,13 @@ private[inner] object TemplateClass extends StrictLogging {
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
   ): MethodSpec =
-    ClassGenUtils.generateFlattenedCreateOrExerciseMethod[javaapi.data.CreateAndExerciseCommand](
+    ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
       "createAndExercise",
+      ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
       choiceName,
       choice,
       fields,
+      Seq.empty[Modifier],
       packagePrefixes,
     )
 

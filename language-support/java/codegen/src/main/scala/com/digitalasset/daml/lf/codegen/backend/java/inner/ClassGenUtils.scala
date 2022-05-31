@@ -12,7 +12,7 @@ import com.squareup.javapoet._
 import com.daml.ledger.javaapi
 
 import javax.lang.model.element.Modifier
-import scala.reflect.ClassTag
+import scala.jdk.CollectionConverters._
 
 private[inner] object ClassGenUtils {
 
@@ -73,18 +73,20 @@ private[inner] object ClassGenUtils {
       )
       .build()
 
-  def generateFlattenedCreateOrExerciseMethod[T](
+  def generateFlattenedCreateOrExerciseMethod(
       name: String,
+      returns: TypeName,
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
+      modifiers: Seq[Modifier],
       packagePrefixes: Map[PackageId, String],
-  )(implicit ct: ClassTag[T]): MethodSpec = {
+  ): MethodSpec = {
     val methodName = s"$name${choiceName.capitalize}"
     val choiceBuilder = MethodSpec
       .methodBuilder(methodName)
-      .addModifiers(Modifier.PUBLIC)
-      .returns(ct.runtimeClass)
+      .addModifiers((modifiers :+ Modifier.PUBLIC).asJava)
+      .returns(returns)
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       choiceBuilder.addParameter(javaType, javaName)
