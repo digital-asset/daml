@@ -561,6 +561,19 @@ object Ast {
       // fetching the contract but before running the exercise body. If the guard returns
       // false, or an exception is raised during evaluation, the transaction is aborted.
   ) extends Update
+  // Exercise the interface choice by first looking up the implementation contract
+  // based on the implementation key of cid and then using that as the
+  // choice implementation.
+  final case class UpdateExerciseInterfaceByImplementationPointer(
+      interfaceId: TypeConName,
+      choice: ChoiceName,
+      cidE: Expr,
+      argE: Expr,
+      guardE: Expr,
+      // `guardE` is an expression of type Interface -> Bool which is evaluated after
+      // fetching the contract but before running the exercise body. If the guard returns
+      // false, or an exception is raised during evaluation, the transaction is aborted.
+  ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,
       choice: ChoiceName,
@@ -700,6 +713,8 @@ object Ast {
       requires: Set[TypeConName],
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
+      abstractChoices: Map[ChoiceName, GenAbstractChoice[E]],
+      // The abstract choices. If this is non-empty templates that implement this interface must define an implementation key.
       methods: Map[MethodName, InterfaceMethod],
       precond: E, // Interface creation precondition.
   )
@@ -760,6 +775,26 @@ object Ast {
       returnType: Type,
   )
 
+  // Pointer to the implementation of abstract choices on this template as well
+  // as abstract choices of implemented interfaces.
+  final case class ImplementationPointer[E](
+    implementationKey: E, // : Party
+  )
+
+  // The implementation of an abstract choice either defined on the template or on an interface
+  // that is implemented by this template.
+  final case class ChoiceImplementation[E](
+    name: ChoiceName,
+    interfaceId: Option[TypeConName], // The interface id the choice belongs to. If not set, it must be a choice on the template.
+    selfBinder: ExprVarName, // The binder for self. The binder for this & the arg are in the abstract choice & template def.
+    update: E,
+  )
+
+  final case class TemplateImplementation[E](
+    implementationKey: E, // : Party
+    choiceImplementations: Map[InterfaceId, Map[ChoiceName, ChoiceImplementation[E]]],
+  )
+
   final case class GenTemplate[E](
       param: ExprVarName, // Binder for template argument.
       precond: E, // Template creation precondition.
@@ -771,6 +806,9 @@ object Ast {
       implements: VectorMap[TypeConName, GenTemplateImplements[
         E
       ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
+      implementationPointer: Option[ImplementationPointer[E]], // The implementation pointer if any including the map of abstract choices implemented by that pointer. This must be
+                                                               // set if the template implements an interface with abstract choices.
+      implementationDef: Option[TemplateImplementation[E]] // The implementation of abstract choices. If this is set, implementationPointer must not be set.
   ) {
     lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
       implements.flatMap { case (iface, impl) =>
@@ -868,6 +906,17 @@ object Ast {
       argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
       update: E, // The choice follow-up.
+  )
+
+  // An abstract choice. Both interfaces & templates can have abstract choices.
+  // This is a choice without a body but with controllers & choice observers.
+  final case class GenAbstractChoice[E](
+      name: ChoiceName, // Name of the choice.
+      consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
+      controllers: E, // Parties that can exercise the choice.
+      choiceObservers: Option[E], // Additional informees for the choice.
+      argBinder: (ExprVarName, Type), // Choice argument binder.
+      returnType: Type, // Return type of the choice follow-up.
   )
 
   final class GenTemplateChoiceCompanion[E] private[Ast] {
