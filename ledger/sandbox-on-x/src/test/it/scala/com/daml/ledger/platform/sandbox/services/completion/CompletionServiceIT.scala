@@ -146,6 +146,8 @@ sealed trait CompletionServiceITBase
     }
   }
 
+  override def bridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2)
+
   override def config = super.config.copy(
     genericConfig = super.config.genericConfig.copy(participants =
       Map(
@@ -169,8 +171,7 @@ sealed trait CompletionServiceITBase
               ),
           )
       )
-    ),
-    bridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2),
+    )
   )
 }
 

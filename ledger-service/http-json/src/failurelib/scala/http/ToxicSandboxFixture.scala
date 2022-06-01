@@ -90,7 +90,7 @@ trait ToxicSandboxFixture
             dataSource = participantDataSource
           )
         )
-        port <- SandboxOnXForTest.owner(cfg)
+        port <- SandboxOnXForTest.owner(cfg, bridgeConfig, authService)
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),

@@ -21,7 +21,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -56,9 +56,7 @@ trait SandboxTestLedger extends SandboxFixture {
         )
       ),
     ),
-    bridgeConfig = BridgeConfig(),
     damlPackages = packageFiles,
-    authService = authService,
   )
 
   def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =

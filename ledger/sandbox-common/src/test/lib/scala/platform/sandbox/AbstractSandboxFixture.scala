@@ -67,6 +67,8 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
   protected def config: SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
     genericConfig = SandboxDefault.copy(
       ledgerId = "sandbox-server",
@@ -82,9 +84,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
         )
       ),
     ),
-    bridgeConfig = BridgeConfig(),
     damlPackages = packageFiles,
-    authService = authService,
   )
 
   protected def packageFiles: List[File] = List(darFile)

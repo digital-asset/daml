@@ -18,11 +18,9 @@ import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.IndexerConfig
-import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.logging
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
-import scalaz.syntax.tag._
 
 import java.io.File
 import java.time.Duration
@@ -127,26 +125,23 @@ object SandboxOnXForTest {
 
   case class CustomConfig(
       genericConfig: Config,
-      bridgeConfig: BridgeConfig,
-      authService: Option[AuthService] = None,
       damlPackages: List[File] = List.empty,
   )
-  def owner(config: SandboxOnXForTest.CustomConfig): ResourceOwner[Port] =
-    owner(name = LedgerName("Sandbox"), config = config)
 
-  private def owner(
-      name: LedgerName,
+  def owner(
       config: SandboxOnXForTest.CustomConfig,
+      bridgeConfig: BridgeConfig,
+      authService: Option[AuthService],
   ): ResourceOwner[Port] = {
     val configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
-      config.authService
+      authService
     )
     for {
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem("sandbox"))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- new SandboxOnXForTest(
         config.genericConfig,
-        config.bridgeConfig,
+        bridgeConfig,
         configAdaptor,
         config.damlPackages,
       )(materializer)

@@ -292,6 +292,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
 
   protected val damlPackages: List[File] = List()
 
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
   private def sandboxConfig(jdbcUrl: String): SandboxOnXForTest.CustomConfig =
     SandboxOnXForTest.CustomConfig(
       genericConfig = SandboxDefault.copy(
@@ -309,9 +311,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           )
         ),
       ),
-      bridgeConfig = BridgeConfig(),
       damlPackages = damlPackages,
-      authService = authService,
     )
 
   protected lazy val sandboxPort: Port = resource.value._1
@@ -349,7 +349,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => info.jdbcUrl)
 
-        port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl = jdbcUrl))
+        port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl = jdbcUrl), bridgeConfig, authService)
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

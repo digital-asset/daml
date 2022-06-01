@@ -28,6 +28,8 @@ object LedgerFactories {
   private def getPackageIdOrThrow(file: File): Ref.PackageId =
     UniversalArchiveReader.assertReadFile(file).all.head.pkgId
 
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
   protected def sandboxConfig(
       jdbcUrl: Option[String],
       darFiles: List[File],
@@ -48,7 +50,6 @@ object LedgerFactories {
         )
       ),
     ),
-    bridgeConfig = BridgeConfig(),
     damlPackages = darFiles,
   )
 
@@ -67,7 +68,7 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl, darFiles))
+      port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl, darFiles), bridgeConfig, None)
       channel <- GrpcClientResource.owner(port)
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
       ExecutionContext.fromExecutorService(executor)

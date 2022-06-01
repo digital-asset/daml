@@ -235,6 +235,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
+        "//ledger/sandbox-on-x",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/adjustable-clock",

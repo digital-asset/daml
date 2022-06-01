@@ -171,7 +171,7 @@ trait JsonApiFixture
             dataSource = participantDataSource
           )
         )
-        serverPort <- SandboxOnXForTest.owner(cfg)
+        serverPort <- SandboxOnXForTest.owner(cfg, bridgeConfig, authService)
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {

@@ -47,10 +47,11 @@ trait SandboxTestLedger extends SandboxFixture {
   protected val ledgerIdMode: LedgerIdMode =
     LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
 
+  override def bridgeConfig: BridgeConfig = BridgeConfig()
+
   override def config = {
     SandboxOnXForTest.CustomConfig(
       damlPackages = damlPackages,
-      bridgeConfig = BridgeConfig(),
       genericConfig = SandboxDefault.copy(
         ledgerId = TestUtil.LedgerID,
         engine = SandboxDefault.engine

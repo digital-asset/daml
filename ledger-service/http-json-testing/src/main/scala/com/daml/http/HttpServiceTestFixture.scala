@@ -185,11 +185,10 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         dars = dars,
         ledgerId = ledgerId,
         useTls = useTls,
-        authService = authService,
         jdbcUrl = jdbcUrl,
       )
 
-      portF <- Future(SandboxOnXForTest.owner(config).acquire())
+      portF <- Future(SandboxOnXForTest.owner(config, bridgeConfig, authService).acquire())
       port <- portF.asFuture
     } yield (portF, port)
 
@@ -216,11 +215,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }
   }
 
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
   private def ledgerConfig(
       ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService],
       useTls: UseTls,
       jdbcUrl: String,
   ): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
@@ -241,9 +241,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         )
       ),
     ),
-    bridgeConfig = BridgeConfig(),
     damlPackages = dars,
-    authService = authService,
   )
 
   private def clientConfig(

@@ -113,6 +113,8 @@ class EngineModeIT
   "SandboxServer" should {
     def buildServer(versions: VersionRange[LanguageVersion]) = {
 
+      def bridgeConfig: BridgeConfig = BridgeConfig()
+
       def sandboxConfig(): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
         genericConfig = SandboxDefault.copy(
           ledgerId = "ledger-server",
@@ -131,12 +133,13 @@ class EngineModeIT
               SandboxOnXForTest.defaultH2SandboxJdbcUrl()
             )
           ),
-        ),
-        bridgeConfig = BridgeConfig(),
+        )
       )
 
       SandboxOnXForTest.owner(
-        sandboxConfig()
+        sandboxConfig(),
+        bridgeConfig,
+        authService,
       )
     }
 

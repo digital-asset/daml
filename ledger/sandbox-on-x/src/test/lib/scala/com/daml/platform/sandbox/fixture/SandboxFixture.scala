@@ -47,7 +47,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
             dataSource = participantDataSource
           )
         )
-        port <- SandboxOnXForTest.owner(cfg)
+        port <- SandboxOnXForTest.owner(cfg, bridgeConfig, authService)
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,
