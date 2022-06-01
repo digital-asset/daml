@@ -241,7 +241,7 @@ private[inner] object TemplateClass extends StrictLogging {
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(classOf[javaapi.data.ExerciseByKeyCommand])
       .makeDeprecated(
-        howToFix = s"use byKey(key).exercise${choiceName.capitalize} instead",
+        howToFix = s"use {@code byKey(key).exercise${choiceName.capitalize}} instead",
         sinceDaml = "2.3.0",
       )
       .addParameter(toJavaTypeName(key, packagePrefixes), "key")
@@ -273,7 +273,7 @@ private[inner] object TemplateClass extends StrictLogging {
       generateArgumentList(fields.map(_.javaName)),
     )
     exerciseByKeyBuilder
-      .makeDeprecated(CodeBlock.of("use $L instead", expansion), sinceDaml = "2.3.0")
+      .makeDeprecated(CodeBlock.of("use {@code $L} instead", expansion), sinceDaml = "2.3.0")
       .addStatement("return $L", expansion)
       .build()
   }
@@ -477,14 +477,16 @@ private[inner] object TemplateClass extends StrictLogging {
         isInterface.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
       )
 
-    private[TemplateClass] def makeDeprecated(howToFix: String, sinceDaml: String) =
-      self
-        .addAnnotation(classOf[Deprecated])
-        .addJavadoc(
-          s"@deprecated since Daml $sinceDaml; $howToFix"
-        )
+    private[TemplateClass] def makeDeprecated(
+        howToFix: String,
+        sinceDaml: String,
+    ): MethodSpec.Builder =
+      self.makeDeprecated(howToFix = CodeBlock.of("$L", howToFix), sinceDaml = sinceDaml)
 
-    private[TemplateClass] def makeDeprecated(howToFix: CodeBlock, sinceDaml: String) =
+    private[TemplateClass] def makeDeprecated(
+        howToFix: CodeBlock,
+        sinceDaml: String,
+    ): MethodSpec.Builder =
       self
         .addAnnotation(classOf[Deprecated])
         .addJavadoc(
