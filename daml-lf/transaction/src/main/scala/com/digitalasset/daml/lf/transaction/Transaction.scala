@@ -10,6 +10,7 @@ import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.command.DisclosedContract
+import com.daml.lf.transaction.KeyStateMachine.KeyMapping
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -715,11 +716,15 @@ object Transaction {
 
   /** The state of a key at the beginning of the transaction.
     */
-  sealed trait KeyInput extends Product with Serializable
+  sealed trait KeyInput extends Product with Serializable {
+    def toKeyMapping: KeyStateMachine.KeyMapping
+  }
 
   /** No active contract with the given key.
     */
-  sealed trait KeyInactive extends KeyInput
+  sealed trait KeyInactive extends KeyInput {
+    override def toKeyMapping: KeyMapping = KeyStateMachine.KeyInactive
+  }
 
   /** A contract with the key will be created so the key must be inactive.
     */
@@ -731,7 +736,9 @@ object Transaction {
 
   /** Key must be mapped to this active contract.
     */
-  final case class KeyActive(cid: Value.ContractId) extends KeyInput
+  final case class KeyActive(cid: Value.ContractId) extends KeyInput {
+    override def toKeyMapping: KeyMapping = KeyStateMachine.KeyActive(cid)
+  }
 
   /** contractKeyInputs failed to produce an input due to an error for the given key.
     */

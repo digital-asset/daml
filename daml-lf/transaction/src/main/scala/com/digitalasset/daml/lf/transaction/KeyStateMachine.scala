@@ -61,11 +61,19 @@ class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     * - [[globalKeyInputs]]'s keyset is a superset of [[activeState]].[[ActiveLedgerState.keys]]'s keyset
     *   and of all the [[ActiveLedgerState.keys]]'s keysets in [[rollbackStack]].
     *   (the superset can be strict in case of by-key nodes inside an already completed Rollback scope)
-    * - In mode ![[byKeyOnly]],
-    *   the keys belonging to the contracts in [[activeState]].[[ActiveLedgerState.consumedBy]]'s keyset are in [[activeState]].[[ActiveLedgerState.keys]],
+    * - In mode ![[ContractKeyUniquenessMode.byKeyOnly]],
+    *   the keys belonging to the contracts in [[activeState]].[[ActiveLedgerState.consumedBy]]'s
+    *   keyset are in [[activeState]].[[ActiveLedgerState.keys]],
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
     *
-    * @param globalKeyInputs Grows monotonically. Entries are never overwritten.
+    * @param globalKeyInputs A store of fetches and lookups of global keys.
+    *   Note that this represents the required state at the beginning of the transaction, i.e., the
+    *   transaction inputs.
+    *   The contract might no longer be active or a new local contract with the
+    *   same key might have been created since. This is updated on creates with keys with KeyInactive
+    *   (implying that no key must have been active at the beginning of the transaction)
+    *   and on failing and successful lookup and fetch by key.
+    *   Grows monotonically. Entries are never overwritten.
     * @param activeState Summarizes the active state of the partial transaction that was visited so far.
     */
   case class State private (
@@ -89,7 +97,7 @@ class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         templateId: TypeConName,
         contractId: ContractId,
         key: Option[KeyWithMaintainers],
-    ): Either[KeyInputError, State] = {
+    ): Either[DuplicateContractKey, State] = {
       // if we have a contract key being added, include it in the list of
       // active keys
       key match {
@@ -131,7 +139,6 @@ class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
             case None => globalKeyInputs.get(ck).exists(_.isActive)
           }
 
-          // See https://github.com/digital-asset/daml/pull/14012: we only need to look in keyInputs.
           val newKeyInputs =
             if (globalKeyInputs.contains(ck)) globalKeyInputs
             else globalKeyInputs.updated(ck, KeyCreate)
@@ -425,14 +432,36 @@ object KeyStateMachine {
       case _: KeyInactive => false
       case _: Transaction.KeyActive => true
     }
-
-    def toKeyMapping: KeyMapping = keyInput match {
-      case _: KeyInactive => KeyInactive
-      case Transaction.KeyActive(cid) => KeyActive(cid)
-    }
   }
 
   // Generalized from com.daml.lf.speedy.PartialTransaction.ActiveLedgerState
+
+  /** @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
+    *                   that have been consumed by nodes up to now.
+    *  @param keys A local store of the contract keys used for lookups and fetches by keys
+    *              (including exercise by key). Each of those operations will be resolved
+    *              against this map first. Only if there is no entry in here
+    *              (but not if there is an entry mapped to None), will we ask the ledger.
+    *
+    *              This map is mutated by the following operations:
+    *              1. fetch-by-key/lookup-by-key/exercise-by-key will insert an
+    *                 an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
+    *              2. ACS mutating operations if the corresponding contract has a key. Specifically,
+    *                 2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
+    *                 2.2. A consuming choice on cid will set the corresponding map entry to KeyInactive
+    *                      iff we had a KeyActive(cid) entry for the same key before. If not, keys
+    *                      will not be modified. Later lookups have an activeness check
+    *                      that can then set this to KeyInactive if the result of the
+    *                      lookup was already archived.
+    *
+    *              On a rollback, we restore the state at the beginning of the rollback. However,
+    *              we preserve globalKeyInputs so we will not ask the ledger again for a key lookup
+    *              that we saw in a rollback.
+    *
+    *              Note that the engine is also used in Canton’s non-uck (unique contract key) mode.
+    *              In that mode, duplicate keys should not be an error. We provide no stability
+    *              guarantees for this mode at this point so tests can be changed freely.
+    */
   final case class ActiveLedgerState[+Nid](
       consumedBy: Map[ContractId, Nid],
       keys: Map[GlobalKey, KeyMapping],

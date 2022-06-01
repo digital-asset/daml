@@ -4,18 +4,21 @@
 package com.daml.lf
 package speedy
 
+import cats.syntax.functor._
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
+import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 import com.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
   GlobalKey,
+  KeyStateMachine,
   Node,
   NodeId,
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
 }
+import com.daml.lf.transaction.KeyStateMachine.KeyMapping
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -159,17 +162,9 @@ private[lf] object PartialTransaction {
     override val authorizers: Set[Party] = actingParties union signatories
   }
 
-  final case class ActiveLedgerState(
-      consumedBy: Map[Value.ContractId, NodeId],
-      keys: Map[GlobalKey, KeyMapping],
-  )
-
   final case class TryContextInfo(
       nodeId: NodeId,
       parent: Context,
-      // beginState stores the consumed contracts at the beginning of
-      // the try so that we can restore them on rollback.
-      beginState: ActiveLedgerState,
       // Set to the authorizers (the union of signatories & actors) of the nearest
       // parent exercise or the submitters if there is no parent exercise.
       authorizers: Set[Party],
@@ -178,21 +173,18 @@ private[lf] object PartialTransaction {
   }
 
   def initial(
-      contractKeyUniqueness: ContractKeyUniquenessMode,
+      contractKeyUniqueness: ContractByKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
   ) = PartialTransaction(
-    contractKeyUniqueness = contractKeyUniqueness,
     submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
     actionNodeSeeds = BackStack.empty,
-    consumedBy = Map.empty,
     context = Context(initialSeeds, committers),
     aborted = None,
-    keys = Map.empty,
-    globalKeyInputs = Map.empty,
+    keysState = new KeyStateMachine[NodeId](contractKeyUniqueness).State.empty,
     localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
   )
@@ -207,12 +199,6 @@ private[lf] object PartialTransaction {
       globalKeyMapping: Map[GlobalKey, KeyMapping],
   ) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
-
-  type KeyMapping = Option[Value.ContractId]
-  // There is no active contract with the given key.
-  val KeyInactive = None
-  // The contract with the given cid is active and has the given key.
-  val KeyActive = Some
 }
 
 /** A transaction under construction
@@ -220,8 +206,6 @@ private[lf] object PartialTransaction {
   *  @param nodes The nodes of the transaction graph being built up.
   *  @param actionNodeSeeds The seeds of create and exercise nodes in pre-order. NodeIds are determined by finish.
   *   Note that only other node types do not have seeds and are not included.
-  *  @param consumedBy 'ContractId's of all contracts that have
-  *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
   *                 built.
   *  @param aborted The error that lead to aborting the building of
@@ -230,64 +214,25 @@ private[lf] object PartialTransaction {
   *                 the transaction was in when aborted. It is up to
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
-  *  @param keys A local store of the contract keys used for lookups and fetches by keys
-  *              (including exercise by key). Each of those operations will be resolved
-  *              against this map first. Only if there is no entry in here
-  *              (but not if there is an entry mapped to None), will we ask the ledger.
-  *
-  *              This map is mutated by the following operations:
-  *              1. fetch-by-key/lookup-by-key/exercise-by-key will insert an
-  *                 an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
-  *              2. ACS mutating operations if the corresponding contract has a key. Specifically,
-  *                 2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
-  *                 2.2. A consuming choice on cid will set the corresponding map entry to KeyInactive
-  *                      iff we had a KeyActive(cid) entry for the same key before. If not, keys
-  *                      will not be modified. Later lookups have an activeness check
-  *                      that can then set this to KeyInactive if the result of the
-  *                      lookup was already archived.
-  *
-  *              On a rollback, we restore the state at the beginning of the rollback. However,
-  *              we preserve globalKeyInputs so we will not ask the ledger again for a key lookup
-  *              that we saw in a rollback.
-  *
-  *              Note that the engine is also used in Canton’s non-uck (unique contract key) mode.
-  *              In that mode, duplicate keys should not be an error. We provide no stability
-  *              guarantees for this mode at this point so tests can be changed freely.
-  *  @param globalKeyInputs A store of fetches and lookups of global keys.
-  *   Note that this represents the required state at the beginning of the transaction, i.e., the
-  *   transaction inputs.
-  *   The contract might no longer be active or a new local contract with the
-  *   same key might have been created since. This is updated on creates with keys with KeyInactive
-  *   (implying that no key must have been active at the beginning of the transaction)
-  *   and on failing and successful lookup and fetch by key.
-  *
+  *  @param keysState TODO(#9499) document
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
-  *
-  * invariant: [[keys.keySet subsetOf globalKeyInputs.keySet]]
   */
 private[speedy] case class PartialTransaction(
-    contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
-    consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keys: Map[GlobalKey, PartialTransaction.KeyMapping],
-    globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
+    keysState: KeyStateMachine[NodeId]#State,
     localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
 ) {
 
   import PartialTransaction._
 
-  private def activeState: ActiveLedgerState =
-    ActiveLedgerState(consumedBy, keys)
-
-  private def resetActiveState(state: ActiveLedgerState): PartialTransaction =
-    copy(consumedBy = state.consumedBy, keys = state.keys)
+  def consumedBy: Map[Value.ContractId, NodeId] = keysState.activeState.consumedBy
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -367,7 +312,7 @@ private[speedy] case class PartialTransaction(
           SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
-          globalKeyInputs,
+          keysState.globalKeyInputs.fmap(_.toKeyMapping),
         )
       case _ =>
         IncompleteTransaction(this)
@@ -425,61 +370,11 @@ private[speedy] case class PartialTransaction(
       localContracts = localContracts + cid,
     ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
-    // if we have a contract key being added, include it in the list of
-    // active keys
-    key match {
-      case None => cid -> ptx
-      case Some(kWithM) =>
-        val ck = GlobalKey(templateId, kWithM.key)
-
-        // Note (MK) Duplicate key checks in Speedy
-        // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
-        //
-        // Just like for modifying `keys` and `globalKeyInputs` we only consider
-        // by-key operations, i.e., lookup, exercise and fetch by key as well as creates
-        // and archives if the key has been brought into scope before.
-        //
-        // In the end, those checks mean that ledgers only have to look at inputs and outputs
-        // of the transaction and check for conflicts on that while speedy checks for internal
-        // conflicts.
-        //
-        // We have to consider the following cases for conflicts:
-        // 1. Create of a new local contract
-        //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
-        //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
-        //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
-        //         have to check when committing that there is no active contract with this key before the transaction.
-        //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
-        //         as for 1.3.
-        //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
-        //         the global contract has already been archived falls under 1.2.
-        // 2. Global key lookups
-        //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
-        //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
-        //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
-        //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
-        //         For both of those cases `globalKeyInputs` already had an entry which means
-        //         we would use that as a cached result and not query the ledger.
-        val conflict = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-          case Some(KeyActive(_)) => KeyConflict.Duplicate
-          case Some(KeyInactive) | None => KeyConflict.None
-        }
-        val globalKeyInputs =
-          if (ptx.globalKeyInputs.isDefinedAt(ck))
-            ptx.globalKeyInputs
-          else
-            ptx.globalKeyInputs.updated(ck, KeyInactive)
-        (conflict, contractKeyUniqueness) match {
-          case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
-            cid -> ptx.noteAbort(Tx.DuplicateContractKey(ck))
-          case _ =>
-            cid ->
-              ptx.copy(
-                keys = ptx.keys.updated(ck, KeyActive(cid)),
-                globalKeyInputs = globalKeyInputs,
-              )
-        }
+    val nextPtx = ptx.keysState.visitCreate(templateId, cid, key) match {
+      case Right(next) => ptx.copy(keysState = next)
+      case Left(duplicate) => ptx.noteAbort(duplicate)
     }
+    cid -> nextPtx
   }
 
   def insertFetch(
@@ -581,21 +476,7 @@ private[speedy] case class PartialTransaction(
         actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
         // important: the semantics of Daml dictate that contracts are immediately
         // inactive as soon as you exercise it. therefore, mark it as consumed now.
-        consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
-        keys = mbKey match {
-          case Some(kWithM) if consuming =>
-            val gkey = GlobalKey(templateId, kWithM.key)
-            keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
-              // An archive can only mark a key as inactive
-              // if it was brought into scope before.
-              case Some(KeyActive(cid)) if cid == targetId =>
-                keys.updated(gkey, KeyInactive)
-              // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
-              // an activeness check when looking it up later.
-              case _ => keys
-            }
-          case _ => keys
-        },
+        keysState = keysState.visitExercise(nid, templateId, targetId, mbKey, consuming),
       ),
     ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
@@ -672,10 +553,11 @@ private[speedy] case class PartialTransaction(
     */
   def beginTry: PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val info = TryContextInfo(nid, context, activeState, authorizers = context.info.authorizers)
+    val info = TryContextInfo(nid, context, authorizers = context.info.authorizers)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
+      keysState = keysState.beginRollback(),
     )
   }
 
@@ -689,7 +571,8 @@ private[speedy] case class PartialTransaction(
           context = info.parent.copy(
             children = info.parent.children :++ context.children.toImmArray,
             nextActionChildIdx = context.nextActionChildIdx,
-          )
+          ),
+          keysState = keysState.dropRollback(),
         )
       case _ =>
         InternalError.runtimeException(
@@ -699,7 +582,7 @@ private[speedy] case class PartialTransaction(
     }
 
   /** Close abruptly a try context, due to an uncaught exception,
-    * i.e. a exception was thrown inside the context but the catch associated to the try context did not handle it.
+    * i.e. an exception was thrown inside the context but the catch associated to the try context did not handle it.
     * Must match a `beginTry`.
     */
   def abortTry: PartialTransaction =
@@ -724,7 +607,8 @@ private[speedy] case class PartialTransaction(
           context = info.parent
             .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
-        ).resetActiveState(info.beginState)
+          keysState = keysState.endRollback(),
+        )
       case _ =>
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,

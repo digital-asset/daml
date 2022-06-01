@@ -23,6 +23,7 @@ import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
+  KeyStateMachine,
   Node,
   Versioned,
   Transaction => Tx,
@@ -1400,11 +1401,11 @@ private[lf] object SBuiltin {
     final def handleKnownInputKey(
         machine: Machine,
         gkey: GlobalKey,
-        keyMapping: PartialTransaction.KeyMapping,
+        keyMapping: KeyStateMachine.KeyMapping,
     ): Unit =
       keyMapping match {
-        case PartialTransaction.KeyActive(cid) => handleKeyFound(machine, cid)
-        case PartialTransaction.KeyInactive => discard(handleKeyNotFound(machine, gkey))
+        case KeyStateMachine.KeyActive(cid) => handleKeyFound(machine, cid)
+        case KeyStateMachine.KeyInactive => discard(handleKeyNotFound(machine, gkey))
       }
   }
 
@@ -1432,24 +1433,11 @@ private[lf] object SBuiltin {
       operation: KeyOperation
   ) extends OnLedgerBuiltin(1) {
 
-    private def cacheGlobalLookup(
-        onLedger: OnLedger,
-        gkey: GlobalKey,
-        result: Option[V.ContractId],
-    ) = {
-      import PartialTransaction.{KeyActive, KeyInactive, KeyMapping}
-      val keyMapping: KeyMapping = result.fold[KeyMapping](KeyInactive)(KeyActive(_))
-      onLedger.ptx = onLedger.ptx.copy(
-        globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping)
-      )
-    }
-
     final override def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers =
         extractKeyWithMaintainers(
           machine,
@@ -1461,56 +1449,45 @@ private[lf] object SBuiltin {
         throw SErrorDamlException(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
         )
+
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
-      // check if we find it locally
-      onLedger.ptx.keys.get(gkey) match {
-        case Some(PartialTransaction.KeyActive(coid))
-            if onLedger.ptx.localContracts.contains(coid) =>
-          val cachedContract = onLedger.cachedContracts
-            .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
-          val stakeholders = cachedContract.signatories union cachedContract.observers
-          onLedger.visibleToStakeholders(stakeholders) match {
-            case SVisibleToStakeholders.Visible =>
-              operation.handleKeyFound(machine, coid)
-            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-              machine.ctrl = SEDamlException(
-                IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-              )
-          }
-        case Some(keyMapping) =>
-          operation.handleKnownInputKey(machine, gkey, keyMapping)
-        case None =>
-          // Check if we have a cached global key result.
-          onLedger.ptx.globalKeyInputs.get(gkey) match {
-            case Some(keyMapping) =>
-              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, keyMapping))
+      onLedger.ptx.keysState.resolveKey(gkey) match {
+        case Right((keyMapping, next)) =>
+          onLedger.ptx = onLedger.ptx.copy(keysState = next)
+          keyMapping match {
+            case KeyStateMachine.KeyActive(coid) if onLedger.ptx.localContracts.contains(coid) =>
+              val cachedContract = onLedger.cachedContracts
+                .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
+              val stakeholders = cachedContract.signatories union cachedContract.observers
+              onLedger.visibleToStakeholders(stakeholders) match {
+                case SVisibleToStakeholders.Visible =>
+                  operation.handleKeyFound(machine, coid)
+                case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+                  machine.ctrl = SEDamlException(
+                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                  )
+              }
+            case _ =>
               operation.handleKnownInputKey(machine, gkey, keyMapping)
-            case None =>
-              // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
-              // that.
-              throw SpeedyHungry(
-                SResultNeedKey(
-                  GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-                  onLedger.committers,
-                  { result =>
-                    cacheGlobalLookup(onLedger, gkey, result)
-                    result match {
-                      case Some(cid) if !onLedger.ptx.consumedBy.contains(cid) =>
-                        onLedger.ptx = onLedger.ptx.copy(
-                          keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid))
-                        )
-                        operation.handleKeyFound(machine, cid)
-                        true
-                      case _ =>
-                        onLedger.ptx = onLedger.ptx.copy(
-                          keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
-                        )
-                        operation.handleKeyNotFound(machine, gkey)
-                    }
-                  },
-                )
-              )
           }
+        case Left(handle) =>
+          throw SpeedyHungry(
+            SResultNeedKey(
+              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+              onLedger.committers,
+              { result =>
+                val (keyMapping, next) = handle(result)
+                onLedger.ptx = onLedger.ptx.copy(keysState = next)
+                keyMapping match {
+                  case KeyStateMachine.KeyActive(cid) =>
+                    operation.handleKeyFound(machine, cid)
+                    true
+                  case KeyStateMachine.KeyInactive =>
+                    operation.handleKeyNotFound(machine, gkey)
+                }
+              },
+            )
+          )
       }
     }
   }
