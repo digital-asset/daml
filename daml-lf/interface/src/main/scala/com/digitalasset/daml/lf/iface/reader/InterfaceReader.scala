@@ -188,18 +188,12 @@ object InterfaceReader {
   private[this] def visitChoices[Ty](
       choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
       astInterfaces: Map[Ref.TypeConName, Ast.GenTemplateImplements[_]],
-  ): TemplateChoices[Ty] = {
-    val inheritedChoices: Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]] =
-      astInterfaces.collect {
-        case (ifId, Ast.GenTemplateImplements(_, _, NonEmpty(inheritedChoices))) =>
-          (ifId, inheritedChoices)
-      }
-    inheritedChoices match {
+  ): TemplateChoices[Ty] =
+    astInterfaces.keySet match {
       case NonEmpty(unresolvedInherited) =>
         TemplateChoices.Unresolved(choices, unresolvedInherited)
       case _ => TemplateChoices.Resolved fromDirect choices
     }
-  }
 
   private def visitChoice(
       ctx: QualifiedName,
