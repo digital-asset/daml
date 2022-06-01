@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11
+FROM eclipse-temurin:11-jre-focal
 ARG VERSION
 # This is needed to get the DNS requests
 # from Haskell binaries to succeed.
