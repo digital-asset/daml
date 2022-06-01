@@ -39,7 +39,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addField(generateTemplateIdField(typeWithContext))
         .addMethod(generateCreateMethod(className))
         .addMethods(
-          generateStaticExerciseByKeyMethods(
+          generateDeprecatedStaticExerciseByKeyMethods(
             templateChoices,
             template.key,
             typeWithContext.interface.typeDecls,
@@ -192,7 +192,7 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
-  private def generateStaticExerciseByKeyMethods(
+  private def generateDeprecatedStaticExerciseByKeyMethods(
       choices: Map[ChoiceName, TemplateChoice[Type]],
       maybeKey: Option[Type],
       typeDeclarations: Map[QualifiedName, InterfaceType],
@@ -201,7 +201,7 @@ private[inner] object TemplateClass extends StrictLogging {
   ) =
     maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
       val methods = for ((choiceName, choice) <- choices.toList) yield {
-        val raw = generateStaticExerciseByKeyMethod(
+        val raw = generateDeprecatedStaticExerciseByKeyMethod(
           choiceName,
           choice,
           key,
@@ -218,7 +218,7 @@ private[inner] object TemplateClass extends StrictLogging {
               )
           )
             yield {
-              generateFlattenedStaticExerciseByKeyMethod(
+              generateDeprecatedFlattenedStaticExerciseByKeyMethod(
                 choiceName,
                 key,
                 getFieldsWithTypes(record.fields, packagePrefixes),
@@ -230,7 +230,7 @@ private[inner] object TemplateClass extends StrictLogging {
       methods.flatten.asJava
     }
 
-  private def generateStaticExerciseByKeyMethod(
+  private def generateDeprecatedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       key: Type,
@@ -252,7 +252,7 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
-  private def generateFlattenedStaticExerciseByKeyMethod(
+  private def generateDeprecatedFlattenedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
       key: Type,
       fields: Fields,
