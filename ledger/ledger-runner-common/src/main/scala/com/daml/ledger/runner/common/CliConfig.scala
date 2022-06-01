@@ -449,6 +449,7 @@ object CliConfig {
 
         opt[Int]("ledger-api-transactions-buffer-max-size")
           .optional()
+          .hidden()
           .text(
             s"Maximum size of the in-memory fan-out buffer used for serving Ledger API transaction streams. Default is ${IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize}."
           )
