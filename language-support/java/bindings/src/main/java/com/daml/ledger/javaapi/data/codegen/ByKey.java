@@ -6,10 +6,7 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.ExerciseByKeyCommand;
 import com.daml.ledger.javaapi.data.Value;
 
-/**
- * Parent of all generated {@code ByKey} classes within templates and
- * interfaces.
- */
+/** Parent of all generated {@code ByKey} classes within templates and interfaces. */
 public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
   protected final Value contractKey;
 
@@ -27,8 +24,8 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
   protected abstract ContractTypeCompanion getCompanion();
 
   /**
-   * Parent of all generated {@code ByKey} classes within interfaces.
-   * These need to pass both the template and interface ID.
+   * Parent of all generated {@code ByKey} classes within interfaces. These need to pass both the
+   * template and interface ID.
    */
   public abstract static class ToInterface extends ByKey {
     private final ContractCompanion<?, ?, ?> keySource;

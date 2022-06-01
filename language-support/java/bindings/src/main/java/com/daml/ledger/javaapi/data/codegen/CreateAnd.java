@@ -7,10 +7,7 @@ import com.daml.ledger.javaapi.data.CreateAndExerciseCommand;
 import com.daml.ledger.javaapi.data.Template;
 import com.daml.ledger.javaapi.data.Value;
 
-/**
- * Parent of all generated {@code CreateAnd} classes within templates and
- * interfaces.
- */
+/** Parent of all generated {@code CreateAnd} classes within templates and interfaces. */
 public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
   protected final Template createArguments;
 
@@ -28,8 +25,8 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
   protected abstract ContractTypeCompanion getCompanion();
 
   /**
-   * Parent of all generated {@code CreateAnd} classes within interfaces.
-   * These need to pass both the template and interface ID.
+   * Parent of all generated {@code CreateAnd} classes within interfaces. These need to pass both
+   * the template and interface ID.
    */
   public abstract static class ToInterface extends CreateAnd {
     private final ContractCompanion<?, ?, ?> createSource;
