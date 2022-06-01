@@ -281,24 +281,25 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
-      type ChoiceMap[C] = Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
-      val (missing, resolved): (
-          Set[Ref.TypeConName],
-          Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TemplateChoice[O]]]],
-      ) = unresolved.forgetNE
-        .foldMap { case tcn =>
-          getAstInterface(tcn).cata(
-            { astIf =>
-              val tcnResolved = astIf.choices.transform((_, tc) => NonEmpty(Map, some(tcn) -> tc))
-              (
-                Set.empty[Ref.TypeConName],
-                FirstVal.subst[ChoiceMap, TemplateChoice[O]](tcnResolved),
+      type ResolutionResult[C] =
+        (Set[Ref.TypeConName], Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]])
+      val (missing, resolved): ResolutionResult[TemplateChoice[O]] =
+        FirstVal.unsubst[ResolutionResult, TemplateChoice[O]](
+          unresolved.forgetNE
+            .foldMap { tcn =>
+              getAstInterface(tcn).cata(
+                { astIf =>
+                  val tcnResolved =
+                    astIf.choices.transform((_, tc) => NonEmpty(Map, some(tcn) -> tc))
+                  FirstVal.subst[ResolutionResult, TemplateChoice[O]](
+                    Set.empty[Ref.TypeConName],
+                    tcnResolved,
+                  )
+                },
+                (Set(tcn), Map.empty): ResolutionResult[Nothing],
               )
-            },
-            (Set(tcn), Map.empty: ChoiceMap[Nothing]),
-          )
-        }
-        .map(FirstVal.unsubst[ChoiceMap, TemplateChoice[O]])
+            }
+        )
       val rChoices = Resolved(resolved.unionWith(directAsResolved(direct))(_ ++ _))
       missing match {
         case NonEmpty(missing) => Left(ResolveError(missing, rChoices))
