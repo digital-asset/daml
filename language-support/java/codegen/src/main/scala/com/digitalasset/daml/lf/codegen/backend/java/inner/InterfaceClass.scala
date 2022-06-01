@@ -50,6 +50,7 @@ object InterfaceClass extends StrictLogging {
         .addType(
           TemplateClass.generateCreateAndClass(-\/(ContractIdClass.For.Interface))
         )
+        .addType(TemplateClass.generateByKeyClass(-\/(ContractIdClass.For.Interface)))
         .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
         .addMethod {
           // interface classes are not inhabited

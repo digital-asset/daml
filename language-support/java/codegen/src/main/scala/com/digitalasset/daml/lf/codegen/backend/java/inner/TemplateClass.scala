@@ -87,9 +87,13 @@ private[inner] object TemplateClass extends StrictLogging {
         .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
-        .build()
+      generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
+        templateType
+          .addMethod(byKeyMethod)
+          .addType(generateByKeyClass(\/-(template.implementedInterfaces)))
+      }
       logger.debug("End")
-      templateType
+      templateType.build()
     }
 
   private def generateCreateMethod(name: ClassName): MethodSpec =
@@ -155,6 +159,29 @@ private[inner] object TemplateClass extends StrictLogging {
           ContractIdClass.exercisesInterface,
           ClassName get classOf[javaapi.data.ExerciseByKeyCommand],
         )
+      )
+      .addMethod(
+        MethodSpec
+          .constructorBuilder()
+          .publicIfInterface(implementedInterfaces)
+          .addParameter(classOf[javaapi.data.Value], "key")
+          .addStatement("super(key)")
+          .build()
+      )
+      .addGetCompanion(implementedInterfaces)
+      .addMethods(
+        implementedInterfaces
+          .fold(
+            (_: ContractIdClass.For.Interface.type) => Seq.empty,
+            implemented =>
+              ContractIdClass
+                .generateToInterfaceMethods(
+                  byKeyClassName,
+                  "this.contractKey",
+                  implemented,
+                ),
+          )
+          .asJava
       )
       .build()
 
@@ -285,19 +312,11 @@ private[inner] object TemplateClass extends StrictLogging {
           ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
         )
       )
-      .addMethod(
-        ContractIdClass.Builder.generateGetCompanion(
-          implementedInterfaces.map(_ => ContractIdClass.For.Template).merge
-        )
-      )
+      .addGetCompanion(implementedInterfaces)
       .addMethod(
         MethodSpec
           .constructorBuilder()
-          // for template, use createAnd(); toInterface methods need public
-          // access if in different packages, though
-          .addModifiers(
-            implementedInterfaces.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
-          )
+          .publicIfInterface(implementedInterfaces)
           .addParameter(classOf[javaapi.data.Template], "createArguments")
           .addStatement("super(createArguments)")
           .build()
@@ -456,5 +475,29 @@ private[inner] object TemplateClass extends StrictLogging {
         ) ++ keyArgs: _*
       )
       .build()
+  }
+
+  private implicit final class `MethodSpec extensions`(private val self: MethodSpec.Builder)
+      extends AnyVal {
+    // for template, use createAnd() or byKey(); toInterface methods need public
+    // access if in different packages, though
+    private[TemplateClass] def publicIfInterface(
+        isInterface: ContractIdClass.For.Interface.type \/ _
+    ) =
+      self.addModifiers(
+        isInterface.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
+      )
+  }
+
+  private implicit final class `TypeSpec extensions`(private val self: TypeSpec.Builder)
+      extends AnyVal {
+    private[TemplateClass] def addGetCompanion(
+        isInterface: ContractIdClass.For.Interface.type \/ _
+    ) =
+      self.addMethod(
+        ContractIdClass.Builder.generateGetCompanion(
+          isInterface.map(_ => ContractIdClass.For.Template).merge
+        )
+      )
   }
 }
