@@ -477,7 +477,7 @@ sealed abstract class HasTxNodes {
   def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
     val machine = new KeyStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
     foldInExecutionOrder[Either[KeyInputError, machine.State]](
-      Right(machine.State.empty)
+      Right(machine.initial)
     )(
       exerciseBegin = (acc, nid, exe) =>
         (acc.flatMap(_.handleExercise(nid, exe)), Transaction.ChildrenRecursion.DoRecurse),
@@ -718,12 +718,14 @@ object Transaction {
     */
   sealed trait KeyInput extends Product with Serializable {
     def toKeyMapping: KeyStateMachine.KeyMapping
+    def isActive: Boolean
   }
 
   /** No active contract with the given key.
     */
   sealed trait KeyInactive extends KeyInput {
     override def toKeyMapping: KeyMapping = KeyStateMachine.KeyInactive
+    override def isActive: Boolean = false
   }
 
   /** A contract with the key will be created so the key must be inactive.
@@ -738,6 +740,7 @@ object Transaction {
     */
   final case class KeyActive(cid: Value.ContractId) extends KeyInput {
     override def toKeyMapping: KeyMapping = KeyStateMachine.KeyActive(cid)
+    override def isActive: Boolean = true
   }
 
   /** contractKeyInputs failed to produce an input due to an error for the given key.
@@ -745,9 +748,6 @@ object Transaction {
   sealed trait KeyInputError extends Product with Serializable {
     def key: GlobalKey
   }
-
-  // TODO(#9499) remove
-  type DuplicateKeys = DuplicateContractKey
 
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
     * was inconsistent with earlier nodes (in execution order).

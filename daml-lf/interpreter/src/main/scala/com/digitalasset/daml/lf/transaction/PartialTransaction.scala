@@ -184,7 +184,7 @@ private[lf] object PartialTransaction {
     actionNodeSeeds = BackStack.empty,
     context = Context(initialSeeds, committers),
     aborted = None,
-    keysState = new KeyStateMachine[NodeId](contractKeyUniqueness).State.empty,
+    keysState = new KeyStateMachine[NodeId](contractKeyUniqueness).initial,
     localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
   )
