@@ -40,7 +40,6 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethod(generateCreateMethod(className))
         .addMethods(
           generateStaticExerciseByKeyMethods(
-            className,
             templateChoices,
             template.key,
             typeWithContext.interface.typeDecls,
@@ -194,7 +193,6 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
 
   private def generateStaticExerciseByKeyMethods(
-      templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[Type]],
       maybeKey: Option[Type],
       typeDeclarations: Map[QualifiedName, InterfaceType],
@@ -207,7 +205,6 @@ private[inner] object TemplateClass extends StrictLogging {
           choiceName,
           choice,
           key,
-          templateClassName,
           packagePrefixes,
         )
         val flattened =
@@ -223,9 +220,7 @@ private[inner] object TemplateClass extends StrictLogging {
             yield {
               generateFlattenedStaticExerciseByKeyMethod(
                 choiceName,
-                choice,
                 key,
-                templateClassName,
                 getFieldsWithTypes(record.fields, packagePrefixes),
                 packagePrefixes,
               )
@@ -239,39 +234,27 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       key: Type,
-      templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
-  ): MethodSpec = {
-    val exerciseByKeyBuilder = MethodSpec
+  ): MethodSpec =
+    MethodSpec
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(classOf[javaapi.data.ExerciseByKeyCommand])
-    val keyJavaType = toJavaTypeName(key, packagePrefixes)
-    exerciseByKeyBuilder.addParameter(keyJavaType, "key")
-    val choiceJavaType = toJavaTypeName(choice.param, packagePrefixes)
-    exerciseByKeyBuilder.addParameter(choiceJavaType, "arg")
-    val choiceArgument = choice.param match {
-      case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
-    }
-    exerciseByKeyBuilder.addStatement(
-      "return new $T($T.$N, $L, $S, $L)",
-      classOf[javaapi.data.ExerciseByKeyCommand],
-      templateClassName,
-      templateIdFieldName,
-      ToValueGenerator
-        .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
-      choiceName,
-      choiceArgument,
-    )
-    exerciseByKeyBuilder.build()
-  }
+      .makeDeprecated(
+        howToFix = s"use byKey(key).exercise${choiceName.capitalize} instead",
+        sinceDaml = "2.3.0",
+      )
+      .addParameter(toJavaTypeName(key, packagePrefixes), "key")
+      .addParameter(toJavaTypeName(choice.param, packagePrefixes), "arg")
+      .addStatement(
+        "return byKey(key).exercise$L(arg)",
+        choiceName.capitalize,
+      )
+      .build()
 
   private def generateFlattenedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
       key: Type,
-      templateClassName: ClassName,
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
   ): MethodSpec = {
@@ -280,20 +263,19 @@ private[inner] object TemplateClass extends StrictLogging {
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(classOf[javaapi.data.ExerciseByKeyCommand])
-    val keyJavaType = toJavaTypeName(key, packagePrefixes)
-    exerciseByKeyBuilder.addParameter(keyJavaType, "key")
-    val choiceJavaType = toJavaTypeName(choice.param, packagePrefixes)
+      .addParameter(toJavaTypeName(key, packagePrefixes), "key")
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       exerciseByKeyBuilder.addParameter(javaType, javaName)
     }
-    exerciseByKeyBuilder.addStatement(
-      "return $T.$L(key, new $T($L))",
-      templateClassName,
-      methodName,
-      choiceJavaType,
+    val expansion = CodeBlock.of(
+      "byKey(key).exercise$L($L)",
+      choiceName.capitalize,
       generateArgumentList(fields.map(_.javaName)),
     )
-    exerciseByKeyBuilder.build()
+    exerciseByKeyBuilder
+      .makeDeprecated(CodeBlock.of("use $L instead", expansion), sinceDaml = "2.3.0")
+      .addStatement("return $L", expansion)
+      .build()
   }
 
   private val createAndClassName = "CreateAnd"
@@ -500,6 +482,15 @@ private[inner] object TemplateClass extends StrictLogging {
         .addAnnotation(classOf[Deprecated])
         .addJavadoc(
           s"@deprecated since Daml $sinceDaml; $howToFix"
+        )
+
+    private[TemplateClass] def makeDeprecated(howToFix: CodeBlock, sinceDaml: String) =
+      self
+        .addAnnotation(classOf[Deprecated])
+        .addJavadoc(
+          "@deprecated since Daml $L; $L",
+          sinceDaml,
+          howToFix,
         )
   }
 

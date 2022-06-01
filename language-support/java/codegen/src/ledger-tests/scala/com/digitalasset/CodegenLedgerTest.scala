@@ -154,7 +154,7 @@ class CodegenLedgerTest
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
       val reproduceByKeyCmd =
-        Wolpertinger.exerciseByKeyReproduce(glookoflyContract.key.get, sruquitoContract.id, tob)
+        Wolpertinger.byKey(glookoflyContract.key.get).exerciseReproduce(sruquitoContract.id, tob)
       sendCmd(client, alice, reproduceByKeyCmd)
 
       val wolpertingers = readActiveContractPayloads(Wolpertinger.COMPANION)(client, alice)
@@ -217,7 +217,7 @@ class CodegenLedgerTest
           client,
           asList(alice),
           asList(charlie),
-          MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(alice, bob), charlie, bob),
+          MultiParty.byKey(new da.types.Tuple2(alice, bob)).exerciseMPFetchOtherByKey(charlie, bob),
         )
       }
     } yield succeed
