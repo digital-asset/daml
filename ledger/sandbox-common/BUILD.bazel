@@ -100,7 +100,6 @@ da_scala_library(
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
-        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",

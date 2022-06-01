@@ -177,7 +177,6 @@ da_scala_library(
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-classic-server",

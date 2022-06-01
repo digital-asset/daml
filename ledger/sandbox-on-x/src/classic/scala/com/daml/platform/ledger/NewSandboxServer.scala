@@ -4,50 +4,33 @@
 package com.daml.ledger.sandbox
 
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Keep, Sink}
-import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
-import akka.{Done, NotUsed}
+import akka.stream.Materializer
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.api.domain.PackageEntry
-import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.sandbox.NewSandboxServer._
-import com.daml.lf.archive.DarParser
-import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion
+import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContextWith
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, MetricsReporter, MetricsReporting}
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.{ApiServer, ApiServerConfig}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.logging
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
+import scala.concurrent.duration._
 import com.daml.ports.Port
-import com.daml.resources.AbstractResourceOwner
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import scalaz.syntax.tag._
 
 import java.io.File
-import java.nio.file.Files
-import java.util.UUID
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.jdk.CollectionConverters._
-import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.chaining._
-import scala.util.{Failure, Success}
 
 final class NewSandboxServer(
     genericConfig: Config,
     bridgeConfig: BridgeConfig,
     authServiceFromConfig: Option[AuthService],
     damlPackages: List[File],
-    metrics: Metrics,
 )(implicit materializer: Materializer)
     extends ResourceOwner[Port] {
 
@@ -60,6 +43,12 @@ final class NewSandboxServer(
       (participantId, dataSource, participantConfig) <- SandboxOnXRunner.combinedParticipant(
         genericConfig
       )
+      metrics <- new MetricsReporting(
+        classOf[NewSandboxServer].getName,
+        None,
+        10.seconds,
+      ).acquire()
+
       (apiServer, writeService, indexService) <-
         SandboxOnXRunner
           .buildLedger(
@@ -74,15 +63,11 @@ final class NewSandboxServer(
             Some(metrics),
           )
           .acquire()
-      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceContext.executionContext))
       _ <- newLoggingContextWith(
         logging.participantId(participantId)
       ) { implicit loggingContext =>
-        loadPackages(writeService, indexService)(
-          resourceContext.executionContext,
-          materializer.system,
-          loggingContext,
-        )
+        new PackageUploader(writeService, indexService)
+          .upload(damlPackages)
           .acquire()
       }
     } yield {
@@ -124,101 +109,6 @@ final class NewSandboxServer(
       )
     }
   }
-
-  private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
-    genericConfig.participants.values.head.apiServer.portFile
-      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
-      .getOrElse(Future.unit)
-
-  private def loadPackages(writeService: WriteService, indexService: IndexService)(implicit
-      executionContext: ExecutionContext,
-      system: ActorSystem,
-      loggingContext: LoggingContext,
-  ): AbstractResourceOwner[ResourceContext, Unit] =
-    ResourceOwner.forFuture(() => {
-      val packageSubmissionsTrackerMap = damlPackages.map { file =>
-        val uploadCompletionPromise = Promise[Unit]()
-        UUID.randomUUID().toString -> (file, uploadCompletionPromise)
-      }.toMap
-
-      uploadAndWaitPackages(indexService, writeService, packageSubmissionsTrackerMap)
-        .tap { _ =>
-          scheduleUploadTimeout(packageSubmissionsTrackerMap.iterator.map(_._2._2), 30.seconds)
-        }
-    })
-
-  private def scheduleUploadTimeout(
-      packageSubmissionsPromises: Iterator[Promise[Unit]],
-      packageUploadTimeout: FiniteDuration,
-  )(implicit
-      executionContext: ExecutionContext,
-      system: ActorSystem,
-  ): Unit =
-    packageSubmissionsPromises.foreach { uploadCompletionPromise =>
-      system.scheduler.scheduleOnce(packageUploadTimeout) {
-        // Package upload timeout, meant to allow fail-fast for testing
-        // TODO Remove once in-memory backend (e.g. H2) is deemed stable
-        uploadCompletionPromise.tryFailure(
-          new RuntimeException(s"Package upload timeout after $packageUploadTimeout")
-        )
-        ()
-      }
-    }
-
-  private def uploadAndWaitPackages(
-      indexService: IndexService,
-      writeService: WriteService,
-      packageSubmissionsTrackerMap: Map[String, (File, Promise[Unit])],
-  )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): Future[Unit] = {
-    implicit val noOpTelemetryContext: TelemetryContext = NoOpTelemetryContext
-
-    val uploadCompletionSink = Sink.foreach[PackageEntry] {
-      case PackageEntry.PackageUploadAccepted(submissionId, _) =>
-        packageSubmissionsTrackerMap.get(submissionId) match {
-          case Some((_, uploadCompletionPromise)) =>
-            uploadCompletionPromise.complete(Success(()))
-          case None =>
-            throw new RuntimeException(s"Completion promise for $submissionId not found")
-        }
-      case PackageEntry.PackageUploadRejected(submissionId, _, reason) =>
-        packageSubmissionsTrackerMap.get(submissionId) match {
-          case Some((_, uploadCompletionPromise)) =>
-            uploadCompletionPromise.complete(
-              Failure(new RuntimeException(s"Package upload at initialization failed: $reason"))
-            )
-          case None =>
-            throw new RuntimeException(s"Completion promise for $submissionId not found")
-        }
-    }
-
-    val (killSwitch, packageEntriesStreamDone) = indexService
-      .packageEntries(None)
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(uploadCompletionSink)(Keep.both[UniqueKillSwitch, Future[Done]])
-      .run()
-
-    val uploadAndWaitPackagesF = Future.traverse(packageSubmissionsTrackerMap.toVector) {
-      case (submissionId, (file, promise)) =>
-        for {
-          dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
-          refSubmissionId = Ref.SubmissionId.assertFromString(submissionId)
-          _ <- writeService
-            .uploadPackages(refSubmissionId, dar.all, None)
-            .asScala
-          uploadResult <- promise.future
-        } yield uploadResult
-    }
-
-    uploadAndWaitPackagesF
-      .map(_ => ())
-      .andThen { case _ =>
-        killSwitch.shutdown()
-        packageEntriesStreamDone
-      }
-  }
 }
 
 object NewSandboxServer {
@@ -227,8 +117,6 @@ object NewSandboxServer {
       bridgeConfig: BridgeConfig,
       authServiceFromConfig: Option[AuthService] = None,
       damlPackages: List[File] = List.empty,
-      metricsReporter: Option[MetricsReporter] = None,
-      metricsReportingInterval: FiniteDuration = 10.seconds,
   )
   private val DefaultName = LedgerName("Sandbox")
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -236,13 +124,8 @@ object NewSandboxServer {
   def owner(config: NewSandboxServer.CustomConfig): ResourceOwner[Port] =
     owner(DefaultName, config)
 
-  def owner(name: LedgerName, config: NewSandboxServer.CustomConfig): ResourceOwner[Port] =
+  private def owner(name: LedgerName, config: NewSandboxServer.CustomConfig): ResourceOwner[Port] =
     for {
-      metrics <- new MetricsReporting(
-        classOf[NewSandboxServer].getName,
-        config.metricsReporter,
-        config.metricsReportingInterval,
-      )
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- new NewSandboxServer(
@@ -250,7 +133,6 @@ object NewSandboxServer {
         config.bridgeConfig,
         config.authServiceFromConfig,
         config.damlPackages,
-        metrics,
       )(materializer)
     } yield server
 
