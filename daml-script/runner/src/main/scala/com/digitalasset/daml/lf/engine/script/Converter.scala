@@ -35,7 +35,6 @@ import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
-
 import scala.annotation.tailrec
 import scala.concurrent.Future
 
@@ -405,6 +404,35 @@ object Converter {
     iter(freeAp, List())
   }
 
+  def toContractMetadata(
+      v: SValue
+  ): Either[String, command.ContractMetadata] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 3 => {
+        for {
+          createdAt <- toTimestamp(vals.get(0))
+          keyHashStringM <- toOptional(vals.get(1), toText)
+          keyHash <- keyHashStringM match {
+            case None => Right(None)
+            case Some(v) =>
+              for {
+                bs <- Bytes.fromString(v)
+                hash <- crypto.Hash.fromBytes(bs)
+              } yield Some(hash)
+          }
+          driverMetadataString <- toText(vals.get(2))
+          driverMetadataBs <- Bytes.fromString(driverMetadataString)
+        } yield command.ContractMetadata(
+          keyHash = keyHash,
+          createdAt = createdAt,
+          driverMetadata = ImmArray.from(driverMetadataBs.toByteArray),
+        )
+
+      }
+      case _ => Left(s"Expected SRecord but got $v")
+    }
+  }
+
   def toDisclosedContract(
       v: SValue
   ): Either[String, command.DisclosedContract] =
@@ -412,22 +440,13 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           cid <- toAnyContractId(vals.get(0))
-          anyKeyM <- toOptional(vals.get(1), toAnyContractKey)
-          anyTemplate <- toAnyTemplate(vals.get(2))
-          keyHashM <- anyKeyM match {
-            case Some(k) =>
-              crypto.Hash.hashContractKey(anyTemplate.ty, k.key.toUnnormalizedValue).map(Some(_))
-            case None => Right(None)
-          }
+          anyTemplate <- toAnyTemplate(vals.get(1))
+          meta <- toContractMetadata(vals.get(2))
         } yield command.DisclosedContract(
           contractId = cid.coid,
           templateId = anyTemplate.ty,
           argument = anyTemplate.arg.toUnnormalizedValue,
-          metadata = command.ContractMetadata(
-            keyHash = keyHashM,
-            createdAt = Time.Timestamp.Epoch, // TODO (drsk) do something better?
-            driverMetadata = ImmArray.empty,
-          ),
+          metadata = meta,
         )
       }
       case _ => Left(s"Expected SRecord but got $v")

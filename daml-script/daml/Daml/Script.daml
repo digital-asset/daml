@@ -26,8 +26,9 @@ module Daml.Script
   , listKnownPartiesOn
   , Commands
   , DisclosedContract
+  , ContractMetadata(..)
   , toDisclosedContract
-  , toDisclosedContractWithKey
+  , submitDisclosing
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
@@ -127,20 +128,20 @@ newtype Commands a = Commands (Ap CommandsF a)
 data DisclosedContract = DisclosedContract
   with
     contractId : AnyContractId
-    contractKey : Optional AnyContractKey
     argument : AnyTemplate
+    metadata : ContractMetadata
 
-toDisclosedContract : Template t => ContractId t -> t -> DisclosedContract 
-toDisclosedContract coid arg =  DisclosedContract with
+data ContractMetadata = ContractMetadata
+  with
+    createdAt : Time
+    keyHash : Text
+    driverMetadata : Text
+
+toDisclosedContract : Template t => ContractMetadata -> ContractId t -> t -> DisclosedContract 
+toDisclosedContract meta coid arg =  DisclosedContract with
     contractId = toAnyContractId coid
     argument = toAnyTemplate arg
-    contractKey = None
-
-toDisclosedContractWithKey : forall t k. TemplateKey t k => ContractId t -> t -> DisclosedContract
-toDisclosedContractWithKey coid arg = DisclosedContract with
-    contractId = toAnyContractId coid
-    contractKey = Some (toAnyContractKey @t (Prelude.key arg))
-    argument = toAnyTemplate arg
+    metadata = meta
 
 data ScriptF a
   = Submit (SubmitCmd a)
@@ -444,7 +445,8 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
 
 -- This will error if the submission fails.
 
-instance HasSubmit Script Commands [DisclosedContract] where
+
+instance HasSubmit Script Commands where
   submit p cmds =
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
       actAs = NonEmpty p []
@@ -454,15 +456,6 @@ instance HasSubmit Script Commands [DisclosedContract] where
       handleFailure = ()
       locations = getCallStack callStack
 
-  submitDisclosing discs p cmds = 
-    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
-      actAs = NonEmpty p []
-      readAs = []
-      commands = cmds
-      disclosedContracts = discs
-      handleFailure = ()
-      locations = getCallStack callStack
-  
   submitMustFail p cmds =
     lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
       actAs = NonEmpty p []
@@ -519,6 +512,18 @@ submitMultiMustFail actAs readAs cmds =
       disclosedContracts = []
       continue = const ()
       locations = getCallStack callStack
+
+-- | `submitDisclosing discs p cmds` behaves like `submit p cmds` but provides an additional list
+-- of `DisclosedContracts`s for interpretation. 
+submitDisclosing : [DisclosedContract] -> Party -> Commands a -> Script a
+submitDisclosing discs p cmds = 
+  lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+    actAs = NonEmpty p []
+    readAs = []
+    commands = cmds
+    disclosedContracts = discs
+    handleFailure = ()
+    locations = getCallStack callStack
 
 -- | This is the type of A Daml script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
