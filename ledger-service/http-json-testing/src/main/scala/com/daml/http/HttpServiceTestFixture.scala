@@ -243,7 +243,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     ),
     bridgeConfig = BridgeConfig(),
     damlPackages = dars,
-    authServiceFromConfig = authService,
+    authService = authService,
   )
 
   private def clientConfig(

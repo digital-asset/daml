@@ -311,7 +311,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       ),
       bridgeConfig = BridgeConfig(),
       damlPackages = damlPackages,
-      authServiceFromConfig = authService,
+      authService = authService,
     )
 
   protected lazy val sandboxPort: Port = resource.value._1

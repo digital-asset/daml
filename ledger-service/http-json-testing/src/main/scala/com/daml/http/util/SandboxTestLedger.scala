@@ -58,7 +58,7 @@ trait SandboxTestLedger extends SandboxFixture {
     ),
     bridgeConfig = BridgeConfig(),
     damlPackages = packageFiles,
-    authServiceFromConfig = authService,
+    authService = authService,
   )
 
   def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =

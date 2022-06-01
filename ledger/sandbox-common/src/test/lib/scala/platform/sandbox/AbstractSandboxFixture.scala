@@ -84,7 +84,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
     ),
     bridgeConfig = BridgeConfig(),
     damlPackages = packageFiles,
-    authServiceFromConfig = authService,
+    authService = authService,
   )
 
   protected def packageFiles: List[File] = List(darFile)

@@ -128,20 +128,18 @@ object SandboxOnXForTest {
   case class CustomConfig(
       genericConfig: Config,
       bridgeConfig: BridgeConfig,
-      authServiceFromConfig: Option[AuthService] = None,
+      authService: Option[AuthService] = None,
       damlPackages: List[File] = List.empty,
   )
-  private val DefaultName = LedgerName("Sandbox")
-
   def owner(config: SandboxOnXForTest.CustomConfig): ResourceOwner[Port] =
-    owner(DefaultName, config)
+    owner(name = LedgerName("Sandbox"), config = config)
 
   private def owner(
       name: LedgerName,
       config: SandboxOnXForTest.CustomConfig,
   ): ResourceOwner[Port] = {
     val configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
-      config.authServiceFromConfig
+      config.authService
     )
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))

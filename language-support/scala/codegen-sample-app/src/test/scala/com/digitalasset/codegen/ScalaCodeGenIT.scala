@@ -76,7 +76,7 @@ class ScalaCodeGenIT
 
   private val emptyAgreementText = Some(
     ""
-  ) // this is by design, starting from release: 0.12.18 it is a requried field
+  ) // this is by design, starting from release: 0.12.18 it is a required field
 
   override def config = super.config.copy(
     genericConfig = super.config.genericConfig.copy(
