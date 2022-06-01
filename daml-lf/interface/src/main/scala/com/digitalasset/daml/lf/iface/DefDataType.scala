@@ -292,7 +292,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
               val tcnResolved = astIf.choices.transform((_, tc) => NonEmpty(Map, some(tcn) -> tc))
               (
                 Set.empty[Ref.TypeConName],
-                FirstVal.subst[ChoiceMap, TemplateChoice[O]](tcnResolved.toMap),
+                FirstVal.subst[ChoiceMap, TemplateChoice[O]](tcnResolved),
               )
             },
             (Set(tcn), Map.empty: ChoiceMap[Nothing]),
