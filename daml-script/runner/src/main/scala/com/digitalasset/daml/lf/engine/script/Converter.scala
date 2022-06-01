@@ -65,7 +65,14 @@ object ScriptIds {
 }
 
 final case class AnyTemplate(ty: Identifier, arg: SValue)
-final case class AnyChoice(ifaceId: Option[Identifier], name: ChoiceName, arg: SValue)
+sealed abstract class AnyChoice extends Product with Serializable {
+  def name: ChoiceName
+  def arg: SValue
+}
+object AnyChoice {
+  final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
+  final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
+}
 final case class AnyContractKey(key: SValue)
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
@@ -185,12 +192,17 @@ object Converter {
     )
   }
 
-  def toAnyChoice(v: SValue): Either[String, AnyChoice] =
+  private[this] def chocieArgTypeTochoiceName(choiceCons: TypeConName) = {
+    // This exploits the fact that in Daml, choice argument type names
+    // and choice names match up.
+    assert(choiceCons.qualifiedName.name.segments.length == 1)
+    choiceCons.qualifiedName.name.segments.head
+  }
+
+  private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-        ChoiceName
-          .fromString(choiceCons.qualifiedName.name.toString)
-          .map(AnyChoice(None, _, choiceVal))
+        Right(AnyChoice.Template(chocieArgTypeTochoiceName(choiceCons), choiceVal))
       case SRecord(
             _,
             _,
@@ -202,9 +214,7 @@ object Converter {
               _,
             ),
           ) =>
-        ChoiceName
-          .fromString(choiceCons.qualifiedName.name.toString)
-          .map(AnyChoice(Some(ifaceId), _, choiceVal))
+        Right(AnyChoice.Interface(ifaceId, chocieArgTypeTochoiceName(choiceCons), choiceVal))
       case _ =>
         Left(s"Expected AnyChoice but got $v")
     }
@@ -250,36 +260,49 @@ object Converter {
   def toExerciseCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
       // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 => {
+      case SRecord(_, _, vals) if vals.size == 4 =>
         for {
           tplId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ApiCommand.Exercise(
-          typeId = anyChoice.ifaceId.getOrElse(tplId),
-          contractId = cid,
-          choiceId = anyChoice.name,
-          argument = anyChoice.arg.toUnnormalizedValue,
-        )
-      }
+        } yield anyChoice match {
+          case AnyChoice.Template(name, arg) =>
+            command.ApiCommand.Exercise(
+              typeId = tplId,
+              contractId = cid,
+              choiceId = name,
+              argument = arg.toUnnormalizedValue,
+            )
+          case AnyChoice.Interface(ifaceId, name, arg) =>
+            command.ApiCommand.Exercise(
+              typeId = ifaceId,
+              contractId = cid,
+              choiceId = name,
+              argument = arg.toUnnormalizedValue,
+            )
+        }
       case _ => Left(s"Expected Exercise but got $v")
     }
 
   def toExerciseByKeyCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
       // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 => {
+      case SRecord(_, _, vals) if vals.size == 4 =>
         for {
-          tplId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
+          typeId <- anyChoice match {
+            case _: AnyChoice.Template =>
+              typeRepToIdentifier(vals.get(0))
+            case AnyChoice.Interface(ifaceId, _, _) =>
+              Right(ifaceId)
+          }
         } yield command.ApiCommand.ExerciseByKey(
-          templateId = tplId,
+          templateId = typeId,
           contractKey = anyKey.key.toUnnormalizedValue,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,
         )
-      }
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
