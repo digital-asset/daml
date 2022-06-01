@@ -192,6 +192,7 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
+  // TODO #14039 delete
   private def generateDeprecatedStaticExerciseByKeyMethods(
       choices: Map[ChoiceName, TemplateChoice[Type]],
       maybeKey: Option[Type],
@@ -230,6 +231,7 @@ private[inner] object TemplateClass extends StrictLogging {
       methods.flatten.asJava
     }
 
+  // TODO #14039 delete
   private def generateDeprecatedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
@@ -252,6 +254,7 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
+  // TODO #14039 delete
   private def generateDeprecatedFlattenedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
       key: Type,
