@@ -163,15 +163,18 @@ The Java codegen generates three classes for a Daml template:
      :end-before: -- end snippet: template example
      :caption: Com/Acme/Templates.daml
 
-A file is generated that defines three Java classes:
+A file is generated that defines five Java classes and an interface:
 
 #. ``Bar``
 #. ``Bar.ContractId``
 #. ``Bar.Contract``
+#. ``Bar.CreateAnd``
+#. ``Bar.ByKey``
+#. ``Bar.Exercises``
 
 .. code-block:: java
   :caption: com/acme/templates/Bar.java
-  :emphasize-lines: 3,22,33
+  :emphasize-lines: 3,18,24,32,40,44
 
   package com.acme.templates;
 
@@ -186,23 +189,22 @@ A file is generated that defines three Java classes:
     public final String owner;
     public final String name;
 
-    public static ExerciseByKeyCommand exerciseByKeyBar_SomeChoice(BarKey key, Bar_SomeChoice arg) { /* ... */ }
+    public CreateAnd createAnd() { /* ... */ }
 
-    public static ExerciseByKeyCommand exerciseByKeyBar_SomeChoice(BarKey key, String aName) { /* ... */ }
+    public static ByKey byKey(BarKey key) { /* ... */ }
 
-    public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
-
-    public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(String aName) { /* ... */ }
-
-    public static class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Bar> {
+    public static class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Bar>
+        implements Exercises<ExerciseCommand> {
       // inherited:
       public final String contractId;
+    }
 
-      public ExerciseCommand exerciseArchive(Unit arg) { /* ... */ }
+    public interface Exercises<Cmd> extends com.daml.ledger.javaapi.data.codegen.Exercises<Cmd> {
+      default Cmd exerciseArchive(Unit arg) { /* ... */ }
 
-      public ExerciseCommand exerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
+      default Cmd exerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
 
-      public ExerciseCommand exerciseBar_SomeChoice(String aName) { /* ... */ }
+      default Cmd exerciseBar_SomeChoice(String aName) { /* ... */ }
     }
 
     public static class Contract extends ContractWithKey<ContractId, Bar, BarKey> {
@@ -212,9 +214,17 @@ A file is generated that defines three Java classes:
 
       public static Contract fromCreatedEvent(CreatedEvent event) { /* ... */ }
     }
+
+    public static final class CreateAnd
+        extends com.daml.ledger.javaapi.data.codegen.CreateAnd
+        implements Exercises<CreateAndExerciseCommand> { /* ... */ }
+
+    public static final class ByKey
+        extends com.daml.ledger.javaapi.data.codegen.ByKey
+        implements Exercises<ExerciseByKeyCommand> { /* ... */ }
   }
 
-Note that the static methods returning an ``ExerciseByKeyCommand`` will only be generated for templates that define a key.
+Note that ``byKey`` and ``ByKey`` will only be generated for templates that define a key.
 
 Variants (a.k.a Sum Types)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -507,20 +517,31 @@ Effectively it is a class that contains only the inner type ContractId because o
 
     public static final INTERFACE INTERFACE = new INTERFACE();
 
-    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<TIf> {
+    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<TIf>
+        implements Exercises<ExerciseCommand> {
       public ContractId(String contractId) { /* ... */ }
-
-      public ExerciseCommand exerciseUseless(Useless arg) { /* ... */ }
-
-      public ExerciseCommand exerciseHam(Ham arg) { /* ... */ }
     }
+
+    public interface Exercises<Cmd> extends com.daml.ledger.javaapi.data.codegen.Exercises<Cmd> {
+      default Cmd exerciseUseless(Useless arg) { /* ... */ }
+
+      default Cmd exerciseHam(Ham arg) { /* ... */ }
+    }
+
+    public static final class CreateAnd
+        extends com.daml.ledger.javaapi.data.codegen.CreateAnd.ToInterface
+        implements Exercises<CreateAndExerciseCommand> { /* ... */ }
+
+    public static final class ByKey
+        extends com.daml.ledger.javaapi.data.codegen.ByKey.ToInterface
+        implements Exercises<ExerciseByKeyCommand> { /* ... */ }
 
     public static final class INTERFACE extends InterfaceCompanion<TIf> { /* ... */}
   }
 
 For templates the code generation will be slightly different if a template implements interfaces.
-Main difference here is that the choices from inherited interfaces are included in the class declaration.
-Moreover to allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterface` is generated.
+To allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterface` is generated.
+An ``unsafeFromInterface`` is also generated to make the [unchecked] conversion in the other direction.
 
 .. code-block:: java
   :caption: interfaces/Child.java
@@ -528,38 +549,26 @@ Moreover to allow converting the ContractId of a template to an interface Contra
   package interfaces
 
   /* ... */
-  
 
   public final class Child extends Template {
 
     /* ... */
 
-    public CreateAndExerciseCommand createAndExerciseHam(Ham arg) { /* ... */ }
-
-    public CreateAndExerciseCommand createAndExerciseHam() { /* ... */ }
-
-    public CreateAndExerciseCommand createAndExerciseUseless(Useless arg) { /* ... */ }
-
-    public CreateAndExerciseCommand createAndExerciseUseless(TIf.ContractId interfacely) { /* ... */ }
-    
-    /* ... */
-    
-    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Child> {
+    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Child>
+        implements Exercises<ExerciseCommand> {
 
       /* ... */
-
-      public ExerciseCommand exerciseHam(Ham arg) { /* ... */ }
-
-      public ExerciseCommand exerciseUseless(Useless arg) { /* ... */ }
-
-      public ExerciseCommand exerciseHam() { /* ... */ }
-
-      public ExerciseCommand exerciseUseless(TIf.ContractId interfacely) { /* ... */ }
 
       public TIf.ContractId toInterface(TIf.INTERFACE interfaceCompanion) { /* ... */ }
 
       public static ContractId unsafeFromInterface(TIf.ContractId interfaceContractId) { /* ... */ }
 
+    }
+
+    public interface Exercises<Cmd> extends com.daml.ledger.javaapi.data.codegen.Exercises<Cmd> {
+      default Cmd exerciseBar(Bar arg) { /* ... */ }
+
+      default Cmd exerciseBar() { /* ... */ }
     }
 
     /* ... */
