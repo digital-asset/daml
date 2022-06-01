@@ -47,6 +47,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.ports.Port
 
 import scala.util.Try
 
@@ -58,9 +59,9 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
-  ): AbstractResourceOwner[ResourceContext, Unit] = {
-    new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+  ): AbstractResourceOwner[ResourceContext, Port] = {
+    new ResourceOwner[Port] {
+      override def acquire()(implicit context: ResourceContext): Resource[Port] =
         SandboxOnXRunner.run(configAdaptor, config, bridgeConfig)
     }
   }
@@ -69,7 +70,7 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
-  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
+  )(implicit resourceContext: ResourceContext): Resource[Port] = {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
 
@@ -81,7 +82,7 @@ object SandboxOnXRunner {
 
       // Start the ledger
       (participantId, dataSource, participantConfig) <- combinedParticipant(config)
-      _ <- buildLedger(
+      (apiServer, _, _) <- buildLedger(
         participantId,
         config,
         participantConfig,
@@ -91,13 +92,16 @@ object SandboxOnXRunner {
         actorSystem,
         configAdaptor,
       ).acquire()
-    } yield logInitializationHeader(
-      config,
-      participantId,
-      participantConfig,
-      dataSource,
-      bridgeConfig,
-    )
+    } yield {
+      logInitializationHeader(
+        config,
+        participantId,
+        participantConfig,
+        dataSource,
+        bridgeConfig,
+      )
+      apiServer.port
+    }
   }
 
   def combinedParticipant(

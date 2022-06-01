@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.time.Instant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -43,13 +43,15 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.runner.common
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxEngineConfig,
+  SandboxOnXForTestConfigAdaptor,
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
@@ -58,6 +60,7 @@ import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
 import scalaz._
@@ -182,13 +185,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
       config = ledgerConfig(
         ledgerPort = Port.Dynamic,
-        dars = dars,
         ledgerId = ledgerId,
         useTls = useTls,
         jdbcUrl = jdbcUrl,
       )
-
-      portF <- Future(SandboxOnXForTest.owner(config, bridgeConfig, authService).acquire())
+      configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+        authService
+      )
+      portF <- Future(SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig).acquire())
       port <- portF.asFuture
     } yield (portF, port)
 
@@ -204,6 +208,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val fa: Future[A] = for {
       (_, ledgerPort) <- ledgerF
       client <- clientF
+      _ <- Future.sequence(dars.map { dar =>
+        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 
@@ -219,29 +226,25 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private def ledgerConfig(
       ledgerPort: Port,
-      dars: List[File],
       ledgerId: LedgerId,
       useTls: UseTls,
       jdbcUrl: String,
-  ): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
-    genericConfig = SandboxDefault.copy(
-      ledgerId = ledgerId.unwrap,
-      engine = SandboxEngineConfig.copy(
-        allowedLanguageVersions = LanguageVersion.DevVersions
-      ),
-      dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
-      participants = Map(
-        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-          SandboxParticipantConfig.apiServer.copy(
-            seeding = Seeding.Weak,
-            timeProviderType = TimeProviderType.WallClock,
-            tls = if (useTls) Some(serverTlsConfig) else None,
-            port = ledgerPort,
-          )
-        )
-      ),
+  ): common.Config = SandboxDefault.copy(
+    ledgerId = ledgerId.unwrap,
+    engine = SandboxEngineConfig.copy(
+      allowedLanguageVersions = LanguageVersion.DevVersions
     ),
-    damlPackages = dars,
+    dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+    participants = Map(
+      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+        SandboxParticipantConfig.apiServer.copy(
+          seeding = Seeding.Weak,
+          timeProviderType = TimeProviderType.WallClock,
+          tls = if (useTls) Some(serverTlsConfig) else None,
+          port = ledgerPort,
+        )
+      )
+    ),
   )
 
   private def clientConfig(
