@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.runner.common.Config.{
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,

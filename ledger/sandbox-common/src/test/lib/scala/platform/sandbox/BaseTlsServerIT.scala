@@ -15,8 +15,8 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
 import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import io.netty.handler.ssl.ClientAuth
 import io.grpc.StatusRuntimeException
 import org.scalatest.Assertion

@@ -11,7 +11,7 @@ import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
 import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._

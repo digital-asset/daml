@@ -11,7 +11,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._

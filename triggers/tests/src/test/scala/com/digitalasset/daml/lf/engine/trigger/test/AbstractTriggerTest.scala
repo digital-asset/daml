@@ -22,7 +22,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue

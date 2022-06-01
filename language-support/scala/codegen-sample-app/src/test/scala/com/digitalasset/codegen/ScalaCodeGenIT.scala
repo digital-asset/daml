@@ -25,7 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}

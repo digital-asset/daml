@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger.test
 
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.platform.services.time.TimeProviderType
 
 final class FuncTestsStaticTime extends AbstractFuncTests {

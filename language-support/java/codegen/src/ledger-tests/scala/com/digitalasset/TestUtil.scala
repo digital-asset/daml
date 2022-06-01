@@ -22,7 +22,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.runner.common.Config.{SandboxDefault, SandboxParticipantId}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{SandboxDefault, SandboxParticipantId}
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding

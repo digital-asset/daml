@@ -15,7 +15,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ports.Port
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
-import com.daml.ledger.runner.common.Config.{
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,

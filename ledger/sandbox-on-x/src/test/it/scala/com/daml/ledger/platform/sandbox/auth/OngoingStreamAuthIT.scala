@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
   TransactionServiceGrpc,
 }
-import com.daml.ledger.runner.common.Config.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.timer.Delayed

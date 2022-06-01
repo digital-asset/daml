@@ -42,7 +42,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config.{
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,

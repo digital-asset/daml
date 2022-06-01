@@ -7,7 +7,7 @@ import java.io.File
 import java.util.concurrent.Executors
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config.{
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxParticipantConfig,
   SandboxParticipantId,

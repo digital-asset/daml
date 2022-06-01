@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.ledger.runner.common.Config.{
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxParticipantConfig,
   SandboxParticipantId,

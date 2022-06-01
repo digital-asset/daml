@@ -124,7 +124,7 @@ final class MinVersionTest
   private val configAdaptor = new BridgeConfigAdaptor()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val participantId = Config.SandboxParticipantId
+    val participantId = ParticipantConfig.DefaultParticipantId
     val jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId)
 
     val config = Config.Default.copy(
