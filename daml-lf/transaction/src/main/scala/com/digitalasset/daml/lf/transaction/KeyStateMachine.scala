@@ -57,13 +57,7 @@ class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
   def initial: State = State.empty
 
-  /**  However,
-    *       we preserve globalKeyInputs so we will not ask the ledger again for a key lookup
-    *              that we saw in a rollback.
-    *
-    *  On a rollback, we restore the state at the beginning of the rollback.
-    *
-    * Invariants:
+  /** Invariants:
     * - [[globalKeyInputs]]'s keyset is a superset of [[activeState]].[[ActiveLedgerState.keys]]'s keyset
     *   and of all the [[ActiveLedgerState.keys]]'s keysets in [[rollbackStack]].
     *   (the superset can be strict in case of by-key nodes inside an already completed Rollback scope)
