@@ -384,9 +384,9 @@ private[inner] object TemplateClass extends StrictLogging {
     MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        s"@deprecated since Daml 2.3.0; use {@code createAnd().exercise${choiceName.capitalize}} instead"
+      .makeDeprecated(
+        howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
+        sinceDaml = "2.3.0",
       )
       .returns(classOf[javaapi.data.CreateAndExerciseCommand])
       .addParameter(javaType, "arg")
@@ -412,11 +412,10 @@ private[inner] object TemplateClass extends StrictLogging {
       fields,
       packagePrefixes,
     )(
-      _.addAnnotation(classOf[Deprecated])
-        .addJavadoc(
-          "@deprecated since Daml 2.3.0; use {@code createAnd().exercise$L} instead",
-          choiceName.capitalize,
-        )
+      _.makeDeprecated(
+        howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
+        sinceDaml = "2.3.0",
+      )
     )
 
   private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =
@@ -487,6 +486,13 @@ private[inner] object TemplateClass extends StrictLogging {
       self.addModifiers(
         isInterface.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
       )
+
+    private[TemplateClass] def makeDeprecated(howToFix: String, sinceDaml: String) =
+      self
+        .addAnnotation(classOf[Deprecated])
+        .addJavadoc(
+          s"@deprecated since Daml $sinceDaml; $howToFix"
+        )
   }
 
   private implicit final class `TypeSpec extensions`(private val self: TypeSpec.Builder)
