@@ -16,7 +16,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.runner.common.Config.SandboxParticipantId
-import com.daml.ledger.sandbox.NewSandboxServer
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import io.netty.handler.ssl.ClientAuth
 import io.grpc.StatusRuntimeException
 import org.scalatest.Assertion
@@ -80,7 +80,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     }
   }
 
-  override protected def config: NewSandboxServer.CustomConfig = {
+  override protected def config: SandboxOnXForTest.CustomConfig = {
     super.config.copy(
       genericConfig = super.config.genericConfig.copy(
         participants = Map(

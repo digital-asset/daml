@@ -11,7 +11,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.runner.common.Config.SandboxParticipantId
-import com.daml.ledger.sandbox.NewSandboxServer
+import com.daml.ledger.sandbox.SandboxOnXForTest
 
 import java.io.File
 import org.scalatest._
@@ -35,7 +35,7 @@ class Tls
 
   private val tlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
 
-  override protected def config: NewSandboxServer.CustomConfig = super.config.copy(
+  override protected def config: SandboxOnXForTest.CustomConfig = super.config.copy(
     genericConfig = super.config.genericConfig.copy(participants =
       Map(
         SandboxParticipantId -> super.config.genericConfig

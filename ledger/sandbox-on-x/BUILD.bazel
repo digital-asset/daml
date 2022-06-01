@@ -26,6 +26,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
@@ -46,6 +47,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/participant-state-metrics",
+        "//ledger/sandbox-common",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -137,7 +139,6 @@ da_scala_library(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        ":sandbox-classic-server",
         ":sandbox-on-x",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -224,7 +225,6 @@ da_scala_test_suite(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox-classic-server",
         ":sandbox-on-x",
         ":sandbox-on-x-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -293,7 +293,6 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox-classic-server",
         ":sandbox-on-x",
         ":sandbox-on-x-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",

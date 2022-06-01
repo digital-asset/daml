@@ -48,7 +48,7 @@ import com.daml.ledger.runner.common.Config.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, NewSandboxServer}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -292,8 +292,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
 
   protected val damlPackages: List[File] = List()
 
-  private def sandboxConfig(jdbcUrl: String): NewSandboxServer.CustomConfig =
-    NewSandboxServer.CustomConfig(
+  private def sandboxConfig(jdbcUrl: String): SandboxOnXForTest.CustomConfig =
+    SandboxOnXForTest.CustomConfig(
       genericConfig = SandboxDefault.copy(
         ledgerId = this.getClass.getSimpleName,
         engine = SandboxEngineConfig.copy(
@@ -349,7 +349,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => info.jdbcUrl)
 
-        port <- NewSandboxServer.owner(sandboxConfig(jdbcUrl = jdbcUrl))
+        port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

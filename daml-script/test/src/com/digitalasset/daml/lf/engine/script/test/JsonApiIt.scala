@@ -42,7 +42,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.ledger.sandbox.{ConfigConverter, NewSandboxServer}
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -162,7 +162,7 @@ trait JsonApiFixture
           case None =>
             Map(
               SandboxParticipantId -> ParticipantDataSourceConfig(
-                ConfigConverter.defaultH2SandboxJdbcUrl()
+                SandboxOnXForTest.defaultH2SandboxJdbcUrl()
               )
             )
         }
@@ -171,7 +171,7 @@ trait JsonApiFixture
             dataSource = participantDataSource
           )
         )
-        serverPort <- NewSandboxServer.owner(cfg)
+        serverPort <- SandboxOnXForTest.owner(cfg)
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {

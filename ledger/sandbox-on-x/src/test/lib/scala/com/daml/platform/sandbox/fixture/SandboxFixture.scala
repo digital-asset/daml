@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.fixture
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config.SandboxParticipantId
-import com.daml.ledger.sandbox.{ConfigConverter, NewSandboxServer}
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -37,7 +37,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
           case None =>
             Map(
               SandboxParticipantId -> ParticipantDataSourceConfig(
-                ConfigConverter.defaultH2SandboxJdbcUrl()
+                SandboxOnXForTest.defaultH2SandboxJdbcUrl()
               )
             )
         }
@@ -47,7 +47,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
             dataSource = participantDataSource
           )
         )
-        port <- NewSandboxServer.owner(cfg)
+        port <- SandboxOnXForTest.owner(cfg)
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

@@ -37,7 +37,7 @@ import com.daml.ledger.client.services.commands.{
   CompletionStreamElement,
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
-import com.daml.ledger.sandbox.NewSandboxServer
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.lf.crypto.Hash
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.ValueConversions._
@@ -106,7 +106,7 @@ final class CommandClientIT
     timeProvider(ledgerId)
       .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))
 
-  override protected def config: NewSandboxServer.CustomConfig = super.config.copy(
+  override protected def config: SandboxOnXForTest.CustomConfig = super.config.copy(
     genericConfig = super.config.genericConfig.copy(ledgerId = testLedgerId.unwrap)
   )
 

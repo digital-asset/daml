@@ -12,7 +12,7 @@ import com.daml.ledger.runner.common.Config.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, ConfigConverter, NewSandboxServer}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -31,7 +31,7 @@ object LedgerFactories {
   protected def sandboxConfig(
       jdbcUrl: Option[String],
       darFiles: List[File],
-  ): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+  ): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
     genericConfig = SandboxDefault.copy(
       ledgerId = "ledger-server",
       participants = Map(
@@ -44,7 +44,7 @@ object LedgerFactories {
       ),
       dataSource = Map(
         SandboxParticipantId -> ParticipantDataSourceConfig(
-          jdbcUrl.getOrElse(ConfigConverter.defaultH2SandboxJdbcUrl())
+          jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
         )
       ),
     ),
@@ -67,7 +67,7 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      port <- NewSandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
+      port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl, darFiles))
       channel <- GrpcClientResource.owner(port)
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
       ExecutionContext.fromExecutorService(executor)

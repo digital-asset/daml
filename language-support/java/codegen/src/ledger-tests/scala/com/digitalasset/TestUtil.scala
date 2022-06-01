@@ -23,7 +23,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.runner.common.Config.{SandboxDefault, SandboxParticipantId}
-import com.daml.ledger.sandbox.{BridgeConfig, NewSandboxServer}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
@@ -48,7 +48,7 @@ trait SandboxTestLedger extends SandboxFixture {
     LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
 
   override def config = {
-    NewSandboxServer.CustomConfig(
+    SandboxOnXForTest.CustomConfig(
       damlPackages = damlPackages,
       bridgeConfig = BridgeConfig(),
       genericConfig = SandboxDefault.copy(

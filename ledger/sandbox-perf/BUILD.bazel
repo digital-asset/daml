@@ -38,7 +38,6 @@ da_scala_library(
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/ports",

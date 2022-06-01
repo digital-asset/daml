@@ -26,7 +26,7 @@ import com.daml.ledger.runner.common.Config.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, NewSandboxServer}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -67,7 +67,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
-  protected def config: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+  protected def config: SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
     genericConfig = SandboxDefault.copy(
       ledgerId = "sandbox-server",
       engine = SandboxEngineConfig.copy(

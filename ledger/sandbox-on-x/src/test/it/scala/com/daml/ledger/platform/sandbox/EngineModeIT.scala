@@ -20,7 +20,7 @@ import com.daml.ledger.runner.common.Config.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, ConfigConverter, NewSandboxServer}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.VersionRange
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -113,7 +113,7 @@ class EngineModeIT
   "SandboxServer" should {
     def buildServer(versions: VersionRange[LanguageVersion]) = {
 
-      def sandboxConfig(): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+      def sandboxConfig(): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
         genericConfig = SandboxDefault.copy(
           ledgerId = "ledger-server",
           engine = SandboxDefault.engine.copy(
@@ -128,14 +128,14 @@ class EngineModeIT
           ),
           dataSource = Map(
             SandboxParticipantId -> ParticipantDataSourceConfig(
-              ConfigConverter.defaultH2SandboxJdbcUrl()
+              SandboxOnXForTest.defaultH2SandboxJdbcUrl()
             )
           ),
         ),
         bridgeConfig = BridgeConfig(),
       )
 
-      NewSandboxServer.owner(
+      SandboxOnXForTest.owner(
         sandboxConfig()
       )
     }

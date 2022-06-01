@@ -195,7 +195,7 @@ da_scala_test_suite(
         "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
+        "//ledger/sandbox-on-x",
         "//libs-scala/build-info",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",

@@ -8,7 +8,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
-import com.daml.ledger.sandbox.NewSandboxServer
+import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config.SandboxParticipantId
@@ -90,7 +90,7 @@ trait ToxicSandboxFixture
             dataSource = participantDataSource
           )
         )
-        port <- NewSandboxServer.owner(cfg)
+        port <- SandboxOnXForTest.owner(cfg)
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),

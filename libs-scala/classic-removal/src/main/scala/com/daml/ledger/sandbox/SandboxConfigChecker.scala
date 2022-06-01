@@ -20,7 +20,7 @@ object SandboxConfigChecker {
     }
   }
 
-  def compare(sandboxConfig: SandboxConfig, newSandboxConfig: NewSandboxServer.CustomConfig) = {
+  def compare(sandboxConfig: SandboxConfig, newSandboxConfig: SandboxOnXForTest.CustomConfig) = {
     val genericCliConfig =
       ConfigConverter.toSandboxOnXConfig(sandboxConfig, None, LedgerName("LedgerName"))
     val bridgeConfigAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor {

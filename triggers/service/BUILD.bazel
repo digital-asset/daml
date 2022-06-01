@@ -179,7 +179,6 @@ da_scala_library(
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//libs-scala/adjustable-clock",
         "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",

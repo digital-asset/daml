@@ -49,7 +49,7 @@ import com.daml.ledger.runner.common.Config.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, NewSandboxServer}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
@@ -189,7 +189,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         jdbcUrl = jdbcUrl,
       )
 
-      portF <- Future(NewSandboxServer.owner(config).acquire())
+      portF <- Future(SandboxOnXForTest.owner(config).acquire())
       port <- portF.asFuture
     } yield (portF, port)
 
@@ -223,7 +223,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       authService: Option[AuthService],
       useTls: UseTls,
       jdbcUrl: String,
-  ): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
+  ): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
     genericConfig = SandboxDefault.copy(
       ledgerId = ledgerId.unwrap,
       engine = SandboxEngineConfig.copy(

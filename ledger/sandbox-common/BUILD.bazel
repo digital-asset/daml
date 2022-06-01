@@ -80,7 +80,6 @@ da_scala_library(
     deps = [
         #":sandbox-common",
         "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
