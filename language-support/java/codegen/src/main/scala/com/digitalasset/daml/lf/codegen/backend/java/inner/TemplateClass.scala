@@ -156,11 +156,17 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateByKeyClass(
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
-  ) =
+  ) = {
+    import scala.language.existentials
+    val (superclass, companionArg) = implementedInterfaces.fold(
+      (_: ContractIdClass.For.Interface.type) =>
+        (classOf[javaapi.data.codegen.ByKey.ToInterface], "companion, "),
+      _ => (classOf[javaapi.data.codegen.ByKey], ""),
+    )
     TypeSpec
       .classBuilder(byKeyClassName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-      .superclass(classOf[javaapi.data.codegen.ByKey])
+      .superclass(superclass)
       .addSuperinterface(
         ParameterizedTypeName.get(
           ContractIdClass.exercisesInterface,
@@ -171,8 +177,9 @@ private[inner] object TemplateClass extends StrictLogging {
         MethodSpec
           .constructorBuilder()
           .publicIfInterface(implementedInterfaces)
+          .companionIfInterface(implementedInterfaces)
           .addParameter(classOf[javaapi.data.Value], "key")
-          .addStatement("super(key)")
+          .addStatement("super($Lkey)", companionArg)
           .build()
       )
       .addGetCompanion(implementedInterfaces)
@@ -184,13 +191,14 @@ private[inner] object TemplateClass extends StrictLogging {
               ContractIdClass
                 .generateToInterfaceMethods(
                   byKeyClassName,
-                  "this.contractKey",
+                  s"$companionFieldName, this.contractKey",
                   implemented,
                 ),
           )
           .asJava
       )
       .build()
+  }
 
   // TODO #14039 delete
   private def generateDeprecatedStaticExerciseByKeyMethods(

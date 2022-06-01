@@ -14,11 +14,26 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
   }
 
   @Override
-  public final ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
+  public ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
     return new ExerciseByKeyCommand(
         getCompanion().TEMPLATE_ID, contractKey, choice, choiceArgument);
   }
 
   /** The origin of the choice, not the template relevant to contractKey. */
   protected abstract ContractTypeCompanion getCompanion();
+
+  public abstract static class ToInterface extends ByKey {
+    private final ContractCompanion<?, ?, ?> keySource;
+
+    protected ToInterface(ContractCompanion<?, ?, ?> keySource, Value contractKey) {
+      super(contractKey);
+      this.keySource = keySource;
+    }
+
+    @Override
+    public ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
+      // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
+      return new ExerciseByKeyCommand(keySource.TEMPLATE_ID, contractKey, choice, choiceArgument);
+    }
+  }
 }
