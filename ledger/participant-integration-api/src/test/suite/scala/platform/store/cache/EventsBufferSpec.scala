@@ -33,7 +33,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
   "push" when {
     "max buffer size reached" should {
-      "drop oldest" in withBuffer(3L) { buffer =>
+      "drop oldest" in withBuffer(3) { buffer =>
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset2,
           slice = Vector(entry3, entry4),
@@ -47,7 +47,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "element with smaller offset added" should {
-      "throw" in withBuffer(3L) { buffer =>
+      "throw" in withBuffer(3) { buffer =>
         intercept[UnorderedException[Int]] {
           buffer.push(offset1, 2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: $offset4 vs $offset1"
@@ -55,7 +55,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "element with equal offset added" should {
-      "throw" in withBuffer(3L) { buffer =>
+      "throw" in withBuffer(3) { buffer =>
         intercept[UnorderedException[Int]] {
           buffer.push(offset4, 2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: $offset4 vs $offset4"
@@ -63,7 +63,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "range end with equal offset added" should {
-      "accept it" in withBuffer(3L) { buffer =>
+      "accept it" in withBuffer(3) { buffer =>
         buffer.push(LastOffset, Int.MaxValue)
         buffer.slice(BeginOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
           bufferedStartExclusive = offset2,
@@ -118,7 +118,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
           buffer.slice(offset2, offset1, IdentityFilter) shouldBe Inclusive(Vector.empty)
       }
       "return an empty LastBufferChunkSuffix slice if startExclusive is before buffer start" in withBuffer(
-        maxBufferSize = 2L
+        maxBufferSize = 2
       ) { buffer =>
         buffer.slice(offset1, offset1, IdentityFilter) shouldBe LastBufferChunkSuffix(
           offset1,
@@ -345,7 +345,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   }
 
   private def withBuffer(
-      maxBufferSize: Long = 5L,
+      maxBufferSize: Int = 5,
       elems: immutable.Vector[(Offset, Int)] = bufferElements,
       maxFetchSize: Int = 10,
   )(test: EventsBuffer[Int] => Assertion): Assertion = {
