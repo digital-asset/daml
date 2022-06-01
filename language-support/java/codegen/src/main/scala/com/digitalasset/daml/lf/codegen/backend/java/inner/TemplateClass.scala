@@ -294,11 +294,17 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateCreateAndClass(
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
-  ) =
+  ) = {
+    import scala.language.existentials
+    val (superclass, companionArg) = implementedInterfaces.fold(
+      (_: ContractIdClass.For.Interface.type) =>
+        (classOf[javaapi.data.codegen.CreateAnd.ToInterface], "companion, "),
+      _ => (classOf[javaapi.data.codegen.CreateAnd], ""),
+    )
     TypeSpec
       .classBuilder(createAndClassName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-      .superclass(classOf[javaapi.data.codegen.CreateAnd])
+      .superclass(superclass)
       .addSuperinterface(
         ParameterizedTypeName.get(
           ContractIdClass.exercisesInterface,
@@ -310,8 +316,9 @@ private[inner] object TemplateClass extends StrictLogging {
         MethodSpec
           .constructorBuilder()
           .publicIfInterface(implementedInterfaces)
+          .companionIfInterface(implementedInterfaces)
           .addParameter(classOf[javaapi.data.Template], "createArguments")
-          .addStatement("super(createArguments)")
+          .addStatement("super($LcreateArguments)", companionArg)
           .build()
       )
       .addMethods(
@@ -322,13 +329,14 @@ private[inner] object TemplateClass extends StrictLogging {
               ContractIdClass
                 .generateToInterfaceMethods(
                   createAndClassName,
-                  "this.createArguments",
+                  s"$companionFieldName, this.createArguments",
                   implemented,
                 ),
           )
           .asJava
       )
       .build()
+  }
 
   // TODO #14039 delete
   private def generateDeprecatedCreateAndExerciseMethods(
@@ -478,6 +486,25 @@ private[inner] object TemplateClass extends StrictLogging {
     ) =
       self.addModifiers(
         isInterface.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
+      )
+
+    private[TemplateClass] def companionIfInterface(
+        isInterface: ContractIdClass.For.Interface.type \/ _
+    ) =
+      isInterface.fold(
+        { _ =>
+          val wildcard = WildcardTypeName subtypeOf classOf[Object]
+          self.addParameter(
+            ParameterizedTypeName.get(
+              ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
+              wildcard,
+              wildcard,
+              wildcard,
+            ),
+            "companion",
+          )
+        },
+        _ => self,
       )
 
     private[TemplateClass] def makeDeprecated(

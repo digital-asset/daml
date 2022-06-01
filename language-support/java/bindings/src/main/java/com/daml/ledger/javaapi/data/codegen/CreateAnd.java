@@ -15,11 +15,27 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
   }
 
   @Override
-  public final CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
+  public CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
     return new CreateAndExerciseCommand(
         getCompanion().TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
   }
 
   /** The origin of the choice, not the createArguments. */
   protected abstract ContractTypeCompanion getCompanion();
+
+  public abstract static class ToInterface extends CreateAnd {
+    private final ContractCompanion<?, ?, ?> createSource;
+
+    protected ToInterface(ContractCompanion<?, ?, ?> createSource, Template createArguments) {
+      super(createArguments);
+      this.createSource = createSource;
+    }
+
+    @Override
+    public final CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
+      // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
+      return new CreateAndExerciseCommand(
+          createSource.TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
+    }
+  }
 }
