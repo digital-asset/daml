@@ -145,10 +145,11 @@ private[inner] object TemplateClass extends StrictLogging {
             .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
         )
         .addJavadoc(
-          "Set up an {@link $T};$Winvoke an {@code exercise} method on the result of$W" +
-            "this to finish creating the command, or convert to an interface first$W" +
-            "with {@code toInterface}$W" +
-            "to invoke an interface {@code exercise} method.",
+          """Set up an {@link $T};$Winvoke an {@code exercise} method on the result of
+            |this to finish creating the command, or convert to an interface first
+            |with {@code toInterface}
+            |to invoke an interface {@code exercise} method.""".stripMargin
+            .replaceAll("\n", "\\$W"),
           classOf[javaapi.data.ExerciseByKeyCommand],
         )
         .build()
