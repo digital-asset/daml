@@ -602,8 +602,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       TemplateImplements.build(
         interfaceId = decodeTypeConName(lfImpl.getInterface),
         methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
-        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala.view
-          .map(getInternedName(_, "TemplateImplements.inheritedChoices")),
       )
 
     private[this] def decodeTemplateImplementsMethod(

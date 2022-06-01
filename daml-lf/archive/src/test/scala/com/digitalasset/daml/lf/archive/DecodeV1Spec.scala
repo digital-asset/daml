@@ -989,7 +989,6 @@ class DecodeV1Spec
                 .assertFromString("noPkgId:Mod:Mod.I") -> GenTemplateImplements[EPrimCon](
                 Ref.TypeConName.assertFromString("noPkgId:Mod:Mod.I"),
                 Map(),
-                Set(),
               )
             ),
           )

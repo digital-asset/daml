@@ -900,9 +900,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
       b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
-      b.accumulateLeft(implements.inheritedChoices)((i, v) =>
-        i addInheritedChoiceInternedNames (stringsTable.insert(v))
-      )
       b.build()
     }
 
