@@ -154,6 +154,17 @@ private[lf] final class Compiler(
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
 
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompileInterfaceView(view: InterfaceView): t.SExpr = {
+    // TODO https://github.com/digital-asset/daml/issues/14112
+    // PoC until we have interface views
+    val magicInterfaceView = MethodName.assertFromString("_view")
+    SBCallInterface(view.interfaceId, magicInterfaceView)(
+      SBToAnyContract(view.templateId)(t.SEValue(view.argument))
+    )
+  }
+
   private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)

@@ -6,6 +6,7 @@ package com.daml.lf.speedy
 import com.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command.ContractMetadata
+import com.daml.lf.transaction.TransactionVersion
 
 // ---------------------
 // Preprocessed commands
@@ -98,4 +99,11 @@ final case class DisclosedContract(
     contractId: SContractId,
     argument: SValue,
     metadata: ContractMetadata,
+)
+
+final case class InterfaceView(
+    templateId: Identifier,
+    argument: SValue,
+    interfaceId: Identifier,
+    interfaceVersion: TransactionVersion,
 )
