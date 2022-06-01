@@ -44,6 +44,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common.Config.{
+  SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,
   SandboxParticipantId,
@@ -180,9 +181,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       jdbcUrl <- urlResource.asFuture
 
       config = ledgerConfig(
-        Port.Dynamic,
-        dars,
-        ledgerId,
+        ledgerPort = Port.Dynamic,
+        dars = dars,
+        ledgerId = ledgerId,
         useTls = useTls,
         authService = authService,
         jdbcUrl = jdbcUrl,
@@ -223,7 +224,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       useTls: UseTls,
       jdbcUrl: String,
   ): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
-    genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+    genericConfig = SandboxDefault.copy(
       ledgerId = ledgerId.unwrap,
       engine = SandboxEngineConfig.copy(
         allowedLanguageVersions = LanguageVersion.DevVersions

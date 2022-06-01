@@ -43,6 +43,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config.{
+  SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,
   SandboxParticipantId,
@@ -293,7 +294,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
 
   private def sandboxConfig(jdbcUrl: String): NewSandboxServer.CustomConfig =
     NewSandboxServer.CustomConfig(
-      genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+      genericConfig = SandboxDefault.copy(
         ledgerId = this.getClass.getSimpleName,
         engine = SandboxEngineConfig.copy(
           allowedLanguageVersions = LanguageVersion.DevVersions

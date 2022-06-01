@@ -7,7 +7,11 @@ import java.io.File
 import java.util.concurrent.Executors
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config.{SandboxParticipantConfig, SandboxParticipantId}
+import com.daml.ledger.runner.common.Config.{
+  SandboxDefault,
+  SandboxParticipantConfig,
+  SandboxParticipantId,
+}
 import com.daml.ledger.sandbox.{BridgeConfig, ConfigConverter, NewSandboxServer}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
@@ -28,7 +32,7 @@ object LedgerFactories {
       jdbcUrl: Option[String],
       darFiles: List[File],
   ): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
-    genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+    genericConfig = SandboxDefault.copy(
       ledgerId = "ledger-server",
       participants = Map(
         SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =

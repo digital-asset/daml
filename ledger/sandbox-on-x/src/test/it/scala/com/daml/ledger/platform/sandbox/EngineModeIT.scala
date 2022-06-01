@@ -15,7 +15,11 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.ledger.runner.common.Config.{SandboxParticipantConfig, SandboxParticipantId}
+import com.daml.ledger.runner.common.Config.{
+  SandboxDefault,
+  SandboxParticipantConfig,
+  SandboxParticipantId,
+}
 import com.daml.ledger.sandbox.{BridgeConfig, ConfigConverter, NewSandboxServer}
 import com.daml.lf.VersionRange
 import com.daml.lf.language.LanguageVersion
@@ -110,9 +114,9 @@ class EngineModeIT
     def buildServer(versions: VersionRange[LanguageVersion]) = {
 
       def sandboxConfig(): NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
-        genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+        genericConfig = SandboxDefault.copy(
           ledgerId = "ledger-server",
-          engine = com.daml.ledger.runner.common.Config.SandboxDefault.engine.copy(
+          engine = SandboxDefault.engine.copy(
             allowedLanguageVersions = versions
           ),
           participants = Map(

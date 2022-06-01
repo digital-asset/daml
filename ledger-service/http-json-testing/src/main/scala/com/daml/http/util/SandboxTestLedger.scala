@@ -16,6 +16,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ports.Port
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.runner.common.Config.{
+  SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,
   SandboxParticipantId,
@@ -40,7 +41,7 @@ trait SandboxTestLedger extends SandboxFixture {
   def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
   override protected def config: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
-    genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+    genericConfig = SandboxDefault.copy(
       ledgerId = testId,
       engine = SandboxEngineConfig.copy(
         allowedLanguageVersions = LanguageVersion.DevVersions

@@ -21,6 +21,7 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.runner.common.Config.{
+  SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,
   SandboxParticipantId,
@@ -67,7 +68,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   }
 
   protected def config: NewSandboxServer.CustomConfig = NewSandboxServer.CustomConfig(
-    genericConfig = com.daml.ledger.runner.common.Config.SandboxDefault.copy(
+    genericConfig = SandboxDefault.copy(
       ledgerId = "sandbox-server",
       engine = SandboxEngineConfig.copy(
         allowedLanguageVersions = LanguageVersion.DevVersions
