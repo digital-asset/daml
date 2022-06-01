@@ -4,7 +4,8 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.daml.lf.value.Value
 
 /** The result of command execution.
   *
@@ -25,4 +26,5 @@ private[apiserver] final case class CommandExecutionResult(
     transaction: SubmittedTransaction,
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,
+    globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
 )
