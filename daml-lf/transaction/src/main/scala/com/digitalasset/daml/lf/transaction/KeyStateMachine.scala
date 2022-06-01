@@ -11,7 +11,6 @@ import com.daml.lf.transaction.Transaction.{
   DuplicateContractKey,
   InconsistentKeys,
   KeyCreate,
-  KeyInactive,
   KeyInput,
   KeyInputError,
   NegativeKeyLookup,
