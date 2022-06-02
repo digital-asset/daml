@@ -33,6 +33,7 @@ import com.daml.lf.language.Ast.Package
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -40,6 +41,7 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.tag._
 import spray.json._
 
+import java.io.FileInputStream
 import scala.concurrent.Future
 import scala.sys.process._
 
@@ -200,6 +202,9 @@ trait ReproducesTransactions
   )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
     for {
       client <- LedgerClient(channel, clientConfiguration)
+      _ <- Future.sequence(packageFiles.map { dar =>
+        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
       parties <- allocateParties(client, numParties)
       // setup
       _ <- f(client, parties)
@@ -227,6 +232,11 @@ trait ReproducesTransactions
         _ <- Future {
           logger.debug("Starting testIou")
         }
+        _ <- Future.sequence(packageFiles.map { dar =>
+          client.packageManagementClient.uploadDarFile(
+            ByteString.readFrom(new FileInputStream(dar))
+          )
+        })
         t0 <- submit(
           client,
           p1,
