@@ -242,7 +242,11 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
           // Check if we have a cached key input.
           globalKeyInputs.get(gkey) match {
             case Some(keyInput) =>
-              val keyMapping = keyInput.toKeyMapping
+              val keyMapping = keyInput match {
+                case Transaction.KeyActive(cid) if !activeState.consumedBy.contains(cid) =>
+                  ContractStateMachine.KeyActive(cid)
+                case _ => ContractStateMachine.KeyInactive
+              }
               Right(
                 keyMapping -> this.copy(
                   activeState = activeState.copy(keys = keys.updated(gkey, keyMapping))
