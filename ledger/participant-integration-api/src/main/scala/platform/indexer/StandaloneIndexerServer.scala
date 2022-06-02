@@ -24,6 +24,7 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
+    // TODO LLP: Always pass shared stringInterningView
     stringInterningViewO: Option[StringInterningView] = None,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
