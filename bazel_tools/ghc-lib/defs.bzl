@@ -131,7 +131,7 @@ trap "rm -rf $$TMP" EXIT
 cp -rLt $$TMP $$GHC/.
 export HOME="$$TMP"
 
-$(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor}
+$(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor} --cpp={cpp_options}
 # Remove absolute paths to the execroot.
 sed -i.bak \\
   -e "s#$$EXECROOT/##" \\
@@ -147,6 +147,7 @@ cp $$TMP/ghc-lib{component}.cabal $(execpath ghc-lib{component}.cabal)
                 ghc_flavor = GHC_FLAVOR,
                 ghc_lib_version = GHC_LIB_VERSION,
                 lang = "en_US.UTF-8" if is_darwin else "C.UTF-8",
+                cpp_options = "-DDAML_PRIM",
             ),
             visibility = ["//visibility:public"],
         )

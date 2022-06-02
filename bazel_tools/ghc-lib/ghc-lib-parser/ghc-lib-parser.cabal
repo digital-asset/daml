@@ -1,4 +1,4 @@
-cabal-version: >=1.22
+cabal-version: 2.0
 build-type: Simple
 name: ghc-lib-parser
 version: 8.8.1
@@ -66,7 +66,7 @@ library
         compiler/utils
     ghc-options: -fobject-code -package=ghc-boot-th -optc-DTHREADED_RTS
     cc-options: -DTHREADED_RTS
-    cpp-options: -DSTAGE=2 -DTHREADED_RTS -DGHCI -DGHC_IN_GHCI
+    cpp-options: -DSTAGE=2 -DTHREADED_RTS -DGHCI -DGHC_IN_GHCI -DDAML_PRIM
     if !os(windows)
         build-depends: unix
     else
@@ -85,7 +85,7 @@ library
         pretty == 1.1.*,
         transformers == 0.5.*,
         process >= 1 && < 1.7
-    build-tools: alex >= 3.1, happy >= 1.19.4
+    build-tool-depends: alex:alex >= 3.1, happy:happy >= 1.19.4
     other-extensions:
         BangPatterns
         CPP
