@@ -196,8 +196,8 @@ daml2js Daml2jsParams {..} = do
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
      Scope -> PackageId -> Module -> Maybe ((T.Text, T.Text), Set.Set Dependency)
 genModule pkgMap (Scope scope) curPkgId mod
-  | null serDefs =
-    Nothing -- If no serializable types, nothing to do.
+  | null serDefs && null ifaces =
+    Nothing -- If no serializable types or interfaces, nothing to do.
   | otherwise =
     let (decls, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
         (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
