@@ -17,7 +17,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.\/-
 import scalaz.syntax.functor._
-import scalaz.syntax.std.map._
 
 import scala.language.implicitConversions
 
@@ -229,9 +228,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
         case Some(
               InterfaceType.Template(_, DefTemplate(TemplateChoices.Unresolved(_, inherited), _, _))
             ) =>
-          inherited.forgetNE.mapKeys(_.qualifiedName) should ===(
-            Map(TIf -> Set(Useless), LibTIf -> Set(Useless))
-          )
+          inherited.map(_.qualifiedName) should ===(Set(TIf, LibTIf))
       }
     }
 

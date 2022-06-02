@@ -281,30 +281,25 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
-      import scalaz.std.iterable._
-      type ChoiceMap[C] = Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
-      val (missing, resolved): (
-          Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]],
-          Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TemplateChoice[O]]]],
-      ) = (unresolved: Iterable[(Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]])])
-        .foldMap { case (tcn, choiceNames) =>
-          getAstInterface(tcn).cata(
-            { astIf =>
-              val (tcnMissing, tcnResolved) = choiceNames
-                .partitionMap(choiceName =>
-                  astIf.choices get choiceName map { tc =>
-                    (choiceName, NonEmpty(Map, some(tcn) -> tc))
-                  } toRight choiceName
-                )
-              (
-                NonEmpty from tcnMissing foldMap (yesMissing => Map(tcn -> yesMissing)),
-                FirstVal.subst[ChoiceMap, TemplateChoice[O]](tcnResolved.toMap),
+      type ResolutionResult[C] =
+        (Set[Ref.TypeConName], Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]])
+      val (missing, resolved): ResolutionResult[TemplateChoice[O]] =
+        FirstVal.unsubst[ResolutionResult, TemplateChoice[O]](
+          unresolved.forgetNE
+            .foldMap { tcn =>
+              getAstInterface(tcn).cata(
+                { astIf =>
+                  val tcnResolved =
+                    astIf.choices.transform((_, tc) => NonEmpty(Map, some(tcn) -> tc))
+                  FirstVal.subst[ResolutionResult, TemplateChoice[O]](
+                    Set.empty[Ref.TypeConName],
+                    tcnResolved,
+                  )
+                },
+                (Set(tcn), Map.empty): ResolutionResult[Nothing],
               )
-            },
-            (Map(tcn -> choiceNames), Map.empty: ChoiceMap[Nothing]),
-          )
-        }
-        .map(FirstVal.unsubst[ChoiceMap, TemplateChoice[O]])
+            }
+        )
       val rChoices = Resolved(resolved.unionWith(directAsResolved(direct))(_ ++ _))
       missing match {
         case NonEmpty(missing) => Left(ResolveError(missing, rChoices))
@@ -318,13 +313,11 @@ object TemplateChoices {
   private val logger = com.typesafe.scalalogging.Logger(getClass)
 
   final case class ResolveError[+Partial](
-      missingChoices: NonEmpty[Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]]],
+      missingInterfaces: NonEmpty[Set[Ref.TypeConName]],
       partialResolution: Partial,
   ) {
     private[iface] def describeError: String =
-      missingChoices.view
-        .map { case (tc, cns) => s"$tc(${cns mkString ", "})" }
-        .mkString(", ")
+      missingInterfaces.mkString(", ")
 
     private[iface] def map[B](f: Partial => B): ResolveError[B] =
       copy(partialResolution = f(partialResolution))
@@ -332,7 +325,7 @@ object TemplateChoices {
 
   final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      unresolvedInheritedChoices: NonEmpty[Map[Ref.TypeConName, NonEmpty[Set[Ref.ChoiceName]]]],
+      unresolvedChoiceSources: NonEmpty[Set[Ref.TypeConName]],
   ) extends TemplateChoices[Ty] {
     override def resolvedChoices =
       directAsResolved(directChoices)
