@@ -38,16 +38,6 @@ class Interfaces
       } yield {
         sendCmd(client, alice, interfaces.Child.create(alice))
         sendCmd(client, alice, interfaces.ChildClone.create(alice))
-        readActiveContractsSafe[interfaces.Child.Contract](safeChildFromCreatedEvent)(
-          client,
-          alice,
-        ).foreach { child =>
-          sendCmd(
-            client,
-            alice,
-            child.id.toInterface(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
-          )
-        }
         readActiveContractsSafe(safeChildFromCreatedEvent)(client, alice).foreach { child =>
           sendCmd(
             client,
