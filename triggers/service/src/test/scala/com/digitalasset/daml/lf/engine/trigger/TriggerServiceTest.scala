@@ -9,10 +9,10 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
-import java.io.File
+import com.google.protobuf.{ByteString => PByteString}
+import java.io.{File, FileInputStream}
 import java.time.{Duration => JDuration}
 import java.util.UUID
-
 import akka.http.scaladsl.model.Uri.Query
 import org.scalactic.source
 import org.scalatest._
@@ -60,7 +60,7 @@ trait AbstractTriggerServiceTest
   // Encoded dar used in service initialization
   protected val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
   protected val testPkgId = dar.main._1
-  override protected val damlPackages: List[File] = List(darPath)
+  override protected val damlPackages: List[File] = List()
 
   protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -318,6 +318,9 @@ trait AbstractTriggerServiceTest
           actAs = List(ApiTypes.Party(alice.unwrap)),
           admin = true,
         )
+        _ <- client.packageManagementClient.uploadDarFile(
+          PByteString.readFrom(new FileInputStream(darPath))
+        )
 
         public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
         clientWeWant <- sandboxClient(
@@ -385,6 +388,9 @@ trait AbstractTriggerServiceTest
       client <- sandboxClient(
         ApiTypes.ApplicationId("my-app-id"),
         actAs = List(ApiTypes.Party(aliceAcs.unwrap)),
+      )
+      _ <- client.packageManagementClient.uploadDarFile(
+        PByteString.readFrom(new FileInputStream(darPath))
       )
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.

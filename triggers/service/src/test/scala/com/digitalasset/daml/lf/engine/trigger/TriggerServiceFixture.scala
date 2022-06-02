@@ -42,13 +42,15 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxEngineConfig,
+  SandboxOnXForTestConfigAdaptor,
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -294,24 +296,21 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
 
   def bridgeConfig: BridgeConfig = BridgeConfig()
 
-  private def sandboxConfig(jdbcUrl: String): SandboxOnXForTest.CustomConfig =
-    SandboxOnXForTest.CustomConfig(
-      genericConfig = SandboxDefault.copy(
-        ledgerId = this.getClass.getSimpleName,
-        engine = SandboxEngineConfig.copy(
-          allowedLanguageVersions = LanguageVersion.DevVersions
-        ),
-        dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
-        participants = Map(
-          SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-            SandboxParticipantConfig.apiServer.copy(
-              seeding = Seeding.Weak,
-              timeProviderType = TimeProviderType.Static,
-            )
-          )
-        ),
+  private def sandboxConfig(jdbcUrl: String): Config =
+    SandboxDefault.copy(
+      ledgerId = this.getClass.getSimpleName,
+      engine = SandboxEngineConfig.copy(
+        allowedLanguageVersions = LanguageVersion.DevVersions
       ),
-      damlPackages = damlPackages,
+      dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+      participants = Map(
+        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+          SandboxParticipantConfig.apiServer.copy(
+            seeding = Seeding.Weak,
+            timeProviderType = TimeProviderType.Static,
+          )
+        )
+      ),
     )
 
   protected lazy val sandboxPort: Port = resource.value._1
@@ -349,7 +348,11 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => info.jdbcUrl)
 
-        port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl = jdbcUrl), bridgeConfig, authService)
+        port <- SandboxOnXRunner.owner(
+          configAdaptor = new SandboxOnXForTestConfigAdaptor(authService),
+          config = sandboxConfig(jdbcUrl = jdbcUrl),
+          bridgeConfig = bridgeConfig,
+        )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,
