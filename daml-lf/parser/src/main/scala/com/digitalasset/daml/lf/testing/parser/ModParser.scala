@@ -127,14 +127,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateImplementsMethod(name, value)
     }
 
-  private lazy val inheritedChoice: Parser[Ref.Name] =
-    Id("choice") ~>! id
-
   private lazy val implements: Parser[TemplateImplements] =
-    Id("implements") ~>! fullIdentifier ~ (`{` ~>
-      rep(method <~ `;`) ~ rep(inheritedChoice <~ `;`)
-      <~ `}`) ^^ { case ifaceId ~ (methods ~ inheritedChoices) =>
-      TemplateImplements.build(ifaceId, methods, inheritedChoices)
+    Id("implements") ~>! fullIdentifier ~ (`{` ~> rep(method <~ `;`) <~ `}`) ^^ {
+      case ifaceId ~ methods =>
+        TemplateImplements.build(ifaceId, methods)
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =

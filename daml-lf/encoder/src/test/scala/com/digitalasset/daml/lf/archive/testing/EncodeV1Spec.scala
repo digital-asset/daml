@@ -77,8 +77,6 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
               implements Mod:Human {
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
-                choice HumanNap;
-                choice HumanSleep;
               };
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
             };

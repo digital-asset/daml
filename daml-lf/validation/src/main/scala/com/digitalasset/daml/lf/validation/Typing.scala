@@ -486,23 +486,12 @@ private[validation] object Typing {
     ): Unit = {
 
       impls.foreach { case (iface, impl) =>
-        val DefInterfaceSignature(requires, _, choices, methods, _) =
+        val DefInterfaceSignature(requires, _, _, methods, _) =
           handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
 
         requires
           .filterNot(impls.contains)
           .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, iface, required))
-
-        val choicesSet = choices.keySet
-        if (impl.inheritedChoices != choicesSet) {
-          throw EBadInheritedChoices(
-            ctx,
-            impl.interfaceId,
-            tplTcon,
-            choicesSet,
-            impl.inheritedChoices,
-          )
-        }
 
         methods.values.foreach { (method: InterfaceMethod) =>
           if (!impl.methods.contains(method.name))

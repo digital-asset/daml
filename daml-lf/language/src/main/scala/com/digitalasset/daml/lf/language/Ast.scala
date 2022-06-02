@@ -771,12 +771,7 @@ object Ast {
       implements: VectorMap[TypeConName, GenTemplateImplements[
         E
       ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
-  ) {
-    lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
-      implements.flatMap { case (iface, impl) =>
-        impl.inheritedChoices.view.map(chName => (chName, iface))
-      }
-  }
+  )
 
   final class GenTemplateCompanion[E] private[Ast] {
     @throws[PackageError]
@@ -918,7 +913,6 @@ object Ast {
   final case class GenTemplateImplements[E](
       interfaceId: TypeConName,
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
-      inheritedChoices: Set[ChoiceName],
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
@@ -926,7 +920,6 @@ object Ast {
     def build(
         interfaceId: TypeConName,
         methods: Iterable[GenTemplateImplementsMethod[E]],
-        inheritedChoices: Iterable[ChoiceName],
     ): GenTemplateImplements[E] =
       new GenTemplateImplements[E](
         interfaceId = interfaceId,
@@ -934,23 +927,18 @@ object Ast {
           methods.map(m => m.name -> m),
           (name: MethodName) => PackageError(s"repeated method implementation $name"),
         ),
-        inheritedChoices = toSetWithoutDuplicate(
-          inheritedChoices,
-          (name: ChoiceName) => PackageError(s"repeated inherited Choices $name"),
-        ),
       )
 
     def apply(
         interfaceId: TypeConName,
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
-        inheritedChoices: Set[ChoiceName],
     ): GenTemplateImplements[E] =
-      GenTemplateImplements[E](interfaceId, methods, inheritedChoices)
+      new GenTemplateImplements[E](interfaceId, methods)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName])] =
-      Some((arg.interfaceId, arg.methods, arg.inheritedChoices))
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
+      Some((arg.interfaceId, arg.methods))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]

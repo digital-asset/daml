@@ -932,8 +932,6 @@ data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
   , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
-  , tpiInheritedChoiceNames :: !(S.Set ChoiceName)
-    -- ^ Set of inherited fixed choice names.
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

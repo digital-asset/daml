@@ -29,7 +29,6 @@ module InterfaceMod {
     };
     implements InterfaceMod:Boxy {
       method getParty = InterfaceMod:Box {party} this;
-      choice ReturnInt;
     };
   };
 
