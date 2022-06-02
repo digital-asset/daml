@@ -11,6 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEve
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.commands.DisclosedContract
 import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test._
 
@@ -163,6 +164,35 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       assertGrpcError(
         errorBadPayload,
         LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
+    }
+  })
+
+  test(
+    "EDMalformedDisclosedContracts",
+    "The ledger rejects malformed contract payloads",
+    allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
+    for {
+      testContext <- initializeTest(ledger, owner, delegate)
+
+      // This payload does not typecheck, it has different fields than the corresponding template
+      malformedArgument = Record(None, Seq(RecordField("", Some(Value(Value.Sum.Bool(false))))))
+
+      errorMalformedPayload <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract
+            .update(_.arguments := malformedArgument)
+        )
+        .failed
+    } yield {
+      assertGrpcError(
+        errorMalformedPayload,
+        // TODO DPP-1026: Verify that this error code is good enough for the user
+        LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         None,
         checkDefiniteAnswerMetadata = true,
       )
