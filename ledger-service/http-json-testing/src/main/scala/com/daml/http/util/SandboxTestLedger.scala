@@ -26,9 +26,11 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
+import com.google.protobuf.ByteString
 import org.scalatest.Suite
 import scalaz.@@
 
+import java.io.FileInputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 trait SandboxTestLedger extends SandboxFixture {
@@ -91,6 +93,9 @@ trait SandboxTestLedger extends SandboxFixture {
     val fa: Future[A] = for {
       ledgerPort <- Future(serverPort)
       client <- clientF
+      _ <- Future.sequence(packageFiles.map { dar =>
+        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 

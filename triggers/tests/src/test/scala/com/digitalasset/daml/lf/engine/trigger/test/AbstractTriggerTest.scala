@@ -27,7 +27,7 @@ import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
@@ -36,7 +36,11 @@ import com.daml.platform.sandbox.fixture.SandboxFixture
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql with TestCommands {
+trait AbstractTriggerTest
+    extends SandboxFixture
+    with SandboxBackend.Postgresql
+    with TestCommands
+    with SandboxRequiringAuthorizationFuns {
   self: Suite =>
 
   protected def toHighLevelResult(s: SValue) = s match {
@@ -75,6 +79,7 @@ trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql 
           ledgerClientConfiguration,
           ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
     } yield client
 
   override protected def darFile =
