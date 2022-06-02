@@ -44,10 +44,12 @@ instance DA.Internal.Desugar.Eq Iface where
   (==) = GHC.Types.primitive @"BEEqual"
 instance (DA.Internal.Desugar.Implements t Iface) =>
          DA.Internal.Desugar.HasToAnyChoice t FooBar (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
 instance (DA.Internal.Desugar.Implements t Iface) =>
          DA.Internal.Desugar.HasFromAnyChoice t FooBar (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Iface)) =>

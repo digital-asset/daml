@@ -290,8 +290,8 @@ convertPrim _ "UExerciseInterface"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "UExerciseByKey"
-    (TApp proxy (TCon template) :-> key :-> TCon choice :-> TUpdate _returnTy) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    (tProxy@(TApp _ (TCon template)) :-> key :-> TCon choice :-> TUpdate _returnTy) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "key", key) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExerciseByKey template choiceName (EVar (mkVar "key")) (EVar (mkVar "arg"))
@@ -317,24 +317,32 @@ convertPrim _ "UFetchByKey"
             ])
 
 convertPrim _ "ETemplateTypeRep"
-    (TApp proxy (TCon template) :-> TTypeRep) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
-    ETypeRep (TCon template)
+    (tProxy@(TApp _ tCon@(TCon _)) :-> TTypeRep) =
+    ETmLam (mkVar "_", tProxy) $
+    ETypeRep tCon
 
 convertPrim _ "EFromAnyTemplate"
     (TAny :-> TOptional (TCon template)) =
     ETmLam (mkVar "any", TAny) $
     EFromAny (TCon template) (EVar $ mkVar "any")
 
-convertPrim _ "EFromAnyChoice"
+convertPrim _ "EFromAnyTemplateChoice"
     (tProxy :-> TAny :-> TOptional choice) =
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "any", TAny) $
     EFromAny choice (EVar $ mkVar "any")
 
+convertPrim _ "EFromAnyInterfaceChoice"
+    (tProxy :-> TAny :-> TOptional choice) =
+    ETmLam (mkVar "_", tProxy) $
+    ETmLam (mkVar "any", TAny) $
+    ECase (EFromAny (mkTAnyInterfaceChoice choice) (EVar $ mkVar "any"))
+      [  CaseAlternative (CPSome $ mkVar "x") (ESome choice $ projChoice choice (EVar $ mkVar "x"))
+      ,  CaseAlternative CPDefault (ENone choice) ]
+
 convertPrim _ "EFromAnyContractKey"
-    (TApp proxy (TCon template) :-> TAny :-> TOptional key) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    (tProxy@(TApp _ (TCon _)) :-> TAny :-> TOptional key) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "any", TAny) $
     EFromAny key (EVar $ mkVar "any")
 
@@ -343,15 +351,21 @@ convertPrim _ "EToAnyTemplate"
     ETmLam (mkVar "template", TCon template) $
     EToAny (TCon template) (EVar $ mkVar "template")
 
-convertPrim _ "EToAnyChoice"
+convertPrim _ "EToAnyTemplateChoice"
     (tProxy :-> choice :-> TAny) =
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "choice", choice) $
     EToAny choice (EVar $ mkVar "choice")
 
+convertPrim _ "EToAnyInterfaceChoice"
+    (tProxy@(TApp _ (TCon typeId)) :-> choice :-> TAny) =
+    ETmLam (mkVar "_", tProxy) $
+    ETmLam (mkVar "choice", choice) $
+    EToAny (mkTAnyInterfaceChoice choice) (mkEAnyInterfaceChoice choice typeId $ EVar $ mkVar "choice")
+
 convertPrim _ "EToAnyContractKey"
-    (TApp proxy (TCon template) :-> key :-> TAny) =
-    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    (tProxy@(TApp _ (TCon _)) :-> key :-> TAny) =
+    ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "key", key) $
     EToAny key (EVar $ mkVar "key")
 
@@ -423,6 +437,19 @@ convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
 
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
+
+typeRepField, choiceField :: FieldName
+typeRepField = FieldName "choiceInterfaceIdRep"
+choiceField = FieldName "choice"
+
+mkTAnyInterfaceChoice :: Type -> Type
+mkTAnyInterfaceChoice t = TStruct [(typeRepField, TTypeRep), (choiceField, t)]
+
+mkEAnyInterfaceChoice :: Type -> Qualified TypeConName -> Expr -> Expr
+mkEAnyInterfaceChoice _ typeId e = EStructCon [(typeRepField, ETypeRep (TCon typeId)), (choiceField, e)]
+
+projChoice :: Type -> Expr -> Expr
+projChoice _ = EStructProj choiceField
 
 -- | Some builtins are only supported in specific versions of Daml-LF.
 whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr

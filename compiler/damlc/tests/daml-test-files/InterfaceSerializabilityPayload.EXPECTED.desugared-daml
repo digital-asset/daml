@@ -35,10 +35,12 @@ instance DA.Internal.Desugar.Eq Gettable where
   (==) = GHC.Types.primitive @"BEEqual"
 instance (DA.Internal.Desugar.Implements t Gettable) =>
          DA.Internal.Desugar.HasToAnyChoice t Get (Gettable) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Gettable])
 instance (DA.Internal.Desugar.Implements t Gettable) =>
          DA.Internal.Desugar.HasFromAnyChoice t Get (Gettable) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Gettable])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Gettable)) =>

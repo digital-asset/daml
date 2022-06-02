@@ -11,7 +11,7 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, QualifiedName, UserId}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
@@ -79,40 +79,6 @@ object ScriptF {
         choice: Name,
     ): Either[String, Ast.TemplateChoiceSignature] =
       compiledPackages.interface.lookupChoice(tmplId, ifaceId, choice).left.map(_.pretty)
-
-    private[this] val archiveId: Identifier = Identifier.assertFromString(
-      "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662:DA.Internal.Template:Archive"
-    )
-
-    // TODO: https://github.com/digital-asset/daml/issues/13653
-    //  infer interface ID of choice in DAML
-    // This is a workaround to infer the template/interface id where the choice is defined
-    // using the choice argument type. The inference should be done in daml.
-    @deprecated
-    def lookupChoiceByArgType(
-        tmplId: Identifier,
-        argTypeId: Identifier,
-    ): Either[String, Identifier] =
-      if (argTypeId == archiveId)
-        Right(tmplId)
-      else {
-        val Identifier(argPkg, QualifiedName(argMod, _)) = argTypeId
-        val choiceName = argTypeId.qualifiedName.name.segments.head
-        val argTyp = Ast.TTyCon(argTypeId)
-        compiledPackages.interface
-          .lookupModule(argPkg, argMod)
-          .left
-          .map(_.pretty)
-          .flatMap(mod =>
-            (mod.templates.view.mapValues(_.choices) ++ mod.interfaces.view.mapValues(_.choices))
-              .collectFirst {
-                case (typeName, choices)
-                    if choices.get(choiceName).exists(_.argBinder._2 == argTyp) =>
-                  Identifier(argPkg, QualifiedName(argMod, typeName))
-              }
-              .toRight(s"cannot find choice with argument type $argTypeId")
-          )
-      }
 
     def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
       compiledPackages.interface.lookupTemplateKey(id) match {
@@ -652,7 +618,6 @@ object ScriptF {
   private def parseSubmit(
       ctx: Ctx,
       v: SValue,
-      lookupChoiceByArgType: (Identifier, Identifier) => Either[String, Identifier],
   ): Either[String, SubmitData] = {
     def convert(
         actAs: OneAnd[List, SValue],
@@ -664,7 +629,7 @@ object ScriptF {
       for {
         actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
         readAs <- readAs.traverse(Converter.toParty(_))
-        cmds <- Converter.toCommands(ctx.compiledPackages, freeAp, lookupChoiceByArgType)
+        cmds <- Converter.toCommands(ctx.compiledPackages, freeAp)
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, stackTrace, continue)
     v match {
@@ -962,16 +927,11 @@ object ScriptF {
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 
-  def parse(
-      ctx: Ctx,
-      constr: Ast.VariantConName,
-      v: SValue,
-      lookupChoiceByArgType: (Identifier, Identifier) => Either[String, Identifier],
-  ): Either[String, ScriptF] =
+  def parse(ctx: Ctx, constr: Ast.VariantConName, v: SValue): Either[String, ScriptF] =
     constr match {
-      case "Submit" => parseSubmit(ctx, v, lookupChoiceByArgType).map(Submit(_))
-      case "SubmitMustFail" => parseSubmit(ctx, v, lookupChoiceByArgType).map(SubmitMustFail(_))
-      case "SubmitTree" => parseSubmit(ctx, v, lookupChoiceByArgType).map(SubmitTree(_))
+      case "Submit" => parseSubmit(ctx, v).map(Submit(_))
+      case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
+      case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)

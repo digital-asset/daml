@@ -7,7 +7,7 @@ package trigger
 
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{FrontStack, ImmArray}
+import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -74,7 +74,14 @@ object Converter {
 
   private case class AnyContractId(templateId: Identifier, contractId: ContractId)
   private case class AnyTemplate(ty: Identifier, arg: SValue)
-  private case class AnyChoice(name: ChoiceName, arg: SValue)
+  sealed abstract class AnyChoice extends Product with Serializable {
+    def name: ChoiceName
+    def arg: SValue
+  }
+  object AnyChoice {
+    final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
+    final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
+  }
   private case class AnyContractKey(key: SValue)
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
@@ -371,12 +378,29 @@ object Converter {
     }
   }
 
+  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
+    // This exploits the fact that in Daml, choice argument type names
+    // and choice names match up.
+    assert(choiceCons.qualifiedName.name.segments.length == 1)
+    choiceCons.qualifiedName.name.segments.head
+  }
+
   private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
-      case SRecord(_, _, ArrayList(SAny(TTyCon(tycon), value), _)) =>
-        // This exploits the fact that in Daml, choice argument type names
-        // and choice names match up.
-        ChoiceName.fromString(tycon.qualifiedName.name.toString).map(AnyChoice(_, value))
+      case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
+        Right(AnyChoice.Template(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SAny(
+                TStruct(Struct((_, TTyCon(choiceCons)), _)),
+                SStruct(_, ArrayList(choiceVal, STypeRep(TTyCon(ifaceId)))),
+              ),
+              _,
+            ),
+          ) =>
+        Right(AnyChoice.Interface(ifaceId, choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case _ =>
         Left(s"Expected AnyChoice but got $v")
     }
@@ -407,9 +431,13 @@ object Converter {
         for {
           anyContractId <- toAnyContractId(sAnyContractId)
           anyChoice <- toAnyChoice(sChoiceVal)
+          choiceTypeId = anyChoice match {
+            case _: AnyChoice.Template => anyContractId.templateId
+            case AnyChoice.Interface(ifaceId, _, _) => ifaceId
+          }
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield ExerciseCommand(
-          Some(toApiIdentifier(anyContractId.templateId)),
+          Some(toApiIdentifier(choiceTypeId)),
           anyContractId.contractId.coid,
           anyChoice.name,
           Some(choiceArg),
@@ -426,6 +454,11 @@ object Converter {
           keyVal <- toAnyContractKey(skeyVal)
           keyArg <- toLedgerValue(keyVal.key)
           anyChoice <- toAnyChoice(sChoiceVal)
+          _ <- anyChoice match {
+            case _: AnyChoice.Template => Right(())
+            case _: AnyChoice.Interface =>
+              Left("Cannot run a ExerciseByKey over a interface choice")
+          }
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield ExerciseByKeyCommand(
           Some(toApiIdentifier(tplId)),
@@ -444,6 +477,11 @@ object Converter {
           anyTmpl <- toAnyTemplate(sTpl)
           templateArg <- toLedgerRecord(anyTmpl.arg)
           anyChoice <- toAnyChoice(sChoiceVal)
+          _ <- anyChoice match {
+            case _: AnyChoice.Template => Right(())
+            case _: AnyChoice.Interface =>
+              Left("Cannot run a CreateAndExercise over a interface choice")
+          }
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield CreateAndExerciseCommand(
           Some(toApiIdentifier(anyTmpl.ty)),

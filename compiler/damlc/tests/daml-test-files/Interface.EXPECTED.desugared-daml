@@ -77,11 +77,13 @@ instance DA.Internal.Desugar.Eq Token where
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
                                                       ContractId Token)) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasFromAnyChoice t Split ((ContractId Token,
                                                         ContractId Token)) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -101,10 +103,12 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
   exercise = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasFromAnyChoice t Transfer (ContractId Token) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -122,10 +126,12 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
   exercise = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasFromAnyChoice t Noop (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -143,10 +149,12 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
   exercise = DA.Internal.Desugar._exerciseDefault
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasFromAnyChoice t GetRich (ContractId Token) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t Token)) =>
@@ -319,9 +327,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Asset where
 instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
 _choice_AssetArchive :
   (Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
