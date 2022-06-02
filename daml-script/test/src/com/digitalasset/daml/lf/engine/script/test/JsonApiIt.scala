@@ -42,7 +42,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -64,9 +64,12 @@ import spray.json._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import com.daml.metrics.{Metrics, MetricsReporter}
+import com.daml.metrics.{Metrics, MetricsReporter, MetricsReporting}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  SandboxOnXForTestConfigAdaptor,
+  SandboxParticipantId,
+}
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -84,22 +87,20 @@ trait JsonApiFixture
   override protected def channel: Channel = suiteResource.value._2
 
   override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(
-      ledgerId = "MyLedger",
-      participants = Map(
-        SandboxParticipantId -> super.config.genericConfig
-          .participants(SandboxParticipantId)
-          .copy(
-            apiServer = super.config.genericConfig
-              .participants(SandboxParticipantId)
-              .apiServer
-              .copy(
-                timeProviderType = TimeProviderType.WallClock,
-                authentication = UnsafeJwtHmac256(secret),
-              )
-          )
-      ),
-    )
+    ledgerId = "MyLedger",
+    participants = Map(
+      SandboxParticipantId -> super.config
+        .participants(SandboxParticipantId)
+        .copy(
+          apiServer = super.config
+            .participants(SandboxParticipantId)
+            .apiServer
+            .copy(
+              timeProviderType = TimeProviderType.WallClock,
+              authentication = UnsafeJwtHmac256(secret),
+            )
+        )
+    ),
   )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort
   protected val secret: String = "secret"
@@ -167,11 +168,17 @@ trait JsonApiFixture
             )
         }
         cfg = config.copy(
-          genericConfig = config.genericConfig.copy(
-            dataSource = participantDataSource
-          )
+          dataSource = participantDataSource
         )
-        serverPort <- SandboxOnXForTest.owner(cfg, bridgeConfig, authService)
+        configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+          authService
+        )
+        metrics <- new MetricsReporting(
+          "sandbox",
+          None,
+          10.seconds,
+        )
+        serverPort <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig, Some(metrics))
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {

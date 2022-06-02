@@ -3,73 +3,22 @@
 
 package com.daml.ledger.sandbox
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
-import com.daml.logging.LoggingContext.newLoggingContextWith
-import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.IndexerConfig
-import com.daml.platform.sandbox.logging
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 
-import java.io.File
 import java.time.Duration
 import java.util.UUID
 import scala.concurrent.duration._
-
-class SandboxOnXForTest(
-    genericConfig: Config,
-    bridgeConfig: BridgeConfig,
-    configAdaptor: BridgeConfigAdaptor,
-    damlPackages: List[File],
-)(implicit materializer: Materializer)
-    extends ResourceOwner[Port] {
-
-  def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
-    for {
-      (participantId, dataSource, participantConfig) <- SandboxOnXRunner.combinedParticipant(
-        genericConfig
-      )
-      metrics <- new MetricsReporting(
-        classOf[SandboxOnXForTest].getName,
-        None,
-        10.seconds,
-      ).acquire()
-
-      (apiServer, writeService, indexService) <-
-        SandboxOnXRunner
-          .buildLedger(
-            participantId,
-            genericConfig,
-            participantConfig,
-            dataSource,
-            bridgeConfig,
-            materializer,
-            materializer.system,
-            configAdaptor,
-            Some(metrics),
-          )
-          .acquire()
-      _ <- newLoggingContextWith(
-        logging.participantId(participantId)
-      ) { implicit loggingContext =>
-        new PackageUploader(writeService, indexService)
-          .upload(damlPackages)
-          .acquire()
-      }
-    } yield apiServer.port
-  }
-}
 
 object SandboxOnXForTest {
   val SandboxEngineConfig = EngineConfig(
@@ -119,30 +68,5 @@ object SandboxOnXForTest {
 
   def defaultH2SandboxJdbcUrl() =
     s"jdbc:h2:mem:sandbox-${UUID.randomUUID().toString};db_close_delay=-1"
-
-  case class CustomConfig(
-      genericConfig: Config,
-      damlPackages: List[File] = List.empty,
-  )
-
-  def owner(
-      config: SandboxOnXForTest.CustomConfig,
-      bridgeConfig: BridgeConfig,
-      authService: Option[AuthService],
-  ): ResourceOwner[Port] = {
-    val configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
-      authService
-    )
-    for {
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem("sandbox"))
-      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      server <- new SandboxOnXForTest(
-        config.genericConfig,
-        bridgeConfig,
-        configAdaptor,
-        List(),
-      )(materializer)
-    } yield server
-  }
 
 }

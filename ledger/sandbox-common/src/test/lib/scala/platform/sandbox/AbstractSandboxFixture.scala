@@ -20,13 +20,14 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
   SandboxEngineConfig,
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -69,22 +70,19 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
 
   def bridgeConfig: BridgeConfig = BridgeConfig()
 
-  protected def config: SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
-    genericConfig = SandboxDefault.copy(
-      ledgerId = "sandbox-server",
-      engine = SandboxEngineConfig.copy(
-        allowedLanguageVersions = LanguageVersion.DevVersions
-      ),
-      participants = Map(
-        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-          SandboxParticipantConfig.apiServer.copy(
-            seeding = Seeding.Weak,
-            timeProviderType = TimeProviderType.Static,
-          )
-        )
-      ),
+  protected def config: Config = SandboxDefault.copy(
+    ledgerId = "sandbox-server",
+    engine = SandboxEngineConfig.copy(
+      allowedLanguageVersions = LanguageVersion.DevVersions
     ),
-    damlPackages = packageFiles,
+    participants = Map(
+      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+        SandboxParticipantConfig.apiServer.copy(
+          seeding = Seeding.Weak,
+          timeProviderType = TimeProviderType.Static,
+        )
+      )
+    ),
   )
 
   protected def packageFiles: List[File] = List(darFile)

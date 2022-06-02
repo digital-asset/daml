@@ -34,6 +34,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
+        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",

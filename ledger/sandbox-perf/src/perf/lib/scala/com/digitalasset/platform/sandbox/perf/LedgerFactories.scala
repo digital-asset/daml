@@ -7,14 +7,22 @@ import java.io.File
 import java.util.concurrent.Executors
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
+  SandboxOnXForTestConfigAdaptor,
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
+import com.daml.ledger.sandbox.{
+  BridgeConfig,
+  BridgeConfigAdaptor,
+  SandboxOnXForTest,
+  SandboxOnXRunner,
+}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.services.time.TimeProviderType
@@ -22,6 +30,7 @@ import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 object LedgerFactories {
 
@@ -31,26 +40,22 @@ object LedgerFactories {
   def bridgeConfig: BridgeConfig = BridgeConfig()
 
   protected def sandboxConfig(
-      jdbcUrl: Option[String],
-      darFiles: List[File],
-  ): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
-    genericConfig = SandboxDefault.copy(
-      ledgerId = "ledger-server",
-      participants = Map(
-        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-          SandboxParticipantConfig.apiServer.copy(
-            seeding = Seeding.Weak,
-            timeProviderType = TimeProviderType.Static,
-          )
+      jdbcUrl: Option[String]
+  ): Config = SandboxDefault.copy(
+    ledgerId = "ledger-server",
+    participants = Map(
+      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+        SandboxParticipantConfig.apiServer.copy(
+          seeding = Seeding.Weak,
+          timeProviderType = TimeProviderType.Static,
         )
-      ),
-      dataSource = Map(
-        SandboxParticipantId -> ParticipantDataSourceConfig(
-          jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
-        )
-      ),
+      )
     ),
-    damlPackages = darFiles,
+    dataSource = Map(
+      SandboxParticipantId -> ParticipantDataSourceConfig(
+        jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
+      )
+    ),
   )
 
   val mem = "InMemory"
@@ -68,7 +73,21 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      port <- SandboxOnXForTest.owner(sandboxConfig(jdbcUrl, darFiles), bridgeConfig, None)
+      configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+        None
+      )
+
+      metrics <- new MetricsReporting(
+        "sandbox",
+        None,
+        10.seconds,
+      )
+      port <- SandboxOnXRunner.owner(
+        configAdaptor,
+        sandboxConfig(jdbcUrl),
+        bridgeConfig,
+        Some(metrics),
+      )
       channel <- GrpcClientResource.owner(port)
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
       ExecutionContext.fromExecutorService(executor)

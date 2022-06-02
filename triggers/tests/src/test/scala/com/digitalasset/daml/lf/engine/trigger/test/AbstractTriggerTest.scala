@@ -116,7 +116,7 @@ trait AbstractTriggerTest
           compiledPackages,
           trigger,
           client,
-          config.genericConfig.participants(SandboxParticipantId).apiServer.timeProviderType,
+          config.participants(SandboxParticipantId).apiServer.timeProviderType,
           applicationId,
           TriggerParties(
             actAs = Party(party),

@@ -15,7 +15,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import io.netty.handler.ssl.ClientAuth
 import io.grpc.StatusRuntimeException
@@ -80,33 +80,30 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     }
   }
 
-  override protected def config: SandboxOnXForTest.CustomConfig = {
+  override protected def config: Config =
     super.config.copy(
-      genericConfig = super.config.genericConfig.copy(
-        participants = Map(
-          SandboxParticipantId -> super.config.genericConfig
-            .participants(SandboxParticipantId)
-            .copy(apiServer =
-              super.config.genericConfig
-                .participants(SandboxParticipantId)
-                .apiServer
-                .copy(tls =
-                  Some(
-                    TlsConfiguration(
-                      enabled = true,
-                      Some(certChainFilePath),
-                      Some(privateKeyFilePath),
-                      Some(trustCertCollectionFilePath),
-                      minimumServerProtocolVersion = minimumServerProtocolVersion,
-                      clientAuth = ClientAuth.NONE,
-                    )
+      participants = Map(
+        SandboxParticipantId -> super.config
+          .participants(SandboxParticipantId)
+          .copy(apiServer =
+            super.config
+              .participants(SandboxParticipantId)
+              .apiServer
+              .copy(tls =
+                Some(
+                  TlsConfiguration(
+                    enabled = true,
+                    Some(certChainFilePath),
+                    Some(privateKeyFilePath),
+                    Some(trustCertCollectionFilePath),
+                    minimumServerProtocolVersion = minimumServerProtocolVersion,
+                    clientAuth = ClientAuth.NONE,
                   )
                 )
-            )
-        )
+              )
+          )
       )
     )
-  }
 
   private val clientConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(

@@ -8,10 +8,14 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
-import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  SandboxOnXForTestConfigAdaptor,
+  SandboxParticipantId,
+}
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
@@ -86,11 +90,17 @@ trait ToxicSandboxFixture
           .map(info => info.jdbcUrl)
         participantDataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl))
         cfg = config.copy(
-          genericConfig = config.genericConfig.copy(
-            dataSource = participantDataSource
-          )
+          dataSource = participantDataSource
         )
-        port <- SandboxOnXForTest.owner(cfg, bridgeConfig, authService)
+        configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+          authService
+        )
+        metrics <- new MetricsReporting(
+          "sandbox",
+          None,
+          10.seconds,
+        )
+        port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig, Some(metrics))
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),

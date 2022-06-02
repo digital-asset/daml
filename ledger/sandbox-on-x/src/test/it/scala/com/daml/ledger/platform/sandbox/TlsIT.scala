@@ -56,28 +56,26 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       ).client()
     )
 
-  override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(participants =
-      Map(
-        SandboxParticipantId -> super.config.genericConfig
-          .participants(SandboxParticipantId)
-          .copy(
-            apiServer = super.config.genericConfig
-              .participants(SandboxParticipantId)
-              .apiServer
-              .copy(
-                tls = Some(
-                  TlsConfiguration(
-                    enabled = true,
-                    Some(certChainFilePath),
-                    Some(privateKeyFilePath),
-                    Some(trustCertCollectionFilePath),
-                    minimumServerProtocolVersion = None,
-                  )
+  override def config = super.config.copy(participants =
+    Map(
+      SandboxParticipantId -> super.config
+        .participants(SandboxParticipantId)
+        .copy(
+          apiServer = super.config
+            .participants(SandboxParticipantId)
+            .apiServer
+            .copy(
+              tls = Some(
+                TlsConfiguration(
+                  enabled = true,
+                  Some(certChainFilePath),
+                  Some(privateKeyFilePath),
+                  Some(trustCertCollectionFilePath),
+                  minimumServerProtocolVersion = None,
                 )
               )
-          )
-      )
+            )
+        )
     )
   )
 

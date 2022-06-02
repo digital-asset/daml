@@ -116,29 +116,27 @@ sealed trait CommandServiceBackPressureITBase
 
   override def bridgeConfig: BridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2)
 
-  override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(participants =
-      Map(
-        SandboxParticipantId -> super.config.genericConfig
-          .participants(SandboxParticipantId)
-          .copy(
-            apiServer = super.config.genericConfig
-              .participants(SandboxParticipantId)
-              .apiServer
-              .copy(
-                command = CommandConfiguration.Default.copy(
-                  inputBufferSize = 1,
-                  maxCommandsInFlight = 2,
-                )
-              ),
-            indexer = super.config.genericConfig
-              .participants(SandboxParticipantId)
-              .indexer
-              .copy(
-                inputMappingParallelism = 2
-              ),
-          )
-      )
+  override def config = super.config.copy(participants =
+    Map(
+      SandboxParticipantId -> super.config
+        .participants(SandboxParticipantId)
+        .copy(
+          apiServer = super.config
+            .participants(SandboxParticipantId)
+            .apiServer
+            .copy(
+              command = CommandConfiguration.Default.copy(
+                inputBufferSize = 1,
+                maxCommandsInFlight = 2,
+              )
+            ),
+          indexer = super.config
+            .participants(SandboxParticipantId)
+            .indexer
+            .copy(
+              inputMappingParallelism = 2
+            ),
+        )
     )
   )
 

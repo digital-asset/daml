@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
   TransactionServiceGrpc,
 }
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
@@ -32,26 +33,24 @@ final class OngoingStreamAuthIT
 
   private val UserManagementCacheExpiryInSeconds = 1
 
-  override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(participants =
-      Map(
-        SandboxParticipantId -> super.config.genericConfig
-          .participants(SandboxParticipantId)
-          .copy(
-            apiServer = super.config.genericConfig
-              .participants(SandboxParticipantId)
-              .apiServer
-              .copy(
-                userManagement = super.config.genericConfig
-                  .participants(SandboxParticipantId)
-                  .apiServer
-                  .userManagement
-                  .copy(
-                    cacheExpiryAfterWriteInSeconds = UserManagementCacheExpiryInSeconds
-                  )
-              )
-          )
-      )
+  override def config: Config = super.config.copy(participants =
+    Map(
+      SandboxParticipantId -> super.config
+        .participants(SandboxParticipantId)
+        .copy(
+          apiServer = super.config
+            .participants(SandboxParticipantId)
+            .apiServer
+            .copy(
+              userManagement = super.config
+                .participants(SandboxParticipantId)
+                .apiServer
+                .userManagement
+                .copy(
+                  cacheExpiryAfterWriteInSeconds = UserManagementCacheExpiryInSeconds
+                )
+            )
+        )
     )
   )
 

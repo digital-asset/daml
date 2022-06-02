@@ -5,8 +5,12 @@ package com.daml.platform.sandbox.fixture
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
-import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  SandboxOnXForTestConfigAdaptor,
+  SandboxParticipantId,
+}
+import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
@@ -43,11 +47,17 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
         }
 
         cfg = config.copy(
-          genericConfig = config.genericConfig.copy(
-            dataSource = participantDataSource
-          )
+          dataSource = participantDataSource
         )
-        port <- SandboxOnXForTest.owner(cfg, bridgeConfig, authService)
+        configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+          authService
+        )
+        metrics <- new MetricsReporting(
+          "sandbox",
+          None,
+          10.seconds,
+        )
+        port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig, Some(metrics))
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

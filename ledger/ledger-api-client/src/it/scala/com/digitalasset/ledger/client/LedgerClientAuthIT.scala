@@ -11,7 +11,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.runner.common.Config
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.Inside
@@ -42,9 +42,7 @@ final class LedgerClientAuthIT
     token = Some(toHeader(readOnlyToken("Read-only party")))
   )
 
-  override protected def config: SandboxOnXForTest.CustomConfig = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(ledgerId = LedgerId.unwrap)
-  )
+  override protected def config: Config = super.config.copy(ledgerId = LedgerId.unwrap)
 
   "the ledger client" when {
     "it has a read-only token" should {

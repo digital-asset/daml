@@ -21,7 +21,6 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
@@ -43,23 +42,20 @@ trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizatio
 
   def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
-  override protected def config: SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
-    genericConfig = SandboxDefault.copy(
-      ledgerId = testId,
-      engine = SandboxEngineConfig.copy(
-        allowedLanguageVersions = LanguageVersion.DevVersions
-      ),
-      participants = Map(
-        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-          SandboxParticipantConfig.apiServer.copy(
-            seeding = Seeding.Weak,
-            timeProviderType = TimeProviderType.WallClock,
-            tls = if (useTls) Some(serverTlsConfig) else None,
-          )
-        )
-      ),
+  override protected def config = SandboxDefault.copy(
+    ledgerId = testId,
+    engine = SandboxEngineConfig.copy(
+      allowedLanguageVersions = LanguageVersion.DevVersions
     ),
-    damlPackages = packageFiles,
+    participants = Map(
+      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+        SandboxParticipantConfig.apiServer.copy(
+          seeding = Seeding.Weak,
+          timeProviderType = TimeProviderType.WallClock,
+          tls = if (useTls) Some(serverTlsConfig) else None,
+        )
+      )
+    ),
   )
 
   def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =

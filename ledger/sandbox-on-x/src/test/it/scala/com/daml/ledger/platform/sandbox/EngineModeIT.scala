@@ -15,14 +15,22 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxDefault,
+  SandboxOnXForTestConfigAdaptor,
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
+import com.daml.ledger.sandbox.{
+  BridgeConfig,
+  BridgeConfigAdaptor,
+  SandboxOnXForTest,
+  SandboxOnXRunner,
+}
 import com.daml.lf.VersionRange
 import com.daml.lf.language.LanguageVersion
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -113,34 +121,39 @@ class EngineModeIT
   "SandboxServer" should {
     def buildServer(versions: VersionRange[LanguageVersion]) = {
 
-      def bridgeConfig: BridgeConfig = BridgeConfig()
+      val bridgeConfig: BridgeConfig = BridgeConfig()
 
-      def sandboxConfig(): SandboxOnXForTest.CustomConfig = SandboxOnXForTest.CustomConfig(
-        genericConfig = SandboxDefault.copy(
-          ledgerId = "ledger-server",
-          engine = SandboxDefault.engine.copy(
-            allowedLanguageVersions = versions
-          ),
-          participants = Map(
-            SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-              SandboxParticipantConfig.apiServer.copy(
-                seeding = Seeding.Weak
-              )
+      val sandboxConfig: Config = SandboxDefault.copy(
+        ledgerId = "ledger-server",
+        engine = SandboxDefault.engine.copy(
+          allowedLanguageVersions = versions
+        ),
+        participants = Map(
+          SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
+            SandboxParticipantConfig.apiServer.copy(
+              seeding = Seeding.Weak
             )
-          ),
-          dataSource = Map(
-            SandboxParticipantId -> ParticipantDataSourceConfig(
-              SandboxOnXForTest.defaultH2SandboxJdbcUrl()
-            )
-          ),
+          )
+        ),
+        dataSource = Map(
+          SandboxParticipantId -> ParticipantDataSourceConfig(
+            SandboxOnXForTest.defaultH2SandboxJdbcUrl()
+          )
+        ),
+      )
+      val configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+        authService
+      )
+      import scala.concurrent.duration._
+
+      for {
+        metrics <- new MetricsReporting(
+          "sandbox",
+          None,
+          10.seconds,
         )
-      )
-
-      SandboxOnXForTest.owner(
-        sandboxConfig(),
-        bridgeConfig,
-        authService,
-      )
+        value <- SandboxOnXRunner.owner(configAdaptor, sandboxConfig, bridgeConfig, Some(metrics))
+      } yield value
     }
 
     def load(langVersion: LanguageVersion, mode: VersionRange[LanguageVersion]) =

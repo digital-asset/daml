@@ -30,20 +30,18 @@ final class WallClockTimeIT
 
   override val timeLimit: Span = 15.seconds
 
-  override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(participants =
-      Map(
-        SandboxParticipantId -> super.config.genericConfig
-          .participants(SandboxParticipantId)
-          .copy(
-            apiServer = super.config.genericConfig
-              .participants(SandboxParticipantId)
-              .apiServer
-              .copy(
-                timeProviderType = TimeProviderType.WallClock
-              )
-          )
-      )
+  override def config = super.config.copy(participants =
+    Map(
+      SandboxParticipantId -> super.config
+        .participants(SandboxParticipantId)
+        .copy(
+          apiServer = super.config
+            .participants(SandboxParticipantId)
+            .apiServer
+            .copy(
+              timeProviderType = TimeProviderType.WallClock
+            )
+        )
     )
   )
 

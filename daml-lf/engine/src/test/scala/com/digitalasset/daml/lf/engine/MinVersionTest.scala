@@ -26,6 +26,7 @@ import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.language.LanguageVersion.v1_14
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
@@ -145,11 +146,16 @@ final class MinVersionTest
       },
     )
     val bridgeConfig = BridgeConfig.Default
-
+    import scala.concurrent.duration._
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
+        metrics <- new MetricsReporting(
+          "sandbox",
+          None,
+          10.seconds,
+        )
+        _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig, Some(metrics))
       } yield readPortfile(portFile)
     )
   }

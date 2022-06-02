@@ -49,7 +49,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest, SandboxOnXRunner}
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -345,7 +345,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           .map(info => info.jdbcUrl)
 
         metrics <- new MetricsReporting(
-          classOf[SandboxOnXForTest].getName,
+          "sandbox",
           None,
           10.seconds,
         )

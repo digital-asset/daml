@@ -21,9 +21,7 @@ sealed trait LedgerIdentityServiceITBaseGiven
   private lazy val givenLedgerId: String = UUID.randomUUID.toString
 
   override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(
-      ledgerId = givenLedgerId
-    )
+    ledgerId = givenLedgerId
   )
 
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
@@ -53,9 +51,7 @@ sealed trait LedgerIdentityServiceITBaseDynamic
   @volatile private var firstRunLedgerId: String = _
 
   override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(
-      ledgerId = UUID.randomUUID.toString
-    )
+    ledgerId = UUID.randomUUID.toString
   )
 
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
@@ -88,9 +84,7 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     with PostgresAroundAll {
 
   override def config = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(
-      ledgerId = Option(firstRunLedgerId).fold(UUID.randomUUID.toString)(identity)
-    )
+    ledgerId = Option(firstRunLedgerId).fold(UUID.randomUUID.toString)(identity)
   )
 
   @volatile private var firstRunLedgerId: String = _

@@ -51,12 +51,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{
-  BridgeConfig,
-  BridgeConfigAdaptor,
-  SandboxOnXForTest,
-  SandboxOnXRunner,
-}
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.{Metrics, MetricsReporting}
@@ -196,7 +191,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       )
 
       metrics <- new MetricsReporting(
-        classOf[SandboxOnXForTest].getName,
+        "sandbox",
         None,
         10.seconds,
       ).acquire().asFuture

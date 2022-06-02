@@ -10,7 +10,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest
+import com.daml.ledger.runner.common.Config
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import io.grpc.ManagedChannel
@@ -38,9 +38,7 @@ final class LedgerClientIT
     token = None,
   )
 
-  override protected def config: SandboxOnXForTest.CustomConfig = super.config.copy(
-    genericConfig = super.config.genericConfig.copy(ledgerId = LedgerId.unwrap)
-  )
+  override protected def config: Config = super.config.copy(ledgerId = LedgerId.unwrap)
 
   "the ledger client" should {
     "retrieve the ledger ID" in {
