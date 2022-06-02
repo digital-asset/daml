@@ -192,7 +192,7 @@ object SandboxOnXRunner {
             ),
           )
 
-        sharedStringInterningView = StringInterningView.build(dbSupport, metrics)
+        sharedStringInterningView = new StringInterningView
 
         indexerHealthChecks <- buildIndexerServer(
           metrics,

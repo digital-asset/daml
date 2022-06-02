@@ -4,10 +4,6 @@
 package com.daml.platform.store.interning
 
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
-import com.daml.platform.store.DbSupport
-import com.daml.platform.store.backend.StringInterningStorageBackend
-import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.{Identifier, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,9 +34,9 @@ trait UpdatingStringInterningView {
     *
     * * if the view is ahead, it will remove all entries with ids greater than the `lastStringInterningId`
     */
-  def update(
-      lastStringInterningId: Int
-  )(implicit loggingContext: LoggingContext, executionContext: ExecutionContext): Future[Unit]
+  def update(lastStringInterningId: Int)(
+      loadPrefixedEntries: LoadStringInterningEntries
+  )(implicit loggingContext: LoggingContext): Future[Unit]
 }
 
 /** Encapsulate the dependency to load a range of string-interning-entries from persistence
@@ -57,7 +53,7 @@ trait LoadStringInterningEntries {
   * - The single, volatile reference enables non-synchronized access from all threads, accessing persistent-immutable datastructure
   * - On the writing side it synchronizes (this usage is anyway expected) and maintains the immutable internal datastructure
   */
-class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
+class StringInterningView()
     extends StringInterning
     with InternizingStringInterningView
     with UpdatingStringInterningView {
@@ -102,20 +98,14 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
       newEntries
     }
 
-  override def update(
-      lastStringInterningId: Int
-  )(implicit loggingContext: LoggingContext, executionContext: ExecutionContext): Future[Unit] =
-    if (lastStringInterningId <= raw.lastId) Future {
-      val idsToBeRemoved = (lastStringInterningId + 1 to raw.lastId).toSet
-      val stringsToBeRemoved = idsToBeRemoved.map(raw.idMap)
-
-      raw = raw.copy(
-        map = raw.map.removedAll(stringsToBeRemoved),
-        idMap = raw.idMap.removedAll(idsToBeRemoved),
-      )
-    }
-    else {
-      loadPrefixedEntries(raw.lastId, lastStringInterningId)(loggingContext)
+  override def update(lastStringInterningId: Int)(
+      loadStringInterningEntries: LoadStringInterningEntries
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    if (lastStringInterningId <= raw.lastId) {
+      raw = RawStringInterning.resetTo(lastStringInterningId, raw)
+      Future.unit
+    } else {
+      loadStringInterningEntries(raw.lastId, lastStringInterningId)(loggingContext)
         .map(updateView)(ExecutionContext.parasitic)
     }
 
@@ -127,30 +117,4 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
       )
     }
   }
-}
-
-object StringInterningView {
-  def build(
-      dbDispatcher: DbDispatcher,
-      stringInterningStorageBackend: StringInterningStorageBackend,
-      metrics: Metrics,
-  ): StringInterningView =
-    new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
-        implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-            stringInterningStorageBackend.loadStringInterningEntries(
-              fromExclusive,
-              toInclusive,
-            )
-          }
-    )
-
-  def build(dbSupport: DbSupport, metrics: Metrics): StringInterningView =
-    build(
-      dbDispatcher = dbSupport.dbDispatcher,
-      stringInterningStorageBackend =
-        dbSupport.storageBackendFactory.createStringInterningStorageBackend,
-      metrics = metrics,
-    )
 }

@@ -78,8 +78,7 @@ object IndexMetadata {
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
-          stringInterning =
-            new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used
+          stringInterning = new StringInterningView(), // not used
         )
       )
   }
