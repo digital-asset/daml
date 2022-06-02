@@ -23,7 +23,6 @@ package object v1_8 {
       new ContractKeysIT,
       new DeeplyNestedValueIT,
       new DivulgenceIT,
-      new ExplicitDisclosureIT,
       new HealthServiceIT,
       new IdentityIT,
       new LedgerConfigurationServiceIT,
