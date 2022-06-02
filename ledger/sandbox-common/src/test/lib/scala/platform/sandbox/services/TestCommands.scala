@@ -3,11 +3,16 @@
 
 package com.daml.platform.sandbox.services
 
-import java.io.File
-import java.util
+import com.daml.ledger.api.auth.client.LedgerCallCredentials
 
+import java.io.{File, FileInputStream}
+import java.util
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{MockMessages => M}
+import com.daml.ledger.api.v1.admin.package_management_service.{
+  PackageManagementServiceGrpc,
+  UploadDarFileRequest,
+}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command.Command.{Create, Exercise}
@@ -19,7 +24,12 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.testing.TestTemplateIdentifiers
+import com.google.protobuf.ByteString
+import com.google.protobuf.empty.Empty
+import io.grpc.Channel
 import scalaz.syntax.tag._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 trait TestCommands {
 
@@ -30,6 +40,27 @@ trait TestCommands {
   protected def packageId: PackageId = DarReader.assertReadArchiveFromFile(darFile).main.pkgId
 
   protected def templateIds = new TestTemplateIdentifiers(packageId)
+
+  def uploadPackageFiles(
+      packageFiles: List[File],
+      channel: Channel,
+      adminToken: String,
+  )(implicit ec: ExecutionContext): Future[Empty] =
+    if (packageFiles.nonEmpty) {
+      val packageManagementService =
+        LedgerCallCredentials.authenticatingStub(
+          PackageManagementServiceGrpc.stub(channel),
+          adminToken,
+        )
+      Future
+        .sequence(packageFiles.map { dar =>
+          val request = new UploadDarFileRequest(ByteString.readFrom(new FileInputStream(dar)))
+          packageManagementService.uploadDarFile(request)
+        })
+        .map(_ => Empty())
+    } else {
+      Future.successful(Empty())
+    }
 
   protected def buildRequest(
       ledgerId: domain.LedgerId,

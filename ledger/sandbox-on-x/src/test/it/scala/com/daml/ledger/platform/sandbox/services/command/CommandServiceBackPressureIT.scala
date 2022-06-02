@@ -18,7 +18,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import io.grpc.Status
@@ -37,6 +37,7 @@ sealed trait CommandServiceBackPressureITBase
     with SandboxFixture
     with SandboxBackend.Postgresql
     with TestCommands
+    with SandboxRequiringAuthorizationFuns
     with SuiteResourceManagementAroundAll {
 
   private val commands = 50
@@ -90,7 +91,10 @@ sealed trait CommandServiceBackPressureITBase
       "reject requests with RESOURCE_EXHAUSTED" in {
         val lid = ledgerId().unwrap
         val service = CommandSubmissionServiceGrpc.stub(channel)
-        testBackPressure(Seq.fill(commands)(submitRequest(lid)).map(service.submit))
+        for {
+          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+          result <- testBackPressure(Seq.fill(commands)(submitRequest(lid)).map(service.submit))
+        } yield result
       }
     }
   }
@@ -100,7 +104,12 @@ sealed trait CommandServiceBackPressureITBase
       "reject requests with RESOURCE_EXHAUSTED" in {
         val lid = ledgerId().unwrap
         val service = CommandServiceGrpc.stub(channel)
-        testBackPressure(Seq.fill(commands)(submitAndWaitRequest(lid)).map(service.submitAndWait))
+        for {
+          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+          result <- testBackPressure(
+            Seq.fill(commands)(submitAndWaitRequest(lid)).map(service.submitAndWait)
+          )
+        } yield result
       }
     }
   }

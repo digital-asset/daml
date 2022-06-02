@@ -143,7 +143,7 @@ object SandboxOnXForTest {
         config.genericConfig,
         bridgeConfig,
         configAdaptor,
-        config.damlPackages,
+        List(),
       )(materializer)
     } yield server
   }

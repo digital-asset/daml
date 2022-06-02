@@ -18,6 +18,7 @@ import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest.OptionValues
@@ -36,6 +37,7 @@ final class CommandStaticTimeIT
     with SandboxFixture
     with ScalaFutures
     with SuiteResourceManagementAroundAll
+    with SandboxRequiringAuthorizationFuns
     with OptionValues {
 
   private val newCommandId: () => String = {
@@ -95,6 +97,7 @@ final class CommandStaticTimeIT
       "commands should be accepted" in {
         for {
           commandClient <- createCommandClient()
+          _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
           result <- commandClient
             .trackSingleCommand(
               SubmitRequest(

@@ -3,12 +3,11 @@
 
 package com.daml.platform.sandbox.services
 
-import java.util.UUID
-
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.platform.sandbox.auth.{ServiceCallAuthTests, ServiceCallWithMainActorAuthTests}
 import com.google.protobuf.empty.Empty
 
+import java.util.UUID
 import scala.concurrent.Future
 
 trait SubmitAndWaitDummyCommand extends TestCommands with SubmitAndWaitDummyCommandHelpers {
@@ -44,33 +43,45 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest(applicationId, party = party))
+    for {
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+      _ <- service(token).submitAndWait(
+        dummySubmitAndWaitRequest(applicationId, party = party)
+      )
+    } yield Empty()
 
   protected def submitAndWaitForTransaction(
       token: Option[String],
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    service(token)
-      .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId, party = party))
-      .map(_ => Empty())
+    for {
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+      _ <- service(token)
+        .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId, party = party))
+    } yield Empty()
 
   protected def submitAndWaitForTransactionId(
       token: Option[String],
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    service(token)
-      .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId, party = party))
-      .map(_ => Empty())
+    for {
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+      _ <- service(token)
+        .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId, party = party))
+    } yield Empty()
 
   protected def submitAndWaitForTransactionTree(
       token: Option[String],
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    service(token)
-      .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId, party = party))
-      .map(_ => Empty())
+    for {
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+      _ <- service(token)
+        .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId, party = party))
+        .map(_ => Empty())
+    } yield Empty()
 
 }
