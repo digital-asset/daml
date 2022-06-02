@@ -55,7 +55,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler
-import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.SandboxBackend
@@ -344,16 +343,10 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => info.jdbcUrl)
 
-        metrics <- new MetricsReporting(
-          "sandbox",
-          None,
-          10.seconds,
-        )
         port <- SandboxOnXRunner.owner(
           configAdaptor = new SandboxOnXForTestConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
           bridgeConfig = BridgeConfig(),
-          metrics = Some(metrics),
         )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),

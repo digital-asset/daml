@@ -64,7 +64,7 @@ import spray.json._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import com.daml.metrics.{Metrics, MetricsReporter, MetricsReporting}
+import com.daml.metrics.{Metrics, MetricsReporter}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxOnXForTestConfigAdaptor,
@@ -173,12 +173,7 @@ trait JsonApiFixture
         configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
           authService
         )
-        metrics <- new MetricsReporting(
-          "sandbox",
-          None,
-          10.seconds,
-        )
-        serverPort <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig, Some(metrics))
+        serverPort <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {

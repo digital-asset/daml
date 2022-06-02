@@ -22,7 +22,6 @@ import com.daml.ledger.sandbox.{
 }
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.services.time.TimeProviderType
@@ -30,7 +29,6 @@ import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 
 object LedgerFactories {
 
@@ -77,16 +75,10 @@ object LedgerFactories {
         None
       )
 
-      metrics <- new MetricsReporting(
-        "sandbox",
-        None,
-        10.seconds,
-      )
       port <- SandboxOnXRunner.owner(
         configAdaptor,
         sandboxConfig(jdbcUrl),
         bridgeConfig,
-        Some(metrics),
       )
       channel <- GrpcClientResource.owner(port)
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(

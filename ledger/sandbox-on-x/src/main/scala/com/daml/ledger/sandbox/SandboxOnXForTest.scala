@@ -5,7 +5,8 @@ package com.daml.ledger.sandbox
 
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.runner.common.{Config, ParticipantConfig}
+import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
+import com.daml.ledger.runner.common.{Config, MetricsConfig, ParticipantConfig}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
@@ -57,6 +58,7 @@ object SandboxOnXForTest {
     engine = SandboxEngineConfig,
     dataSource = Config.Default.dataSource.map { case _ -> value => (SandboxParticipantId, value) },
     participants = Map(SandboxParticipantId -> SandboxParticipantConfig),
+    metrics = MetricsConfig.DefaultMetricsConfig.copy(registryType = MetricRegistryType.New),
   )
 
   class SandboxOnXForTestConfigAdaptor(authServiceOverwrite: Option[AuthService])

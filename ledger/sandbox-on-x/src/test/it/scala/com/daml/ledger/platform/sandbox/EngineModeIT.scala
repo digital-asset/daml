@@ -30,7 +30,6 @@ import com.daml.ledger.sandbox.{
 }
 import com.daml.lf.VersionRange
 import com.daml.lf.language.LanguageVersion
-import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -144,16 +143,7 @@ class EngineModeIT
       val configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
         authService
       )
-      import scala.concurrent.duration._
-
-      for {
-        metrics <- new MetricsReporting(
-          "sandbox",
-          None,
-          10.seconds,
-        )
-        value <- SandboxOnXRunner.owner(configAdaptor, sandboxConfig, bridgeConfig, Some(metrics))
-      } yield value
+      SandboxOnXRunner.owner(configAdaptor, sandboxConfig, bridgeConfig)
     }
 
     def load(langVersion: LanguageVersion, mode: VersionRange[LanguageVersion]) =

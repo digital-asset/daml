@@ -15,7 +15,6 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxOnXForTestConfigAdaptor,
   SandboxParticipantId,
 }
-import com.daml.metrics.MetricsReporting
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
@@ -95,12 +94,7 @@ trait ToxicSandboxFixture
         configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
           authService
         )
-        metrics <- new MetricsReporting(
-          "sandbox",
-          None,
-          10.seconds,
-        )
-        port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig, Some(metrics))
+        port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),
