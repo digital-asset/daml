@@ -10,7 +10,6 @@ import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.javaapi.data.{codegen => jcg}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
@@ -26,7 +25,6 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{SandboxDefault, SandboxPartici
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.Empty
@@ -44,9 +42,6 @@ trait SandboxTestLedger extends SandboxFixture {
   protected val damlPackages: List[File] = List(
     new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
   )
-  protected val ledgerIdMode: LedgerIdMode =
-    LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
-
   override def bridgeConfig: BridgeConfig = BridgeConfig()
 
   override def config = {

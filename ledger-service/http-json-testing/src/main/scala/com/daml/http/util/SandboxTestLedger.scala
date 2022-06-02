@@ -24,6 +24,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
 import com.daml.ledger.sandbox.SandboxOnXForTest
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.ByteString
@@ -33,7 +34,7 @@ import scalaz.@@
 import java.io.FileInputStream
 import scala.concurrent.{ExecutionContext, Future}
 
-trait SandboxTestLedger extends SandboxFixture {
+trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizationFuns {
   self: Suite =>
 
   protected def testId: String
@@ -81,20 +82,26 @@ trait SandboxTestLedger extends SandboxFixture {
       ec: ExecutionContext,
   ): Future[A] = {
 
-    val clientF: Future[DamlLedgerClient] = for {
-      ledgerPort <- Future(serverPort)
-    } yield DamlLedgerClient.singleHost(
+    val client: DamlLedgerClient = DamlLedgerClient.singleHost(
       "localhost",
-      ledgerPort.value,
+      serverPort.value,
       clientCfg(token, testName),
+      clientChannelCfg,
+    )(ec, esf)
+
+    val adminClient: DamlLedgerClient = DamlLedgerClient.singleHost(
+      "localhost",
+      serverPort.value,
+      clientCfg(Some(toHeader(adminTokenStandardJWT)), testName),
       clientChannelCfg,
     )(ec, esf)
 
     val fa: Future[A] = for {
       ledgerPort <- Future(serverPort)
-      client <- clientF
       _ <- Future.sequence(packageFiles.map { dar =>
-        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+        adminClient.packageManagementClient.uploadDarFile(
+          ByteString.readFrom(new FileInputStream(dar))
+        )
       })
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a

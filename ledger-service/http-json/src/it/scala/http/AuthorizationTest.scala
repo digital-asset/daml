@@ -13,7 +13,7 @@ import com.daml.http.util.TestUtil.requiredFile
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.http.util.SandboxTestLedger
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
+import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimAdmin, ClaimPublic, ClaimSet}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
@@ -43,11 +43,15 @@ final class AuthorizationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
-  private val publicToken = "public"
-  private val emptyToken = "empty"
+  private val publicTokenValue = "public"
+  private val emptyTokenValue = "empty"
+  private val adminTokenValue: String = toHeader(adminTokenStandardJWT)
+
   private val mockedAuthService = Option(AuthServiceStatic {
-    case `publicToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
-    case `emptyToken` => ClaimSet.Unauthenticated
+    case `publicTokenValue` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
+    case `emptyTokenValue` => ClaimSet.Unauthenticated
+    case `adminTokenValue` =>
+      ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic, ClaimAdmin))
   })
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
@@ -68,7 +72,7 @@ final class AuthorizationTest
   }
 
   protected def withLedger[A](testFn: DamlLedgerClient => LedgerId => Future[A]): Future[A] = {
-    usingLedger[A](testId, Some(publicToken)) { case (_, client, ledgerId) =>
+    usingLedger[A](testId, Some(publicTokenValue)) { case (_, client, ledgerId) =>
       testFn(client)(ledgerId)
     }
   }
@@ -82,14 +86,14 @@ final class AuthorizationTest
   it should "fail immediately if the authorization is insufficient" in withLedger {
     client => ledgerId =>
       instanceUUIDLogCtx(implicit lc =>
-        packageService(client).reload(Jwt(emptyToken), ledgerId).failed.map(_ => succeed)
+        packageService(client).reload(Jwt(emptyTokenValue), ledgerId).failed.map(_ => succeed)
       )
   }
 
   // TEST_EVIDENCE: Authorization: Updating the package service succeeds with sufficient authorization
   it should "succeed if the authorization is sufficient" in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
-      packageService(client).reload(Jwt(publicToken), ledgerId).map(_ => succeed)
+      packageService(client).reload(Jwt(publicTokenValue), ledgerId).map(_ => succeed)
     )
   }
 

@@ -15,6 +15,8 @@ import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
 import alltests.MultiParty
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
+import com.daml.platform.sandbox.services.TestCommands
 import io.grpc.Channel
 import org.scalatest.Assertion
 
@@ -27,6 +29,8 @@ class CodegenLedgerTest
     with SandboxTestLedger
     with Matchers
     with TestResourceContext
+    with TestCommands
+    with SandboxRequiringAuthorizationFuns
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._
@@ -34,6 +38,7 @@ class CodegenLedgerTest
   def withUniqueParty(
       testCode: (String, Wolpertinger, Wolpertinger, Channel) => Assertion
   ): Future[Assertion] = for {
+    _ <- uploadPackageFiles(damlPackages, channel, toHeader(adminTokenStandardJWT))
     alice <- allocateParty
     glookofly = new Wolpertinger(
       alice,
