@@ -182,8 +182,6 @@ interface Token where
     do
       transferImpl this newOwner
 
-interface EmptyIfc where
-
 template Asset with
     issuer: Party
     owner: Party
@@ -203,4 +201,3 @@ template Asset with
       getOtherOwner = owner
       somethingImpl = do
         pure ()
-    implements EmptyIfc where
