@@ -76,10 +76,12 @@ instance DA.Internal.Desugar.Eq J where
   (==) = GHC.Types.primitive @"BEEqual"
 instance (DA.Internal.Desugar.Implements t J) =>
          DA.Internal.Desugar.HasToAnyChoice t JChoice (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [J])
 instance (DA.Internal.Desugar.Implements t J) =>
          DA.Internal.Desugar.HasFromAnyChoice t JChoice (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice _
+    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [J])
 instance ((DA.Internal.Desugar.HasIsInterfaceType t),
           (DA.Internal.Desugar.HasTemplateTypeRep t),
           (DA.Internal.Desugar.Implements t J)) =>
@@ -158,9 +160,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType T where
 instance DA.Internal.Desugar.HasExercise T DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
 _choice_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T

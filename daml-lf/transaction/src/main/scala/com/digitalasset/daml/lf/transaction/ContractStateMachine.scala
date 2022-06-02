@@ -92,6 +92,7 @@ class ContractStateMachine[Nid](val mode: ContractKeyUniquenessMode) {
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
     /** Visit a create node */
+    /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
       visitCreate(node.templateId, node.coid, node.key)
 
