@@ -105,8 +105,6 @@ If you have a license for Daml Enterprise, you
 can install it as follows:
 
 
-- Canton can be downloaded from this `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_
-  , or you can use our Canton Enterprise Docker images as described in our `Docker instructions <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#docker-instructions>`_.
 - On Windows, download the installer from Artifactory_ instead of Github
   releases. 
 - On Linux and MacOS, download the corresponding tarball,
@@ -114,6 +112,9 @@ can install it as follows:
   :ref:`global daml-config.yaml <global_daml_config>` and add an entry
   with your Artifactory API key. The API key can be found in your
   Artifactory user profile.
+  - The Enterprise edition includes Canton. You can download Canton from this `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`_ 
+  , or use the Canton Enterprise Docker images as described in our `Docker instructions <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#docker-instructions>`_. 
+  - After downloading Canton, unpack it in the directory you want or follow the instructions found `here <https://www.canton.io/docs/dev/user-manual/usermanual/docker.html#starting-canton> to run in Docker.
 
 .. code-block:: yaml
 
