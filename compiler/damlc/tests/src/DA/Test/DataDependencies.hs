@@ -2017,6 +2017,78 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             ]
         ]
 
+    , testCaseSteps "data-dependency doesn't leak unexported definitions from transitive dependencies" $ \step' -> withTempDir $ \tmpDir -> do
+        let
+          depProj = "dep"
+          dataDepProj = "data-dep"
+          mainProj = "main"
+
+          path proj = tmpDir </> proj
+          damlYaml proj = path proj </> "daml.yaml"
+          damlMod proj mod = path proj </> mod <.> "daml"
+          dar proj = path proj </> proj <.> "dar"
+          step proj = step' ("building '" <> proj <> "' project")
+
+          damlYamlBody name deps dataDeps = unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: " <> name
+            , "build-options: [--target=1.dev]"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap dar deps) <> "]"
+            , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
+            ]
+
+        step depProj >> do
+          createDirectoryIfMissing True (path depProj)
+          writeFileUTF8 (damlYaml depProj) $ damlYamlBody depProj [] []
+          writeFileUTF8 (damlMod depProj "Dep") $ unlines
+            [ "module Dep (exported) where"
+
+            , "exported : ()"
+            , "exported = ()"
+
+            , "unexported : ()"
+            , "unexported = ()"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path depProj
+            , "-o", dar depProj
+            ]
+
+        step dataDepProj >> do
+          createDirectoryIfMissing True (path dataDepProj)
+          writeFileUTF8 (damlYaml dataDepProj) $ damlYamlBody dataDepProj [depProj] []
+          writeFileUTF8 (damlMod dataDepProj "DataDep") $ unlines
+            [ "module DataDep where"
+            , "import Dep ()"
+            ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", path dataDepProj
+            , "-o", dar dataDepProj
+            ]
+
+        step mainProj >> do
+          createDirectoryIfMissing True (path mainProj)
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [depProj] [dataDepProj]
+          writeFileUTF8 (damlMod mainProj "Main") $ unlines
+            [ "module Main where"
+
+            , "import Dep"
+
+            , "units : [()]"
+            , "units = [exported, unexported]"
+            ]
+
+          -- This must fail since 'Main' shouldn't see 'Dep.unexported'.
+          callProcessSilentError damlc
+            [ "build"
+            , "--project-root", path mainProj
+            , "-o", dar mainProj
+            ]
+
     , testCaseSteps "data-dependency interface hierarchy" $ \step' -> withTempDir $ \tmpDir -> do
         let
           tokenProj = "token"

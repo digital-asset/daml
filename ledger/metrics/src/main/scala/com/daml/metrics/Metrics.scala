@@ -539,6 +539,13 @@ final class Metrics(val registry: MetricRegistry) {
           val exerciseResultUncompressed: Histogram =
             registry.histogram(Prefix :+ "exercise_result_uncompressed")
         }
+
+        object threadpool {
+          private val Prefix: MetricName = db.Prefix :+ "threadpool"
+
+          val connection: MetricName = Prefix :+ "connection"
+        }
+
       }
     }
 

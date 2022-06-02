@@ -9,7 +9,7 @@ import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, Metrics}
+import com.daml.metrics.{DatabaseMetrics, MetricName, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -111,15 +111,18 @@ object DbDispatcher {
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher with ReportsHealth] =
     for {
       hikariDataSource <- HikariDataSourceOwner(
-        dataSource,
-        serverRole,
-        connectionPoolSize,
-        connectionPoolSize,
-        connectionTimeout,
-        Some(metrics.registry),
+        dataSource = dataSource,
+        serverRole = serverRole,
+        minimumIdle = connectionPoolSize,
+        maxPoolSize = connectionPoolSize,
+        connectionTimeout = connectionTimeout,
+        metrics = Some(metrics.registry),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
-      threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
+      threadPoolName = MetricName(
+        metrics.daml.index.db.threadpool.connection,
+        serverRole.threadPoolSuffix,
+      )
       executor <- ResourceOwner.forExecutorService(() =>
         new InstrumentedExecutorService(
           Executors.newFixedThreadPool(

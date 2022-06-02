@@ -56,6 +56,7 @@ da_scala_library(
         "//libs-scala/resources-grpc",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -313,7 +314,6 @@ da_scala_library(
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
-        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
@@ -341,7 +341,8 @@ da_scala_library(
     name = "sandbox-on-x-app-lib",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
-    scala_deps = [],
+    scala_deps = [
+    ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -357,14 +358,14 @@ da_scala_library(
     name = "sandbox-on-x-test-app",
     srcs = glob(["src/test/app/scala/**/*.scala"]),
     resources = glob(["src/test/app/resources/**/*"]),
-    scala_deps = [],
+    scala_deps = [
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//ledger/caching",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
@@ -508,7 +509,7 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=100000",
+        "--participant participant-id=example,port=6865",
         "--buffered-ledger-api-streams",
     ],
     test_tool_args = [
@@ -522,7 +523,8 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=3",
+        "--participant participant-id=example,port=6865",
+        "--ledger-api-transactions-buffer-max-size=3",
         "--buffered-streams-page-size=1",
         "--buffered-ledger-api-streams",
     ],

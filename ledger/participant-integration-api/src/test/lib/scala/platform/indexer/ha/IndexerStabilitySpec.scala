@@ -7,14 +7,18 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.DbType
-import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackendFactory}
+import com.daml.platform.store.backend.{
+  DataSourceStorageBackend,
+  ParameterStorageBackend,
+  StorageBackendFactory,
+}
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
-import java.sql.Connection
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 
 trait IndexerStabilitySpec
@@ -54,7 +58,9 @@ trait IndexerStabilitySpec
       )
       .use[Unit] { indexers =>
         val factory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
-        val dataSource = factory.createDataSourceStorageBackend.createDataSource(jdbcUrl)
+        val dataSource = factory.createDataSourceStorageBackend.createDataSource(
+          DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+        )
         val parameterStorageBackend = factory.createParameterStorageBackend
         val integrityStorageBackend = factory.createIntegrityStorageBackend
         val connection = dataSource.getConnection()

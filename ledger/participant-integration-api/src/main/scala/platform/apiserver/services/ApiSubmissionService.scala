@@ -259,6 +259,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         result.transactionMeta,
         result.transaction,
         result.interpretationTimeNanos,
+        result.globalKeyMapping,
       )
       .toScalaUnwrapped
   }
