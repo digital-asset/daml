@@ -196,15 +196,18 @@ trait ReproducesTransactions
     )
   } yield ()
 
+  private def uploadDarFiles(client: LedgerClient) =
+    Future.sequence(packageFiles.map { dar =>
+      client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+    })
+
   private def testOffset(
       numParties: Int,
       skip: Int,
   )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
     for {
       client <- LedgerClient(channel, clientConfiguration)
-      _ <- Future.sequence(packageFiles.map { dar =>
-        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
-      })
+      _ <- uploadDarFiles(client)
       parties <- allocateParties(client, numParties)
       // setup
       _ <- f(client, parties)
@@ -232,11 +235,7 @@ trait ReproducesTransactions
         _ <- Future {
           logger.debug("Starting testIou")
         }
-        _ <- Future.sequence(packageFiles.map { dar =>
-          client.packageManagementClient.uploadDarFile(
-            ByteString.readFrom(new FileInputStream(dar))
-          )
-        })
+        _ <- uploadDarFiles(client)
         t0 <- submit(
           client,
           p1,

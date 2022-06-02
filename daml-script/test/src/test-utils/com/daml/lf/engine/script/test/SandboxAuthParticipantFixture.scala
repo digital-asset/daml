@@ -34,29 +34,30 @@ trait SandboxAuthParticipantFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher
-  def participantClients(parties: List[String], admin: Boolean) =
-    Runner
-      .connect(
-        Participants(
-          default_participant = Some(
-            ApiParameters(
-              host = "localhost",
-              port = serverPort.value,
-              access_token = Some(getToken(parties, admin)),
-              application_id = Some(appId),
-            )
-          ),
-          party_participants = Map.empty,
-          participants = Map.empty,
-        ),
-        tlsConfig = TlsConfiguration(false, None, None, None),
-        maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
-      )
-      .flatMap { participantClients =>
-        uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT)).map(_ =>
-          participantClients
+  def participantClients(parties: List[String], admin: Boolean) = {
+    val participants = Participants(
+      default_participant = Some(
+        ApiParameters(
+          host = "localhost",
+          port = serverPort.value,
+          access_token = Some(getToken(parties, admin)),
+          application_id = Some(appId),
         )
-      }
+      ),
+      party_participants = Map.empty,
+      participants = Map.empty,
+    )
+
+    for {
+      participantClients <- Runner
+        .connect(
+          participantParams = participants,
+          tlsConfig = TlsConfiguration(false, None, None, None),
+          maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+        )
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+    } yield participantClients
+  }
 
   private val secret = "secret"
 
