@@ -4,7 +4,8 @@
 package com.daml
 
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.javaapi.data.{CreatedEvent, Identifier}
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.resources.TestResourceContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,18 +24,15 @@ class Interfaces
   it should "contain all choices of an interface in templates implementing it" in withClient {
     client =>
       def checkTemplateId[T](
-          shouldBeId: Identifier,
-          fn: CreatedEvent => T,
+          companion: ContractCompanion[T, _, _]
       ): PartialFunction[CreatedEvent, T] = {
-        case event: CreatedEvent if event.getTemplateId == shouldBeId => fn(event)
+        case event if event.getTemplateId == companion.TEMPLATE_ID =>
+          companion fromCreatedEvent event
       }
       val safeChildFromCreatedEvent =
-        checkTemplateId(interfaces.Child.TEMPLATE_ID, interfaces.Child.Contract.fromCreatedEvent)
+        checkTemplateId(interfaces.Child.COMPANION)
       val safeChildCloneFromCreatedEvent =
-        checkTemplateId(
-          interfaces.ChildClone.TEMPLATE_ID,
-          interfaces.ChildClone.Contract.fromCreatedEvent,
-        )
+        checkTemplateId(interfaces.ChildClone.COMPANION)
       for {
         alice <- allocateParty
       } yield {
