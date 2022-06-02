@@ -50,7 +50,7 @@ import com.daml.lf.value.Value.ContractId
   * @tparam Nid Type parameter for [[com.daml.lf.transaction.NodeId]]s during interpretation.
   *             Use [[scala.Unit]] for iteration.
   */
-class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
+class ContractStateMachine[Nid](val mode: ContractKeyUniquenessMode) {
   import ContractStateMachine._
 
   def initial: State = State.empty
@@ -88,6 +88,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       activeState: ActiveLedgerState[Nid],
       rollbackStack: List[ActiveLedgerState[Nid]],
   ) {
+
+    def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
@@ -324,6 +326,100 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       case Nil => throw new IllegalStateException("Not inside a rollback scope")
       case _ :: tailStack => this.copy(rollbackStack = tailStack)
     }
+
+    private def withinRollbackScope: Boolean = rollbackStack.nonEmpty
+
+    /** Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`
+      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]],
+      * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
+      * Let `this` state be the result of iterating over `tx` up to a node `n` exclusive using `resolver`.
+      * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n` starting from [[State.empty]],
+      * using the resolver [[projectKeyResolver]](`resolver`)
+      * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]]
+      * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
+      * Then, the returned state is the same as if
+      * the iteration over tx continued from `this` state through the whole subtree rooted at `n` using `resolver`.
+      *
+      * The iteration over the subtree rooted at `n` from `this` using the projected resolver fails
+      * if and only if advancing `this` using `substate` does, but the error may be different.
+      */
+    def advance(resolver: KeyResolver, substate: State): Either[KeyInputError, State] = {
+      require(
+        !substate.withinRollbackScope,
+        "Cannot lift a state over a substate with unfinished rollback scopes",
+      )
+
+      def keyMappingFor(key: GlobalKey): Option[KeyMapping] =
+        this.activeState.keys.get(key).orElse(this.globalKeyInputs.get(key).map(_.toKeyMapping))
+
+      // We want consistent key lookups within an action in any contract key mode.
+      def consistentGlobalKeyInputs: Either[KeyInputError, Unit] = {
+        substate.globalKeyInputs
+          .collectFirst {
+            case (key, KeyCreate)
+                if keyMappingFor(key).exists(_ != KeyInactive) &&
+                  mode != ContractKeyUniquenessMode.Off =>
+              DuplicateContractKey(key)
+            case (key, NegativeKeyLookup) if keyMappingFor(key).exists(_.isDefined) =>
+              InconsistentKeys(key)
+            case (key, Transaction.KeyActive(cid))
+                if keyMappingFor(key).exists(km => km != KeyActive(cid)) =>
+              InconsistentKeys(key)
+          }
+          .toLeft(())
+      }
+
+      for {
+        _ <- consistentGlobalKeyInputs
+      } yield {
+        val next = ActiveLedgerState(
+          consumedBy = this.activeState.consumedBy ++ substate.activeState.consumedBy,
+          keys = this.activeState.keys.concat(substate.activeState.keys),
+        )
+        val globalKeyInputs =
+          if (mode == ContractKeyUniquenessMode.Strict)
+            // In strict mode, `key`'s state is the same at `this` as at the beginning
+            // if `key` is not in `this.globalKeyInputs`.
+            // So just extend `this.globalKeyInputs` with the new stuff.
+            substate.globalKeyInputs.concat(this.globalKeyInputs)
+          else
+            substate.globalKeyInputs.foldLeft(this.globalKeyInputs) { case (acc, (key, keyInput)) =>
+              if (acc.contains(key)) acc
+              else {
+                val resolution = keyInput match {
+                  case KeyCreate =>
+                    // A create brought the contract key in scope without querying a resolver.
+                    // So the global key input for `key` does not depend on the resolver.
+                    KeyCreate
+                  case NegativeKeyLookup =>
+                    // A lookup-by-key brought the key in scope. Use the resolver's resolution instead
+                    // as the projected resolver's resolution might have been mapped to None.
+                    resolver(key).fold(keyInput)(Transaction.KeyActive)
+                  case active: Transaction.KeyActive =>
+                    active
+                }
+                acc.updated(key, resolution)
+              }
+            }
+
+        this.copy(
+          globalKeyInputs = globalKeyInputs,
+          activeState = next,
+        )
+      }
+    }
+
+    /** @see advance */
+    def projectKeyResolver(resolver: KeyResolver): KeyResolver = {
+      val keys = activeState.keys
+      val consumed = activeState.consumedBy.keySet
+      resolver.map { case (key, keyMapping) =>
+        val newKeyInput = keys.getOrElse(key, keyMapping.filterNot(consumed.contains))
+        key -> newKeyInput
+      }
+    }
+
+    private[transaction] def reset(): State = State.empty
   }
 
   object State {
