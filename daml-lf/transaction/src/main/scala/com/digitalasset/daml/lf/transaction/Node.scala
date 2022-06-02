@@ -70,6 +70,15 @@ object Node {
   @deprecated("use Node.Create", since = "1.18.0")
   val NodeCreate: Create.type = Create
 
+  /** The implementation of a choice defined on an interface
+      including both the provider as well as a pointer to the package
+      containing the implementation.
+    */
+  final case class Implementation(
+    provider: Party,
+    implementationPackage: PackageId,
+  )
+
   /** Denotes the creation of a contract instance. */
   final case class Create(
       coid: ContractId,
@@ -155,7 +164,9 @@ object Node {
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-      // For the sake of consistency between types with a version field, keep this field the last.
+                                   // For the sake of consistency between types with a version field, keep this field the last.
+      byImplementation: Option[Implementation], // The implementation of the interface choice if any.
+      // This is set iff interfaceId is set and choiceId points to an abstract choice.
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
