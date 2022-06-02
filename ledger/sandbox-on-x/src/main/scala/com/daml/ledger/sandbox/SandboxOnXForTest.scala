@@ -6,9 +6,13 @@ package com.daml.ledger.sandbox
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.runner.common.MetricsConfig.MetricRegistryType
-import com.daml.ledger.runner.common.{Config, MetricsConfig, ParticipantConfig}
+import com.daml.ledger.runner.common.{
+  Config,
+  MetricsConfig,
+  ParticipantConfig => _ParticipantConfig,
+}
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.EngineConfig
+import com.daml.lf.engine.{EngineConfig => _EngineConfig}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -22,15 +26,15 @@ import java.util.UUID
 import scala.concurrent.duration._
 
 object SandboxOnXForTest {
-  val SandboxEngineConfig = EngineConfig(
+  val EngineConfig: _EngineConfig = _EngineConfig(
     allowedLanguageVersions = LanguageVersion.StableVersions,
     profileDir = None,
     stackTraceMode = true,
     forbidV0ContractId = true,
   )
-  val SandboxParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
-  val SandboxParticipantConfig =
-    ParticipantConfig(
+  val ParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
+  val ParticipantConfig: _ParticipantConfig =
+    _ParticipantConfig(
       apiServer = ApiServerConfig().copy(
         initialLedgerConfiguration = Some(
           InitialLedgerConfiguration(
@@ -54,15 +58,14 @@ object SandboxOnXForTest {
         inputMappingParallelism = 512
       ),
     )
-  val SandboxDefault = Config(
-    engine = SandboxEngineConfig,
-    dataSource = Config.Default.dataSource.map { case _ -> value => (SandboxParticipantId, value) },
-    participants = Map(SandboxParticipantId -> SandboxParticipantConfig),
+  val Default: Config = Config(
+    engine = EngineConfig,
+    dataSource = Config.Default.dataSource.map { case _ -> value => (ParticipantId, value) },
+    participants = Map(ParticipantId -> ParticipantConfig),
     metrics = MetricsConfig.DefaultMetricsConfig.copy(registryType = MetricRegistryType.New),
   )
 
-  class SandboxOnXForTestConfigAdaptor(authServiceOverwrite: Option[AuthService])
-      extends BridgeConfigAdaptor {
+  class ConfigAdaptor(authServiceOverwrite: Option[AuthService]) extends BridgeConfigAdaptor {
     override def authService(apiServerConfig: ApiServerConfig): AuthService = {
       authServiceOverwrite.getOrElse(AuthServiceWildcard)
     }

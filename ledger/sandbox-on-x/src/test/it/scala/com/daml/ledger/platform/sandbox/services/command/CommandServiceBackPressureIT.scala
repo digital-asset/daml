@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
@@ -118,11 +118,11 @@ sealed trait CommandServiceBackPressureITBase
 
   override def config = super.config.copy(participants =
     Map(
-      SandboxParticipantId -> super.config
-        .participants(SandboxParticipantId)
+      ParticipantId -> super.config
+        .participants(ParticipantId)
         .copy(
           apiServer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .apiServer
             .copy(
               command = CommandConfiguration.Default.copy(
@@ -131,7 +131,7 @@ sealed trait CommandServiceBackPressureITBase
               )
             ),
           indexer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .indexer
             .copy(
               inputMappingParallelism = 2

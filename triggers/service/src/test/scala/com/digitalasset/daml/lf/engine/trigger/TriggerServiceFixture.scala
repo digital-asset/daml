@@ -43,11 +43,11 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxDefault,
-  SandboxEngineConfig,
-  SandboxOnXForTestConfigAdaptor,
-  SandboxParticipantConfig,
-  SandboxParticipantId,
+  Default,
+  EngineConfig,
+  ConfigAdaptor,
+  ParticipantConfig,
+  ParticipantId,
 }
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
@@ -292,15 +292,15 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
   self: Suite =>
 
   private def sandboxConfig(jdbcUrl: String): Config =
-    SandboxDefault.copy(
+    Default.copy(
       ledgerId = this.getClass.getSimpleName,
-      engine = SandboxEngineConfig.copy(
+      engine = EngineConfig.copy(
         allowedLanguageVersions = LanguageVersion.DevVersions
       ),
-      dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+      dataSource = Map(ParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
       participants = Map(
-        SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-          SandboxParticipantConfig.apiServer.copy(
+        ParticipantId -> ParticipantConfig.copy(apiServer =
+          ParticipantConfig.apiServer.copy(
             seeding = Seeding.Weak,
             timeProviderType = TimeProviderType.Static,
           )
@@ -344,7 +344,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           .map(info => info.jdbcUrl)
 
         port <- SandboxOnXRunner.owner(
-          configAdaptor = new SandboxOnXForTestConfigAdaptor(authService),
+          configAdaptor = new ConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
           bridgeConfig = BridgeConfig(),
         )

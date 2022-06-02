@@ -25,7 +25,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
@@ -82,11 +82,11 @@ class ScalaCodeGenIT
   override def config = super.config.copy(
     ledgerId = ledgerId,
     participants = Map(
-      SandboxParticipantId -> super.config
-        .participants(SandboxParticipantId)
+      ParticipantId -> super.config
+        .participants(ParticipantId)
         .copy(
           apiServer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .apiServer
             .copy(
               timeProviderType = TimeProviderType.WallClock

@@ -16,10 +16,10 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ports.Port
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxDefault,
-  SandboxEngineConfig,
-  SandboxParticipantConfig,
-  SandboxParticipantId,
+  Default,
+  EngineConfig,
+  ParticipantConfig,
+  ParticipantId,
 }
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -42,14 +42,14 @@ trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizatio
 
   def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
-  override protected def config = SandboxDefault.copy(
+  override protected def config = Default.copy(
     ledgerId = testId,
-    engine = SandboxEngineConfig.copy(
+    engine = EngineConfig.copy(
       allowedLanguageVersions = LanguageVersion.DevVersions
     ),
     participants = Map(
-      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-        SandboxParticipantConfig.apiServer.copy(
+      ParticipantId -> ParticipantConfig.copy(apiServer =
+        ParticipantConfig.apiServer.copy(
           seeding = Seeding.Weak,
           timeProviderType = TimeProviderType.WallClock,
           tls = if (useTls) Some(serverTlsConfig) else None,

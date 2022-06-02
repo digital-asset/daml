@@ -11,7 +11,7 @@ import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
@@ -62,11 +62,11 @@ trait SandboxAuthParticipantFixture
 
   override def config = super.config.copy(participants =
     Map(
-      SandboxParticipantId -> super.config
-        .participants(SandboxParticipantId)
+      ParticipantId -> super.config
+        .participants(ParticipantId)
         .copy(
           apiServer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .apiServer
             .copy(
               timeProviderType = TimeProviderType.WallClock,

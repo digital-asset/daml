@@ -22,7 +22,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
@@ -116,7 +116,7 @@ trait AbstractTriggerTest
           compiledPackages,
           trigger,
           client,
-          config.participants(SandboxParticipantId).apiServer.timeProviderType,
+          config.participants(ParticipantId).apiServer.timeProviderType,
           applicationId,
           TriggerParties(
             actAs = Party(party),

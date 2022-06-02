@@ -12,7 +12,7 @@ import org.scalatest.Suite
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.script.Runner.connectApiParameters
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.sandbox.services.TestCommands
@@ -66,11 +66,11 @@ trait SandboxParticipantFixture
 
   override def config = super.config.copy(participants =
     Map(
-      SandboxParticipantId -> super.config
-        .participants(SandboxParticipantId)
+      ParticipantId -> super.config
+        .participants(ParticipantId)
         .copy(
           apiServer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .apiServer
             .copy(
               timeProviderType = timeMode match {

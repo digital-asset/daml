@@ -3,18 +3,18 @@
 
 package com.daml.lf.engine.trigger.test
 
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.platform.services.time.TimeProviderType
 
 final class FuncTestsStaticTime extends AbstractFuncTests {
 
   override def config = super.config.copy(participants =
     Map(
-      SandboxParticipantId -> super.config
-        .participants(SandboxParticipantId)
+      ParticipantId -> super.config
+        .participants(ParticipantId)
         .copy(
           apiServer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .apiServer
             .copy(
               timeProviderType = TimeProviderType.Static

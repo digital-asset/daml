@@ -17,10 +17,10 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxDefault,
-  SandboxOnXForTestConfigAdaptor,
-  SandboxParticipantConfig,
-  SandboxParticipantId,
+  Default,
+  ConfigAdaptor,
+  ParticipantConfig,
+  ParticipantId,
 }
 import com.daml.ledger.sandbox.{
   BridgeConfig,
@@ -122,25 +122,25 @@ class EngineModeIT
 
       val bridgeConfig: BridgeConfig = BridgeConfig()
 
-      val sandboxConfig: Config = SandboxDefault.copy(
+      val sandboxConfig: Config = Default.copy(
         ledgerId = "ledger-server",
-        engine = SandboxDefault.engine.copy(
+        engine = Default.engine.copy(
           allowedLanguageVersions = versions
         ),
         participants = Map(
-          SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-            SandboxParticipantConfig.apiServer.copy(
+          ParticipantId -> ParticipantConfig.copy(apiServer =
+            ParticipantConfig.apiServer.copy(
               seeding = Seeding.Weak
             )
           )
         ),
         dataSource = Map(
-          SandboxParticipantId -> ParticipantDataSourceConfig(
+          ParticipantId -> ParticipantDataSourceConfig(
             SandboxOnXForTest.defaultH2SandboxJdbcUrl()
           )
         ),
       )
-      val configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+      val configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
         authService
       )
       SandboxOnXRunner.owner(configAdaptor, sandboxConfig, bridgeConfig)

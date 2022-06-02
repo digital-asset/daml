@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   TransactionServiceGrpc,
 }
 import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.timer.Delayed
@@ -35,15 +35,15 @@ final class OngoingStreamAuthIT
 
   override def config: Config = super.config.copy(participants =
     Map(
-      SandboxParticipantId -> super.config
-        .participants(SandboxParticipantId)
+      ParticipantId -> super.config
+        .participants(ParticipantId)
         .copy(
           apiServer = super.config
-            .participants(SandboxParticipantId)
+            .participants(ParticipantId)
             .apiServer
             .copy(
               userManagement = super.config
-                .participants(SandboxParticipantId)
+                .participants(ParticipantId)
                 .apiServer
                 .userManagement
                 .copy(

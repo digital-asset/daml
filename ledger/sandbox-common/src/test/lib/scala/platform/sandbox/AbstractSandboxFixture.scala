@@ -22,10 +22,10 @@ import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxDefault,
-  SandboxEngineConfig,
-  SandboxParticipantConfig,
-  SandboxParticipantId,
+  Default,
+  EngineConfig,
+  ParticipantConfig,
+  ParticipantId,
 }
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.test.ModelTestDar
@@ -70,14 +70,14 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
 
   def bridgeConfig: BridgeConfig = BridgeConfig()
 
-  protected def config: Config = SandboxDefault.copy(
+  protected def config: Config = Default.copy(
     ledgerId = "sandbox-server",
-    engine = SandboxEngineConfig.copy(
+    engine = EngineConfig.copy(
       allowedLanguageVersions = LanguageVersion.DevVersions
     ),
     participants = Map(
-      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-        SandboxParticipantConfig.apiServer.copy(
+      ParticipantId -> ParticipantConfig.copy(apiServer =
+        ParticipantConfig.apiServer.copy(
           seeding = Seeding.Weak,
           timeProviderType = TimeProviderType.Static,
         )

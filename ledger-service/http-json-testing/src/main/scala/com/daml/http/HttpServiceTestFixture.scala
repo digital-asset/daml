@@ -45,11 +45,11 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxDefault,
-  SandboxEngineConfig,
-  SandboxOnXForTestConfigAdaptor,
-  SandboxParticipantConfig,
-  SandboxParticipantId,
+  Default,
+  EngineConfig,
+  ConfigAdaptor,
+  ParticipantConfig,
+  ParticipantId,
 }
 import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.lf.language.LanguageVersion
@@ -189,7 +189,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         jdbcUrl = jdbcUrl,
       )
 
-      configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+      configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
         authService
       )
       portF <- Future(
@@ -231,15 +231,15 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ledgerId: LedgerId,
       useTls: UseTls,
       jdbcUrl: String,
-  ): common.Config = SandboxDefault.copy(
+  ): common.Config = Default.copy(
     ledgerId = ledgerId.unwrap,
-    engine = SandboxEngineConfig.copy(
+    engine = EngineConfig.copy(
       allowedLanguageVersions = LanguageVersion.DevVersions
     ),
-    dataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
+    dataSource = Map(ParticipantId -> ParticipantDataSourceConfig(jdbcUrl)),
     participants = Map(
-      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-        SandboxParticipantConfig.apiServer.copy(
+      ParticipantId -> ParticipantConfig.copy(apiServer =
+        ParticipantConfig.apiServer.copy(
           seeding = Seeding.Weak,
           timeProviderType = TimeProviderType.WallClock,
           tls = if (useTls) Some(serverTlsConfig) else None,

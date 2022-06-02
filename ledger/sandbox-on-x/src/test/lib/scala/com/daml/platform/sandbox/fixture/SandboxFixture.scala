@@ -5,10 +5,7 @@ package com.daml.platform.sandbox.fixture
 
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxOnXForTestConfigAdaptor,
-  SandboxParticipantId,
-}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId}
 import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.AbstractSandboxFixture
@@ -36,10 +33,10 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
           )
 
         participantDataSource = jdbcUrl match {
-          case Some(url) => Map(SandboxParticipantId -> ParticipantDataSourceConfig(url))
+          case Some(url) => Map(ParticipantId -> ParticipantDataSourceConfig(url))
           case None =>
             Map(
-              SandboxParticipantId -> ParticipantDataSourceConfig(
+              ParticipantId -> ParticipantDataSourceConfig(
                 SandboxOnXForTest.defaultH2SandboxJdbcUrl()
               )
             )
@@ -48,7 +45,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Ch
         cfg = config.copy(
           dataSource = participantDataSource
         )
-        configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+        configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
           authService
         )
         port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)

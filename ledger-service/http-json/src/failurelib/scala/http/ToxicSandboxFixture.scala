@@ -11,10 +11,7 @@ import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
 import com.daml.ledger.sandbox.{BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxOnXForTestConfigAdaptor,
-  SandboxParticipantId,
-}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, ParticipantId}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
@@ -87,11 +84,11 @@ trait ToxicSandboxFixture
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => info.jdbcUrl)
-        participantDataSource = Map(SandboxParticipantId -> ParticipantDataSourceConfig(jdbcUrl))
+        participantDataSource = Map(ParticipantId -> ParticipantDataSourceConfig(jdbcUrl))
         cfg = config.copy(
           dataSource = participantDataSource
         )
-        configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+        configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
           authService
         )
         port <- SandboxOnXRunner.owner(configAdaptor, cfg, bridgeConfig)

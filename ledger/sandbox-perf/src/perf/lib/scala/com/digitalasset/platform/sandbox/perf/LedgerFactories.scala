@@ -9,10 +9,10 @@ import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  SandboxDefault,
-  SandboxOnXForTestConfigAdaptor,
-  SandboxParticipantConfig,
-  SandboxParticipantId,
+  Default,
+  ConfigAdaptor,
+  ParticipantConfig,
+  ParticipantId,
 }
 import com.daml.ledger.sandbox.{
   BridgeConfig,
@@ -39,18 +39,18 @@ object LedgerFactories {
 
   protected def sandboxConfig(
       jdbcUrl: Option[String]
-  ): Config = SandboxDefault.copy(
+  ): Config = Default.copy(
     ledgerId = "ledger-server",
     participants = Map(
-      SandboxParticipantId -> SandboxParticipantConfig.copy(apiServer =
-        SandboxParticipantConfig.apiServer.copy(
+      ParticipantId -> ParticipantConfig.copy(apiServer =
+        ParticipantConfig.apiServer.copy(
           seeding = Seeding.Weak,
           timeProviderType = TimeProviderType.Static,
         )
       )
     ),
     dataSource = Map(
-      SandboxParticipantId -> ParticipantDataSourceConfig(
+      ParticipantId -> ParticipantDataSourceConfig(
         jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())
       )
     ),
@@ -71,7 +71,7 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
+      configAdaptor: BridgeConfigAdaptor = new ConfigAdaptor(
         None
       )
 

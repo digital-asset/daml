@@ -21,7 +21,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.sandbox.SandboxOnXForTest.{SandboxDefault, SandboxParticipantId}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{Default, ParticipantId}
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -45,16 +45,16 @@ trait SandboxTestLedger extends SandboxFixture {
   override def bridgeConfig: BridgeConfig = BridgeConfig()
 
   override def config =
-    SandboxDefault.copy(
+    Default.copy(
       ledgerId = TestUtil.LedgerID,
-      engine = SandboxDefault.engine
+      engine = Default.engine
         .copy(allowedLanguageVersions = LanguageVersion.DevVersions),
       participants = Map(
-        SandboxParticipantId -> SandboxDefault
-          .participants(SandboxParticipantId)
+        ParticipantId -> Default
+          .participants(ParticipantId)
           .copy(
-            apiServer = SandboxDefault
-              .participants(SandboxParticipantId)
+            apiServer = Default
+              .participants(ParticipantId)
               .apiServer
               .copy(
                 timeProviderType = TimeProviderType.Static,
