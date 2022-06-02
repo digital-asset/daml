@@ -10,6 +10,7 @@ import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.command.DisclosedContract
+import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -248,16 +249,7 @@ final case class Transaction(
 
 sealed abstract class HasTxNodes {
 
-  import Transaction.{
-    KeyInput,
-    KeyActive,
-    KeyCreate,
-    NegativeKeyLookup,
-    KeyInputError,
-    DuplicateKeys,
-    InconsistentKeys,
-    ChildrenRecursion,
-  }
+  import Transaction.{KeyInput, KeyInputError, ChildrenRecursion}
 
   def nodes: Map[NodeId, Node]
 
@@ -482,121 +474,19 @@ sealed abstract class HasTxNodes {
   @throws[IllegalArgumentException](
     "If a contract key contains a contract id"
   )
-  final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    val localCids = localContracts.keySet
-    final case class State(
-        keys: Map[GlobalKey, Option[Value.ContractId]],
-        rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
-        keyInputs: Map[GlobalKey, KeyInput],
-    ) {
-      def setKeyMapping(
-          key: GlobalKey,
-          value: KeyInput,
-      ): Either[KeyInputError, State] = {
-        (keyInputs.get(key), value) match {
-          case (None, _) =>
-            Right(copy(keyInputs = keyInputs.updated(key, value)))
-          case (Some(KeyCreate | NegativeKeyLookup), KeyActive(_)) => Left(InconsistentKeys(key))
-          case (Some(KeyActive(_)), NegativeKeyLookup) => Left(InconsistentKeys(key))
-          case (Some(KeyActive(_)), KeyCreate) => Left(DuplicateKeys(key))
-          case _ => Right(this)
-        }
-      }
-      def assertKeyMapping(
-          templateId: Identifier,
-          cid: Value.ContractId,
-          optKey: Option[Node.KeyWithMaintainers],
-      ): Either[KeyInputError, State] =
-        optKey.fold[Either[KeyInputError, State]](Right(this)) { key =>
-          val gk = GlobalKey.assertBuild(templateId, key.key)
-          keys.get(gk) match {
-            case Some(keyMapping) if Some(cid) != keyMapping => Left(InconsistentKeys(gk))
-            case _ =>
-              val r = copy(keys = keys.updated(gk, Some(cid)))
-              if (localCids.contains(cid)) {
-                Right(r)
-              } else {
-                r.setKeyMapping(gk, KeyActive(cid))
-              }
-          }
-        }
-      def handleExercise(exe: Node.Exercise) =
-        assertKeyMapping(exe.templateId, exe.targetCoid, exe.key).map { state =>
-          exe.key.fold(state) { key =>
-            val gk = GlobalKey.assertBuild(exe.templateId, key.key)
-            if (exe.consuming) {
-              state.copy(
-                keys = keys.updated(gk, None)
-              )
-            } else {
-              state
-            }
-          }
-        }
-
-      def handleCreate(create: Node.Create) =
-        create.key.fold[Either[KeyInputError, State]](Right(this)) { key =>
-          val gk = GlobalKey.assertBuild(create.templateId, key.key)
-          val next = copy(keys = keys.updated(gk, Some(create.coid)))
-          keys.get(gk) match {
-            case None =>
-              next.setKeyMapping(gk, KeyCreate)
-            case Some(None) =>
-              Right(next)
-            case Some(Some(_)) => Left(DuplicateKeys(gk))
-          }
-        }
-
-      def handleLookup(
-          lookup: Node.LookupByKey
-      ): Either[KeyInputError, State] = {
-        val gk = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
-        keys.get(gk) match {
-          case None =>
-            copy(keys = keys.updated(gk, lookup.result))
-              .setKeyMapping(gk, lookup.result.fold[KeyInput](NegativeKeyLookup)(KeyActive(_)))
-          case Some(optCid) =>
-            if (optCid != lookup.result) {
-              Left(InconsistentKeys(gk))
-            } else {
-              // No need to update anything, we updated keyInputs when we updated keys.
-              Right(this)
-            }
-        }
-      }
-
-      def handleLeaf(
-          leaf: Node.LeafOnlyAction
-      ): Either[KeyInputError, State] =
-        leaf match {
-          case create: Node.Create =>
-            handleCreate(create)
-          case fetch: Node.Fetch =>
-            assertKeyMapping(fetch.templateId, fetch.coid, fetch.key)
-          case lookup: Node.LookupByKey =>
-            handleLookup(lookup)
-        }
-      def beginRollback: State =
-        copy(
-          rollbackStack = keys :: rollbackStack
-        )
-      def endRollback: State =
-        copy(
-          keys = rollbackStack.head,
-          rollbackStack = rollbackStack.tail,
-        )
-    }
-    foldInExecutionOrder[Either[KeyInputError, State]](
-      Right(State(Map.empty, List.empty, Map.empty))
+  def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
+    val machine = new ContractStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
+    foldInExecutionOrder[Either[KeyInputError, machine.State]](
+      Right(machine.initial)
     )(
-      exerciseBegin =
-        (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), ChildrenRecursion.DoRecurse),
+      exerciseBegin = (acc, nid, exe) =>
+        (acc.flatMap(_.handleExercise(nid, exe)), Transaction.ChildrenRecursion.DoRecurse),
       exerciseEnd = (acc, _, _) => acc,
-      rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), ChildrenRecursion.DoRecurse),
-      rollbackEnd = (acc, _, _) => acc.map(_.endRollback),
+      rollbackBegin =
+        (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
+      rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
       leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
-    )
-      .map(_.keyInputs)
+    ).map(_.globalKeyInputs)
   }
 
   /** The contract keys created or updated as part of the transaction.
@@ -811,12 +701,13 @@ object Transaction {
     *
     * For ledger implementors this means that (for contract key uniqueness)
     * it is sufficient to only look at the inputs and the outputs of the
-    * transaction whlie leaving all internal checks within the transaction
+    * transaction while leaving all internal checks within the transaction
     *  to the engine.
     */
   final case class DuplicateContractKey(
       key: GlobalKey
   ) extends TransactionError
+      with KeyInputError
 
   final case class AuthFailureDuringExecution(
       nid: NodeId,
@@ -825,11 +716,17 @@ object Transaction {
 
   /** The state of a key at the beginning of the transaction.
     */
-  sealed trait KeyInput extends Product with Serializable
+  sealed trait KeyInput extends Product with Serializable {
+    def toKeyMapping: ContractStateMachine.KeyMapping
+    def isActive: Boolean
+  }
 
   /** No active contract with the given key.
     */
-  sealed trait KeyInactive extends KeyInput
+  sealed trait KeyInactive extends KeyInput {
+    override def toKeyMapping: KeyMapping = ContractStateMachine.KeyInactive
+    override def isActive: Boolean = false
+  }
 
   /** A contract with the key will be created so the key must be inactive.
     */
@@ -841,17 +738,16 @@ object Transaction {
 
   /** Key must be mapped to this active contract.
     */
-  final case class KeyActive(cid: Value.ContractId) extends KeyInput
+  final case class KeyActive(cid: Value.ContractId) extends KeyInput {
+    override def toKeyMapping: KeyMapping = ContractStateMachine.KeyActive(cid)
+    override def isActive: Boolean = true
+  }
 
   /** contractKeyInputs failed to produce an input due to an error for the given key.
     */
-  sealed abstract class KeyInputError {
+  sealed trait KeyInputError extends Product with Serializable {
     def key: GlobalKey
   }
-
-  /** A create failed because there was already an active contract with the same key.
-    */
-  final case class DuplicateKeys(key: GlobalKey) extends KeyInputError
 
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
     * was inconsistent with earlier nodes (in execution order).

@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
@@ -17,6 +16,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
+import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   IncompleteTransaction,
@@ -827,7 +827,7 @@ private[lf] object Speedy {
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
-        contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+        contractKeyUniqueness: ContractByKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): Machine = {
