@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.execution
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import com.daml.error.definitions.ErrorCause
-import com.daml.ledger.api.domain.{DisclosedContract, Commands => ApiCommands}
+import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.ledger.participant.state.{v2 => state}
@@ -59,7 +59,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       submission <- consume(
         commands.actAs,
         commands.readAs,
-        commands.disclosedContracts,
         submissionResult,
         interpretationTimeNanos,
       )
@@ -98,7 +97,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.deduplicationPeriod,
         commands.submissionId.map(_.unwrap),
         ledgerConfiguration,
-        commands.disclosedContracts.map(disclosedContract),
+        meta.disclosures,
       ),
       transactionMeta = state.TransactionMeta(
         commands.commands.ledgerEffectiveTime,
@@ -119,16 +118,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       globalKeyMapping = meta.globalKeyMapping,
     )
   }
-
-  // TODO DPP-1026: domain.DisclosedContract and state.DisclosedContract are really the same
-  // Do we need two classes? So far, domain types were independent of the participant state API types.
-  private def disclosedContract(dd: DisclosedContract): state.DisclosedContract =
-    state.DisclosedContract(
-      contractId = dd.contractId,
-      contractInst = dd.contract,
-      ledgerEffectiveTime = dd.ledgerTime,
-      driverMetadata = dd.driverMetadata,
-    )
 
   private def submitToEngine(
       commands: ApiCommands,
@@ -151,7 +140,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           commitAuthorizers,
           commands.readAs,
           commands.commands,
-          ImmArray.empty,
+          commands.disclosedContracts,
           participant,
           submissionSeed,
         )
@@ -161,21 +150,12 @@ private[apiserver] final class StoreBackedCommandExecutor(
   private def consume[A](
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
-      disclosedContracts: Set[DisclosedContract],
       result: Result[A],
       interpretationTimeNanos: AtomicLong,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
-
-    val disclosedContractsByKeyHash = disclosedContracts.collect {
-      case c if c.keyHash.nonEmpty => c.keyHash.get -> c.contractId
-    }.toMap
-
-    val disclosedContractsByContractId = disclosedContracts
-      .map(c => c.contractId -> c.contract)
-      .toMap
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)
@@ -190,48 +170,40 @@ private[apiserver] final class StoreBackedCommandExecutor(
         case ResultError(err) => Future.successful(Left(err))
 
         case ResultNeedContract(acoid, resume) =>
-          disclosedContractsByContractId
-            .get(acoid)
-            .fold {
-              val start = System.nanoTime
-              Timed
-                .future(
-                  metrics.daml.execution.lookupActiveContract,
-                  contractStore.lookupActiveContract(readers, acoid),
+          val start = System.nanoTime
+          Timed
+            .future(
+              metrics.daml.execution.lookupActiveContract,
+              contractStore.lookupActiveContract(readers, acoid),
+            )
+            .flatMap { instance =>
+              lookupActiveContractTime.addAndGet(System.nanoTime() - start)
+              lookupActiveContractCount.incrementAndGet()
+              resolveStep(
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(instance)),
                 )
-                .flatMap { instance =>
-                  lookupActiveContractTime.addAndGet(System.nanoTime() - start)
-                  lookupActiveContractCount.incrementAndGet()
-                  resolveStep(
-                    Timed.trackedValue(
-                      metrics.daml.execution.engineRunning,
-                      trackSyncExecution(interpretationTimeNanos)(resume(instance)),
-                    )
-                  )
-                }
-            }(contract => resolveStep(resume(Some(contract))))
+              )
+            }
 
         case ResultNeedKey(key, resume) =>
-          disclosedContractsByKeyHash
-            .get(key.globalKey.hash)
-            .fold {
-              val start = System.nanoTime
-              Timed
-                .future(
-                  metrics.daml.execution.lookupContractKey,
-                  contractStore.lookupContractKey(readers, key.globalKey),
+          val start = System.nanoTime
+          Timed
+            .future(
+              metrics.daml.execution.lookupContractKey,
+              contractStore.lookupContractKey(readers, key.globalKey),
+            )
+            .flatMap { contractId =>
+              lookupContractKeyTime.addAndGet(System.nanoTime() - start)
+              lookupContractKeyCount.incrementAndGet()
+              resolveStep(
+                Timed.trackedValue(
+                  metrics.daml.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
                 )
-                .flatMap { contractId =>
-                  lookupContractKeyTime.addAndGet(System.nanoTime() - start)
-                  lookupContractKeyCount.incrementAndGet()
-                  resolveStep(
-                    Timed.trackedValue(
-                      metrics.daml.execution.engineRunning,
-                      trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
-                    )
-                  )
-                }
-            }(contractId => resolveStep(resume(Some(contractId))))
+              )
+            }
 
         case ResultNeedPackage(packageId, resume) =>
           packageLoader

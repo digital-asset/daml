@@ -76,7 +76,7 @@ class LedgerTimeAwareCommandExecutorSpec
         DeduplicationDuration(Duration.ofMinutes(1)),
         None,
         configuration,
-        Set.empty,
+        ImmArray.empty,
       ),
       TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None),
       transaction,
@@ -122,7 +122,7 @@ class LedgerTimeAwareCommandExecutorSpec
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         commandsReference = "",
       ),
-      disclosedContracts = Set.empty,
+      disclosedContracts = ImmArray.empty,
     )
 
     val instance = new LedgerTimeAwareCommandExecutor(
@@ -143,7 +143,7 @@ class LedgerTimeAwareCommandExecutorSpec
               DeduplicationDuration(Duration.ofMinutes(1)),
               None,
               configuration,
-              Set.empty,
+              ImmArray.empty,
             ),
             TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None),
             transaction,

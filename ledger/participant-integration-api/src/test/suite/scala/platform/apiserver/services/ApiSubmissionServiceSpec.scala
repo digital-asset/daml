@@ -353,7 +353,7 @@ object ApiSubmissionServiceSpec {
         submittedAt = Timestamp.Epoch,
         deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(ImmArray.Empty, Timestamp.MinValue, ""),
-        disclosedContracts = Set.empty,
+        disclosedContracts = ImmArray.empty,
       )
     )
   }

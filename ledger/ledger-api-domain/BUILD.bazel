@@ -23,7 +23,6 @@ da_scala_library(
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//libs-scala/logging-entries",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

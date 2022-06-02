@@ -21,7 +21,7 @@ import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate}
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -363,7 +363,7 @@ class SequenceSpec
       submissionId = Some(submissionId),
       ledgerConfiguration =
         Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
-      explicitDisclosure = Set.empty,
+      explicitDisclosure = ImmArray.empty,
     )
     val txLedgerEffectiveTime: Timestamp = currentRecordTime
     val transactionMeta: TransactionMeta = TransactionMeta(

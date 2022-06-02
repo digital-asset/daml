@@ -7,10 +7,8 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.crypto.Hash
 import com.daml.lf.value.{Value => LfValue}
-import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
-import com.daml.lf.value.{Value => LfValue}
 import com.daml.platform.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 
