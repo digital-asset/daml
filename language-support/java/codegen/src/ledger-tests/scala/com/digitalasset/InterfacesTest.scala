@@ -67,8 +67,7 @@ class Interfaces
                   .unsafeFromInterface(
                     child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
                   )
-                  .toInterface(interfaces.TIf.INTERFACE)
-                  .exerciseHam(new interfaces.Ham()),
+                  .exerciseBar(),
               )
             )
           }
