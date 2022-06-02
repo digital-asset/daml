@@ -388,7 +388,11 @@ trait AbstractTriggerServiceTest
         ApiTypes.ApplicationId("my-app-id"),
         actAs = List(ApiTypes.Party(aliceAcs.unwrap)),
       )
-      _ <- client.packageManagementClient.uploadDarFile(
+      adminClient <- sandboxClient(
+        ApiTypes.ApplicationId("my-app-id"),
+        admin = true,
+      )
+      _ <- adminClient.packageManagementClient.uploadDarFile(
         PByteString.readFrom(new FileInputStream(darPath))
       )
       // Make sure that no contracts exist initially to guard against accidental

@@ -147,6 +147,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/test-common:test-common",
         "//ledger-api/testing-utils",
         "//ledger-service/jwt",
         "//ledger/ledger-api-auth",

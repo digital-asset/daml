@@ -52,7 +52,7 @@ import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxRequiringAuthorizationFuns}
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -223,6 +223,7 @@ final class JsonApiIt
     with JsonApiFixture
     with Matchers
     with SuiteResourceManagementAroundAll
+    with SandboxRequiringAuthorizationFuns
     with TryValues {
 
   private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
@@ -266,7 +267,12 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    Runner.jsonClients(participantParams, envIface)
+    Runner.jsonClients(participantParams, envIface).flatMap { participantClients =>
+      uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT)).map(_ =>
+        participantClients
+      )
+
+    }
   }
 
   private def getMultiPartyClients(

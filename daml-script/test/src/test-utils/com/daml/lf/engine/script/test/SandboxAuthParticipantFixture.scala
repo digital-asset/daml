@@ -15,8 +15,9 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
-import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import scalaz.syntax.tag._
@@ -28,26 +29,34 @@ trait SandboxAuthParticipantFixture
     extends AbstractScriptTest
     with SandboxFixture
     with SandboxBackend.Postgresql
+    with SandboxRequiringAuthorizationFuns
+    with TestCommands
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher
   def participantClients(parties: List[String], admin: Boolean) =
-    Runner.connect(
-      Participants(
-        default_participant = Some(
-          ApiParameters(
-            host = "localhost",
-            port = serverPort.value,
-            access_token = Some(getToken(parties, admin)),
-            application_id = Some(appId),
-          )
+    Runner
+      .connect(
+        Participants(
+          default_participant = Some(
+            ApiParameters(
+              host = "localhost",
+              port = serverPort.value,
+              access_token = Some(getToken(parties, admin)),
+              application_id = Some(appId),
+            )
+          ),
+          party_participants = Map.empty,
+          participants = Map.empty,
         ),
-        party_participants = Map.empty,
-        participants = Map.empty,
-      ),
-      tlsConfig = TlsConfiguration(false, None, None, None),
-      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
-    )
+        tlsConfig = TlsConfiguration(false, None, None, None),
+        maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+      )
+      .flatMap { participantClients =>
+        uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT)).map(_ =>
+          participantClients
+        )
+      }
 
   private val secret = "secret"
 

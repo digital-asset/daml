@@ -3,9 +3,9 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
+import java.io.{File, FileInputStream}
 import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
-import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
@@ -13,37 +13,56 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.sandbox.SandboxOnXForTest.SandboxParticipantId
+import com.daml.lf.engine.script.Runner.connectApiParameters
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.platform.sandbox.services.TestCommands
+import com.google.protobuf.ByteString
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 trait SandboxParticipantFixture
     extends AbstractScriptTest
     with SandboxFixture
     with SandboxBackend.Postgresql
+    with SandboxRequiringAuthorizationFuns
+    with TestCommands
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher
   def participantClients(
       maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
       tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false),
-  ) =
-    Runner.connect(
-      Participants(
-        default_participant = Some(
-          ApiParameters(
-            host = "localhost",
-            port = serverPort.value,
-            access_token = None,
-            application_id = None,
-          )
-        ),
-        party_participants = Map.empty,
-        participants = Map.empty,
-      ),
-      tlsConfig = tlsConfiguration,
-      maxInboundMessageSize = maxInboundMessageSize,
+  ) = {
+    val apiParameters = ApiParameters(
+      host = "localhost",
+      port = serverPort.value,
+      access_token = None,
+      application_id = None,
     )
+    for {
+      participantClients <- Runner
+        .connect(
+          Participants(
+            default_participant = Some(apiParameters),
+            party_participants = Map.empty,
+            participants = Map.empty,
+          ),
+          tlsConfig = tlsConfiguration,
+          maxInboundMessageSize = maxInboundMessageSize,
+        )
+      ledgerClient <- connectApiParameters(
+        apiParameters,
+        tlsConfiguration,
+        maxInboundMessageSize,
+      )
+      _ <- Future.sequence(packageFiles.map { dar =>
+        ledgerClient.grpcClient.packageManagementClient
+          .uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
+    } yield {
+      participantClients
+    }
+  }
 
   override def config = super.config.copy(
     genericConfig = super.config.genericConfig.copy(participants =
