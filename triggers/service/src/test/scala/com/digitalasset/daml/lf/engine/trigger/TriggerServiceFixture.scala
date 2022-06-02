@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.trigger
 
-import java.io.File
 import java.net.InetAddress
 import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
@@ -292,10 +291,6 @@ trait AuthMiddlewareFixture
 trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected val damlPackages: List[File] = List()
-
-  def bridgeConfig: BridgeConfig = BridgeConfig()
-
   private def sandboxConfig(jdbcUrl: String): Config =
     SandboxDefault.copy(
       ledgerId = this.getClass.getSimpleName,
@@ -351,7 +346,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         port <- SandboxOnXRunner.owner(
           configAdaptor = new SandboxOnXForTestConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
-          bridgeConfig = bridgeConfig,
+          bridgeConfig = BridgeConfig(),
         )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),

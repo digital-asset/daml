@@ -60,7 +60,6 @@ trait AbstractTriggerServiceTest
   // Encoded dar used in service initialization
   protected val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
   protected val testPkgId = dar.main._1
-  override protected val damlPackages: List[File] = List()
 
   protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
