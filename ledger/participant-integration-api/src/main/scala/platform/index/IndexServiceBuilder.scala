@@ -50,6 +50,7 @@ private[platform] case class IndexServiceBuilder(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: ValueEnricher,
     participantId: Ref.ParticipantId,
+    sharedStringInterningViewO: Option[StringInterningView],
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -59,15 +60,21 @@ private[platform] case class IndexServiceBuilder(
 
   def owner(): ResourceOwner[IndexService] = {
     val ledgerEndCache = MutableLedgerEndCache()
-    val stringInterningView = createStringInterningView()
+    val isSharedStringInterningView = sharedStringInterningViewO.nonEmpty
+    val stringInterningView =
+      sharedStringInterningViewO.getOrElse(StringInterningView.build(dbSupport, metrics))
     val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
       ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
       _ = ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
-      _ <- ResourceOwner.forFuture(() =>
-        stringInterningView.update(ledgerEnd.lastStringInterningId)
-      )
+      _ <-
+        if (isSharedStringInterningView) {
+          // The participant-wide (shared) StringInterningView is updated by the Indexer
+          ResourceOwner.unit
+        } else {
+          ResourceOwner.forFuture(() => stringInterningView.update(ledgerEnd.lastStringInterningId))
+        }
       prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEnd)
       generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset)
       instrumentedSignalNewLedgerHead = buildInstrumentedSignalNewLedgerHead(
@@ -88,6 +95,7 @@ private[platform] case class IndexServiceBuilder(
         ledgerEndCache,
       )
       _ <- cachesUpdaterSubscription(
+        isSharedStringInterningView,
         ledgerDao,
         stringInterningView,
         instrumentedSignalNewLedgerHead,
@@ -106,6 +114,7 @@ private[platform] case class IndexServiceBuilder(
   }
 
   private def cachesUpdaterSubscription(
+      sharedStringInterningView: Boolean,
       ledgerDao: LedgerReadDao,
       updatingStringInterningView: UpdatingStringInterningView,
       instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
@@ -117,7 +126,13 @@ private[platform] case class IndexServiceBuilder(
           ledgerDao,
           newLedgerHead =>
             for {
-              _ <- updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
+              _ <-
+                if (sharedStringInterningView) {
+                  // The participant-wide (shared) StringInterningView is updated by the Indexer
+                  Future.unit
+                } else {
+                  updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
+                }
             } yield {
               instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
               prefetchingDispatcher.signalNewHead(
@@ -156,22 +171,6 @@ private[platform] case class IndexServiceBuilder(
         metrics,
       )(servicesExecutionContext, loggingContext),
     )(servicesExecutionContext, loggingContext)
-
-  private def createStringInterningView() = {
-    val stringInterningStorageBackend =
-      dbSupport.storageBackendFactory.createStringInterningStorageBackend
-
-    new StringInterningView(
-      loadPrefixedEntries = (fromExclusive, toInclusive) =>
-        implicit loggingContext =>
-          dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-            stringInterningStorageBackend.loadStringInterningEntries(
-              fromExclusive,
-              toInclusive,
-            )
-          }
-    )
-  }
 
   private def cacheComponentsAndSubscription(
       config: IndexServiceConfig,

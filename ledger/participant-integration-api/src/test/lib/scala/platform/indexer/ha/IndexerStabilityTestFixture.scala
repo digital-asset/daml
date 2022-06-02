@@ -10,9 +10,16 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.DbSupport.{
+  ConnectionPoolConfig,
+  DbConfig,
+  ParticipantDataSourceConfig,
+}
+import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import scala.concurrent.duration._
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -91,6 +98,19 @@ object IndexerStabilityTestFixture {
                       }
                     )
                     .acquire()
+                  dbSupport <- DbSupport
+                    .owner(
+                      serverRole = ServerRole.Testing(getClass),
+                      metrics = new Metrics(new MetricRegistry),
+                      dbConfig = DbConfig(
+                        jdbcUrl,
+                        connectionPool = ConnectionPoolConfig(
+                          connectionPoolSize = 16,
+                          connectionTimeout = 250.millis,
+                        ),
+                      ),
+                    )
+                    .acquire()
                   metricRegistry = new MetricRegistry
                   metrics = new Metrics(metricRegistry)
                   // Create an indexer and immediately start it
@@ -101,6 +121,7 @@ object IndexerStabilityTestFixture {
                     config = indexerConfig,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+                    stringInterningViewO = Some(StringInterningView.build(dbSupport, metrics)),
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

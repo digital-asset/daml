@@ -26,7 +26,11 @@ class UpdateTimeBenchmark extends BenchmarkState {
     interning = BenchmarkState.createInterning(entries)
 
     interningEnd = stringCount
-    Await.result(interning.update(interningEnd)(LoggingContext.ForTesting), perfTestTimeout)
+    Await.result(
+      interning
+        .update(interningEnd)(LoggingContext.ForTesting, scala.concurrent.ExecutionContext.global),
+      perfTestTimeout,
+    )
   }
 
   @Benchmark
@@ -38,6 +42,10 @@ class UpdateTimeBenchmark extends BenchmarkState {
     interningEnd = interningEnd + 1
     if (interningEnd > entries.length) throw new RuntimeException("Can't ingest any more strings")
 
-    Await.result(interning.update(interningEnd)(LoggingContext.ForTesting), perfTestTimeout)
+    Await.result(
+      interning
+        .update(interningEnd)(LoggingContext.ForTesting, scala.concurrent.ExecutionContext.global),
+      perfTestTimeout,
+    )
   }
 }

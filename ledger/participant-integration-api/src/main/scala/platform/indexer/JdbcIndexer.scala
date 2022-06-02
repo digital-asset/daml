@@ -17,6 +17,7 @@ import com.daml.platform.indexer.parallel.{
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -29,6 +30,7 @@ object JdbcIndexer {
       readService: state.ReadService,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      stringInterningViewO: Option[StringInterningView],
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
@@ -84,10 +86,10 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
+        stringInterningViewO = stringInterningViewO,
       )
 
       indexer
     }
-
   }
 }

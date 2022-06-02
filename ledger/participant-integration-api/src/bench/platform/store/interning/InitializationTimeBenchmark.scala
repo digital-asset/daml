@@ -32,6 +32,10 @@ class InitializationTimeBenchmark extends BenchmarkState {
   @Warmup(iterations = 5)
   @Measurement(iterations = 5)
   def run(): Unit = {
-    Await.result(interning.update(stringCount)(LoggingContext.ForTesting), perfTestTimeout)
+    Await.result(
+      interning
+        .update(stringCount)(LoggingContext.ForTesting, scala.concurrent.ExecutionContext.global),
+      perfTestTimeout,
+    )
   }
 }
