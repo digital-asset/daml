@@ -988,7 +988,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""y\(exercisingParty : Party) (cId: ContractId M:T)  ->
+            e"""\(exercisingParty : Party) (cId: ContractId M:T)  ->
              ubind x: Unit <- exercise @M:T Archive cId () in
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
              """,
