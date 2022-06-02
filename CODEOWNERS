@@ -3,7 +3,7 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS   @gerolf-da
+CODEOWNERS   @gerolf-da @remyhaemmerle-da
 LATEST       @gerolf-da @bame-da @ray-roestenburg-da @adriaanm-da
 
 # Build / CI / environment
@@ -21,20 +21,19 @@ azure-cron.yml      @garyverhaegen-da
 NOTICES     @garyverhaegen-da @dasormeter
 
 # Language
-/daml-assistant/    @sofiafaro-da @ray-roestenburg-da
+/daml-assistant/    @remyhaemmerle-da @ray-roestenburg-da
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
 /compatibility/     @garyverhaegen-da
-/compiler/          @sofiafaro-da
-/libs-haskell/      @sofiafaro-da
-/ghc-lib/           @sofiafaro-da
+/compiler/          @remyhaemmerle-da @akrmn
+/libs-haskell/      @remyhaemmerle-da @akrmn
+/ghc-lib/           @remyhaemmerle-da @akrmn
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @S11001001
-/daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da
+/daml-lf/data-scalacheck/src/main/ @remyhaemmerle-da @S11001001
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
-/daml-lf/transaction-test-lib/src/main/ @S11001001
+/daml-lf/transaction-test-lib/src/main/ @remyhaemmerle-da @S11001001
 
 # KV Participant
 /ledger/      @digital-asset/kv-participant
@@ -66,7 +65,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /ledger/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da @sofiafaro-da
+/language-support/hs/       @nickchapman-da @remyhaemmerle-da
 /language-support/java/     @ray-roestenburg-da
 /language-support/scala/    @S11001001 @ray-roestenburg-da
 /language-support/ts/       @robin-da @garyverhaegen-da @ray-roestenburg-da
