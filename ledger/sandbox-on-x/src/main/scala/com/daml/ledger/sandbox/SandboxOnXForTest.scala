@@ -67,11 +67,8 @@ class SandboxOnXForTest(
           .upload(damlPackages)
           .acquire()
       }
-    } yield {
-      apiServer.port
-    }
+    } yield apiServer.port
   }
-
 }
 
 object SandboxOnXForTest {
