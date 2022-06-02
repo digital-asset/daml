@@ -266,12 +266,10 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    Runner.jsonClients(participantParams, envIface).flatMap { participantClients =>
-      uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT)).map(_ =>
-        participantClients
-      )
-
-    }
+    for {
+      participantClients <- Runner.jsonClients(participantParams, envIface)
+      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
+    } yield participantClients
   }
 
   private def getMultiPartyClients(
