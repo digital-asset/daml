@@ -16,7 +16,7 @@ import com.daml.ledger.sandbox.domain.Rejection.{
 }
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
@@ -158,6 +158,6 @@ object PrepareSubmissionSpec {
     submissionId = Some(Ref.SubmissionId.assertFromString("some-submission-id")),
     ledgerConfiguration =
       Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
-    explicitDisclosure = Set.empty,
+    explicitDisclosure = ImmArray.empty,
   )
 }

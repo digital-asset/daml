@@ -119,7 +119,7 @@ class SubmitRequestValidatorTest
         Time.Timestamp.assertFromInstant(ledgerTime),
         workflowId.unwrap,
       ),
-      disclosedContracts = Set.empty,
+      disclosedContracts = ImmArray.empty,
     )
   }
 

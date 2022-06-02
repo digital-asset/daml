@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.domain.{DisclosedContract, LedgerId, optionalLedgerId}
+import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
@@ -26,8 +26,6 @@ import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
-import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, FieldValidations}
 import io.grpc.StatusRuntimeException
@@ -226,15 +224,19 @@ final class CommandsValidator(ledgerId: LedgerId) {
       disclosedContracts: Seq[ProtoDisclosedContract]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Set[DisclosedContract]] =
-    disclosedContracts.foldLeft[Either[StatusRuntimeException, Set[DisclosedContract]]](
-      Right(Set.empty[DisclosedContract])
-    )((contractz, contract) => {
-      for {
-        validatedContracts <- contractz
-        validatedContract <- validateDisclosedContract(contract)
-      } yield validatedContracts + validatedContract
-    })
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
+    // TODO DPP-1026: Use something more efficient to build an ImmArray
+    disclosedContracts
+      .foldLeft[Either[StatusRuntimeException, List[DisclosedContract]]](
+        Right(List.empty[DisclosedContract])
+      )((contractz, contract) => {
+        for {
+          validatedContracts <- contractz
+          validatedContract <- validateDisclosedContract(contract)
+        } yield validatedContracts :+ validatedContract
+      })
+      .map(ImmArray.from)
+  }
 
   private def validateDisclosedContract(
       disclosedContract: ProtoDisclosedContract
@@ -257,17 +259,13 @@ final class CommandsValidator(ledgerId: LedgerId) {
       keyHash <- validateHash(metadata.contractKeyHash, "contract_key_hash")
     } yield DisclosedContract(
       contractId = contractId,
-      contract = VersionedContractInstance(
-        template = validatedTemplateId,
-        arg = Versioned(
-          version = TransactionVersion.StableVersions.max, // TODO DPP-1026 what version to pick?
-          unversioned = Lf.ValueRecord(recordId, validatedRecordField),
-        ),
-        agreementText = "", // TODO DPP-1026 is this needed for anything?
+      templateId = validatedTemplateId,
+      argument = Lf.ValueRecord(recordId, validatedRecordField),
+      metadata = ContractMetadata(
+        createdAt = validatedCreatedAt,
+        keyHash = keyHash,
+        driverMetadata = ImmArray.from(metadata.driverMetadata.toByteArray),
       ),
-      ledgerTime = validatedCreatedAt,
-      keyHash = keyHash,
-      driverMetadata = Bytes.fromByteString(metadata.driverMetadata),
     )
   }
 

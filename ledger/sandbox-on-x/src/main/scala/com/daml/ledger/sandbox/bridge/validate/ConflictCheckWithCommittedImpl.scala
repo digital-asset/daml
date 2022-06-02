@@ -7,13 +7,14 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import ConflictCheckingLedgerBridge._
-import com.daml.ledger.participant.state.v2.{CompletionInfo, DisclosedContract}
+import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
-import com.daml.lf.data.Ref
+import com.daml.lf.command.DisclosedContract
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.transaction.{Transaction => LfTransaction, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -160,64 +161,36 @@ private[validate] class ConflictCheckWithCommittedImpl(
 
   private def sameContractData(
       actual: (Value.VersionedContractInstance, Timestamp),
-      provided: DisclosedContract,
+      provided: Versioned[DisclosedContract],
   )(implicit loggingContext: LoggingContext): Boolean = {
-    // TODO DPP-1026: Note: Not validating transaction version or agreement text here, because we're making those up
+    val providedContractId = provided.unversioned.contractId
 
-    // TODO DPP-1026: Template id validation can probably be removed once we switch from VersionedContractInstance to Value
     val actualTemplate = actual._1.unversioned.template
-    val providedTemplate = provided.contractInst.unversioned.template
+    val providedTemplate = provided.unversioned.templateId
 
-    // TODO DPP-1026: Once the engine properly normalizes disclosed contracats, compare the payloads without transformation
-    val actualArgument = removeTypeInfo(actual._1.unversioned.arg)
-    val providedArgument = removeTypeInfo(provided.contractInst.unversioned.arg)
+    val actualArgument = actual._1.unversioned.arg
+    val providedArgument = provided.unversioned.argument
+
+    val actualLet = actual._2
+    val providedLet = provided.unversioned.metadata.createdAt
 
     if (actualTemplate != providedTemplate) {
       // TODO DPP-1026: fix the logging context, it should include at least the submission id (to track malicious users).
-      logger.warn(s"Disclosed contract ${provided.contractId.coid} has invalid template id")
+      logger.warn(s"Disclosed contract $providedContractId has invalid template id")
       false
     } else if (actualArgument != providedArgument) {
-      logger.warn(s"Disclosed contract ${provided.contractId.coid} has invalid argument")
+      logger.warn(s"Disclosed contract $providedContractId has invalid argument")
       false
-    } else if (actual._2 != provided.ledgerEffectiveTime) {
-      logger.warn(s"Disclosed contract ${provided.contractId.coid} has invalid ledgerEffectiveTime")
+    } else if (actualLet != providedLet) {
+      logger.warn(s"Disclosed contract $providedContractId has invalid ledgerEffectiveTime")
       false
     } else {
       true
     }
   }
 
-  // TODO DPP-1026: Remove once the engine normalizes arguments
-  def removeTypeInfo(a: Value): Value = {
-    a match {
-      case Value.ValueInt64(_) => a
-      case Value.ValueNumeric(_) => a
-      case Value.ValueText(_) => a
-      case Value.ValueTimestamp(_) => a
-      case Value.ValueParty(_) => a
-      case Value.ValueBool(_) => a
-      case Value.ValueDate(_) => a
-      case Value.ValueUnit => a
-      case Value.ValueContractId(_) => a
-      case Value.ValueRecord(_, fields) =>
-        Value.ValueRecord(None, fields.map(t => None -> t._2))
-      case Value.ValueVariant(_, variant, value) =>
-        Value.ValueVariant(None, variant, value)
-      case Value.ValueEnum(_, value) =>
-        Value.ValueEnum(None, value)
-      case Value.ValueList(values) =>
-        Value.ValueList(values.map(removeTypeInfo))
-      case Value.ValueOptional(value) =>
-        Value.ValueOptional(value.map(removeTypeInfo))
-      case Value.ValueTextMap(map) =>
-        Value.ValueTextMap(map.mapValue(removeTypeInfo))
-      case Value.ValueGenMap(entries) =>
-        Value.ValueGenMap(entries.map(t => removeTypeInfo(t._1) -> removeTypeInfo(t._2)))
-    }
-  }
-
   private def validateExplicitDisclosure(
-      disclosedContracts: Set[DisclosedContract],
+      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
       loggingContext: LoggingContext,
       completionInfo: CompletionInfo,
   )(implicit
@@ -229,17 +202,17 @@ private[validate] class ConflictCheckWithCommittedImpl(
         f.flatMap {
           case Right(_) =>
             indexService
-              .lookupContractAfterInterpretation(provided.contractId)(loggingContext)
+              .lookupContractAfterInterpretation(provided.unversioned.contractId)(loggingContext)
               .map {
                 case None =>
                   Left(
                     // Disclosed contract was archived or never existed
-                    UnknownContracts(Set(provided.contractId))(completionInfo)
+                    UnknownContracts(Set(provided.unversioned.contractId))(completionInfo)
                   )
                 case Some(actual) if !sameContractData(actual, provided)(loggingContext) =>
                   Left(
                     // Disclosed contract has a bad payload, someone has attempted to tamper with it
-                    DisclosedContractInvalid(provided.contractId, completionInfo)
+                    DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
                   )
                 case _ => Right(())
               }

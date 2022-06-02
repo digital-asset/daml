@@ -5,9 +5,8 @@ package com.daml.ledger.api
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
-import com.daml.lf.command.{ApiCommands => LfCommands}
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
@@ -308,15 +307,7 @@ object domain {
       submittedAt: Timestamp,
       deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
-      disclosedContracts: Set[DisclosedContract],
-  )
-
-  case class DisclosedContract(
-      contractId: Lf.ContractId,
-      contract: Lf.VersionedContractInstance,
-      ledgerTime: Timestamp,
-      keyHash: Option[Hash],
-      driverMetadata: Bytes,
+      disclosedContracts: ImmArray[DisclosedContract],
   )
 
   object Commands {
@@ -340,6 +331,7 @@ object domain {
         "deduplicationPeriod" -> commands.deduplicationPeriod,
         "disclosedContracts" -> commands.disclosedContracts
           .map(_.contractId.coid)
+          .toSeq
           .mkString("[", ",", "]"),
       )
     }
