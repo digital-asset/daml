@@ -4,7 +4,6 @@
 package com.daml.lf
 package transaction
 
-import cats.syntax.foldable._
 import com.daml.lf.data.Ref.{Identifier, TypeConName}
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.Transaction.{
@@ -18,29 +17,29 @@ import com.daml.lf.transaction.Transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-/** Implements a state machine for contract keys while interpreting a Daml-LF command
+/** Implements a state machine for contracts and their keys while interpreting a Daml-LF command
   * or iterating over a [[com.daml.lf.transaction.HasTxNodes]] in execution order.
-  * The key state machine keeps track of the updates to the [[KeyStateMachine.ActiveLedgerState]]
+  * The contract state machine keeps track of the updates to the [[ContractStateMachine.ActiveLedgerState]]
   * since the beginning of the interpretation or iteration.
   * The interpretation or iteration must signal every node (to be)
-  * to the [[KeyStateMachine.State]] using its methods.
+  * to the [[ContractStateMachine.State]] using its methods.
   *
   * If [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is not set,
-  * the [[KeyStateMachine.ActiveLedgerState.keys]] and [[KeyStateMachine.State.keyInputs]]
+  * the [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]]
   * keeps track of all keys that appear in any of the nodes, and errors on any internal key inconsistencies.
-  * [[com.daml.lf.transaction.Node.LookupByKey]] can be handled with [[KeyStateMachine.State.handleLookup]].
+  * [[com.daml.lf.transaction.Node.LookupByKey]] can be handled with [[ContractStateMachine.State.handleLookup]].
   *
-  * If [[byKeyOnly]] is set, the key state machine does not detect inconsistent key lookups
-  * and the [[KeyStateMachine.ActiveLedgerState.keys]] and [[KeyStateMachine.State.keyInputs]]
+  * If [[byKeyOnly]] is set, the contract state machine does not detect inconsistent key lookups
+  * and the [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]]
   * keep track only of keys that have been brought into scope using a by-key node
   * or a [[com.daml.lf.transaction.Node.Create]] node.
   * In this mode, [[com.daml.lf.transaction.Node.LookupByKey]] nodes must be
-  * handled with [[KeyStateMachine.State.handleLookupWith]],
+  * handled with [[ContractStateMachine.State.handleLookupWith]],
   * whose second argument takes the contract key resolution to be given to the Daml interpreter instead of
   * [[com.daml.lf.transaction.Node.LookupByKey.result]].
   * This is because the iteration might currently be within a rollback scope
   * that has already archived a contract with the key without a by-key operation
-  * (and for this reason the archival is not tracked in [[KeyStateMachine.ActiveLedgerState.keys]]),
+  * (and for this reason the archival is not tracked in [[ContractStateMachine.ActiveLedgerState.keys]]),
   * i.e., the lookup resolves to [[scala.None$]] but the correct key input is [[scala.Some$]] for some contract ID
   * and this may matter after the rollback scope is left.
   *
@@ -51,8 +50,8 @@ import com.daml.lf.value.Value.ContractId
   * @tparam Nid Type parameter for [[com.daml.lf.transaction.NodeId]]s during interpretation.
   *             Use [[scala.Unit]] for iteration.
   */
-class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
-  import KeyStateMachine._
+class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
+  import ContractStateMachine._
 
   def initial: State = State.empty
 
@@ -325,73 +324,6 @@ class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       case Nil => throw new IllegalStateException("Not inside a rollback scope")
       case _ :: tailStack => this.copy(rollbackStack = tailStack)
     }
-
-    private def withinRollbackScope: Boolean = rollbackStack.nonEmpty
-
-    /** Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`.
-      * Let `this` state be the result of iterating over `tx` up to a node `n` exclusive using `resolver`.
-      * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n` starting from [[State.empty]],
-      * using the resolver [[projectKeyResolver]](`resolver`).
-      * Then, the returned state is the same as if
-      * the iteration over tx continued from `this` state through the whole subtree rooted at `n` using `resolver`.
-      *
-      * If the iteration over the subtree rooted at `n` from `this` using the projected resolver fails,
-      * then so does advancing `this` using `substate` with the same error.
-      * If iteration of `n` from both `this` and [[State.empty]] fail,
-      * the error kind ([[DuplicateContractKey]] vs [[InconsistentKeys]]) may differ.
-      * For example, for `tx = [ Create c0 (key = k), Exe c1 [ Create c2 (key = k), LookupByKey k -> None ] ]`
-      * with `n` being the `Exe c1` node, traversing all of `tx` errors with [[DuplicateContractKey]] on `Create c2`
-      * whereas traversing the `n` subtree from [[State.empty]] errors with [[InconsistentKeys]] on `LookupByKey k`.
-      */
-    // TODO(#9386) add test cases
-    def advance(substate: State): Either[KeyInputError, State] = {
-      require(
-        !substate.withinRollbackScope,
-        "Cannot lift a state over a substate with unfinished rollback scopes",
-      )
-
-      for {
-        // If we look only at by-key nodes, then we must now check for duplicate keys due to create nodes
-        // that brought the key in scope without asking the resolver.
-        // TODO(#9386) figure out what to do in Strict mode
-        _ <-
-          if (mode == ContractKeyUniquenessMode.On) {
-            val keys = this.activeState.keys
-            substate.globalKeyInputs.toSeq.traverse_ {
-              case (key, KeyCreate) =>
-                Either.cond(
-                  keys
-                    .get(key)
-                    .orElse(this.globalKeyInputs.get(key).map(_.toKeyMapping))
-                    .forall(_ == KeyInactive),
-                  (),
-                  DuplicateContractKey(key),
-                )
-              case _ => Right(())
-            }
-          } else Right(())
-      } yield {
-        val next = ActiveLedgerState(
-          consumedBy = this.activeState.consumedBy ++ substate.activeState.consumedBy,
-          keys = this.activeState.keys.concat(substate.activeState.keys),
-        )
-
-        this.copy(
-          globalKeyInputs = substate.globalKeyInputs.concat(this.globalKeyInputs),
-          activeState = next,
-        )
-      }
-    }
-
-    /** @see advance */
-    def projectKeyResolver(resolver: KeyResolver): KeyResolver = {
-      val keys = activeState.keys
-      val consumed = activeState.consumedBy.keySet
-      resolver.map { case (key, keyMapping) =>
-        val newKeyInput = keys.getOrElse(key, keyMapping.filterNot(consumed.contains))
-        key -> newKeyInput
-      }
-    }
   }
 
   object State {
@@ -399,7 +331,7 @@ class KeyStateMachine[Nid](mode: ContractKeyUniquenessMode) {
   }
 }
 
-object KeyStateMachine {
+object ContractStateMachine {
 
   /** Represents the answers for [[com.daml.lf.engine.ResultNeedKey]] requests
     * that may arise during Daml interpretation.

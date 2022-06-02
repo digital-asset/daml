@@ -10,7 +10,7 @@ import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.command.DisclosedContract
-import com.daml.lf.transaction.KeyStateMachine.KeyMapping
+import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -475,7 +475,7 @@ sealed abstract class HasTxNodes {
     "If a contract key contains a contract id"
   )
   def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    val machine = new KeyStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
+    val machine = new ContractStateMachine[NodeId](mode = ContractKeyUniquenessMode.Strict)
     foldInExecutionOrder[Either[KeyInputError, machine.State]](
       Right(machine.initial)
     )(
@@ -717,14 +717,14 @@ object Transaction {
   /** The state of a key at the beginning of the transaction.
     */
   sealed trait KeyInput extends Product with Serializable {
-    def toKeyMapping: KeyStateMachine.KeyMapping
+    def toKeyMapping: ContractStateMachine.KeyMapping
     def isActive: Boolean
   }
 
   /** No active contract with the given key.
     */
   sealed trait KeyInactive extends KeyInput {
-    override def toKeyMapping: KeyMapping = KeyStateMachine.KeyInactive
+    override def toKeyMapping: KeyMapping = ContractStateMachine.KeyInactive
     override def isActive: Boolean = false
   }
 
@@ -739,7 +739,7 @@ object Transaction {
   /** Key must be mapped to this active contract.
     */
   final case class KeyActive(cid: Value.ContractId) extends KeyInput {
-    override def toKeyMapping: KeyMapping = KeyStateMachine.KeyActive(cid)
+    override def toKeyMapping: KeyMapping = ContractStateMachine.KeyActive(cid)
     override def isActive: Boolean = true
   }
 

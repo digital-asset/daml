@@ -23,7 +23,7 @@ import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
-  KeyStateMachine,
+  ContractStateMachine,
   Node,
   Versioned,
   Transaction => Tx,
@@ -1401,11 +1401,11 @@ private[lf] object SBuiltin {
     final def handleKnownInputKey(
         machine: Machine,
         gkey: GlobalKey,
-        keyMapping: KeyStateMachine.KeyMapping,
+        keyMapping: ContractStateMachine.KeyMapping,
     ): Unit =
       keyMapping match {
-        case KeyStateMachine.KeyActive(cid) => handleKeyFound(machine, cid)
-        case KeyStateMachine.KeyInactive => discard(handleKeyNotFound(machine, gkey))
+        case ContractStateMachine.KeyActive(cid) => handleKeyFound(machine, cid)
+        case ContractStateMachine.KeyInactive => discard(handleKeyNotFound(machine, gkey))
       }
   }
 
@@ -1451,11 +1451,12 @@ private[lf] object SBuiltin {
         )
 
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
-      onLedger.ptx.keysState.resolveKey(gkey) match {
+      onLedger.ptx.contractState.resolveKey(gkey) match {
         case Right((keyMapping, next)) =>
-          onLedger.ptx = onLedger.ptx.copy(keysState = next)
+          onLedger.ptx = onLedger.ptx.copy(contractState = next)
           keyMapping match {
-            case KeyStateMachine.KeyActive(coid) if onLedger.ptx.localContracts.contains(coid) =>
+            case ContractStateMachine.KeyActive(coid)
+                if onLedger.ptx.localContracts.contains(coid) =>
               val cachedContract = onLedger.cachedContracts
                 .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
               val stakeholders = cachedContract.signatories union cachedContract.observers
@@ -1477,12 +1478,12 @@ private[lf] object SBuiltin {
               onLedger.committers,
               { result =>
                 val (keyMapping, next) = handle(result)
-                onLedger.ptx = onLedger.ptx.copy(keysState = next)
+                onLedger.ptx = onLedger.ptx.copy(contractState = next)
                 keyMapping match {
-                  case KeyStateMachine.KeyActive(cid) =>
+                  case ContractStateMachine.KeyActive(cid) =>
                     operation.handleKeyFound(machine, cid)
                     true
-                  case KeyStateMachine.KeyInactive =>
+                  case ContractStateMachine.KeyInactive =>
                     operation.handleKeyNotFound(machine, gkey)
                 }
               },

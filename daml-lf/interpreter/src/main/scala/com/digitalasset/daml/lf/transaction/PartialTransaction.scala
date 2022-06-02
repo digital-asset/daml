@@ -4,21 +4,20 @@
 package com.daml.lf
 package speedy
 
-import cats.syntax.functor._
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
 import com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode
 import com.daml.lf.transaction.{
   GlobalKey,
-  KeyStateMachine,
+  ContractStateMachine,
   Node,
   NodeId,
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
 }
-import com.daml.lf.transaction.KeyStateMachine.KeyMapping
+import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -184,7 +183,7 @@ private[lf] object PartialTransaction {
     actionNodeSeeds = BackStack.empty,
     context = Context(initialSeeds, committers),
     aborted = None,
-    keysState = new KeyStateMachine[NodeId](contractKeyUniqueness).initial,
+    contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
   )
@@ -214,7 +213,7 @@ private[lf] object PartialTransaction {
   *                 the transaction was in when aborted. It is up to
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
-  *  @param keysState TODO(#9499) document
+  *  @param contractState summarizes the changes to the contract states caused by nodes up to now
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
   */
@@ -225,14 +224,14 @@ private[speedy] case class PartialTransaction(
     actionNodeSeeds: BackStack[crypto.Hash],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keysState: KeyStateMachine[NodeId]#State,
+    contractState: ContractStateMachine[NodeId]#State,
     localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
 ) {
 
   import PartialTransaction._
 
-  def consumedBy: Map[Value.ContractId, NodeId] = keysState.activeState.consumedBy
+  def consumedBy: Map[Value.ContractId, NodeId] = contractState.activeState.consumedBy
 
   def nodesToString: String =
     if (nodes.isEmpty) "<empty transaction>"
@@ -312,7 +311,7 @@ private[speedy] case class PartialTransaction(
           SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
-          keysState.globalKeyInputs.fmap(_.toKeyMapping),
+          contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         )
       case _ =>
         IncompleteTransaction(this)
@@ -370,8 +369,8 @@ private[speedy] case class PartialTransaction(
       localContracts = localContracts + cid,
     ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
-    val nextPtx = ptx.keysState.visitCreate(templateId, cid, key) match {
-      case Right(next) => ptx.copy(keysState = next)
+    val nextPtx = ptx.contractState.visitCreate(templateId, cid, key) match {
+      case Right(next) => ptx.copy(contractState = next)
       case Left(duplicate) => ptx.noteAbort(duplicate)
     }
     cid -> nextPtx
@@ -476,7 +475,7 @@ private[speedy] case class PartialTransaction(
         actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
         // important: the semantics of Daml dictate that contracts are immediately
         // inactive as soon as you exercise it. therefore, mark it as consumed now.
-        keysState = keysState.visitExercise(nid, templateId, targetId, mbKey, consuming),
+        contractState = contractState.visitExercise(nid, templateId, targetId, mbKey, consuming),
       ),
     ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
@@ -557,7 +556,7 @@ private[speedy] case class PartialTransaction(
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
-      keysState = keysState.beginRollback(),
+      contractState = contractState.beginRollback(),
     )
   }
 
@@ -572,7 +571,7 @@ private[speedy] case class PartialTransaction(
             children = info.parent.children :++ context.children.toImmArray,
             nextActionChildIdx = context.nextActionChildIdx,
           ),
-          keysState = keysState.dropRollback(),
+          contractState = contractState.dropRollback(),
         )
       case _ =>
         InternalError.runtimeException(
@@ -607,7 +606,7 @@ private[speedy] case class PartialTransaction(
           context = info.parent
             .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
-          keysState = keysState.endRollback(),
+          contractState = contractState.endRollback(),
         )
       case _ =>
         InternalError.runtimeException(
