@@ -59,17 +59,13 @@ class Interfaces
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
           .foreach { child =>
-            assertThrows[Exception](
-              sendCmd(
-                client,
-                alice,
-                interfaces.Child.ContractId
-                  .unsafeFromInterface(
-                    child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
-                  )
-                  .exerciseBar(),
+            val cmd = interfaces.Child.ContractId
+              .unsafeFromInterface(
+                child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
               )
-            )
+              .exerciseBar()
+            val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, cmd)
+            ex.getMessage should include regex "Expected contract of type .*Child@.* but got .*ChildClone"
           }
         succeed
       }
