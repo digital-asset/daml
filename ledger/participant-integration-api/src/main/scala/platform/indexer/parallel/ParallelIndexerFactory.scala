@@ -13,12 +13,8 @@ import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.DbSupport.DbConfig
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  StringInterningStorageBackend,
-}
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -40,7 +36,6 @@ object ParallelIndexerFactory {
       dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
-      stringInterningStorageBackend: StringInterningStorageBackend,
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
@@ -110,9 +105,7 @@ object ParallelIndexerFactory {
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = stringInterningViewO.getOrElse(
-            StringInterningView.build(dbDispatcher, stringInterningStorageBackend, metrics)
-          )
+          val stringInterningView = stringInterningViewO.getOrElse(new StringInterningView)
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
             updatingStringInterningView = stringInterningView,

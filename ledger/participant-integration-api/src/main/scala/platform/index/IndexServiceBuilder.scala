@@ -30,6 +30,7 @@ import com.daml.platform.store.cache.{
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interning.{
+  LoadStringInterningEntries,
   StringInterning,
   StringInterningView,
   UpdatingStringInterningView,
@@ -61,8 +62,7 @@ private[platform] case class IndexServiceBuilder(
   def owner(): ResourceOwner[IndexService] = {
     val ledgerEndCache = MutableLedgerEndCache()
     val isSharedStringInterningView = sharedStringInterningViewO.nonEmpty
-    val stringInterningView =
-      sharedStringInterningViewO.getOrElse(StringInterningView.build(dbSupport, metrics))
+    val stringInterningView = sharedStringInterningViewO.getOrElse(new StringInterningView())
     val ledgerDao = createLedgerReadDao(ledgerEndCache, stringInterningView)
     for {
       ledgerId <- ResourceOwner.forFuture(() => verifyLedgerId(ledgerDao))
@@ -73,7 +73,9 @@ private[platform] case class IndexServiceBuilder(
           // The participant-wide (shared) StringInterningView is updated by the Indexer
           ResourceOwner.unit
         } else {
-          ResourceOwner.forFuture(() => stringInterningView.update(ledgerEnd.lastStringInterningId))
+          ResourceOwner.forFuture(() =>
+            stringInterningView.update(ledgerEnd.lastStringInterningId)(loadStringInterningEntries)
+          )
         }
       prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEnd)
       generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset)
@@ -131,7 +133,8 @@ private[platform] case class IndexServiceBuilder(
                   // The participant-wide (shared) StringInterningView is updated by the Indexer
                   Future.unit
                 } else {
-                  updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
+                  updatingStringInterningView
+                    .update(newLedgerHead.lastStringInterningId)(loadStringInterningEntries)
                 }
             } yield {
               instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
@@ -142,6 +145,18 @@ private[platform] case class IndexServiceBuilder(
         )
       )(_.release())
       .map(_ => ())
+
+  private def loadStringInterningEntries: LoadStringInterningEntries = {
+    (fromExclusive: Int, toInclusive: Int) => implicit loggingContext: LoggingContext =>
+      dbSupport.dbDispatcher
+        .executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+          dbSupport.storageBackendFactory.createStringInterningStorageBackend
+            .loadStringInterningEntries(
+              fromExclusive,
+              toInclusive,
+            )
+        }
+  }
 
   private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,

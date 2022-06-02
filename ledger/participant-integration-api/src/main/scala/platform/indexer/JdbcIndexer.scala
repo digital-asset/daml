@@ -55,6 +55,7 @@ object JdbcIndexer {
           providedParticipantId = participantId,
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
+          stringInterningStorageBackend = stringInterningStorageBackend,
           metrics = metrics,
         ),
         parallelIndexerSubscription = ParallelIndexerSubscription(
@@ -77,7 +78,6 @@ object JdbcIndexer {
           submissionBatchSize = config.submissionBatchSize,
           metrics = metrics,
         ),
-        stringInterningStorageBackend = stringInterningStorageBackend,
         meteringAggregator = new MeteringAggregator.Owner(
           meteringStore = meteringStoreBackend,
           meteringParameterStore = meteringParameterStorageBackend,
