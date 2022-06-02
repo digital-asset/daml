@@ -20,8 +20,7 @@ class Interfaces
 
   behavior of "Generated Java code"
 
-  // TODO(#13668) Redesign the test once the issue is fixed
-  it should "contain all choices of an interface in templates implementing it" ignore withClient {
+  it should "contain all choices of an interface in templates implementing it" in withClient {
     client =>
       def checkTemplateId[T](
           shouldBeId: Identifier,
@@ -45,7 +44,11 @@ class Interfaces
           client,
           alice,
         ).foreach { child =>
-          sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
+          sendCmd(
+            client,
+            alice,
+            child.id.toInterface(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
+          )
         }
         readActiveContractsSafe(safeChildFromCreatedEvent)(client, alice).foreach { child =>
           sendCmd(
@@ -64,6 +67,7 @@ class Interfaces
                   .unsafeFromInterface(
                     child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
                   )
+                  .toInterface(interfaces.TIf.INTERFACE)
                   .exerciseHam(new interfaces.Ham()),
               )
             )
