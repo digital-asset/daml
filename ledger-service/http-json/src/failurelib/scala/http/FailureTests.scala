@@ -18,6 +18,7 @@ import com.daml.http.util.FutureUtil
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.metrics.Metrics
 import com.daml.timer.RetryStrategy
+import com.google.protobuf.ByteString
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -28,6 +29,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import spray.json._
 
+import java.io.FileInputStream
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -51,6 +53,11 @@ abstract class FailureTests
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
+        _ <- Future.sequence(packageFiles.map { dar =>
+          client.packageManagementClient.uploadDarFile(
+            ByteString.readFrom(new FileInputStream(dar))
+          )
+        })
         p <- allocateParty(client, "Alice")
         (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
           postCreateCommand(
@@ -100,6 +107,9 @@ abstract class FailureTests
   "Command submission timeouts" in withHttpService { (uri, encoder, _, client) =>
     import json.JsonProtocol._
     for {
+      _ <- Future.sequence(packageFiles.map { dar =>
+        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
       p <- allocateParty(client, "Alice")
       (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
         postCreateCommand(
@@ -154,6 +164,11 @@ abstract class FailureTests
   "/v1/query GET succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
+        _ <- Future.sequence(packageFiles.map { dar =>
+          client.packageManagementClient.uploadDarFile(
+            ByteString.readFrom(new FileInputStream(dar))
+          )
+        })
         p <- allocateParty(client, "Alice")
         (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
           postCreateCommand(
@@ -196,6 +211,11 @@ abstract class FailureTests
   "/v1/query POST succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
+        _ <- Future.sequence(packageFiles.map { dar =>
+          client.packageManagementClient.uploadDarFile(
+            ByteString.readFrom(new FileInputStream(dar))
+          )
+        })
         p <- allocateParty(client, "Alice")
         (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
           postCreateCommand(
@@ -260,6 +280,9 @@ abstract class FailureTests
   // TEST_EVIDENCE: Semantics: /v1/query POST succeeds after reconnect to DB
   "/v1/query POST succeeds after reconnect to DB" in withHttpService { (uri, encoder, _, client) =>
     for {
+      _ <- Future.sequence(packageFiles.map { dar =>
+        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
       p <- allocateParty(client, "Alice")
       (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
         postCreateCommand(
@@ -373,6 +396,9 @@ abstract class FailureTests
     }
 
     for {
+      _ <- Future.sequence(packageFiles.map { dar =>
+        client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dar)))
+      })
       p <- allocateParty(client, "p")
       (status, r) <- headersWithParties(List(p.unwrap)).flatMap(
         postCreateCommand(

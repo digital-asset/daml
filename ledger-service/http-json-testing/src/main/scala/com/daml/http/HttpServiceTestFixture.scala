@@ -51,10 +51,15 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{
   SandboxParticipantConfig,
   SandboxParticipantId,
 }
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
+import com.daml.ledger.sandbox.{
+  BridgeConfig,
+  BridgeConfigAdaptor,
+  SandboxOnXForTest,
+  SandboxOnXRunner,
+}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
@@ -70,7 +75,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-
+import scala.concurrent.duration._
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -189,10 +194,19 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         useTls = useTls,
         jdbcUrl = jdbcUrl,
       )
+
+      metrics <- new MetricsReporting(
+        classOf[SandboxOnXForTest].getName,
+        None,
+        10.seconds,
+      ).acquire().asFuture
+
       configAdaptor: BridgeConfigAdaptor = new SandboxOnXForTestConfigAdaptor(
         authService
       )
-      portF <- Future(SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig).acquire())
+      portF <- Future(
+        SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig, Some(metrics)).acquire()
+      )
       port <- portF.asFuture
     } yield (portF, port)
 

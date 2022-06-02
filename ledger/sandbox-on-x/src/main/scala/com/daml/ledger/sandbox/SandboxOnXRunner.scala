@@ -59,10 +59,11 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
+      metrics: Option[Metrics] = None,
   ): AbstractResourceOwner[ResourceContext, Port] = {
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
-        SandboxOnXRunner.run(configAdaptor, config, bridgeConfig)
+        SandboxOnXRunner.run(configAdaptor, config, bridgeConfig, metrics)
     }
   }
 
@@ -70,6 +71,7 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
+      metrics: Option[Metrics] = None,
   )(implicit resourceContext: ResourceContext): Resource[Port] = {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -91,6 +93,7 @@ object SandboxOnXRunner {
         materializer,
         actorSystem,
         configAdaptor,
+        metrics,
       ).acquire()
     } yield {
       logInitializationHeader(
