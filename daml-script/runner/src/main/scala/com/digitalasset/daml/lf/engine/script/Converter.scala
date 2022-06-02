@@ -192,7 +192,7 @@ object Converter {
     )
   }
 
-  private[this] def chocieArgTypeTochoiceName(choiceCons: TypeConName) = {
+  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
     // This exploits the fact that in Daml, choice argument type names
     // and choice names match up.
     assert(choiceCons.qualifiedName.name.segments.length == 1)
@@ -202,7 +202,7 @@ object Converter {
   private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-        Right(AnyChoice.Template(chocieArgTypeTochoiceName(choiceCons), choiceVal))
+        Right(AnyChoice.Template(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case SRecord(
             _,
             _,
@@ -214,7 +214,7 @@ object Converter {
               _,
             ),
           ) =>
-        Right(AnyChoice.Interface(ifaceId, chocieArgTypeTochoiceName(choiceCons), choiceVal))
+        Right(AnyChoice.Interface(ifaceId, choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case _ =>
         Left(s"Expected AnyChoice but got $v")
     }
