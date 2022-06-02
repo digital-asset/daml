@@ -163,6 +163,10 @@ private[validate] class ConflictCheckWithCommittedImpl(
       actual: (Value.VersionedContractInstance, Timestamp),
       provided: Versioned[DisclosedContract],
   )(implicit loggingContext: LoggingContext): Boolean = {
+    // TODO DPP-1026: This method only checks the template ID, argument, and ledger time.
+    //   Verify whether we need to check other properties of DisclosedContract (key hash and driver metadata).
+    //   If yes, change lookupContractAfterInterpretation to return a DisclosedContract. Note that this means we have
+    //   to store additional data in the MutableCacheBackedContractStore cache.
     val providedContractId = provided.unversioned.contractId
 
     val actualTemplate = actual._1.unversioned.template
