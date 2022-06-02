@@ -568,8 +568,9 @@ describe("interface definition", () => {
     expect(if2).not.toHaveProperty(key1);
   });
   test("even with no choices", () => {
-    const emptyIfcId: string = buildAndLint.Main.EmptyIfc.templateId;
-    expect(buildAndLint.Main.EmptyIfc).toMatchObject({
+    const emptyIfc = buildAndLint.Lib.EmptyIfaceOnly.NoChoices;
+    const emptyIfcId: string = emptyIfc.templateId;
+    expect(emptyIfc).toMatchObject({
       templateId: emptyIfcId,
     });
   });
