@@ -11,7 +11,7 @@ import Ledger, {
   PartyInfo,
   UserRightHelper,
 } from "@daml/ledger";
-import { Int, emptyMap, Map } from "@daml/types";
+import { Choice, Int, emptyMap, Map } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -574,9 +574,21 @@ describe("interface definition", () => {
       templateId: emptyIfcId,
     });
   });
-  // Something is inherited
-  // PeerIfaceOverload is absent due to peer
-  // Overridden is present and the definition in template
+  describe("choice name collision", () => {
+    // Something is inherited
+    test("unambiguous inherited is inherited", () => {
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Lib.Mod.Something,
+        {},
+        undefined
+      > = tpl.Something;
+      expect(c).toBeDefined();
+      expect(c).toEqual(if2.Something);
+    });
+    // PeerIfaceOverload is absent due to peer
+    // Overridden is present and the definition in template
+  });
 });
 
 test("interfaces", async () => {
