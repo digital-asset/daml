@@ -392,12 +392,7 @@ renderTemplateDef TemplateDef {..} =
   let jsSource =
         T.unlines $
         concat
-          [ ["exports." <> tplName <> " = Object.assign("]
-          -- defining the template directly here would overwrite the template ID
-          -- with an interface ID
-          , ["{},"]
-          , [impl <> "," | (_, JsSerializerConRef impl) <- tplImplements']
-          -- template ID and directly-defined choices are always top-priority
+          [ ["exports." <> tplName <> " = damlTypes.assembleTemplate("]
           , [ T.unlines $
               concat
                 [ ["{"]
@@ -424,6 +419,7 @@ renderTemplateDef TemplateDef {..} =
                 , ["}"]
                 ]
             ]
+          , [", " <> impl | (_, JsSerializerConRef impl) <- tplImplements']
           , [");"]
           ]
       tsDecl = T.unlines $ concat

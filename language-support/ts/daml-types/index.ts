@@ -90,6 +90,16 @@ export interface Choice<T extends object, C, R, K = unknown> {
 /**
  * @internal
  */
+export function assembleTemplate<T extends object>(
+  template: Template<T>,
+  ...interfaces: any[]
+) {
+  return Object.assign({}, ...interfaces, template);
+}
+
+/**
+ * @internal
+ */
 const registeredTemplates: { [key: string]: Template<object> } = {};
 
 /**
