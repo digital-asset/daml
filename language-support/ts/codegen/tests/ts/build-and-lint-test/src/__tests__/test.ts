@@ -575,6 +575,10 @@ describe("interface definition", () => {
     });
   });
   describe("choice name collision", () => {
+    // statically assert that an expression is a choice
+    const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
+    // const the = <A>(a: A) => a;
+
     // Something is inherited
     test("unambiguous inherited is inherited", () => {
       const c: Choice<
@@ -585,6 +589,15 @@ describe("interface definition", () => {
       > = tpl.Something;
       expect(c).toBeDefined();
       expect(c).toEqual(if2.Something);
+    });
+    test("choice from two interfaces is not inherited", () => {
+      const k = "PeerIfaceOverload";
+      expect(theChoice(if2[k])).toBeDefined();
+      expect(
+        theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
+      ).toBeDefined();
+      // TODO #14091 use the<undefined>
+      expect(tpl[k]).toBeUndefined();
     });
     // PeerIfaceOverload is absent due to peer
     // Overridden is present and the definition in template
