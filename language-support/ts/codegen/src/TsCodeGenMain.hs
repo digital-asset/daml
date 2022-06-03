@@ -21,8 +21,10 @@ import qualified Data.Aeson.Key as Aeson
 import Data.Aeson.Encode.Pretty
 
 import Control.Exception
+import Control.Lens.Getter ((^.))
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Lens.Traversal (Traversal')
+import Control.Lens.Tuple (_1)
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
@@ -199,7 +201,7 @@ genModule pkgMap (Scope scope) curPkgId mod
   | null serDefs && null ifaces =
     Nothing -- If no serializable types or interfaces, nothing to do.
   | otherwise =
-    let (decls, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
+    let (decls, refs) = unzip (map (genDataDef curPkgId mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
         (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
         imports = (PRSelf, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
@@ -257,6 +259,18 @@ genModule pkgMap (Scope scope) curPkgId mod
             (genModuleRef (PRSelf, modName))
             (modPath (rootPath ++ unModuleName modName ++ ["module"]))
 
+    -- The choice names for an interface from a package map.
+    interfaceChoices :: Map.Map PackageId (Maybe PackageName, Package)
+                     -> PackageId -> InterfaceChoices
+    interfaceChoices pkgMap selfPkg name@Qualified{qualPackage, qualModule, qualObject} =
+      fromMaybe (error $ "reference interface missing: " <> show name) $ do
+        (_, pkg) <- Map.lookup (case qualPackage of
+                                  PRSelf -> selfPkg
+                                  PRImport pkgId -> pkgId) pkgMap
+        mod <- qualModule `NM.lookup` packageModules pkg
+        int <- qualObject `NM.lookup` moduleInterfaces mod
+        pure . Set.fromList . NM.names . intChoices $ int
+
     -- Calculate an import declaration for a module from another package.
     externalImportDecl
         :: JSSyntax
@@ -273,6 +287,8 @@ genModule pkgMap (Scope scope) curPkgId mod
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
+type InterfaceChoices = NM.Name TemplateImplements -> Set.Set ChoiceName
+
 importStmt :: JSSyntax -> T.Text -> T.Text -> T.Text
 importStmt ES6 asName impName =
     "import * as " <>  asName <> " from '" <> impName <> "';"
@@ -282,15 +298,16 @@ importStmt ES5 asName impName =
 defDataTypes :: Module -> [DefDataType]
 defDataTypes mod = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDataDef :: PackageId -> Module -> NM.NameMap Template -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
-genDataDef curPkgId mod tpls def = case unTypeConName (dataTypeCon def) of
+genDataDef :: PackageId -> Module -> InterfaceChoices -> NM.NameMap Template
+           -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
+genDataDef curPkgId mod ifcChoices tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
 
-    [conName] -> genDefDataType curPkgId conName mod tpls def
+    [conName] -> genDefDataType curPkgId conName mod ifcChoices tpls def
     [c1, c2] -> ([DeclNamespace c1 tyDecls], refs)
       where
-        (decls, refs) = genDefDataType curPkgId c2 mod tpls def
+        (decls, refs) = genDefDataType curPkgId c2 mod ifcChoices tpls def
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
@@ -384,7 +401,7 @@ data TemplateDef = TemplateDef
   -- ^ Nothing if we do not have a key.
   , tplKeyEncode :: Encode
   , tplChoices' :: [ChoiceDef]
-  , tplImplements' :: [(TsTypeConRef, JsSerializerConRef)]
+  , tplImplements' :: [(TsTypeConRef, JsSerializerConRef, Set.Set ChoiceName)]
   }
 
 renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
@@ -419,11 +436,11 @@ renderTemplateDef TemplateDef {..} =
                 , ["}"]
                 ]
             ]
-          , [", " <> impl | (_, JsSerializerConRef impl) <- tplImplements']
+          , [", " <> impl | (_, JsSerializerConRef impl, _) <- tplImplements']
           , [");"]
           ]
       tsDecl = T.unlines $ concat
-        [ ifaceDefTempl tplName (Just keyTy) (fst <$> tplImplements') tplChoices'
+        [ ifaceDefTempl tplName (Just keyTy) ((^._1) <$> tplImplements') tplChoices'
         , [ "export declare const " <> tplName <> ":"
           , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
           ]
@@ -777,8 +794,9 @@ genTypeDef conName mod def =
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
 
-genDefDataType :: PackageId -> T.Text -> Module -> NM.NameMap Template -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
-genDefDataType curPkgId conName mod tpls def =
+genDefDataType :: PackageId -> T.Text -> Module -> InterfaceChoices -> NM.NameMap Template
+               -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
+genDefDataType curPkgId conName mod ifcChoices tpls def =
     case dataCons def of
         DataVariant bs ->
           let
@@ -817,9 +835,10 @@ genDefDataType curPkgId conName mod tpls def =
                                 , EncodeRef typeRef
                                 , Set.setOf typeModuleRef keyType)
                         (impls, implRefs) = unzip
-                            [(tycon, ifaceRefs)
+                            [((tsRef, serRef, inheritedChoices), ifaceRefs)
                             | impl <- NM.names $ tplImplements tpl
-                            , let tycon = genTypeCon (moduleName mod) impl
+                            , let (tsRef, serRef) = genTypeCon (moduleName mod) impl
+                            , let inheritedChoices = ifcChoices impl
                             , let ifaceRefs = Set.setOf qualifiedModuleRef impl]
                         dict = TemplateDef
                             { tplName = conName
