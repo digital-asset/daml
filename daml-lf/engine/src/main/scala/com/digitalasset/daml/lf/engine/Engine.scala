@@ -20,7 +20,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
 }
 import java.nio.file.Files
-import com.daml.lf.value.Value.{ValueRecord, ValueContractId, VersionedContractInstance, ContractId}
+import com.daml.lf.value.Value.{ValueContractId, VersionedContractInstance, ContractId}
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackage}
 import com.daml.lf.validation.Validation
@@ -579,13 +579,15 @@ object Engine {
         List.empty[Versioned[DisclosedContract]],
       )
     ) { case ((m1, m2, ds), d) =>
+      // TODO (drsk) drop this conversion from SValue -> Value.
+      // https://github.com/digital-asset/daml/issues/14069
       val arg = machine.normValue(d.templateId, d.argument)
       val coid = machine.normValue(d.templateId, d.contractId)
       val version = machine.tmplId2TxVersion(d.templateId)
 
       // check for well typed contract argument
       (coid, arg) match {
-        case (ValueContractId(coid), r @ ValueRecord(Some(d.templateId), _)) =>
+        case (ValueContractId(coid), r) =>
           // check for duplicate contract ids
           m1.get(coid) match {
             case Some(_) =>

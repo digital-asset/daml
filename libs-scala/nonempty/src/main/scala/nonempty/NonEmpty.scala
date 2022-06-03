@@ -260,6 +260,9 @@ object NonEmptyCollInstances {
     @`inline` def tail1: C = self.tail
     def reduceLeft[B >: A](op: (B, A) => B): B = (self: ESelf).reduceLeft(op)
     @`inline` def last1: A = self.last
+    def min1(implicit ev: Ordering[A]): A = (self: ESelf).min
+    def max1(implicit ev: Ordering[A]): A = (self: ESelf).max
+
   }
 }
 

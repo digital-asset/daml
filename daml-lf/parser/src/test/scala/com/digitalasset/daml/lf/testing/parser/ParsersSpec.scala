@@ -597,8 +597,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             implements Mod1:Human {
               method age = 42;
               method alive = True;
-              choice Feed;
-              choice Rest;
             };
             implements '-pkgId-':Mod2:Referenceable {
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
@@ -662,7 +660,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   n"age" -> TemplateImplementsMethod(n"age", e"42"),
                   n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
                 ),
-                Set(n"Feed", n"Rest"),
               ),
             referenceable -> TemplateImplements(
               referenceable,
@@ -672,7 +669,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                   e""""123e4567-e89b-12d3-a456-426614174000"""",
                 )
               ),
-              Set.empty,
             ),
           ),
         )

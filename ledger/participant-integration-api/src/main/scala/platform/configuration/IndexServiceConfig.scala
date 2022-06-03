@@ -16,7 +16,7 @@ final case class IndexServiceConfig(
     acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
-    maxTransactionsInMemoryFanOutBufferSize: Long =
+    maxTransactionsInMemoryFanOutBufferSize: Int =
       IndexServiceConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
     enableInMemoryFanOutForLedgerApi: Boolean =
       IndexServiceConfig.DefaultEnableInMemoryFanOutForLedgerApi,
@@ -34,7 +34,7 @@ object IndexServiceConfig {
   val DefaultAcsGlobalParallelism: Int = 10
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
-  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L
+  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Int = 10000
   val DefaultEnableInMemoryFanOutForLedgerApi = false
   val DefaultApiStreamShutdownTimeout: Duration = FiniteDuration(5, "seconds")
 }

@@ -26,16 +26,10 @@ import scala.util.{Failure, Success, Try}
 /** Speedy scenario runner that uses the reference ledger.
   *
   * @constructor Creates a runner using an instance of [[Speedy.Machine]].
-  * @param partyNameMangler allows to amend party names defined in scenarios,
-  *        before they are executed against a ledger. The function should be idempotent
-  *        in the context of a single {@code ScenarioRunner} life-time, i.e. return the
-  *        same result each time given the same argument. Should return values compatible
-  *        with [[com.daml.lf.data.Ref.Party]].
   */
-final class ScenarioRunner(
+final class ScenarioRunner private (
     machine: Speedy.Machine,
     initialSeed: crypto.Hash,
-    partyNameMangler: (String => String) = identity,
 ) {
   import ScenarioRunner._
 
@@ -43,20 +37,6 @@ final class ScenarioRunner(
 
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   var currentSubmission: Option[CurrentSubmission] = None
-
-  def run(implicit loggingContext: LoggingContext): ScenarioResult =
-    handleUnsafe(runUnsafe) match {
-      case Left(err) =>
-        ScenarioError(
-          ledger,
-          machine.traceLog,
-          machine.warningLog,
-          currentSubmission,
-          machine.stackTrace(),
-          err,
-        )
-      case Right(t) => t
-    }
 
   private def runUnsafe(implicit loggingContext: LoggingContext): ScenarioSuccess = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
@@ -132,13 +112,11 @@ final class ScenarioRunner(
     ScenarioSuccess(ledger, machine.traceLog, machine.warningLog, diff, steps, finalValue)
   }
 
-  private def getParty(partyText: String, callback: Party => Unit) = {
-    val mangledPartyText = partyNameMangler(partyText)
-    Party.fromString(mangledPartyText) match {
+  private def getParty(partyText: String, callback: Party => Unit) =
+    Party.fromString(partyText) match {
       case Right(s) => callback(s)
       case Left(msg) => throw Error.InvalidPartyName(partyText, msg)
     }
-  }
 
   private def passTime(delta: Long, callback: Time.Timestamp => Unit) = {
     ledger = ledger.passTime(delta)
@@ -147,6 +125,26 @@ final class ScenarioRunner(
 }
 
 object ScenarioRunner {
+
+  def run(
+      buildMachine: () => Speedy.Machine,
+      initialSeed: crypto.Hash,
+  )(implicit loggingContext: LoggingContext): ScenarioResult = {
+    val machine = buildMachine()
+    val runner = new ScenarioRunner(machine, initialSeed)
+    handleUnsafe(runner.runUnsafe) match {
+      case Left(err) =>
+        ScenarioError(
+          runner.ledger,
+          machine.traceLog,
+          machine.warningLog,
+          runner.currentSubmission,
+          machine.stackTrace(),
+          err,
+        )
+      case Right(t) => t
+    }
+  }
 
   private def crash(reason: String) =
     throw Error.Internal(reason)

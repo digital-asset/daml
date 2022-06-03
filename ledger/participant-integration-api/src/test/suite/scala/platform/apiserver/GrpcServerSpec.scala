@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.util.concurrent.Executors
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
@@ -21,6 +20,7 @@ import io.grpc.{ManagedChannel, Status, StatusRuntimeException}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.concurrent.Executors
 import scala.concurrent.Future
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
@@ -90,7 +90,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
       resources(metrics).use { channel =>
         metrics.registry
           .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
-          .mark(1000) // Over limit
+          .mark(rateLimitingConfig.maxApiServicesQueueSize.toLong + 1) // Over limit
         val helloService = HelloServiceGrpc.stub(channel)
         helloService.single(HelloRequest(7)).failed.map {
           case s: StatusRuntimeException => s.getStatus.getCode shouldBe Status.Code.ABORTED
@@ -106,7 +106,7 @@ object GrpcServerSpec {
 
   private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
 
-  private val rateLimitingConfig = RateLimitingConfig(100)
+  private val rateLimitingConfig = RateLimitingConfig(100, 10)
 
   class TestedHelloService extends HelloServiceReferenceImplementation {
     override def fails(request: HelloRequest): Future[HelloResponse] = {

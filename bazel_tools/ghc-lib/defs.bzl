@@ -132,6 +132,11 @@ cp -rLt $$TMP $$GHC/.
 export HOME="$$TMP"
 
 $(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor}
+# Remove absolute paths to the execroot.
+sed -i.bak \\
+  -e "s#$$EXECROOT/##" \\
+  $$TMP/ghc-lib/stage0/lib/settings
+# Patch the ghc-lib version.
 sed -i.bak \\
   -e 's#version: 0.1.0#version: {ghc_lib_version}#' \\
   $$TMP/ghc-lib{component}.cabal

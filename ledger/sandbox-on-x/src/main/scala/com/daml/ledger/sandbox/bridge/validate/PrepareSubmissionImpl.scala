@@ -58,7 +58,7 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
   ): LfTransaction.KeyInputError => Rejection = {
     case LfTransaction.InconsistentKeys(key) =>
       TransactionInternallyInconsistentKey(key, completionInfo)
-    case LfTransaction.DuplicateKeys(key) =>
+    case LfTransaction.DuplicateContractKey(key) =>
       TransactionInternallyDuplicateKeys(key, completionInfo)
   }
 }

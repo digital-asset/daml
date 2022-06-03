@@ -69,6 +69,9 @@ final class Struct[+X] private (protected val sortedFields: ArraySeq[(Ref.Name, 
 
 object Struct {
 
+  def unapplySeq[X](v: Struct[X]): Some[Seq[(Ref.Name, X)]] =
+    Some(v.sortedFields)
+
   /** Constructs a Struct.
     * In case one of the field name is duplicated, return it as Left.
     * O(n log n)

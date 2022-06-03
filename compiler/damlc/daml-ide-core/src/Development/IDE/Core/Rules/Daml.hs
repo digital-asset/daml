@@ -96,7 +96,6 @@ import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
-import qualified DA.Daml.LF.Completer as LF
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import DA.Daml.UtilLF
@@ -269,8 +268,7 @@ generateRawDalfRule =
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                                completed = LF.completeModule world lfVersion v
-                                simplified = LF.simplifyModule world lfVersion completed
+                                simplified = LF.simplifyModule world lfVersion v
                             return ([], Just simplified)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
@@ -423,8 +421,7 @@ generateSerializedDalfRule options =
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
-                                        completed = LF.completeModule world lfVersion rawDalf
-                                        simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion completed
+                                        simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion

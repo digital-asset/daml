@@ -4,9 +4,13 @@
 package com.daml.platform.apiserver.configuration
 
 final case class RateLimitingConfig(
-    maxApiServicesQueueSize: Int
+    maxApiServicesQueueSize: Int,
+    maxApiServicesIndexDbQueueSize: Int,
 )
 
 case object RateLimitingConfig {
-  val default: RateLimitingConfig = RateLimitingConfig(maxApiServicesQueueSize = 10000)
+  val default: RateLimitingConfig = RateLimitingConfig(
+    maxApiServicesQueueSize = 10000,
+    maxApiServicesIndexDbQueueSize = 1000,
+  )
 }

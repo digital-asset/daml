@@ -6,11 +6,11 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref, Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.{\/, \/-}
 import scalaz.syntax.std.option._
 
 import javax.lang.model.element.Modifier
@@ -30,8 +30,7 @@ private[inner] object TemplateClass extends StrictLogging {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
-      // TODO(SC #13921) replace with a call to TemplateChoices#directChoices
-      val templateChoices = template.tChoices.assumeNoOverloadedChoices(githubIssue = 13921)
+      val templateChoices = template.tChoices.directChoices
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
@@ -39,8 +38,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addField(generateTemplateIdField(typeWithContext))
         .addMethod(generateCreateMethod(className))
         .addMethods(
-          generateStaticExerciseByKeyMethods(
-            className,
+          generateDeprecatedStaticExerciseByKeyMethods(
             templateChoices,
             template.key,
             typeWithContext.interface.typeDecls,
@@ -49,8 +47,7 @@ private[inner] object TemplateClass extends StrictLogging {
           )
         )
         .addMethods(
-          generateCreateAndExerciseMethods(
-            className,
+          generateDeprecatedCreateAndExerciseMethods(
             templateChoices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
@@ -63,11 +60,8 @@ private[inner] object TemplateClass extends StrictLogging {
             .builder(
               className,
               templateChoices,
+              ContractIdClass.For.Template,
               packagePrefixes,
-            )
-            .addFlattenedExerciseMethods(
-              typeWithContext.interface.typeDecls,
-              typeWithContext.packageId,
             )
             .addConversionForImplementedInterfaces(template.implementedInterfaces)
             .build()
@@ -78,12 +72,26 @@ private[inner] object TemplateClass extends StrictLogging {
             .addGenerateFromMethods()
             .build()
         )
+        .addType(
+          ContractIdClass.generateExercisesInterface(
+            templateChoices,
+            typeWithContext.interface.typeDecls,
+            typeWithContext.packageId,
+            packagePrefixes,
+          )
+        )
+        .addMethod(generateCreateAndMethod())
+        .addType(generateCreateAndClass(\/-(template.implementedInterfaces)))
         .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
-        .build()
+      generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
+        templateType
+          .addMethod(byKeyMethod)
+          .addType(generateByKeyClass(\/-(template.implementedInterfaces)))
+      }
       logger.debug("End")
-      templateType
+      templateType.build()
     }
 
   private def generateCreateMethod(name: ClassName): MethodSpec =
@@ -117,8 +125,82 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
 
-  private def generateStaticExerciseByKeyMethods(
-      templateClassName: ClassName,
+  private val byKeyClassName = "ByKey"
+
+  private[this] def generateByKeyMethod(
+      maybeKey: Option[Type],
+      packagePrefixes: Map[PackageId, String],
+  ) =
+    maybeKey map { key =>
+      MethodSpec
+        .methodBuilder("byKey")
+        .returns(ClassName bestGuess byKeyClassName)
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .addParameter(toJavaTypeName(key, packagePrefixes), "key")
+        .addStatement(
+          "return new ByKey($L)",
+          ToValueGenerator
+            .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
+        )
+        .addJavadoc(
+          """Set up an {@link $T};$Winvoke an {@code exercise} method on the result of
+            |this to finish creating the command, or convert to an interface first
+            |with {@code toInterface}
+            |to invoke an interface {@code exercise} method.""".stripMargin
+            .replaceAll("\n", "\\$W"),
+          classOf[javaapi.data.ExerciseByKeyCommand],
+        )
+        .build()
+    }
+
+  private[inner] def generateByKeyClass(
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
+  ) = {
+    import scala.language.existentials
+    val (superclass, companionArg) = implementedInterfaces.fold(
+      (_: ContractIdClass.For.Interface.type) =>
+        (classOf[javaapi.data.codegen.ByKey.ToInterface], "companion, "),
+      _ => (classOf[javaapi.data.codegen.ByKey], ""),
+    )
+    TypeSpec
+      .classBuilder(byKeyClassName)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+      .superclass(superclass)
+      .addSuperinterface(
+        ParameterizedTypeName.get(
+          ContractIdClass.exercisesInterface,
+          ClassName get classOf[javaapi.data.ExerciseByKeyCommand],
+        )
+      )
+      .addMethod(
+        MethodSpec
+          .constructorBuilder()
+          .publicIfInterface(implementedInterfaces)
+          .companionIfInterface(implementedInterfaces)
+          .addParameter(classOf[javaapi.data.Value], "key")
+          .addStatement("super($Lkey)", companionArg)
+          .build()
+      )
+      .addGetCompanion(implementedInterfaces)
+      .addMethods(
+        implementedInterfaces
+          .fold(
+            (_: ContractIdClass.For.Interface.type) => Seq.empty,
+            implemented =>
+              ContractIdClass
+                .generateToInterfaceMethods(
+                  byKeyClassName,
+                  s"$companionFieldName, this.contractKey",
+                  implemented,
+                ),
+          )
+          .asJava
+      )
+      .build()
+  }
+
+  // TODO #14039 delete
+  private def generateDeprecatedStaticExerciseByKeyMethods(
       choices: Map[ChoiceName, TemplateChoice[Type]],
       maybeKey: Option[Type],
       typeDeclarations: Map[QualifiedName, InterfaceType],
@@ -127,11 +209,10 @@ private[inner] object TemplateClass extends StrictLogging {
   ) =
     maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
       val methods = for ((choiceName, choice) <- choices.toList) yield {
-        val raw = generateStaticExerciseByKeyMethod(
+        val raw = generateDeprecatedStaticExerciseByKeyMethod(
           choiceName,
           choice,
           key,
-          templateClassName,
           packagePrefixes,
         )
         val flattened =
@@ -145,11 +226,9 @@ private[inner] object TemplateClass extends StrictLogging {
               )
           )
             yield {
-              generateFlattenedStaticExerciseByKeyMethod(
+              generateDeprecatedFlattenedStaticExerciseByKeyMethod(
                 choiceName,
-                choice,
                 key,
-                templateClassName,
                 getFieldsWithTypes(record.fields, packagePrefixes),
                 packagePrefixes,
               )
@@ -159,43 +238,33 @@ private[inner] object TemplateClass extends StrictLogging {
       methods.flatten.asJava
     }
 
-  private def generateStaticExerciseByKeyMethod(
+  // TODO #14039 delete
+  private def generateDeprecatedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       key: Type,
-      templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
-  ): MethodSpec = {
-    val exerciseByKeyBuilder = MethodSpec
+  ): MethodSpec =
+    MethodSpec
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(classOf[javaapi.data.ExerciseByKeyCommand])
-    val keyJavaType = toJavaTypeName(key, packagePrefixes)
-    exerciseByKeyBuilder.addParameter(keyJavaType, "key")
-    val choiceJavaType = toJavaTypeName(choice.param, packagePrefixes)
-    exerciseByKeyBuilder.addParameter(choiceJavaType, "arg")
-    val choiceArgument = choice.param match {
-      case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
-    }
-    exerciseByKeyBuilder.addStatement(
-      "return new $T($T.$N, $L, $S, $L)",
-      classOf[javaapi.data.ExerciseByKeyCommand],
-      templateClassName,
-      templateIdFieldName,
-      ToValueGenerator
-        .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
-      choiceName,
-      choiceArgument,
-    )
-    exerciseByKeyBuilder.build()
-  }
+      .makeDeprecated(
+        howToFix = s"use {@code byKey(key).exercise${choiceName.capitalize}} instead",
+        sinceDaml = "2.3.0",
+      )
+      .addParameter(toJavaTypeName(key, packagePrefixes), "key")
+      .addParameter(toJavaTypeName(choice.param, packagePrefixes), "arg")
+      .addStatement(
+        "return byKey(key).exercise$L(arg)",
+        choiceName.capitalize,
+      )
+      .build()
 
-  private def generateFlattenedStaticExerciseByKeyMethod(
+  // TODO #14039 delete
+  private def generateDeprecatedFlattenedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
       key: Type,
-      templateClassName: ClassName,
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
   ): MethodSpec = {
@@ -204,24 +273,80 @@ private[inner] object TemplateClass extends StrictLogging {
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(classOf[javaapi.data.ExerciseByKeyCommand])
-    val keyJavaType = toJavaTypeName(key, packagePrefixes)
-    exerciseByKeyBuilder.addParameter(keyJavaType, "key")
-    val choiceJavaType = toJavaTypeName(choice.param, packagePrefixes)
+      .addParameter(toJavaTypeName(key, packagePrefixes), "key")
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       exerciseByKeyBuilder.addParameter(javaType, javaName)
     }
-    exerciseByKeyBuilder.addStatement(
-      "return $T.$L(key, new $T($L))",
-      templateClassName,
-      methodName,
-      choiceJavaType,
+    val expansion = CodeBlock.of(
+      "byKey(key).exercise$L($L)",
+      choiceName.capitalize,
       generateArgumentList(fields.map(_.javaName)),
     )
-    exerciseByKeyBuilder.build()
+    exerciseByKeyBuilder
+      .makeDeprecated(CodeBlock.of("use {@code $L} instead", expansion), sinceDaml = "2.3.0")
+      .addStatement("return $L", expansion)
+      .build()
   }
 
-  private def generateCreateAndExerciseMethods(
-      templateClassName: ClassName,
+  private val createAndClassName = "CreateAnd"
+
+  private[this] def generateCreateAndMethod() =
+    MethodSpec
+      .methodBuilder("createAnd")
+      .returns(ClassName bestGuess createAndClassName)
+      .addModifiers(Modifier.PUBLIC)
+      .addAnnotation(classOf[Override])
+      .addStatement("return new CreateAnd(this)")
+      .build()
+
+  private[inner] def generateCreateAndClass(
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
+  ) = {
+    import scala.language.existentials
+    val (superclass, companionArg) = implementedInterfaces.fold(
+      (_: ContractIdClass.For.Interface.type) =>
+        (classOf[javaapi.data.codegen.CreateAnd.ToInterface], "companion, "),
+      _ => (classOf[javaapi.data.codegen.CreateAnd], ""),
+    )
+    TypeSpec
+      .classBuilder(createAndClassName)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+      .superclass(superclass)
+      .addSuperinterface(
+        ParameterizedTypeName.get(
+          ContractIdClass.exercisesInterface,
+          ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
+        )
+      )
+      .addGetCompanion(implementedInterfaces)
+      .addMethod(
+        MethodSpec
+          .constructorBuilder()
+          .publicIfInterface(implementedInterfaces)
+          .companionIfInterface(implementedInterfaces)
+          .addParameter(classOf[javaapi.data.Template], "createArguments")
+          .addStatement("super($LcreateArguments)", companionArg)
+          .build()
+      )
+      .addMethods(
+        implementedInterfaces
+          .fold(
+            (_: ContractIdClass.For.Interface.type) => Seq.empty,
+            implemented =>
+              ContractIdClass
+                .generateToInterfaceMethods(
+                  createAndClassName,
+                  s"$companionFieldName, this.createArguments",
+                  implemented,
+                ),
+          )
+          .asJava
+      )
+      .build()
+  }
+
+  // TODO #14039 delete
+  private def generateDeprecatedCreateAndExerciseMethods(
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
@@ -229,7 +354,11 @@ private[inner] object TemplateClass extends StrictLogging {
   ) = {
     val methods = for ((choiceName, choice) <- choices) yield {
       val createAndExerciseChoiceMethod =
-        generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
+        generateDeprecatedCreateAndExerciseMethod(
+          choiceName,
+          choice,
+          packagePrefixes,
+        )
       val splatted =
         for (
           record <- choice.param
@@ -240,7 +369,7 @@ private[inner] object TemplateClass extends StrictLogging {
               _ => None,
             )
         ) yield {
-          generateFlattenedCreateAndExerciseMethod(
+          generateDeprecatedFlattenedCreateAndExerciseMethod(
             choiceName,
             choice,
             getFieldsWithTypes(record.fields, packagePrefixes),
@@ -252,62 +381,49 @@ private[inner] object TemplateClass extends StrictLogging {
     methods.flatten.asJava
   }
 
-  private def generateCreateAndExerciseMethod(
+  // TODO #14039 delete
+  private def generateDeprecatedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
-      templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
   ): MethodSpec = {
     val methodName = s"createAndExercise${choiceName.capitalize}"
-    val createAndExerciseChoiceBuilder = MethodSpec
+    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
+      .makeDeprecated(
+        howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
+        sinceDaml = "2.3.0",
+      )
       .returns(classOf[javaapi.data.CreateAndExerciseCommand])
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
-    createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
-    choice.param match {
-      case TypeCon(_, _) =>
-        createAndExerciseChoiceBuilder.addStatement(
-          "$T argValue = arg.toValue()",
-          classOf[javaapi.data.Value],
-        )
-      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
-        createAndExerciseChoiceBuilder
-          .addStatement(
-            "$T argValue = $T.getInstance()",
-            classOf[javaapi.data.Value],
-            classOf[javaapi.data.Unit],
-          )
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
-        createAndExerciseChoiceBuilder
-          .addStatement(
-            "$T argValue = new $T(arg)",
-            classOf[javaapi.data.Value],
-            toAPITypeName(choice.param),
-          )
-    }
-    createAndExerciseChoiceBuilder.addStatement(
-      "return new $T($T.$N, this.toValue(), $S, argValue)",
-      classOf[javaapi.data.CreateAndExerciseCommand],
-      templateClassName,
-      templateIdFieldName,
-      choiceName,
-    )
-    createAndExerciseChoiceBuilder.build()
+      .addParameter(javaType, "arg")
+      .addStatement(
+        "return createAnd().exercise$L(arg)",
+        choiceName.capitalize,
+      )
+      .build()
   }
 
-  private def generateFlattenedCreateAndExerciseMethod(
+  // TODO #14039 delete
+  private def generateDeprecatedFlattenedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
   ): MethodSpec =
-    ClassGenUtils.generateFlattenedCreateOrExerciseMethod[javaapi.data.CreateAndExerciseCommand](
+    ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
       "createAndExercise",
+      ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
       choiceName,
       choice,
       fields,
       packagePrefixes,
+    )(
+      _.makeDeprecated(
+        howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
+        sinceDaml = "2.3.0",
+      )
     )
 
   private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =
@@ -366,5 +482,66 @@ private[inner] object TemplateClass extends StrictLogging {
         ) ++ keyArgs: _*
       )
       .build()
+  }
+
+  private implicit final class `MethodSpec extensions`(private val self: MethodSpec.Builder)
+      extends AnyVal {
+    // for template, use createAnd() or byKey(); toInterface methods need public
+    // access if in different packages, though
+    private[TemplateClass] def publicIfInterface(
+        isInterface: ContractIdClass.For.Interface.type \/ _
+    ) =
+      self.addModifiers(
+        isInterface.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
+      )
+
+    private[TemplateClass] def companionIfInterface(
+        isInterface: ContractIdClass.For.Interface.type \/ _
+    ) =
+      isInterface.fold(
+        { _ =>
+          val wildcard = WildcardTypeName subtypeOf classOf[Object]
+          self.addParameter(
+            ParameterizedTypeName.get(
+              ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
+              wildcard,
+              wildcard,
+              wildcard,
+            ),
+            "companion",
+          )
+        },
+        _ => self,
+      )
+
+    private[TemplateClass] def makeDeprecated(
+        howToFix: String,
+        sinceDaml: String,
+    ): MethodSpec.Builder =
+      self.makeDeprecated(howToFix = CodeBlock.of("$L", howToFix), sinceDaml = sinceDaml)
+
+    private[TemplateClass] def makeDeprecated(
+        howToFix: CodeBlock,
+        sinceDaml: String,
+    ): MethodSpec.Builder =
+      self
+        .addAnnotation(classOf[Deprecated])
+        .addJavadoc(
+          "@deprecated since Daml $L; $L",
+          sinceDaml,
+          howToFix,
+        )
+  }
+
+  private implicit final class `TypeSpec extensions`(private val self: TypeSpec.Builder)
+      extends AnyVal {
+    private[TemplateClass] def addGetCompanion(
+        isInterface: ContractIdClass.For.Interface.type \/ _
+    ) =
+      self.addMethod(
+        ContractIdClass.Builder.generateGetCompanion(
+          isInterface.map(_ => ContractIdClass.For.Template).merge
+        )
+      )
   }
 }

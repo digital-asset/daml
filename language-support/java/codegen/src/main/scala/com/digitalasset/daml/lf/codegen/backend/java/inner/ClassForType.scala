@@ -52,6 +52,7 @@ object ClassForType extends StrictLogging {
             className,
             interface,
             packagePrefixes,
+            typeWithContext.interface.typeDecls,
             typeWithContext.interface.packageId,
             interfaceName,
           )

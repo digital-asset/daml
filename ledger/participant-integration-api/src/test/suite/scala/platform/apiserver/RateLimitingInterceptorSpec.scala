@@ -15,6 +15,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.RateLimitingInterceptorSpec._
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
 import com.daml.ports.Port
@@ -47,11 +48,13 @@ final class RateLimitingInterceptorSpec
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
+  private val config = RateLimitingConfig(100, 10)
+
   behavior of "RateLimitingInterceptor"
 
   it should "limit calls when apiServices executor service is over limit" in {
     val metrics = new Metrics(new MetricRegistry)
-    val config = RateLimitingConfig(100)
+
     withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
       val submitted = metrics.registry.meter(
@@ -64,7 +67,30 @@ final class RateLimitingInterceptorSpec
         _ = submitted.mark(-config.maxApiServicesQueueSize.toLong - 1)
         _ <- helloService.single(HelloRequest(3))
       } yield {
-        exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices.toString)
+        exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices)
+      }
+    }
+  }
+
+  it should "limit calls when apiServices DB thread pool executor service is over limit" in {
+    val metrics = new Metrics(new MetricRegistry)
+    withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
+      val helloService = HelloServiceGrpc.stub(channel)
+      val submitted = metrics.registry.meter(
+        MetricRegistry.name(
+          metrics.daml.index.db.threadpool.connection,
+          ServerRole.ApiServer.threadPoolSuffix,
+          "submitted",
+        )
+      )
+      for {
+        _ <- helloService.single(HelloRequest(1))
+        _ = submitted.mark(config.maxApiServicesIndexDbQueueSize.toLong + 1)
+        exception <- helloService.single(HelloRequest(2)).failed
+        _ = submitted.mark(-config.maxApiServicesIndexDbQueueSize.toLong - 1)
+        _ <- helloService.single(HelloRequest(3))
+      } yield {
+        exception.getMessage should include(metrics.daml.index.db.threadpool.connection)
       }
     }
   }
@@ -72,10 +98,9 @@ final class RateLimitingInterceptorSpec
   /** Allowing metadata requests allows grpcurl to be used to debug problems */
   it should "allow metadata requests even when over limit" in {
     val metrics = new Metrics(new MetricRegistry)
-    val config = RateLimitingConfig(100)
     metrics.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
-      .mark(1000) // Over limit
+      .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 
     val protoService = ProtoReflectionService.newInstance()
 
@@ -106,10 +131,9 @@ final class RateLimitingInterceptorSpec
 
   it should "allow health checks event when over limit" in {
     val metrics = new Metrics(new MetricRegistry)
-    val config = RateLimitingConfig(100)
     metrics.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
-      .mark(1000) // Over limit
+      .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 
     val healthService = new GrpcHealthService(healthChecks)(
       executionSequencerFactory,

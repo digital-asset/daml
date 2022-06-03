@@ -4,7 +4,8 @@
 package com.daml
 
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.javaapi.data.{CreatedEvent, Identifier}
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.resources.TestResourceContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -20,47 +21,39 @@ class Interfaces
 
   behavior of "Generated Java code"
 
-  // TODO(#13668) Redesign the test once the issue is fixed
-  it should "contain all choices of an interface in templates implementing it" ignore withClient {
+  it should "contain all choices of an interface in templates implementing it" in withClient {
     client =>
       def checkTemplateId[T](
-          shouldBeId: Identifier,
-          fn: CreatedEvent => T,
+          companion: ContractCompanion[T, _, _]
       ): PartialFunction[CreatedEvent, T] = {
-        case event: CreatedEvent if event.getTemplateId == shouldBeId => fn(event)
+        case event if event.getTemplateId == companion.TEMPLATE_ID =>
+          companion fromCreatedEvent event
       }
       val safeChildFromCreatedEvent =
-        checkTemplateId(interfaces.Child.TEMPLATE_ID, interfaces.Child.Contract.fromCreatedEvent)
+        checkTemplateId(interfaces.Child.COMPANION)
       val safeChildCloneFromCreatedEvent =
-        checkTemplateId(
-          interfaces.ChildClone.TEMPLATE_ID,
-          interfaces.ChildClone.Contract.fromCreatedEvent,
-        )
+        checkTemplateId(interfaces.ChildClone.COMPANION)
       for {
         alice <- allocateParty
       } yield {
         sendCmd(client, alice, interfaces.Child.create(alice))
         sendCmd(client, alice, interfaces.ChildClone.create(alice))
-        readActiveContractsSafe[interfaces.Child.Contract](safeChildFromCreatedEvent)(
-          client,
-          alice,
-        ).foreach { child =>
-          sendCmd(client, alice, child.id.exerciseHam(new interfaces.Ham()))
-        }
         readActiveContractsSafe(safeChildFromCreatedEvent)(client, alice).foreach { child =>
-          sendCmd(client, alice, child.id.toTIf.exerciseHam(new interfaces.Ham()))
+          sendCmd(
+            client,
+            alice,
+            child.id.toInterface(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
+          )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
           .foreach { child =>
-            assertThrows[Exception](
-              sendCmd(
-                client,
-                alice,
-                interfaces.Child.ContractId
-                  .unsafeFromTIf(child.id.toTIf: interfaces.TIf.ContractId)
-                  .exerciseHam(new interfaces.Ham()),
+            val cmd = interfaces.Child.ContractId
+              .unsafeFromInterface(
+                child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
               )
-            )
+              .exerciseBar()
+            val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, cmd)
+            ex.getMessage should include regex "Expected contract of type .*Child@.* but got .*ChildClone"
           }
         succeed
       }

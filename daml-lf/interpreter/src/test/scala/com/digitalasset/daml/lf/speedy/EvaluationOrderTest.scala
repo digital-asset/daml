@@ -138,8 +138,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           method asParty = M:Human {person} this;
           method getName = "foobar";
           method getCtrl = M:Human {ctrl} this;
-          choice Sleep;
-          choice Nap;
           };
         key @M:TKey
            (TRACE @M:TKey "key" (M:Human {key} this))
