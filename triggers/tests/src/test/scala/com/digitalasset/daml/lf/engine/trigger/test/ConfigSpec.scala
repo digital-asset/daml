@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger
 package test
 
 import java.nio.file.Paths
-import java.util.UUID
 
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.Party
@@ -47,9 +46,6 @@ class ConfigSpec
     Ref.Party.assertFromString(s)
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
-
-  private def randomUserId(): UserId =
-    s"u${UUID.randomUUID}"
 
   "CLI" should {
     val defaultArgs = Array(
@@ -102,7 +98,7 @@ class ConfigSpec
     "succeed for user with primary party & actAs and readAs claims" in {
       for {
         client <- LedgerClient(channel, clientConfig)
-        userId = randomUserId()
+        userId = randomUserId
         _ <- client.userManagementClient.createUser(
           User(userId, Some("primary")),
           Seq(
@@ -118,14 +114,14 @@ class ConfigSpec
       for {
         client <- LedgerClient(channel, clientConfig)
         ex <- recoverToExceptionIf[StatusRuntimeException](
-          UserSpecification(randomUserId()).resolveClaims(client)
+          UserSpecification(randomUserId).resolveClaims(client)
         )
       } yield ex.getStatus.getCode shouldBe Code.NOT_FOUND
     }
     "fail for user with no primary party" in {
       for {
         client <- LedgerClient(channel, clientConfig)
-        userId = randomUserId()
+        userId = randomUserId
         _ <- client.userManagementClient.createUser(User(userId, None), Seq.empty)
         ex <- recoverToExceptionIf[IllegalArgumentException](
           UserSpecification(userId).resolveClaims(client)
@@ -135,7 +131,7 @@ class ConfigSpec
     "fail for user with no actAs claims for primary party" in {
       for {
         client <- LedgerClient(channel, clientConfig)
-        userId = randomUserId()
+        userId = randomUserId
         _ <- client.userManagementClient.createUser(User(userId, Some("primary")), Seq.empty)
         ex <- recoverToExceptionIf[IllegalArgumentException](
           UserSpecification(userId).resolveClaims(client)
