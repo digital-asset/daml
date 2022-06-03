@@ -192,6 +192,11 @@ object UpdateToDbDto {
               val eventId = EventId(u.transactionId, nodeId)
               val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
+              val stakeholders: Set[String] = exercise.stakeholders.map(_.toString)
+              val informees: Set[String] =
+                blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
+              val flatWitnesses = if (exercise.consuming) stakeholders else Set.empty[String]
+              val templateId = exercise.templateId.toString
               Iterator(
                 DbDto.EventExercise(
                   consuming = exercise.consuming,
@@ -205,11 +210,9 @@ object UpdateToDbDto {
                   node_index = Some(nodeId.index),
                   event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
                   contract_id = exercise.targetCoid.coid,
-                  template_id = Some(exercise.templateId.toString),
-                  flat_event_witnesses =
-                    if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
-                  tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  template_id = Some(templateId),
+                  flat_event_witnesses = flatWitnesses,
+                  tree_event_witnesses = informees,
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
                   exercise_choice = Some(
@@ -231,8 +234,13 @@ object UpdateToDbDto {
                   exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
                   event_sequential_id = 0, // this is filled later
                 )
+              ) ++ stakeholders.iterator.map(stakeholder =>
+                DbDto.ConsumingStakeholderFilter(
+                  event_sequential_id = 0, // this is filled later
+                  template_id = templateId,
+                  party_id = stakeholder,
+                )
               )
-
             case _ =>
               Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
           }

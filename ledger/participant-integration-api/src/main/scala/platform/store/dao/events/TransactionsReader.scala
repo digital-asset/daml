@@ -4,6 +4,8 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
+
+import akka.stream.Attributes
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.error.DamlContextualizedErrorLogger
@@ -33,10 +35,17 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import com.daml.platform.store.backend.{ContractStorageBackend, EventStorageBackend}
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.utils.Telemetry
+import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
 import com.daml.metrics.InstrumentedGraph._
+import com.daml.platform.indexer.parallel.BatchN
+import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
+import com.daml.platform.store.dao.events.FilterTableACSReader.{
+  Filter,
+  IdQueryConfiguration,
+  statefulDeduplicate,
+}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -65,8 +74,6 @@ private[dao] final class TransactionsReader(
   private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
     new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
-  private val getTransactions =
-    new EventsTableFlatEventsRangeQueries.GetTransactions(eventStorageBackend)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -98,41 +105,201 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val span =
-      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-    logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
+    val futureSource = getEventSeqIdRange(startExclusive, endInclusive)
+      .map(queryRange => doGetFlatTransactions(queryRange, filter, verbose))
+    Source
+      .futureSource(futureSource)
+      .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
+  }
 
-    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
+  def doGetFlatTransactions(
+      queryRange: EventsRange[(Offset, Long)],
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+    val (firstOffset, firstEventSequentialId): (Offset, Long) = queryRange.startExclusive
+    val (lastOffset, lastEventSequentialId): (Offset, Long) = queryRange.endInclusive
 
-    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
-      logger.debug(s"getFlatTransactions query($range)")
-      queryNonPruned.executeSql(
-        getTransactions(
-          EventsRange(range.startExclusive._2, range.endInclusive._2),
-          filter,
-          pageSize,
-        )(connection),
-        range.startExclusive._1,
-        pruned =>
-          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+    val span: Span =
+      Telemetry.Transactions.createSpan(firstOffset, lastOffset)(qualifiedNameOfCurrentFunc)
+    logger.debug(s"getFlatTransactions($firstOffset, $lastOffset, $filter, $verbose)")
+
+    // TODO pbatko: configure it upstream
+    val idFetchingParallelism = 10
+    val idPageSize = 20000
+    val idPageBufferSize = 10
+    val consumingEventsFetchingParallelism = 10
+    val createEventsFetchingParallelism = 10
+    val idPageWorkingMemoryBytes = 100 * 1024 * 1024
+    val eventIdFetchingLimiter =
+      new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
+    val eventFetchingLimiter: ConcurrencyLimiter =
+      new QueueBasedConcurrencyLimiter(10, executionContext)
+
+    val filters: Vector[Filter] = filter.iterator.flatMap {
+      case (party, emptyTemplateIds) if emptyTemplateIds.isEmpty => Iterator(Filter(party, None))
+      case (party, templateIds) =>
+        templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
+    }.toVector
+    val allFilterParties = filter.keySet
+
+    val idPageConfig = IdQueryConfiguration(
+      maxIdPageSize = idPageSize,
+      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes,
+      filterSize = filters.size,
+      idPageBufferSize = idPageBufferSize,
+    )
+
+    def streamConsumingIds_stakeholders(filter: Filter): Source[Long, NotUsed] = {
+      PaginatingAsyncStream.streamIdsFromSeekPagination(
+        pageConfig = idPageConfig,
+        pageBufferSize = idPageBufferSize,
+        initialStartOffset = firstEventSequentialId,
+      )(
+        fetchPage = (state: IdPaginationState) => {
+          eventIdFetchingLimiter.execute {
+            dispatcher.executeSql(metrics.daml.index.db.getConsumingIds_stakeholdersFilter) {
+              connection =>
+                eventStorageBackend.consumingEventIds_stakeholders(
+                  partyFilter = filter.party,
+                  templateIdFilter = filter.templateId,
+                  startExclusive = state.startOffset,
+                  endInclusive = lastEventSequentialId,
+                  limit = state.pageSize,
+                )(connection)
+            }
+          }
+        }
       )
     }
 
-    val events: Source[EventStorageBackend.Entry[Event], NotUsed] =
-      Source
-        .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            verbose,
-            dbMetrics.getFlatTransactions,
-            query,
-            nextPageRange[Event](requestedRange.endInclusive),
-          )(requestedRange)
-        })
-        .mapMaterializedValue(_ => NotUsed)
+    def streamCreateIds_stakeholders(filter: Filter): Source[Long, NotUsed] = {
+      PaginatingAsyncStream.streamIdsFromSeekPagination(
+        pageConfig = idPageConfig,
+        pageBufferSize = idPageBufferSize,
+        initialStartOffset = firstEventSequentialId,
+      )(
+        fetchPage = (state: IdPaginationState) => {
+          eventIdFetchingLimiter.execute {
+            dispatcher.executeSql(metrics.daml.index.db.getCreateEventIds_stakeholdersFilter) {
+              connection =>
+                eventStorageBackend.activeContractEventIds(
+                  partyFilter = filter.party,
+                  templateIdFilter = filter.templateId,
+                  startExclusive = state.startOffset,
+                  endInclusive = lastEventSequentialId,
+                  limit = state.pageSize,
+                )(connection)
+            }
+          }
+        }
+      )
+    }
+
+    def decode(
+        rawEvents: Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
+    ): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+      Timed.future(
+        future = Future.traverse(rawEvents)(deserializeEntry(verbose)),
+        timer = dbMetrics.getFlatTransactions.translationTimer,
+      )
+    }
+
+    def fetchConsumingEvents(
+        ids: Iterable[Long]
+    ): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+      eventFetchingLimiter
+        .execute(
+          dispatcher.executeSql(metrics.daml.index.db.getFlatTransactions) { implicit connection =>
+            queryNonPruned.executeSql(
+              query = eventStorageBackend.fetchFlatConsumingEvents(
+                eventSequentialIds = ids,
+                allFilterParties = allFilterParties,
+              )(connection),
+              minOffsetExclusive = firstOffset,
+              error = (prunedOffset: Offset) =>
+                s"Transactions request from ${firstOffset.toHexString} to ${lastOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+            )
+          }
+        )
+        .flatMap(decode)
+    }
+
+    def fetchCreateEvents(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+      eventFetchingLimiter
+        .execute(
+          dispatcher.executeSql(metrics.daml.index.db.getFlatTransactions) { implicit connection =>
+            queryNonPruned.executeSql(
+              query = eventStorageBackend.fetchFlatCreateEvents(
+                eventSequentialIds = ids,
+                allFilterParties = allFilterParties,
+              )(connection),
+              minOffsetExclusive = firstOffset,
+              error = (prunedOffset: Offset) =>
+                s"Transactions request from ${firstOffset.toHexString} to ${lastOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+            )
+          }
+        )
+        .flatMap(decode)
+    }
+
+    import scala.util.chaining._
+
+    val consumingStream: Source[EventStorageBackend.Entry[Event], NotUsed] = filters
+      .map(streamConsumingIds_stakeholders)
+      .pipe(FilterTableACSReader.mergeSort[Long])
+      .statefulMapConcat(statefulDeduplicate)
+      .via(
+        BatchN(
+          maxBatchSize = pageSize,
+          maxBatchCount = consumingEventsFetchingParallelism + 1,
+        )
+      )
+      .async
+      .addAttributes(
+        Attributes.inputBuffer(
+          initial = consumingEventsFetchingParallelism,
+          max = consumingEventsFetchingParallelism,
+        )
+      )
+      .mapAsync(consumingEventsFetchingParallelism)(fetchConsumingEvents)
+      .mapConcat(identity)
+
+    val createStream: Source[EventStorageBackend.Entry[Event], NotUsed] = filters
+      .map(streamCreateIds_stakeholders)
+      .pipe(FilterTableACSReader.mergeSort[Long])
+      .statefulMapConcat(statefulDeduplicate)
+      .via(
+        BatchN(
+          maxBatchSize = pageSize,
+          // TODO pbatko: Why +1 ?
+          maxBatchCount = createEventsFetchingParallelism + 1,
+        )
+      )
+      .addAttributes(
+        Attributes.inputBuffer(
+          initial = createEventsFetchingParallelism,
+          max = createEventsFetchingParallelism,
+        )
+      )
+      .mapAsync(createEventsFetchingParallelism)(fetchCreateEvents)
+      .mapConcat(identity)
+
+    val allFlatEvents: Source[EventStorageBackend.Entry[Event], NotUsed] =
+      consumingStream.mergeSorted(createStream)(
+        ord = new Ordering[EventStorageBackend.Entry[Event]] {
+          override def compare(
+              x: EventStorageBackend.Entry[Event],
+              y: EventStorageBackend.Entry[Event],
+          ): Int = {
+            implicitly[Ordering[Long]].compare(x.eventSequentialId, y.eventSequentialId)
+          }
+        }
+      )
 
     TransactionsReader
-      .groupContiguous(events)(by = _.transactionId)
-      .mapConcat { events =>
+      .groupContiguous(allFlatEvents)(by = _.transactionId)
+      .mapConcat { events: Vector[EventStorageBackend.Entry[Event]] =>
         val response = TransactionConversions.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
@@ -357,15 +524,14 @@ private[dao] final class TransactionsReader(
         getAcsEventSeqIdRange(activeAt)
           .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
-      .mapAsync(eventProcessingParallelism) { rawResult =>
-        Timed.future(
-          future = Future(
-            Future.traverse(rawResult)(
+      .mapAsync(eventProcessingParallelism) {
+        rawResult: Vector[EventStorageBackend.Entry[Raw.FlatEvent]] =>
+          Timed.future(
+            future = Future.traverse(rawResult)(
               deserializeEntry(verbose)
-            )
-          ).flatMap(identity),
-          timer = dbMetrics.getActiveContracts.translationTimer,
-        )
+            ),
+            timer = dbMetrics.getActiveContracts.translationTimer,
+          )
       }
       .mapConcat(TransactionConversions.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
       .wireTap(response => {

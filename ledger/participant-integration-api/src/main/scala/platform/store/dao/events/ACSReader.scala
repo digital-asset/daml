@@ -53,7 +53,7 @@ class FilterTableACSReader(
       loggingContext: LoggingContext
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
     val allFilterParties = filter.keySet
-    val filters = filter.iterator.flatMap {
+    val filters: Vector[Filter] = filter.iterator.flatMap {
       case (party, templateIds) if templateIds.isEmpty => Iterator(Filter(party, None))
       case (party, templateIds) =>
         templateIds.iterator.map(templateId => Filter(party, Some(templateId)))
@@ -133,7 +133,7 @@ class FilterTableACSReader(
   }
 }
 
-private[events] object FilterTableACSReader {
+object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   case class Filter(party: Party, templateId: Option[Identifier])
@@ -198,6 +198,7 @@ private[events] object FilterTableACSReader {
       pageBufferSize: Int,
   )(getPage: IdQuery => Future[Array[Long]]): Source[Long, NotUsed] = {
     assert(pageBufferSize > 0)
+    // com.daml.platform.store.dao.PaginatingAsyncStream.streamFromSeekPagination
     Source
       .unfoldAsync(
         IdQuery(0L, idQueryConfiguration.minPageSize)

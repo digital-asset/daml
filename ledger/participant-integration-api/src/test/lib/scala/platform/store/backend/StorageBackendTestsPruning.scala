@@ -105,7 +105,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     // Make sure the events are visible
-    val before1 = executeSql(backend.event.transactionEvents(range, filter))
+//    val before1 = executeSql(backend.event.transactionEvents(range, filter))
     val before3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
     val before4 = executeSql(backend.event.transactionTreeEvents(range, filter))
     val before5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -129,7 +129,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
 
     // Make sure the events are not visible anymore
-    val after1 = executeSql(backend.event.transactionEvents(range, filter))
+//    val after1 = executeSql(backend.event.transactionEvents(range, filter))
     val after3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
     val after4 = executeSql(backend.event.transactionTreeEvents(range, filter))
     val after5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -143,7 +143,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
     )
 
-    before1 should not be empty
+//    before1 should not be empty
     before3 should not be empty
     before4 should not be empty
     before5 should not be empty
@@ -151,7 +151,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     before7 should have size 1
     before8 shouldBe empty
 
-    after1 shouldBe empty
+//    after1 shouldBe empty
     after3 shouldBe empty
     after4 shouldBe empty
     after5 shouldBe empty
@@ -183,7 +183,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     executeSql(updateLedgerEnd(offset(2), 1L))
 
     // Make sure the events are visible
-    val before1 = executeSql(backend.event.transactionEvents(range, filter))
+//    val before1 = executeSql(backend.event.transactionEvents(range, filter))
     val before3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
     val before4 = executeSql(backend.event.transactionTreeEvents(range, filter))
     val before5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -207,7 +207,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
 
     // Make sure the events are still visible - active contracts should not be pruned
-    val after1 = executeSql(backend.event.transactionEvents(range, filter))
+//    val after1 = executeSql(backend.event.transactionEvents(range, filter))
     val after3 = executeSql(backend.event.flatTransaction(createTransactionId, filter))
     val after4 = executeSql(backend.event.transactionTreeEvents(range, filter))
     val after5 = executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -221,7 +221,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 1L)
     )
 
-    before1 should not be empty
+//    before1 should not be empty
     before3 should not be empty
     before4 should not be empty
     before5 should not be empty
@@ -233,7 +233,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     // any data before the last pruning offset. For pointwise transaction lookups, we check the pruning offset
     // inside the database query - that's why they do not return any results. For transaction stream lookups, we only
     // check the pruning offset when starting the stream - that's why those queries still return data here.
-    after1 should not be empty // transaction stream query
+//    after1 should not be empty // transaction stream query
     after3 shouldBe empty // pointwise transaction lookup
     after4 should not be empty // transaction stream query
     after5 shouldBe empty // pointwise transaction lookup
