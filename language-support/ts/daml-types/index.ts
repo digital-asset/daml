@@ -94,7 +94,15 @@ export function assembleTemplate<T extends object>(
   template: Template<T>,
   ...interfaces: Template<object>[]
 ): Template<T> {
-  return Object.assign({}, ...interfaces, template);
+  const combined = {};
+  const overloaded: string[] = [];
+  for (const iface of interfaces) {
+    _.mergeWith(combined, iface, (left, right, k) => {
+      if (left !== undefined && right !== undefined) overloaded.push(k);
+      return undefined;
+    });
+  }
+  return Object.assign(_.omit(combined, overloaded), template);
 }
 
 /**
