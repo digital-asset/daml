@@ -588,7 +588,8 @@ describe("interface definition", () => {
         undefined
       > = tpl.Something;
       expect(c).toBeDefined();
-      expect(c).toEqual(if2.Something);
+      expect(c).toEqual(theChoice(if2.Something));
+      expect(c.template()).toBe(if2);
     });
     test("choice from two interfaces is not inherited", () => {
       const k = "PeerIfaceOverload";
@@ -599,8 +600,17 @@ describe("interface definition", () => {
       // TODO #14091 use the<undefined>
       expect(tpl[k]).toBeUndefined();
     });
-    // PeerIfaceOverload is absent due to peer
-    // Overridden is present and the definition in template
+    test("choice from template and interface prefers template", () => {
+      const k = "Overridden";
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Main.Overridden,
+        {},
+        undefined
+      > = tpl[k];
+      expect(c).not.toEqual(theChoice(if2[k]));
+      expect(c.template()).toBe(tpl);
+    });
   });
 });
 
