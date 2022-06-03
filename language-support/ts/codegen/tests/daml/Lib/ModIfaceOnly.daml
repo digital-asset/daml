@@ -9,7 +9,7 @@ module Lib.ModIfaceOnly where
 interface YetAnother where
   getOtherOwner : Party
   somethingImpl : Update ()
-  choice SomethingElse : ()
+  choice PeerIfaceOverload : ()
     controller getOtherOwner this
     do
       somethingImpl this

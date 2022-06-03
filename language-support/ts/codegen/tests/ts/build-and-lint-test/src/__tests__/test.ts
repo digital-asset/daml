@@ -574,6 +574,9 @@ describe("interface definition", () => {
       templateId: emptyIfcId,
     });
   });
+  // Something is inherited
+  // PeerIfaceOverload is absent due to peer
+  // Overridden is present and the definition in template
 });
 
 test("interfaces", async () => {
