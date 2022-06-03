@@ -31,9 +31,11 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
-
 import java.sql.Connection
 import javax.sql.DataSource
+
+import com.daml.lf.data.Ref
+
 import scala.annotation.unused
 
 /** Encapsulates the interface which hides database technology specific implementations.
@@ -276,10 +278,21 @@ trait EventStorageBackend {
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Boolean
-  def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
+
+  /** @param allFilterParties - needed only for result raw row parsing
+    */
+  def fetchFlatConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
+
+  /** @param allFilterParties - needed only for result raw row parsing
+    */
+  def fetchFlatCreateEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
+
   def activeContractEventIds(
       partyFilter: Party,
       templateIdFilter: Option[Identifier],
@@ -287,6 +300,23 @@ trait EventStorageBackend {
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long]
+
+  /** @return at most `limit` event sequential ids from the given range
+    *         that match the specified party and template filters,
+    *         and which are retrieved from the stakeholders filter table
+    *         for consuming events.
+    *         (A party is present in the stakeholders filter table for consuming events
+    *         if and only if there is a consuming exercise on the corresponding contract
+    *         on which this party is a stakeholder.)
+    */
+  def consumingEventIds_stakeholders(
+      partyFilter: Party,
+      templateIdFilter: Option[Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
   def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Party],

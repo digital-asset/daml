@@ -32,6 +32,7 @@ object IndexServiceConfig {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
+  // TODO pbatko: Must be power of 2
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10

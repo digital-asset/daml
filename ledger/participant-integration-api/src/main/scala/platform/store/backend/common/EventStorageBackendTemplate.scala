@@ -458,29 +458,95 @@ abstract class EventStorageBackendTemplate(
     }
   }
 
-  override def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
+  override def fetchFlatConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    events(
-      joinClause = cSQL"",
-      additionalAndClause = cSQL"""
-            event_sequential_id > ${rangeParams.startExclusive} AND
-            event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawFlatEventParser,
-      witnessesColumn = "flat_event_witnesses",
-      partitions = List(
-        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
-        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
-        // "participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
-      ),
-    )(
-      limit = rangeParams.limit,
-      fetchSizeHint = rangeParams.fetchSizeHint,
-      filterParams,
-    )(connection)
+    val internedAllParties: Set[Int] = allFilterParties.iterator
+      .map(stringInterning.party.tryInternalize)
+      .flatMap(_.iterator)
+      .toSet
+    SQL"""
+        SELECT
+          #$selectColumnsForFlatTransactionsExercise, 
+          flat_event_witnesses as event_witnesses, 
+          command_id
+        FROM
+          participant_events_consuming_exercise
+        WHERE
+          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+        ORDER BY
+          event_sequential_id
+      """
+      .withFetchSize(Some(eventSequentialIds.size))
+      .asVectorOf(rawFlatEventParser(internedAllParties))(connection)
+  }
+
+  override def fetchFlatCreateEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+    val internedAllParties: Set[Int] = allFilterParties.iterator
+      .map(stringInterning.party.tryInternalize)
+      .flatMap(_.iterator)
+      .toSet
+    SQL"""
+        SELECT
+          #$selectColumnsForFlatTransactionsCreate,
+          flat_event_witnesses as event_witnesses,
+          command_id
+        FROM
+          participant_events_create
+        WHERE
+          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+        ORDER BY
+          event_sequential_id
+      """
+      .withFetchSize(Some(eventSequentialIds.size))
+      .asVectorOf(rawFlatEventParser(internedAllParties))(connection)
+  }
+
+  override def consumingEventIds_stakeholders(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    (
+      stringInterning.party.tryInternalize(partyFilter),
+      templateIdFilter.map(stringInterning.templateId.tryInternalize),
+    ) match {
+      case (None, _) => Vector.empty // partyFilter never seen
+      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
+      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
+        val (templateIdFilterClause, templateIdOrderingClause) =
+          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
+          match {
+            case Some(internedTemplateId) =>
+              (
+                cSQL"AND filters.template_id = $internedTemplateId",
+                cSQL"filters.template_id,",
+              )
+            case None => (cSQL"", cSQL"")
+          }
+        SQL"""
+         SELECT filters.event_sequential_id
+         FROM
+           pe_consuming_exercise_filter_stakeholders filters
+         WHERE
+           filters.party_id = $internedPartyFilter
+           $templateIdFilterClause
+           AND $startExclusive < event_sequential_id
+           AND event_sequential_id <= $endInclusive
+         ORDER BY
+           filters.party_id,
+           $templateIdOrderingClause
+           filters.event_sequential_id -- deliver in index order
+         ${QueryStrategy.limitClause(Some(limit))}
+       """
+          .asVectorOf(long("event_sequential_id"))(connection)
+    }
   }
 
   override def activeContractEventIds(
@@ -496,7 +562,7 @@ abstract class EventStorageBackendTemplate(
     ) match {
       case (None, _) => Vector.empty // partyFilter never seen
       case (_, Some(None)) => Vector.empty // templateIdFilter never seen
-      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
+      case (Some(internedPartyFilter), internedTemplateIdFilterNested: Option[Option[Int]]) =>
         val (templateIdFilterClause, templateIdOrderingClause) =
           internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
           match {

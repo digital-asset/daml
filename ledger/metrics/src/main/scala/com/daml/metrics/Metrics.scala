@@ -487,6 +487,13 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_contract_by_key"
         )
+        val getConsumingIds_stakeholdersFilter: DatabaseMetrics = createDbMetrics(
+          "get_consuming_ids_from_stakeholders_filter"
+        )
+        val getCreateEventIds_stakeholdersFilter: DatabaseMetrics = createDbMetrics(
+          "get_create_ids_from_stakeholders_filter"
+        )
+
         val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")
         val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
           "lookup_flat_transaction_by_id"

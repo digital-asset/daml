@@ -149,6 +149,12 @@ object DbDto {
       party_id: String,
   ) extends DbDto
 
+  final case class ConsumingStakeholderFilter(
+      event_sequential_id: Long,
+      template_id: String,
+      party_id: String,
+  ) extends DbDto
+
   final case class TransactionMetering(
       application_id: String,
       action_count: Int,
