@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.services
 
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.util
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{MockMessages => M}
@@ -24,11 +24,12 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.testing.TestTemplateIdentifiers
-import com.google.protobuf.ByteString
+import com.google.protobuf
 import com.google.protobuf.empty.Empty
 import io.grpc.Channel
 import scalaz.syntax.tag._
 
+import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
 
 trait TestCommands {
@@ -40,6 +41,9 @@ trait TestCommands {
   protected def packageId: PackageId = DarReader.assertReadArchiveFromFile(darFile).main.pkgId
 
   protected def templateIds = new TestTemplateIdentifiers(packageId)
+
+  private def uploadDarFileRequest(file: File) =
+    new UploadDarFileRequest(protobuf.ByteString.copyFrom(Files.readAllBytes(file.toPath)))
 
   def uploadPackageFiles(
       packageFiles: List[File],
@@ -53,10 +57,11 @@ trait TestCommands {
           adminToken,
         )
       Future
-        .sequence(packageFiles.map { dar =>
-          val request = new UploadDarFileRequest(ByteString.readFrom(new FileInputStream(dar)))
-          packageManagementService.uploadDarFile(request)
-        })
+        .sequence(
+          packageFiles.map(file =>
+            packageManagementService.uploadDarFile(uploadDarFileRequest(file))
+          )
+        )
         .map(_ => Empty())
     } else {
       Future.successful(Empty())
