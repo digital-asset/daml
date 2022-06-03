@@ -319,7 +319,9 @@ trait AbstractTriggerServiceTest
           actAs = List(ApiTypes.Party(alice.unwrap)),
           admin = true,
         )
-        _ <- uploadDar(uri, darPath)
+        _ <- client.packageManagementClient.uploadDarFile(
+          PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
+        )
 
         public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
         clientWeWant <- sandboxClient(
