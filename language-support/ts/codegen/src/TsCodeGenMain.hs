@@ -21,10 +21,8 @@ import qualified Data.Aeson.Key as Aeson
 import Data.Aeson.Encode.Pretty
 
 import Control.Exception
-import Control.Lens.Getter ((^.))
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Lens.Traversal (Traversal')
-import Control.Lens.Tuple (_1)
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
@@ -440,7 +438,9 @@ renderTemplateDef TemplateDef {..} =
           , [");"]
           ]
       tsDecl = T.unlines $ concat
-        [ ifaceDefTempl tplName (Just keyTy) ((^._1) <$> tplImplements') tplChoices'
+        [ ifaceDefTempl tplName (Just keyTy)
+                        ((\(tsRef, _, inChcs) -> (tsRef, inChcs)) <$> tplImplements')
+                        tplChoices'
         , [ "export declare const " <> tplName <> ":"
           , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
           ]
@@ -491,25 +491,46 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 
-ifaceDefTempl :: T.Text -> Maybe T.Text -> [TsTypeConRef] -> [ChoiceDef] -> [T.Text]
+ifaceDefTempl :: T.Text -> Maybe T.Text -> [(TsTypeConRef, Set.Set ChoiceName)] -> [ChoiceDef] -> [T.Text]
 ifaceDefTempl name mbKeyTy impls choices =
   concat
   [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       name <> ", " <>
-      tsTypeRef (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
-      tsTypeRef (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
+      tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
+    mbSubst = Just (Set.fromList . map fst $ impls, implTy)
     keyTy = fromMaybe "undefined" mbKeyTy
     extension
       | null impls = ""
       | otherwise = "extends " <> implTy'
     implTy = T.intercalate " & " implRefs 
     implTy' = T.intercalate " , " implRefs
-    implRefs = [impl <> "Interface<" <> name <> ">" | TsTypeConRef impl <- impls]
+    implRefs = [impl <> "Interface<" <> name <> ">"
+               | (TsTypeConRef impl, _) <- impls]
+
+duplicates :: Ord n => Set.Set n -> [Set.Set n] -> [Set.Set n]
+duplicates privileged sets = take (length sets) indexedInfList
+  where
+    indexedInfList =
+      unfoldr (\n -> Just (Map.findWithDefault Set.empty n dupChoices, succ n)) 0
+    dupChoices =
+      flipMap
+      -- exclude choice names with <=1 user
+      $ Map.filter (\s -> Set.size s > 2)
+      -- map choice name to origin
+      $ flipMap'
+      $ zip ([-1..] :: [Int]) (privileged:sets)
+
+flipMap :: (Ord k, Ord v) => Map.Map k (Set.Set v) -> Map.Map v (Set.Set k)
+flipMap = flipMap' . Map.toList
+
+flipMap' :: (Ord k, Ord v) => [(k, Set.Set v)] -> Map.Map v (Set.Set k)
+flipMap' = Map.unionsWith (<>) . map (\(k, vs) -> Map.fromSet (const (Set.singleton k)) vs)
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
