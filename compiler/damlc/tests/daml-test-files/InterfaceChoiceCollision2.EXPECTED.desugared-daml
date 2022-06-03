@@ -16,9 +16,10 @@ instance DA.Internal.Desugar.HasToInterface Interface Interface where
 instance DA.Internal.Desugar.HasFromInterface Interface Interface where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-_requires_Interface_Interface :
+_requires_Interface_InterfaceChoiceCollision1:Interface :
   DA.Internal.Desugar.RequiresT Interface InterfaceChoiceCollision1.Interface
-_requires_Interface_Interface = DA.Internal.Desugar.RequiresT
+_requires_Interface_InterfaceChoiceCollision1:Interface
+  = DA.Internal.Desugar.RequiresT
 instance DA.Internal.Desugar.HasToInterface Interface InterfaceChoiceCollision1.Interface where
   _toInterface = GHC.Types.primitive @"EToRequiredInterface"
 instance DA.Internal.Desugar.HasFromInterface Interface InterfaceChoiceCollision1.Interface where

@@ -16,10 +16,10 @@ instance DA.Internal.Desugar.HasToInterface C C where
 instance DA.Internal.Desugar.HasFromInterface C C where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-_requires_C_I : DA.Internal.Desugar.RequiresT C A.I
-_requires_C_I = DA.Internal.Desugar.RequiresT
-_requires_C_I : DA.Internal.Desugar.RequiresT C B.I
-_requires_C_I = DA.Internal.Desugar.RequiresT
+_requires_C_A:I : DA.Internal.Desugar.RequiresT C A.I
+_requires_C_A:I = DA.Internal.Desugar.RequiresT
+_requires_C_B:I : DA.Internal.Desugar.RequiresT C B.I
+_requires_C_B:I = DA.Internal.Desugar.RequiresT
 instance DA.Internal.Desugar.HasToInterface C A.I where
   _toInterface = GHC.Types.primitive @"EToRequiredInterface"
 instance DA.Internal.Desugar.HasFromInterface C A.I where
