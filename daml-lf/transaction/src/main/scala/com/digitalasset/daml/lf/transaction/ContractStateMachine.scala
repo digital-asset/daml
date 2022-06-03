@@ -50,7 +50,7 @@ import com.daml.lf.value.Value.ContractId
   * @tparam Nid Type parameter for [[com.daml.lf.transaction.NodeId]]s during interpretation.
   *             Use [[scala.Unit]] for iteration.
   */
-class ContractStateMachine[Nid](val mode: ContractKeyUniquenessMode) {
+class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
   import ContractStateMachine._
 
   def initial: State = State.empty
@@ -91,7 +91,6 @@ class ContractStateMachine[Nid](val mode: ContractKeyUniquenessMode) {
 
     def mode: ContractKeyUniquenessMode = ContractStateMachine.this.mode
 
-    /** Visit a create node */
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
       visitCreate(node.templateId, node.coid, node.key)
@@ -419,8 +418,6 @@ class ContractStateMachine[Nid](val mode: ContractKeyUniquenessMode) {
         key -> newKeyInput
       }
     }
-
-    private[transaction] def reset(): State = State.empty
   }
 
   object State {

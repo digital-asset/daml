@@ -561,6 +561,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     } yield exited
   }
 
+  // Fully visits the trees rooted at `roots` in execution order.
+  // For each subtree visited, additionally visit this subtree starting from the initial state
+  // and check that advancing the current state yields the same resulting state
   private def visitSubtrees(ksm: ContractStateMachine[Unit])(
       nodes: Map[NodeId, Node],
       roots: Seq[NodeId],
@@ -573,7 +576,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         val node = nodes(root)
         val directVisit = visitSubtree(ksm)(nodes, root, resolver, state)
         // Now project the resolver and visit the subtree from a fresh state and check whether we end up the same using advance
-        val fresh = state.reset()
+        val fresh = ksm.initial
         val projectedResolver: KeyResolver =
           if (state.mode == ContractKeyUniquenessMode.Strict) Map.empty
           else state.projectKeyResolver(resolver)
