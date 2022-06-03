@@ -8,7 +8,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.store.EventSequentialId
 
 // (startExclusive, endInclusive]
-private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
+final case class EventsRange[A](startExclusive: A, endInclusive: A) {
   def map[B](f: A => B): EventsRange[B] =
     copy(startExclusive = f(startExclusive), endInclusive = f(endInclusive))
 }

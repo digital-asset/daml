@@ -150,10 +150,10 @@ private[index] class IndexServiceImpl(
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     convertOffset(startExclusive)
-      .flatMapConcat { beginOpt =>
+      .flatMapConcat { beginOffset: Offset =>
         dispatcher
           .startingAt(
-            beginOpt,
+            beginOffset,
             RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
             None,
           )
