@@ -328,6 +328,20 @@ abstract class AbstractFuncIT
         }
       }
     }
+    "ExceptionAndContractKey:test" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestExceptionAndContractKey:test"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
     "Interface:test" should {
       "succeed" in {
         for {
