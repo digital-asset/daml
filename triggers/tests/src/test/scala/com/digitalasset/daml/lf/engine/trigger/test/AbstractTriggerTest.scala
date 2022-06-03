@@ -78,13 +78,6 @@ trait AbstractTriggerTest
           ledgerClientConfiguration,
           ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
-      adminClient <- LedgerClient.singleHost(
-        "localhost",
-        serverPort.value,
-        ledgerClientConfiguration.copy(token = Some(toHeader(adminTokenStandardJWT))),
-        ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
-      )
-      _ <- uploadDarFiles(adminClient, packageFiles)
     } yield client
 
   override protected def darFile =

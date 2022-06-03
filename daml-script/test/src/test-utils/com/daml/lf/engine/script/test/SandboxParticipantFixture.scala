@@ -3,20 +3,19 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
-import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
-import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.services.time.TimeProviderType
-import org.scalatest.Suite
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
-import com.daml.lf.engine.script.Runner.connectApiParameters
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
+import com.daml.platform.services.time.TimeProviderType
+import org.scalatest.Suite
 
+import java.io.File
 import scala.concurrent.ExecutionContext
 
 trait SandboxParticipantFixture
@@ -49,12 +48,6 @@ trait SandboxParticipantFixture
           tlsConfig = tlsConfiguration,
           maxInboundMessageSize = maxInboundMessageSize,
         )
-      ledgerClient <- connectApiParameters(
-        apiParameters,
-        tlsConfiguration,
-        maxInboundMessageSize,
-      )
-      _ <- uploadDarFiles(ledgerClient.grpcClient, packageFiles)
     } yield {
       participantClients
     }

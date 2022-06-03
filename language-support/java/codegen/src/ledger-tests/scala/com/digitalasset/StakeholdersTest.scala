@@ -13,6 +13,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
+import java.io.File
 import scala.concurrent.Future
 
 class StakeholdersTest
@@ -26,6 +27,8 @@ class StakeholdersTest
 
   import TestUtil._
 
+  override protected def packageFiles: List[File] = damlPackages
+
   def withUniqueParties(
       testCode: (
           String,
@@ -37,7 +40,6 @@ class StakeholdersTest
       ) => Assertion
   ): Future[Assertion] = {
     for {
-      _ <- uploadPackageFiles(damlPackages, channel, toHeader(adminTokenStandardJWT))
       List(alice, bob, charlie) <- Future.sequence(List.fill(3)(allocateParty))
       onlySignatories = new OnlySignatories(alice)
       implicitObservers = new ImplicitObservers(alice, bob)

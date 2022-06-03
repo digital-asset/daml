@@ -26,7 +26,6 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     .setHappyCase(
       "Ledger API client can make a call with explicitly non-expired read/write token"
     ) in {
-    println(s"lol ${packageFiles.mkString}")
     expectSuccess(serviceCallWithToken(canActAsMainActorExpiresTomorrow))
   }
   it should "allow calls with read/write token without expiration" taggedAs securityAsset

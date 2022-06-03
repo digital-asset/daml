@@ -104,11 +104,7 @@ class ScalaCodeGenIT
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    val ledgerFuture = for {
-      client <- LedgerClient(channel, clientConfig)
-      _ <- uploadDarFiles(client, packageFiles)
-    } yield client
-    ledger = Await.result(ledgerFuture, StartupTimeout)
+    ledger = Await.result(LedgerClient(channel, clientConfig), StartupTimeout)
   }
 
   "generated package ID among those returned by the packageClient" in {

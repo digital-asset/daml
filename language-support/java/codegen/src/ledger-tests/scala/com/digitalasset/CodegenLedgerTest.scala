@@ -20,6 +20,7 @@ import com.daml.platform.sandbox.services.TestCommands
 import io.grpc.Channel
 import org.scalatest.Assertion
 
+import java.io.File
 import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 import java.util.Arrays.asList
@@ -35,10 +36,11 @@ class CodegenLedgerTest
 
   import TestUtil._
 
+  override protected def packageFiles: List[File] = damlPackages
+
   def withUniqueParty(
       testCode: (String, Wolpertinger, Wolpertinger, Channel) => Assertion
   ): Future[Assertion] = for {
-    _ <- uploadPackageFiles(damlPackages, channel, toHeader(adminTokenStandardJWT))
     alice <- allocateParty
     glookofly = new Wolpertinger(
       alice,

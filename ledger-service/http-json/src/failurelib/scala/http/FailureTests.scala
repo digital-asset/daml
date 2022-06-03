@@ -51,7 +51,6 @@ abstract class FailureTests
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
-        _ <- uploadDarFiles(client, packageFiles)
         p <- allocateParty(client, "Alice")
         (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
           postCreateCommand(
@@ -101,7 +100,6 @@ abstract class FailureTests
   "Command submission timeouts" in withHttpService { (uri, encoder, _, client) =>
     import json.JsonProtocol._
     for {
-      _ <- uploadDarFiles(client, packageFiles)
       p <- allocateParty(client, "Alice")
       (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
         postCreateCommand(
@@ -156,7 +154,6 @@ abstract class FailureTests
   "/v1/query GET succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
-        _ <- uploadDarFiles(client, packageFiles)
         p <- allocateParty(client, "Alice")
         (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
           postCreateCommand(
@@ -199,7 +196,6 @@ abstract class FailureTests
   "/v1/query POST succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
-        _ <- uploadDarFiles(client, packageFiles)
         p <- allocateParty(client, "Alice")
         (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
           postCreateCommand(
@@ -264,7 +260,6 @@ abstract class FailureTests
   // TEST_EVIDENCE: Semantics: /v1/query POST succeeds after reconnect to DB
   "/v1/query POST succeeds after reconnect to DB" in withHttpService { (uri, encoder, _, client) =>
     for {
-      _ <- uploadDarFiles(client, packageFiles)
       p <- allocateParty(client, "Alice")
       (status, _) <- headersWithParties(List(p.unwrap)).flatMap(
         postCreateCommand(
@@ -378,7 +373,6 @@ abstract class FailureTests
     }
 
     for {
-      _ <- uploadDarFiles(client, packageFiles)
       p <- allocateParty(client, "p")
       (status, r) <- headersWithParties(List(p.unwrap)).flatMap(
         postCreateCommand(

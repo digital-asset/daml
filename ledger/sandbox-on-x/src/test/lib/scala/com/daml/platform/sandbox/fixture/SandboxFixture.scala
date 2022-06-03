@@ -10,6 +10,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.client.services.admin.PackageManagementClient
 import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common.Config
@@ -19,9 +20,13 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
+import com.google.protobuf
 import io.grpc.Channel
 import org.scalatest.Suite
 
+import java.io.File
+import java.nio.file.Files
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 trait SandboxFixture
@@ -53,6 +58,29 @@ trait SandboxFixture
     )
   }
 
+  private def uploadDarFiles(
+      client: PackageManagementClient,
+      files: List[File],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    if (files.isEmpty) Future.successful(List())
+    else
+      Future.sequence(files.map(uploadDarFile(client)))
+
+  private def uploadDarFile(client: PackageManagementClient)(file: File): Future[Unit] =
+    client.uploadDarFile(
+      protobuf.ByteString.copyFrom(Files.readAllBytes(file.toPath))
+    )
+
+  private def uploadDarFiles(
+      client: LedgerClient,
+      files: List[File],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[List[Unit]] =
+    uploadDarFiles(client.packageManagementClient, files)
+
   override protected lazy val suiteResource: Resource[(Port, Channel)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, Channel)](
@@ -82,7 +110,6 @@ trait SandboxFixture
         channel <- GrpcClientResource.owner(port)
         client = adminLedgerClient(port, cfg)
         _ <- ResourceOwner.forFuture(() => uploadDarFiles(client, packageFiles)(system.dispatcher))
-        _ = println(s"Voila ${packageFiles.mkString}")
       } yield (port, channel),
       acquisitionTimeout = 1.minute,
       releaseTimeout = 1.minute,

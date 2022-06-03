@@ -83,16 +83,8 @@ trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizatio
       clientChannelCfg,
     )(ec, esf)
 
-    val adminClient: DamlLedgerClient = DamlLedgerClient.singleHost(
-      "localhost",
-      serverPort.value,
-      clientCfg(Some(toHeader(adminTokenStandardJWT)), testName),
-      clientChannelCfg,
-    )(ec, esf)
-
     val fa: Future[A] = for {
       ledgerPort <- Future(serverPort)
-      _ <- uploadDarFiles(adminClient, packageFiles)
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 

@@ -10,6 +10,8 @@ import com.daml.ledger.resources.TestResourceContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.io.File
+
 class Interfaces
     extends AsyncFlatSpec
     with SandboxTestLedger
@@ -18,6 +20,8 @@ class Interfaces
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._
+
+  override protected def packageFiles: List[File] = damlPackages
 
   behavior of "Generated Java code"
 

@@ -200,7 +200,6 @@ trait ReproducesTransactions
   )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
     for {
       client <- LedgerClient(channel, clientConfiguration)
-      _ <- uploadDarFiles(client, packageFiles)
       parties <- allocateParties(client, numParties)
       // setup
       _ <- f(client, parties)
@@ -228,7 +227,6 @@ trait ReproducesTransactions
         _ <- Future {
           logger.debug("Starting testIou")
         }
-        _ <- uploadDarFiles(client, packageFiles)
         t0 <- submit(
           client,
           p1,
