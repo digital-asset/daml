@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandbox
 
-import java.io.File
-import java.net.InetAddress
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
@@ -23,13 +21,13 @@ import com.daml.ledger.client.services.admin.PackageManagementClient
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   Default,
   EngineConfig,
   ParticipantConfig,
   ParticipantId,
 }
-import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -41,10 +39,12 @@ import io.grpc.Channel
 import org.scalatest.Suite
 import scalaz.syntax.tag._
 
+import java.io.File
+import java.net.InetAddress
 import java.nio.file.Files
 import scala.annotation.nowarn
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
@@ -94,13 +94,15 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       protobuf.ByteString.copyFrom(Files.readAllBytes(file.toPath))
     )
 
-  def uploadDarFiles(
+  private def uploadDarFiles(
       client: PackageManagementClient,
       files: List[File],
   )(implicit
       ec: ExecutionContext
   ): Future[List[Unit]] =
-    Future.sequence(files.map(uploadDarFile(client)))
+    if (files.isEmpty) Future.successful(List())
+    else
+      Future.sequence(files.map(uploadDarFile(client)))
 
   def uploadDarFiles(
       client: com.daml.ledger.client.withoutledgerid.LedgerClient,

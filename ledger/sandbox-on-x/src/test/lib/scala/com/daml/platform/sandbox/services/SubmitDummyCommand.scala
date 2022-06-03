@@ -27,10 +27,7 @@ trait SubmitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAu
       token: Option[String],
       applicationId: String = serviceCallName,
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- stub(CommandSubmissionServiceGrpc.stub(channel), token)
-        .submit(dummySubmitRequest(applicationId))
-    } yield Empty()
+    stub(CommandSubmissionServiceGrpc.stub(channel), token)
+      .submit(dummySubmitRequest(applicationId))
 
 }

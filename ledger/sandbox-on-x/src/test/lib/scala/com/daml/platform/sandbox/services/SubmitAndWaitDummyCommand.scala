@@ -43,45 +43,35 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token).submitAndWait(
-        dummySubmitAndWaitRequest(applicationId, party = party)
-      )
-    } yield Empty()
+    service(token).submitAndWait(
+      dummySubmitAndWaitRequest(applicationId, party = party)
+    )
 
   protected def submitAndWaitForTransaction(
       token: Option[String],
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token)
-        .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId, party = party))
-    } yield Empty()
+    service(token)
+      .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId, party = party))
+      .map(_ => Empty())
 
   protected def submitAndWaitForTransactionId(
       token: Option[String],
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token)
-        .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId, party = party))
-    } yield Empty()
+    service(token)
+      .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId, party = party))
+      .map(_ => Empty())
 
   protected def submitAndWaitForTransactionTree(
       token: Option[String],
       applicationId: String = serviceCallName,
       party: String,
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token)
-        .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId, party = party))
-        .map(_ => Empty())
-    } yield Empty()
+    service(token)
+      .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId, party = party))
+      .map(_ => Empty())
 
 }

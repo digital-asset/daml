@@ -39,10 +39,9 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
       actAs: Seq[String],
       readAs: Seq[String],
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token).submitAndWait(dummySubmitAndWaitRequest(party, actAs, readAs))
-    } yield Empty()
+    service(token)
+      .submitAndWait(dummySubmitAndWaitRequest(party, actAs, readAs))
+      .map(_ => Empty())
 
   protected def submitAndWaitForTransaction(
       token: Option[String],
@@ -50,11 +49,9 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
       actAs: Seq[String],
       readAs: Seq[String],
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token)
-        .submitAndWaitForTransaction(dummySubmitAndWaitRequest(party, actAs, readAs))
-    } yield Empty()
+    service(token)
+      .submitAndWaitForTransaction(dummySubmitAndWaitRequest(party, actAs, readAs))
+      .map(_ => Empty())
 
   protected def submitAndWaitForTransactionId(
       token: Option[String],
@@ -62,11 +59,9 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
       actAs: Seq[String],
       readAs: Seq[String],
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token)
-        .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(party, actAs, readAs))
-    } yield Empty()
+    service(token)
+      .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(party, actAs, readAs))
+      .map(_ => Empty())
 
   protected def submitAndWaitForTransactionTree(
       token: Option[String],
@@ -74,10 +69,8 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
       actAs: Seq[String],
       readAs: Seq[String],
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- service(token)
-        .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(party, actAs, readAs))
-    } yield Empty()
+    service(token)
+      .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(party, actAs, readAs))
+      .map(_ => Empty())
 
 }

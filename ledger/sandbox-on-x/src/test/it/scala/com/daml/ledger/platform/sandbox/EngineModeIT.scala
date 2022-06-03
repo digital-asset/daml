@@ -146,8 +146,8 @@ class EngineModeIT
       SandboxOnXRunner.owner(configAdaptor, sandboxConfig, bridgeConfig)
     }
 
-    def load(langVersion: LanguageVersion, mode: VersionRange[LanguageVersion]) =
-      buildServer(mode).use(
+    def load(langVersion: LanguageVersion, range: VersionRange[LanguageVersion]) =
+      buildServer(range).use(
         run(Paths.get(rlocation(s"daml-lf/encoder/test-${langVersion.pretty}.dar")), _)
       )
 

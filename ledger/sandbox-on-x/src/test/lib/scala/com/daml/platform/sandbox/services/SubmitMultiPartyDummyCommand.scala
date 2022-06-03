@@ -40,10 +40,7 @@ trait SubmitMultiPartyDummyCommand extends TestCommands { self: ServiceCallAuthT
       actAs: Seq[String],
       readAs: Seq[String],
   ): Future[Empty] =
-    for {
-      _ <- uploadPackageFiles(packageFiles, channel, toHeader(adminTokenStandardJWT))
-      _ <- stub(CommandSubmissionServiceGrpc.stub(channel), token)
-        .submit(dummySubmitRequest(party, actAs, readAs))
-    } yield Empty()
+    stub(CommandSubmissionServiceGrpc.stub(channel), token)
+      .submit(dummySubmitRequest(party, actAs, readAs))
 
 }
