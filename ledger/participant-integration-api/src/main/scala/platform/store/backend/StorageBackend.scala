@@ -203,7 +203,8 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
-  )(connection: Connection): List[CompletionStreamResponse]
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */

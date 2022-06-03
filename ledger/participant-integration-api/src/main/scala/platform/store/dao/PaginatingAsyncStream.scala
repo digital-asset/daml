@@ -61,7 +61,7 @@ private[platform] object PaginatingAsyncStream {
     * @tparam Off the type of the offset
     * @tparam T   the type of the items returned in each call
     */
-  def streamFrom[Off, T](startFromOffset: Off, getOffset: T => Off)(
+  def streamFromSeekPagination[Off, T](startFromOffset: Off, getOffset: T => Off)(
       query: Off => Future[Vector[T]]
   ): Source[T, NotUsed] = {
     Source

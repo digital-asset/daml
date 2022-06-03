@@ -47,6 +47,7 @@ private class JdbcLedgerDao(
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
+    completionsPageSize: Int,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     enricher: Option[ValueEnricher],
@@ -496,6 +497,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
+      pageSize = completionsPageSize,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -574,6 +576,7 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      completionsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -594,6 +597,7 @@ private[platform] object JdbcLedgerDao {
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
         acsGlobalParallelism,
+        completionsPageSize,
         metrics,
         lfValueTranslationCache,
         enricher,
@@ -616,6 +620,7 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      completionsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -636,6 +641,7 @@ private[platform] object JdbcLedgerDao {
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
         acsGlobalParallelism,
+        completionsPageSize,
         metrics,
         lfValueTranslationCache,
         enricher,
