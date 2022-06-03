@@ -15,3 +15,6 @@ GHC_PATCHES = [
 
 GHC_FLAVOR = "da-ghc-8.8.1"
 GHC_LIB_VERSION = "8.8.1"
+GHC_CPP_OPTIONS = [
+    "-DDAML_PRIM",
+]
