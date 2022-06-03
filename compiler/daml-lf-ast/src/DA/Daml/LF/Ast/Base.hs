@@ -940,8 +940,8 @@ data TemplateImplementsMethod = TemplateImplementsMethod
   { tpiMethodName :: !MethodName
     -- ^ Name of method.
   , tpiMethodExpr :: !Expr
-    -- ^ Method expression, has type @tpl -> mty@ where @tpl@ is the template type,
-    -- and @mty@ is the method's type as defined in the interface.
+    -- ^ Method expression. Has type @mty@ (the method's type as defined in the interface)
+    -- and the template parameter in scope with type @tpl@ (the type of the template).
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
