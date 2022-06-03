@@ -215,12 +215,67 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
-        ContractKeyUniquenessMode.On -> // This looks like a bug in Daml engine
+        ContractKeyUniquenessMode.On -> // This is a bug https://github.com/digital-asset/daml/pull/14080
           Left(InconsistentKeys(gkey("key2"))),
-        ContractKeyUniquenessMode.Off -> // This looks like a bug in Daml engine
+        ContractKeyUniquenessMode.Off -> // This is a bug https://github.com/digital-asset/daml/pull/14080
           Left(InconsistentKeys(gkey("key2"))),
       ),
     )
+  }
+
+  def rbExeCreateLbkDivulged: TestCase = {
+    // [ Exe c1 [ Rollback [ Exe c2 (key=k1, !byKey), Create c3 (key=k1) ], LBK k1 -> None ] ]
+    // (c2 is divulged)
+    val builder = TransactionBuilder()
+    val exercise1Nid = builder.add(mkExercise(1))
+    val rollbackNid = builder.add(builder.rollback(), exercise1Nid)
+    val _ = builder.add(mkExercise(2, consuming = true, "key1"), rollbackNid)
+    val _ = builder.add(mkCreate(3, "key1"), rollbackNid)
+    val _ = builder.add(mkLookupByKey("key1", None), exercise1Nid)
+    val tx = builder.build()
+    // Custom resolver for visibility restriction due to divulgence
+    val resolver = Map(gkey("key1") -> None)
+    val expected = Right(
+      Map(gkey("key1") -> KeyCreate) ->
+        ActiveLedgerState(Map(cid(1) -> ()), Map(gkey("key1") -> KeyInactive))
+    )
+    TestCase(
+      "RbExeCreateLbkDivulged",
+      tx,
+      resolver,
+      Map(
+        ContractKeyUniquenessMode.Strict -> Left(InconsistentKeys(gkey("key1"))),
+        ContractKeyUniquenessMode.On -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def rbExeCreateFbk: TestCase = {
+    // [ Exe c1 [ Rollback [ Exe c2 (key=k1, !byKey), Create c3 (key=k1) ], FetchByKey k1 -> c2 ] ]
+    val builder = TransactionBuilder()
+    val exercise1Nid = builder.add(mkExercise(1))
+    val rollbackNid = builder.add(builder.rollback(), exercise1Nid)
+    val _ = builder.add(mkExercise(2, consuming = true, "key1"), rollbackNid)
+    val _ = builder.add(mkCreate(3, "key1"), rollbackNid)
+    val _ = builder.add(mkFetch(2, "key1", byKey = true), exercise1Nid)
+    val tx = builder.build()
+    val expected = Right(
+      Map(gkey("key1") -> Transaction.KeyActive(2)) ->
+        ActiveLedgerState(Map(cid(1) -> ()), Map(gkey("key1") -> KeyActive(cid(2))))
+    )
+    TestCase(
+      "RbExeCreateFbk",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.On -> // This is a bug in the contract key logi
+          Left(InconsistentKeys(gkey("key1"))),
+        ContractKeyUniquenessMode.Off -> // This is a bug in the contract key logi
+          Left(InconsistentKeys(gkey("key1"))),
+      ),
+    )
+
   }
 
   def doubleCreate: TestCase = {
@@ -426,6 +481,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     createRbExLbkLbk,
     multipleRollback,
     nestedRollback,
+    rbExeCreateLbkDivulged,
+    rbExeCreateFbk,
     doubleCreate,
     divulgedLookup,
     rbFbkFetch,
@@ -494,7 +551,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         case _: Node.Rollback =>
           Right(state.beginRollback())
       }
-      afterChildren <- visitSubtrees(ksm)(nodes, children(node).toSeq, resolver, next)
+      afterChildren <- withClue(s"visiting children of $node") {
+        visitSubtrees(ksm)(nodes, children(node).toSeq, resolver, next)
+      }
       exited = node match {
         case _: Node.Rollback => afterChildren.endRollback()
         case _ => afterChildren
@@ -512,38 +571,29 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       case Seq() => Right(state)
       case root +: tail =>
         val node = nodes(root)
-        println(s"$root=$node")
         val directVisit = visitSubtree(ksm)(nodes, root, resolver, state)
         // Now project the resolver and visit the subtree from a fresh state and check whether we end up the same using advance
-        println(s"$root: START advance")
         val fresh = state.reset()
         val projectedResolver: KeyResolver =
           if (state.mode == ContractKeyUniquenessMode.Strict) Map.empty
           else state.projectKeyResolver(resolver)
-        println(s"$root resolver:  $resolver")
-        println(s"$root projected: $projectedResolver")
-
-        val freshVisit = visitSubtree(ksm)(nodes, root, projectedResolver, fresh)
-        val advanced = freshVisit.flatMap(substate => state.advance(resolver, substate))
-
-        withClue(s"Visiting subtree rooted at $root with node $node:") {
-
-          println(s"$root before:        $state")
-          println(s"$root after:   $directVisit")
-          println(s"$root fresh:   $freshVisit")
-          println(s"$root advance: $advanced")
+        withClue(
+          s"Advancing over subtree rooted at $node with projected resolver $projectedResolver; projection state=$state; original resolver=$resolver"
+        ) {
+          val freshVisit = visitSubtree(ksm)(nodes, root, projectedResolver, fresh)
+          val advanced = freshVisit.flatMap(substate => state.advance(resolver, substate))
 
           (directVisit, advanced) match {
-            case (Right(direct), Right(adv)) => direct shouldBe adv
+            case (Right(direct), Right(adv)) =>
+              withClue(s"visiting and advancing $node resulted in different states ") {
+                direct shouldBe adv
+              }
             case (Left(_), Left(_)) =>
             // We can't really make sure that we get the same errors.
             // There may be multiple key conflicts and advancing non-deterministically picks one of them
             case _ => fail(s"$directVisit was knot equal to $advanced")
           }
         }
-        println(s"$root: STOP advance")
-        println()
-
         directVisit.flatMap(next => visitSubtrees(ksm)(nodes, tail, resolver, next))
     }
   }
