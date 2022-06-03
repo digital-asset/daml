@@ -467,6 +467,7 @@ convertInterfaces env binds = interfaceDefs
             intMethods <- NM.fromList <$> convertMethods tyCon
             intChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
+            let intCoImplements = NM.empty -- TODO: https://github.com/digital-asset/daml/issues/14047
             pure DefInterface {..}
 
     convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
