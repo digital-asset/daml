@@ -92,8 +92,8 @@ export interface Choice<T extends object, C, R, K = unknown> {
  */
 export function assembleTemplate<T extends object>(
   template: Template<T>,
-  ...interfaces: any[]
-) {
+  ...interfaces: Template<object>[]
+): Template<T> {
   return Object.assign({}, ...interfaces, template);
 }
 
