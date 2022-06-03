@@ -163,14 +163,11 @@ object CodeGenRunner extends StrictLogging {
       logger.error(error.msg)
     }
 
-    val resolvedSignatures =
-      signatures.map(resolveChoices(environmentInterface))
-
     val resolvedPrefixes =
-      resolvePackagePrefixes(packagePrefixes, modulePrefixes, resolvedSignatures)
+      resolvePackagePrefixes(packagePrefixes, modulePrefixes, signatures)
 
     new CodeGenRunner.Scope(
-      resolvedSignatures,
+      signatures,
       resolvedPrefixes,
       transitiveClosure.serializableTypes,
     )
@@ -202,11 +199,6 @@ object CodeGenRunner extends StrictLogging {
       logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
       interface
     }
-
-  private[codegen] def resolveChoices(
-      environmentInterface: EnvironmentInterface
-  ): Interface => Interface =
-    _.resolveChoicesAndFailOnUnresolvableChoices(environmentInterface.astInterfaces)
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
